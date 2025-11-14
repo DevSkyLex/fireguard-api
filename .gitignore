@@ -17,3 +17,7 @@
 ###> qossmic/deptrac ###
 /.deptrac.cache
 ###< qossmic/deptrac ###
+
+###> phpstan/phpstan ###
+phpstan.neon
+###< phpstan/phpstan ###
