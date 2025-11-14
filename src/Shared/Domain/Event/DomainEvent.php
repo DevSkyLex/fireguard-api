@@ -23,14 +23,14 @@ interface DomainEvent
   //#region Methods
   /**
    * Method eventId
-   * @method eventId(): string
+   * @method eventId(): Uuid
    *
    * Get the event id.
    *
    * @access public
    * @since 1.0.0
    *
-   * @return string The event id.
+   * @return Uuid The event id.
    */
   public function eventId(): Uuid;
 
