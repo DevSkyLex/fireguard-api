@@ -7,8 +7,10 @@ namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Event\DomainEvent;
+use Shared\Domain\ValueObject\Uuid;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter;
 use Shared\Infrastructure\Symfony\Exception\MessengerRuntimeException;
+use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 
@@ -42,14 +44,14 @@ final class MessengerEventBusAdapterTest extends TestCase
     $eventBus = $this->createMock(type: MessageBusInterface::class);
     $eventBus->expects(self::exactly(2))
       ->method(constraint: 'dispatch')
-      ->with(self::isInstanceOf(DomainEvent::class))
-      ->willReturnCallback(static fn(object $message) => new \Symfony\Component\Messenger\Envelope($message));
+      ->with(self::isInstanceOf(className: DomainEvent::class))
+      ->willReturnCallback(callback: static fn(object $message) => new Envelope($message));
 
     $adapter = new MessengerEventBusAdapter(eventBus: $eventBus);
 
     $adapter->publish(
-      new DummyDomainEvent('1'),
-      new DummyDomainEvent('2')
+      new DummyDomainEvent(id: '1'),
+      new DummyDomainEvent(id: '2')
     );
   }
 
@@ -75,7 +77,7 @@ final class MessengerEventBusAdapterTest extends TestCase
 
     $this->expectException(MessengerRuntimeException::class);
 
-    $adapter->publish(new DummyDomainEvent('1'));
+    $adapter->publish(events: new DummyDomainEvent(id: '1'));
   }
   //#endregion
 }
@@ -118,9 +120,9 @@ final class DummyDomainEvent implements DomainEvent
    *
    * @return string The id of the dummy domain event
    */
-  public function eventId(): string
+  public function eventId(): Uuid
   {
-    return $this->id;
+    return new Uuid(value: $this->id);
   }
 
   /**
@@ -137,6 +139,54 @@ final class DummyDomainEvent implements DomainEvent
   public function occurredAt(): DateTimeImmutable
   {
     return new DateTimeImmutable();
+  }
+
+  /**
+   * Method aggregateId
+   * @method aggregateId(): string
+   *
+   * Get the aggregate id of the
+   * dummy domain event
+   *
+   * @access public
+   *
+   * @return string The aggregate id of the dummy domain event
+   */
+  public function aggregateId(): string
+  {
+    return $this->id;
+  }
+
+  /**
+   * Method aggregateType
+   * @method aggregateType(): string
+   *
+   * Get the aggregate type of the
+   * dummy domain event
+   *
+   * @access public
+   *
+   * @return string The aggregate type of the dummy domain event
+   */
+  public function aggregateType(): string
+  {
+    return 'dummy';
+  }
+
+  /**
+   * Method payload
+   * @method payload(): array
+   *
+   * Get the payload of the
+   * dummy domain event
+   *
+   * @access public
+   *
+   * @return array The payload of the dummy domain event
+   */
+  public function payload(): array
+  {
+    return ['id' => $this->id];
   }
   //#endregion
 }
