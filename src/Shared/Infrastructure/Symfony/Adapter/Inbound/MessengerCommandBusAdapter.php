@@ -1,0 +1,119 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Shared\Infrastructure\Symfony\Adapter\Inbound;
+
+use Shared\Application\Message\CommandMessage;
+use Shared\Application\Message\ResultMessage;
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Infrastructure\Symfony\Exception\MessengerRuntimeException;
+use Shared\Infrastructure\Symfony\Exception\NoHandlerResultException;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Throwable;
+
+/**
+ * Adapter MessengerCommandBus
+ * @implements CommandBusPort
+ * @final
+ *
+ * Adapter for Symfony Messenger
+ *
+ * @category Inbound Adapter
+ * @package Shared\Infrastructure\Symfony\Adapter\Inbound
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class MessengerCommandBusAdapter implements CommandBusPort
+{
+  //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initialize the command bus.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param MessageBusInterface $commandBus The command bus to use.
+   */
+  public function __construct(
+    private readonly MessageBusInterface $commandBus
+  ) {}
+  //#endregion
+
+  //#region Methods
+  /**
+   * Method dispatch
+   * @method dispatch(CommandMessage $command): ResultMessage
+   *
+   * Dispatch a command message and
+   * return its result message.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param CommandMessage $command The command to dispatch.
+   *
+   * @return ResultMessage The result of the command.
+   *
+   * @throws MessengerRuntimeException If the command bus fails to dispatch the command.
+   * @throws NoHandlerResultException If the command has no handler result.
+   */
+  public function dispatch(CommandMessage $command): ResultMessage
+  {
+    try {
+      $envelope = $this->commandBus->dispatch(message: $command);
+    }
+    catch (Throwable $exception) {
+      throw MessengerRuntimeException::wrap(exception: $exception);
+    }
+
+    $handledStamp = $this->extractHandledStamp(
+      envelope: $envelope,
+      command: $command
+    );
+
+    $result = $handledStamp->getResult();
+
+    if (!$result instanceof ResultMessage) throw NoHandlerResultException::forMessage(
+      message: $command
+    );
+
+    return $result;
+  }
+
+  /**
+   * Method extractHandledStamp
+   * @method extractHandledStamp(
+   *  Envelope $envelope,
+   *  CommandMessage $command
+   * ): HandledStamp
+   *
+   * Extract the handled stamp from the envelope.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @param Envelope $envelope The envelope to extract the handled stamp from.
+   * @param CommandMessage $command The command to extract the handled stamp from.
+   *
+   * @return HandledStamp The handled stamp.
+   *
+   * @throws NoHandlerResultException If the command has no handler result.
+   */
+  private function extractHandledStamp(Envelope $envelope, CommandMessage $command): HandledStamp
+  {
+    $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
+
+    if (!$handledStamp instanceof HandledStamp) throw NoHandlerResultException::forMessage(
+      message: $command
+    );
+
+    return $handledStamp;
+  }
+  //#endregion
+}
