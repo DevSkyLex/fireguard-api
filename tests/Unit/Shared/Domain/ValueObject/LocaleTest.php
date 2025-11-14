@@ -10,7 +10,6 @@ use Shared\Domain\ValueObject\Locale;
 
 /**
  * Test LocaleTest
- * @extends TestCase
  * @final
  *
  * Test class for the Locale value object.
@@ -49,7 +48,6 @@ final class LocaleTest extends TestCase
   //#region Methods
   /**
    * Method testValidLocaleIsAccepted
-   * @method testValidLocaleIsAccepted(): void
    *
    * Test the constructor with
    * a valid locale
@@ -70,7 +68,6 @@ final class LocaleTest extends TestCase
 
   /**
    * Method testInvalidLocaleThrowsException
-   * @method testInvalidLocaleThrowsException(): void
    *
    * Test the constructor with
    * an invalid locale

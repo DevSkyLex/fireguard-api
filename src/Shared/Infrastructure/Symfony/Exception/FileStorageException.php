@@ -11,7 +11,6 @@ use Throwable;
 
 /**
  * Exception FileStorageException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when file storage operations fail.
@@ -27,7 +26,6 @@ final class FileStorageException extends InfrastructureException
   //#region Methods
   /**
    * Method readFailed
-   * @method readFailed(string $path): self
    * @static
    *
    * Create an exception for a failed file read.
@@ -50,7 +48,6 @@ final class FileStorageException extends InfrastructureException
 
   /**
    * Method writeFailed
-   * @method writeFailed(string $path): self
    * @static
    *
    * Create an exception for a failed file write.
@@ -73,7 +70,6 @@ final class FileStorageException extends InfrastructureException
 
   /**
    * Method deleteFailed
-   * @method deleteFailed(string $path): self
    * @static
    *
    * Create an exception for a failed file deletion.
@@ -96,7 +92,6 @@ final class FileStorageException extends InfrastructureException
 
   /**
    * Method directoryCreationFailed
-   * @method directoryCreationFailed(string $path): self
    * @static
    *
    * Create an exception for a failed directory creation.

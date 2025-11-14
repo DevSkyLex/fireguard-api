@@ -16,7 +16,6 @@ use Throwable;
 
 /**
  * Adapter MessengerQueryBus
- * @implements QueryBusPort
  * @final
  *
  * Adapter for Symfony Messenger
@@ -48,9 +47,6 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
   //#region Methods
   /**
    * Method ask
-   * @method ask(
-   *  QueryMessage $query
-   * ): ResultMessage
    *
    * Ask a query to the query bus.
    *
@@ -86,13 +82,9 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
 
     return $result;
   }
-  
+
   /**
    * Method extractHandledStamp
-   * @method extractHandledStamp(
-   *  Envelope $envelope,
-   *  QueryMessage $query
-   * ): HandledStamp
    *
    * Extract the handled stamp from the envelope.
    *

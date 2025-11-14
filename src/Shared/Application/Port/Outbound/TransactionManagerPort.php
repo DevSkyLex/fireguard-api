@@ -21,7 +21,6 @@ interface TransactionManagerPort
   //#region Methods
   /**
    * Method transactional
-   * @method transactional(callable $operation): mixed
    *
    * Execute the given operation within
    * a transactional boundary.

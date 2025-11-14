@@ -11,7 +11,6 @@ use Throwable;
 
 /**
  * Exception TranslationException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when a translation operation fails.
@@ -27,10 +26,6 @@ final class TranslationException extends InfrastructureException
   //#region Methods
   /**
    * Method translateFailed
-   * @method translateFailed(
-   *  string $id,
-   *  ?Throwable $previous = null
-   * ): self
    * @static
    *
    * Create an exception for a

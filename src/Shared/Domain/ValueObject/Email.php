@@ -48,7 +48,6 @@ final readonly class Email implements Stringable
   //#region Methods
   /**
    * Method equals
-   * @method equals(self $other): bool
    *
    * Compares two Email objects for equality.
    *
@@ -66,7 +65,6 @@ final readonly class Email implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * Returns the string representation
    * of the Email object.

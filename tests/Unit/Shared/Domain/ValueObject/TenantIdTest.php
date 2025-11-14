@@ -10,7 +10,6 @@ use Shared\Domain\ValueObject\Uuid;
 
 /**
  * Test TenantIdTest
- * @extends TestCase
  * @final
  *
  * Test class for the TenantId
@@ -39,7 +38,6 @@ final class TenantIdTest extends TestCase
   //#region Methods
   /**
    * Method testTenantIdWrapsUuid
-   * @method testTenantIdWrapsUuid(): void
    *
    * Test the constructor with
    * a valid UUID

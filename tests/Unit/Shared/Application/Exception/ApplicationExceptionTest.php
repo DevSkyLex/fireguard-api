@@ -23,7 +23,6 @@ final class ApplicationExceptionTest extends TestCase
   //#region Methods
   /**
    * Method testContextReturnsEmptyArray
-   * @method testContextReturnsEmptyArray():
    *
    * Test context returns empty array
    *

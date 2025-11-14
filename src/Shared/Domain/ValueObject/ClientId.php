@@ -59,7 +59,6 @@ final readonly class ClientId implements Stringable
 
   /**
    * Method equals
-   * @method equals(self $other): bool
    *
    * Compares two ClientId objects for equality.
    *
@@ -77,7 +76,6 @@ final readonly class ClientId implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * Returns the string representation of the ClientId object.
    *

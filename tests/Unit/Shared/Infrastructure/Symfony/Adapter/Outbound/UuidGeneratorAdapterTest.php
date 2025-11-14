@@ -27,7 +27,6 @@ final class UuidGeneratorAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testGenerateProducesValidUuidV7
-   * @method testGenerateProducesValidUuidV7(): void
    *
    * Test that the generate method
    * produces a valid UuidV7
@@ -56,7 +55,6 @@ final class UuidGeneratorAdapterTest extends TestCase
 
   /**
    * Method testGenerateWrapsGeneratorFailures
-   * @method testGenerateWrapsGeneratorFailures(): void
    *
    * Test that the generate method wraps
    * the generator failures

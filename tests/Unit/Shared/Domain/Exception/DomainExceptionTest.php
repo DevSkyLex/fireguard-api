@@ -9,7 +9,6 @@ use Shared\Domain\Exception\DomainException;
 
 /**
  * Test DomainExceptionText
- * @extends TestCase
  * @final
  *
  * Test the DomainException class
@@ -24,7 +23,6 @@ final class DomainExceptionTest extends TestCase
   //#region Methods
   /**
    * Method testCodeReturnsUpperSnakeCaseOfExceptionClass
-   * @method testCodeReturnsUpperSnakeCaseOfExceptionClass(): void
    *
    * Test that the code method returns the upper
    * snake case of the exception class name

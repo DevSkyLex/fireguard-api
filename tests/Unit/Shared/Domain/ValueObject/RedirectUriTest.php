@@ -10,7 +10,6 @@ use Shared\Domain\ValueObject\RedirectUri;
 
 /**
  * Test RedirectUriTest
- * @extends TestCase
  * @final
  *
  * Test class for RedirectUri.
@@ -60,7 +59,6 @@ final class RedirectUriTest extends TestCase
   //#region Methods
   /**
    * Method testValidRedirectUriIsAccepted
-   * @method testValidRedirectUriIsAccepted(): void
    *
    * Test the constructor with
    * a valid URI
@@ -81,7 +79,6 @@ final class RedirectUriTest extends TestCase
 
   /**
    * Method testRejectsNonHttpsScheme
-   * @method testRejectsNonHttpsScheme(): void
    *
    * Test the constructor with
    * a non-HTTPS URI
@@ -99,7 +96,6 @@ final class RedirectUriTest extends TestCase
 
   /**
    * Method testRejectsInvalidUri
-   * @method testRejectsInvalidUri(): void
    *
    * Test the constructor with
    * an invalid URI

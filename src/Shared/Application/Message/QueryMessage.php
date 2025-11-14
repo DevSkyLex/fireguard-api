@@ -14,8 +14,6 @@ namespace Shared\Application\Message;
  * @package Shared\Application\Message
  * @version 1.0.0
  *
- * @template TResult
- *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 interface QueryMessage {}

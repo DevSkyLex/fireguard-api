@@ -34,7 +34,7 @@ final readonly class ApplicationEvent
    * @param Uuid $eventId The event id
    * @param string $aggregateId The aggregate id
    * @param string $aggregateType The aggregate type
-   * @param array $payload The payload
+   * @param array<string, mixed> $payload The payload
    * @param DateTimeImmutable $occurredAt The occurred at
    */
   public function __construct(
@@ -49,7 +49,6 @@ final readonly class ApplicationEvent
   //#region Methods
   /**
    * Method fromDomain
-   * @method fromDomain(DomainEvent $event): self
    *
    * Create an application event from a domain event
    *

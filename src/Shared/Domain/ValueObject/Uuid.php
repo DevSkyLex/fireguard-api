@@ -60,7 +60,6 @@ final readonly class Uuid implements Stringable
   //#region Methods
   /**
    * Method equals
-   * @method equals(self $other): bool
    *
    * Compares two Uuid objects for equality.
    *
@@ -78,7 +77,6 @@ final readonly class Uuid implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * Returns the string representation
    * of the Uuid object.

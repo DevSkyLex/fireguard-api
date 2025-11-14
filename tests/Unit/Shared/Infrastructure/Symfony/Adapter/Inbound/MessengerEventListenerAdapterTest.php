@@ -30,7 +30,6 @@ final class MessengerEventListenerAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testHandleReturnsResultMessageWhenPresent
-   * @method testHandleReturnsResultMessageWhenPresent(): void
    *
    * Test the handle method when the event
    * is handled and returns a result
@@ -67,7 +66,6 @@ final class MessengerEventListenerAdapterTest extends TestCase
 
   /**
    * Method testHandleReturnsNullWhenNoHandledStamp
-   * @method testHandleReturnsNullWhenNoHandledStamp(): void
    *
    * Test the handle method when the event
    * is handled and returns a result
@@ -94,7 +92,6 @@ final class MessengerEventListenerAdapterTest extends TestCase
 
   /**
    * Method testHandleReturnsNullWhenHandledResultIsNull
-   * @method testHandleReturnsNullWhenHandledResultIsNull(): void
    *
    * Test the handle method when the event
    * is handled and returns a result
@@ -127,7 +124,6 @@ final class MessengerEventListenerAdapterTest extends TestCase
 
   /**
    * Method testHandleThrowsWhenResultIsNotResultMessage
-   * @method testHandleThrowsWhenResultIsNotResultMessage(): void
    *
    * Test the handle method when the event
    * is handled and returns a result
@@ -162,7 +158,6 @@ final class MessengerEventListenerAdapterTest extends TestCase
 
   /**
    * Method testHandleWrapsMessengerExceptions
-   * @method testHandleWrapsMessengerExceptions(): void
    *
    * Test the handle method when the event
    * is handled and returns a result

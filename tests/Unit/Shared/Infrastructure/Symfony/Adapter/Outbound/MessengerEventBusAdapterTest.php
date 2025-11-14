@@ -30,7 +30,6 @@ final class MessengerEventBusAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testPublishDispatchesEachEvent
-   * @method testPublishDispatchesEachEvent(): void
    *
    * Test the publish method when the event
    * is dispatched
@@ -57,7 +56,6 @@ final class MessengerEventBusAdapterTest extends TestCase
 
   /**
    * Method testPublishWrapsMessengerExceptions
-   * @method testPublishWrapsMessengerExceptions(): void
    *
    * Test the publish method when the event
    * is dispatched
@@ -111,14 +109,13 @@ final class DummyDomainEvent implements DomainEvent
   //#region Methods
   /**
    * Method eventId
-   * @method eventId(): string
    *
    * Get the id of the dummy
    * domain event
    *
    * @access public
    *
-   * @return string The id of the dummy domain event
+   * @return Uuid The id of the dummy domain event
    */
   public function eventId(): Uuid
   {
@@ -127,7 +124,6 @@ final class DummyDomainEvent implements DomainEvent
 
   /**
    * Method occurredAt
-   * @method occurredAt(): DateTimeImmutable
    *
    * Get the occurred at of the
    * dummy domain event
@@ -143,7 +139,6 @@ final class DummyDomainEvent implements DomainEvent
 
   /**
    * Method aggregateId
-   * @method aggregateId(): string
    *
    * Get the aggregate id of the
    * dummy domain event
@@ -159,7 +154,6 @@ final class DummyDomainEvent implements DomainEvent
 
   /**
    * Method aggregateType
-   * @method aggregateType(): string
    *
    * Get the aggregate type of the
    * dummy domain event
@@ -175,14 +169,13 @@ final class DummyDomainEvent implements DomainEvent
 
   /**
    * Method payload
-   * @method payload(): array
    *
    * Get the payload of the
    * dummy domain event
    *
    * @access public
    *
-   * @return array The payload of the dummy domain event
+   * @return array{id: string} The payload of the dummy domain event
    */
   public function payload(): array
   {

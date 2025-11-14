@@ -10,7 +10,6 @@ use Shared\Application\Port\Outbound\LoggerPort;
 
 /**
  * Adapter LoggerAdapter
- * @implements LoggerPort
  * @final
  *
  * Adapter bridging the outbound logger port with
@@ -43,11 +42,6 @@ final readonly class LoggerAdapter implements LoggerPort
   //#region Methods
   /**
    * Method log
-   * @method log(
-   *  LogLevel $level,
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log a message at the specified level.
@@ -57,7 +51,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @param LogLevel $level The log level.
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */
@@ -72,10 +66,6 @@ final readonly class LoggerAdapter implements LoggerPort
 
   /**
    * Method critical
-   * @method critical(
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log a critical message.
@@ -84,7 +74,7 @@ final readonly class LoggerAdapter implements LoggerPort
    * @since 1.0.0
    *
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */
@@ -98,10 +88,6 @@ final readonly class LoggerAdapter implements LoggerPort
 
   /**
    * Method error
-   * @method error(
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log an error message.
@@ -110,7 +96,7 @@ final readonly class LoggerAdapter implements LoggerPort
    * @since 1.0.0
    *
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */
@@ -124,10 +110,6 @@ final readonly class LoggerAdapter implements LoggerPort
 
   /**
    * Method warning
-   * @method warning(
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log a warning message.
@@ -136,7 +118,7 @@ final readonly class LoggerAdapter implements LoggerPort
    * @since 1.0.0
    *
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */
@@ -150,10 +132,6 @@ final readonly class LoggerAdapter implements LoggerPort
 
   /**
    * Method notice
-   * @method notice(
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log a notice message.
@@ -162,7 +140,7 @@ final readonly class LoggerAdapter implements LoggerPort
    * @since 1.0.0
    *
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */
@@ -176,10 +154,6 @@ final readonly class LoggerAdapter implements LoggerPort
 
   /**
    * Method info
-   * @method info(
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log an info message.
@@ -188,7 +162,7 @@ final readonly class LoggerAdapter implements LoggerPort
    * @since 1.0.0
    *
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */
@@ -202,10 +176,6 @@ final readonly class LoggerAdapter implements LoggerPort
 
   /**
    * Method debug
-   * @method debug(
-   *  string $message,
-   *  array $context = []
-   * ): void
    * {@inheritDoc}
    *
    * Log a debug message.
@@ -214,7 +184,7 @@ final readonly class LoggerAdapter implements LoggerPort
    * @since 1.0.0
    *
    * @param string $message The log message.
-   * @param array $context The log context.
+   * @param array<string, mixed> $context The log context.
    *
    * @return void No return value.
    */

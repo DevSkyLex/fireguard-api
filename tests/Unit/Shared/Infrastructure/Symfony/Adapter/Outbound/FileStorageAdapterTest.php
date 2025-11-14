@@ -49,7 +49,6 @@ final class FileStorageAdapterTest extends TestCase
   //#region Methods
   /**
    * Method setUp
-   * @method setUp(): void
    *
    * Set up the test environment.
    *
@@ -73,7 +72,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method tearDown
-   * @method tearDown(): void
    *
    * Tear down the test environment.
    *
@@ -90,7 +88,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method removeDirectory
-   * @method removeDirectory(string $path): void
    *
    * Remove a directory and its contents recursively.
    *
@@ -124,7 +121,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method ignoreFilesystemWarnings
-   * @method ignoreFilesystemWarnings(callable $callback): void
    *
    * Execute a callback while silencing filesystem warnings.
    *
@@ -144,7 +140,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testWriteAndReadFile
-   * @method testWriteAndReadFile(): void
    *
    * Test that the write and read methods work as expected.
    *
@@ -169,7 +164,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testDeleteRemovesFile
-   * @method testDeleteRemovesFile(): void
    *
    * Test that the delete method removes a file.
    *
@@ -195,7 +189,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testExistsReturnsFalseForMissingFile
-   * @method testExistsReturnsFalseForMissingFile(): void
    *
    * Test that the exists method returns
    * false for a missing file.
@@ -213,7 +206,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testReadThrowsWhenFileMissing
-   * @method testReadThrowsWhenFileMissing(): void
    *
    * Test that the read method throws an
    * exception when the file is missing.
@@ -232,7 +224,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testWriteThrowsWhenDirectoryCreationFails
-   * @method testWriteThrowsWhenDirectoryCreationFails(): void
    *
    * Test that the write method throws an
    * exception when the directory creation fails.
@@ -261,7 +252,6 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testWriteThrowsWhenFilePutContentsFails
-   * @method testWriteThrowsWhenFilePutContentsFails(): void
    *
    * Test that the write method throws an
    * exception when file_put_contents fails.
@@ -293,7 +283,13 @@ final class FileStorageAdapterTest extends TestCase
 
   /**
    * Method testDeleteThrowsWhenUnlinkFails
-   * @method testDeleteThrowsWhenUnlinkFails(): void
+   *
+   * Test that the delete method throws an
+   * exception when unlink fails.
+   *
+   * @access public
+   *
+   * @return void No return value
    */
   public function testDeleteThrowsWhenUnlinkFails(): void
   {

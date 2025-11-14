@@ -23,7 +23,6 @@ final class SystemClockAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testNowReturnsCurrentDateTime
-   * @method testNowReturnsCurrentDateTime(): void
    *
    * Ensure that the now method returns a DateTimeImmutable
    * instance close to the current time.

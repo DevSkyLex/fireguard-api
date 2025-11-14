@@ -11,7 +11,6 @@ use Shared\Domain\ValueObject\Email;
 
 /**
  * Test EmailTest
- * @extends TestCase
  * @final
  *
  * Test class for Email.
@@ -50,7 +49,6 @@ final class EmailTest extends TestCase
   //#region Methods
   /**
    * Method testValidEmailIsAccepted
-   * @method testValidEmailIsAccepted(): void
    *
    * Test the constructor with
    * a valid email
@@ -71,7 +69,6 @@ final class EmailTest extends TestCase
 
   /**
    * Method testInvalidEmailThrowsException
-   * @method testInvalidEmailThrowsException(): void
    *
    * Test the constructor with
    * an invalid email

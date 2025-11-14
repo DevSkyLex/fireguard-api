@@ -26,7 +26,6 @@ final class TranslatorAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testTranslateDelegatesToTranslator
-   * @method testTranslateDelegatesToTranslator(): void
    *
    * Ensure that the translate method delegates
    * to the Symfony translator with the provided arguments.
@@ -65,7 +64,6 @@ final class TranslatorAdapterTest extends TestCase
 
   /**
    * Method testTranslateWrapsExceptions
-   * @method testTranslateWrapsExceptions(): void
    *
    * Ensure that the adapter wraps exceptions
    * thrown by the translator.

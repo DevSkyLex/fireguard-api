@@ -12,7 +12,6 @@ use Throwable;
 
 /**
  * Adapter MessengerEventBus
- * @implements EventBusPort
  * @final
  *
  * Adapter for publishing domain events through
@@ -45,7 +44,6 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
   //#region Methods
   /**
    * Method publish
-   * @method publish(DomainEvent ...$events): void
    * {@inheritDoc}
    *
    * Publish one or multiple domain events.

@@ -21,7 +21,6 @@ final class InfrastructureExceptionTest extends TestCase
   //#region Methods
   /**
    * Method testMetadataReturnsEmptyArray
-   * @method testMetadataReturnsEmptyArray(): void
    *
    * Test metadata returns empty array
    *

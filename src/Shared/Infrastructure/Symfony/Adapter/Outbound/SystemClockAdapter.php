@@ -9,7 +9,6 @@ use Shared\Application\Port\Outbound\ClockPort;
 
 /**
  * Adapter SystemClock
- * @implements ClockPort
  * @final
  *
  * Adapter exposing Symfony's system time
@@ -26,7 +25,6 @@ final readonly class SystemClockAdapter implements ClockPort
   //#region Methods
   /**
    * Method now
-   * @method now(): DateTimeImmutable
    * {@inheritDoc}
    *
    * Returns the current date and time.

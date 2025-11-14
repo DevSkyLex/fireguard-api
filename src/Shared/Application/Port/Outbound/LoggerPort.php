@@ -23,7 +23,6 @@ interface LoggerPort
   //#region Methods
   /**
    * Method log
-   * @method log(): void
    *
    * Log data in the application.
    *
@@ -40,7 +39,6 @@ interface LoggerPort
 
   /**
    * Method critical
-   * @method critical(): void
    *
    * Log a critical message.
    *
@@ -56,7 +54,6 @@ interface LoggerPort
 
   /**
    * Method error
-   * @method error(): void
    *
    * Log an error message.
    *
@@ -72,7 +69,6 @@ interface LoggerPort
 
   /**
    * Method warning
-   * @method warning(): void
    *
    * Log a warning message.
    *
@@ -88,7 +84,6 @@ interface LoggerPort
 
   /**
    * Method notice
-   * @method notice(): void
    *
    * Log a notice message.
    *
@@ -104,7 +99,6 @@ interface LoggerPort
 
   /**
    * Method info
-   * @method info(): void
    *
    * Log an info message.
    *
@@ -120,7 +114,6 @@ interface LoggerPort
 
   /**
    * Method debug
-   * @method debug(): void
    *
    * Log a debug message.
    *

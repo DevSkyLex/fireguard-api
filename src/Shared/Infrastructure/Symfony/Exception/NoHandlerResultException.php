@@ -10,7 +10,6 @@ use function sprintf;
 
 /**
  * Exception NoHandlerResultException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when a handler does
@@ -27,7 +26,6 @@ final class NoHandlerResultException extends InfrastructureException
   //#region Methods
   /**
    * Method forMessage
-   * @method forMessage(object $message): self
    * @static
    *
    * Create a new NoHandlerResultException for a specific message.

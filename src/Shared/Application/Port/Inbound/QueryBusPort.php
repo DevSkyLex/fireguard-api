@@ -24,7 +24,6 @@ interface QueryBusPort
   //#region Methods
   /**
    * Method ask
-   * @method ask(QueryMessage $query): ResultMessage
    *
    * Ask a query message handler and
    * return its result.

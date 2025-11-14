@@ -11,7 +11,6 @@ use Throwable;
 
 /**
  * Exception MessengerRuntimeException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when a runtime
@@ -28,7 +27,6 @@ final class MessengerRuntimeException extends InfrastructureException
   //#region Methods
   /**
    * Method wrap
-   * @method wrap(Throwable $exception): self
    * @static
    *
    * Wrap a throwable exception.

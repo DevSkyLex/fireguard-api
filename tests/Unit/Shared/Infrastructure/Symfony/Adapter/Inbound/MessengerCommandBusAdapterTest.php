@@ -32,7 +32,6 @@ final class MessengerCommandBusAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testDispatchReturnsResultMessage
-   * @method testDispatchReturnsResultMessage(): void
    *
    * Test the dispatch method when the command
    * is handled and returns a result
@@ -69,7 +68,6 @@ final class MessengerCommandBusAdapterTest extends TestCase
 
   /**
    * Method testDispatchWrapsMessengerExceptions
-   * @method testDispatchWrapsMessengerExceptions(): void
    *
    * Test the dispatch method when the command
    * is handled and returns a result
@@ -99,7 +97,6 @@ final class MessengerCommandBusAdapterTest extends TestCase
 
   /**
    * Method testDispatchThrowsWhenHandledStampMissing
-   * @method testDispatchThrowsWhenHandledStampMissing(): void
    *
    * Test the dispatch method when the command
    * is handled and returns a result
@@ -128,7 +125,6 @@ final class MessengerCommandBusAdapterTest extends TestCase
 
   /**
    * Method testDispatchThrowsWhenResultIsNotResultMessage
-   * @method testDispatchThrowsWhenResultIsNotResultMessage(): void
    *
    * Test the dispatch method when the command
    * is handled and returns a result

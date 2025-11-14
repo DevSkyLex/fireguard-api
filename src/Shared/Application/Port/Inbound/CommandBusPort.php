@@ -24,7 +24,6 @@ interface CommandBusPort
   //#region Methods
   /**
    * Method dispatch
-   * @method dispatch(CommandMessage $command): ResultMessage
    *
    * Dispatch a command message and
    * return its result message.

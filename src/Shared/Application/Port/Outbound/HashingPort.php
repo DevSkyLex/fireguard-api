@@ -23,7 +23,6 @@ interface HashingPort
   //#region Methods
   /**
    * Method hash
-   * @method hash(): HashedSecret
    *
    * Hash the provided value using a
    * secure algorithm and wrap it in a
@@ -40,7 +39,6 @@ interface HashingPort
 
   /**
    * Method verify
-   * @method verify(): bool
    *
    * Verifies that a plain value matches a
    * previously hashed value.

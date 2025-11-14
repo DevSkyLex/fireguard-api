@@ -1,8 +1,20 @@
+includes:
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-symfony/rules.neon
+    - vendor/phpat/phpat/extension.neon
+
 parameters:
-    level: 6
+    level: 7
     paths:
-        - bin/
-        - config/
-        - public/
         - src/
         - tests/
+    tmpDir: var/phpstan
+    ignoreErrors:
+        -
+            identifier: argument.named
+
+services:
+    -
+        class: App\Tests\Architecture\HexagonalArchitectureTest
+        tags:
+            - phpat.test

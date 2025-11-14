@@ -37,7 +37,6 @@ final readonly class TenantId implements Stringable
   //#region Methods
   /**
    * Method fromString
-   * @method fromString(string $value): self
    *
    * Creates a new TenantId from a string.
    *
@@ -57,7 +56,6 @@ final readonly class TenantId implements Stringable
 
   /**
    * Method equals
-   * @method equals(self $other): bool
    *
    * Compares two TenantId objects for equality.
    *
@@ -75,7 +73,6 @@ final readonly class TenantId implements Stringable
 
   /**
    * Method toUuid
-   * @method toUuid(): Uuid
    *
    * Returns the UUID.
    *
@@ -91,7 +88,6 @@ final readonly class TenantId implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * Returns the string representation of the TenantId object.
    *

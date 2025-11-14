@@ -23,12 +23,6 @@ interface TranslationPort
   //#region Methods
   /**
    * Method translate
-   * @method translate(
-   *  string $id,
-   *  array $parameters = [],
-   *  ?string $domain = null,
-   *  ?string $locale = null
-   * ): string
    *
    * Translate the given message identifier.
    *

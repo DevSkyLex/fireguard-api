@@ -23,14 +23,13 @@ interface EventBusPort
   //#region Methods
   /**
    * Method publish
-   * @method publish(): void
    *
    * Publish events to the application.
    *
    * @access public
    * @since 1.0.0
    *
-   * @param list<DomainEvent> $events The events to publish.
+   * @param DomainEvent ...$events The events to publish.
    *
    * @return void No return value.
    */

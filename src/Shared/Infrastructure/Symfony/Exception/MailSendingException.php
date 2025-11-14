@@ -11,7 +11,6 @@ use Throwable;
 
 /**
  * Exception MailSendingException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when a mail dispatch fails.
@@ -27,7 +26,6 @@ final class MailSendingException extends InfrastructureException
   //#region Factory Methods
   /**
    * Method dispatchFailed
-   * @method dispatchFailed(string $subject): self
    * @static
    *
    * Create an exception when dispatching

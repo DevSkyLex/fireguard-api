@@ -23,7 +23,6 @@ interface DomainEvent
   //#region Methods
   /**
    * Method eventId
-   * @method eventId(): Uuid
    *
    * Get the event id.
    *
@@ -36,7 +35,6 @@ interface DomainEvent
 
   /**
    * Method occurredAt
-   * @method occurredAt(): DateTimeImmutable
    *
    * Get the occurred at.
    *
@@ -49,7 +47,6 @@ interface DomainEvent
 
   /**
    * Method aggregateId
-   * @method aggregateId(): string
    *
    * Returns the identifier of the aggregate
    * that produced the event.
@@ -62,7 +59,6 @@ interface DomainEvent
 
   /**
    * Method aggregateType
-   * @method aggregateType(): string
    *
    * Returns the aggregate type emitting the event.
    *
@@ -74,13 +70,12 @@ interface DomainEvent
 
   /**
    * Method payload
-   * @method payload(): array
    *
    * Returns the event payload as an array.
    *
    * @access public
    *
-   * @return array The event payload.
+   * @return array<string, mixed> The event payload.
    */
   public function payload(): array;
   //#endregion

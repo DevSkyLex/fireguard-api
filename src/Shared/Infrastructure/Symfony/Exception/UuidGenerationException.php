@@ -11,7 +11,6 @@ use Throwable;
 
 /**
  * Exception UuidGenerationException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when generating a UUID fails.
@@ -27,7 +26,6 @@ final class UuidGenerationException extends InfrastructureException
   //#region Methods
   /**
    * Method dueToRandomFailure
-   * @method dueToRandomFailure(Throwable $previous): self
    * @static
    *
    * Create an exception when the random source fails.

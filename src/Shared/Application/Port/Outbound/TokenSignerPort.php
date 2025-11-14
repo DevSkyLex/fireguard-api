@@ -22,7 +22,6 @@ interface TokenSignerPort
   //#region Methods
   /**
    * Method sign
-   * @method sign(): string
    *
    * Signs the given payload and returns
    * an opaque token string.
@@ -38,7 +37,6 @@ interface TokenSignerPort
 
   /**
    * Method verify
-   * @method verify(): array<string, mixed>
    *
    * Verifies and decodes a token, returning
    * its claims when valid.

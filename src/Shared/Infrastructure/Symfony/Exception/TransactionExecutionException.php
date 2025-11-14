@@ -9,7 +9,6 @@ use Throwable;
 
 /**
  * Exception TransactionExecutionException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when executing a transactional
@@ -26,7 +25,6 @@ final class TransactionExecutionException extends InfrastructureException
   //#region Factory Methods
   /**
    * Method wrap
-   * @method wrap(Throwable $previous): self
    * @static
    *
    * Wrap a throwable generated during a transactional operation.

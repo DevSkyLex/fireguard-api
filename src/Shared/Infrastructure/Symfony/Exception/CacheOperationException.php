@@ -11,7 +11,6 @@ use Throwable;
 
 /**
  * Exception CacheOperationException
- * @extends InfrastructureException
  * @final
  *
  * Exception thrown when a cache operation fails.
@@ -27,7 +26,6 @@ final class CacheOperationException extends InfrastructureException
   //#region Methods
   /**
    * Method readFailed
-   * @method readFailed(string $key): self
    * @static
    *
    * Create an exception for a failed cache read.
@@ -49,7 +47,6 @@ final class CacheOperationException extends InfrastructureException
 
   /**
    * Method writeFailed
-   * @method writeFailed(string $key): self
    * @static
    *
    * Create an exception for a failed cache write.
@@ -71,7 +68,6 @@ final class CacheOperationException extends InfrastructureException
 
   /**
    * Method deleteFailed
-   * @method deleteFailed(string $key): self
    * @static
    *
    * Create an exception for a failed
@@ -94,7 +90,6 @@ final class CacheOperationException extends InfrastructureException
 
   /**
    * Method clearFailed
-   * @method clearFailed(): self
    * @static
    *
    * Create an exception for a failed

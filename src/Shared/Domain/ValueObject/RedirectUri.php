@@ -31,7 +31,7 @@ final readonly class RedirectUri implements Stringable
    * @access private
    * @since 1.0.0
    *
-   * @var array ALLOWED_SCHEMES
+   * @var array<string> ALLOWED_SCHEMES
    */
   private const array ALLOWED_SCHEMES = ['https'];
   //#endregion
@@ -70,7 +70,6 @@ final readonly class RedirectUri implements Stringable
   //#region Methods
   /**
    * Method equals
-   * @method equals(self $other): bool
    *
    * Compares two RedirectUri objects for equality.
    *
@@ -88,7 +87,6 @@ final readonly class RedirectUri implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * Returns the string representation of the RedirectUri object.
    *

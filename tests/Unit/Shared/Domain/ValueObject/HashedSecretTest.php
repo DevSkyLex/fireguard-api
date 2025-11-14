@@ -24,7 +24,6 @@ final class HashedSecretTest extends TestCase
   //#region Methods
   /**
    * Method testValidHashedSecretIsAccepted
-   * @method testValidHashedSecretIsAccepted(): void
    *
    * Test the constructor with
    * valid hashed secret.
@@ -45,7 +44,6 @@ final class HashedSecretTest extends TestCase
 
   /**
    * Method testInvalidHashedSecretThrows
-   * @method testInvalidHashedSecretThrows(): void
    *
    * Test the constructor with
    * invalid hashed secret.

@@ -60,7 +60,6 @@ final readonly class Locale implements Stringable
   //#region Methods
   /**
    * Method equals
-   * @method equals(self $other): bool
    *
    * Compares two Locale objects for equality.
    *
@@ -78,7 +77,6 @@ final readonly class Locale implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * Returns the string representation
    * of the Locale object.

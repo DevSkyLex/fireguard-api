@@ -32,7 +32,6 @@ final class MessengerQueryBusAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testAskReturnsResultMessage
-   * @method testAskReturnsResultMessage(): void
    *
    * Test that the ask method returns a result message
    *
@@ -70,7 +69,6 @@ final class MessengerQueryBusAdapterTest extends TestCase
 
   /**
    * Method testAskWrapsMessengerExceptions
-   * @method testAskWrapsMessengerExceptions(): void
    *
    * Test that the ask method wraps
    * messenger exceptions
@@ -100,7 +98,6 @@ final class MessengerQueryBusAdapterTest extends TestCase
 
   /**
    * Method testAskThrowsWhenHandledStampMissing
-   * @method testAskThrowsWhenHandledStampMissing(): void
    *
    * Test that the ask method throws when the
    * handled stamp is missing
@@ -131,7 +128,6 @@ final class MessengerQueryBusAdapterTest extends TestCase
 
   /**
    * Method testAskThrowsWhenResultIsNotResultMessage
-   * @method testAskThrowsWhenResultIsNotResultMessage(): void
    *
    * Test that the ask method throws when
    * the result is not a result message

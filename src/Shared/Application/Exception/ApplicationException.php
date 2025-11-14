@@ -25,7 +25,6 @@ abstract class ApplicationException extends RuntimeException
   //#region Methods
   /**
    * Method context
-   * @method context(): array
    *
    * Returns the context of
    * the exception.
@@ -33,7 +32,7 @@ abstract class ApplicationException extends RuntimeException
    * @access public
    * @since 1.0.0
    *
-   * @return array The context of the exception.
+   * @return array<string, mixed> The context of the exception.
    */
   public function context(): array
   {

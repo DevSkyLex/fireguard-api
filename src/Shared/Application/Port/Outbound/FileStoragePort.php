@@ -21,7 +21,6 @@ interface FileStoragePort
   //#region Methods
   /**
    * Method write
-   * @method write(): void
    *
    * Write a file to the application.
    *
@@ -37,7 +36,6 @@ interface FileStoragePort
 
   /**
    * Method read
-   * @method read(): string
    *
    * Read a file from the application.
    *
@@ -52,7 +50,6 @@ interface FileStoragePort
 
   /**
    * Method delete
-   * @method delete(): void
    *
    * Delete a file from the application.
    *
@@ -67,7 +64,6 @@ interface FileStoragePort
 
   /**
    * Method exists
-   * @method exists(): bool
    *
    * Check if a file exists in the application.
    *

@@ -16,7 +16,6 @@ use Throwable;
 
 /**
  * Adapter MessengerCommandBus
- * @implements CommandBusPort
  * @final
  *
  * Adapter for Symfony Messenger
@@ -48,7 +47,6 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
   //#region Methods
   /**
    * Method dispatch
-   * @method dispatch(CommandMessage $command): ResultMessage
    *
    * Dispatch a command message and
    * return its result message.
@@ -88,10 +86,6 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
 
   /**
    * Method extractHandledStamp
-   * @method extractHandledStamp(
-   *  Envelope $envelope,
-   *  CommandMessage $command
-   * ): HandledStamp
    *
    * Extract the handled stamp from the envelope.
    *

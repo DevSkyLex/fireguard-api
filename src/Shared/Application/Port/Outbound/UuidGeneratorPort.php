@@ -21,7 +21,6 @@ interface UuidGeneratorPort
   //#region Methods
   /**
    * Method generate
-   * @method generate(): string
    *
    * Generate and return a UUID identifier.
    *

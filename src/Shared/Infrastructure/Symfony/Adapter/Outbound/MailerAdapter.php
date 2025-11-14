@@ -6,13 +6,13 @@ namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Shared\Application\Port\Outbound\MailerPort;
 use Shared\Infrastructure\Symfony\Exception\MailSendingException;
+use Stringable;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Throwable;
 
 /**
  * Adapter MailerAdapter
- * @implements MailerPort
  * @final
  *
  * Adapter bridging the mailer outbound port with
@@ -44,7 +44,20 @@ final readonly class MailerAdapter implements MailerPort
 
   //#region Methods
   /**
+   * Method send
    * {@inheritDoc}
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param list<string> $to The list of recipients.
+   * @param string $subject The subject of the email.
+   * @param string $body The body of the email.
+   * @param list<string> $cc The list of CC recipients.
+   * @param list<string> $bcc The list of BCC recipients.
+   * @param array<int|string, string|Stringable|list<string>> $attachments The list of attachments.
+   *
+   * @return void No return value
    */
   public function send(
     array $to,
@@ -55,8 +68,8 @@ final readonly class MailerAdapter implements MailerPort
     array $attachments = []
   ): void {
     $email = (new Email())
-      ->subject($subject)
-      ->html($body);
+      ->subject(subject: $subject)
+      ->html(body: $body);
 
     foreach ($to as $recipient) {
       $email->addTo($recipient);
@@ -71,19 +84,22 @@ final readonly class MailerAdapter implements MailerPort
     }
 
     foreach ($attachments as $name => $path) {
-      if (!is_string($path)) {
+      if (!is_string(value: $path) && !$path instanceof Stringable) {
         continue;
       }
 
-      $attachmentName = is_string($name) ? $name : null;
-      $email->attachFromPath(path: $path, name: $attachmentName);
+      $attachmentName = is_string(value: $name) ? $name : null;
+      $email->attachFromPath(path: (string) $path, name: $attachmentName);
     }
 
     try {
-      $this->mailer->send($email);
+      $this->mailer->send(message: $email);
     }
     catch (Throwable $exception) {
-      throw MailSendingException::dispatchFailed(subject: $subject, previous: $exception);
+      throw MailSendingException::dispatchFailed(
+        subject: $subject,
+        previous: $exception
+      );
     }
   }
   //#endregion

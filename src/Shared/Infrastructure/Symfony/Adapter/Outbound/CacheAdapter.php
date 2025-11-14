@@ -13,7 +13,6 @@ use Shared\Infrastructure\Symfony\Exception\CacheOperationException;
 
 /**
  * Adapter CacheAdapter
- * @implements CachePort
  * @final
  *
  * Adapter bridging the cache outbound port with
@@ -46,10 +45,6 @@ final readonly class CacheAdapter implements CachePort
   //#region Methods
   /**
    * Method get
-   * @method get(
-   *  string $key,
-   *  mixed $default = null
-   * ): mixed
    * {@inheritDoc}
    *
    * Retrieve a cached value by key.
@@ -81,11 +76,6 @@ final readonly class CacheAdapter implements CachePort
 
   /**
    * Method set
-   * @method set(
-   *  string $key,
-   *  mixed $value,
-   *  DateInterval | int | null $ttl = null
-   * ): void
    * {@inheritDoc}
    *
    * Store a value in the cache.
@@ -132,7 +122,6 @@ final readonly class CacheAdapter implements CachePort
 
   /**
    * Method delete
-   * @method delete(string $key): void
    * {@inheritDoc}
    *
    * Remove a value from the cache.
@@ -163,7 +152,6 @@ final readonly class CacheAdapter implements CachePort
 
   /**
    * Method clear
-   * @method clear(): void
    * {@inheritDoc}
    *
    * Remove all values from the cache.

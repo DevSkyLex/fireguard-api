@@ -23,8 +23,6 @@ enum LogLevel: string
    * Alert level.
    *
    * @since 1.0.0
-   *
-   * @var string The alert level.
    */
   case ALERT = 'alert';
 
@@ -34,8 +32,6 @@ enum LogLevel: string
    * Critical level.
    *
    * @since 1.0.0
-   *
-   * @var string The critical level.
    */
   case CRITICAL = 'critical';
 
@@ -45,8 +41,6 @@ enum LogLevel: string
    * Error level.
    *
    * @since 1.0.0
-   *
-   * @var string The error level.
    */
   case ERROR = 'error';
 
@@ -56,8 +50,6 @@ enum LogLevel: string
    * Warning level.
    *
    * @since 1.0.0
-   *
-   * @var string The warning level.
    */
   case WARNING = 'warning';
 
@@ -67,8 +59,6 @@ enum LogLevel: string
    * Notice level.
    *
    * @since 1.0.0
-   *
-   * @var string The notice level.
    */
   case NOTICE = 'notice';
 
@@ -78,8 +68,6 @@ enum LogLevel: string
    * Info level.
    *
    * @since 1.0.0
-   *
-   * @var string The info level.
    */
   case INFO = 'info';
 
@@ -89,8 +77,6 @@ enum LogLevel: string
    * Debug level.
    *
    * @since 1.0.0
-   *
-   * @var string The debug level.
    */
   case DEBUG = 'debug';
   //#endregion

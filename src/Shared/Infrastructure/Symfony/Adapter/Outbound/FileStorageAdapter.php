@@ -10,7 +10,6 @@ use Throwable;
 
 /**
  * Adapter FileStorageAdapter
- * @implements FileStoragePort
  * @final
  *
  * Adapter handling file storage operations
@@ -43,10 +42,6 @@ final readonly class FileStorageAdapter implements FileStoragePort
   //#region Methods
   /**
    * Method write
-   * @method write(
-   *  string $path,
-   *  string $contents
-   * ): void
    * {@inheritDoc}
    *
    * Write data to a file.
@@ -99,7 +94,6 @@ final readonly class FileStorageAdapter implements FileStoragePort
 
   /**
    * Method read
-   * @method read(string $path): string
    * {@inheritDoc}
    *
    * Read data from a file.
@@ -132,7 +126,6 @@ final readonly class FileStorageAdapter implements FileStoragePort
 
   /**
    * Method delete
-   * @method delete(string $path): void
    * {@inheritDoc}
    *
    * Delete a file.
@@ -167,7 +160,6 @@ final readonly class FileStorageAdapter implements FileStoragePort
 
   /**
    * Method exists
-   * @method exists(string $path): bool
    * {@inheritDoc}
    *
    * Check if a file exists.

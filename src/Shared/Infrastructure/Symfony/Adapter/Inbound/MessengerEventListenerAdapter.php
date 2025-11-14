@@ -15,7 +15,6 @@ use Throwable;
 
 /**
  * Adapter MessengerEventListener
- * @implements EventListenerPort
  * @final
  *
  * Adapter for handling incoming events through
@@ -81,7 +80,6 @@ final readonly class MessengerEventListenerAdapter implements EventListenerPort
 
   /**
    * Method extractHandledStamp
-   * @method extractHandledStamp(Envelope $envelope): ?HandledStamp
    *
    * Extract the last handled stamp from the envelope.
    *

@@ -28,7 +28,6 @@ final class CacheAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testGetReturnsStoredValueWhenCacheHit
-   * @method testGetReturnsStoredValueWhenCacheHit(): void
    *
    * Test that the get method returns the
    * stored value when the cache hit
@@ -73,7 +72,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testGetReturnsDefaultWhenCacheMiss
-   * @method testGetReturnsDefaultWhenCacheMiss(): void
    *
    * Test that the get method returns the default
    * value when the cache miss
@@ -117,7 +115,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testGetWrapsFailureInCacheOperationException
-   * @method testGetWrapsFailureInCacheOperationException(): void
    *
    * Test that the get method wraps the failure
    * in a CacheOperationException
@@ -147,7 +144,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testSetWrapsGetItemFailure
-   * @method testSetWrapsGetItemFailure(): void
    *
    * Test that the set method wraps the failure
    * in a CacheOperationException
@@ -178,7 +174,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testSetPersistsValueAndExpiresAfterTtl
-   * @method testSetPersistsValueAndExpiresAfterTtl(): void
    *
    * Test that the set method persists the value
    * and expires after the ttl
@@ -230,7 +225,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testSetThrowsWhenSaveFails
-   * @method testSetThrowsWhenSaveFails(): void
    *
    * Test that the set method throws when save fails
    *
@@ -272,7 +266,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testSetWrapsSaveException
-   * @method testSetWrapsSaveException(): void
    *
    * Test that the set method wraps the save exception
    *
@@ -314,7 +307,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testDeleteWrapsException
-   * @method testDeleteWrapsException(): void
    *
    * Test that the delete method wraps
    * the exception
@@ -342,7 +334,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testDeleteThrowsWhenDeletionReturnsFalse
-   * @method testDeleteThrowsWhenDeletionReturnsFalse(): void
    *
    * Test that the delete method throws
    * when deletion returns false
@@ -369,7 +360,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testClearWrapsException
-   * @method testClearWrapsException(): void
    *
    * Test that the clear method wraps the exception
    *
@@ -396,7 +386,6 @@ final class CacheAdapterTest extends TestCase
 
   /**
    * Method testClearThrowsWhenPoolReturnsFalse
-   * @method testClearThrowsWhenPoolReturnsFalse(): void
    *
    * Test that the clear method throws
    * when the pool returns false

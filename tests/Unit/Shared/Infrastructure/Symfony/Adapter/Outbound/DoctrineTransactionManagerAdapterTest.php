@@ -27,7 +27,6 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testTransactionalReturnsOperationResult
-   * @method testTransactionalReturnsOperationResult(): void
    *
    * Test that the transactional method
    * returns the operation result
@@ -69,7 +68,6 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
 
   /**
    * Method testTransactionalWrapsExceptions
-   * @method testTransactionalWrapsExceptions(): void
    *
    * Test that the transactional method
    * wraps exceptions
@@ -98,7 +96,6 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
 
   /**
    * Method testTransactionalWrapsDoctrineDbalExceptions
-   * @method testTransactionalWrapsDoctrineDbalExceptions(): void
    *
    * Test that the transactional method
    * wraps Doctrine DBAL exceptions

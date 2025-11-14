@@ -12,7 +12,6 @@ use Throwable;
 
 /**
  * Adapter UuidGeneratorAdapter
- * @implements UuidGeneratorPort
  * @final
  *
  * Adapter generating RFC 4122 version 4 UUIDs.
@@ -34,7 +33,6 @@ final readonly class UuidGeneratorAdapter implements UuidGeneratorPort
   //#region Methods
   /**
    * Method generate
-   * @method generate(): string
    * {@inheritDoc}
    *
    * Generate and return a UUID identifier.

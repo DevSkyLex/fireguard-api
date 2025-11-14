@@ -24,7 +24,6 @@ final class TokenClaimsTest extends TestCase
   //#region Methods
   /**
    * Method testConstructWithValidClaims
-   * @method testConstructWithValidClaims(): void
    *
    * Test the constructor with
    * valid claims.
@@ -56,7 +55,6 @@ final class TokenClaimsTest extends TestCase
 
   /**
    * Method testConstructWithEmptyClaimsThrows
-   * @method testConstructWithEmptyClaimsThrows(): void
    *
    * Test the constructor with
    * empty claims.
@@ -75,7 +73,6 @@ final class TokenClaimsTest extends TestCase
 
   /**
    * Method testConstructWithInvalidKeyThrows
-   * @method testConstructWithInvalidKeyThrows(): void
    *
    * Test the constructor with
    * invalid key.
@@ -93,7 +90,6 @@ final class TokenClaimsTest extends TestCase
 
   /**
    * Method testJsonSerialize
-   * @method testJsonSerialize(): void
    *
    * Test the jsonSerialize method.
    *

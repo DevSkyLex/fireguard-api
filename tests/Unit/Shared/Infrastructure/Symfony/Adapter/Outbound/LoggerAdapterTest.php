@@ -26,7 +26,6 @@ final class LoggerAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testLogDelegatesToPsrLogger
-   * @method testLogDelegatesToPsrLogger(): void
    *
    * Ensure that the log method delegates to
    * the underlying PSR logger with the
@@ -62,13 +61,12 @@ final class LoggerAdapterTest extends TestCase
 
   /**
    * Method providePsrShortcuts
-   * @method providePsrShortcuts(): iterable
    *
    * Provide PSR shortcut methods for testing.
    *
    * @access public
    *
-   * @return iterable<string, array{callable, string}>
+   * @return iterable<string, array{callable, non-empty-string}>
    */
   public static function providePsrShortcuts(): iterable
   {
@@ -82,8 +80,6 @@ final class LoggerAdapterTest extends TestCase
 
   /**
    * Method testPsrShortcutsDelegateToUnderlyingLogger
-   * @method testPsrShortcutsDelegateToUnderlyingLogger(callable $callable, string $method): void
-   * @dataProvider providePsrShortcuts
    *
    * Ensure that the PSR shortcut methods delegate to
    * the underlying logger with the appropriate method name.
@@ -91,7 +87,7 @@ final class LoggerAdapterTest extends TestCase
    * @access public
    *
    * @param callable $callable The callable invoking the adapter method.
-   * @param string $method The expected method name on the PSR logger.
+   * @param non-empty-string $method The expected method name on the PSR logger.
    *
    * @return void No return value
    */

@@ -26,7 +26,6 @@ abstract class InfrastructureException extends RuntimeException
   //#region Methods
   /**
    * Method metadata
-   * @method metadata(): array
    *
    * Returns the metadata of
    * the exception.
@@ -34,7 +33,7 @@ abstract class InfrastructureException extends RuntimeException
    * @access public
    * @since 1.0.0
    *
-   * @return array The metadata of the exception.
+   * @return array<string, mixed> The metadata of the exception.
    */
   public function metadata(): array
   {

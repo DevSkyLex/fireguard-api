@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Shared\Application\Port\Outbound;
 
+use Stringable;
+
 /**
  * Port MailerPort
  *
@@ -21,14 +23,6 @@ interface MailerPort
   //#region Methods
   /**
    * Method send
-   * @method send(
-   *  array $to,
-   *  string $subject,
-   *  string $body,
-   *  array $cc = [],
-   *  array $bcc = [],
-   *  array $attachments = []
-   * ): void
    *
    * Send an email to the application.
    *
@@ -40,7 +34,7 @@ interface MailerPort
    * @param string $body The body of the email.
    * @param string[] $cc The cc of the email.
    * @param string[] $bcc The bcc of the email.
-   * @param array<string,string> $attachments The attachments of the email.
+   * @param array<int|string, string|Stringable|list<string>> $attachments The attachments of the email.
    *
    * @return void No return value.
    */

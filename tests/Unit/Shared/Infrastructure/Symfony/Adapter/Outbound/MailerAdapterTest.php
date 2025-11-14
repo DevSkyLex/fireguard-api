@@ -10,6 +10,7 @@ use Shared\Infrastructure\Symfony\Exception\MailSendingException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
 use Throwable;
 
 /**
@@ -28,7 +29,6 @@ final class MailerAdapterTest extends TestCase
   //#region Methods
   /**
    * Method testSendDelegatesToMailer
-   * @method testSendDelegatesToMailer(): void
    *
    * Ensure that the send method delegates the email to the Symfony mailer.
    *
@@ -54,7 +54,6 @@ final class MailerAdapterTest extends TestCase
 
   /**
    * Method testSendAddsCcAndBccRecipients
-   * @method testSendAddsCcAndBccRecipients(): void
    *
    * Ensure that the send method adds cc and
    * bcc recipients to the email.
@@ -92,7 +91,6 @@ final class MailerAdapterTest extends TestCase
 
   /**
    * Method testSendIgnoresInvalidAttachmentEntries
-   * @method testSendIgnoresInvalidAttachmentEntries(): void
    *
    * Ensure that the send method ignores
    * invalid attachment entries.
@@ -108,15 +106,15 @@ final class MailerAdapterTest extends TestCase
     $mailer->expects(self::once())
       ->method(constraint: 'send')
       ->with(arguments: self::callback(callback: static function (Email $email): bool {
+        /** @var list<DataPart> $attachments */
         $attachments = $email->getAttachments();
 
         if (count($attachments) !== 2) {
           return false;
         }
 
-        $names = array_map(static fn($attachment) =>
-          method_exists($attachment, 'getName')
-          ? $attachment->getName() : null,
+        $names = array_map(static fn(DataPart $attachment): ?string =>
+          $attachment->getName(),
           $attachments
         );
 
@@ -141,7 +139,6 @@ final class MailerAdapterTest extends TestCase
 
   /**
    * Method testSendWrapsExceptions
-   * @method testSendWrapsExceptions(): void
    *
    * Ensure that the adapter wraps exceptions thrown by the mailer.
    *

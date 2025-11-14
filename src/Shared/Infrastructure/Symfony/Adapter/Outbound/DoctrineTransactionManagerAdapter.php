@@ -12,7 +12,6 @@ use Throwable;
 
 /**
  * Adapter DoctrineTransactionManagerAdapter
- * @implements TransactionManagerPort
  * @final
  *
  * Adapter wrapping Doctrine's transactional capabilities
@@ -46,7 +45,6 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
   //#region Methods
   /**
    * Method transactional
-   * @method transactional(callable $operation): mixed
    * {@inheritdoc}
    *
    * Execute a transactional operation.

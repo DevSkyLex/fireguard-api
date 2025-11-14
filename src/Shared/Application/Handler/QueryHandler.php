@@ -21,7 +21,6 @@ interface QueryHandler
   //#region Methods
   /**
    * Method __invoke
-   * @method __invoke(QueryMessage $query): ResultMessage
    *
    * Invoke the query handler.
    *

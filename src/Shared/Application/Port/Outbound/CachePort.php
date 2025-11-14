@@ -23,7 +23,6 @@ interface CachePort
   //#region Methods
   /**
    * Method get
-   * @method get(): mixed
    *
    * Retrieve a value from cache.
    *
@@ -39,7 +38,6 @@ interface CachePort
 
   /**
    * Method set
-   * @method set(): void
    *
    * Store a value in cache.
    *
@@ -56,7 +54,6 @@ interface CachePort
 
   /**
    * Method delete
-   * @method delete(): void
    *
    * Remove cache entry.
    *
@@ -71,7 +68,6 @@ interface CachePort
 
   /**
    * Method clear
-   * @method clear(): void
    *
    * Clear the cache storage.
    *

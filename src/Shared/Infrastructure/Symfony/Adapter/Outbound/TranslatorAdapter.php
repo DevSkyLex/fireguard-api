@@ -6,12 +6,12 @@ namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Shared\Application\Port\Outbound\TranslationPort;
 use Shared\Infrastructure\Symfony\Exception\TranslationException;
+use Stringable;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Throwable;
 
 /**
  * Adapter TranslatorAdapter
- * @implements TranslationPort
  * @final
  *
  * Adapter bridging the translation outbound port with
@@ -44,12 +44,6 @@ final readonly class TranslatorAdapter implements TranslationPort
   //#region Methods
   /**
    * Method translate
-   * @method translate(
-   *  string $id,
-   *  array $parameters = [],
-   *  ?string $domain = null,
-   *  ?string $locale = null
-   * ): string
    * {@inheritDoc}
    *
    * Translate a message using Symfony's translator.
@@ -58,7 +52,7 @@ final readonly class TranslatorAdapter implements TranslationPort
    * @since 1.0.0
    *
    * @param string $id The message identifier.
-   * @param array $parameters The parameters to replace in the message.
+   * @param array<string, scalar|Stringable> $parameters The parameters to replace in the message.
    * @param ?string $domain The translation domain.
    * @param ?string $locale The locale to use for translation.
    *

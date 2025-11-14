@@ -44,12 +44,10 @@ final readonly class TokenClaims implements JsonSerializable
       message: 'Token claims cannot be empty.'
     );
 
-    foreach ($claims as $key => $_value) {
-      if (!is_string($key) || $key === '') {
-        throw InvalidValueException::because(
-          message: 'Token claim keys must be non-empty strings.'
-        );
-      }
+    foreach ($claims as $key => $value) {
+      if ($key === '') throw InvalidValueException::because(
+        message: 'Token claim keys must be non-empty strings.'
+      );
     }
   }
   //#endregion
@@ -57,7 +55,6 @@ final readonly class TokenClaims implements JsonSerializable
   //#region Methods
   /**
    * Method toArray
-   * @method toArray(): array<string, mixed>
    *
    * @access public
    * @since 1.0.0
@@ -71,7 +68,6 @@ final readonly class TokenClaims implements JsonSerializable
 
   /**
    * Method has
-   * @method has(): bool
    *
    * @access public
    * @since 1.0.0
@@ -87,7 +83,6 @@ final readonly class TokenClaims implements JsonSerializable
 
   /**
    * Method get
-   * @method get(): mixed
    *
    * @access public
    * @since 1.0.0
@@ -104,7 +99,6 @@ final readonly class TokenClaims implements JsonSerializable
 
   /**
    * Method jsonSerialize
-   * @method jsonSerialize(): array<string, mixed>
    *
    * @access public
    * @since 1.0.0

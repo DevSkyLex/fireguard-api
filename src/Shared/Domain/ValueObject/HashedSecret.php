@@ -46,7 +46,6 @@ final readonly class HashedSecret implements Stringable
   //#region Methods
   /**
    * Method equals
-   * @method equals(): bool
    *
    * @access public
    * @since 1.0.0
@@ -62,7 +61,6 @@ final readonly class HashedSecret implements Stringable
 
   /**
    * Method __toString
-   * @method __toString(): string
    *
    * @access public
    * @since 1.0.0

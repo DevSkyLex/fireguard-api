@@ -23,7 +23,6 @@ final class InvalidValueException extends DomainException
   //#region Methods
   /**
    * Method because
-   * @method because(string $message): self
    *
    * Creates a new InvalidValueException
    * with the specified message.

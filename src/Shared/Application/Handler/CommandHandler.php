@@ -23,7 +23,6 @@ interface CommandHandler
   //#region Methods
   /**
    * Method __invoke
-   * @method __invoke(CommandMessage $command): ?ResultMessage
    *
    * Invoke the command handler.
    *

@@ -23,7 +23,6 @@ interface ClockPort
   //#region Methods
   /**
    * Method now
-   * @method now(): DateTimeImmutable
    *
    * Get the current time.
    *

@@ -23,7 +23,6 @@ interface EventListenerPort
   //#region Methods
   /**
    * Method handle
-   * @method handle(object $event): ?ResultMessage
    *
    * Handle an incoming event.
    *

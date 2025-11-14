@@ -10,7 +10,6 @@ use Shared\Domain\ValueObject\Uuid;
 
 /**
  * Test UuidTest
- * @extends TestCase
  * @final
  *
  * Test class for the Uuid value object.
@@ -49,7 +48,6 @@ final class UuidTest extends TestCase
   //#region Methods
   /**
    * Method testValidUuidIsAccepted
-   * @method testValidUuidIsAccepted(): void
    *
    * Test the constructor with
    * a valid UUID
@@ -70,7 +68,6 @@ final class UuidTest extends TestCase
 
   /**
    * Method testInvalidUuidThrowsException
-   * @method testInvalidUuidThrowsException(): void
    *
    * Test the constructor with
    * an invalid UUID

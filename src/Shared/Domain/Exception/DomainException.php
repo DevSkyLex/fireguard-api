@@ -25,7 +25,6 @@ abstract class DomainException extends RuntimeException
   //#region Methods
   /**
    * Method code
-   * @method code(): string
    *
    * Returns the code of
    * the exception.

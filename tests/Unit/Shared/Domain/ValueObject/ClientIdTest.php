@@ -10,7 +10,6 @@ use Shared\Domain\ValueObject\ClientId;
 
 /**
  * Test ClientIdTest
- * @extends TestCase
  * @final
  *
  * Test class for ClientId.
@@ -49,7 +48,6 @@ final class ClientIdTest extends TestCase
   //#region Methods
   /**
    * Method testValidClientIdIsAccepted
-   * @method testValidClientIdIsAccepted(): void
    *
    * Test the constructor with a
    * valid client ID
@@ -70,7 +68,6 @@ final class ClientIdTest extends TestCase
 
   /**
    * Method testInvalidClientIdThrowsException
-   * @method testInvalidClientIdThrowsException(): void
    *
    * Test the constructor with an
    * invalid client ID
