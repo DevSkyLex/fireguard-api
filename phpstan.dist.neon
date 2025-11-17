@@ -12,9 +12,19 @@ parameters:
     ignoreErrors:
         -
             identifier: argument.named
+    phpat:
+        ignore_built_in_classes: true
 
 services:
     -
-        class: App\Tests\Architecture\HexagonalArchitectureTest
+        class: App\Tests\Architecture\HexagonalArchitecture\ApplicationDependenciesTest
+        tags:
+            - phpat.test
+    -
+        class: App\Tests\Architecture\HexagonalArchitecture\DomainDependenciesTest
+        tags:
+            - phpat.test
+    -
+        class: App\Tests\Architecture\HexagonalArchitecture\InfrastructureDependenciesTest
         tags:
             - phpat.test
