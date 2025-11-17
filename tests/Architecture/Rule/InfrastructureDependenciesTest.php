@@ -6,7 +6,7 @@ namespace App\Tests\Architecture\Rule;
 
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
-use App\Tests\Architecture\Support\Module;
+use App\Tests\Architecture\Support\{ArchitectureLayer, ArchitectureNamespace, Module};
 
 /**
  * Test InfrastructureDependenciesTest
@@ -22,19 +22,6 @@ use App\Tests\Architecture\Support\Module;
  */
 final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
 {
-  //#region Constants
-  /**
-   * Constant LAYER
-   *
-   * Layer to test dependencies
-   *
-   * @access public
-   *
-   * @var string LAYER
-   */
-  public const string LAYER = self::INFRASTRUCTURE_LAYER;
-  //#endregion
-
   //#region Methods
   /**
    * Method testInfrastructureStaysInsideModule
@@ -48,14 +35,14 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
    */
   public function testInfrastructureStaysInsideModule(): iterable
   {
-    foreach ($this->modulesHavingLayer(self::LAYER) as $module) {
-      if ($module->namespace === self::SHARED_NAMESPACE) {
+    foreach ($this->modulesHavingLayer(ArchitectureLayer::INFRASTRUCTURE) as $module) {
+      if ($module->namespace === ArchitectureNamespace::SHARED->value) {
         continue;
       }
 
       $infrastructureSelectors = $this->selectorsForModuleLayer(
         module: $module,
-        layer: self::LAYER
+        layer: ArchitectureLayer::INFRASTRUCTURE
       );
 
       if ($infrastructureSelectors === []) {
@@ -90,16 +77,16 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
    */
   public function testInfrastructureDependsOnlyOnModuleAndShared(): iterable
   {
-    $sharedDomainSelectors = $this->sharedLayerSelectors(layer: self::DOMAIN_LAYER);
-    $sharedApplicationSelectors = $this->sharedLayerSelectors(layer: self::APPLICATION_LAYER);
+    $sharedDomainSelectors = $this->sharedLayerSelectors(layer: ArchitectureLayer::DOMAIN);
+    $sharedApplicationSelectors = $this->sharedLayerSelectors(layer: ArchitectureLayer::APPLICATION);
     $sharedPortSelectors = $this->sharedApplicationPortSelectors();
 
-    foreach ($this->modulesHavingLayer(self::LAYER) as $module) {
-      if ($module->namespace === self::SHARED_NAMESPACE) continue;
+    foreach ($this->modulesHavingLayer(ArchitectureLayer::INFRASTRUCTURE) as $module) {
+      if ($module->namespace === ArchitectureNamespace::SHARED->value) continue;
 
       $infrastructureSelectors = $this->selectorsForModuleLayer(
         module: $module,
-        layer: self::LAYER
+        layer: ArchitectureLayer::INFRASTRUCTURE
       );
 
       if ($infrastructureSelectors === []) continue;
@@ -108,11 +95,11 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
         ...$infrastructureSelectors,
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: self::APPLICATION_LAYER
+          layer: ArchitectureLayer::APPLICATION
         ),
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: self::DOMAIN_LAYER
+          layer: ArchitectureLayer::DOMAIN
         ),
         ...$sharedDomainSelectors,
         ...$sharedApplicationSelectors,
@@ -144,7 +131,7 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
       $this->moduleNamespaces(),
       static fn(string $namespace): bool => $namespace !== $module->namespace
         && $namespace !== ''
-        && $namespace !== self::SHARED_NAMESPACE
+        && $namespace !== ArchitectureNamespace::SHARED->value
     ));
   }
   //#endregion

@@ -7,6 +7,7 @@ namespace App\Tests\Architecture\Rule;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
+use App\Tests\Architecture\Support\{ArchitectureLayer, ArchitectureNamespace};
 
 /**
  * Test ApplicationDependenciesTest
@@ -29,9 +30,9 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
    *
    * @access public
    *
-   * @var string LAYER
+   * @var ArchitectureLayer LAYER
    */
-  public const string LAYER = self::APPLICATION_LAYER;
+  public const ArchitectureLayer LAYER = ArchitectureLayer::APPLICATION;
 
   /**
    * Constant FORBIDDEN_LAYER
@@ -41,9 +42,9 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
    *
    * @access public
    *
-   * @var string FORBIDDEN_LAYER
+   * @var ArchitectureLayer FORBIDDEN_LAYER
    */
-  public const string FORBIDDEN_LAYER = self::INFRASTRUCTURE_LAYER;
+  public const ArchitectureLayer FORBIDDEN_LAYER = ArchitectureLayer::INFRASTRUCTURE;
   //#endregion
 
   //#region Methods
@@ -61,7 +62,7 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
   {
     $applicationSelectors = $this->selectorsForLayer(layer: self::LAYER);
     $forbiddenSelectors = $this->selectorsForLayer(layer: self::FORBIDDEN_LAYER);
-    $forbiddenSelectors[] = Selector::inNamespace(namespace: self::ROOT_NAMESPACE);
+    $forbiddenSelectors[] = Selector::inNamespace(namespace: ArchitectureNamespace::ROOT->value);
 
     return PHPat::rule()
       ->classes(...$applicationSelectors)
@@ -81,7 +82,7 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
    */
   public function testApplicationDependsOnlyOnDomainAndSharedContracts(): iterable
   {
-    $sharedDomainSelectors = $this->sharedLayerSelectors(layer: self::DOMAIN_LAYER);
+    $sharedDomainSelectors = $this->sharedLayerSelectors(layer: ArchitectureLayer::DOMAIN);
     $sharedPortSelectors = $this->sharedApplicationPortSelectors();
 
     foreach ($this->modulesHavingLayer(self::LAYER) as $module) {
@@ -95,7 +96,7 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
         ...$applicationSelectors,
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: self::DOMAIN_LAYER
+          layer: ArchitectureLayer::DOMAIN
         ),
         ...$sharedDomainSelectors,
         ...$sharedPortSelectors,
@@ -123,7 +124,9 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
     $applicationModules = $this->modulesHavingLayer(self::LAYER);
 
     foreach ($applicationModules as $module) {
-      if ($module->namespace === self::SHARED_NAMESPACE) {
+      $namespace = $module->layerNamespace(self::LAYER);
+
+      if ($namespace === '' || $namespace === ArchitectureNamespace::SHARED->value) {
         continue;
       }
 

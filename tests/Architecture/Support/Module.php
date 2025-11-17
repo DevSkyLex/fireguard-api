@@ -46,13 +46,13 @@ final readonly class Module
    *
    * @access public
    *
-   * @param string $layer The layer name
+   * @param ArchitectureLayer $layer The layer name
    *
    * @return string The namespace of the layer
    */
-  public function layerNamespace(string $layer): string
+  public function layerNamespace(ArchitectureLayer $layer): string
   {
-    return sprintf('%s\\%s', $this->namespace, $layer);
+    return sprintf('%s\\%s', $this->namespace, $layer->value);
   }
 
   /**
@@ -62,13 +62,13 @@ final readonly class Module
    *
    * @access public
    *
-   * @param string $layer The layer name
+   * @param ArchitectureLayer $layer The layer name
    *
    * @return string The path of the layer
    */
-  public function layerPath(string $layer): string
+  public function layerPath(ArchitectureLayer $layer): string
   {
-    return $this->path . DIRECTORY_SEPARATOR . $layer;
+    return $this->path . DIRECTORY_SEPARATOR . $layer->value;
   }
 
   /**
@@ -78,13 +78,13 @@ final readonly class Module
    *
    * @access public
    *
-   * @param string $layer The layer name
+   * @param ArchitectureLayer $layer The layer name
    *
    * @return bool True if the module has the layer, false otherwise
    */
-  public function hasLayer(string $layer): bool
+  public function hasLayer(ArchitectureLayer $layer): bool
   {
-    return is_dir(filename: $this->layerPath($layer));
+    return is_dir(filename: $this->layerPath(layer: $layer));
   }
   //#endregion
 }

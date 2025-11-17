@@ -6,7 +6,7 @@ namespace App\Tests\Architecture\Rule;
 
 use PHPat\Selector\Selector;
 use PHPat\Selector\SelectorInterface;
-use App\Tests\Architecture\Support\{Module, ModuleCollection};
+use App\Tests\Architecture\Support\{Module, ModuleCollection, ArchitectureLayer, ArchitectureNamespace};
 
 /**
  * Test BaseHexagonalArchitectureTest
@@ -21,74 +21,6 @@ use App\Tests\Architecture\Support\{Module, ModuleCollection};
  */
 abstract class BaseHexagonalArchitectureTest
 {
-  //#region Constants
-  /**
-   * Constant ROOT_NAMESPACE
-   *
-   * Root namespace for application modules
-   *
-   * @access protected
-   *
-   * @var string ROOT_NAMESPACE
-   */
-  protected const string ROOT_NAMESPACE = 'App';
-
-  /**
-   * Constant DOMAIN_LAYER
-   *
-   * Domain layer name
-   *
-   * @access protected
-   *
-   * @var string DOMAIN_LAYER
-   */
-  protected const string DOMAIN_LAYER = 'Domain';
-
-  /**
-   * Constant INFRASTRUCTURE_LAYER
-   *
-   * Infrastructure layer name
-   *
-   * @access protected
-   *
-   * @var string INFRASTRUCTURE_LAYER
-   */
-  protected const string INFRASTRUCTURE_LAYER = 'Infrastructure';
-
-  /**
-   * Constant SHARED_NAMESPACE
-   *
-   * Shared namespace
-   *
-   * @access protected
-   *
-   * @var string SHARED_NAMESPACE
-   */
-  protected const string SHARED_NAMESPACE = 'Shared';
-
-  /**
-   * Constant APPLICATION_LAYER
-   *
-   * Application layer
-   *
-   * @access protected
-   *
-   * @var string APPLICATION_LAYER
-   */
-  protected const string APPLICATION_LAYER = 'Application';
-
-  /**
-   * Constant PORT_SUBNAMESPACE
-   *
-   * Port subnamespace
-   *
-   * @access protected
-   *
-   * @var string PORT_SUBNAMESPACE
-   */
-  protected const string PORT_SUBNAMESPACE = 'Port';
-  //#endregion
-
   //#region Methods
   /**
    * Method modules
@@ -115,15 +47,15 @@ abstract class BaseHexagonalArchitectureTest
    *
    * @access protected
    *
-   * @param string $layer Layer to filter modules
+   * @param ArchitectureLayer $layer Layer to filter modules
    *
    * @return list<Module> List of modules having the specified layer
    */
-  final protected function modulesHavingLayer(string $layer): array
+  final protected function modulesHavingLayer(ArchitectureLayer $layer): array
   {
     return array_values(array_filter(
       $this->modules(),
-      static fn(Module $module): bool => $module->hasLayer($layer)
+      static fn(Module $module): bool => $module->hasLayer(layer: $layer)
     ));
   }
 
@@ -135,11 +67,11 @@ abstract class BaseHexagonalArchitectureTest
    *
    * @access protected
    *
-   * @param string $layer Layer to get selectors
+   * @param ArchitectureLayer $layer Layer to get selectors
    *
    * @return list<SelectorInterface> List of selectors for the specified layer
    */
-  final protected function selectorsForLayer(string $layer): array
+  final protected function selectorsForLayer(ArchitectureLayer $layer): array
   {
     $selectors = [];
 
@@ -164,7 +96,7 @@ abstract class BaseHexagonalArchitectureTest
    *
    * @access protected
    *
-   * @param array<string> $layers Layers to get selectors
+   * @param list<ArchitectureLayer> $layers Layers to get selectors
    *
    * @return list<SelectorInterface>
    */
@@ -204,11 +136,11 @@ abstract class BaseHexagonalArchitectureTest
    * @access protected
    *
    * @param Module $module Module to inspect
-   * @param string $layer  Layer to get selectors
+   * @param ArchitectureLayer $layer  Layer to get selectors
    *
    * @return list<SelectorInterface> List of selectors for the specified module layer
    */
-  final protected function selectorsForModuleLayer(Module $module, string $layer): array
+  final protected function selectorsForModuleLayer(Module $module, ArchitectureLayer $layer): array
   {
     if (!$module->hasLayer($layer)) {
       return [];
@@ -256,7 +188,7 @@ abstract class BaseHexagonalArchitectureTest
   final protected function sharedModule(): ?Module
   {
     foreach ($this->modules() as $module) {
-      if ($module->namespace === self::SHARED_NAMESPACE) {
+      if ($module->namespace === ArchitectureNamespace::SHARED->value) {
         return $module;
       }
     }
@@ -272,11 +204,11 @@ abstract class BaseHexagonalArchitectureTest
    *
    * @access protected
    *
-   * @param string $layer Layer name
+   * @param ArchitectureLayer $layer Layer name
    *
    * @return list<SelectorInterface> List of selectors for the shared layer
    */
-  final protected function sharedLayerSelectors(string $layer): array
+  final protected function sharedLayerSelectors(ArchitectureLayer $layer): array
   {
     $sharedModule = $this->sharedModule();
 
@@ -303,12 +235,12 @@ abstract class BaseHexagonalArchitectureTest
     $sharedModule = $this->sharedModule();
 
     if ($sharedModule === null || !$sharedModule->hasLayer(
-      layer: self::APPLICATION_LAYER
+      layer: ArchitectureLayer::APPLICATION
     )) return [];
 
     $portPath = $sharedModule->layerPath(
-      layer: self::APPLICATION_LAYER
-    ) . DIRECTORY_SEPARATOR . self::PORT_SUBNAMESPACE;
+      layer: ArchitectureLayer::APPLICATION
+    ) . DIRECTORY_SEPARATOR . ArchitectureNamespace::PORT->value;
 
     if (!is_dir($portPath)) return [];
 
@@ -316,8 +248,8 @@ abstract class BaseHexagonalArchitectureTest
       Selector::inNamespace(
         namespace: sprintf(
           '%s\\%s',
-          $sharedModule->layerNamespace(self::APPLICATION_LAYER),
-          self::PORT_SUBNAMESPACE
+          $sharedModule->layerNamespace(ArchitectureLayer::APPLICATION),
+          ArchitectureNamespace::PORT->value
         )
       ),
     ];

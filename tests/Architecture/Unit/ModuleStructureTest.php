@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Architecture\Unit;
 
 use PHPUnit\Framework\TestCase;
-use App\Tests\Architecture\Support\ModuleCollection;
+use App\Tests\Architecture\Support\{ModuleCollection, ArchitectureLayer};
 use function sprintf;
 
 /**
@@ -31,10 +31,11 @@ final class ModuleStructureTest extends TestCase
    *
    * @var array<string> LAYERS
    */
+  /** @var list<ArchitectureLayer> */
   public const array LAYERS = [
-    'Domain',
-    'Application',
-    'Infrastructure',
+    ArchitectureLayer::DOMAIN,
+    ArchitectureLayer::APPLICATION,
+    ArchitectureLayer::INFRASTRUCTURE,
   ];
   //#endregion
 
@@ -60,7 +61,7 @@ final class ModuleStructureTest extends TestCase
           continue;
         }
 
-        $missingLayers[] = sprintf('%s is missing layer %s', $module->namespace, $layer);
+        $missingLayers[] = sprintf('%s is missing layer %s', $module->namespace, $layer->value);
       }
     }
 

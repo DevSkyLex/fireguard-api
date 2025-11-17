@@ -7,6 +7,7 @@ namespace App\Tests\Architecture\Rule;
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
+use App\Tests\Architecture\Support\{ArchitectureLayer, ArchitectureNamespace};
 
 /**
  * Test DomainDependenciesTest
@@ -30,9 +31,9 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
    *
    * @access public
    *
-   * @var string LAYER
+   * @var ArchitectureLayer LAYER
    */
-  public const string LAYER = self::DOMAIN_LAYER;
+  public const ArchitectureLayer LAYER = ArchitectureLayer::DOMAIN;
 
   /**
    * Constant FORBIDDEN_LAYERS
@@ -42,11 +43,11 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
    *
    * @access public
    *
-   * @var array<string> FORBIDDEN_LAYERS
+   * @var list<ArchitectureLayer> FORBIDDEN_LAYERS
    */
   public const array FORBIDDEN_LAYERS = [
-    self::APPLICATION_LAYER,
-    self::INFRASTRUCTURE_LAYER,
+    ArchitectureLayer::APPLICATION,
+    ArchitectureLayer::INFRASTRUCTURE,
   ];
   //#endregion
 
@@ -67,7 +68,7 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
 
     $forbiddenSelectors = $this->selectorsForLayers(layers: self::FORBIDDEN_LAYERS);
 
-    $forbiddenSelectors[] = Selector::inNamespace(namespace: self::ROOT_NAMESPACE);
+    $forbiddenSelectors[] = Selector::inNamespace(namespace: ArchitectureNamespace::ROOT->value);
 
     return PHPat::rule()
       ->classes(...$domainSelectors)
@@ -204,14 +205,14 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
     $sharedDomainSelectors = $this->sharedLayerSelectors(self::LAYER);
 
     $forbiddenSelectors = [
-      ...$this->selectorsForLayer(layer: self::INFRASTRUCTURE_LAYER),
-      Selector::inNamespace(namespace: sprintf('%s\\%s', self::SHARED_NAMESPACE, self::INFRASTRUCTURE_LAYER)),
+      ...$this->selectorsForLayer(layer: ArchitectureLayer::INFRASTRUCTURE),
+      Selector::inNamespace(namespace: sprintf('%s\\%s', ArchitectureNamespace::SHARED->value, ArchitectureLayer::INFRASTRUCTURE->value)),
       Selector::inNamespace(namespace: 'Symfony'),
     ];
 
     return PHPat::rule()
       ->classes(...($sharedDomainSelectors !== [] ? $sharedDomainSelectors : [
-        Selector::inNamespace(namespace: sprintf('%s\\%s', self::SHARED_NAMESPACE, self::LAYER))
+        Selector::inNamespace(namespace: sprintf('%s\\%s', ArchitectureNamespace::SHARED->value, self::LAYER->value))
       ]))
       ->shouldNotDependOn()
       ->classes(...$forbiddenSelectors)

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Architecture\Rule;
 
+use App\Tests\Architecture\Support\ArchitectureLayer;
+use App\Tests\Architecture\Support\ArchitectureNamespace;
 use PHPat\Selector\Selector;
 use PHPat\Selector\SelectorInterface;
 use PHPat\Test\Builder\Rule;
@@ -56,12 +58,12 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
     /** @var list<SelectorInterface> $allowedSelectors */
     $allowedSelectors = $this->sharedApplicationSupportSelectors();
 
-    foreach ($this->modulesHavingLayer(layer: self::DOMAIN_LAYER) as $module) {
+    foreach ($this->modulesHavingLayer(layer: ArchitectureLayer::DOMAIN) as $module) {
       $allowedSelectors = [
         ...$allowedSelectors,
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: self::DOMAIN_LAYER
+          layer: ArchitectureLayer::DOMAIN
         ),
       ];
     }
@@ -76,7 +78,8 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
   /**
    * Method testSharedPortsAreInfrastructureAgnostic
    *
-   * Ensures shared ports do not couple to infrastructure/framework namespaces
+   * Ensures shared ports do not couple to
+   * infrastructure/framework namespaces
    *
    * @access public
    *
@@ -90,16 +93,20 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
       Selector::inNamespace(
         namespace: sprintf(
           '%s\\%s\\%s',
-          self::SHARED_NAMESPACE,
-          self::APPLICATION_LAYER,
-          self::PORT_SUBNAMESPACE
+          ArchitectureNamespace::SHARED->value,
+          ArchitectureLayer::APPLICATION->value,
+          'Port'
         )
       ),
     ];
 
     $forbiddenSelectors = [
-      ...$this->selectorsForLayer(layer: self::INFRASTRUCTURE_LAYER),
-      Selector::inNamespace(namespace: sprintf('%s\\%s', self::SHARED_NAMESPACE, self::INFRASTRUCTURE_LAYER)),
+      ...$this->selectorsForLayer(layer: ArchitectureLayer::INFRASTRUCTURE),
+      Selector::inNamespace(namespace: sprintf(
+        '%s\\%s',
+        ArchitectureNamespace::SHARED->value,
+        ArchitectureLayer::INFRASTRUCTURE->value
+      )),
       Selector::inNamespace(namespace: 'Symfony'),
     ];
 
@@ -113,7 +120,8 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
   /**
    * Method sharedApplicationSupportSelectors
    *
-   * Allows shared ports to depend on shared support namespaces (messages, logs...)
+   * Allows shared ports to depend on shared
+   * support namespaces (messages, logs...)
    *
    * @access private
    *
@@ -122,12 +130,17 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
   private function sharedApplicationSupportSelectors(): array
   {
     $namespaces = [
-      sprintf('%s\\Application\\Message', self::SHARED_NAMESPACE),
-      sprintf('%s\\Application\\Log', self::SHARED_NAMESPACE),
+      sprintf('%s\\Application\\Message', ArchitectureNamespace::SHARED->value),
+      sprintf('%s\\Application\\Log', ArchitectureNamespace::SHARED->value),
     ];
 
-    /** @var list<SelectorInterface> */
-    return $this->selectorsForNamespaces($namespaces);
+    /**
+     * Selectors for shared application
+     * support namespaces
+     *
+     * @var list<SelectorInterface>
+     */
+    return $this->selectorsForNamespaces(namespaces: $namespaces);
   }
   //#endregion
 }
