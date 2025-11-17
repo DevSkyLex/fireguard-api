@@ -35,7 +35,7 @@ jobs:
         run: vendor/bin/deptrac
 
   phpunit:
-    name: PHPUnit on PHP 8.4
+    name: PHPUnit
     runs-on: ubuntu-latest
 
     steps:

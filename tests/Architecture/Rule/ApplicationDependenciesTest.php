@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Architecture\HexagonalArchitecture;
+namespace App\Tests\Architecture\Rule;
 
 use PHPat\Selector\Selector;
 use PHPat\Test\Builder\Rule;
@@ -14,8 +14,8 @@ use PHPat\Test\PHPat;
  *
  * Test class for Application layer dependencies
  *
- * @category Architecture Tests
- * @package App\Tests\Architecture\HexagonalArchitecture
+ * @category Architecture Rule Tests
+ * @package App\Tests\Architecture\Rule
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -93,7 +93,10 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
 
       $allowedSelectors = [
         ...$applicationSelectors,
-        ...$this->selectorsForModuleLayer(module: $module, layer: 'Domain'),
+        ...$this->selectorsForModuleLayer(
+          module: $module,
+          layer: self::DOMAIN_LAYER
+        ),
         ...$sharedDomainSelectors,
         ...$sharedPortSelectors,
       ];
@@ -103,6 +106,60 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
         ->canOnlyDependOn()
         ->classes(...$allowedSelectors)
         ->because(tips: 'Application layer must orchestrate its Domain or shared contracts only.');
+    }
+  }
+
+  /**
+   * Method testApplicationModulesAreIsolated
+   *
+   * Ensures application layers do not depend on other modules' applications
+   *
+   * @access public
+   *
+   * @return iterable<Rule> Iterable of rules, one per module
+   */
+  public function testApplicationModulesAreIsolated(): iterable
+  {
+    $applicationModules = $this->modulesHavingLayer(self::LAYER);
+
+    foreach ($applicationModules as $module) {
+      if ($module->namespace === self::SHARED_NAMESPACE) {
+        continue;
+      }
+
+      $moduleSelectors = $this->selectorsForModuleLayer($module, self::LAYER);
+
+      if ($moduleSelectors === []) {
+        continue;
+      }
+
+      $forbiddenNamespaces = [];
+
+      foreach ($applicationModules as $candidate) {
+        if ($candidate->namespace === $module->namespace) {
+          continue;
+        }
+
+        $namespace = $candidate->layerNamespace(self::LAYER);
+
+        if ($namespace === '') {
+          continue;
+        }
+
+        $forbiddenNamespaces[] = $namespace;
+      }
+
+      $forbiddenSelectors = $this->selectorsForNamespaces($forbiddenNamespaces);
+
+      if ($forbiddenSelectors === []) {
+        continue;
+      }
+
+      yield PHPat::rule()
+        ->classes(...$moduleSelectors)
+        ->shouldNotDependOn()
+        ->classes(...$forbiddenSelectors)
+        ->because(tips: 'Application modules must stay isolated from each other.');
     }
   }
   //#endregion

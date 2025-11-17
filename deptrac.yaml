@@ -1,60 +1,48 @@
 deptrac:
-    paths:
-        - ./src
-    exclude_files:
-        - '#.*Tests.*#'
-    layers:
-        -
-            name: SharedDomain
-            collectors:
-                -
-                    type: classLike
-                    value: '^Shared\\\\Domain\\\\.*'
-        -
-            name: SharedApplication
-            collectors:
-                -
-                    type: classLike
-                    value: '^Shared\\\\Application\\\\.*'
-        -
-            name: SharedInfrastructure
-            collectors:
-                -
-                    type: classLike
-                    value: '^Shared\\\\Infrastructure\\\\.*'
-        -
-            name: Domain
-            collectors:
-                -
-                    type: classLike
-                    value: '^App\\\\.+\\\\Domain\\\\.*'
-        -
-            name: Application
-            collectors:
-                -
-                    type: classLike
-                    value: '^App\\\\.+\\\\Application\\\\.*'
-        -
-            name: Infrastructure
-            collectors:
-                -
-                    type: classLike
-                    value: '^App\\\\.+\\\\Infrastructure\\\\.*'
-    ruleset:
-        SharedDomain: []
-        SharedApplication:
-            - SharedDomain
-        SharedInfrastructure:
-            - SharedApplication
-            - SharedDomain
-        Domain:
-            - SharedDomain
-        Application:
-            - Domain
-            - SharedDomain
-            - SharedApplication
-        Infrastructure:
-            - Application
-            - Domain
-            - SharedDomain
-            - SharedApplication
+  paths:
+    - ./src
+  exclude_files:
+    - "#.*Tests.*#"
+  layers:
+    - name: SharedDomain
+      collectors:
+        - type: classLike
+          value: '^Shared\\\\Domain\\\\.*'
+    - name: SharedApplication
+      collectors:
+        - type: classLike
+          value: '^Shared\\\\Application\\\\.*'
+    - name: SharedInfrastructure
+      collectors:
+        - type: classLike
+          value: '^Shared\\\\Infrastructure\\\\.*'
+    - name: Domain
+      collectors:
+        - type: classLike
+          value: '^App\\\\.+\\\\Domain\\\\.*'
+    - name: Application
+      collectors:
+        - type: classLike
+          value: '^App\\\\.+\\\\Application\\\\.*'
+    - name: Infrastructure
+      collectors:
+        - type: classLike
+          value: '^App\\\\.+\\\\Infrastructure\\\\.*'
+  ruleset:
+    SharedDomain: []
+    SharedApplication:
+      - SharedDomain
+    SharedInfrastructure:
+      - SharedApplication
+      - SharedDomain
+    Domain:
+      - SharedDomain
+    Application:
+      - Domain
+      - SharedDomain
+      - SharedApplication
+    Infrastructure:
+      - Application
+      - Domain
+      - SharedDomain
+      - SharedApplication

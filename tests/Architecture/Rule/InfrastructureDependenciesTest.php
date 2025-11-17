@@ -2,22 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Architecture\HexagonalArchitecture;
+namespace App\Tests\Architecture\Rule;
 
-use App\Tests\Architecture\Support\Module;
-use PHPat\Selector\Selector;
-use PHPat\Selector\SelectorInterface;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
+use App\Tests\Architecture\Support\Module;
 
 /**
  * Test InfrastructureDependenciesTest
+ * @final
  *
  * Tests that the Infrastructure layer
  * stays inside the module
  *
- * @category Architecture Tests
- * @package App\Tests\Architecture\HexagonalArchitecture
+ * @category Architecture Rule Tests
+ * @package App\Tests\Architecture\Rule
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -54,7 +53,10 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
         continue;
       }
 
-      $infrastructureSelectors = $this->selectorsForModuleLayer(module: $module, layer: self::LAYER);
+      $infrastructureSelectors = $this->selectorsForModuleLayer(
+        module: $module,
+        layer: self::LAYER
+      );
 
       if ($infrastructureSelectors === []) {
         continue;

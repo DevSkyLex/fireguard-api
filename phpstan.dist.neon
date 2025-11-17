@@ -17,14 +17,18 @@ parameters:
 
 services:
     -
-        class: App\Tests\Architecture\HexagonalArchitecture\ApplicationDependenciesTest
+        class: App\Tests\Architecture\Rule\ApplicationDependenciesTest
         tags:
             - phpat.test
     -
-        class: App\Tests\Architecture\HexagonalArchitecture\DomainDependenciesTest
+        class: App\Tests\Architecture\Rule\DomainDependenciesTest
         tags:
             - phpat.test
     -
-        class: App\Tests\Architecture\HexagonalArchitecture\InfrastructureDependenciesTest
+        class: App\Tests\Architecture\Rule\InfrastructureDependenciesTest
+        tags:
+            - phpat.test
+    -
+        class: App\Tests\Architecture\Rule\SharedContractsDependenciesTest
         tags:
             - phpat.test

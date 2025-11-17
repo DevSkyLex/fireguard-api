@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Architecture\HexagonalArchitecture;
+namespace App\Tests\Architecture\Rule;
 
 use PHPat\Selector\Selector;
-use PHPat\Selector\SelectorInterface;
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
 
 /**
  * Test DomainDependenciesTest
+ * @final
  *
  * Tests that the Domain layer has no
  * outer dependencies
  *
- * @category Architecture Tests
- * @package App\Tests\Architecture\HexagonalArchitecture
+ * @category Architecture Rule Tests
+ * @package App\Tests\Architecture\Rule
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -74,6 +74,33 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
       ->shouldNotDependOn()
       ->classes(...$forbiddenSelectors)
       ->because(tips: 'Domain layer must remain pure and framework-agnostic.');
+  }
+
+  /**
+   * Method testDomainOnlyDependsOnDomainAndSharedGlobally
+   *
+   * Ensures the whole Domain layer only
+   * references domain contracts
+   *
+   * @access public
+   *
+   * @return Rule The test rule
+   */
+  public function testDomainOnlyDependsOnDomainAndSharedGlobally(): Rule
+  {
+    $domainSelectors = $this->selectorsForLayer(layer: self::LAYER);
+    $sharedSelectors = $this->sharedLayerSelectors(layer: self::LAYER);
+
+    $allowedSelectors = [
+      ...$domainSelectors,
+      ...$sharedSelectors
+    ];
+
+    return PHPat::rule()
+      ->classes(...$domainSelectors)
+      ->canOnlyDependOn()
+      ->classes(...$allowedSelectors)
+      ->because(tips: 'Domain must collaborate only through domain contracts.');
   }
 
   /**
@@ -161,6 +188,34 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
         ->classes(...$forbiddenSelectors)
         ->because(tips: 'Each bounded context domain must stay isolated from other domains.');
     }
+  }
+
+  /**
+   * Method testSharedDomainIsFrameworkAgnostic
+   *
+   * Ensures Shared Domain does not couple to infrastructure/framework
+   *
+   * @access public
+   *
+   * @return Rule The test rule
+   */
+  public function testSharedDomainIsFrameworkAgnostic(): Rule
+  {
+    $sharedDomainSelectors = $this->sharedLayerSelectors(self::LAYER);
+
+    $forbiddenSelectors = [
+      ...$this->selectorsForLayer(layer: self::INFRASTRUCTURE_LAYER),
+      Selector::inNamespace(namespace: sprintf('%s\\%s', self::SHARED_NAMESPACE, self::INFRASTRUCTURE_LAYER)),
+      Selector::inNamespace(namespace: 'Symfony'),
+    ];
+
+    return PHPat::rule()
+      ->classes(...($sharedDomainSelectors !== [] ? $sharedDomainSelectors : [
+        Selector::inNamespace(namespace: sprintf('%s\\%s', self::SHARED_NAMESPACE, self::LAYER))
+      ]))
+      ->shouldNotDependOn()
+      ->classes(...$forbiddenSelectors)
+      ->because(tips: 'Shared domain must stay pure and framework agnostic.');
   }
 
   //#endregion

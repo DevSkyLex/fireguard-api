@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Architecture\HexagonalArchitecture;
+namespace App\Tests\Architecture\Rule;
 
-use App\Tests\Architecture\Support\Module;
-use App\Tests\Architecture\Support\ModuleCollection;
 use PHPat\Selector\Selector;
 use PHPat\Selector\SelectorInterface;
+use App\Tests\Architecture\Support\{Module, ModuleCollection};
 
 /**
  * Test BaseHexagonalArchitectureTest
+ * @abstract
  *
  * Base class for hexagonal architecture tests
  *
- * @category Architecture Tests
- * @package App\Tests\Architecture\HexagonalArchitecture
+ * @category Architecture Rule Tests
+ * @package App\Tests\Architecture\Rule
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */

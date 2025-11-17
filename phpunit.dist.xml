@@ -18,13 +18,16 @@
     </php>
 
     <testsuites>
-        <testsuite name="Unit Tests">
+        <testsuite name="Architecture Unit Tests">
+            <directory>tests/Architecture/Unit</directory>
+        </testsuite>
+        <testsuite name="General Unit Tests">
             <directory>tests/Unit</directory>
         </testsuite>
-        <testsuite name="Integration Tests">
+        <testsuite name="General Integration Tests">
             <directory>tests/Integration</directory>
         </testsuite>
-        <testsuite name="Functional Tests">
+        <testsuite name="General Functional Tests">
             <directory>tests/Functional</directory>
         </testsuite>
     </testsuites>

@@ -5,14 +5,48 @@ declare(strict_types=1);
 namespace App\Tests\Architecture\Support;
 
 use RuntimeException;
+use function sprintf;
+use function scandir;
+use function is_dir;
+use function usort;
 
+/**
+ * Class ModuleCollection
+ * @final
+ *
+ * Utility class to represent a
+ * collection of modules
+ *
+ * @category Architecture Tests Support
+ * @package App\Tests\Architecture\Support
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class ModuleCollection
 {
-  /** @var list<Module>|null */
-  private static ?array $modules = null;
-
+  //#region Properties
   /**
-   * @return list<Module>
+   * Property modules
+   * @static
+   *
+   * List of modules
+   *
+   * @access private
+   *
+   * @var list<Module> | null $modules
+   */
+  private static ?array $modules = null;
+  //#endregion
+
+  //#region Methods
+  /**
+   * Method all
+   *
+   * Get all modules
+   *
+   * @access public
+   *
+   * @return list<Module> The list of modules
    */
   public static function all(): array
   {
@@ -58,4 +92,5 @@ final class ModuleCollection
 
     return self::$modules = $modules;
   }
+  //#endregion
 }
