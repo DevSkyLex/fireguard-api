@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Infrastructure\Symfony\Exception\FileStorageException;
+use Shared\Infrastructure\Exception\FileStorageException;
 use Throwable;
 
 /**

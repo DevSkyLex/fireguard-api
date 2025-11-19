@@ -6,7 +6,7 @@ namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Event\DomainEvent;
-use Shared\Infrastructure\Symfony\Exception\MessengerRuntimeException;
+use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 

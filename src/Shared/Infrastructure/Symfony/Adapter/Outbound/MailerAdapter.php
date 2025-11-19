@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Shared\Application\Port\Outbound\MailerPort;
-use Shared\Infrastructure\Symfony\Exception\MailSendingException;
-use Stringable;
+use Shared\Infrastructure\Exception\MailSendingException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Stringable;
 use Throwable;
 
 /**

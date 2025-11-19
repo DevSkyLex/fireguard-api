@@ -9,7 +9,7 @@ use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use Shared\Application\Port\Outbound\CachePort;
-use Shared\Infrastructure\Symfony\Exception\CacheOperationException;
+use Shared\Infrastructure\Exception\CacheOperationException;
 
 /**
  * Adapter CacheAdapter

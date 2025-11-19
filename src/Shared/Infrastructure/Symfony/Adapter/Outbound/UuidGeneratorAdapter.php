@@ -6,7 +6,7 @@ namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Closure;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
-use Shared\Infrastructure\Symfony\Exception\UuidGenerationException;
+use Shared\Infrastructure\Exception\UuidGenerationException;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
 
@@ -25,8 +25,18 @@ use Throwable;
 final readonly class UuidGeneratorAdapter implements UuidGeneratorPort
 {
   //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initialize the UUID generator adapter.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param ?Closure $generator The generator to use for UUID generation.
+   */
   public function __construct(
-    private ?Closure $generator = null,
+    private readonly ?Closure $generator = null,
   ) {}
   //#endregion
 

@@ -7,7 +7,7 @@ namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 use Doctrine\DBAL\Exception as DoctrineDBALException;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
-use Shared\Infrastructure\Symfony\Exception\TransactionExecutionException;
+use Shared\Infrastructure\Exception\TransactionExecutionException;
 use Throwable;
 
 /**

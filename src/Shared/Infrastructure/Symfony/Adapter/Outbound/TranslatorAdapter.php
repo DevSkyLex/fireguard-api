@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Shared\Application\Port\Outbound\TranslationPort;
-use Shared\Infrastructure\Symfony\Exception\TranslationException;
+use Shared\Infrastructure\Exception\TranslationException;
 use Stringable;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Throwable;
