@@ -6,7 +6,7 @@ namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter;
-use Shared\Infrastructure\Symfony\Exception\TranslationException;
+use Shared\Infrastructure\Exception\TranslationException;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Throwable;
 

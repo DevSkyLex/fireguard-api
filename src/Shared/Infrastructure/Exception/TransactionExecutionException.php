@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Shared\Infrastructure\Symfony\Exception;
+namespace Shared\Infrastructure\Exception;
 
-use Shared\Infrastructure\Exception\InfrastructureException;
 use Throwable;
 
 /**
@@ -15,7 +14,7 @@ use Throwable;
  * operation fails at the infrastructure level.
  *
  * @category Exception
- * @package Shared\Infrastructure\Symfony\Exception
+ * @package Shared\Infrastructure\Exception
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

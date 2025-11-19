@@ -9,7 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter;
-use Shared\Infrastructure\Symfony\Exception\TransactionExecutionException;
+use Shared\Infrastructure\Exception\TransactionExecutionException;
 
 /**
  * Test DoctrineTransactionManagerAdapter

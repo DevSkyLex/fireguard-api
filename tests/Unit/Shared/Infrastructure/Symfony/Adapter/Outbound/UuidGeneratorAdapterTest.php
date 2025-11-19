@@ -7,7 +7,7 @@ namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
-use Shared\Infrastructure\Symfony\Exception\UuidGenerationException;
+use Shared\Infrastructure\Exception\UuidGenerationException;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Uid\UuidV7;
 

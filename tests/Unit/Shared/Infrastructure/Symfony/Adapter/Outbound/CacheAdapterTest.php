@@ -10,7 +10,7 @@ use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
-use Shared\Infrastructure\Symfony\Exception\CacheOperationException;
+use Shared\Infrastructure\Exception\CacheOperationException;
 
 /**
  * Test CacheAdapter

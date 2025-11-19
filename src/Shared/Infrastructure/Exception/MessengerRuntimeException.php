@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Shared\Infrastructure\Symfony\Exception;
-
-use Shared\Infrastructure\Exception\InfrastructureException;
+namespace Shared\Infrastructure\Exception;
 
 use Throwable;
 
@@ -17,7 +15,7 @@ use Throwable;
  * error occurs in the messenger.
  *
  * @category Exception
- * @package Shared\Infrastructure\Symfony\Exception
+ * @package Shared\Infrastructure\Exception
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\ValueObject\Uuid;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter;
-use Shared\Infrastructure\Symfony\Exception\MessengerRuntimeException;
+use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;

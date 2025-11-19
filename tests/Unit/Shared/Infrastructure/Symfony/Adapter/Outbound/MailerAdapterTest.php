@@ -6,7 +6,7 @@ namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter;
-use Shared\Infrastructure\Symfony\Exception\MailSendingException;
+use Shared\Infrastructure\Exception\MailSendingException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;

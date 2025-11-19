@@ -6,8 +6,8 @@ namespace Shared\Infrastructure\Symfony\Adapter\Inbound;
 
 use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\EventListenerPort;
-use Shared\Infrastructure\Symfony\Exception\MessengerRuntimeException;
-use Shared\Infrastructure\Symfony\Exception\NoHandlerResultException;
+use Shared\Infrastructure\Exception\MessengerRuntimeException;
+use Shared\Infrastructure\Exception\NoHandlerResultException;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;

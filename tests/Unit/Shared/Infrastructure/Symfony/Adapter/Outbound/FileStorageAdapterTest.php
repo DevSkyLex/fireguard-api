@@ -6,7 +6,7 @@ namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
-use Shared\Infrastructure\Symfony\Exception\FileStorageException;
+use Shared\Infrastructure\Exception\FileStorageException;
 
 use function file_put_contents;
 use function is_dir;
