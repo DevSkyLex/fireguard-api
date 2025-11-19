@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Domain\Exception;
 
-use Shared\Domain\Exception\DomainException;
+use function sprintf;
 
 /**
  * Exception InvalidValueException
