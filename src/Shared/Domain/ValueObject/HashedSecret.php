@@ -9,7 +9,6 @@ use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * ValueObject HashedSecret
- * @final
  *
  * It represents a hashed secret.
  *
@@ -19,7 +18,7 @@ use Shared\Domain\Exception\InvalidValueException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class HashedSecret implements Stringable
+readonly class HashedSecret implements Stringable
 {
   //#region Constructor
   /**

@@ -7,9 +7,9 @@ namespace Shared\Domain\ValueObject;
 use Shared\Domain\Exception\InvalidValueException;
 use Stringable;
 
+
 /**
  * ValueObject Uuid
- * @final
  *
  * It represents a UUID.
  *
@@ -19,7 +19,7 @@ use Stringable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class Uuid implements Stringable
+readonly class Uuid implements Stringable
 {
   //#region Constants
   /**
@@ -58,6 +58,26 @@ final readonly class Uuid implements Stringable
   //#endregion
 
   //#region Methods
+  /**
+   * Method generate
+   * @static
+   *
+   * Generates a new UUID v7.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return self A new Uuid instance.
+   */
+  public static function generate(): self
+  {
+    $data = random_bytes(16);
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // set version to 0100
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
+
+    return new self(value: vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4)));
+  }
+
   /**
    * Method equals
    *

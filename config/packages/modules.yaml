@@ -1,0 +1,6 @@
+# Import module configurations
+# Each module has its own service configuration file in config/modules/
+
+imports:
+  - { resource: '../modules/shared.yaml' }
+  - { resource: '../modules/client.yaml' }

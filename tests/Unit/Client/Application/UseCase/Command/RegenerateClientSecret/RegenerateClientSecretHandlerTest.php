@@ -1,0 +1,148 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Client\Application\UseCase\Command\RegenerateClientSecret;
+
+use Client\Application\Port\Outbound\ClientRepositoryPort;
+use Client\Application\UseCase\Command\RegenerateClientSecret\{
+  RegenerateClientSecretCommand,
+  RegenerateClientSecretHandler,
+  RegenerateClientSecretResult
+};
+use Client\Domain\Exception\InvalidClientException;
+use Client\Domain\Model\Client;
+use Client\Domain\ValueObject\{ClientId, ClientName};
+use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\{
+  EventBusPort,
+  HashingPort
+};
+use Shared\Domain\ValueObject\{
+  GrantType,
+  GrantTypes,
+  HashedSecret,
+  RedirectUri,
+  Scope,
+  Scopes
+};
+
+use function strlen;
+use function password_hash;
+
+/**
+ * Test RegenerateClientSecretHandlerTest
+ * @final
+ *
+ * Test class for RegenerateClientSecretHandler.
+ *
+ * @category Handler Tests
+ * @package Tests\Client\Application\UseCase\Command\RegenerateClientSecret
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class RegenerateClientSecretHandlerTest extends TestCase
+{
+  //#region Methods
+  /**
+   * Method testInvokeRegeneratesClientSecret
+   *
+   * Test that __invoke regenerates client
+   * secret successfully
+   *
+   * @access public
+   *
+   * @return void No return value
+   */
+  public function testInvokeRegeneratesClientSecret(): void
+  {
+    $clientId = '123e4567-e89b-12d3-a456-426614174000';
+    $newHashedSecret = '$2y$10$newhashedsecret';
+
+    // Create real client
+    $client = Client::register(
+      id: new ClientId($clientId),
+      name: new ClientName('Test Client'),
+      secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('old_secret', PASSWORD_BCRYPT)),
+      redirectUris: [new RedirectUri('https://example.com')],
+      grantTypes: new GrantTypes(new GrantType('authorization_code')),
+      scopes: new Scopes(new Scope('read'))
+    );
+    $client->releaseEvents();
+
+    // Mocks
+    $repository = $this->createMock(ClientRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->with(self::equalTo(new ClientId($clientId)))
+      ->willReturn($client);
+    $repository->expects(self::once())
+      ->method('save')
+      ->with($client);
+
+    $hashing = $this->createMock(HashingPort::class);
+    $hashing->expects(self::once())
+      ->method('hash')
+      ->willReturn(new HashedSecret($newHashedSecret));
+
+    $eventBus = $this->createMock(EventBusPort::class);
+    $eventBus->expects(self::once())
+      ->method('publish');
+
+    // Command
+    $command = new RegenerateClientSecretCommand(clientId: $clientId);
+
+    // Handler
+    $handler = new RegenerateClientSecretHandler(
+      clientRepository: $repository,
+      hashing: $hashing,
+      eventBus: $eventBus
+    );
+
+    // Execute
+    $result = $handler->__invoke($command);
+
+    // Assert
+    self::assertInstanceOf(expected: RegenerateClientSecretResult::class, actual: $result);
+    self::assertSame(expected: $clientId, actual: $result->clientId);
+    self::assertEquals(expected: 64, actual: strlen($result->clientSecret));
+
+    // Verify client state
+    self::assertEquals($newHashedSecret, $client->secret()->value);
+  }
+
+  /**
+   * Method testInvokeThrowsExceptionWhenClientNotFound
+   *
+   * Test that __invoke throws exception
+   * when client is not found
+   *
+   * @access public
+   *
+   * @return void No return value
+   */
+  public function testInvokeThrowsExceptionWhenClientNotFound(): void
+  {
+    $clientId = '123e4567-e89b-12d3-a456-426614174000';
+
+    $repository = $this->createMock(ClientRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn(null);
+
+    $hashing = $this->createMock(HashingPort::class);
+    $eventBus = $this->createMock(EventBusPort::class);
+
+    $command = new RegenerateClientSecretCommand(clientId: $clientId);
+
+    $handler = new RegenerateClientSecretHandler(
+      clientRepository: $repository,
+      hashing: $hashing,
+      eventBus: $eventBus
+    );
+
+    $this->expectException(InvalidClientException::class);
+    $handler->__invoke($command);
+  }
+  //#endregion
+}

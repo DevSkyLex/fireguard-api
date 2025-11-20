@@ -13,6 +13,7 @@
         "doctrine/doctrine-bundle": "^2.18",
         "doctrine/doctrine-migrations-bundle": "^3.6",
         "doctrine/orm": "^3.5",
+        "lcobucci/jwt": "^5.6",
         "nelmio/cors-bundle": "^2.6",
         "phpdocumentor/reflection-docblock": "^5.6",
         "phpstan/phpdoc-parser": "^2.3",
@@ -46,12 +47,14 @@
     "autoload": {
         "psr-4": {
             "App\\": "src/",
-            "Shared\\": "src/Shared/"
+            "Shared\\": "src/Shared/",
+            "Client\\": "src/Client/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "App\\Tests\\": "tests/"
+            "App\\Tests\\": "tests/",
+            "Tests\\": "tests/"
         }
     },
     "replace": {

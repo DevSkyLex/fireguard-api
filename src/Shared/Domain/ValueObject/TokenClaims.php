@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Shared\Domain\ValueObject;
 
 use JsonSerializable;
-use Serializable;
-use Stringable;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**

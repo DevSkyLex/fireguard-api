@@ -21,35 +21,7 @@ services:
       - "../src/Entity/"
       - "../src/Kernel.php"
       - "../src/Shared/"
-
-  Shared\Infrastructure\:
-    resource: "../src/Shared/Infrastructure/"
-    exclude:
-      - "../src/Shared/Infrastructure/**/Tests/"
-      - "../src/Shared/Infrastructure/**/Tests.php"
-      - "../src/Shared/Infrastructure/**/Test.php"
-
-  Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter:
-    arguments:
-      $cachePool: '@cache.app'
-
-  Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter:
-    arguments:
-      $basePath: '%shared.file_storage.base_path%'
-
-  Shared\Application\Port\Inbound\CommandBusPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter'
-  Shared\Application\Port\Inbound\QueryBusPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerQueryBusAdapter'
-  Shared\Application\Port\Inbound\EventListenerPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerEventListenerAdapter'
-
-  Shared\Application\Port\Outbound\CachePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter'
-  Shared\Application\Port\Outbound\ClockPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter'
-  Shared\Application\Port\Outbound\EventBusPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter'
-  Shared\Application\Port\Outbound\FileStoragePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter'
-  Shared\Application\Port\Outbound\LoggerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter'
-  Shared\Application\Port\Outbound\MailerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter'
-  Shared\Application\Port\Outbound\TransactionManagerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
-  Shared\Application\Port\Outbound\TranslationPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter'
-  Shared\Application\Port\Outbound\UuidGeneratorPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter'
+      - "../src/Client/"
 
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones
