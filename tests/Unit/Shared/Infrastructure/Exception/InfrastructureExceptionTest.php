@@ -2,40 +2,29 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Exception;
+namespace Tests\Unit\Shared\Infrastructure\Exception;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Infrastructure\Exception\InfrastructureException;
 
 /**
- * Test InfrastructureException
- * @final
+ * Class InfrastructureExceptionTest
  *
- * @category Infrastructure Exception Test
- * @package Tests\Shared\Infrastructure\Exception
+ * Unit tests for the InfrastructureException.
  *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Infrastructure\Exception
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * @covers \Shared\Infrastructure\Exception\InfrastructureException
  */
 final class InfrastructureExceptionTest extends TestCase
 {
-  //#region Methods
   /**
-   * Method testMetadataReturnsEmptyArray
-   *
-   * Test metadata returns empty array
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that metadata returns an empty array by default.
    */
-  public function testMetadataReturnsEmptyArray(): void
+  public function testMetadataReturnsEmptyArrayByDefault(): void
   {
-    $exception = new class() extends InfrastructureException {};
-
-    self::assertSame(
-      expected: [],
-      actual: $exception->metadata()
-    );
+    $exception = new class extends InfrastructureException {};
+    $this->assertSame([], $exception->metadata());
   }
-  //#endregion
 }

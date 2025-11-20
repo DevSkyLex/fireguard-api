@@ -2,86 +2,80 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Domain\ValueObject;
+namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 
-
 /**
- * Test EmailTest
- * @final
+ * Class EmailTest
  *
- * Test class for Email.
+ * Unit tests for the Email Value Object.
  *
- * @category ValueObject Tests
- * @package Tests\Shared\Domain\ValueObject
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Domain\ValueObject
+ * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Domain\ValueObject\Email
  */
 final class EmailTest extends TestCase
 {
-  //#region Constants
-  /**
-   * Constant VALID_EMAIL
-   *
-   * Valid email
-   *
-   * @access private
-   *
-   * @var string VALID_EMAIL
-   */
-  private const string VALID_EMAIL = 'john.doe@example.com';
-
-  /**
-   * Constant INVALID_EMAIL
-   *
-   * Invalid email
-   *
-   * @access private
-   *
-   * @var string INVALID_EMAIL
-   */
-  private const string INVALID_EMAIL = 'not-an-email';
-  //#endregion
-
   //#region Methods
   /**
-   * Method testValidEmailIsAccepted
+   * Method testCanBeCreatedWithValidValue
    *
-   * Test the constructor with
-   * a valid email
-   *
+   * Tests that a valid Email can 
+   * be created.
+   * 
    * @access public
-   *
-   * @return void No return value
+   * 
+   * @return void No return value.
    */
-  public function testValidEmailIsAccepted(): void
+  public function testCanBeCreatedWithValidValue(): void
   {
-    $email = new Email(value: self::VALID_EMAIL);
+    $value = 'test@example.com';
+    $email = new Email(value: $value);
 
-    self::assertSame(
-      expected: self::VALID_EMAIL,
-      actual: (string) $email
-    );
+    $this->assertEquals(expected: $value, actual: $email->value);
+    $this->assertEquals(expected: $value, actual: (string) $email);
   }
 
   /**
-   * Method testInvalidEmailThrowsException
+   * Method testCannotBeCreatedWithInvalidValue
    *
-   * Test the constructor with
-   * an invalid email
-   *
+   * Tests that creating an Email with an 
+   * invalid format throws an exception.
+   * 
    * @access public
-   *
-   * @return void No return value
+   * 
+   * @return void No return value.
    */
-  public function testInvalidEmailThrowsException(): void
+  public function testCannotBeCreatedWithInvalidValue(): void
   {
     $this->expectException(exception: InvalidValueException::class);
+    new Email(value: 'invalid-email');
+  }
 
-    new Email(value: self::INVALID_EMAIL);
+  /**
+   * Method testEquality
+   *
+   * Tests equality comparison between 
+   * Email objects.
+   * 
+   * @access public
+   * 
+   * @return void No return value.
+   */
+  public function testEquality(): void
+  {
+    $e1 = new Email(value: 'test@example.com');
+    $e2 = new Email(value: 'test@example.com');
+    $e3 = new Email(value: 'other@example.com');
+
+    $this->assertTrue(condition: $e1->equals($e2));
+    $this->assertFalse(condition: $e1->equals($e3));
   }
   //#endregion
 }

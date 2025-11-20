@@ -2,85 +2,80 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Domain\ValueObject;
+namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Locale;
 
 /**
- * Test LocaleTest
- * @final
+ * Class LocaleTest
  *
- * Test class for the Locale value object.
+ * Unit tests for the Locale Value Object.
  *
- * @category ValueObject Tests
- * @package Tests\Shared\Domain\ValueObject
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Domain\ValueObject
+ * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Domain\ValueObject\Locale
  */
 final class LocaleTest extends TestCase
 {
-  //#region Constants
-  /**
-   * Constant VALID_LOCALE
-   *
-   * Valid locale
-   *
-   * @access private
-   *
-   * @var string VALID_LOCALE
-   */
-  private const string VALID_LOCALE = 'fr_FR';
-
-  /**
-   * Constant INVALID_LOCALE
-   *
-   * Invalid locale
-   *
-   * @access private
-   *
-   * @var string INVALID_LOCALE
-   */
-  private const string INVALID_LOCALE = 'french';
-  //#endregion
-
   //#region Methods
   /**
-   * Method testValidLocaleIsAccepted
+   * Method testCanBeCreatedWithValidValue
    *
-   * Test the constructor with
-   * a valid locale
+   * Tests that a valid Locale can 
+   * be created.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testValidLocaleIsAccepted(): void
+  public function testCanBeCreatedWithValidValue(): void
   {
-    $locale = new Locale(value: self::VALID_LOCALE);
+    $value = 'fr';
+    $locale = new Locale($value);
 
-    self::assertSame(
-      expected: self::VALID_LOCALE,
-      actual: (string) $locale
-    );
+    $this->assertEquals($value, $locale->value);
+    $this->assertEquals($value, (string) $locale);
   }
 
   /**
-   * Method testInvalidLocaleThrowsException
+   * Method testCannotBeCreatedWithInvalidValue
    *
-   * Test the constructor with
-   * an invalid locale
+   * Tests that creating a Locale with an invalid 
+   * value throws an exception.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testInvalidLocaleThrowsException(): void
+  public function testCannotBeCreatedWithInvalidValue(): void
   {
-    $this->expectException(InvalidValueException::class);
+    $this->expectException(exception: InvalidValueException::class);
+    new Locale(value: 'invalid-locale');
+  }
 
-    new Locale(value: self::INVALID_LOCALE);
+  /**
+   * Method testEquality
+   *
+   * Tests equality comparison between 
+   * Locale objects.
+   *
+   * @access public
+   *
+   * @return void No return value.
+   */
+  public function testEquality(): void
+  {
+    $l1 = new Locale(value: 'fr');
+    $l2 = new Locale(value: 'fr');
+    $l3 = new Locale(value: 'en');
+
+    $this->assertTrue(condition: $l1->equals($l2));
+    $this->assertFalse(condition: $l1->equals($l3));
   }
   //#endregion
 }

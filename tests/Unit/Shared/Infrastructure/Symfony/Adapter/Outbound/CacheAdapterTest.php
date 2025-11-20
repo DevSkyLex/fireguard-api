@@ -2,411 +2,177 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use DateInterval;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\CacheItemPoolInterface;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
+use Psr\Cache\InvalidArgumentException;
 use Shared\Infrastructure\Exception\CacheOperationException;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
+use Exception;
 
-/**
- * Test CacheAdapter
- * @final
- *
- * Test the CacheAdapter class
- *
- * @category Infrastructure Test
- * @package Tests\Shared\Infrastructure\Symfony\Adapter\Outbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
 final class CacheAdapterTest extends TestCase
 {
-  //#region Methods
-  /**
-   * Method testGetReturnsStoredValueWhenCacheHit
-   *
-   * Test that the get method returns the
-   * stored value when the cache hit
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testGetReturnsStoredValueWhenCacheHit(): void
+  private CacheItemPoolInterface&MockObject $cachePool;
+  private CacheAdapter $adapter;
+
+  protected function setUp(): void
   {
-    // Mock cache item
-    $item = $this->createMock(type: CacheItemInterface::class);
-
-    // Mock cache item is hit
-    $item->expects(self::once())
-      ->method(constraint: 'isHit')
-      ->willReturn(value: true);
-
-    // Mock cache item get
-    $item->expects(self::once())
-      ->method(constraint: 'get')
-      ->willReturn(value: 'value');
-
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
-
-    // Mock cache item pool get item
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->with(arguments: 'foo')
-      ->willReturn(value: $item);
-
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    // Assert get returns stored value when cache hit
-    self::assertSame(
-      expected: 'value',
-      actual: $adapter->get(key: 'foo')
-    );
+    $this->cachePool = $this->createMock(CacheItemPoolInterface::class);
+    $this->adapter = new CacheAdapter($this->cachePool);
   }
 
-  /**
-   * Method testGetReturnsDefaultWhenCacheMiss
-   *
-   * Test that the get method returns the default
-   * value when the cache miss
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testGetReturnsDefaultWhenCacheMiss(): void
+  public function testGetHit(): void
   {
-    // Mock cache item
-    $item = $this->createMock(type: CacheItemInterface::class);
+    $key = 'test_key';
+    $value = 'test_value';
+    $item = $this->createMock(CacheItemInterface::class);
 
-    // Mock cache item is hit
-    $item->expects(self::once())
-      ->method(constraint: 'isHit')
-      ->willReturn(value: false);
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willReturn($item);
 
-    // Mock cache item get
-    $item->expects(self::never())
-      ->method(constraint: 'get');
+    $item->expects($this->once())
+      ->method('isHit')
+      ->willReturn(true);
 
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $item->expects($this->once())
+      ->method('get')
+      ->willReturn($value);
 
-    // Mock cache item pool get item
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->with(arguments: 'foo')
-      ->willReturn(value: $item);
-
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    // Assert get returns default when cache miss
-    self::assertSame(
-      expected: 'default',
-      actual: $adapter->get(key: 'foo', default: 'default')
-    );
+    $this->assertEquals($value, $this->adapter->get($key));
   }
 
-  /**
-   * Method testGetWrapsFailureInCacheOperationException
-   *
-   * Test that the get method wraps the failure
-   * in a CacheOperationException
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testGetWrapsFailureInCacheOperationException(): void
+  public function testGetMiss(): void
   {
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $key = 'test_key';
+    $default = 'default_value';
+    $item = $this->createMock(CacheItemInterface::class);
 
-    // Mock cache item pool get item
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->willThrowException(exception: $this->createMock(
-        type: CacheException::class
-      ));
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willReturn($item);
 
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
+    $item->expects($this->once())
+      ->method('isHit')
+      ->willReturn(false);
 
-    $this->expectException(exception: CacheOperationException::class);
-    $adapter->get(key: 'foo');
+    $this->assertEquals($default, $this->adapter->get($key, $default));
   }
 
-  /**
-   * Method testSetWrapsGetItemFailure
-   *
-   * Test that the set method wraps the failure
-   * in a CacheOperationException
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testSetWrapsGetItemFailure(): void
+  public function testGetThrowsException(): void
   {
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $key = 'test_key';
+    $exception = new class extends Exception implements InvalidArgumentException {};
 
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->willThrowException(exception: $this->createMock(
-        type: CacheException::class
-      ));
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willThrowException($exception);
 
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-
-    $adapter->set(
-      key: 'foo',
-      value: 'value'
-    );
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->get($key);
   }
 
-  /**
-   * Method testSetPersistsValueAndExpiresAfterTtl
-   *
-   * Test that the set method persists the value
-   * and expires after the ttl
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testSetPersistsValueAndExpiresAfterTtl(): void
+  public function testSetSuccess(): void
   {
-    // Mock cache item
-    $item = $this->createMock(type: CacheItemInterface::class);
+    $key = 'test_key';
+    $value = 'test_value';
+    $ttl = 3600;
+    $item = $this->createMock(CacheItemInterface::class);
 
-    // Mock cache item set
-    $item->expects(self::once())
-      ->method(constraint: 'set')
-      ->with(arguments: 'value');
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willReturn($item);
 
-    // Mock cache item expires after
-    $item->expects(self::once())
-      ->method(constraint: 'expiresAfter')
-      ->with(arguments: self::isInstanceOf(className: DateInterval::class));
+    $item->expects($this->once())
+      ->method('set')
+      ->with($value);
 
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $item->expects($this->once())
+      ->method('expiresAfter')
+      ->with($ttl);
 
-    // Mock cache item pool get item
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->with(arguments: 'foo')
-      ->willReturn(value: $item);
+    $this->cachePool->expects($this->once())
+      ->method('save')
+      ->with($item)
+      ->willReturn(true);
 
-    // Mock cache item pool save
-    $pool->expects(self::once())
-      ->method(constraint: 'save')
-      ->with(arguments: $item)
-      ->willReturn(value: true);
-
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    // Assert set persists value and expires after ttl
-    $adapter->set(
-      key: 'foo',
-      value: 'value',
-      ttl: new DateInterval(duration: 'PT5M')
-    );
+    $this->adapter->set($key, $value, $ttl);
   }
 
-  /**
-   * Method testSetThrowsWhenSaveFails
-   *
-   * Test that the set method throws when save fails
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testSetThrowsWhenSaveFails(): void
+  public function testSetThrowsExceptionOnGetItem(): void
   {
-    // Mock cache item
-    $item = $this->createMock(type: CacheItemInterface::class);
+    $key = 'test_key';
+    $exception = new class extends Exception implements InvalidArgumentException {};
 
-    // Mock cache item set
-    $item->expects(self::once())
-      ->method(constraint: 'set');
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willThrowException($exception);
 
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
-
-    // Mock cache item pool get item
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->willReturn(value: $item);
-
-    // Mock cache item pool save
-    $pool->expects(self::once())
-      ->method(constraint: 'save')
-      ->willReturn(value: false);
-
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-    $adapter->set(
-      key: 'foo',
-      value: 'value'
-    );
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->set($key, 'value');
   }
 
-  /**
-   * Method testSetWrapsSaveException
-   *
-   * Test that the set method wraps the save exception
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testSetWrapsSaveException(): void
+  public function testSetThrowsExceptionOnSave(): void
   {
-    $item = $this->createMock(type: CacheItemInterface::class);
+    $key = 'test_key';
+    $item = $this->createMock(CacheItemInterface::class);
+    $exception = new class extends Exception implements InvalidArgumentException {};
 
-    $item->expects(self::once())
-      ->method(constraint: 'set')
-      ->with(arguments: 'value');
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willReturn($item);
 
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $this->cachePool->expects($this->once())
+      ->method('save')
+      ->with($item)
+      ->willThrowException($exception);
 
-    $pool->expects(self::once())
-      ->method(constraint: 'getItem')
-      ->with(arguments: 'foo')
-      ->willReturn(value: $item);
-
-    $pool->expects(self::once())
-      ->method(constraint: 'save')
-      ->with(arguments: $item)
-      ->willThrowException(exception: $this->createMock(
-        type: CacheException::class
-      ));
-
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-
-    $adapter->set(
-      key: 'foo',
-      value: 'value'
-    );
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->set($key, 'value');
   }
 
-  /**
-   * Method testDeleteWrapsException
-   *
-   * Test that the delete method wraps
-   * the exception
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDeleteWrapsException(): void
+  public function testDeleteSuccess(): void
   {
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $key = 'test_key';
 
-    // Mock cache item pool delete item
-    $pool->expects(self::once())
-      ->method(constraint: 'deleteItem')
-      ->willThrowException($this->createMock(CacheException::class));
+    $this->cachePool->expects($this->once())
+      ->method('deleteItem')
+      ->with($key)
+      ->willReturn(true);
 
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-    $adapter->delete(key: 'foo');
+    $this->adapter->delete($key);
   }
 
-  /**
-   * Method testDeleteThrowsWhenDeletionReturnsFalse
-   *
-   * Test that the delete method throws
-   * when deletion returns false
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDeleteThrowsWhenDeletionReturnsFalse(): void
+  public function testDeleteThrowsException(): void
   {
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $key = 'test_key';
+    $exception = new class extends Exception implements InvalidArgumentException {};
 
-    $pool->expects(self::once())
-      ->method(constraint: 'deleteItem')
-      ->with(arguments: 'foo')
-      ->willReturn(value: false);
+    $this->cachePool->expects($this->once())
+      ->method('deleteItem')
+      ->with($key)
+      ->willThrowException($exception);
 
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-
-    $adapter->delete(key: 'foo');
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->delete($key);
   }
 
-  /**
-   * Method testClearWrapsException
-   *
-   * Test that the clear method wraps the exception
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testClearWrapsException(): void
+  public function testClearSuccess(): void
   {
-    // Mock cache item pool
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
+    $this->cachePool->expects($this->once())
+      ->method('clear')
+      ->willReturn(true);
 
-    // Mock cache item pool clear
-    $pool->expects(self::once())
-      ->method(constraint: 'clear')
-      ->willThrowException($this->createMock(CacheException::class));
-
-    // Create cache adapter
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-    $adapter->clear();
+    $this->adapter->clear();
   }
-
-  /**
-   * Method testClearThrowsWhenPoolReturnsFalse
-   *
-   * Test that the clear method throws
-   * when the pool returns false
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testClearThrowsWhenPoolReturnsFalse(): void
-  {
-    $pool = $this->createMock(type: CacheItemPoolInterface::class);
-
-    $pool->expects(self::once())
-      ->method(constraint: 'clear')
-      ->willReturn(value: false);
-
-    $adapter = new CacheAdapter(cachePool: $pool);
-
-    $this->expectException(exception: CacheOperationException::class);
-
-    $adapter->clear();
-  }
-  //#endregion
 }

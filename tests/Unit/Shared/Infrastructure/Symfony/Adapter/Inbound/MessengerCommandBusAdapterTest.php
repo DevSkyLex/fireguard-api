@@ -2,197 +2,88 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Inbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Shared\Application\Message\CommandMessage;
 use Shared\Application\Message\ResultMessage;
-use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
-use stdClass;
+use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Exception;
 
-/**
- * Test MessengerCommandBusAdapter
- * @final
- *
- * Test the MessengerCommandBusAdapter class
- *
- * @category Infrastructure Test
- * @package Tests\Shared\Infrastructure\Symfony\Adapter\Inbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
 final class MessengerCommandBusAdapterTest extends TestCase
 {
-  //#region Methods
-  /**
-   * Method testDispatchReturnsResultMessage
-   *
-   * Test the dispatch method when the command
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDispatchReturnsResultMessage(): void
+  private MessageBusInterface&MockObject $messageBus;
+  private MessengerCommandBusAdapter $adapter;
+
+  protected function setUp(): void
   {
-    $command = new DummyCommand();
-    $result = new CommandResultStub(value: 'ok');
-    $envelope = new Envelope(
-      message: $command,
-      stamps: [new HandledStamp(
-        result: $result,
-        handlerName: 'handler'
-      )]
-    );
-
-    $commandBus = $this->createMock(type: MessageBusInterface::class);
-    $commandBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $command)
-      ->willReturn(value: $envelope);
-
-    $adapter = new MessengerCommandBusAdapter(commandBus: $commandBus);
-
-    self::assertSame(
-      expected: $result,
-      actual: $adapter->dispatch(command: $command)
-    );
+    $this->messageBus = $this->createMock(MessageBusInterface::class);
+    $this->adapter = new MessengerCommandBusAdapter($this->messageBus);
   }
 
-  /**
-   * Method testDispatchWrapsMessengerExceptions
-   *
-   * Test the dispatch method when the command
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDispatchWrapsMessengerExceptions(): void
+  public function testDispatchSuccess(): void
   {
-    $command = new DummyCommand();
+    $command = $this->createMock(CommandMessage::class);
+    $result = $this->createMock(ResultMessage::class);
+    $handledStamp = new HandledStamp($result, 'handler');
+    $envelope = new Envelope($command, [$handledStamp]);
 
-    $commandBus = $this->createMock(type: MessageBusInterface::class);
-    $commandBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $command)
-      ->willThrowException(exception: new RuntimeException(
-        message: 'failure'
-      ));
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($command)
+      ->willReturn($envelope);
 
-    $adapter = new MessengerCommandBusAdapter(commandBus: $commandBus);
+    $actualResult = $this->adapter->dispatch($command);
 
-    $this->expectException(exception: MessengerRuntimeException::class);
-
-    $adapter->dispatch(command: $command);
+    $this->assertSame($result, $actualResult);
   }
 
-  /**
-   * Method testDispatchThrowsWhenHandledStampMissing
-   *
-   * Test the dispatch method when the command
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDispatchThrowsWhenHandledStampMissing(): void
+  public function testDispatchThrowsMessengerRuntimeException(): void
   {
-    $command = new DummyCommand();
-    $envelope = new Envelope(message: $command);
+    $command = $this->createMock(CommandMessage::class);
+    $exception = new Exception('Dispatch error');
 
-    $commandBus = $this->createMock(type: MessageBusInterface::class);
-    $commandBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $command)
-      ->willReturn(value: $envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($command)
+      ->willThrowException($exception);
 
-    $adapter = new MessengerCommandBusAdapter(commandBus: $commandBus);
-
-    $this->expectException(exception: NoHandlerResultException::class);
-
-    $adapter->dispatch(command: $command);
+    $this->expectException(MessengerRuntimeException::class);
+    $this->adapter->dispatch($command);
   }
 
-  /**
-   * Method testDispatchThrowsWhenResultIsNotResultMessage
-   *
-   * Test the dispatch method when the command
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDispatchThrowsWhenResultIsNotResultMessage(): void
+  public function testDispatchThrowsNoHandlerResultExceptionWhenNoStamp(): void
   {
-    $command = new DummyCommand();
-    $envelope = new Envelope(
-      message: $command,
-      stamps: [new HandledStamp(
-        result: new stdClass(),
-        handlerName: 'handler'
-      )]
-    );
+    $command = $this->createMock(CommandMessage::class);
+    $envelope = new Envelope($command); // No HandledStamp
 
-    $commandBus = $this->createMock(type: MessageBusInterface::class);
-    $commandBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $command)
-      ->willReturn(value: $envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($command)
+      ->willReturn($envelope);
 
-    $adapter = new MessengerCommandBusAdapter(commandBus: $commandBus);
-
-    $this->expectException(exception: NoHandlerResultException::class);
-
-    $adapter->dispatch(command: $command);
+    $this->expectException(NoHandlerResultException::class);
+    $this->adapter->dispatch($command);
   }
-  //#endregion
-}
 
-/**
- * Class DummyCommand
- * @final
- *
- * @category Infrastructure Test
- * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
-final class DummyCommand implements CommandMessage {}
+  public function testDispatchThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
+  {
+    $command = $this->createMock(CommandMessage::class);
+    $handledStamp = new HandledStamp('not-a-result-message', 'handler');
+    $envelope = new Envelope($command, [$handledStamp]);
 
-/**
- * Class CommandResultStub
- * @final
- *
- * @category Infrastructure Test
- * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
-final class CommandResultStub implements ResultMessage
-{
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initialize the command result stub
-   *
-   * @access public
-   *
-   * @param string $value The value of the command result
-   */
-  public function __construct(
-    public readonly string $value
-  ) {}
-  //#endregion
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($command)
+      ->willReturn($envelope);
+
+    $this->expectException(NoHandlerResultException::class);
+    $this->adapter->dispatch($command);
+  }
 }

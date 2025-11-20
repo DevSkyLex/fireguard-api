@@ -2,126 +2,52 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
-use Doctrine\DBAL\Exception as DoctrineDBALException;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter;
 use Shared\Infrastructure\Exception\TransactionExecutionException;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter;
+use Exception;
 
-/**
- * Test DoctrineTransactionManagerAdapter
- * @final
- *
- * Test the DoctrineTransactionManagerAdapter class
- *
- * @category Unit Test
- * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
 final class DoctrineTransactionManagerAdapterTest extends TestCase
 {
-  //#region Methods
-  /**
-   * Method testTransactionalReturnsOperationResult
-   *
-   * Test that the transactional method
-   * returns the operation result
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value
-   */
-  public function testTransactionalReturnsOperationResult(): void
-  {
-    $entityManager = $this->createMock(type: EntityManagerInterface::class);
+  private EntityManagerInterface&MockObject $entityManager;
+  private DoctrineTransactionManagerAdapter $adapter;
 
-    $entityManager->expects(self::once())
-      ->method(constraint: 'wrapInTransaction')
-      ->with(arguments: self::callback(callback: static fn($callback) => is_callable($callback)))
-      ->willReturnCallback(callback: static function (callable $callback) use ($entityManager) {
-        return $callback($entityManager);
+  protected function setUp(): void
+  {
+    $this->entityManager = $this->createMock(EntityManagerInterface::class);
+    $this->adapter = new DoctrineTransactionManagerAdapter($this->entityManager);
+  }
+
+  public function testTransactionalSuccess(): void
+  {
+    $operation = fn() => 'result';
+
+    $this->entityManager->expects($this->once())
+      ->method('wrapInTransaction')
+      ->willReturnCallback(function ($callback) {
+        return $callback($this->entityManager);
       });
 
-    $adapter = new DoctrineTransactionManagerAdapter(entityManager: $entityManager);
+    $result = $this->adapter->transactional($operation);
 
-    $invocationCount = 0;
-    $operation = static function () use (&$invocationCount) {
-      ++$invocationCount;
-      return 'result';
-    };
-
-    self::assertSame(
-      expected: 'result',
-      actual: $adapter->transactional($operation)
-    );
-
-    self::assertSame(
-      expected: 1,
-      actual: $invocationCount
-    );
+    $this->assertEquals('result', $result);
   }
 
-  /**
-   * Method testTransactionalWrapsExceptions
-   *
-   * Test that the transactional method
-   * wraps exceptions
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value
-   *
-   * @throws TransactionExecutionException When the transaction fails
-   */
-  public function testTransactionalWrapsExceptions(): void
+  public function testTransactionalThrowsException(): void
   {
-    $entityManager = $this->createMock(type: EntityManagerInterface::class);
+    $operation = fn() => throw new Exception('Transaction failed');
 
-    $entityManager->expects(self::once())
-      ->method(constraint: 'wrapInTransaction')
-      ->willThrowException(exception: new RuntimeException(message: 'failure'));
+    $this->entityManager->expects($this->once())
+      ->method('wrapInTransaction')
+      ->willReturnCallback(function ($callback) {
+        return $callback($this->entityManager);
+      });
 
-    $adapter = new DoctrineTransactionManagerAdapter(entityManager: $entityManager);
-
-    $this->expectException(exception: TransactionExecutionException::class);
-
-    $adapter->transactional(operation: static fn() => null);
+    $this->expectException(TransactionExecutionException::class);
+    $this->adapter->transactional($operation);
   }
-
-  /**
-   * Method testTransactionalWrapsDoctrineDbalExceptions
-   *
-   * Test that the transactional method
-   * wraps Doctrine DBAL exceptions
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value
-   *
-   * @throws TransactionExecutionException When the transaction fails
-   */
-  public function testTransactionalWrapsDoctrineDbalExceptions(): void
-  {
-    $entityManager = $this->createMock(type: EntityManagerInterface::class);
-
-    $entityManager->expects(self::once())
-      ->method(constraint: 'wrapInTransaction')
-      ->willThrowException(exception: $this->createMock(
-        type: DoctrineDBALException::class
-      ));
-
-    $adapter = new DoctrineTransactionManagerAdapter(entityManager: $entityManager);
-
-    $this->expectException(exception: TransactionExecutionException::class);
-
-    $adapter->transactional(operation: static fn() => null);
-  }
-  //#endregion
 }

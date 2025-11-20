@@ -6,19 +6,27 @@ namespace Tests\Client\Application\UseCase\Query\ListClients;
 
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Application\UseCase\Query\GetClient\GetClientResult;
-use Client\Application\UseCase\Query\ListClients\ListClientsHandler;
-use Client\Application\UseCase\Query\ListClients\ListClientsQuery;
+use Client\Application\UseCase\Query\ListClients\{
+  ListClientsHandler,
+  ListClientsQuery
+};
 use Client\Domain\Model\Client;
-use Client\Domain\ValueObject\ClientId;
-use Client\Domain\ValueObject\ClientName;
+use Client\Domain\ValueObject\{
+  ClientId, 
+  ClientName
+};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Query\PaginatedResult;
-use Shared\Application\Query\Pagination;
-use Shared\Domain\ValueObject\GrantType;
-use Shared\Domain\ValueObject\GrantTypes;
-use Shared\Domain\ValueObject\RedirectUri;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use Shared\Application\Query\{
+  PaginatedResult,
+  Pagination
+};
+use Shared\Domain\ValueObject\{
+  GrantType,
+  GrantTypes,
+  RedirectUri,
+  Scope,
+  Scopes
+};
 
 /**
  * Test ListClientsHandlerTest

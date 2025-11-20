@@ -2,91 +2,71 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter;
 use Shared\Infrastructure\Exception\TranslationException;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use Throwable;
+use Exception;
 
 /**
- * Test TranslatorAdapter
- * @final
+ * Class TranslatorAdapterTest
  *
- * Test the TranslatorAdapter class.
+ * Unit tests for the TranslatorAdapter.
  *
- * @category Infrastructure Test
- * @package Tests\Shared\Infrastructure\Symfony\Adapter\Outbound
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter
  */
 final class TranslatorAdapterTest extends TestCase
 {
-  //#region Methods
+  private TranslatorInterface&MockObject $translator;
+  private TranslatorAdapter $adapter;
+
   /**
-   * Method testTranslateDelegatesToTranslator
-   *
-   * Ensure that the translate method delegates
-   * to the Symfony translator with the provided arguments.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Set up the test environment.
    */
-  public function testTranslateDelegatesToTranslator(): void
+  protected function setUp(): void
   {
-    $translator = $this->createMock(type: TranslatorInterface::class);
-    $translator->expects(self::once())
-      ->method(constraint: 'trans')
-      ->with(
-        id: 'message.id',
-        parameters: ['name' => 'John'],
-        domain: 'messages',
-        locale: 'fr'
-      )
-      ->willReturn(value: 'Bonjour John');
-
-    $adapter = new TranslatorAdapter(translator: $translator);
-
-    $translated = $adapter->translate(
-      id: 'message.id',
-      parameters: ['name' => 'John'],
-      domain: 'messages',
-      locale: 'fr'
-    );
-
-    self::assertSame(
-      expected: 'Bonjour John',
-      actual: $translated
-    );
+    $this->translator = $this->createMock(TranslatorInterface::class);
+    $this->adapter = new TranslatorAdapter($this->translator);
   }
 
   /**
-   * Method testTranslateWrapsExceptions
-   *
-   * Ensure that the adapter wraps exceptions
-   * thrown by the translator.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that a message is translated successfully.
    */
-  public function testTranslateWrapsExceptions(): void
+  public function testTranslateSuccess(): void
   {
-    // Create translator mock
-    $translator = $this->createMock(type: TranslatorInterface::class);
+    $id = 'message.id';
+    $parameters = ['%param%' => 'value'];
+    $domain = 'messages';
+    $locale = 'en';
+    $translated = 'Translated Message';
 
-    // Configure translator to throw exception
-    $translator->expects(self::once())
-      ->method(constraint: 'trans')
-      ->willThrowException(exception: $this->createMock(type: Throwable::class));
+    $this->translator->expects($this->once())
+      ->method('trans')
+      ->with($id, $parameters, $domain, $locale)
+      ->willReturn($translated);
 
-    // Create adapter
-    $adapter = new TranslatorAdapter(translator: $translator);
-
-    $this->expectException(exception: TranslationException::class);
-    $adapter->translate(id: 'message.id');
+    $this->assertEquals($translated, $this->adapter->translate($id, $parameters, $domain, $locale));
   }
-  //#endregion
+
+  /**
+   * Test that translation fails and throws a TranslationException.
+   */
+  public function testTranslateThrowsException(): void
+  {
+    $id = 'message.id';
+    $exception = new Exception('Translation error');
+
+    $this->translator->expects($this->once())
+      ->method('trans')
+      ->willThrowException($exception);
+
+    $this->expectException(TranslationException::class);
+    $this->adapter->translate($id);
+  }
 }

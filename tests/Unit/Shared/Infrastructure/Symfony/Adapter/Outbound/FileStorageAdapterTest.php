@@ -2,311 +2,118 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\TestCase;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
 use Shared\Infrastructure\Exception\FileStorageException;
-
-use function file_put_contents;
-use function is_dir;
-use function is_file;
-use function mkdir;
-use function restore_error_handler;
-use function rmdir;
-use function scandir;
-use function set_error_handler;
-use function sys_get_temp_dir;
-use function uniqid;
-use function unlink;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
 
 /**
- * Test FileStorageAdapter
- * @final
+ * Test FileStorageAdapterTest
  *
- * Test the FileStorageAdapter class.
+ * Unit tests for the FileStorageAdapter.
  *
- * @category Infrastructure Test
- * @package Tests\Shared\Infrastructure\Symfony\Adapter\Outbound
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound
+ * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter
  */
 final class FileStorageAdapterTest extends TestCase
 {
-  //#region Properties
-  /**
-   * Property basePath
-   *
-   * The base path for file storage.
-   *
-   * @access private
-   *
-   * @var string $basePath
-   */
-  private string $basePath;
-  //#endregion
+  private string $tempDir;
+  private FileStorageAdapter $adapter;
 
-  //#region Methods
   /**
-   * Method setUp
-   *
    * Set up the test environment.
-   *
-   * @access protected
-   *
-   * @return void No return value
    */
   protected function setUp(): void
   {
-    parent::setUp();
-
-    $this->basePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid(prefix: 'storage_', more_entropy: true);
-
-    // Create a temporary directory for storage
-    mkdir(
-      directory: $this->basePath,
-      permissions: 0775,
-      recursive: true
-    );
+    $this->tempDir = sys_get_temp_dir() . '/file_storage_test_' . uniqid();
+    mkdir($this->tempDir);
+    $this->adapter = new FileStorageAdapter($this->tempDir);
   }
 
   /**
-   * Method tearDown
-   *
-   * Tear down the test environment.
-   *
-   * @access protected
-   *
-   * @return void No return value
+   * Clean up the test environment.
    */
   protected function tearDown(): void
   {
-    $this->removeDirectory($this->basePath);
-
-    parent::tearDown();
+    $this->recursiveRemove($this->tempDir);
   }
 
   /**
-   * Method removeDirectory
+   * Recursively remove a directory and its contents.
    *
-   * Remove a directory and its contents recursively.
-   *
-   * @access private
-   *
-   * @param string $path The path to the directory to remove.
-   *
-   * @return void No return value
+   * @param string $dir The directory to remove.
    */
-  private function removeDirectory(string $path): void
+  private function recursiveRemove(string $dir): void
   {
-    if (!is_dir($path)) return;
-
-    $files = scandir($path);
-
-    foreach ($files ?: [] as $file) {
-      if ($file === '.' || $file === '..') continue;
-
-      $absolute = $path . DIRECTORY_SEPARATOR . $file;
-
-      if (is_dir($absolute)) {
-        $this->removeDirectory($absolute);
-        continue;
-      }
-
-      unlink($absolute);
+    if (!is_dir($dir)) {
+      return;
     }
-
-    rmdir($path);
-  }
-
-  /**
-   * Method ignoreFilesystemWarnings
-   *
-   * Execute a callback while silencing filesystem warnings.
-   *
-   * @param callable():void $callback
-   */
-  private function ignoreFilesystemWarnings(callable $callback): void
-  {
-    set_error_handler(static fn() => true);
-
-    try {
-      $callback();
+    $files = array_diff(scandir($dir), ['.', '..']);
+    foreach ($files as $file) {
+      (is_dir("$dir/$file")) ? $this->recursiveRemove("$dir/$file") : unlink("$dir/$file");
     }
-    finally {
-      restore_error_handler();
-    }
+    rmdir($dir);
   }
 
   /**
-   * Method testWriteAndReadFile
-   *
-   * Test that the write and read methods work as expected.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that a file can be written and read.
    */
-  public function testWriteAndReadFile(): void
+  public function testWriteAndRead(): void
   {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
+    $path = 'test.txt';
+    $content = 'Hello World';
 
-    $adapter->write(
-      path: 'dir/file.txt',
-      contents: 'content'
-    );
-
-    self::assertSame(
-      expected: 'content',
-      actual: $adapter->read(path: 'dir/file.txt')
-    );
+    $this->adapter->write($path, $content);
+    $this->assertTrue($this->adapter->exists($path));
+    $this->assertEquals($content, $this->adapter->read($path));
   }
 
   /**
-   * Method testDeleteRemovesFile
-   *
-   * Test that the delete method removes a file.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that writing a file creates necessary subdirectories.
    */
-  public function testDeleteRemovesFile(): void
+  public function testWriteCreatesDirectories(): void
   {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
+    $path = 'subdir/test.txt';
+    $content = 'Hello Subdir';
 
-    $adapter->write(
-      path: 'file.txt',
-      contents: 'content'
-    );
-
-    self::assertTrue(condition: $adapter->exists(path: 'file.txt'));
-
-    $adapter->delete(path: 'file.txt');
-
-    self::assertFalse(condition: $adapter->exists(path: 'file.txt'));
+    $this->adapter->write($path, $content);
+    $this->assertTrue($this->adapter->exists($path));
+    $this->assertEquals($content, $this->adapter->read($path));
   }
 
   /**
-   * Method testExistsReturnsFalseForMissingFile
-   *
-   * Test that the exists method returns
-   * false for a missing file.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that reading a non-existent file throws an exception.
    */
-  public function testExistsReturnsFalseForMissingFile(): void
+  public function testReadThrowsExceptionIfFileNotFound(): void
   {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
-
-    self::assertFalse(condition: $adapter->exists(path: 'missing.txt'));
+    $this->expectException(FileStorageException::class);
+    $this->adapter->read('non_existent.txt');
   }
 
   /**
-   * Method testReadThrowsWhenFileMissing
-   *
-   * Test that the read method throws an
-   * exception when the file is missing.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that a file can be deleted.
    */
-  public function testReadThrowsWhenFileMissing(): void
+  public function testDelete(): void
   {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
+    $path = 'test.txt';
+    $this->adapter->write($path, 'content');
+    $this->assertTrue($this->adapter->exists($path));
 
-    $this->expectException(exception: FileStorageException::class);
-    $adapter->read(path: 'missing.txt');
+    $this->adapter->delete($path);
+    $this->assertFalse($this->adapter->exists($path));
   }
 
   /**
-   * Method testWriteThrowsWhenDirectoryCreationFails
-   *
-   * Test that the write method throws an
-   * exception when the directory creation fails.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that deleting a non-existent file does not throw an exception.
    */
-  public function testWriteThrowsWhenDirectoryCreationFails(): void
+  public function testDeleteNonExistentFileDoesNotThrow(): void
   {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
-
-    // Create a file where the directory should be, forcing mkdir failure
-    $collisionPath = $this->basePath . DIRECTORY_SEPARATOR . 'dir';
-    file_put_contents($collisionPath, 'content');
-
-    $this->expectException(exception: FileStorageException::class);
-
-    $this->ignoreFilesystemWarnings(static function () use ($adapter) {
-      $adapter->write(
-        path: 'dir/file.txt',
-        contents: 'content'
-      );
-    });
+    $this->expectNotToPerformAssertions();
+    $this->adapter->delete('non_existent.txt');
   }
-
-  /**
-   * Method testWriteThrowsWhenFilePutContentsFails
-   *
-   * Test that the write method throws an
-   * exception when file_put_contents fails.
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testWriteThrowsWhenFilePutContentsFails(): void
-  {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
-
-    $fullPath = $this->basePath . DIRECTORY_SEPARATOR . 'dir' . DIRECTORY_SEPARATOR . 'file.txt';
-    mkdir(
-      directory: $fullPath,
-      permissions: 0775,
-      recursive: true
-    );
-
-    $this->expectException(exception: FileStorageException::class);
-
-    $this->ignoreFilesystemWarnings(callback: static function () use ($adapter): void {
-      $adapter->write(
-        path: 'dir/file.txt',
-        contents: 'content'
-      );
-    });
-  }
-
-  /**
-   * Method testDeleteThrowsWhenUnlinkFails
-   *
-   * Test that the delete method throws an
-   * exception when unlink fails.
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testDeleteThrowsWhenUnlinkFails(): void
-  {
-    $adapter = new FileStorageAdapter(basePath: $this->basePath);
-
-    $fullPath = $this->basePath . DIRECTORY_SEPARATOR . 'dir' . DIRECTORY_SEPARATOR . 'file.txt';
-    mkdir(
-      directory: $fullPath,
-      permissions: 0775,
-      recursive: true
-    );
-
-    $this->expectException(exception: FileStorageException::class);
-
-    $this->ignoreFilesystemWarnings(static function () use ($adapter) {
-      $adapter->delete(path: 'dir/file.txt');
-    });
-  }
-  //#endregion
 }

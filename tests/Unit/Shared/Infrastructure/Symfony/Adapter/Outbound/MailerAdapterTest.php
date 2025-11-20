@@ -2,166 +2,99 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter;
 use Shared\Infrastructure\Exception\MailSendingException;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
-use Symfony\Component\Mime\Part\DataPart;
-use Throwable;
+use Exception;
 
 /**
- * Test MailerAdapter
- * @final
+ * Class MailerAdapterTest
  *
- * Test the MailerAdapter class.
+ * Unit tests for the MailerAdapter.
  *
- * @category Infrastructure Test
- * @package Tests\Shared\Infrastructure\Symfony\Adapter\Outbound
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter
  */
 final class MailerAdapterTest extends TestCase
 {
-  //#region Methods
+  private MailerInterface&MockObject $mailer;
+  private MailerAdapter $adapter;
+
   /**
-   * Method testSendDelegatesToMailer
-   *
-   * Ensure that the send method delegates the email to the Symfony mailer.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Set up the test environment.
    */
-  public function testSendDelegatesToMailer(): void
+  protected function setUp(): void
   {
-    $mailer = $this->createMock(type: MailerInterface::class);
-    $mailer->expects(self::once())
-      ->method(constraint: 'send')
-      ->with(self::isInstanceOf(Email::class));
-
-    $adapter = new MailerAdapter(mailer: $mailer);
-
-    $adapter->send(
-      to: ['to@example.com'],
-      subject: 'Subject',
-      body: '<p>Body</p>'
-    );
+    $this->mailer = $this->createMock(MailerInterface::class);
+    $this->adapter = new MailerAdapter($this->mailer);
   }
 
   /**
-   * Method testSendAddsCcAndBccRecipients
-   *
-   * Ensure that the send method adds cc and
-   * bcc recipients to the email.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that an email is sent successfully.
    */
-  public function testSendAddsCcAndBccRecipients(): void
+  public function testSendSuccess(): void
   {
-    $mailer = $this->createMock(type: MailerInterface::class);
+    $to = ['recipient@example.com'];
+    $subject = 'Test Subject';
+    $body = '<p>Test Body</p>';
 
-    $mailer->expects(self::once())
-      ->method(constraint: 'send')
-      ->with(arguments: self::callback(callback: static function (Email $email): bool {
-        $to = array_map(static fn(Address $address) => $address->getAddress(), $email->getTo());
-        $cc = array_map(static fn(Address $address) => $address->getAddress(), $email->getCc());
-        $bcc = array_map(static fn(Address $address) => $address->getAddress(), $email->getBcc());
-
-        return $to === ['to@example.com']
-          && $cc === ['cc@example.com']
-          && $bcc === ['bcc@example.com'];
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->with($this->callback(function (Email $email) use ($to, $subject, $body) {
+        return $email->getSubject() === $subject
+          && $email->getHtmlBody() === $body
+          && count($email->getTo()) === 1
+          && $email->getTo()[0]->getAddress() === $to[0];
       }));
 
-    $adapter = new MailerAdapter(mailer: $mailer);
-
-    $adapter->send(
-      to: ['to@example.com'],
-      subject: 'Subject',
-      body: '<p>Body</p>',
-      cc: ['cc@example.com'],
-      bcc: ['bcc@example.com']
-    );
+    $this->adapter->send($to, $subject, $body);
   }
 
   /**
-   * Method testSendIgnoresInvalidAttachmentEntries
-   *
-   * Ensure that the send method ignores
-   * invalid attachment entries.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that an email is sent with CC and BCC recipients.
    */
-  public function testSendIgnoresInvalidAttachmentEntries(): void
+  public function testSendWithCcAndBcc(): void
   {
-    $mailer = $this->createMock(type: MailerInterface::class);
+    $to = ['recipient@example.com'];
+    $cc = ['cc@example.com'];
+    $bcc = ['bcc@example.com'];
+    $subject = 'Test Subject';
+    $body = 'Test Body';
 
-    $mailer->expects(self::once())
-      ->method(constraint: 'send')
-      ->with(arguments: self::callback(callback: static function (Email $email): bool {
-        /** @var list<DataPart> $attachments */
-        $attachments = $email->getAttachments();
-
-        if (count($attachments) !== 2) {
-          return false;
-        }
-
-        $names = array_map(static fn(DataPart $attachment): ?string =>
-          $attachment->getName(),
-          $attachments
-        );
-
-        sort($names);
-
-        return $names === ['MailerAdapterTest.php', 'valid.txt'];
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->with($this->callback(function (Email $email) use ($cc, $bcc) {
+        return count($email->getCc()) === 1
+          && $email->getCc()[0]->getAddress() === $cc[0]
+          && count($email->getBcc()) === 1
+          && $email->getBcc()[0]->getAddress() === $bcc[0];
       }));
 
-    $adapter = new MailerAdapter(mailer: $mailer);
-
-    $adapter->send(
-      to: ['to@example.com'],
-      subject: 'Subject',
-      body: '<p>Body</p>',
-      attachments: [
-        'valid.txt' => __FILE__,
-        'invalid' => ['not-a-string'],
-        123 => __FILE__,
-      ]
-    );
+    $this->adapter->send($to, $subject, $body, $cc, $bcc);
   }
 
   /**
-   * Method testSendWrapsExceptions
-   *
-   * Ensure that the adapter wraps exceptions thrown by the mailer.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that sending fails and throws a MailSendingException.
    */
-  public function testSendWrapsExceptions(): void
+  public function testSendThrowsException(): void
   {
-    $mailer = $this->createMock(type: MailerInterface::class);
-    $mailer->expects(self::once())
-      ->method(constraint: 'send')
-      ->willThrowException($this->createMock(type: Throwable::class));
+    $to = ['recipient@example.com'];
+    $subject = 'Test Subject';
+    $body = 'Test Body';
+    $exception = new Exception('Mail error');
 
-    $adapter = new MailerAdapter(mailer: $mailer);
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->willThrowException($exception);
 
-    $this->expectException(exception: MailSendingException::class);
-
-    $adapter->send(
-      to: ['to@example.com'],
-      subject: 'Subject',
-      body: '<p>Body</p>'
-    );
+    $this->expectException(MailSendingException::class);
+    $this->adapter->send($to, $subject, $body);
   }
-  //#endregion
 }

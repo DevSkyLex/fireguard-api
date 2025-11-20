@@ -2,49 +2,34 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Outbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter;
 
 /**
- * Test SystemClockAdapter
- * @final
+ * Class SystemClockAdapterTest
  *
- * Test the SystemClockAdapter class.
+ * Unit tests for the SystemClockAdapter.
  *
- * @category Infrastructure Test
- * @package Tests\Shared\Infrastructure\Symfony\Adapter\Outbound
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter
  */
 final class SystemClockAdapterTest extends TestCase
 {
-  //#region Methods
   /**
-   * Method testNowReturnsCurrentDateTime
-   *
-   * Ensure that the now method returns a DateTimeImmutable
-   * instance close to the current time.
-   *
-   * @access public
-   *
-   * @return void No return value
+   * Test that the current time is returned.
    */
-  public function testNowReturnsCurrentDateTime(): void
+  public function testNow(): void
   {
-    // Arrange
     $adapter = new SystemClockAdapter();
+    $now = $adapter->now();
 
-    // Act
-    $before = new \DateTimeImmutable();
-    $result = $adapter->now();
-    $after = new \DateTimeImmutable();
-
-    // Assert
-    self::assertInstanceOf(\DateTimeImmutable::class, $result);
-    self::assertGreaterThanOrEqual($before, $result);
-    self::assertLessThanOrEqual($after, $result);
+    $this->assertInstanceOf(DateTimeImmutable::class, $now);
+    // Allow a small delta for execution time
+    $this->assertEqualsWithDelta(time(), $now->getTimestamp(), 1);
   }
-  //#endregion
 }

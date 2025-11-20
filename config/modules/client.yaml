@@ -3,20 +3,15 @@ services:
         autowire: true
         autoconfigure: true
 
-    # API Platform Adapters
-    Client\Infrastructure\Adapter\Api\:
-        resource: '../../src/Client/Infrastructure/Adapter/Api/'
-
     # Handlers
     Client\Application\UseCase\:
         resource: '../../src/Client/Application/UseCase/'
-        tags: ['messenger.message_handler']
 
     # Repository
-    Client\Infrastructure\Persistence\Repository\ClientRepository:
+    Client\Infrastructure\Persistence\Doctrine\Repository\ClientRepository:
         arguments:
             $entityManager: '@doctrine.orm.entity_manager'
 
     # Port Binding
     Client\Application\Port\Outbound\ClientRepositoryPort:
-        alias: Client\Infrastructure\Persistence\Repository\ClientRepository
+        alias: Client\Infrastructure\Persistence\Doctrine\Repository\ClientRepository

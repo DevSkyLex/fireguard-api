@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Domain\ValueObject;
+namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
@@ -12,75 +12,86 @@ use Shared\Domain\ValueObject\Uuid;
  * Test UuidTest
  * @final
  *
- * Test class for the Uuid value object.
+ * Unit tests for the Uuid Value Object.
  *
- * @category ValueObject Tests
- * @package Tests\Shared\Domain\ValueObject
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Domain\ValueObject
+ * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Domain\ValueObject\Uuid
  */
 final class UuidTest extends TestCase
 {
-  //#region Constants
   /**
-   * Constant VALID_UUID
+   * Method testCanBeCreatedWithValidValue
    *
-   * Valid UUID
-   *
-   * @access private
-   *
-   * @var string VALID_UUID
-   */
-  private const string VALID_UUID = '123e4567-e89b-12d3-a456-426614174000';
-
-  /**
-   * Constant INVALID_UUID
-   *
-   * Invalid UUID
-   *
-   * @access private
-   *
-   * @var string INVALID_UUID
-   */
-  private const string INVALID_UUID = 'invalid-uuid';
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method testValidUuidIsAccepted
-   *
-   * Test the constructor with
-   * a valid UUID
+   * Tests that a valid UUID can be created.
    *
    * @access public
+   * @since 1.0.0
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testValidUuidIsAccepted(): void
+  public function testCanBeCreatedWithValidValue(): void
   {
-    $uuid = new Uuid(value: self::VALID_UUID);
+    $value = '550e8400-e29b-41d4-a716-446655440000';
+    $uuid = new Uuid($value);
 
-    self::assertSame(
-      expected: self::VALID_UUID,
-      actual: (string) $uuid
-    );
+    $this->assertEquals($value, $uuid->value);
+    $this->assertEquals($value, (string) $uuid);
   }
 
   /**
-   * Method testInvalidUuidThrowsException
+   * Method testCannotBeCreatedWithInvalidValue
    *
-   * Test the constructor with
-   * an invalid UUID
+   * Tests that creating a UUID with an invalid format throws an exception.
    *
    * @access public
+   * @since 1.0.0
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testInvalidUuidThrowsException(): void
+  public function testCannotBeCreatedWithInvalidValue(): void
   {
-    $this->expectException(exception: InvalidValueException::class);
-
-    new Uuid(value: self::INVALID_UUID);
+    $this->expectException(InvalidValueException::class);
+    new Uuid('invalid-uuid');
   }
-  //#endregion
+
+  /**
+   * Method testEquality
+   *
+   * Tests equality comparison between Uuid objects.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return void No return value.
+   */
+  public function testEquality(): void
+  {
+    $u1 = new Uuid('550e8400-e29b-41d4-a716-446655440000');
+    $u2 = new Uuid('550e8400-e29b-41d4-a716-446655440000');
+    $u3 = new Uuid('123e4567-e89b-12d3-a456-426614174000');
+
+    $this->assertTrue($u1->equals($u2));
+    $this->assertFalse($u1->equals($u3));
+  }
+
+  /**
+   * Method testGenerate
+   *
+   * Tests the generate factory method.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return void No return value.
+   */
+  public function testGenerate(): void
+  {
+    $uuid = Uuid::generate();
+    $this->assertInstanceOf(Uuid::class, $uuid);
+  }
 }

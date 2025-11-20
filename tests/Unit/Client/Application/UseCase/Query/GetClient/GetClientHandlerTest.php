@@ -5,19 +5,25 @@ declare(strict_types=1);
 namespace Tests\Client\Application\UseCase\Query\GetClient;
 
 use Client\Application\Port\Outbound\ClientRepositoryPort;
-use Client\Application\UseCase\Query\GetClient\GetClientHandler;
-use Client\Application\UseCase\Query\GetClient\GetClientQuery;
-use Client\Application\UseCase\Query\GetClient\GetClientResult;
+use Client\Application\UseCase\Query\GetClient\{
+  GetClientHandler,
+  GetClientQuery,
+  GetClientResult
+};
 use Client\Domain\Model\Client;
-use Client\Domain\ValueObject\ClientId;
-use Client\Domain\ValueObject\ClientName;
+use Client\Domain\ValueObject\{
+  ClientId,
+  ClientName
+};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\EntityNotFoundException;
-use Shared\Domain\ValueObject\GrantType;
-use Shared\Domain\ValueObject\GrantTypes;
-use Shared\Domain\ValueObject\RedirectUri;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use Shared\Domain\ValueObject\{
+  GrantType,
+  GrantTypes,
+  RedirectUri,
+  Scope,
+  Scopes
+};
 
 /**
  * Test GetClientHandlerTest

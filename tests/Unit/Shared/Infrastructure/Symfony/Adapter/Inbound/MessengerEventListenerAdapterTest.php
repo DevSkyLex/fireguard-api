@@ -2,210 +2,101 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Infrastructure\Symfony\Adapter\Inbound;
+namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound;
 
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Shared\Application\Message\ResultMessage;
-use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerEventListenerAdapter;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
-use stdClass;
+use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerEventListenerAdapter;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
+use Exception;
+use stdClass;
 
-/**
- * Test MessengerEventListenerAdapter
- *
- * Test the MessengerEventListenerAdapter class
- *
- * @category Unit Test
- * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
 final class MessengerEventListenerAdapterTest extends TestCase
 {
-  //#region Methods
-  /**
-   * Method testHandleReturnsResultMessageWhenPresent
-   *
-   * Test the handle method when the event
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testHandleReturnsResultMessageWhenPresent(): void
+  private MessageBusInterface&MockObject $messageBus;
+  private MessengerEventListenerAdapter $adapter;
+
+  protected function setUp(): void
   {
-    $event = new stdClass();
-    $result = new EventResultStub('ok');
-    $envelope = new Envelope(
-      message: $event,
-      stamps: [new HandledStamp(
-        result: $result,
-        handlerName: 'handler'
-      )]
-    );
-
-    $eventBus = $this->createMock(type: MessageBusInterface::class);
-    $eventBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $event)
-      ->willReturn(value: $envelope);
-
-    $adapter = new MessengerEventListenerAdapter(eventBus: $eventBus);
-
-    self::assertSame(
-      expected: $result,
-      actual: $adapter->handle(event: $event)
-    );
+    $this->messageBus = $this->createMock(MessageBusInterface::class);
+    $this->adapter = new MessengerEventListenerAdapter($this->messageBus);
   }
 
-  /**
-   * Method testHandleReturnsNullWhenNoHandledStamp
-   *
-   * Test the handle method when the event
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
+  public function testHandleSuccess(): void
+  {
+    $event = new stdClass();
+    $result = $this->createMock(ResultMessage::class);
+    $handledStamp = new HandledStamp($result, 'handler');
+    $envelope = new Envelope($event, [$handledStamp]);
+
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
+
+    $actualResult = $this->adapter->handle($event);
+
+    $this->assertSame($result, $actualResult);
+  }
+
   public function testHandleReturnsNullWhenNoHandledStamp(): void
   {
     $event = new stdClass();
-    $envelope = new Envelope(message: $event);
+    $envelope = new Envelope($event); // No HandledStamp
 
-    $eventBus = $this->createMock(type: MessageBusInterface::class);
-    $eventBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $event)
-      ->willReturn(value: $envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-    $adapter = new MessengerEventListenerAdapter(eventBus: $eventBus);
-
-    self::assertNull(actual: $adapter->handle(event: $event));
+    $this->assertNull($this->adapter->handle($event));
   }
 
-  /**
-   * Method testHandleReturnsNullWhenHandledResultIsNull
-   *
-   * Test the handle method when the event
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testHandleReturnsNullWhenHandledResultIsNull(): void
+  public function testHandleReturnsNullWhenResultIsNull(): void
   {
     $event = new stdClass();
-    $envelope = new Envelope(
-      message: $event,
-      stamps: [new HandledStamp(
-        result: null,
-        handlerName: 'handler'
-      )]
-    );
+    $handledStamp = new HandledStamp(null, 'handler');
+    $envelope = new Envelope($event, [$handledStamp]);
 
-    $eventBus = $this->createMock(type: MessageBusInterface::class);
-    $eventBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $event)
-      ->willReturn(value: $envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-    $adapter = new MessengerEventListenerAdapter(eventBus: $eventBus);
-
-    self::assertNull(actual: $adapter->handle(event: $event));
+    $this->assertNull($this->adapter->handle($event));
   }
 
-  /**
-   * Method testHandleThrowsWhenResultIsNotResultMessage
-   *
-   * Test the handle method when the event
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testHandleThrowsWhenResultIsNotResultMessage(): void
+  public function testHandleThrowsMessengerRuntimeException(): void
   {
     $event = new stdClass();
-    $envelope = new Envelope(
-      message: $event,
-      stamps: [new HandledStamp(
-        result: new stdClass(),
-        handlerName: 'handler'
-      )]
-    );
+    $exception = new Exception('Dispatch error');
 
-    $eventBus = $this->createMock(type: MessageBusInterface::class);
-    $eventBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $event)
-      ->willReturn(value: $envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willThrowException($exception);
 
-    $adapter = new MessengerEventListenerAdapter(eventBus: $eventBus);
-
-    $this->expectException(exception: NoHandlerResultException::class);
-
-    $adapter->handle(event: $event);
+    $this->expectException(MessengerRuntimeException::class);
+    $this->adapter->handle($event);
   }
 
-  /**
-   * Method testHandleWrapsMessengerExceptions
-   *
-   * Test the handle method when the event
-   * is handled and returns a result
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testHandleWrapsMessengerExceptions(): void
+  public function testHandleThrowsNoHandlerResultExceptionWhenResultInvalid(): void
   {
     $event = new stdClass();
+    $handledStamp = new HandledStamp('invalid-result', 'handler');
+    $envelope = new Envelope($event, [$handledStamp]);
 
-    $eventBus = $this->createMock(type: MessageBusInterface::class);
-    $eventBus->expects(self::once())
-      ->method(constraint: 'dispatch')
-      ->with(arguments: $event)
-      ->willThrowException(exception: new RuntimeException(message: 'failure'));
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-    $adapter = new MessengerEventListenerAdapter(eventBus: $eventBus);
-
-    $this->expectException(exception: MessengerRuntimeException::class);
-
-    $adapter->handle(event: $event);
+    $this->expectException(NoHandlerResultException::class);
+    $this->adapter->handle($event);
   }
-  //#endregion
-}
-
-/**
- * Class EventResultStub
- * @final
- *
- * @category Unit Test
- * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
-final class EventResultStub implements ResultMessage
-{
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initialize the event result stub
-   *
-   * @access public
-   *
-   * @param string $value The value of the event result
-   */
-  public function __construct(public readonly string $value) {}
-  //#endregion
 }

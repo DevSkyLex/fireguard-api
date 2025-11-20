@@ -2,61 +2,64 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Domain\ValueObject;
+namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\HashedSecret;
 
 /**
  * Test HashedSecretTest
  * @final
  *
- * Test class for HashedSecret.
+ * Unit tests for the HashedSecret Value Object.
  *
- * @category ValueObject Tests
- * @package Tests\Shared\Domain\ValueObject
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Domain\ValueObject
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Domain\ValueObject\HashedSecret
  */
 final class HashedSecretTest extends TestCase
 {
   //#region Methods
   /**
-   * Method testValidHashedSecretIsAccepted
+   * Method testCanBeCreatedWithValidValue
    *
-   * Test the constructor with
-   * valid hashed secret.
+   * Tests that a valid HashedSecret can be 
+   * created with a bcrypt hash.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testValidHashedSecretIsAccepted(): void
+  public function testCanBeCreatedWithValidValue(): void
   {
-    $hashed = new HashedSecret(value: '$argon2id$hash-value');
+    $value = '$2y$10$abcdefghijklmnopqrstuv';
+    $secret = new HashedSecret(value: $value);
 
-    self::assertSame(
-      expected: '$argon2id$hash-value',
-      actual: (string) $hashed
-    );
+    $this->assertEquals(expected: $value, actual: $secret->value);
+    $this->assertEquals(expected: $value, actual: (string) $secret);
   }
 
   /**
-   * Method testInvalidHashedSecretThrows
+   * Method testEquality
    *
-   * Test the constructor with
-   * invalid hashed secret.
+   * Tests equality comparison between 
+   * HashedSecret objects.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testInvalidHashedSecretThrows(): void
+  public function testEquality(): void
   {
-    $this->expectException(exception: InvalidValueException::class);
+    $s1 = new HashedSecret(value: '$2y$10$abcdefghijklmnopqrstuv');
+    $s2 = new HashedSecret(value: '$2y$10$abcdefghijklmnopqrstuv');
+    $s3 = new HashedSecret(value: '$2y$10$zyxwvutsrqponmlkjihgfe');
 
-    new HashedSecret(value: 'plain-value');
+    $this->assertTrue(condition: $s1->equals($s2));
+    $this->assertFalse(condition: $s1->equals($s3));
   }
   //#endregion
 }

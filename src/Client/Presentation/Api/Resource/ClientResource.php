@@ -84,10 +84,13 @@ final class ClientResource
    *
    * The client ID.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[ApiProperty(identifier: true)]
-  #[Groups(['client:read'])]
+  #[Groups(groups: ['client:read'])]
   public ?string $id = null;
 
   /**
@@ -95,11 +98,14 @@ final class ClientResource
    *
    * The client name.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Assert\NotBlank]
   #[Assert\Length(min: 3, max: 100)]
-  #[Groups(['client:read', 'client:write', 'client:update'])]
+  #[Groups(groups: ['client:read', 'client:write', 'client:update'])]
   public ?string $name = null;
 
   /**
@@ -107,15 +113,21 @@ final class ClientResource
    *
    * The client secret (only visible once upon creation).
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
-  #[Groups(['client:secret'])]
+  #[Groups(groups: ['client:secret'])]
   public ?string $secret = null;
 
   /**
    * Property redirectUris
    *
    * The allowed redirect URIs.
+   *
+   * @access public
+   * @since 1.0.0
    *
    * @var list<string>
    */
@@ -124,13 +136,16 @@ final class ClientResource
     new Assert\NotBlank,
     new Assert\Url(protocols: ['http', 'https'])
   ])]
-  #[Groups(['client:read', 'client:write', 'client:update'])]
+  #[Groups(groups: ['client:read', 'client:write', 'client:update'])]
   public array $redirectUris = [];
 
   /**
    * Property grantTypes
    *
    * The allowed grant types.
+   *
+   * @access public
+   * @since 1.0.0
    *
    * @var list<string>
    */
@@ -139,13 +154,16 @@ final class ClientResource
     new Assert\NotBlank,
     new Assert\Choice(choices: GrantType::VALID_GRANT_TYPES)
   ])]
-  #[Groups(['client:read', 'client:write'])]
+  #[Groups(groups: ['client:read', 'client:write'])]
   public array $grantTypes = [];
 
   /**
    * Property scopes
    *
    * The allowed scopes.
+   *
+   * @access public
+   * @since 1.0.0
    *
    * @var list<string>
    */
@@ -154,7 +172,7 @@ final class ClientResource
     new Assert\NotBlank,
     new Assert\Type('string')
   ])]
-  #[Groups(['client:read', 'client:write', 'client:update'])]
+  #[Groups(groups: ['client:read', 'client:write', 'client:update'])]
   public array $scopes = [];
 
   /**
@@ -162,9 +180,12 @@ final class ClientResource
    *
    * Whether the client is active.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var bool
    */
-  #[Groups(['client:read'])]
+  #[Groups(groups: ['client:read'])]
   public bool $isActive = true;
 
   /**
@@ -172,9 +193,12 @@ final class ClientResource
    *
    * The creation timestamp.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
-  #[Groups(['client:read'])]
+  #[Groups(groups: ['client:read'])]
   public ?string $createdAt = null;
   //#endregion
 }

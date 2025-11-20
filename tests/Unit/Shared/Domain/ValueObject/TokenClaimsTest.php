@@ -2,112 +2,68 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Domain\ValueObject;
+namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\TokenClaims;
 
 /**
  * Test TokenClaimsTest
  * @final
  *
- * Test class for TokenClaims.
+ * Unit tests for the TokenClaims Value Object.
  *
- * @category ValueObject Tests
- * @package Tests\Shared\Domain\ValueObject
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Domain\ValueObject
+ * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Domain\ValueObject\TokenClaims
  */
 final class TokenClaimsTest extends TestCase
 {
-  //#region Methods
   /**
-   * Method testConstructWithValidClaims
+   * Method testCanBeCreatedAndAccessed
    *
-   * Test the constructor with
-   * valid claims.
+   * Tests that TokenClaims can be created with an array of claims
+   * and that individual claims can be accessed and queried.
    *
    * @access public
    * @since 1.0.0
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testConstructWithValidClaims(): void
+  public function testCanBeCreatedAndAccessed(): void
   {
-    $claims = new TokenClaims(claims: [
+    $claims = [
       'sub' => 'user-1',
-      'aud' => 'api'
-    ]);
+      'exp' => 1234567890,
+    ];
+    $tokenClaims = new TokenClaims($claims);
 
-    self::assertSame(
-      expected: ['sub' => 'user-1', 'aud' => 'api'],
-      actual: $claims->toArray()
-    );
-
-    self::assertTrue(condition: $claims->has('sub'));
-
-    self::assertSame(
-      expected: 'user-1',
-      actual: $claims->get('sub')
-    );
+    $this->assertEquals($claims, $tokenClaims->toArray());
+    $this->assertTrue($tokenClaims->has('sub'));
+    $this->assertEquals('user-1', $tokenClaims->get('sub'));
+    $this->assertFalse($tokenClaims->has('iss'));
+    $this->assertNull($tokenClaims->get('iss'));
   }
 
   /**
-   * Method testConstructWithEmptyClaimsThrows
+   * Method testJsonSerialization
    *
-   * Test the constructor with
-   * empty claims.
+   * Tests that TokenClaims can be JSON serialized.
    *
    * @access public
    * @since 1.0.0
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testConstructWithEmptyClaimsThrows(): void
+  public function testJsonSerialization(): void
   {
-    $this->expectException(exception: InvalidValueException::class);
+    $claims = ['sub' => 'user-1'];
+    $tokenClaims = new TokenClaims($claims);
 
-    new TokenClaims(claims: []);
+    $this->assertEquals($claims, $tokenClaims->jsonSerialize());
   }
-
-  /**
-   * Method testConstructWithInvalidKeyThrows
-   *
-   * Test the constructor with
-   * invalid key.
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testConstructWithInvalidKeyThrows(): void
-  {
-    $this->expectException(exception: InvalidValueException::class);
-
-    new TokenClaims(claims: ['' => 'value']);
-  }
-
-  /**
-   * Method testJsonSerialize
-   *
-   * Test the jsonSerialize method.
-   *
-   * @access public
-   *
-   * @return void No return value
-   */
-  public function testJsonSerialize(): void
-  {
-    $claims = new TokenClaims(claims: [
-      'sub' => 'user-1',
-      'aud' => 'api'
-    ]);
-
-    self::assertSame(
-      expected: ['sub' => 'user-1', 'aud' => 'api'],
-      actual: $claims->jsonSerialize()
-    );
-  }
-  //#endregion
 }

@@ -73,7 +73,8 @@ final readonly class GetClientProvider implements ProviderInterface
 
     try {
       $result = $this->queryBus->ask(query: $query);
-    } catch (EntityNotFoundException) {
+    } 
+    catch (EntityNotFoundException) {
       return null;
     }
 

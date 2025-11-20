@@ -21,8 +21,8 @@ doctrine:
       Client:
         is_bundle: false
         type: attribute
-        dir: '%kernel.project_dir%/src/Client/Infrastructure/Persistence/Record'
-        prefix: 'Client\Infrastructure\Persistence\Record'
+        dir: '%kernel.project_dir%/src/Client/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'Client\Infrastructure\Persistence\Doctrine\Record'
         alias: Client
     controller_resolver:
       auto_mapping: false

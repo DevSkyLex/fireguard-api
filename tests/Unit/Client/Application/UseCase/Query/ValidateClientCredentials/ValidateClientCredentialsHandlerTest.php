@@ -5,19 +5,25 @@ declare(strict_types=1);
 namespace Tests\Client\Application\UseCase\Query\ValidateClientCredentials;
 
 use Client\Application\Port\Outbound\ClientRepositoryPort;
-use Client\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsHandler;
-use Client\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsQuery;
-use Client\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsResult;
+use Client\Application\UseCase\Query\ValidateClientCredentials\{
+  ValidateClientCredentialsHandler,
+  ValidateClientCredentialsQuery,
+  ValidateClientCredentialsResult
+};
 use Client\Domain\Model\Client;
-use Client\Domain\ValueObject\ClientId;
-use Client\Domain\ValueObject\ClientName;
+use Client\Domain\ValueObject\{
+  ClientId,
+  ClientName
+};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\HashingPort;
-use Shared\Domain\ValueObject\GrantType;
-use Shared\Domain\ValueObject\GrantTypes;
-use Shared\Domain\ValueObject\RedirectUri;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use Shared\Domain\ValueObject\{
+  GrantType,
+  GrantTypes,
+  RedirectUri,
+  Scope,
+  Scopes
+};
 
 /**
  * Test ValidateClientCredentialsHandlerTest

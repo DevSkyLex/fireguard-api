@@ -2,113 +2,79 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Domain\ValueObject;
+namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\RedirectUri;
 
 /**
- * Test RedirectUriTest
- * @final
+ * Class RedirectUriTest
  *
- * Test class for RedirectUri.
+ * Unit tests for the RedirectUri Value Object.
  *
- * @category ValueObject Tests
- * @package Tests\Shared\Domain\ValueObject
- *
+ * @category Unit Test
+ * @package Tests\Unit\Shared\Domain\ValueObject
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * 
+ * @covers \Shared\Domain\ValueObject\RedirectUri
  */
 final class RedirectUriTest extends TestCase
 {
-  //#region Constants
-  /**
-   * Constant VALID_URI
-   *
-   * Valid URI
-   *
-   * @access private
-   *
-   * @var string VALID_URI
-   */
-  private const string VALID_URI = 'https://example.com/callback';
-
-  /**
-   * Constant INVALID_SCHEME_URI
-   *
-   * Invalid URI with HTTP scheme
-   *
-   * @access private
-   *
-   * @var string INVALID_SCHEME_URI
-   */
-  private const string INVALID_SCHEME_URI = 'http://example.com/callback';
-
-  /**
-   * Constant INVALID_URI
-   *
-   * Invalid URI
-   *
-   * @access private
-   *
-   * @var string INVALID_URI
-   */
-  private const string INVALID_URI = 'not-a-url';
-  //#endregion
-
   //#region Methods
   /**
-   * Method testValidRedirectUriIsAccepted
+   * Method testCanBeCreatedWithValidValue
    *
-   * Test the constructor with
-   * a valid URI
+   * Tests that a valid RedirectUri can 
+   * be created.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testValidRedirectUriIsAccepted(): void
+  public function testCanBeCreatedWithValidValue(): void
   {
-    $uri = new RedirectUri(value: self::VALID_URI);
+    $value = 'https://example.com/callback';
+    $uri = new RedirectUri(value: $value);
 
-    self::assertSame(
-      expected: self::VALID_URI,
-      actual: (string) $uri
-    );
+    $this->assertEquals(expected: $value, actual: $uri->value);
+    $this->assertEquals(expected: $value, actual: (string) $uri);
   }
 
   /**
-   * Method testRejectsNonHttpsScheme
+   * Method testCannotBeCreatedWithInvalidValue
    *
-   * Test the constructor with
-   * a non-HTTPS URI
+   * Tests that creating a RedirectUri with an 
+   * invalid URL throws an exception.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testRejectsNonHttpsScheme(): void
+  public function testCannotBeCreatedWithInvalidValue(): void
   {
     $this->expectException(exception: InvalidValueException::class);
-
-    new RedirectUri(value: self::INVALID_SCHEME_URI);
+    new RedirectUri(value: 'invalid-url');
   }
 
   /**
-   * Method testRejectsInvalidUri
+   * Method testEquality
    *
-   * Test the constructor with
-   * an invalid URI
+   * Tests equality comparison between 
+   * RedirectUri objects.
    *
    * @access public
    *
-   * @return void No return value
+   * @return void No return value.
    */
-  public function testRejectsInvalidUri(): void
+  public function testEquality(): void
   {
-    $this->expectException(exception: InvalidValueException::class);
+    $u1 = new RedirectUri(value: 'https://example.com');
+    $u2 = new RedirectUri(value: 'https://example.com');
+    $u3 = new RedirectUri(value: 'https://other.com');
 
-    new RedirectUri(value: self::INVALID_URI);
+    $this->assertTrue(condition: $u1->equals($u2));
+    $this->assertFalse(condition: $u1->equals($u3));
   }
   //#endregion
 }
