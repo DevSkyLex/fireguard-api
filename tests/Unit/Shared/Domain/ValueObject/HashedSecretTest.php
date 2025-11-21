@@ -63,3 +63,4 @@ final class HashedSecretTest extends TestCase
   }
   //#endregion
 }
+

@@ -176,3 +176,4 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->clear();
   }
 }
+

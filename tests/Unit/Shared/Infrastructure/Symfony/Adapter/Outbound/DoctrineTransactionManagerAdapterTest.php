@@ -51,3 +51,4 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
     $this->adapter->transactional($operation);
   }
 }
+

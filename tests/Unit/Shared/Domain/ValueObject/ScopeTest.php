@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\Exception\InvalidValueException;
+use Shared\Domain\Exception\InvalidScopeException;
 use Shared\Domain\ValueObject\Scope;
 
 /**
@@ -57,8 +57,43 @@ final class ScopeTest extends TestCase
    */
   public function testCannotBeCreatedWithEmptyValue(): void
   {
-    $this->expectException(exception: InvalidValueException::class);
+    $this->expectException(exception: InvalidScopeException::class);
+    $this->expectExceptionMessage(message: 'Scope cannot be empty.');
     new Scope(value: '');
+  }
+
+  /**
+   * Method testCannotBeCreatedWithInvalidCharacters
+   *
+   * Tests that creating a Scope with invalid characters throws an exception.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return void No return value.
+   */
+  public function testCannotBeCreatedWithInvalidCharacters(): void
+  {
+    $this->expectException(exception: InvalidScopeException::class);
+    $this->expectExceptionMessage(message: 'Invalid scope format');
+    new Scope(value: 'Invalid Scope!');
+  }
+
+  /**
+   * Method testCannotBeCreatedWithUppercase
+   *
+   * Tests that creating a Scope with uppercase letters throws an exception.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return void No return value.
+   */
+  public function testCannotBeCreatedWithUppercase(): void
+  {
+    $this->expectException(exception: InvalidScopeException::class);
+    $this->expectExceptionMessage(message: 'Invalid scope format');
+    new Scope(value: 'ReadUsers');
   }
 
   /**
@@ -82,3 +117,4 @@ final class ScopeTest extends TestCase
   }
   //#endregion
 }
+

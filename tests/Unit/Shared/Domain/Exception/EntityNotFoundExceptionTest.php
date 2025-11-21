@@ -43,3 +43,4 @@ final class EntityNotFoundExceptionTest extends TestCase
     $this->assertSame('User with ID "123" not found.', $exception->getMessage());
   }
 }
+

@@ -41,3 +41,4 @@ final class ApplicationExceptionTest extends TestCase
   }
   //#endregion
 }
+

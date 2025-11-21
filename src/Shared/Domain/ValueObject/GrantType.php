@@ -4,148 +4,95 @@ declare(strict_types=1);
 
 namespace Shared\Domain\ValueObject;
 
-use Shared\Domain\Exception\InvalidValueException;
-use Stringable;
-use function sprintf;
-use function implode;
-use function in_array;
-
 /**
- * ValueObject GrantType
- * @final
+ * Enum GrantType
  *
  * Represents an OAuth 2.0 grant type.
  * Grant types define how a client obtains an access token.
  *
  * @category ValueObject
  * @package Shared\Domain\ValueObject
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GrantType implements Stringable
+enum GrantType: string
 {
-  //#region Constants
   /**
-   * Constant AUTHORIZATION_CODE
-   *
    * Authorization code grant type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string AUTHORIZATION_CODE
+   * Used for server-side applications with user authentication.
    */
-  public const string AUTHORIZATION_CODE = 'authorization_code';
+  case AUTHORIZATION_CODE = 'authorization_code';
 
   /**
-   * Constant CLIENT_CREDENTIALS
-   *
    * Client credentials grant type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string CLIENT_CREDENTIALS
+   * Used for machine-to-machine authentication.
    */
-  public const string CLIENT_CREDENTIALS = 'client_credentials';
+  case CLIENT_CREDENTIALS = 'client_credentials';
 
   /**
-   * Constant REFRESH_TOKEN
-   *
    * Refresh token grant type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string REFRESH_TOKEN
+   * Used to obtain a new access token using a refresh token.
    */
-  public const string REFRESH_TOKEN = 'refresh_token';
+  case REFRESH_TOKEN = 'refresh_token';
 
   /**
-   * Constant PASSWORD
-   *
-   * Password grant type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string PASSWORD
+   * Password grant type (Resource Owner Password Credentials).
+   * Used when the user provides credentials directly to the client.
    */
-  public const string PASSWORD = 'password';
+  case PASSWORD = 'password';
 
   /**
-   * Constant IMPLICIT
-   *
    * Implicit grant type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string IMPLICIT
+   * Deprecated in OAuth 2.1, used for browser-based applications.
    */
-  public const string IMPLICIT = 'implicit';
+  case IMPLICIT = 'implicit';
 
   /**
-   * Constant VALID_GRANT_TYPES
+   * Constant VALUES
    *
-   * List of valid OAuth 2.0 grant types.
-   * 
-   * @access public
-   * @since 1.0.0
+   * Array of all possible grant type values.
+   * Used for validation in attributes where method calls are not allowed.
    *
    * @var list<string>
    */
-  public const array VALID_GRANT_TYPES = [
-    self::AUTHORIZATION_CODE,
-    self::CLIENT_CREDENTIALS,
-    self::REFRESH_TOKEN,
-    self::PASSWORD,
-    self::IMPLICIT,
+  public const array VALUES = [
+    'authorization_code',
+    'client_credentials',
+    'refresh_token',
+    'password',
+    'implicit',
   ];
-  //#endregion
 
-  //#region Constructor
   /**
-   * Constructor
+   * Method values
    *
-   * Initializes a new instance of the GrantType class.
+   * Returns an array of all possible values.
+   * This is a helper method that returns the same as the VALUES constant.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
-   * @param string $value The grant type value.
-   *
-   * @throws InvalidValueException If the grant type is invalid.
+   * @return list<string> An array of values.
    */
-  public function __construct(public string $value)
+  public static function values(): array
   {
-    if (!in_array(needle: $value, haystack: self::VALID_GRANT_TYPES, strict: true)) {
-      throw InvalidValueException::because(
-        message: sprintf(
-          'Invalid grant type "%s". Must be one of: %s',
-          $value,
-          implode(separator: ', ', array: self::VALID_GRANT_TYPES)
-        )
-      );
-    }
+    return self::VALUES;
   }
-  //#endregion
 
-  //#region Methods
   /**
    * Method isAuthorizationCode
    *
    * Checks if this is an authorization code grant.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
    * @return bool True if authorization code grant, false otherwise.
    */
   public function isAuthorizationCode(): bool
   {
-    return $this->value === self::AUTHORIZATION_CODE;
+    return $this === self::AUTHORIZATION_CODE;
   }
 
   /**
@@ -154,13 +101,13 @@ final readonly class GrantType implements Stringable
    * Checks if this is a client credentials grant.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
    * @return bool True if client credentials grant, false otherwise.
    */
   public function isClientCredentials(): bool
   {
-    return $this->value === self::CLIENT_CREDENTIALS;
+    return $this === self::CLIENT_CREDENTIALS;
   }
 
   /**
@@ -169,13 +116,13 @@ final readonly class GrantType implements Stringable
    * Checks if this is a refresh token grant.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
    * @return bool True if refresh token grant, false otherwise.
    */
   public function isRefreshToken(): bool
   {
-    return $this->value === self::REFRESH_TOKEN;
+    return $this === self::REFRESH_TOKEN;
   }
 
   /**
@@ -184,49 +131,36 @@ final readonly class GrantType implements Stringable
    * Checks if this grant type requires user authentication.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
    * @return bool True if user authentication is required, false otherwise.
    */
   public function requiresUserAuthentication(): bool
   {
-    return in_array(
-      needle: $this->value,
-      haystack: [self::AUTHORIZATION_CODE, self::PASSWORD, self::IMPLICIT],
-      strict: true
-    );
+    return match ($this) {
+      self::AUTHORIZATION_CODE, self::PASSWORD, self::IMPLICIT => true,
+      self::CLIENT_CREDENTIALS, self::REFRESH_TOKEN => false,
+    };
   }
 
   /**
-   * Method equals
+   * Method label
    *
-   * Compares two GrantType objects for equality.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param self $other The other GrantType object to compare.
-   *
-   * @return bool True if the objects are equal, false otherwise.
-   */
-  public function equals(self $other): bool
-  {
-    return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString
-   *
-   * Returns the string representation of the GrantType object.
+   * Returns a human-readable label for the grant type.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
-   * @return string The string representation of the GrantType object.
+   * @return string The human-readable label.
    */
-  public function __toString(): string
+  public function label(): string
   {
-    return $this->value;
+    return match ($this) {
+      self::AUTHORIZATION_CODE => 'Authorization Code',
+      self::CLIENT_CREDENTIALS => 'Client Credentials',
+      self::REFRESH_TOKEN => 'Refresh Token',
+      self::PASSWORD => 'Password',
+      self::IMPLICIT => 'Implicit (Deprecated)',
+    };
   }
-  //#endregion
 }

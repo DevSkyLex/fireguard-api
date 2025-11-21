@@ -8,7 +8,6 @@ use function sprintf;
 
 /**
  * Exception InvalidValueException
- * @final
  *
  * It is thrown when an invalid value is provided.
  *
@@ -18,7 +17,7 @@ use function sprintf;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class InvalidValueException extends DomainException
+class InvalidValueException extends DomainException
 {
   //#region Methods
   /**

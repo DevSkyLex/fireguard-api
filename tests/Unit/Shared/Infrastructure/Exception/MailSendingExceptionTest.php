@@ -32,3 +32,4 @@ final class MailSendingExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

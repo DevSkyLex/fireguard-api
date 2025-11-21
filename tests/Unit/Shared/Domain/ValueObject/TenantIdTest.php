@@ -97,3 +97,4 @@ final class TenantIdTest extends TestCase
     $this->assertFalse($t1->equals($t3));
   }
 }
+

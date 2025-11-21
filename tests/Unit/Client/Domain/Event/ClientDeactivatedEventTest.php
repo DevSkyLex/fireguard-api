@@ -137,3 +137,4 @@ final class ClientDeactivatedEventTest extends TestCase
 	}
 	//#endregion
 }
+

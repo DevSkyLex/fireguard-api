@@ -68,3 +68,4 @@ final class CacheOperationExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

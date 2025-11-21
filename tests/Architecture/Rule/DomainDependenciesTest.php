@@ -221,3 +221,4 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
 
   //#endregion
 }
+

@@ -95,3 +95,4 @@ final class UuidTest extends TestCase
     $this->assertInstanceOf(Uuid::class, $uuid);
   }
 }
+

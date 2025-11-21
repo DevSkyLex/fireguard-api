@@ -32,3 +32,4 @@ final class TranslationExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

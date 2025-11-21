@@ -167,3 +167,4 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
   }
   //#endregion
 }
+

@@ -82,7 +82,7 @@ final class RegisterClientHandlerTest extends TestCase
     $command = new RegisterClientCommand(
       name: 'Test Client',
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(new GrantType(value: 'authorization_code')),
+      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
       scopes: new Scopes(new Scope(value: 'read'))
     );
 
@@ -104,3 +104,4 @@ final class RegisterClientHandlerTest extends TestCase
   }
   //#endregion
 }
+

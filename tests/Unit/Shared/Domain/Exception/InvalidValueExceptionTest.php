@@ -42,3 +42,4 @@ final class InvalidValueExceptionTest extends TestCase
     $this->assertSame($message, $exception->getMessage());
   }
 }
+

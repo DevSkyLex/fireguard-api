@@ -152,7 +152,7 @@ final class ClientResource
   #[Assert\NotBlank]
   #[Assert\All([
     new Assert\NotBlank,
-    new Assert\Choice(choices: GrantType::VALID_GRANT_TYPES)
+    new Assert\Choice(choices: GrantType::VALUES)
   ])]
   #[Groups(groups: ['client:read', 'client:write'])]
   public array $grantTypes = [];

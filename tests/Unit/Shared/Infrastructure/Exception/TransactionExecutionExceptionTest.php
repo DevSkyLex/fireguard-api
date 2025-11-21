@@ -32,3 +32,4 @@ final class TransactionExecutionExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

@@ -67,3 +67,4 @@ final class TokenClaimsTest extends TestCase
     $this->assertEquals($claims, $tokenClaims->jsonSerialize());
   }
 }
+

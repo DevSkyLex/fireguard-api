@@ -58,7 +58,7 @@ final class ClientTest extends TestCase
     $hashedSecret = password_hash('secret', PASSWORD_BCRYPT);
     $clientSecret = new ClientSecret(value: $hashedSecret);
     $redirectUris = [new RedirectUri(value: 'https://example.com/callback')];
-    $grantTypes = new GrantTypes(new GrantType(value: 'authorization_code'));
+    $grantTypes = new GrantTypes(GrantType::from('authorization_code'));
     $scopes = new Scopes(new Scope(value: 'read'));
 
     $client = Client::register(
@@ -275,7 +275,7 @@ final class ClientTest extends TestCase
   public function testSupportsGrantTypeReturnsTrueForSupportedType(): void
   {
     $client = $this->createTestClient();
-    $grantType = new GrantType(value: 'authorization_code');
+    $grantType = GrantType::from('authorization_code');
 
     self::assertTrue(condition: $client->supportsGrantType(grantType: $grantType));
   }
@@ -316,9 +316,10 @@ final class ClientTest extends TestCase
       name: new ClientName(value: 'Test Client'),
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(new GrantType(value: 'authorization_code')),
+      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
       scopes: new Scopes(new Scope(value: 'read'))
     );
   }
   //#endregion
 }
+

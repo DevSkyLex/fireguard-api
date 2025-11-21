@@ -100,3 +100,4 @@ final class GetClientProviderTest extends TestCase
   }
   //#endregion
 }
+

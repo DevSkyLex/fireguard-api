@@ -190,7 +190,7 @@ final class ClientRepositoryTest extends TestCase
       name: new ClientName(value: 'Test Client'),
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(new GrantType(value: 'authorization_code')),
+      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
       scopes: new Scopes(new Scope(value: 'read'))
     );
   }
@@ -201,3 +201,4 @@ final class ClientRepositoryTest extends TestCase
   }
   //#endregion
 }
+

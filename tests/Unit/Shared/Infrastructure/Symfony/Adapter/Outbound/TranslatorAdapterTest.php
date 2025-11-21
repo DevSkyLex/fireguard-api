@@ -70,3 +70,4 @@ final class TranslatorAdapterTest extends TestCase
     $this->adapter->translate($id);
   }
 }
+

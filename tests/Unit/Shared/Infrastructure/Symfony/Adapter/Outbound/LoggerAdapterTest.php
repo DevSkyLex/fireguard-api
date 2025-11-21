@@ -106,3 +106,4 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->debug($message, $context);
   }
 }
+

@@ -58,3 +58,4 @@ final class UuidGeneratorAdapterTest extends TestCase
     $adapter->generate();
   }
 }
+

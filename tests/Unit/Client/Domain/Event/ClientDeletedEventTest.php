@@ -137,3 +137,4 @@ final class ClientDeletedEventTest extends TestCase
 	}
 	//#endregion
 }
+

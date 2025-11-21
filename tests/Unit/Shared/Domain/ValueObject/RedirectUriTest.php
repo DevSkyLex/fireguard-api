@@ -78,3 +78,4 @@ final class RedirectUriTest extends TestCase
   }
   //#endregion
 }
+

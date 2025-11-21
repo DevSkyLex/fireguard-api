@@ -81,3 +81,4 @@ final class MessengerEventBusAdapterTest extends TestCase
     $this->adapter->publish($event);
   }
 }
+

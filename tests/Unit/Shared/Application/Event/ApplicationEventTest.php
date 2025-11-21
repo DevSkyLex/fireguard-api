@@ -180,3 +180,4 @@ final class DummyDomainEvent implements DomainEvent
   }
   //#endregion
 }
+

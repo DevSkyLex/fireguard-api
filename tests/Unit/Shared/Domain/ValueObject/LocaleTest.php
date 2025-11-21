@@ -79,3 +79,4 @@ final class LocaleTest extends TestCase
   }
   //#endregion
 }
+

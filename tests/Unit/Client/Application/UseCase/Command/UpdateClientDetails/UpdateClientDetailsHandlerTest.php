@@ -57,7 +57,7 @@ final class UpdateClientDetailsHandlerTest extends TestCase
       name: new ClientName('Original Name'),
       secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://old.example.com')],
-      grantTypes: new \Shared\Domain\ValueObject\GrantTypes(new \Shared\Domain\ValueObject\GrantType('authorization_code')),
+      grantTypes: new \Shared\Domain\ValueObject\GrantTypes(\Shared\Domain\ValueObject\GrantType::AUTHORIZATION_CODE),
       scopes: new Scopes(new Scope('read'))
     );
     $client->releaseEvents(); // Clear creation events
@@ -134,3 +134,4 @@ final class UpdateClientDetailsHandlerTest extends TestCase
   }
   //#endregion
 }
+

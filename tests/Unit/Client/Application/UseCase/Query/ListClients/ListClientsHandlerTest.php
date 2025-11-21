@@ -60,7 +60,7 @@ final class ListClientsHandlerTest extends TestCase
       name: new ClientName('Test Client'),
       secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
-      grantTypes: new GrantTypes(new GrantType('authorization_code')),
+      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
       scopes: new Scopes(new Scope('read'))
     );
 
@@ -92,3 +92,4 @@ final class ListClientsHandlerTest extends TestCase
   }
   //#endregion
 }
+

@@ -144,3 +144,4 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
   }
   //#endregion
 }
+

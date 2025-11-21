@@ -16,50 +16,24 @@ use Stringable;
  *
  * @category ValueObject
  * @package Shared\Domain\ValueObject
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class IpAddress implements Stringable
 {
-  //#region Constants
-  /**
-   * Constant TYPE_IPV4
-   *
-   * IPv4 address type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string TYPE_IPV4
-   */
-  public const string TYPE_IPV4 = 'ipv4';
-
-  /**
-   * Constant TYPE_IPV6
-   *
-   * IPv6 address type.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string TYPE_IPV6
-   */
-  public const string TYPE_IPV6 = 'ipv6';
-  //#endregion
-
   //#region Properties
   /**
    * Property type
    *
-   * The type of IP address (ipv4 or ipv6).
+   * The type of IP address (IPv4 or IPv6).
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
-   * @var string $type
+   * @var IpAddressType $type
    */
-  public string $type;
+  public IpAddressType $type;
   //#endregion
 
   //#region Constructor
@@ -84,8 +58,8 @@ final readonly class IpAddress implements Stringable
     }
 
     $this->type = filter_var(value: $value, filter: FILTER_VALIDATE_IP, options: FILTER_FLAG_IPV6)
-      ? self::TYPE_IPV6
-      : self::TYPE_IPV4;
+      ? IpAddressType::IPV6
+      : IpAddressType::IPV4;
   }
   //#endregion
 
@@ -102,7 +76,7 @@ final readonly class IpAddress implements Stringable
    */
   public function isIpv4(): bool
   {
-    return $this->type === self::TYPE_IPV4;
+    return $this->type === IpAddressType::IPV4;
   }
 
   /**
@@ -117,7 +91,7 @@ final readonly class IpAddress implements Stringable
    */
   public function isIpv6(): bool
   {
-    return $this->type === self::TYPE_IPV6;
+    return $this->type === IpAddressType::IPV6;
   }
 
   /**

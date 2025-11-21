@@ -100,3 +100,4 @@ final class MessengerEventListenerAdapterTest extends TestCase
     $this->adapter->handle($event);
   }
 }
+

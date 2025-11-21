@@ -43,3 +43,4 @@ enum ArchitectureLayer: string
   case INFRASTRUCTURE = 'Infrastructure';
   //#endregion
 }
+

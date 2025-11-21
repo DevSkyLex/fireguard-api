@@ -298,3 +298,4 @@ abstract class BaseHexagonalArchitectureTest
   }
   //#endregion
 }
+

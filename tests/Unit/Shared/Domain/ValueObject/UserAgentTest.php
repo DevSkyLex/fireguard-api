@@ -119,3 +119,4 @@ final class UserAgentTest extends TestCase
     $this->assertNull($unknown->getBrowser());
   }
 }
+

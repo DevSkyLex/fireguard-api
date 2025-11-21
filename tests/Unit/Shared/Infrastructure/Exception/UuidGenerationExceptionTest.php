@@ -32,3 +32,4 @@ final class UuidGenerationExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

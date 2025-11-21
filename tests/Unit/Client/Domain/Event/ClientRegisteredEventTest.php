@@ -148,3 +148,4 @@ final class ClientRegisteredEventTest extends TestCase
 	}
 	//#endregion
 }
+

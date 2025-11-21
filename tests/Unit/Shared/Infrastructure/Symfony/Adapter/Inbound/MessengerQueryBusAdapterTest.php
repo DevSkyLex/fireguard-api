@@ -87,3 +87,4 @@ final class MessengerQueryBusAdapterTest extends TestCase
     $this->adapter->ask($query);
   }
 }
+

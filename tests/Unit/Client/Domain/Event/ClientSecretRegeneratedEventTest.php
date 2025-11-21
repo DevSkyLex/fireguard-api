@@ -137,3 +137,4 @@ final class ClientSecretRegeneratedEventTest extends TestCase
 	}
 	//#endregion
 }
+

@@ -28,3 +28,4 @@ final class InfrastructureExceptionTest extends TestCase
     $this->assertSame([], $exception->metadata());
   }
 }
+

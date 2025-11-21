@@ -42,3 +42,4 @@ final class BusinessRuleViolationExceptionTest extends TestCase
     $this->assertSame('Business rule violated: User must be active', $exception->getMessage());
   }
 }
+

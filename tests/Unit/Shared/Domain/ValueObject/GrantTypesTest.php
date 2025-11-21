@@ -16,7 +16,7 @@ use Shared\Domain\ValueObject\GrantTypes;
  *
  * @category Unit Test
  * @package Tests\Unit\Shared\Domain\ValueObject
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
@@ -37,14 +37,14 @@ final class GrantTypesTest extends TestCase
    */
   public function testCanBeCreatedAndAccessed(): void
   {
-    $g1 = new GrantType('authorization_code');
-    $g2 = new GrantType('refresh_token');
+    $g1 = GrantType::AUTHORIZATION_CODE;
+    $g2 = GrantType::REFRESH_TOKEN;
     $grantTypes = new GrantTypes($g1, $g2);
 
     $this->assertCount(2, $grantTypes);
     $this->assertTrue($grantTypes->contains($g1));
     $this->assertTrue($grantTypes->contains($g2));
-    $this->assertFalse($grantTypes->contains(new GrantType('password')));
+    $this->assertFalse($grantTypes->contains(GrantType::PASSWORD));
   }
 
   /**
@@ -59,11 +59,11 @@ final class GrantTypesTest extends TestCase
    */
   public function testIteration(): void
   {
-    $g1 = new GrantType('authorization_code');
+    $g1 = GrantType::AUTHORIZATION_CODE;
     $grantTypes = new GrantTypes($g1);
 
     foreach ($grantTypes as $grantType) {
-      $this->assertTrue($grantType->equals($g1));
+      $this->assertSame($g1, $grantType);
     }
   }
 
@@ -82,6 +82,50 @@ final class GrantTypesTest extends TestCase
     $grantTypes = GrantTypes::fromArray(['authorization_code', 'refresh_token']);
 
     $this->assertCount(2, $grantTypes);
-    $this->assertTrue($grantTypes->contains(new GrantType('authorization_code')));
+    $this->assertTrue($grantTypes->contains(GrantType::AUTHORIZATION_CODE));
+  }
+
+  /**
+   * Method testRemovesDuplicates
+   *
+   * Tests that duplicate grant types are removed.
+   *
+   * @access public
+   * @since 2.0.0
+   *
+   * @return void No return value.
+   */
+  public function testRemovesDuplicates(): void
+  {
+    $grantTypes = new GrantTypes(
+      GrantType::AUTHORIZATION_CODE,
+      GrantType::AUTHORIZATION_CODE,
+      GrantType::CLIENT_CREDENTIALS
+    );
+
+    $this->assertCount(2, $grantTypes);
+  }
+
+  /**
+   * Method testToArray
+   *
+   * Tests that GrantTypes can be converted to an array of strings.
+   *
+   * @access public
+   * @since 2.0.0
+   *
+   * @return void No return value.
+   */
+  public function testToArray(): void
+  {
+    $grantTypes = new GrantTypes(
+      GrantType::AUTHORIZATION_CODE,
+      GrantType::CLIENT_CREDENTIALS
+    );
+
+    $array = $grantTypes->toArray();
+
+    $this->assertEquals(['authorization_code', 'client_credentials'], $array);
   }
 }
+

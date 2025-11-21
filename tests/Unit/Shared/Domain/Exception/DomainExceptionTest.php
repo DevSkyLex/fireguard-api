@@ -44,3 +44,4 @@ final class DomainExceptionTest extends TestCase
     $this->assertNotEmpty($code);
   }
 }
+

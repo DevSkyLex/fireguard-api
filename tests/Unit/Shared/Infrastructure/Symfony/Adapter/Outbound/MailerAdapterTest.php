@@ -98,3 +98,4 @@ final class MailerAdapterTest extends TestCase
     $this->adapter->send($to, $subject, $body);
   }
 }
+

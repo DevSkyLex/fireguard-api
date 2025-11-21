@@ -32,3 +32,4 @@ final class MessengerRuntimeExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

@@ -31,3 +31,4 @@ final class NoHandlerResultExceptionTest extends TestCase
     $this->assertSame('No handler result returned for message "stdClass".', $exception->getMessage());
   }
 }
+

@@ -195,3 +195,4 @@ final class ClientSecretTest extends TestCase
   }
   //#endregion
 }
+

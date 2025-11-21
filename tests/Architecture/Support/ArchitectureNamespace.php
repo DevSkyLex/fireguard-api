@@ -40,3 +40,4 @@ enum ArchitectureNamespace: string
   case PORT = 'Port';
   //#endregion
 }
+

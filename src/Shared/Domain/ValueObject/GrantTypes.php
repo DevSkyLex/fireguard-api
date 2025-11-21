@@ -18,7 +18,7 @@ use Traversable;
  *
  * @category ValueObject
  * @package Shared\Domain\ValueObject
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
@@ -59,7 +59,7 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
       );
     }
 
-    // Remove duplicates
+    // Remove duplicates based on enum value
     $unique = [];
     foreach ($grantTypes as $grantType) {
       $unique[$grantType->value] = $grantType;
@@ -67,6 +67,7 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
 
     $this->grantTypes = array_values($unique);
   }
+
   /**
    * Method fromArray
    * @static
@@ -76,9 +77,11 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
    * @access public
    * @since 1.0.0
    *
-   * @param array<string> $grantTypes The grant types.
+   * @param array<string> $grantTypes The grant types as strings.
    *
    * @return self The GrantTypes collection.
+   * 
+   * @throws \ValueError If any string is not a valid grant type.
    */
   public static function fromArray(array $grantTypes): self
   {
@@ -88,7 +91,7 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
       );
     }
 
-    $types = array_map(fn(string $value): GrantType => new GrantType($value), $grantTypes);
+    $types = array_map(fn(string $value): GrantType => GrantType::from($value), $grantTypes);
 
     return new self(...$types);
   }
@@ -110,7 +113,7 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
   public function contains(GrantType $grantType): bool
   {
     foreach ($this->grantTypes as $gt) {
-      if ($gt->equals($grantType)) {
+      if ($gt === $grantType) {
         return true;
       }
     }

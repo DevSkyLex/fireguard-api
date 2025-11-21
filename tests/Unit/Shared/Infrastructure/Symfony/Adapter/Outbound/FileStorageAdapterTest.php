@@ -117,3 +117,4 @@ final class FileStorageAdapterTest extends TestCase
     $this->adapter->delete('non_existent.txt');
   }
 }
+

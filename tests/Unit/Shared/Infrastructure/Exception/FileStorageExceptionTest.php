@@ -68,3 +68,4 @@ final class FileStorageExceptionTest extends TestCase
     $this->assertSame($previous, $exception->getPrevious());
   }
 }
+

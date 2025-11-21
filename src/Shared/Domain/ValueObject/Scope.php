@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Domain\ValueObject;
 
-use Shared\Domain\Exception\InvalidValueException;
+use Shared\Domain\Exception\InvalidScopeException;
 use Stringable;
 
 /**
@@ -95,7 +95,7 @@ final readonly class Scope implements Stringable
    * @var string ADDRESS
    */
   public const string ADDRESS = 'address';
-  
+
   /**
    * Constant READ
    *
@@ -144,17 +144,16 @@ final readonly class Scope implements Stringable
    *
    * @param string $value The scope value.
    *
-   * @throws InvalidValueException If the scope is invalid.
+   * @throws InvalidScopeException If the scope is invalid.
    */
   public function __construct(public string $value)
   {
+    if ($value === '') {
+      throw InvalidScopeException::empty();
+    }
+
     if (!preg_match(pattern: self::PATTERN, subject: $value)) {
-      throw InvalidValueException::because(
-        message: sprintf(
-          'Invalid OAuth scope "%s". Must be lowercase alphanumeric with optional dots, hyphens, or underscores.',
-          $value
-        )
-      );
+      throw InvalidScopeException::invalidFormat(value: $value);
     }
   }
   //#endregion

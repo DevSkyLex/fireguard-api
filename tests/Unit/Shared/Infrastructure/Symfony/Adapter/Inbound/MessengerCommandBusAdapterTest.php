@@ -87,3 +87,4 @@ final class MessengerCommandBusAdapterTest extends TestCase
     $this->adapter->dispatch($command);
   }
 }
+

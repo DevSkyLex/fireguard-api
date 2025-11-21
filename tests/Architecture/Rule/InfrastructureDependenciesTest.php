@@ -136,3 +136,4 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
   }
   //#endregion
 }
+

@@ -33,3 +33,4 @@ final class SystemClockAdapterTest extends TestCase
     $this->assertEqualsWithDelta(time(), $now->getTimestamp(), 1);
   }
 }
+

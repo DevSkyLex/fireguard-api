@@ -137,3 +137,4 @@ final class ClientActivatedEventTest extends TestCase
 	}
 	//#endregion
 }
+
