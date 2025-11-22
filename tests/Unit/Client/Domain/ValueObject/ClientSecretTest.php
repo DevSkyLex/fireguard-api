@@ -6,6 +6,8 @@ namespace Tests\Client\Domain\ValueObject;
 
 use Client\Domain\ValueObject\ClientSecret;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -19,6 +21,7 @@ use Shared\Domain\Exception\InvalidValueException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ClientSecret::class)]
 final class ClientSecretTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testValidHashedSecretIsAccepted(): void
   {
     $hashedValue = '$2y$10$abcdefghijklmnopqrstuv';
@@ -52,6 +56,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testGenerateRandomPlainReturnsValidSecret(): void
   {
     $plainSecret = ClientSecret::generateRandomPlain();
@@ -72,6 +77,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testGenerateRandomPlainReturnsDifferentValues(): void
   {
     $plainSecret1 = ClientSecret::generateRandomPlain();
@@ -93,6 +99,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testGenerateRandomPlainWithCustomLength(): void
   {
     $plainSecret = ClientSecret::generateRandomPlain(length: 64);
@@ -113,6 +120,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvalidSecretThrowsException(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -130,6 +138,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testEmptySecretThrowsException(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -146,6 +155,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testToStringReturnsValue(): void
   {
     $hashedValue = '$2y$10$abcdefghijklmnopqrstuv';
@@ -167,6 +177,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testEqualsReturnsTrueForSameValue(): void
   {
     $hashedValue = '$2y$10$abcdefghijklmnopqrstuv';
@@ -186,6 +197,7 @@ final class ClientSecretTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testEqualsReturnsFalseForDifferentValue(): void
   {
     $clientSecret1 = new ClientSecret(value: '$2y$10$abcdefghijklmnopqrstuv');

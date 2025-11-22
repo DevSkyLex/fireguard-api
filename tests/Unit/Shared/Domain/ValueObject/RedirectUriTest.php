@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\RedirectUri;
 
@@ -19,6 +21,7 @@ use Shared\Domain\ValueObject\RedirectUri;
  * 
  * @covers \Shared\Domain\ValueObject\RedirectUri
  */
+#[CoversClass(className: RedirectUri::class)]
 final class RedirectUriTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class RedirectUriTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = 'https://example.com/callback';
@@ -51,6 +55,7 @@ final class RedirectUriTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidValue(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -67,6 +72,7 @@ final class RedirectUriTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $u1 = new RedirectUri(value: 'https://example.com');

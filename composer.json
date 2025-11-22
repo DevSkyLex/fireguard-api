@@ -48,7 +48,8 @@
         "psr-4": {
             "App\\": "src/",
             "Shared\\": "src/Shared/",
-            "Client\\": "src/Client/"
+            "Client\\": "src/Client/",
+            "User\\": "src/User/"
         }
     },
     "autoload-dev": {

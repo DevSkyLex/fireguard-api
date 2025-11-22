@@ -12,6 +12,8 @@ use Client\Infrastructure\Persistence\Doctrine\Mapper\ClientMapper;
 use Client\Infrastructure\Persistence\Doctrine\Record\ClientRecord;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\GrantType;
 use Shared\Domain\ValueObject\GrantTypes;
 use Shared\Domain\ValueObject\RedirectUri;
@@ -30,6 +32,7 @@ use Symfony\Component\Uid\Uuid;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ClientMapper::class)]
 final class ClientMapperTest extends TestCase
 {
   //#region Methods
@@ -43,6 +46,7 @@ final class ClientMapperTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testToDomainMapsRecordToClient(): void
   {
     $record = new ClientRecord();
@@ -77,6 +81,7 @@ final class ClientMapperTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testToDomainHandlesSoftDeletedClient(): void
   {
     $record = new ClientRecord();
@@ -106,6 +111,7 @@ final class ClientMapperTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testToRecordMapsClientToRecord(): void
   {
     $hashedSecret = password_hash('test-secret', PASSWORD_BCRYPT);
@@ -141,6 +147,7 @@ final class ClientMapperTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testRoundTripMappingPreservesData(): void
   {
     $hashedSecret = password_hash('test-secret', PASSWORD_BCRYPT);

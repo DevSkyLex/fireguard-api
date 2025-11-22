@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Message\CommandMessage;
 use Shared\Application\Message\ResultMessage;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
@@ -16,6 +18,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Exception;
 
+#[CoversClass(className: MessengerCommandBusAdapter::class)]
 final class MessengerCommandBusAdapterTest extends TestCase
 {
   private MessageBusInterface&MockObject $messageBus;
@@ -27,6 +30,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
     $this->adapter = new MessengerCommandBusAdapter($this->messageBus);
   }
 
+  #[Test]
   public function testDispatchSuccess(): void
   {
     $command = $this->createMock(CommandMessage::class);
@@ -44,6 +48,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
     $this->assertSame($result, $actualResult);
   }
 
+  #[Test]
   public function testDispatchThrowsMessengerRuntimeException(): void
   {
     $command = $this->createMock(CommandMessage::class);
@@ -58,6 +63,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
     $this->adapter->dispatch($command);
   }
 
+  #[Test]
   public function testDispatchThrowsNoHandlerResultExceptionWhenNoStamp(): void
   {
     $command = $this->createMock(CommandMessage::class);
@@ -72,6 +78,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
     $this->adapter->dispatch($command);
   }
 
+  #[Test]
   public function testDispatchThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
   {
     $command = $this->createMock(CommandMessage::class);

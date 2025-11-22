@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\TranslationException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -21,6 +23,7 @@ use Exception;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter
  */
+#[CoversClass(className: TranslatorAdapter::class)]
 final class TranslatorAdapterTest extends TestCase
 {
   private TranslatorInterface&MockObject $translator;
@@ -38,6 +41,7 @@ final class TranslatorAdapterTest extends TestCase
   /**
    * Test that a message is translated successfully.
    */
+  #[Test]
   public function testTranslateSuccess(): void
   {
     $id = 'message.id';
@@ -57,6 +61,7 @@ final class TranslatorAdapterTest extends TestCase
   /**
    * Test that translation fails and throws a TranslationException.
    */
+  #[Test]
   public function testTranslateThrowsException(): void
   {
     $id = 'message.id';

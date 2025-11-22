@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\PhoneNumber;
 
@@ -20,6 +22,7 @@ use Shared\Domain\ValueObject\PhoneNumber;
  * 
  * @covers \Shared\Domain\ValueObject\PhoneNumber
  */
+#[CoversClass(className: PhoneNumber::class)]
 final class PhoneNumberTest extends TestCase
 {
   //#region Methods
@@ -33,6 +36,7 @@ final class PhoneNumberTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = '+33612345678';
@@ -58,6 +62,7 @@ final class PhoneNumberTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidValue(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -73,6 +78,7 @@ final class PhoneNumberTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testGetCountryCode(): void
   {
     // Naive implementation grabs first 3 digits
@@ -98,6 +104,7 @@ final class PhoneNumberTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testGetNationalNumber(): void
   {
     // Naive implementation removes first 3 digits
@@ -115,6 +122,7 @@ final class PhoneNumberTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $p1 = new PhoneNumber(value: '+33612345678');

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\GrantType;
 use Shared\Domain\ValueObject\GrantTypes;
 
@@ -22,6 +24,7 @@ use Shared\Domain\ValueObject\GrantTypes;
  * 
  * @covers \Shared\Domain\ValueObject\GrantTypes
  */
+#[CoversClass(className: GrantTypes::class)]
 final class GrantTypesTest extends TestCase
 {
   /**
@@ -35,6 +38,7 @@ final class GrantTypesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedAndAccessed(): void
   {
     $g1 = GrantType::AUTHORIZATION_CODE;
@@ -57,6 +61,7 @@ final class GrantTypesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testIteration(): void
   {
     $g1 = GrantType::AUTHORIZATION_CODE;
@@ -77,6 +82,7 @@ final class GrantTypesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testFromArray(): void
   {
     $grantTypes = GrantTypes::fromArray(['authorization_code', 'refresh_token']);
@@ -95,6 +101,7 @@ final class GrantTypesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testRemovesDuplicates(): void
   {
     $grantTypes = new GrantTypes(
@@ -116,6 +123,7 @@ final class GrantTypesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testToArray(): void
   {
     $grantTypes = new GrantTypes(

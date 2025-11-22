@@ -6,10 +6,13 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Log\LogLevel;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter;
 
+#[CoversClass(className: LoggerAdapter::class)]
 final class LoggerAdapterTest extends TestCase
 {
   private LoggerInterface&MockObject $psrLogger;
@@ -21,6 +24,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter = new LoggerAdapter($this->psrLogger);
   }
 
+  #[Test]
   public function testLog(): void
   {
     $level = LogLevel::INFO;
@@ -34,6 +38,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->log($level, $message, $context);
   }
 
+  #[Test]
   public function testCritical(): void
   {
     $message = 'critical error';
@@ -46,6 +51,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->critical($message, $context);
   }
 
+  #[Test]
   public function testError(): void
   {
     $message = 'error message';
@@ -58,6 +64,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->error($message, $context);
   }
 
+  #[Test]
   public function testWarning(): void
   {
     $message = 'warning message';
@@ -70,6 +77,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->warning($message, $context);
   }
 
+  #[Test]
   public function testNotice(): void
   {
     $message = 'notice message';
@@ -82,6 +90,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->notice($message, $context);
   }
 
+  #[Test]
   public function testInfo(): void
   {
     $message = 'info message';
@@ -94,6 +103,7 @@ final class LoggerAdapterTest extends TestCase
     $this->adapter->info($message, $context);
   }
 
+  #[Test]
   public function testDebug(): void
   {
     $message = 'debug message';

@@ -16,6 +16,8 @@ use Client\Domain\ValueObject\{
   ClientName
 };
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\HashingPort;
 use Shared\Domain\ValueObject\{
   GrantType,
@@ -36,6 +38,7 @@ use Shared\Domain\ValueObject\{
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ValidateClientCredentialsHandler::class)]
 final class ValidateClientCredentialsHandlerTest extends TestCase
 {
   //#region Methods
@@ -49,6 +52,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeReturnsValidResultWhenCredentialsAreCorrect(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -106,6 +110,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeReturnsInvalidResultWhenClientNotFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -140,6 +145,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeReturnsInvalidResultWhenSecretIsInvalid(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';

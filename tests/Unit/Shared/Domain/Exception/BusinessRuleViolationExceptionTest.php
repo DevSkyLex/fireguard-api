@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\BusinessRuleViolationException;
 
 /**
@@ -21,6 +23,7 @@ use Shared\Domain\Exception\BusinessRuleViolationException;
  * 
  * @covers \Shared\Domain\Exception\BusinessRuleViolationException
  */
+#[CoversClass(className: BusinessRuleViolationException::class)]
 final class BusinessRuleViolationExceptionTest extends TestCase
 {
   /**
@@ -34,6 +37,7 @@ final class BusinessRuleViolationExceptionTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testBecause(): void
   {
     $rule = 'User must be active';

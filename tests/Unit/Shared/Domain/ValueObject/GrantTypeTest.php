@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\GrantType;
 
 /**
@@ -17,6 +19,7 @@ use Shared\Domain\ValueObject\GrantType;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Domain\ValueObject\GrantType
  */
+#[CoversClass(className: GrantType::class)]
 final class GrantTypeTest extends TestCase
 {
   //#region Methods
@@ -29,6 +32,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEnumCases(): void
   {
     $cases = GrantType::cases();
@@ -50,6 +54,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEnumValues(): void
   {
     $this->assertEquals('authorization_code', GrantType::AUTHORIZATION_CODE->value);
@@ -68,6 +73,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testFromString(): void
   {
     $grantType = GrantType::from('authorization_code');
@@ -83,6 +89,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testFromInvalidStringThrowsException(): void
   {
     $this->expectException(\ValueError::class);
@@ -113,6 +120,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testIsAuthorizationCode(): void
   {
     $this->assertTrue(GrantType::AUTHORIZATION_CODE->isAuthorizationCode());
@@ -128,6 +136,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testIsClientCredentials(): void
   {
     $this->assertTrue(GrantType::CLIENT_CREDENTIALS->isClientCredentials());
@@ -143,6 +152,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testIsRefreshToken(): void
   {
     $this->assertTrue(GrantType::REFRESH_TOKEN->isRefreshToken());
@@ -158,6 +168,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testRequiresUserAuthentication(): void
   {
     // Grant types that require user authentication
@@ -179,6 +190,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testLabel(): void
   {
     $this->assertEquals('Authorization Code', GrantType::AUTHORIZATION_CODE->label());
@@ -197,6 +209,7 @@ final class GrantTypeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $g1 = GrantType::CLIENT_CREDENTIALS;

@@ -14,6 +14,8 @@ use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\{ClientId, ClientName};
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\{
   EventBusPort,
   HashingPort
@@ -41,6 +43,7 @@ use function password_hash;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: RegenerateClientSecretHandler::class)]
 final class RegenerateClientSecretHandlerTest extends TestCase
 {
   //#region Methods
@@ -54,6 +57,7 @@ final class RegenerateClientSecretHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeRegeneratesClientSecret(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -121,6 +125,7 @@ final class RegenerateClientSecretHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeThrowsExceptionWhenClientNotFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';

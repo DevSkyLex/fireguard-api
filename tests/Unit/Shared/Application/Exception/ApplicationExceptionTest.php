@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Shared\Application\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Exception\ApplicationException;
 
 /**
@@ -18,6 +20,7 @@ use Shared\Application\Exception\ApplicationException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ApplicationException::class)]
 final class ApplicationExceptionTest extends TestCase
 {
   //#region Methods
@@ -30,9 +33,10 @@ final class ApplicationExceptionTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testContextReturnsEmptyArray(): void
   {
-    $exception = new class() extends ApplicationException {};
+    $exception = new class () extends ApplicationException {};
 
     self::assertSame(
       expected: [],

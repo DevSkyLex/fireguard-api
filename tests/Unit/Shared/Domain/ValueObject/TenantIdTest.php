@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\TenantId;
 use Shared\Domain\ValueObject\Uuid;
@@ -23,6 +25,7 @@ use Shared\Domain\ValueObject\Uuid;
  * 
  * @covers \Shared\Domain\ValueObject\TenantId
  */
+#[CoversClass(className: TenantId::class)]
 final class TenantIdTest extends TestCase
 {
   /**
@@ -35,6 +38,7 @@ final class TenantIdTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $uuid = new Uuid('550e8400-e29b-41d4-a716-446655440000');
@@ -53,6 +57,7 @@ final class TenantIdTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testFromString(): void
   {
     $value = '550e8400-e29b-41d4-a716-446655440000';
@@ -71,6 +76,7 @@ final class TenantIdTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithEmptyValue(): void
   {
     $this->expectException(InvalidValueException::class);
@@ -87,6 +93,7 @@ final class TenantIdTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $t1 = TenantId::fromString('550e8400-e29b-41d4-a716-446655440000');

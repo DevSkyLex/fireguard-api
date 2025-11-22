@@ -9,6 +9,8 @@ use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientName;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Test ClientUpdatedEventTest
@@ -21,6 +23,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ClientUpdatedEvent::class)]
 final class ClientUpdatedEventTest extends TestCase
 {
 	//#region Methods
@@ -34,6 +37,7 @@ final class ClientUpdatedEventTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testEventIsCreatedWithAllProperties(): void
 	{
 		$clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
@@ -61,6 +65,7 @@ final class ClientUpdatedEventTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testEventIdIsAutomaticallyGenerated(): void
 	{
 		$event = new ClientUpdatedEvent(
@@ -85,6 +90,7 @@ final class ClientUpdatedEventTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testAggregateIdReturnsClientId(): void
 	{
 		$clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -107,6 +113,7 @@ final class ClientUpdatedEventTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testAggregateTypeReturnsClient(): void
 	{
 		$event = new ClientUpdatedEvent(
@@ -128,6 +135,7 @@ final class ClientUpdatedEventTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testPayloadContainsEventData(): void
 	{
 		$clientId = '123e4567-e89b-12d3-a456-426614174000';

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\TokenClaims;
 
 /**
@@ -21,6 +23,7 @@ use Shared\Domain\ValueObject\TokenClaims;
  * 
  * @covers \Shared\Domain\ValueObject\TokenClaims
  */
+#[CoversClass(className: TokenClaims::class)]
 final class TokenClaimsTest extends TestCase
 {
   /**
@@ -34,6 +37,7 @@ final class TokenClaimsTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedAndAccessed(): void
   {
     $claims = [
@@ -59,6 +63,7 @@ final class TokenClaimsTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testJsonSerialization(): void
   {
     $claims = ['sub' => 'user-1'];

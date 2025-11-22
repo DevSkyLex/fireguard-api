@@ -16,6 +16,8 @@ use Client\Domain\ValueObject\{
   ClientName
 };
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\ValueObject\{
   GrantType,
@@ -36,6 +38,7 @@ use Shared\Domain\ValueObject\{
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: DeactivateClientHandler::class)]
 final class DeactivateClientHandlerTest extends TestCase
 {
   //#region Methods
@@ -49,6 +52,7 @@ final class DeactivateClientHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeDeactivatesClient(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -104,6 +108,7 @@ final class DeactivateClientHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeThrowsExceptionWhenClientNotFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';

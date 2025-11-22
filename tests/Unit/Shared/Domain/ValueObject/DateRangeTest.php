@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\DateRange;
 
@@ -23,6 +25,7 @@ use Shared\Domain\ValueObject\DateRange;
  * 
  * @covers \Shared\Domain\ValueObject\DateRange
  */
+#[CoversClass(className: DateRange::class)]
 final class DateRangeTest extends TestCase
 {
   //#region Methods
@@ -37,6 +40,7 @@ final class DateRangeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidDates(): void
   {
     $start = new DateTimeImmutable(datetime: '2023-01-01');
@@ -59,6 +63,7 @@ final class DateRangeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithStartAfterEnd(): void
   {
     $start = new DateTimeImmutable(datetime: '2023-02-01');
@@ -79,6 +84,7 @@ final class DateRangeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testContains(): void
   {
     $start = new DateTimeImmutable(datetime: '2023-01-01');
@@ -102,6 +108,7 @@ final class DateRangeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $start = new DateTimeImmutable(datetime: '2023-01-01');

@@ -6,6 +6,8 @@ namespace Tests\Client\Domain\ValueObject;
 
 use Client\Domain\ValueObject\ClientName;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -19,6 +21,7 @@ use Shared\Domain\Exception\InvalidValueException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ClientName::class)]
 final class ClientNameTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class ClientNameTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testValidClientNameIsAccepted(): void
   {
     $clientName = new ClientName(value: 'My OAuth Client');
@@ -52,6 +56,7 @@ final class ClientNameTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testTooShortClientNameThrowsException(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -69,6 +74,7 @@ final class ClientNameTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testTooLongClientNameThrowsException(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -86,6 +92,7 @@ final class ClientNameTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testEqualsReturnsTrueForSameValue(): void
   {
     $clientName1 = new ClientName(value: 'My OAuth Client');
@@ -104,6 +111,7 @@ final class ClientNameTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testEqualsReturnsFalseForDifferentValue(): void
   {
     $clientName1 = new ClientName(value: 'My OAuth Client');
@@ -121,6 +129,7 @@ final class ClientNameTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testToStringReturnsValue(): void
   {
     $clientName = new ClientName(value: 'My OAuth Client');

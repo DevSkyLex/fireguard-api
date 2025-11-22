@@ -16,6 +16,8 @@ use Client\Domain\ValueObject\{
   ClientName
 };
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\EntityNotFoundException;
 use Shared\Domain\ValueObject\{
   GrantType,
@@ -36,6 +38,7 @@ use Shared\Domain\ValueObject\{
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: GetClientHandler::class)]
 final class GetClientHandlerTest extends TestCase
 {
   //#region Methods
@@ -49,6 +52,7 @@ final class GetClientHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeReturnsClientResult(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -96,6 +100,7 @@ final class GetClientHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeThrowsExceptionWhenClientNotFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';

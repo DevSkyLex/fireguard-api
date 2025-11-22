@@ -10,6 +10,8 @@ use Client\Application\UseCase\Command\RegisterClient\RegisterClientResult;
 use Client\Presentation\Api\Processor\RegisterClientProcessor;
 use Client\Presentation\Api\Resource\ClientResource;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**
@@ -23,6 +25,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: RegisterClientProcessor::class)]
 final class RegisterClientProcessorTest extends TestCase
 {
   //#region Methods
@@ -35,6 +38,7 @@ final class RegisterClientProcessorTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testProcessRegistersClientAndUpdatesResource(): void
   {
     // Data

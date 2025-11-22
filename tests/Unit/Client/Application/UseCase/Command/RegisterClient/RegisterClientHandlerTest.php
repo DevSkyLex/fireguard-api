@@ -12,6 +12,8 @@ use Client\Application\UseCase\Command\RegisterClient\{
 };
 use Client\Domain\Model\Client;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\{
   EventBusPort,
   HashingPort,
@@ -39,6 +41,7 @@ use function strlen;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: RegisterClientHandler::class)]
 final class RegisterClientHandlerTest extends TestCase
 {
   //#region Methods
@@ -52,6 +55,7 @@ final class RegisterClientHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeRegistersNewClient(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';

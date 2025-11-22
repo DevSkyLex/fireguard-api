@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidOAuthClientIdentifierException;
 use Shared\Domain\ValueObject\OAuthClientIdentifier;
 
@@ -20,6 +22,7 @@ use Shared\Domain\ValueObject\OAuthClientIdentifier;
  * 
  * @covers \Shared\Domain\ValueObject\OAuthClientIdentifier
  */
+#[CoversClass(className: OAuthClientIdentifier::class)]
 final class OAuthClientIdentifierTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class OAuthClientIdentifierTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = 'valid-client-id';
@@ -51,6 +55,7 @@ final class OAuthClientIdentifierTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithEmptyValue(): void
   {
     $this->expectException(exception: InvalidOAuthClientIdentifierException::class);
@@ -68,6 +73,7 @@ final class OAuthClientIdentifierTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidCharacters(): void
   {
     $this->expectException(exception: InvalidOAuthClientIdentifierException::class);
@@ -85,6 +91,7 @@ final class OAuthClientIdentifierTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithTooShortValue(): void
   {
     $this->expectException(exception: InvalidOAuthClientIdentifierException::class);
@@ -102,6 +109,7 @@ final class OAuthClientIdentifierTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCannotStartWithSpecialCharacter(): void
   {
     $this->expectException(exception: InvalidOAuthClientIdentifierException::class);
@@ -119,6 +127,7 @@ final class OAuthClientIdentifierTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $id1 = new OAuthClientIdentifier(value: 'client-1');

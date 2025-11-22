@@ -18,14 +18,20 @@ namespace Shared\Domain\ValueObject;
 enum IpAddressType: string
 {
   /**
+   * Case IPV4
+   * 
    * IPv4 address type.
-   * Example: 192.168.1.1
+   * 
+   * @since 1.0.0
    */
   case IPV4 = 'ipv4';
 
   /**
+   * Case IPV6
+   * 
    * IPv6 address type.
-   * Example: 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+   * 
+   * @since 1.0.0
    */
   case IPV6 = 'ipv6';
 

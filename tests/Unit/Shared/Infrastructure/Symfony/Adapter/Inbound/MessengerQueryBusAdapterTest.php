@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Message\QueryMessage;
 use Shared\Application\Message\ResultMessage;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
@@ -16,6 +18,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Exception;
 
+#[CoversClass(className: MessengerQueryBusAdapter::class)]
 final class MessengerQueryBusAdapterTest extends TestCase
 {
   private MessageBusInterface&MockObject $messageBus;
@@ -27,6 +30,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
     $this->adapter = new MessengerQueryBusAdapter($this->messageBus);
   }
 
+  #[Test]
   public function testAskSuccess(): void
   {
     $query = $this->createMock(QueryMessage::class);
@@ -44,6 +48,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
     $this->assertSame($result, $actualResult);
   }
 
+  #[Test]
   public function testAskThrowsMessengerRuntimeException(): void
   {
     $query = $this->createMock(QueryMessage::class);
@@ -58,6 +63,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
     $this->adapter->ask($query);
   }
 
+  #[Test]
   public function testAskThrowsNoHandlerResultExceptionWhenNoStamp(): void
   {
     $query = $this->createMock(QueryMessage::class);
@@ -72,6 +78,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
     $this->adapter->ask($query);
   }
 
+  #[Test]
   public function testAskThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
   {
     $query = $this->createMock(QueryMessage::class);

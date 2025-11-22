@@ -11,6 +11,8 @@ use Client\Infrastructure\Persistence\Doctrine\Repository\ClientRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Client\Domain\ValueObject\{
   ClientId,
   ClientName,
@@ -35,6 +37,7 @@ use Shared\Domain\ValueObject\{
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ClientRepository::class)]
 final class ClientRepositoryTest extends TestCase
 {
   //#region Methods
@@ -48,6 +51,7 @@ final class ClientRepositoryTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testSavePersistsClient(): void
   {
     $client = $this->createTestClient();
@@ -82,6 +86,7 @@ final class ClientRepositoryTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testFindByIdReturnsClient(): void
   {
     $clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
@@ -116,6 +121,7 @@ final class ClientRepositoryTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testFindByIdReturnsNullWhenNotFound(): void
   {
     $clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
@@ -147,6 +153,7 @@ final class ClientRepositoryTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testDeleteRemovesClient(): void
   {
     $client = $this->createTestClient();

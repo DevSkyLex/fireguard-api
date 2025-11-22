@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidScopeException;
 use Shared\Domain\ValueObject\Scope;
 
@@ -22,6 +24,7 @@ use Shared\Domain\ValueObject\Scope;
  * 
  * @covers \Shared\Domain\ValueObject\Scope
  */
+#[CoversClass(className: Scope::class)]
 final class ScopeTest extends TestCase
 {
   //#region Methods
@@ -36,6 +39,7 @@ final class ScopeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = 'read.users';
@@ -48,13 +52,15 @@ final class ScopeTest extends TestCase
   /**
    * Method testCannotBeCreatedWithEmptyValue
    *
-   * Tests that creating a Scope with an empty value throws an exception.
+   * Tests that creating a Scope with an empty 
+   * value throws an exception.
    *
    * @access public
    * @since 1.0.0
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithEmptyValue(): void
   {
     $this->expectException(exception: InvalidScopeException::class);
@@ -72,6 +78,7 @@ final class ScopeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidCharacters(): void
   {
     $this->expectException(exception: InvalidScopeException::class);
@@ -89,6 +96,7 @@ final class ScopeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithUppercase(): void
   {
     $this->expectException(exception: InvalidScopeException::class);
@@ -106,6 +114,7 @@ final class ScopeTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $s1 = new Scope(value: 'read');

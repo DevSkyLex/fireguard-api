@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Uuid;
 
@@ -22,8 +24,10 @@ use Shared\Domain\ValueObject\Uuid;
  * 
  * @covers \Shared\Domain\ValueObject\Uuid
  */
+#[CoversClass(className: Uuid::class)]
 final class UuidTest extends TestCase
 {
+  //#region Methods
   /**
    * Method testCanBeCreatedWithValidValue
    *
@@ -34,6 +38,7 @@ final class UuidTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = '550e8400-e29b-41d4-a716-446655440000';
@@ -53,10 +58,11 @@ final class UuidTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidValue(): void
   {
-    $this->expectException(InvalidValueException::class);
-    new Uuid('invalid-uuid');
+    $this->expectException(exception: InvalidValueException::class);
+    new Uuid(value: 'invalid-uuid');
   }
 
   /**
@@ -69,14 +75,15 @@ final class UuidTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
-    $u1 = new Uuid('550e8400-e29b-41d4-a716-446655440000');
-    $u2 = new Uuid('550e8400-e29b-41d4-a716-446655440000');
-    $u3 = new Uuid('123e4567-e89b-12d3-a456-426614174000');
+    $u1 = new Uuid(value: '550e8400-e29b-41d4-a716-446655440000');
+    $u2 = new Uuid(value: '550e8400-e29b-41d4-a716-446655440000');
+    $u3 = new Uuid(value: '123e4567-e89b-12d3-a456-426614174000');
 
-    $this->assertTrue($u1->equals($u2));
-    $this->assertFalse($u1->equals($u3));
+    $this->assertTrue(condition: $u1->equals($u2));
+    $this->assertFalse(condition: $u1->equals($u3));
   }
 
   /**
@@ -89,10 +96,16 @@ final class UuidTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testGenerate(): void
   {
     $uuid = Uuid::generate();
-    $this->assertInstanceOf(Uuid::class, $uuid);
+
+    $this->assertInstanceOf(
+      expected: Uuid::class, 
+      actual: $uuid
+    );
   }
+  //#endregion
 }
 

@@ -7,10 +7,13 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\TransactionExecutionException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter;
 use Exception;
 
+#[CoversClass(className: DoctrineTransactionManagerAdapter::class)]
 final class DoctrineTransactionManagerAdapterTest extends TestCase
 {
   private EntityManagerInterface&MockObject $entityManager;
@@ -22,6 +25,7 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
     $this->adapter = new DoctrineTransactionManagerAdapter($this->entityManager);
   }
 
+  #[Test]
   public function testTransactionalSuccess(): void
   {
     $operation = fn() => 'result';
@@ -37,6 +41,7 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
     $this->assertEquals('result', $result);
   }
 
+  #[Test]
   public function testTransactionalThrowsException(): void
   {
     $operation = fn() => throw new Exception('Transaction failed');

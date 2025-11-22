@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\MailSendingException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter;
 use Symfony\Component\Mailer\MailerInterface;
@@ -22,6 +24,7 @@ use Exception;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter
  */
+#[CoversClass(className: MailerAdapter::class)]
 final class MailerAdapterTest extends TestCase
 {
   private MailerInterface&MockObject $mailer;
@@ -39,6 +42,7 @@ final class MailerAdapterTest extends TestCase
   /**
    * Test that an email is sent successfully.
    */
+  #[Test]
   public function testSendSuccess(): void
   {
     $to = ['recipient@example.com'];
@@ -60,6 +64,7 @@ final class MailerAdapterTest extends TestCase
   /**
    * Test that an email is sent with CC and BCC recipients.
    */
+  #[Test]
   public function testSendWithCcAndBcc(): void
   {
     $to = ['recipient@example.com'];
@@ -83,6 +88,7 @@ final class MailerAdapterTest extends TestCase
   /**
    * Test that sending fails and throws a MailSendingException.
    */
+  #[Test]
   public function testSendThrowsException(): void
   {
     $to = ['recipient@example.com'];

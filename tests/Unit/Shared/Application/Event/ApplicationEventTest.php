@@ -6,6 +6,8 @@ namespace Tests\Shared\Application\Event;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Event\ApplicationEvent;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\ValueObject\Uuid;
@@ -20,6 +22,7 @@ use Shared\Domain\ValueObject\Uuid;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ApplicationEvent::class)]
 final class ApplicationEventTest extends TestCase
 {
   //#region Methods
@@ -33,6 +36,7 @@ final class ApplicationEventTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testFromDomainCopiesAllMetadata(): void
   {
     $occurredAt = new DateTimeImmutable(datetime: '-1 minute');
@@ -105,7 +109,8 @@ final class DummyDomainEvent implements DomainEvent
     private readonly string $aggregateType,
     private readonly array $payload,
     private readonly DateTimeImmutable $occurredAt,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

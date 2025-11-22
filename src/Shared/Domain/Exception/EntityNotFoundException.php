@@ -6,7 +6,6 @@ namespace Shared\Domain\Exception;
 
 /**
  * Exception EntityNotFoundException
- * @final
  *
  * Thrown when an entity is not found.
  *
@@ -16,7 +15,7 @@ namespace Shared\Domain\Exception;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class EntityNotFoundException extends DomainException
+class EntityNotFoundException extends DomainException
 {
   //#region Methods
   /**

@@ -19,6 +19,8 @@ use Client\Domain\ValueObject\{
   ClientSecret
 };
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\{
   GrantType,
   GrantTypes,
@@ -38,6 +40,7 @@ use Shared\Domain\ValueObject\{
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: Client::class)]
 final class ClientTest extends TestCase
 {
   //#region Methods
@@ -51,6 +54,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testRegisterCreatesNewClient(): void
   {
     $clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
@@ -87,6 +91,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testRegisterRecordsClientRegisteredEvent(): void
   {
     $client = $this->createTestClient();
@@ -107,6 +112,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testUpdateDetailsChangesClientProperties(): void
   {
     $client = $this->createTestClient();
@@ -138,6 +144,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testRegenerateSecretChangesSecret(): void
   {
     $client = $this->createTestClient();
@@ -166,6 +173,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testActivateSetsClientAsActive(): void
   {
     $client = $this->createTestClient();
@@ -190,6 +198,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testDeactivateSetsClientAsInactive(): void
   {
     $client = $this->createTestClient();
@@ -213,6 +222,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testDeleteMarksClientAsDeleted(): void
   {
     $client = $this->createTestClient();
@@ -236,6 +246,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testValidateRedirectUriReturnsTrueForAllowedUri(): void
   {
     $client = $this->createTestClient();
@@ -254,6 +265,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testValidateRedirectUriReturnsFalseForDisallowedUri(): void
   {
     $client = $this->createTestClient();
@@ -272,6 +284,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testSupportsGrantTypeReturnsTrueForSupportedType(): void
   {
     $client = $this->createTestClient();
@@ -290,6 +303,7 @@ final class ClientTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testHasScopeReturnsTrueForAllowedScope(): void
   {
     $client = $this->createTestClient();

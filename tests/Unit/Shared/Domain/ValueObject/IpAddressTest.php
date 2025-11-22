@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\IpAddress;
 
@@ -18,6 +20,7 @@ use Shared\Domain\ValueObject\IpAddress;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Domain\ValueObject\IpAddress
  */
+#[CoversClass(className: IpAddress::class)]
 final class IpAddressTest extends TestCase
 {
   //#region Methods
@@ -30,6 +33,7 @@ final class IpAddressTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidIpv4(): void
   {
     $value = '192.168.1.1';
@@ -48,6 +52,7 @@ final class IpAddressTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidIpv6(): void
   {
     $value = '2001:0db8:85a3:0000:0000:8a2e:0370:7334';
@@ -67,6 +72,7 @@ final class IpAddressTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidValue(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -83,6 +89,7 @@ final class IpAddressTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $ip1 = new IpAddress(value: '192.168.1.1');

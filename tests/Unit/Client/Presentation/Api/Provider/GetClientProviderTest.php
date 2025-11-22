@@ -10,6 +10,8 @@ use Client\Application\UseCase\Query\GetClient\GetClientResult;
 use Client\Presentation\Api\Provider\GetClientProvider;
 use Client\Presentation\Api\Resource\ClientResource;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\EntityNotFoundException;
 
@@ -24,6 +26,7 @@ use Shared\Domain\Exception\EntityNotFoundException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: GetClientProvider::class)]
 final class GetClientProviderTest extends TestCase
 {
   //#region Methods
@@ -36,6 +39,7 @@ final class GetClientProviderTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testProvideReturnsClientResourceWhenFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
@@ -78,6 +82,7 @@ final class GetClientProviderTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testProvideReturnsNullWhenNotFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';

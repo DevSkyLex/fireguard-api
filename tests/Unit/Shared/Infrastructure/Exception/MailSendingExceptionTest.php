@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\MailSendingException;
 use Exception;
 
@@ -18,11 +20,13 @@ use Exception;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Exception\MailSendingException
  */
+#[CoversClass(className: MailSendingException::class)]
 final class MailSendingExceptionTest extends TestCase
 {
   /**
    * Test the dispatchFailed factory method.
    */
+  #[Test]
   public function testDispatchFailed(): void
   {
     $previous = new Exception('Previous error');

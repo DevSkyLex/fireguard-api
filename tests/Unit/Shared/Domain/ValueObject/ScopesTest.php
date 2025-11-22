@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\Scope;
 use Shared\Domain\ValueObject\Scopes;
 
@@ -22,6 +24,7 @@ use Shared\Domain\ValueObject\Scopes;
  * 
  * @covers \Shared\Domain\ValueObject\Scopes
  */
+#[CoversClass(className: Scopes::class)]
 final class ScopesTest extends TestCase
 {
   //#region Methods
@@ -36,6 +39,7 @@ final class ScopesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedAndAccessed(): void
   {
     $s1 = new Scope(value: 'read');
@@ -58,6 +62,7 @@ final class ScopesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testIteration(): void
   {
     $s1 = new Scope(value: 'read');
@@ -78,6 +83,7 @@ final class ScopesTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testFromArray(): void
   {
     $scopes = Scopes::fromArray(['read', 'write']);

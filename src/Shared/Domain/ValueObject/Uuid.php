@@ -7,6 +7,13 @@ namespace Shared\Domain\ValueObject;
 use Shared\Domain\Exception\InvalidValueException;
 use Stringable;
 
+use function vsprintf;
+use function bin2hex;
+use function random_bytes;
+use function ord;
+use function chr;
+use function preg_match;
+use function str_split;
 
 /**
  * ValueObject Uuid
@@ -60,7 +67,6 @@ readonly class Uuid implements Stringable
   //#region Methods
   /**
    * Method generate
-   * @static
    *
    * Generates a new UUID v7.
    *

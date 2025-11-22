@@ -7,6 +7,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 use DateInterval;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
@@ -14,6 +16,7 @@ use Shared\Infrastructure\Exception\CacheOperationException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
 use Exception;
 
+#[CoversClass(className: CacheAdapter::class)]
 final class CacheAdapterTest extends TestCase
 {
   private CacheItemPoolInterface&MockObject $cachePool;
@@ -25,6 +28,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter = new CacheAdapter($this->cachePool);
   }
 
+  #[Test]
   public function testGetHit(): void
   {
     $key = 'test_key';
@@ -47,6 +51,7 @@ final class CacheAdapterTest extends TestCase
     $this->assertEquals($value, $this->adapter->get($key));
   }
 
+  #[Test]
   public function testGetMiss(): void
   {
     $key = 'test_key';
@@ -65,6 +70,7 @@ final class CacheAdapterTest extends TestCase
     $this->assertEquals($default, $this->adapter->get($key, $default));
   }
 
+  #[Test]
   public function testGetThrowsException(): void
   {
     $key = 'test_key';
@@ -79,6 +85,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->get($key);
   }
 
+  #[Test]
   public function testSetSuccess(): void
   {
     $key = 'test_key';
@@ -107,6 +114,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->set($key, $value, $ttl);
   }
 
+  #[Test]
   public function testSetThrowsExceptionOnGetItem(): void
   {
     $key = 'test_key';
@@ -121,6 +129,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->set($key, 'value');
   }
 
+  #[Test]
   public function testSetThrowsExceptionOnSave(): void
   {
     $key = 'test_key';
@@ -141,6 +150,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->set($key, 'value');
   }
 
+  #[Test]
   public function testDeleteSuccess(): void
   {
     $key = 'test_key';
@@ -153,6 +163,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->delete($key);
   }
 
+  #[Test]
   public function testDeleteThrowsException(): void
   {
     $key = 'test_key';
@@ -167,6 +178,7 @@ final class CacheAdapterTest extends TestCase
     $this->adapter->delete($key);
   }
 
+  #[Test]
   public function testClearSuccess(): void
   {
     $this->cachePool->expects($this->once())

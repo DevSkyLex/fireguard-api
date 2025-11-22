@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidOAuthClientIdentifierException;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -20,6 +22,7 @@ use Shared\Domain\Exception\InvalidValueException;
  * 
  * @covers \Shared\Domain\Exception\InvalidOAuthClientIdentifierException
  */
+#[CoversClass(className: InvalidOAuthClientIdentifierException::class)]
 final class InvalidOAuthClientIdentifierExceptionTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class InvalidOAuthClientIdentifierExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testExtendsInvalidValueException(): void
   {
     $exception = InvalidOAuthClientIdentifierException::empty();
@@ -47,6 +51,7 @@ final class InvalidOAuthClientIdentifierExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testInvalidPattern(): void
   {
     $value = 'invalid client!';
@@ -67,6 +72,7 @@ final class InvalidOAuthClientIdentifierExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testEmpty(): void
   {
     $exception = InvalidOAuthClientIdentifierException::empty();

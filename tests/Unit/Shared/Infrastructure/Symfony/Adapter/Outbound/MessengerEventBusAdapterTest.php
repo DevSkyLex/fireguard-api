@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter;
@@ -23,6 +25,7 @@ use Exception;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter
  */
+#[CoversClass(className: MessengerEventBusAdapter::class)]
 final class MessengerEventBusAdapterTest extends TestCase
 {
   private MessageBusInterface&MockObject $messageBus;
@@ -40,6 +43,7 @@ final class MessengerEventBusAdapterTest extends TestCase
   /**
    * Test that events are published successfully.
    */
+  #[Test]
   public function testPublishSuccess(): void
   {
     $event1 = $this->createMock(DomainEvent::class);
@@ -67,6 +71,7 @@ final class MessengerEventBusAdapterTest extends TestCase
   /**
    * Test that publishing fails and throws a MessengerRuntimeException.
    */
+  #[Test]
   public function testPublishThrowsException(): void
   {
     $event = $this->createMock(DomainEvent::class);

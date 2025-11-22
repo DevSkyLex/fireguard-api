@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidGrantTypeException;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -20,6 +22,7 @@ use Shared\Domain\Exception\InvalidValueException;
  * 
  * @covers \Shared\Domain\Exception\InvalidGrantTypeException
  */
+#[CoversClass(className: InvalidGrantTypeException::class)]
 final class InvalidGrantTypeExceptionTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class InvalidGrantTypeExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testExtendsInvalidValueException(): void
   {
     $exception = InvalidGrantTypeException::empty();
@@ -47,6 +51,7 @@ final class InvalidGrantTypeExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testNotAllowed(): void
   {
     $value = 'invalid_grant';
@@ -69,6 +74,7 @@ final class InvalidGrantTypeExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testEmpty(): void
   {
     $exception = InvalidGrantTypeException::empty();

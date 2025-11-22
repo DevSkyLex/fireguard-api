@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\ValueObject\HashedSecret;
 
 /**
@@ -20,6 +22,7 @@ use Shared\Domain\ValueObject\HashedSecret;
  * 
  * @covers \Shared\Domain\ValueObject\HashedSecret
  */
+#[CoversClass(className: HashedSecret::class)]
 final class HashedSecretTest extends TestCase
 {
   //#region Methods
@@ -33,6 +36,7 @@ final class HashedSecretTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = '$2y$10$abcdefghijklmnopqrstuv';
@@ -52,6 +56,7 @@ final class HashedSecretTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $s1 = new HashedSecret(value: '$2y$10$abcdefghijklmnopqrstuv');

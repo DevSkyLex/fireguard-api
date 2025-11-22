@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
 use stdClass;
 
@@ -18,11 +20,13 @@ use stdClass;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Exception\NoHandlerResultException
  */
+#[CoversClass(className: NoHandlerResultException::class)]
 final class NoHandlerResultExceptionTest extends TestCase
 {
   /**
    * Test the forMessage factory method.
    */
+  #[Test]
   public function testForMessage(): void
   {
     $message = new stdClass();

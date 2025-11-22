@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\ValueObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 
@@ -20,6 +22,7 @@ use Shared\Domain\ValueObject\Email;
  * 
  * @covers \Shared\Domain\ValueObject\Email
  */
+#[CoversClass(className: Email::class)]
 final class EmailTest extends TestCase
 {
   //#region Methods
@@ -33,6 +36,7 @@ final class EmailTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCanBeCreatedWithValidValue(): void
   {
     $value = 'test@example.com';
@@ -52,6 +56,7 @@ final class EmailTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testCannotBeCreatedWithInvalidValue(): void
   {
     $this->expectException(exception: InvalidValueException::class);
@@ -68,6 +73,7 @@ final class EmailTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testEquality(): void
   {
     $e1 = new Email(value: 'test@example.com');

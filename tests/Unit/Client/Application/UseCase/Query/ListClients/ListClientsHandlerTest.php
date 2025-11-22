@@ -12,10 +12,12 @@ use Client\Application\UseCase\Query\ListClients\{
 };
 use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\{
-  ClientId, 
+  ClientId,
   ClientName
 };
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Query\{
   PaginatedResult,
   Pagination
@@ -39,6 +41,7 @@ use Shared\Domain\ValueObject\{
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ListClientsHandler::class)]
 final class ListClientsHandlerTest extends TestCase
 {
   //#region Methods
@@ -52,6 +55,7 @@ final class ListClientsHandlerTest extends TestCase
    *
    * @return void No return value
    */
+  #[Test]
   public function testInvokeReturnsPaginatedResult(): void
   {
     // Create real client

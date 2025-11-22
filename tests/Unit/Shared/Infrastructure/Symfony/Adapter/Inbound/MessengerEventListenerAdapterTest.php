@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound;
 
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Message\ResultMessage;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
@@ -16,6 +18,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Exception;
 use stdClass;
 
+#[CoversClass(className: MessengerEventListenerAdapter::class)]
 final class MessengerEventListenerAdapterTest extends TestCase
 {
   private MessageBusInterface&MockObject $messageBus;
@@ -27,6 +30,7 @@ final class MessengerEventListenerAdapterTest extends TestCase
     $this->adapter = new MessengerEventListenerAdapter($this->messageBus);
   }
 
+  #[Test]
   public function testHandleSuccess(): void
   {
     $event = new stdClass();
@@ -44,6 +48,7 @@ final class MessengerEventListenerAdapterTest extends TestCase
     $this->assertSame($result, $actualResult);
   }
 
+  #[Test]
   public function testHandleReturnsNullWhenNoHandledStamp(): void
   {
     $event = new stdClass();
@@ -57,6 +62,7 @@ final class MessengerEventListenerAdapterTest extends TestCase
     $this->assertNull($this->adapter->handle($event));
   }
 
+  #[Test]
   public function testHandleReturnsNullWhenResultIsNull(): void
   {
     $event = new stdClass();
@@ -71,6 +77,7 @@ final class MessengerEventListenerAdapterTest extends TestCase
     $this->assertNull($this->adapter->handle($event));
   }
 
+  #[Test]
   public function testHandleThrowsMessengerRuntimeException(): void
   {
     $event = new stdClass();
@@ -85,6 +92,7 @@ final class MessengerEventListenerAdapterTest extends TestCase
     $this->adapter->handle($event);
   }
 
+  #[Test]
   public function testHandleThrowsNoHandlerResultExceptionWhenResultInvalid(): void
   {
     $event = new stdClass();

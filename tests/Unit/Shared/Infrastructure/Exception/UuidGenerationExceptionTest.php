@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\UuidGenerationException;
 use Exception;
 
@@ -18,11 +20,13 @@ use Exception;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Exception\UuidGenerationException
  */
+#[CoversClass(className: UuidGenerationException::class)]
 final class UuidGenerationExceptionTest extends TestCase
 {
   /**
    * Test the dueToRandomFailure factory method.
    */
+  #[Test]
   public function testDueToRandomFailure(): void
   {
     $previous = new Exception('Random failure');

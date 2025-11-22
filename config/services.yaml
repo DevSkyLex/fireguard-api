@@ -25,3 +25,18 @@ services:
 
   # add more service definitions when explicit configuration is needed
   # please note that last definitions always *replace* previous ones
+
+  # User Module
+  User\Application\Port\Outbound\UserRepositoryPort:
+    class: User\Infrastructure\Persistence\Doctrine\Repository\UserRepository
+
+  User\Application\UseCase\Command\RegisterUser\RegisterUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper: ~
+
+  User\Presentation\Api\Processor\RegisterUserProcessor: ~
+  User\Presentation\Api\Provider\UserProvider: ~

@@ -6,6 +6,8 @@ namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter;
 
 /**
@@ -18,11 +20,13 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter
  */
+#[CoversClass(className: SystemClockAdapter::class)]
 final class SystemClockAdapterTest extends TestCase
 {
   /**
    * Test that the current time is returned.
    */
+  #[Test]
   public function testNow(): void
   {
     $adapter = new SystemClockAdapter();

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\FileStorageException;
 use Exception;
 
@@ -18,11 +20,13 @@ use Exception;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * @covers \Shared\Infrastructure\Exception\FileStorageException
  */
+#[CoversClass(className: FileStorageException::class)]
 final class FileStorageExceptionTest extends TestCase
 {
   /**
    * Test the readFailed factory method.
    */
+  #[Test]
   public function testReadFailed(): void
   {
     $previous = new Exception('Previous error');
@@ -35,6 +39,7 @@ final class FileStorageExceptionTest extends TestCase
   /**
    * Test the writeFailed factory method.
    */
+  #[Test]
   public function testWriteFailed(): void
   {
     $previous = new Exception('Previous error');
@@ -47,6 +52,7 @@ final class FileStorageExceptionTest extends TestCase
   /**
    * Test the deleteFailed factory method.
    */
+  #[Test]
   public function testDeleteFailed(): void
   {
     $previous = new Exception('Previous error');
@@ -59,6 +65,7 @@ final class FileStorageExceptionTest extends TestCase
   /**
    * Test the directoryCreationFailed factory method.
    */
+  #[Test]
   public function testDirectoryCreationFailed(): void
   {
     $previous = new Exception('Previous error');

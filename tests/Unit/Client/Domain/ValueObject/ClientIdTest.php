@@ -6,6 +6,8 @@ namespace Tests\Client\Domain\ValueObject;
 
 use Client\Domain\ValueObject\ClientId;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -19,6 +21,7 @@ use Shared\Domain\Exception\InvalidValueException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+#[CoversClass(className: ClientId::class)]
 final class ClientIdTest extends TestCase
 {
 	//#region Constants
@@ -56,6 +59,7 @@ final class ClientIdTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testValidClientIdIsAccepted(): void
 	{
 		$clientId = new ClientId(value: self::VALID_UUID);
@@ -76,6 +80,7 @@ final class ClientIdTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testInvalidClientIdThrowsException(): void
 	{
 		$this->expectException(exception: InvalidValueException::class);
@@ -93,6 +98,7 @@ final class ClientIdTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testEqualsReturnsTrueForSameValue(): void
 	{
 		$clientId1 = new ClientId(value: self::VALID_UUID);
@@ -111,6 +117,7 @@ final class ClientIdTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testEqualsReturnsFalseForDifferentValue(): void
 	{
 		$clientId1 = new ClientId(value: self::VALID_UUID);
@@ -128,6 +135,7 @@ final class ClientIdTest extends TestCase
 	 *
 	 * @return void No return value
 	 */
+	#[Test]
 	public function testToStringReturnsValue(): void
 	{
 		$clientId = new ClientId(value: self::VALID_UUID);

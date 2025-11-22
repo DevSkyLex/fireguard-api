@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\EntityNotFoundException;
 
 /**
@@ -21,6 +23,7 @@ use Shared\Domain\Exception\EntityNotFoundException;
  * 
  * @covers \Shared\Domain\Exception\EntityNotFoundException
  */
+#[CoversClass(className: EntityNotFoundException::class)]
 final class EntityNotFoundExceptionTest extends TestCase
 {
   /**
@@ -34,6 +37,7 @@ final class EntityNotFoundExceptionTest extends TestCase
    *
    * @return void No return value.
    */
+  #[Test]
   public function testForId(): void
   {
     $entityName = 'User';

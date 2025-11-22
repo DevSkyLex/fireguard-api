@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Infrastructure\Exception\FileStorageException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
 
@@ -20,6 +22,7 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
  * 
  * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter
  */
+#[CoversClass(className: FileStorageAdapter::class)]
 final class FileStorageAdapterTest extends TestCase
 {
   private string $tempDir;
@@ -63,6 +66,7 @@ final class FileStorageAdapterTest extends TestCase
   /**
    * Test that a file can be written and read.
    */
+  #[Test]
   public function testWriteAndRead(): void
   {
     $path = 'test.txt';
@@ -76,6 +80,7 @@ final class FileStorageAdapterTest extends TestCase
   /**
    * Test that writing a file creates necessary subdirectories.
    */
+  #[Test]
   public function testWriteCreatesDirectories(): void
   {
     $path = 'subdir/test.txt';
@@ -89,6 +94,7 @@ final class FileStorageAdapterTest extends TestCase
   /**
    * Test that reading a non-existent file throws an exception.
    */
+  #[Test]
   public function testReadThrowsExceptionIfFileNotFound(): void
   {
     $this->expectException(FileStorageException::class);
@@ -98,6 +104,7 @@ final class FileStorageAdapterTest extends TestCase
   /**
    * Test that a file can be deleted.
    */
+  #[Test]
   public function testDelete(): void
   {
     $path = 'test.txt';
@@ -111,6 +118,7 @@ final class FileStorageAdapterTest extends TestCase
   /**
    * Test that deleting a non-existent file does not throw an exception.
    */
+  #[Test]
   public function testDeleteNonExistentFileDoesNotThrow(): void
   {
     $this->expectNotToPerformAssertions();

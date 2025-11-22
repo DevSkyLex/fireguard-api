@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Domain\Exception;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidScopeException;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -20,6 +22,7 @@ use Shared\Domain\Exception\InvalidValueException;
  * 
  * @covers \Shared\Domain\Exception\InvalidScopeException
  */
+#[CoversClass(className: InvalidScopeException::class)]
 final class InvalidScopeExceptionTest extends TestCase
 {
   //#region Methods
@@ -32,6 +35,7 @@ final class InvalidScopeExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testExtendsInvalidValueException(): void
   {
     $exception = InvalidScopeException::empty();
@@ -47,6 +51,7 @@ final class InvalidScopeExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testInvalidFormat(): void
   {
     $value = 'Invalid Scope!';
@@ -66,6 +71,7 @@ final class InvalidScopeExceptionTest extends TestCase
    * 
    * @return void No return value.
    */
+  #[Test]
   public function testEmpty(): void
   {
     $exception = InvalidScopeException::empty();
