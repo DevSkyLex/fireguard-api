@@ -13,13 +13,16 @@ use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\{
   ClientId,
-  ClientName
+  ClientName,
+  ClientSecret
 };
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\ValueObject\{
+  GrantType,
+  GrantTypes,
   RedirectUri,
   Scope,
   Scopes
@@ -59,10 +62,10 @@ final class UpdateClientDetailsHandlerTest extends TestCase
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Original Name'),
-      secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
+      secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://old.example.com')],
-      grantTypes: new \Shared\Domain\ValueObject\GrantTypes(\Shared\Domain\ValueObject\GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(new Scope('read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
     $client->releaseEvents(); // Clear creation events
 
@@ -84,7 +87,7 @@ final class UpdateClientDetailsHandlerTest extends TestCase
       clientId: $clientId,
       name: 'Updated Client',
       redirectUris: [new RedirectUri('https://new.example.com')],
-      scopes: new Scopes(new Scope('write'))
+      scopes: new Scopes(Scope::WRITE)
     );
 
     // Handler
@@ -126,7 +129,7 @@ final class UpdateClientDetailsHandlerTest extends TestCase
       clientId: $clientId,
       name: 'Updated Client',
       redirectUris: [],
-      scopes: new Scopes(new Scope('read'))
+      scopes: new Scopes(Scope::READ)
     );
 
     $handler = new UpdateClientDetailsHandler(

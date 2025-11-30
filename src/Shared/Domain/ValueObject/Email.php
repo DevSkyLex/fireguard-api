@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Shared\Domain\ValueObject;
 
-use Shared\Domain\Exception\DomainException;
 use Shared\Domain\Exception\InvalidValueException;
 use Stringable;
 

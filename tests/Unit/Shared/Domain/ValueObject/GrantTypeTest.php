@@ -12,7 +12,8 @@ use Shared\Domain\ValueObject\GrantType;
 /**
  * Class GrantTypeTest
  *
- * Unit tests for the GrantType Enum.
+ * Unit tests for the GrantType Enum (OAuth 2.1 compliant).
+ * Note: PASSWORD and IMPLICIT grants have been removed.
  *
  * @category Unit Test
  * @package Tests\Unit\Shared\Domain\ValueObject
@@ -37,12 +38,10 @@ final class GrantTypeTest extends TestCase
   {
     $cases = GrantType::cases();
 
-    $this->assertCount(5, $cases);
+    $this->assertCount(3, $cases);
     $this->assertContains(GrantType::AUTHORIZATION_CODE, $cases);
     $this->assertContains(GrantType::CLIENT_CREDENTIALS, $cases);
     $this->assertContains(GrantType::REFRESH_TOKEN, $cases);
-    $this->assertContains(GrantType::PASSWORD, $cases);
-    $this->assertContains(GrantType::IMPLICIT, $cases);
   }
 
   /**
@@ -57,11 +56,9 @@ final class GrantTypeTest extends TestCase
   #[Test]
   public function testEnumValues(): void
   {
-    $this->assertEquals('authorization_code', GrantType::AUTHORIZATION_CODE->value);
-    $this->assertEquals('client_credentials', GrantType::CLIENT_CREDENTIALS->value);
-    $this->assertEquals('refresh_token', GrantType::REFRESH_TOKEN->value);
-    $this->assertEquals('password', GrantType::PASSWORD->value);
-    $this->assertEquals('implicit', GrantType::IMPLICIT->value);
+    $this->assertEquals('AUTHORIZATION_CODE', GrantType::AUTHORIZATION_CODE->value);
+    $this->assertEquals('CLIENT_CREDENTIALS', GrantType::CLIENT_CREDENTIALS->value);
+    $this->assertEquals('REFRESH_TOKEN', GrantType::REFRESH_TOKEN->value);
   }
 
   /**
@@ -76,7 +73,7 @@ final class GrantTypeTest extends TestCase
   #[Test]
   public function testFromString(): void
   {
-    $grantType = GrantType::from('authorization_code');
+    $grantType = GrantType::from('AUTHORIZATION_CODE');
     $this->assertSame(GrantType::AUTHORIZATION_CODE, $grantType);
   }
 
@@ -156,7 +153,7 @@ final class GrantTypeTest extends TestCase
   public function testIsRefreshToken(): void
   {
     $this->assertTrue(GrantType::REFRESH_TOKEN->isRefreshToken());
-    $this->assertFalse(GrantType::PASSWORD->isRefreshToken());
+    $this->assertFalse(GrantType::CLIENT_CREDENTIALS->isRefreshToken());
   }
 
   /**
@@ -173,8 +170,6 @@ final class GrantTypeTest extends TestCase
   {
     // Grant types that require user authentication
     $this->assertTrue(GrantType::AUTHORIZATION_CODE->requiresUserAuthentication());
-    $this->assertTrue(GrantType::PASSWORD->requiresUserAuthentication());
-    $this->assertTrue(GrantType::IMPLICIT->requiresUserAuthentication());
 
     // Grant types that don't require user authentication
     $this->assertFalse(GrantType::CLIENT_CREDENTIALS->requiresUserAuthentication());
@@ -196,8 +191,6 @@ final class GrantTypeTest extends TestCase
     $this->assertEquals('Authorization Code', GrantType::AUTHORIZATION_CODE->label());
     $this->assertEquals('Client Credentials', GrantType::CLIENT_CREDENTIALS->label());
     $this->assertEquals('Refresh Token', GrantType::REFRESH_TOKEN->label());
-    $this->assertEquals('Password', GrantType::PASSWORD->label());
-    $this->assertEquals('Implicit (Deprecated)', GrantType::IMPLICIT->label());
   }
 
   /**
@@ -213,8 +206,8 @@ final class GrantTypeTest extends TestCase
   public function testEquality(): void
   {
     $g1 = GrantType::CLIENT_CREDENTIALS;
-    $g2 = GrantType::from('client_credentials');
-    $g3 = GrantType::PASSWORD;
+    $g2 = GrantType::from('CLIENT_CREDENTIALS');
+    $g3 = GrantType::AUTHORIZATION_CODE;
 
     $this->assertSame($g1, $g2);
     $this->assertNotSame($g1, $g3);

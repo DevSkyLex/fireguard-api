@@ -106,4 +106,34 @@ final readonly class UserRepository implements UserRepositoryPort
 
     return $count > 0;
   }
+  /**
+   * {@inheritDoc}
+   */
+  public function delete(User $user): void
+  {
+    $record = $this->mapper->toRecord($user);
+    // We need to merge to ensure it's managed if it's detached, 
+    // but typically we fetch then delete. 
+    // Since toRecord creates a new object or returns existing, 
+    // we should fetch the reference to delete.
+    $record = $this->entityManager->getReference(UserRecord::class, $user->id()->value);
+
+    if ($record) {
+      $this->entityManager->remove($record);
+      $this->entityManager->flush();
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function findAll(): array
+  {
+    $records = $this->entityManager->getRepository(UserRecord::class)->findAll();
+
+    return array_map(
+      fn(UserRecord $record) => $this->mapper->toDomain($record),
+      $records
+    );
+  }
 }

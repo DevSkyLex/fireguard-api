@@ -12,7 +12,7 @@ use Client\Application\UseCase\Command\RegenerateClientSecret\{
 };
 use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\Model\Client;
-use Client\Domain\ValueObject\{ClientId, ClientName};
+use Client\Domain\ValueObject\{ClientId, ClientName, ClientSecret};
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -67,10 +67,10 @@ final class RegenerateClientSecretHandlerTest extends TestCase
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Test Client'),
-      secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('old_secret', PASSWORD_BCRYPT)),
+      secret: new ClientSecret(password_hash('old_secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope('read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
     $client->releaseEvents();
 

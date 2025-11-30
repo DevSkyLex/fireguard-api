@@ -62,8 +62,8 @@ final class ClientTest extends TestCase
     $hashedSecret = password_hash('secret', PASSWORD_BCRYPT);
     $clientSecret = new ClientSecret(value: $hashedSecret);
     $redirectUris = [new RedirectUri(value: 'https://example.com/callback')];
-    $grantTypes = new GrantTypes(GrantType::from('authorization_code'));
-    $scopes = new Scopes(new Scope(value: 'read'));
+    $grantTypes = new GrantTypes(GrantType::AUTHORIZATION_CODE);
+    $scopes = new Scopes(Scope::READ);
 
     $client = Client::register(
       id: $clientId,
@@ -120,7 +120,7 @@ final class ClientTest extends TestCase
 
     $newName = new ClientName(value: 'Updated Client');
     $newRedirectUris = [new RedirectUri(value: 'https://new.example.com/callback')];
-    $newScopes = new Scopes(new Scope(value: 'write'));
+    $newScopes = new Scopes(Scope::WRITE);
 
     $client->updateDetails(
       name: $newName,
@@ -288,7 +288,7 @@ final class ClientTest extends TestCase
   public function testSupportsGrantTypeReturnsTrueForSupportedType(): void
   {
     $client = $this->createTestClient();
-    $grantType = GrantType::from('authorization_code');
+    $grantType = GrantType::AUTHORIZATION_CODE;
 
     self::assertTrue(condition: $client->supportsGrantType(grantType: $grantType));
   }
@@ -307,7 +307,7 @@ final class ClientTest extends TestCase
   public function testHasScopeReturnsTrueForAllowedScope(): void
   {
     $client = $this->createTestClient();
-    $scope = new Scope(value: 'read');
+    $scope = Scope::READ;
 
     self::assertTrue(condition: $client->hasScope(scope: $scope));
   }
@@ -330,8 +330,8 @@ final class ClientTest extends TestCase
       name: new ClientName(value: 'Test Client'),
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope(value: 'read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
   }
   //#endregion

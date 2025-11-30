@@ -13,7 +13,8 @@ use Client\Application\UseCase\Query\ListClients\{
 use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\{
   ClientId,
-  ClientName
+  ClientName,
+  ClientSecret
 };
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -62,10 +63,10 @@ final class ListClientsHandlerTest extends TestCase
     $client = Client::register(
       id: new ClientId('123e4567-e89b-12d3-a456-426614174000'),
       name: new ClientName('Test Client'),
-      secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
+      secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope('read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
 
     // Mocks

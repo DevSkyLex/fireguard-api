@@ -7,8 +7,12 @@ namespace User\Presentation\Api\Provider;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use DateTimeInterface;
-use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\ValueObject\UserId;
+use Shared\Application\Port\Inbound\QueryBusPort;
+use User\Application\UseCase\Query\GetUser\{
+  GetUserQuery,
+  GetUserResult
+};
+use User\Presentation\Api\Dto\UserOutput;
 use User\Presentation\Api\Resource\UserResource;
 
 /**
@@ -30,18 +34,20 @@ final readonly class UserProvider implements ProviderInterface
   /**
    * Constructor
    * 
-   * Initializes a new instance of the UserProvider class.
+   * Initializes a new instance of the 
+   * UserProvider class.
    * 
    * @access public
    * @since 1.0.0
    *
-   * @param UserRepositoryPort $userRepository The user repository.
+   * @param QueryBusPort $queryBus The query bus.
    */
   public function __construct(
-    private UserRepositoryPort $userRepository,
-  ) {
-  }
+    private readonly QueryBusPort $queryBus,
+  ) {}
+  //#endregion
 
+  //#region Methods
   /**
    * Method provide
    *
@@ -54,36 +60,35 @@ final readonly class UserProvider implements ProviderInterface
    * @param array<string, mixed> $uriVariables The URI variables (e.g., ['id' => '...']).
    * @param array<string, mixed> $context The context.
    * 
-   * @return UserResource|null The user resource or null if not found.
+   * @return UserOutput|null The user output or null if not found.
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?UserResource
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?UserOutput
   {
     $id = $uriVariables['id'] ?? null;
 
-    if (!$id) {
-      return null;
-    }
+    if (!$id) return null;
 
-    $user = $this->userRepository->findById(new UserId($id));
+    $query = new GetUserQuery(id: $id);
 
-    if (!$user) {
-      return null;
-    }
+    /** @var GetUserResult $result */
+    $result = $this->queryBus->ask(query: $query);
+    $user = $result->user;
 
-    // Map Domain User to Resource User
-    $resource = new UserResource();
-    $resource->id = $user->id()->value;
-    $resource->username = $user->username()->value;
-    $resource->email = $user->email()->value;
-    $resource->firstName = $user->profile()->firstName;
-    $resource->lastName = $user->profile()->lastName;
-    $resource->avatarUrl = $user->profile()->avatarUrl;
-    $resource->status = $user->status()->value;
-    $resource->emailVerified = $user->isEmailVerified();
-    $resource->tenantId = $user->tenantId()?->__toString();
-    $resource->createdAt = $user->createdAt()->format(DateTimeInterface::ATOM);
-    $resource->lastLoginAt = $user->lastLoginAt()?->format(DateTimeInterface::ATOM);
+    if (!$user) return null;
+  
+    $output = new UserOutput();
+    $output->id = $user->id()->value;
+    $output->username = $user->username()->value;
+    $output->email = $user->email()->value;
+    $output->firstName = $user->profile()->firstName;
+    $output->lastName = $user->profile()->lastName;
+    $output->avatarUrl = $user->profile()->avatarUrl;
+    $output->status = $user->status()->value;
+    $output->emailVerified = $user->isEmailVerified();
+    $output->tenantId = $user->tenantId()?->__toString();
+    $output->createdAt = $user->createdAt()->format(DateTimeInterface::ATOM);
+    $output->lastLoginAt = $user->lastLoginAt()?->format(DateTimeInterface::ATOM);
 
-    return $resource;
+    return $output;
   }
 }

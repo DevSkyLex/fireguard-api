@@ -6,16 +6,18 @@ namespace Client\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Client\Application\UseCase\Command\RegenerateClientSecret\RegenerateClientSecretCommand;
-use Client\Application\UseCase\Command\RegenerateClientSecret\RegenerateClientSecretResult;
-use Client\Presentation\Api\Resource\ClientResource;
+use Client\Application\UseCase\Command\RegenerateClientSecret\{RegenerateClientSecretCommand, RegenerateClientSecretResult};
+use Client\Application\UseCase\Query\GetClient\GetClientQuery;
+use Client\Application\UseCase\Query\GetClient\GetClientResult;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Inbound\QueryBusPort;
 
 /**
  * Processor RegenerateSecretProcessor
  * @final
  *
- * API Platform processor for client secret regeneration.
+ * API Platform processor for regenerating client secret.
  *
  * @category Processor
  * @package Client\Presentation\Api\Processor
@@ -23,7 +25,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @implements ProcessorInterface<ClientResource, ClientResource>
+ * @implements ProcessorInterface<mixed, ClientOutput>
  */
 final readonly class RegenerateSecretProcessor implements ProcessorInterface
 {
@@ -37,10 +39,13 @@ final readonly class RegenerateSecretProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus The command bus.
+   * @param QueryBusPort $queryBus The query bus.
    */
   public function __construct(
-    private readonly CommandBusPort $commandBus
-  ) {}
+    private readonly CommandBusPort $commandBus,
+    private readonly QueryBusPort $queryBus
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -48,37 +53,44 @@ final readonly class RegenerateSecretProcessor implements ProcessorInterface
    * Method process
    * {@inheritDoc}
    *
-   * Processes the client secret regeneration.
+   * Processes the secret regeneration.
    *
    * @access public
    * @since 1.0.0
    *
-   * @param ClientResource $data The input data (ClientResource).
+   * @param mixed $data The input data (not used).
    * @param Operation $operation The operation.
    * @param array<string, mixed> $uriVariables The URI variables.
    * @param array<string, mixed> $context The context.
    *
-   * @return ClientResource The processed resource with new secret.
+   * @return ClientOutput The processed output with new secret.
    */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientResource
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
   {
-    // Get client ID from URI variables
-    $clientId = $uriVariables['id'] ?? $data->id;
-
-    // Convert DTO to Command
-    $command = new RegenerateClientSecretCommand(
-      clientId: $clientId
-    );
+    $id = $uriVariables['id'] ?? null;
 
     // Dispatch command
+    $command = new RegenerateClientSecretCommand(clientId: $id);
     /** @var RegenerateClientSecretResult $result */
     $result = $this->commandBus->dispatch($command);
 
-    // Update DTO with new secret (shown only once)
-    $data->id = $result->clientId;
-    $data->secret = $result->clientSecret;
+    // Fetch updated client
+    $query = new GetClientQuery(clientId: $id);
+    /** @var GetClientResult $clientResult */
+    $clientResult = $this->queryBus->ask(query: $query);
 
-    return $data;
+    // Create output DTO
+    $output = new ClientOutput();
+    $output->id = $clientResult->id;
+    $output->name = $clientResult->name;
+    $output->secret = $result->clientSecret; // Include new secret
+    $output->redirectUris = $clientResult->redirectUris;
+    $output->grantTypes = $clientResult->grantTypes;
+    $output->scopes = $clientResult->scopes;
+    $output->isActive = $clientResult->isActive;
+    $output->createdAt = $clientResult->createdAt;
+
+    return $output;
   }
   //#endregion
 }

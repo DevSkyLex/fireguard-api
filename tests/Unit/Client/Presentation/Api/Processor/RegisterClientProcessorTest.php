@@ -7,8 +7,9 @@ namespace Tests\Client\Presentation\Api\Processor;
 use ApiPlatform\Metadata\Operation;
 use Client\Application\UseCase\Command\RegisterClient\RegisterClientCommand;
 use Client\Application\UseCase\Command\RegisterClient\RegisterClientResult;
+use Client\Presentation\Api\Dto\ClientInput;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Client\Presentation\Api\Processor\RegisterClientProcessor;
-use Client\Presentation\Api\Resource\ClientResource;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,23 +31,24 @@ final class RegisterClientProcessorTest extends TestCase
 {
   //#region Methods
   /**
-   * Method testProcessRegistersClientAndUpdatesResource
+   * Method testProcessRegistersClientAndReturnsOutput
    *
-   * Test that process registers client and updates resource.
+   * Test that process registers client
+   * and returns output.
    *
    * @access public
    *
    * @return void No return value
    */
   #[Test]
-  public function testProcessRegistersClientAndUpdatesResource(): void
+  public function testProcessRegistersClientAndReturnsOutput(): void
   {
     // Data
-    $resource = new ClientResource();
-    $resource->name = 'Test Client';
-    $resource->redirectUris = ['https://example.com'];
-    $resource->grantTypes = ['authorization_code'];
-    $resource->scopes = ['read'];
+    $input = new ClientInput();
+    $input->name = 'Test Client';
+    $input->redirectUris = ['https://example.com'];
+    $input->grantTypes = ['AUTHORIZATION_CODE'];
+    $input->scopes = ['READ'];
 
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
     $clientSecret = 'plain_secret';
@@ -69,16 +71,17 @@ final class RegisterClientProcessorTest extends TestCase
     $processor = new RegisterClientProcessor(commandBus: $commandBus);
 
     // Execute
-    $processedResource = $processor->process(
-      data: $resource,
+    $output = $processor->process(
+      data: $input,
       operation: $operation
     );
 
     // Assert
-    self::assertSame(expected: $clientId, actual: $processedResource->id);
-    self::assertSame(expected: $clientSecret, actual: $processedResource->secret);
-    self::assertNotNull(actual: $processedResource->createdAt);
+    self::assertInstanceOf(ClientOutput::class, $output);
+    self::assertSame(expected: $clientId, actual: $output->id);
+    self::assertSame(expected: $clientSecret, actual: $output->secret);
+    self::assertSame(expected: 'Test Client', actual: $output->name);
+    self::assertNotNull(actual: $output->createdAt);
   }
   //#endregion
 }
-

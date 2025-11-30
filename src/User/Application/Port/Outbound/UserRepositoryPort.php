@@ -106,5 +106,30 @@ interface UserRepositoryPort
    * @return bool True if exists, false otherwise.
    */
   public function existsByEmail(Email $email): bool;
+  /**
+   * Method delete
+   *
+   * Deletes a user.
+   * 
+   * @access public
+   * @since 1.0.0
+   *
+   * @param User $user The user to delete.
+   *
+   * @return void
+   */
+  public function delete(User $user): void;
+
+  /**
+   * Method findAll
+   *
+   * Finds all users.
+   * 
+   * @access public
+   * @since 1.0.0
+   *
+   * @return array<User> The list of users.
+   */
+  public function findAll(): array;
   //#endregion
 }

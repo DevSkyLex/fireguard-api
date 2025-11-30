@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Client\Application\UseCase\Query\GetClient\GetClientQuery;
 use Client\Application\UseCase\Query\GetClient\GetClientResult;
-use Client\Presentation\Api\Resource\ClientResource;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\EntityNotFoundException;
 
@@ -24,7 +24,7 @@ use Shared\Domain\Exception\EntityNotFoundException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @implements ProviderInterface<ClientResource>
+ * @implements ProviderInterface<ClientOutput>
  */
 final readonly class GetClientProvider implements ProviderInterface
 {
@@ -50,7 +50,7 @@ final readonly class GetClientProvider implements ProviderInterface
    * Method provide
    * {@inheritDoc}
    *
-   * Provides the client resource.
+   * Provides the client output.
    *
    * @access public
    * @since 1.0.0
@@ -59,9 +59,9 @@ final readonly class GetClientProvider implements ProviderInterface
    * @param array<string, mixed> $uriVariables The URI variables.
    * @param array<string, mixed> $context The context.
    *
-   * @return ClientResource|null The client resource or null if not found.
+   * @return ClientOutput|null The client output or null if not found.
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?ClientResource
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?ClientOutput
   {
     $id = $uriVariables['id'] ?? null;
 
@@ -73,24 +73,23 @@ final readonly class GetClientProvider implements ProviderInterface
 
     try {
       $result = $this->queryBus->ask(query: $query);
-    } 
-    catch (EntityNotFoundException) {
+    } catch (EntityNotFoundException) {
       return null;
     }
 
     assert($result instanceof GetClientResult);
 
-    $resource = new ClientResource();
-    $resource->id = $result->id;
-    $resource->name = $result->name;
+    $output = new ClientOutput();
+    $output->id = $result->id;
+    $output->name = $result->name;
     // Secret is never returned in GET
-    $resource->redirectUris = $result->redirectUris;
-    $resource->grantTypes = $result->grantTypes;
-    $resource->scopes = $result->scopes;
-    $resource->isActive = $result->isActive;
-    $resource->createdAt = $result->createdAt;
+    $output->redirectUris = $result->redirectUris;
+    $output->grantTypes = $result->grantTypes;
+    $output->scopes = $result->scopes;
+    $output->isActive = $result->isActive;
+    $output->createdAt = $result->createdAt;
 
-    return $resource;
+    return $output;
   }
   //#endregion
 }

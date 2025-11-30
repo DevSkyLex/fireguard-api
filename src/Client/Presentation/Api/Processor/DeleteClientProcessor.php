@@ -7,14 +7,13 @@ namespace Client\Presentation\Api\Processor;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Client\Application\UseCase\Command\DeleteClient\DeleteClientCommand;
-use Client\Presentation\Api\Resource\ClientResource;
 use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**
  * Processor DeleteClientProcessor
  * @final
  *
- * API Platform processor for client deletion.
+ * API Platform processor for deleting a client.
  *
  * @category Processor
  * @package Client\Presentation\Api\Processor
@@ -22,7 +21,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @implements ProcessorInterface<ClientResource, void>
+ * @implements ProcessorInterface<mixed, void>
  */
 final readonly class DeleteClientProcessor implements ProcessorInterface
 {
@@ -39,7 +38,8 @@ final readonly class DeleteClientProcessor implements ProcessorInterface
    */
   public function __construct(
     private readonly CommandBusPort $commandBus
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -52,7 +52,7 @@ final readonly class DeleteClientProcessor implements ProcessorInterface
    * @access public
    * @since 1.0.0
    *
-   * @param ClientResource $data The input data (ClientResource).
+   * @param mixed $data The input data (not used).
    * @param Operation $operation The operation.
    * @param array<string, mixed> $uriVariables The URI variables.
    * @param array<string, mixed> $context The context.
@@ -61,15 +61,10 @@ final readonly class DeleteClientProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
   {
-    // Get client ID from URI variables
-    $clientId = $uriVariables['id'] ?? $data->id;
+    $id = $uriVariables['id'] ?? null;
 
-    // Convert DTO to Command
-    $command = new DeleteClientCommand(
-      clientId: $clientId
-    );
-
-    // Dispatch command (soft delete)
+    // Dispatch command
+    $command = new DeleteClientCommand(clientId: $id);
     $this->commandBus->dispatch($command);
   }
   //#endregion

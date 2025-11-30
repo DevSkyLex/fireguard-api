@@ -197,8 +197,8 @@ final class ClientRepositoryTest extends TestCase
       name: new ClientName(value: 'Test Client'),
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope(value: 'read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
   }
 

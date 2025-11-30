@@ -7,47 +7,49 @@ namespace Shared\Domain\ValueObject;
 /**
  * Enum GrantType
  *
- * Represents an OAuth 2.0 grant type.
+ * Represents an OAuth 2.1 grant type.
  * Grant types define how a client obtains an access token.
+ *
+ * Note: PASSWORD and IMPLICIT grants are deprecated in OAuth 2.1
+ * and have been removed for security reasons.
  *
  * @category ValueObject
  * @package Shared\Domain\ValueObject
- * @version 2.0.0
+ * @version 3.0.0
+ *
+ * @see https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-07
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 enum GrantType: string
 {
+  //#region Cases
   /**
+   * Case AUTHORIZATION_CODE
+   *
    * Authorization code grant type.
    * Used for server-side applications with user authentication.
    */
-  case AUTHORIZATION_CODE = 'authorization_code';
+  case AUTHORIZATION_CODE = 'AUTHORIZATION_CODE';
 
   /**
+   * Case CLIENT_CREDENTIALS
+   *
    * Client credentials grant type.
    * Used for machine-to-machine authentication.
    */
-  case CLIENT_CREDENTIALS = 'client_credentials';
+  case CLIENT_CREDENTIALS = 'CLIENT_CREDENTIALS';
 
   /**
+   * Case REFRESH_TOKEN
+   *
    * Refresh token grant type.
    * Used to obtain a new access token using a refresh token.
    */
-  case REFRESH_TOKEN = 'refresh_token';
+  case REFRESH_TOKEN = 'REFRESH_TOKEN';
+  //#endregion
 
-  /**
-   * Password grant type (Resource Owner Password Credentials).
-   * Used when the user provides credentials directly to the client.
-   */
-  case PASSWORD = 'password';
-
-  /**
-   * Implicit grant type.
-   * Deprecated in OAuth 2.1, used for browser-based applications.
-   */
-  case IMPLICIT = 'implicit';
-
+  //#region Constants
   /**
    * Constant VALUES
    *
@@ -57,13 +59,13 @@ enum GrantType: string
    * @var list<string>
    */
   public const array VALUES = [
-    'authorization_code',
-    'client_credentials',
-    'refresh_token',
-    'password',
-    'implicit',
+    'AUTHORIZATION_CODE',
+    'CLIENT_CREDENTIALS',
+    'REFRESH_TOKEN',
   ];
+  //#endregion
 
+  //#region Methods
   /**
    * Method values
    *
@@ -138,7 +140,7 @@ enum GrantType: string
   public function requiresUserAuthentication(): bool
   {
     return match ($this) {
-      self::AUTHORIZATION_CODE, self::PASSWORD, self::IMPLICIT => true,
+      self::AUTHORIZATION_CODE => true,
       self::CLIENT_CREDENTIALS, self::REFRESH_TOKEN => false,
     };
   }
@@ -158,9 +160,8 @@ enum GrantType: string
     return match ($this) {
       self::AUTHORIZATION_CODE => 'Authorization Code',
       self::CLIENT_CREDENTIALS => 'Client Credentials',
-      self::REFRESH_TOKEN => 'Refresh Token',
-      self::PASSWORD => 'Password',
-      self::IMPLICIT => 'Implicit (Deprecated)',
+      self::REFRESH_TOKEN      => 'Refresh Token',
     };
   }
+  //#endregion
 }

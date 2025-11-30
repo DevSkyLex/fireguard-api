@@ -54,20 +54,41 @@ final class ClientMapperTest extends TestCase
     $record->name = 'Test Client';
     $record->secret = '$2y$10$hashedsecret';
     $record->redirectUris = ['https://example.com/callback'];
-    $record->grantTypes = ['authorization_code'];
-    $record->scopes = ['read'];
+    $record->grantTypes = ['AUTHORIZATION_CODE'];
+    $record->scopes = ['READ'];
     $record->isActive = true;
     $record->createdAt = new DateTimeImmutable('2024-01-01 12:00:00');
     $record->deletedAt = null;
 
     $client = ClientMapper::toDomain(record: $record);
 
-    self::assertInstanceOf(expected: Client::class, actual: $client);
-    self::assertSame(expected: '123e4567-e89b-12d3-a456-426614174000', actual: $client->id()->value);
-    self::assertSame(expected: 'Test Client', actual: $client->name()->value);
-    self::assertSame(expected: '$2y$10$hashedsecret', actual: $client->secret()->value);
-    self::assertSame(expected: ['https://example.com/callback'], actual: $client->redirectUris());
+    self::assertInstanceOf(
+      expected: Client::class,
+      actual: $client
+    );
+
+    self::assertSame(
+      expected: '123e4567-e89b-12d3-a456-426614174000',
+      actual: $client->id()->value
+    );
+
+    self::assertSame(
+      expected: 'Test Client',
+      actual: $client->name()->value
+    );
+
+    self::assertSame(
+      expected: '$2y$10$hashedsecret',
+      actual: $client->secret()->value
+    );
+
+    self::assertSame(
+      expected: ['https://example.com/callback'],
+      actual: $client->redirectUris()
+    );
+
     self::assertTrue(condition: $client->isActive());
+
     self::assertFalse(condition: $client->isDeleted());
   }
 
@@ -89,8 +110,8 @@ final class ClientMapperTest extends TestCase
     $record->name = 'Deleted Client';
     $record->secret = '$2y$10$hashedsecret';
     $record->redirectUris = ['https://example.com/callback'];
-    $record->grantTypes = ['authorization_code'];
-    $record->scopes = ['read'];
+    $record->grantTypes = ['AUTHORIZATION_CODE'];
+    $record->scopes = ['READ'];
     $record->isActive = false;
     $record->createdAt = new DateTimeImmutable('2024-01-01 12:00:00');
     $record->deletedAt = new DateTimeImmutable('2024-01-02 12:00:00');
@@ -120,8 +141,8 @@ final class ClientMapperTest extends TestCase
       name: new ClientName(value: 'Test Client'),
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope(value: 'read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
 
     $record = ClientMapper::toRecord(client: $client);
@@ -131,8 +152,8 @@ final class ClientMapperTest extends TestCase
     self::assertSame(expected: 'Test Client', actual: $record->name);
     self::assertSame(expected: $hashedSecret, actual: $record->secret);
     self::assertSame(expected: ['https://example.com/callback'], actual: $record->redirectUris);
-    self::assertSame(expected: ['authorization_code'], actual: $record->grantTypes);
-    self::assertSame(expected: ['read'], actual: $record->scopes);
+    self::assertSame(expected: ['AUTHORIZATION_CODE'], actual: $record->grantTypes);
+    self::assertSame(expected: ['READ'], actual: $record->scopes);
     self::assertTrue(condition: $record->isActive);
     self::assertNull(actual: $record->deletedAt);
   }
@@ -156,8 +177,8 @@ final class ClientMapperTest extends TestCase
       name: new ClientName(value: 'Test Client'),
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope(value: 'read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
 
     // Domain -> Record -> Domain

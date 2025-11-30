@@ -21,7 +21,7 @@ use Shared\Domain\ValueObject\GrantTypes;
  * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * 
+ *
  * @covers \Shared\Domain\ValueObject\GrantTypes
  */
 #[CoversClass(className: GrantTypes::class)]
@@ -48,7 +48,7 @@ final class GrantTypesTest extends TestCase
     $this->assertCount(2, $grantTypes);
     $this->assertTrue($grantTypes->contains($g1));
     $this->assertTrue($grantTypes->contains($g2));
-    $this->assertFalse($grantTypes->contains(GrantType::PASSWORD));
+    $this->assertFalse($grantTypes->contains(GrantType::CLIENT_CREDENTIALS));
   }
 
   /**
@@ -85,7 +85,7 @@ final class GrantTypesTest extends TestCase
   #[Test]
   public function testFromArray(): void
   {
-    $grantTypes = GrantTypes::fromArray(['authorization_code', 'refresh_token']);
+    $grantTypes = GrantTypes::fromArray(['AUTHORIZATION_CODE', 'REFRESH_TOKEN']);
 
     $this->assertCount(2, $grantTypes);
     $this->assertTrue($grantTypes->contains(GrantType::AUTHORIZATION_CODE));
@@ -133,7 +133,7 @@ final class GrantTypesTest extends TestCase
 
     $array = $grantTypes->toArray();
 
-    $this->assertEquals(['authorization_code', 'client_credentials'], $array);
+    $this->assertEquals(['AUTHORIZATION_CODE', 'CLIENT_CREDENTIALS'], $array);
   }
 }
 

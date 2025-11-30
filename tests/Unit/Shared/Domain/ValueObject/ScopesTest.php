@@ -21,7 +21,7 @@ use Shared\Domain\ValueObject\Scopes;
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * 
+ *
  * @covers \Shared\Domain\ValueObject\Scopes
  */
 #[CoversClass(className: Scopes::class)]
@@ -42,14 +42,14 @@ final class ScopesTest extends TestCase
   #[Test]
   public function testCanBeCreatedAndAccessed(): void
   {
-    $s1 = new Scope(value: 'read');
-    $s2 = new Scope(value: 'write');
+    $s1 = Scope::READ;
+    $s2 = Scope::WRITE;
     $scopes = new Scopes($s1, $s2);
 
     $this->assertCount(expectedCount: 2, haystack: $scopes);
     $this->assertTrue(condition: $scopes->contains($s1));
     $this->assertTrue(condition: $scopes->contains($s2));
-    $this->assertFalse(condition: $scopes->contains(new Scope('delete')));
+    $this->assertFalse(condition: $scopes->contains(Scope::DELETE));
   }
 
   /**
@@ -65,11 +65,11 @@ final class ScopesTest extends TestCase
   #[Test]
   public function testIteration(): void
   {
-    $s1 = new Scope(value: 'read');
+    $s1 = Scope::READ;
     $scopes = new Scopes($s1);
 
     foreach ($scopes as $scope) {
-      $this->assertTrue(condition: $scope->equals($s1));
+      $this->assertSame(expected: $s1, actual: $scope);
     }
   }
 
@@ -86,10 +86,10 @@ final class ScopesTest extends TestCase
   #[Test]
   public function testFromArray(): void
   {
-    $scopes = Scopes::fromArray(['read', 'write']);
+    $scopes = Scopes::fromArray(['READ', 'WRITE']);
 
     $this->assertCount(expectedCount: 2, haystack: $scopes);
-    $this->assertTrue(condition: $scopes->contains(new Scope('read')));
+    $this->assertTrue(condition: $scopes->contains(Scope::READ));
   }
 
   //#endregion

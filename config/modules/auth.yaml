@@ -1,0 +1,106 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # Auth Module - Ports
+  Auth\Application\Port\Outbound\AccessTokenRepositoryPort:
+    class: Auth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository
+
+  Auth\Application\Port\Outbound\ClientRepositoryPort:
+    class: Auth\Infrastructure\Symfony\Adapter\Outbound\ClientRepositoryAdapter
+
+  Auth\Application\Port\Outbound\RefreshTokenRepositoryPort:
+    class: Auth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository
+
+  Auth\Application\Port\Outbound\AuthCodeRepositoryPort:
+    class: Auth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository
+
+  Auth\Application\Port\Outbound\AuthorizationServerPort:
+    class: Auth\Infrastructure\League\Adapter\Outbound\AuthorizationServerAdapter
+
+  Auth\Application\Port\Outbound\ClientValidationPort:
+    class: Auth\Infrastructure\Symfony\Adapter\Outbound\ClientValidationAdapter
+
+  # League OAuth2 Server
+  League\OAuth2\Server\Repositories\ClientRepositoryInterface:
+    class: Auth\Infrastructure\League\Adapter\Outbound\ClientRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface:
+    class: Auth\Infrastructure\League\Adapter\Outbound\AccessTokenRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface:
+    class: Auth\Infrastructure\League\Adapter\Outbound\RefreshTokenRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface:
+    class: Auth\Infrastructure\League\Adapter\Outbound\AuthCodeRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\ScopeRepositoryInterface:
+    class: Auth\Infrastructure\League\Adapter\Outbound\ScopeRepositoryAdapter
+
+  League\OAuth2\Server\AuthorizationServer:
+    arguments:
+      $clientRepository: '@League\OAuth2\Server\Repositories\ClientRepositoryInterface'
+      $accessTokenRepository: '@League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface'
+      $scopeRepository: '@League\OAuth2\Server\Repositories\ScopeRepositoryInterface'
+      $privateKey: '%kernel.project_dir%/config/jwt/private.key'
+      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
+    calls:
+      - method: enableGrantType
+        arguments:
+          - '@League\OAuth2\Server\Grant\ClientCredentialsGrant'
+          - 'PT1H' # Access token TTL (1 hour)
+      - method: enableGrantType
+        arguments:
+          - '@League\OAuth2\Server\Grant\RefreshTokenGrant'
+          - 'PT1H' # Access token TTL (1 hour)
+      - method: enableGrantType
+        arguments:
+          - '@League\OAuth2\Server\Grant\AuthCodeGrant'
+          - 'PT1H' # Access token TTL (1 hour)
+
+  League\OAuth2\Server\Grant\ClientCredentialsGrant: ~
+
+  League\OAuth2\Server\Grant\RefreshTokenGrant:
+    arguments:
+      $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
+
+  auth_code_ttl:
+    class: DateInterval
+    arguments: ['PT10M']
+
+  League\OAuth2\Server\Grant\AuthCodeGrant:
+    arguments:
+      $authCodeRepository: '@League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface'
+      $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
+      $authCodeTTL: '@auth_code_ttl'
+
+  Auth\Presentation\Api\Processor\RevokeTokenProcessor:
+    arguments:
+      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
+
+  Auth\Presentation\Api\Processor\IntrospectTokenProcessor:
+    arguments:
+      $issuer: '%env(OAUTH_ISSUER)%'
+
+  # OpenID Connect Providers
+  Auth\Presentation\Api\Provider\UserInfoProvider: ~
+
+  Auth\Presentation\Api\Provider\OpenIdConfigurationProvider:
+    arguments:
+      $issuer: '%env(OAUTH_ISSUER)%'
+
+  Auth\Presentation\Api\Provider\JwksProvider:
+    arguments:
+      $publicKeyPath: '%kernel.project_dir%/config/jwt/public.key'
+
+  # Symfony Security
+  Auth\Infrastructure\Symfony\Security\SecurityUserProvider: ~
+
+  Auth\Infrastructure\Symfony\Security\OAuth2Authenticator: ~
+
+  Auth\Infrastructure\Symfony\Security\Voter\OAuth2ScopeVoter:
+    tags: ['security.voter']
+
+  Auth\Infrastructure\Symfony\Security\Voter\ResourceOwnerVoter:
+    tags: ['security.voter']

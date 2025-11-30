@@ -17,6 +17,7 @@ namespace Shared\Domain\ValueObject;
  */
 enum IpAddressType: string
 {
+  //#region Constants
   /**
    * Case IPV4
    * 
@@ -34,7 +35,9 @@ enum IpAddressType: string
    * @since 1.0.0
    */
   case IPV6 = 'ipv6';
+  //#endregion
 
+  //#region Methods
   /**
    * Method label
    *
@@ -52,4 +55,5 @@ enum IpAddressType: string
       self::IPV6 => 'IPv6',
     };
   }
+  //#endregion
 }

@@ -4,3 +4,5 @@
 imports:
   - { resource: '../modules/shared.yaml' }
   - { resource: '../modules/client.yaml' }
+  - { resource: '../modules/auth.yaml' }
+  - { resource: '../modules/user.yaml' }

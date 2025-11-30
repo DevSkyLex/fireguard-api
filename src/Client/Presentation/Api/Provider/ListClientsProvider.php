@@ -10,7 +10,7 @@ use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Client\Application\UseCase\Query\GetClient\GetClientResult;
 use Client\Application\UseCase\Query\ListClients\ListClientsQuery;
-use Client\Presentation\Api\Resource\ClientResource;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Query\PaginatedResult;
 use Shared\Application\Query\Pagination;
@@ -27,7 +27,7 @@ use Shared\Application\Query\Pagination;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @implements ProviderInterface<ClientResource>
+ * @implements ProviderInterface<ClientOutput>
  */
 final readonly class ListClientsProvider implements ProviderInterface
 {
@@ -53,7 +53,7 @@ final readonly class ListClientsProvider implements ProviderInterface
    * Method provide
    * {@inheritDoc}
    *
-   * Provides the collection of client resources.
+   * Provides the collection of client outputs.
    *
    * @access public
    * @since 1.0.0
@@ -62,8 +62,8 @@ final readonly class ListClientsProvider implements ProviderInterface
    * @param array<string, mixed> $uriVariables The URI variables.
    * @param array<string, mixed> $context The context.
    *
-   * @return TraversablePaginator<ClientResource> The collection of resources.
-   * @phpstan-return TraversablePaginator<ClientResource>
+   * @return TraversablePaginator<ClientOutput> The collection of outputs.
+   * @phpstan-return TraversablePaginator<ClientOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
@@ -83,13 +83,13 @@ final readonly class ListClientsProvider implements ProviderInterface
     /** @var PaginatedResult<GetClientResult> $result */
     $result = $this->queryBus->ask(query: $query);
 
-    $resources = array_map(
-      fn(GetClientResult $item) => $this->mapToResource(result: $item),
+    $outputs = array_map(
+      fn(GetClientResult $item) => $this->mapToOutput(result: $item),
       $result->items
     );
 
     return new TraversablePaginator(
-      traversable: new ArrayIterator(array: $resources),
+      traversable: new ArrayIterator(array: $outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
       totalItems: (float) $result->total
@@ -97,29 +97,29 @@ final readonly class ListClientsProvider implements ProviderInterface
   }
 
   /**
-   * Method mapToResource
+   * Method mapToOutput
    *
-   * Maps a GetClientResult to a ClientResource.
+   * Maps a GetClientResult to a ClientOutput.
    *
    * @access private
    * @since 1.0.0
    *
    * @param GetClientResult $result The result to map.
    *
-   * @return ClientResource The mapped resource.
+   * @return ClientOutput The mapped output.
    */
-  private function mapToResource(GetClientResult $result): ClientResource
+  private function mapToOutput(GetClientResult $result): ClientOutput
   {
-    $resource = new ClientResource();
-    $resource->id = $result->id;
-    $resource->name = $result->name;
-    $resource->redirectUris = $result->redirectUris;
-    $resource->grantTypes = $result->grantTypes;
-    $resource->scopes = $result->scopes;
-    $resource->isActive = $result->isActive;
-    $resource->createdAt = $result->createdAt;
+    $output = new ClientOutput();
+    $output->id = $result->id;
+    $output->name = $result->name;
+    $output->redirectUris = $result->redirectUris;
+    $output->grantTypes = $result->grantTypes;
+    $output->scopes = $result->scopes;
+    $output->isActive = $result->isActive;
+    $output->createdAt = $result->createdAt;
 
-    return $resource;
+    return $output;
   }
   //#endregion
 }

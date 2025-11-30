@@ -88,7 +88,16 @@ final readonly class Scopes implements Countable, IteratorAggregate
       );
     }
 
-    $scopeObjects = array_map(fn(string $value): Scope => new Scope($value), $scopes);
+    $scopeObjects = [];
+    foreach ($scopes as $value) {
+      $scope = Scope::tryFrom($value);
+      if ($scope === null) {
+        throw InvalidValueException::because(
+          message: "Invalid scope: $value"
+        );
+      }
+      $scopeObjects[] = $scope;
+    }
 
     return new self(...$scopeObjects);
   }
@@ -118,7 +127,16 @@ final readonly class Scopes implements Countable, IteratorAggregate
       );
     }
 
-    $scopes = array_map(fn(string $value): Scope => new Scope($value), $scopeValues);
+    $scopes = [];
+    foreach ($scopeValues as $value) {
+      $scope = Scope::tryFrom($value);
+      if ($scope === null) {
+        throw InvalidValueException::because(
+          message: "Invalid scope: $value"
+        );
+      }
+      $scopes[] = $scope;
+    }
 
     return new self(...$scopes);
   }
@@ -138,7 +156,7 @@ final readonly class Scopes implements Countable, IteratorAggregate
   public function contains(Scope $scope): bool
   {
     foreach ($this->scopes as $s) {
-      if ($s->equals($scope)) {
+      if ($s === $scope) {
         return true;
       }
     }

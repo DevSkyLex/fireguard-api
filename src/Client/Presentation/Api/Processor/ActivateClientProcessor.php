@@ -7,14 +7,17 @@ namespace Client\Presentation\Api\Processor;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Client\Application\UseCase\Command\ActivateClient\ActivateClientCommand;
-use Client\Presentation\Api\Resource\ClientResource;
+use Client\Application\UseCase\Query\GetClient\GetClientQuery;
+use Client\Application\UseCase\Query\GetClient\GetClientResult;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Inbound\QueryBusPort;
 
 /**
  * Processor ActivateClientProcessor
  * @final
  *
- * API Platform processor for client activation.
+ * API Platform processor for activating a client.
  *
  * @category Processor
  * @package Client\Presentation\Api\Processor
@@ -22,7 +25,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @implements ProcessorInterface<ClientResource, ClientResource>
+ * @implements ProcessorInterface<mixed, ClientOutput>
  */
 final readonly class ActivateClientProcessor implements ProcessorInterface
 {
@@ -36,9 +39,11 @@ final readonly class ActivateClientProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus The command bus.
+   * @param QueryBusPort $queryBus The query bus.
    */
   public function __construct(
-    private readonly CommandBusPort $commandBus
+    private readonly CommandBusPort $commandBus,
+    private readonly QueryBusPort $queryBus
   ) {
   }
   //#endregion
@@ -53,30 +58,37 @@ final readonly class ActivateClientProcessor implements ProcessorInterface
    * @access public
    * @since 1.0.0
    *
-   * @param ClientResource $data The input data (ClientResource).
+   * @param mixed $data The input data (not used).
    * @param Operation $operation The operation.
    * @param array<string, mixed> $uriVariables The URI variables.
    * @param array<string, mixed> $context The context.
    *
-   * @return ClientResource The processed resource.
+   * @return ClientOutput The processed output.
    */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientResource
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
   {
-    // Get client ID from URI variables
-    $clientId = $uriVariables['id'] ?? $data->id;
-
-    // Convert DTO to Command
-    $command = new ActivateClientCommand(
-      clientId: $clientId
-    );
+    $id = $uriVariables['id'] ?? null;
 
     // Dispatch command
+    $command = new ActivateClientCommand(clientId: $id);
     $this->commandBus->dispatch($command);
 
-    // Update status
-    $data->isActive = true;
+    // Fetch updated client
+    $query = new GetClientQuery(clientId: $id);
+    /** @var GetClientResult $result */
+    $result = $this->queryBus->ask(query: $query);
 
-    return $data;
+    // Create output DTO
+    $output = new ClientOutput();
+    $output->id = $result->id;
+    $output->name = $result->name;
+    $output->redirectUris = $result->redirectUris;
+    $output->grantTypes = $result->grantTypes;
+    $output->scopes = $result->scopes;
+    $output->isActive = $result->isActive;
+    $output->createdAt = $result->createdAt;
+
+    return $output;
   }
   //#endregion
 }

@@ -7,11 +7,12 @@ namespace Client\Presentation\Api\Processor;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Client\Application\UseCase\Command\RegisterClient\{RegisterClientCommand, RegisterClientResult};
+use Client\Presentation\Api\Dto\ClientInput;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\ValueObject\GrantTypes;
 use Shared\Domain\ValueObject\RedirectUri;
 use Shared\Domain\ValueObject\Scopes;
-use Client\Presentation\Api\Resource\ClientResource;
 
 /**
  * Processor RegisterClientProcessor
@@ -24,8 +25,8 @@ use Client\Presentation\Api\Resource\ClientResource;
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * 
- * @implements ProcessorInterface<ClientResource, ClientResource>
+ *
+ * @implements ProcessorInterface<ClientInput, ClientOutput>
  */
 final readonly class RegisterClientProcessor implements ProcessorInterface
 {
@@ -42,7 +43,8 @@ final readonly class RegisterClientProcessor implements ProcessorInterface
    */
   public function __construct(
     private readonly CommandBusPort $commandBus
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -55,15 +57,17 @@ final readonly class RegisterClientProcessor implements ProcessorInterface
    * @access public
    * @since 1.0.0
    *
-   * @param ClientResource $data The input data (ClientResource).
+   * @param ClientInput $data The input data.
    * @param Operation $operation The operation.
    * @param array<string, mixed> $uriVariables The URI variables.
    * @param array<string, mixed> $context The context.
    *
-   * @return ClientResource The processed resource.
+   * @return ClientOutput The processed output.
    */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientResource
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
   {
+    /** @var ClientInput $data */
+
     // Convert DTO to Command
     $command = new RegisterClientCommand(
       name: $data->name,
@@ -76,15 +80,18 @@ final readonly class RegisterClientProcessor implements ProcessorInterface
     /** @var RegisterClientResult $result */
     $result = $this->commandBus->dispatch($command);
 
-    // Update DTO with result
-    $data->id = $result->clientId;
-    $data->secret = $result->clientSecret;
-    // We could fetch the full entity to get createdAt, but for now we can just set it to current time
-    // or leave it null if not strictly required in the response immediately.
-    // Let's set it for completeness.
-    $data->createdAt = date(format: 'Y-m-d H:i:s');
+    // Create output DTO
+    $output = new ClientOutput();
+    $output->id = $result->clientId;
+    $output->name = $data->name;
+    $output->secret = $result->clientSecret;
+    $output->redirectUris = $data->redirectUris;
+    $output->grantTypes = $data->grantTypes;
+    $output->scopes = $data->scopes;
+    $output->isActive = true;
+    $output->createdAt = date(format: 'Y-m-d H:i:s');
 
-    return $data;
+    return $output;
   }
   //#endregion
 }

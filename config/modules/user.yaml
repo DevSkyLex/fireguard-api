@@ -1,0 +1,34 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # User Module
+  User\Application\Port\Outbound\UserRepositoryPort:
+    class: User\Infrastructure\Persistence\Doctrine\Repository\UserRepository
+
+  User\Application\UseCase\Command\CreateUser\CreateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\DeleteUser\DeleteUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\UpdateUser\UpdateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Query\GetUser\GetUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Query\ListUsers\ListUsersHandler:
+    tags: ['messenger.message_handler']
+
+  User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper: ~
+
+  User\Presentation\Api\Processor\CreateUserProcessor: ~
+  User\Presentation\Api\Processor\DeleteUserProcessor: ~
+  User\Presentation\Api\Processor\UpdateUserProcessor: ~
+  User\Presentation\Api\Provider\UserProvider: ~
+  User\Presentation\Api\Provider\ListUsersProvider: ~

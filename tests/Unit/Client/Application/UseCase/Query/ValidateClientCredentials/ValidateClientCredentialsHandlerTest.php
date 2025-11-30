@@ -13,7 +13,8 @@ use Client\Application\UseCase\Query\ValidateClientCredentials\{
 use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\{
   ClientId,
-  ClientName
+  ClientName,
+  ClientSecret
 };
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -62,10 +63,10 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Test Client'),
-      secret: new \Client\Domain\ValueObject\ClientSecret(password_hash($plainSecret, PASSWORD_BCRYPT)),
+      secret: new ClientSecret(password_hash($plainSecret, PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope('read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
 
     // Mocks
@@ -154,10 +155,10 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Test Client'),
-      secret: new \Client\Domain\ValueObject\ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
+      secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope('read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
 
     $repository = $this->createMock(ClientRepositoryPort::class);

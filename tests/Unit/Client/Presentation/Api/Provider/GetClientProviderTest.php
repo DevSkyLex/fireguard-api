@@ -7,8 +7,8 @@ namespace Tests\Client\Presentation\Api\Provider;
 use ApiPlatform\Metadata\Operation;
 use Client\Application\UseCase\Query\GetClient\GetClientQuery;
 use Client\Application\UseCase\Query\GetClient\GetClientResult;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Client\Presentation\Api\Provider\GetClientProvider;
-use Client\Presentation\Api\Resource\ClientResource;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,16 +31,16 @@ final class GetClientProviderTest extends TestCase
 {
   //#region Methods
   /**
-   * Method testProvideReturnsClientResourceWhenFound
+   * Method testProvideReturnsClientOutputWhenFound
    *
-   * Test that provide returns client resource when found.
+   * Test that provide returns client output when found.
    *
    * @access public
    *
    * @return void No return value
    */
   #[Test]
-  public function testProvideReturnsClientResourceWhenFound(): void
+  public function testProvideReturnsClientOutputWhenFound(): void
   {
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
     $result = new GetClientResult(
@@ -63,14 +63,14 @@ final class GetClientProviderTest extends TestCase
 
     $provider = new GetClientProvider(queryBus: $queryBus);
 
-    $resource = $provider->provide(
+    $output = $provider->provide(
       operation: $operation,
       uriVariables: ['id' => $clientId]
     );
 
-    self::assertInstanceOf(expected: ClientResource::class, actual: $resource);
-    self::assertSame(expected: $clientId, actual: $resource->id);
-    self::assertSame(expected: 'Test Client', actual: $resource->name);
+    self::assertInstanceOf(expected: ClientOutput::class, actual: $output);
+    self::assertSame(expected: $clientId, actual: $output->id);
+    self::assertSame(expected: 'Test Client', actual: $output->name);
   }
 
   /**
@@ -96,13 +96,12 @@ final class GetClientProviderTest extends TestCase
 
     $provider = new GetClientProvider(queryBus: $queryBus);
 
-    $resource = $provider->provide(
+    $output = $provider->provide(
       operation: $operation,
       uriVariables: ['id' => $clientId]
     );
 
-    self::assertNull(actual: $resource);
+    self::assertNull(actual: $output);
   }
   //#endregion
 }
-

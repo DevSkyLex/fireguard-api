@@ -4,191 +4,97 @@ declare(strict_types=1);
 
 namespace Shared\Domain\ValueObject;
 
-use Shared\Domain\Exception\InvalidScopeException;
-use Stringable;
-
 /**
- * ValueObject Scope
- * @final
+ * Enum Scope
  *
  * Represents an OAuth 2.0 scope.
  * Scopes define the level of access granted to a client.
  *
  * @category ValueObject
  * @package Shared\Domain\ValueObject
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class Scope implements Stringable
+enum Scope: string
 {
-  //#region Constants
+  //#region Cases
   /**
-   * Constant PATTERN
-   *
-   * Pattern for valid OAuth scopes.
-   * Scopes must be alphanumeric with optional dots, hyphens, or underscores.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @var string PATTERN
+   * Case OPENID
+   * 
+   * OpenID scope.
    */
-  private const string PATTERN = '/^[a-z][a-z0-9._-]{0,63}$/';
+  case OPENID = 'OPENID';
 
   /**
-   * Constant OPENID
-   *
-   * OpenID Connect scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string OPENID
+   * Case PROFILE
+   * 
+   * Profile scope.
    */
-  public const string OPENID = 'openid';
+  case PROFILE = 'PROFILE';
 
   /**
-   * Constant PROFILE
-   *
-   * OpenID Connect scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string PROFILE
+   * Case EMAIL
+   * 
+   * Email scope.
    */
-  public const string PROFILE = 'profile';
+  case EMAIL = 'EMAIL';
 
   /**
-   * Constant EMAIL
-   *
-   * OpenID Connect scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string EMAIL
+   * Case PHONE
+   * 
+   * Phone scope.
    */
-  public const string EMAIL = 'email';
+  case PHONE = 'PHONE';
 
   /**
-   * Constant PHONE
-   *
-   * OpenID Connect scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string PHONE
+   * Case ADDRESS
+   * 
+   * Address scope.
    */
-  public const string PHONE = 'phone';
+  case ADDRESS = 'ADDRESS';
 
   /**
-   * Constant ADDRESS
-   *
-   * OpenID Connect scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string ADDRESS
+   * Case READ
+   * 
+   * Read scope.
    */
-  public const string ADDRESS = 'address';
+  case READ = 'READ';
 
   /**
-   * Constant READ
-   *
-   * Custom application scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string READ
+   * Case WRITE
+   * 
+   * Write scope.
    */
-  public const string READ = 'read';
+  case WRITE = 'WRITE';
 
   /**
-   * Constant WRITE
-   *
-   * Custom application scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string WRITE
+   * Case ADMIN
+   * 
+   * Admin scope.
    */
-  public const string WRITE = 'write';
+  case ADMIN = 'ADMIN';
 
   /**
-   * Constant ADMIN
-   *
-   * Custom application scope.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string ADMIN
+   * Case DELETE
+   * 
+   * Delete scope.
    */
-  public const string ADMIN = 'admin';
+  case DELETE = 'DELETE';
   //#endregion
 
-  //#region Constructor
   /**
-   * Constructor
+   * Method values
    *
-   * Initializes a new instance of the Scope class.
+   * Returns an array of all possible values.
    *
    * @access public
-   * @since 1.0.0
+   * @since 2.0.0
    *
-   * @param string $value The scope value.
-   *
-   * @throws InvalidScopeException If the scope is invalid.
+   * @return list<string> An array of values.
    */
-  public function __construct(public string $value)
+  public static function values(): array
   {
-    if ($value === '') {
-      throw InvalidScopeException::empty();
-    }
-
-    if (!preg_match(pattern: self::PATTERN, subject: $value)) {
-      throw InvalidScopeException::invalidFormat(value: $value);
-    }
+    return array_column(self::cases(), 'value');
   }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method equals
-   *
-   * Compares two Scope objects for equality.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param self $other The other Scope object to compare.
-   *
-   * @return bool True if the objects are equal, false otherwise.
-   */
-  public function equals(self $other): bool
-  {
-    return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString
-   *
-   * Returns the string representation of the Scope object.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return string The string representation of the Scope object.
-   */
-  public function __toString(): string
-  {
-    return $this->value;
-  }
-  //#endregion
 }

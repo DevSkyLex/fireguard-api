@@ -39,3 +39,4 @@ services:
   Shared\Application\Port\Outbound\TransactionManagerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
   Shared\Application\Port\Outbound\TranslationPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter'
   Shared\Application\Port\Outbound\UuidGeneratorPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter'
+  Shared\Application\Port\Outbound\HashingPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter'

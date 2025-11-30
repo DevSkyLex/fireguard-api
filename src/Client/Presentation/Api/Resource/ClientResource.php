@@ -4,7 +4,16 @@ declare(strict_types=1);
 
 namespace Client\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{Get, GetCollection, Post, Patch, Delete, ApiResource, ApiProperty};
+use ApiPlatform\Metadata\{
+  ApiResource,
+  Get,
+  GetCollection,
+  Post,
+  Patch,
+  Delete
+};
+use Client\Presentation\Api\Dto\ClientInput;
+use Client\Presentation\Api\Dto\ClientOutput;
 use Client\Presentation\Api\Processor\{
   RegisterClientProcessor,
   UpdateClientProcessor,
@@ -14,9 +23,7 @@ use Client\Presentation\Api\Processor\{
   DeleteClientProcessor
 };
 use Client\Presentation\Api\Provider\{GetClientProvider, ListClientsProvider};
-use Shared\Domain\ValueObject\GrantType;
-use Symfony\Component\Serializer\Annotation\Groups;
-use Symfony\Component\Validator\Constraints as Assert;
+use Client\Presentation\Api\Serialization\ClientSerializationGroup;
 
 /**
  * Resource ClientResource
@@ -34,171 +41,72 @@ use Symfony\Component\Validator\Constraints as Assert;
   shortName: 'Client',
   operations: [
     new Post(
+      name: 'create',
       uriTemplate: '/clients',
+      input: ClientInput::class,
+      output: ClientOutput::class,
       processor: RegisterClientProcessor::class,
-      normalizationContext: ['groups' => ['client:read', 'client:secret']],
-      denormalizationContext: ['groups' => ['client:write']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ, ClientSerializationGroup::SECRET]],
+      denormalizationContext: ['groups' => [ClientSerializationGroup::WRITE]]
     ),
     new Get(
+      name: 'get',
       uriTemplate: '/clients/{id}',
+      input: false,
+      output: ClientOutput::class,
       provider: GetClientProvider::class,
-      normalizationContext: ['groups' => ['client:read']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ]]
     ),
     new GetCollection(
+      name: 'list',
       uriTemplate: '/clients',
+      input: false,
+      output: ClientOutput::class,
       provider: ListClientsProvider::class,
-      normalizationContext: ['groups' => ['client:read']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ]]
     ),
     new Patch(
+      name: 'update',
       uriTemplate: '/clients/{id}',
+      input: ClientInput::class,
+      output: ClientOutput::class,
       processor: UpdateClientProcessor::class,
-      normalizationContext: ['groups' => ['client:read']],
-      denormalizationContext: ['groups' => ['client:update']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ]],
+      denormalizationContext: ['groups' => [ClientSerializationGroup::UPDATE]]
     ),
     new Post(
+      name: 'regenerate-secret',
       uriTemplate: '/clients/{id}/regenerate-secret',
+      input: false,
+      output: ClientOutput::class,
       processor: RegenerateSecretProcessor::class,
-      normalizationContext: ['groups' => ['client:read', 'client:secret']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ, ClientSerializationGroup::SECRET]]
     ),
     new Post(
+      name: 'activate',
       uriTemplate: '/clients/{id}/activate',
+      input: false,
+      output: ClientOutput::class,
       processor: ActivateClientProcessor::class,
-      normalizationContext: ['groups' => ['client:read']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ]]
     ),
     new Post(
+      name: 'deactivate',
       uriTemplate: '/clients/{id}/deactivate',
+      input: false,
+      output: ClientOutput::class,
       processor: DeactivateClientProcessor::class,
-      normalizationContext: ['groups' => ['client:read']]
+      normalizationContext: ['groups' => [ClientSerializationGroup::READ]]
     ),
     new Delete(
+      name: 'delete',
       uriTemplate: '/clients/{id}',
+      input: false,
+      output: false,
       processor: DeleteClientProcessor::class
     )
   ]
 )]
 final class ClientResource
 {
-  //#region Properties
-  /**
-   * Property id
-   *
-   * The client ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string|null
-   */
-  #[ApiProperty(identifier: true)]
-  #[Groups(groups: ['client:read'])]
-  public ?string $id = null;
-
-  /**
-   * Property name
-   *
-   * The client name.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string|null
-   */
-  #[Assert\NotBlank]
-  #[Assert\Length(min: 3, max: 100)]
-  #[Groups(groups: ['client:read', 'client:write', 'client:update'])]
-  public ?string $name = null;
-
-  /**
-   * Property secret
-   *
-   * The client secret (only visible once upon creation).
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string|null
-   */
-  #[Groups(groups: ['client:secret'])]
-  public ?string $secret = null;
-
-  /**
-   * Property redirectUris
-   *
-   * The allowed redirect URIs.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var list<string>
-   */
-  #[Assert\NotBlank]
-  #[Assert\All([
-    new Assert\NotBlank,
-    new Assert\Url(protocols: ['http', 'https'])
-  ])]
-  #[Groups(groups: ['client:read', 'client:write', 'client:update'])]
-  public array $redirectUris = [];
-
-  /**
-   * Property grantTypes
-   *
-   * The allowed grant types.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var list<string>
-   */
-  #[Assert\NotBlank]
-  #[Assert\All([
-    new Assert\NotBlank,
-    new Assert\Choice(choices: GrantType::VALUES)
-  ])]
-  #[Groups(groups: ['client:read', 'client:write'])]
-  public array $grantTypes = [];
-
-  /**
-   * Property scopes
-   *
-   * The allowed scopes.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var list<string>
-   */
-  #[Assert\NotBlank]
-  #[Assert\All([
-    new Assert\NotBlank,
-    new Assert\Type('string')
-  ])]
-  #[Groups(groups: ['client:read', 'client:write', 'client:update'])]
-  public array $scopes = [];
-
-  /**
-   * Property isActive
-   *
-   * Whether the client is active.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var bool
-   */
-  #[Groups(groups: ['client:read'])]
-  public bool $isActive = true;
-
-  /**
-   * Property createdAt
-   *
-   * The creation timestamp.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string|null
-   */
-  #[Groups(groups: ['client:read'])]
-  public ?string $createdAt = null;
-  //#endregion
 }

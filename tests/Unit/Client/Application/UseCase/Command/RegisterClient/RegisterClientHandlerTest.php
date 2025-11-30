@@ -86,8 +86,8 @@ final class RegisterClientHandlerTest extends TestCase
     $command = new RegisterClientCommand(
       name: 'Test Client',
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
-      grantTypes: new GrantTypes(GrantType::from('authorization_code')),
-      scopes: new Scopes(new Scope(value: 'read'))
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ)
     );
 
     // Handler

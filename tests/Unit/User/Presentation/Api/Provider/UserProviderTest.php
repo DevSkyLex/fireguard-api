@@ -9,15 +9,17 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\ValueObject\Email;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\UseCase\Query\GetUser\GetUserQuery;
+use User\Application\UseCase\Query\GetUser\GetUserResult;
 use User\Domain\Model\User;
 use User\Domain\ValueObject\HashedPassword;
 use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
+use User\Presentation\Api\Dto\UserOutput;
 use User\Presentation\Api\Provider\UserProvider;
-use User\Presentation\Api\Resource\UserResource;
 
 /**
  * Test UserProviderTest
@@ -36,15 +38,15 @@ final class UserProviderTest extends TestCase
 {
   //#region Properties
   /**
-   * Property userRepository
+   * Property queryBus
    *
-   * Mock of the user repository.
+   * Mock of the query bus.
    *
    * @access private
    *
-   * @var UserRepositoryPort&MockObject
+   * @var QueryBusPort&MockObject
    */
-  private UserRepositoryPort&MockObject $userRepository;
+  private QueryBusPort&MockObject $queryBus;
 
   /**
    * Property provider
@@ -70,8 +72,8 @@ final class UserProviderTest extends TestCase
    */
   protected function setUp(): void
   {
-    $this->userRepository = $this->createMock(UserRepositoryPort::class);
-    $this->provider = new UserProvider($this->userRepository);
+    $this->queryBus = $this->createMock(QueryBusPort::class);
+    $this->provider = new UserProvider($this->queryBus);
   }
   //#endregion
 
@@ -100,22 +102,24 @@ final class UserProviderTest extends TestCase
       new UserProfile('John', 'Doe')
     );
 
-    $this->userRepository->expects($this->once())
-      ->method('findById')
-      ->with($this->callback(fn(UserId $uid) => $uid->equals($id)))
-      ->willReturn($user);
+    $result = new GetUserResult($user);
+
+    $this->queryBus->expects($this->once())
+      ->method('ask')
+      ->with($this->callback(fn(GetUserQuery $query) => $query->id === $id->value))
+      ->willReturn($result);
 
     $operation = new Get();
     $uriVariables = ['id' => $id->value];
 
     // Act
-    $result = $this->provider->provide($operation, $uriVariables);
+    $response = $this->provider->provide($operation, $uriVariables);
 
     // Assert
-    $this->assertInstanceOf(UserResource::class, $result);
-    $this->assertEquals($id->value, $result->id);
-    $this->assertEquals('jdoe', $result->username);
-    $this->assertEquals('John', $result->firstName);
+    $this->assertInstanceOf(UserOutput::class, $response);
+    $this->assertEquals($id->value, $response->id);
+    $this->assertEquals('jdoe', $response->username);
+    $this->assertEquals('John', $response->firstName);
   }
 
   /**
@@ -134,16 +138,18 @@ final class UserProviderTest extends TestCase
   {
     // Arrange
     $id = UserId::generate();
-    $this->userRepository->method('findById')->willReturn(null);
+    $result = new GetUserResult(null);
+
+    $this->queryBus->method('ask')->willReturn($result);
 
     $operation = new Get();
     $uriVariables = ['id' => $id->value];
 
     // Act
-    $result = $this->provider->provide($operation, $uriVariables);
+    $response = $this->provider->provide($operation, $uriVariables);
 
     // Assert
-    $this->assertNull($result);
+    $this->assertNull($response);
   }
 
   /**
@@ -165,10 +171,10 @@ final class UserProviderTest extends TestCase
     $uriVariables = [];
 
     // Act
-    $result = $this->provider->provide($operation, $uriVariables);
+    $response = $this->provider->provide($operation, $uriVariables);
 
     // Assert
-    $this->assertNull($result);
+    $this->assertNull($response);
   }
   //#endregion
 }
