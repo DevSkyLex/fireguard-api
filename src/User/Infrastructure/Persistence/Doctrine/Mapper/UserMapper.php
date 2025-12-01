@@ -33,9 +33,9 @@ final class UserMapper
   /**
    * Method toRecord
    *
-   * Converts a User domain model to a 
+   * Converts a User domain model to a
    * UserRecord persistence model.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -74,11 +74,50 @@ final class UserMapper
   }
 
   /**
+   * Method updateRecord
+   *
+   * Updates an existing UserRecord with data from
+   * a User domain model.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param UserRecord $record The existing persistence model.
+   * @param User $user The domain model.
+   *
+   * @return void
+   */
+  public function updateRecord(UserRecord $record, User $user): void
+  {
+    $record->username = $user->username()->value;
+    $record->email = $user->email()->value;
+    $record->firstName = $user->profile()->firstName;
+    $record->lastName = $user->profile()->lastName;
+    $record->avatarUrl = $user->profile()->avatarUrl;
+    $record->status = $user->status()->value;
+    $record->emailVerified = $user->isEmailVerified();
+    $record->tenantId = $user->tenantId()?->__toString();
+    $record->lastLoginAt = $user->lastLoginAt();
+
+    // Access private password property via reflection
+    $reflection = new ReflectionClass($user);
+    $passwordProperty = $reflection->getProperty('password');
+    $passwordProperty->setAccessible(true);
+    $password = $passwordProperty->getValue($user);
+    $record->password = $password->value;
+
+    // Access private failedLoginAttempts property via reflection
+    $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
+    $attemptsProperty->setAccessible(true);
+    $record->failedLoginAttempts = $attemptsProperty->getValue($user);
+  }
+
+  /**
    * Method toDomain
    *
-   * Converts a UserRecord persistence model 
+   * Converts a UserRecord persistence model
    * to a User domain model.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -115,9 +154,9 @@ final class UserMapper
   /**
    * Method setProperty
    *
-   * Sets a private property value using 
+   * Sets a private property value using
    * reflection.
-   * 
+   *
    * @access private
    * @since 1.0.0
    *

@@ -7,6 +7,7 @@ namespace Auth\Presentation\Api\Dto;
 use Auth\Presentation\Api\Serialization\AuthSerializationGroup;
 use Auth\Presentation\Api\Validator\GrantTypeRequirements\GrantTypeRequirements;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -30,6 +31,9 @@ final class TokenInput
    *
    * The grant type.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Assert\NotBlank(message: 'The grant_type field is required.')]
@@ -38,6 +42,7 @@ final class TokenInput
     message: 'Invalid grant_type. Allowed values: client_credentials, refresh_token, authorization_code.'
   )]
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'grant_type')]
   public ?string $grantType = null;
 
   /**
@@ -45,10 +50,14 @@ final class TokenInput
    *
    * The client ID.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Assert\NotBlank]
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'client_id')]
   public ?string $clientId = null;
 
   /**
@@ -56,10 +65,14 @@ final class TokenInput
    *
    * The client secret.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Assert\NotBlank]
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'client_secret')]
   public ?string $clientSecret = null;
 
   /**
@@ -67,9 +80,13 @@ final class TokenInput
    *
    * The requested scope(s).
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'scope')]
   public ?string $scope = null;
 
   /**
@@ -77,9 +94,13 @@ final class TokenInput
    *
    * The refresh token (for refresh_token grant).
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'refresh_token')]
   public ?string $refreshToken = null;
 
   /**
@@ -87,9 +108,13 @@ final class TokenInput
    *
    * The authorization code (for authorization_code grant).
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'code')]
   public ?string $code = null;
 
   /**
@@ -97,9 +122,13 @@ final class TokenInput
    *
    * The redirect URI (for authorization_code grant).
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'redirect_uri')]
   public ?string $redirectUri = null;
 
   /**
@@ -108,9 +137,13 @@ final class TokenInput
    * The PKCE code verifier (for authorization_code grant with PKCE).
    * Required for public clients and recommended for all clients.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[SerializedName(serializedName: 'code_verifier')]
   public ?string $codeVerifier = null;
   //#endregion
 }

@@ -30,6 +30,9 @@
         <testsuite name="General Functional Tests">
             <directory>tests/Functional</directory>
         </testsuite>
+        <testsuite name="E2E Tests">
+            <directory>tests/E2E</directory>
+        </testsuite>
     </testsuites>
 
     <source ignoreSuppressionOfDeprecations="true"

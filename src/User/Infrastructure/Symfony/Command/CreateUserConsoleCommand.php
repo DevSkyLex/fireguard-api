@@ -1,0 +1,213 @@
+<?php
+
+declare(strict_types=1);
+
+namespace User\Infrastructure\Symfony\Command;
+
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Helper\QuestionHelper;
+use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Throwable;
+use User\Application\UseCase\Command\CreateUser\CreateUserCommand;
+
+/**
+ * Command CreateUserConsoleCommand
+ * @final
+ *
+ * Symfony Console command to create a new user.
+ *
+ * @category Console Command
+ * @package User\Infrastructure\Symfony\Command
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+#[AsCommand(
+  name: 'app:user:create',
+  description: 'Create a new user',
+  aliases: ['user:create']
+)]
+final class CreateUserConsoleCommand extends Command
+{
+  //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initializes a new instance of the CreateUserConsoleCommand class.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus The command bus.
+   */
+  public function __construct(
+    private readonly CommandBusPort $commandBus
+  ) {
+    parent::__construct();
+  }
+  //#endregion
+
+  //#region Methods
+  /**
+   * Method configure
+   * {@inheritDoc}
+   *
+   * Configures the command.
+   *
+   * @access protected
+   * @since 1.0.0
+   *
+   * @return void
+   */
+  protected function configure(): void
+  {
+    $this
+      ->addArgument(
+        name: 'email',
+        mode: InputArgument::REQUIRED,
+        description: 'The email address of the user'
+      )
+      ->addArgument(
+        name: 'password',
+        mode: InputArgument::OPTIONAL,
+        description: 'The password (will be prompted if not provided)'
+      )
+      ->addOption(
+        name: 'username',
+        shortcut: 'u',
+        mode: InputOption::VALUE_REQUIRED,
+        description: 'The username (defaults to email)'
+      )
+      ->addOption(
+        name: 'first-name',
+        shortcut: 'f',
+        mode: InputOption::VALUE_REQUIRED,
+        description: 'The first name',
+        default: ''
+      )
+      ->addOption(
+        name: 'last-name',
+        shortcut: 'l',
+        mode: InputOption::VALUE_REQUIRED,
+        description: 'The last name',
+        default: ''
+      )
+      ->addOption(
+        name: 'avatar',
+        shortcut: 'a',
+        mode: InputOption::VALUE_REQUIRED,
+        description: 'The avatar URL'
+      )
+      ->addOption(
+        name: 'tenant',
+        shortcut: 't',
+        mode: InputOption::VALUE_REQUIRED,
+        description: 'The tenant ID (for multi-tenant)'
+      )
+      ->setHelp(<<<'HELP'
+The <info>%command.name%</info> command creates a new user:
+
+  <info>php %command.full_name% user@example.com</info>
+
+You can also specify the password directly:
+
+  <info>php %command.full_name% user@example.com mypassword</info>
+
+Or with additional options:
+
+  <info>php %command.full_name% user@example.com --username=johndoe --first-name=John --last-name=Doe</info>
+
+HELP
+      );
+  }
+
+  /**
+   * Method execute
+   * {@inheritDoc}
+   *
+   * Executes the command.
+   *
+   * @access protected
+   * @since 1.0.0
+   *
+   * @param InputInterface $input The input.
+   * @param OutputInterface $output The output.
+   *
+   * @return int The exit code.
+   */
+  protected function execute(InputInterface $input, OutputInterface $output): int
+  {
+    $io = new SymfonyStyle($input, $output);
+
+    $email = $input->getArgument('email');
+    $password = $input->getArgument('password');
+
+    // Prompt for password if not provided
+    if ($password === null) {
+      /** @var QuestionHelper $helper */
+      $helper = $this->getHelper('question');
+      $question = new Question('Password: ');
+      $question->setHidden(true);
+      $question->setHiddenFallback(false);
+      $question->setValidator(function (?string $value): string {
+        if ($value === null || trim($value) === '') {
+          throw new \RuntimeException('Password cannot be empty');
+        }
+        if (strlen($value) < 8) {
+          throw new \RuntimeException('Password must be at least 8 characters');
+        }
+        return $value;
+      });
+
+      $password = $helper->ask($input, $output, $question);
+
+      // Confirm password
+      $confirmQuestion = new Question('Confirm password: ');
+      $confirmQuestion->setHidden(true);
+      $confirmQuestion->setHiddenFallback(false);
+
+      $confirmPassword = $helper->ask($input, $output, $confirmQuestion);
+
+      if ($password !== $confirmPassword) {
+        $io->error('Passwords do not match.');
+        return Command::FAILURE;
+      }
+    }
+
+    $username = $input->getOption('username') ?? $email;
+    $firstName = $input->getOption('first-name') ?? '';
+    $lastName = $input->getOption('last-name') ?? '';
+    $avatarUrl = $input->getOption('avatar');
+    $tenantId = $input->getOption('tenant');
+
+    try {
+      $command = new CreateUserCommand(
+        username: $username,
+        email: $email,
+        password: $password,
+        firstName: $firstName,
+        lastName: $lastName,
+        avatarUrl: $avatarUrl,
+        tenantId: $tenantId
+      );
+
+      $this->commandBus->dispatch($command);
+
+      $io->success(sprintf('User "%s" created successfully.', $email));
+
+      return Command::SUCCESS;
+    } catch (Throwable $e) {
+      $io->error(sprintf('Failed to create user: %s', $e->getMessage()));
+
+      return Command::FAILURE;
+    }
+  }
+  //#endregion
+}

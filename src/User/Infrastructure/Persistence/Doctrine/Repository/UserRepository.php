@@ -29,7 +29,7 @@ final readonly class UserRepository implements UserRepositoryPort
 {
   /**
    * Constructor
-   * 
+   *
    * Initializes a new instance of the UserRepository class.
    *
    * @access public
@@ -49,8 +49,18 @@ final readonly class UserRepository implements UserRepositoryPort
    */
   public function save(User $user): void
   {
-    $record = $this->mapper->toRecord($user);
-    $this->entityManager->persist($record);
+    // Check if entity already exists
+    $existingRecord = $this->entityManager->find(UserRecord::class, $user->id()->value);
+
+    if ($existingRecord !== null) {
+      // Update existing record
+      $this->mapper->updateRecord($existingRecord, $user);
+    } else {
+      // Create new record
+      $existingRecord = $this->mapper->toRecord($user);
+      $this->entityManager->persist($existingRecord);
+    }
+
     $this->entityManager->flush();
   }
 
@@ -112,9 +122,9 @@ final readonly class UserRepository implements UserRepositoryPort
   public function delete(User $user): void
   {
     $record = $this->mapper->toRecord($user);
-    // We need to merge to ensure it's managed if it's detached, 
-    // but typically we fetch then delete. 
-    // Since toRecord creates a new object or returns existing, 
+    // We need to merge to ensure it's managed if it's detached,
+    // but typically we fetch then delete.
+    // Since toRecord creates a new object or returns existing,
     // we should fetch the reference to delete.
     $record = $this->entityManager->getReference(UserRecord::class, $user->id()->value);
 

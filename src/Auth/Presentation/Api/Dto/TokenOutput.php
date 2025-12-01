@@ -6,6 +6,7 @@ namespace Auth\Presentation\Api\Dto;
 
 use Auth\Presentation\Api\Serialization\AuthSerializationGroup;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 
 /**
  * DTO TokenOutput
@@ -30,6 +31,7 @@ final class TokenOutput
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[SerializedName(serializedName: 'access_token')]
   public ?string $accessToken = null;
 
   /**
@@ -40,6 +42,7 @@ final class TokenOutput
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[SerializedName(serializedName: 'token_type')]
   public ?string $tokenType = null;
 
   /**
@@ -50,6 +53,7 @@ final class TokenOutput
    * @var int|null
    */
   #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[SerializedName(serializedName: 'expires_in')]
   public ?int $expiresIn = null;
 
   /**
@@ -60,6 +64,7 @@ final class TokenOutput
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[SerializedName(serializedName: 'refresh_token')]
   public ?string $refreshToken = null;
 
   /**
@@ -70,6 +75,7 @@ final class TokenOutput
    * @var string|null
    */
   #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[SerializedName(serializedName: 'scope')]
   public ?string $scope = null;
   //#endregion
 }

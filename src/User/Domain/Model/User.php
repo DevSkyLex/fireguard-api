@@ -9,7 +9,7 @@ use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\Email;
 use Shared\Domain\ValueObject\TenantId;
 use User\Domain\Event\UserEmailVerifiedEvent;
-use User\Domain\Event\UserRegisteredEvent;
+use User\Domain\Event\UserCreatedEvent;
 use User\Domain\Exception\InvalidPasswordException;
 use User\Domain\Exception\InvalidUserException;
 use User\Domain\ValueObject\HashedPassword;
@@ -36,8 +36,8 @@ final class User
   //#region Traits
   /**
    * Trait RecordsDomainEvents
-   * 
-   * 
+   *
+   *
    */
   use RecordsDomainEvents;
   //#endregion
@@ -45,13 +45,13 @@ final class User
   //#region Constants
   /**
    * Constant MAX_FAILED_LOGIN_ATTEMPTS
-   * 
-   * Maximum number of failed login attempts 
+   *
+   * Maximum number of failed login attempts
    * before locking the account.
-   * 
+   *
    * @access private
    * @since 1.0.0
-   * 
+   *
    * @var int
    */
   private const int MAX_FAILED_LOGIN_ATTEMPTS = 5;
@@ -60,9 +60,9 @@ final class User
   //#region Constructor
   /**
    * Constructor
-   * 
+   *
    * Initialize the User model
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -99,9 +99,9 @@ final class User
    * Method register
    * @static
    *
-   * Factory method to register 
+   * Factory method to register
    * a new user.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -134,7 +134,7 @@ final class User
       createdAt: new DateTimeImmutable(),
     );
 
-    $user->recordEvent(new UserRegisteredEvent(
+    $user->recordEvent(new UserCreatedEvent(
       userId: $id->value,
       username: $username->value,
       email: $email->value,
@@ -147,9 +147,9 @@ final class User
   /**
    * Method verifyEmail
    *
-   * Marks the user's email as verified and 
+   * Marks the user's email as verified and
    * activates the account.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -174,7 +174,7 @@ final class User
    * Method authenticate
    *
    * Authenticates the user with a password.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -203,9 +203,9 @@ final class User
   /**
    * Method recordSuccessfulLogin
    *
-   * Records a successful login 
+   * Records a successful login
    * attempt.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -220,9 +220,9 @@ final class User
   /**
    * Method recordFailedLogin
    *
-   * Records a failed login attempt and 
+   * Records a failed login attempt and
    * locks account if threshold exceeded.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -241,7 +241,7 @@ final class User
    * Method canLogin
    *
    * Checks if the user can login.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -256,7 +256,7 @@ final class User
    * Method updateProfile
    *
    * Updates the user's profile.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -273,7 +273,7 @@ final class User
    * Method changePassword
    *
    * Changes the user's password.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -288,7 +288,7 @@ final class User
 
   /**
    * Method id
-   * 
+   *
    * Get the user ID.
    *
    * @return UserId

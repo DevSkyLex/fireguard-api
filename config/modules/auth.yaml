@@ -22,6 +22,12 @@ services:
   Auth\Application\Port\Outbound\ClientValidationPort:
     class: Auth\Infrastructure\Symfony\Adapter\Outbound\ClientValidationAdapter
 
+  Auth\Application\Port\Outbound\JwtTokenServicePort:
+    alias: Auth\Application\Service\JwtTokenService
+
+  Auth\Presentation\Api\Port\RefreshTokenCookieServicePort:
+    alias: Auth\Presentation\Api\Service\RefreshTokenCookieService
+
   # League OAuth2 Server
   League\OAuth2\Server\Repositories\ClientRepositoryInterface:
     class: Auth\Infrastructure\League\Adapter\Outbound\ClientRepositoryAdapter
@@ -38,6 +44,10 @@ services:
   League\OAuth2\Server\Repositories\ScopeRepositoryInterface:
     class: Auth\Infrastructure\League\Adapter\Outbound\ScopeRepositoryAdapter
 
+  access_token_ttl:
+    class: DateInterval
+    arguments: ['PT1H']
+
   League\OAuth2\Server\AuthorizationServer:
     arguments:
       $clientRepository: '@League\OAuth2\Server\Repositories\ClientRepositoryInterface'
@@ -49,15 +59,15 @@ services:
       - method: enableGrantType
         arguments:
           - '@League\OAuth2\Server\Grant\ClientCredentialsGrant'
-          - 'PT1H' # Access token TTL (1 hour)
+          - '@access_token_ttl'
       - method: enableGrantType
         arguments:
           - '@League\OAuth2\Server\Grant\RefreshTokenGrant'
-          - 'PT1H' # Access token TTL (1 hour)
+          - '@access_token_ttl'
       - method: enableGrantType
         arguments:
           - '@League\OAuth2\Server\Grant\AuthCodeGrant'
-          - 'PT1H' # Access token TTL (1 hour)
+          - '@access_token_ttl'
 
   League\OAuth2\Server\Grant\ClientCredentialsGrant: ~
 
@@ -75,6 +85,8 @@ services:
       $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
       $authCodeTTL: '@auth_code_ttl'
 
+  Auth\Presentation\Api\Processor\IssueTokenProcessor: ~
+
   Auth\Presentation\Api\Processor\RevokeTokenProcessor:
     arguments:
       $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
@@ -82,6 +94,37 @@ services:
   Auth\Presentation\Api\Processor\IntrospectTokenProcessor:
     arguments:
       $issuer: '%env(OAUTH_ISSUER)%'
+
+  # Refresh Token Cookie Service
+  Auth\Presentation\Api\Service\RefreshTokenCookieService:
+    arguments:
+      $environment: '%kernel.environment%'
+      $cookieBaseName: '%env(REFRESH_TOKEN_COOKIE_NAME)%'
+      $lifetimeShort: '%env(int:REFRESH_TOKEN_LIFETIME_SHORT)%'
+      $lifetimeLong: '%env(int:REFRESH_TOKEN_LIFETIME_LONG)%'
+
+  # JWT Token Service (for direct user authentication, NOT OAuth2)
+  Auth\Application\Service\JwtTokenService:
+    arguments:
+      $privateKeyPath: '%kernel.project_dir%/config/jwt/private.key'
+      $publicKeyPath: '%kernel.project_dir%/config/jwt/public.key'
+      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
+      $issuer: '%env(OAUTH_ISSUER)%'
+      $accessTokenTtl: 3600
+      $refreshTokenTtl: '%env(int:REFRESH_TOKEN_LIFETIME_LONG)%'
+
+  # Login/Logout Processors (use JwtTokenService, NOT OAuth2)
+  Auth\Presentation\Api\Processor\LoginProcessor: ~
+
+  Auth\Presentation\Api\Processor\RefreshTokenProcessor: ~
+
+  Auth\Presentation\Api\Processor\LogoutProcessor:
+    arguments:
+      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
+
+  # Refresh Token Cookie Event Subscriber
+  Auth\Presentation\Api\EventSubscriber\RefreshTokenCookieSubscriber:
+    tags: ['kernel.event_subscriber']
 
   # OpenID Connect Providers
   Auth\Presentation\Api\Provider\UserInfoProvider: ~
@@ -104,3 +147,7 @@ services:
 
   Auth\Infrastructure\Symfony\Security\Voter\ResourceOwnerVoter:
     tags: ['security.voter']
+
+  # Console Commands
+  Auth\Infrastructure\Symfony\Command\GenerateTokenCommand:
+    tags: ['console.command']

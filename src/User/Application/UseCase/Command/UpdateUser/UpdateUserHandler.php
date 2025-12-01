@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\UpdateUser;
 
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\UserId;
@@ -24,7 +21,7 @@ use User\Domain\ValueObject\UserProfile;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class UpdateUserHandler implements CommandHandler
+final readonly class UpdateUserHandler
 {
   //#region Constructor
   /**
@@ -52,18 +49,14 @@ final readonly class UpdateUserHandler implements CommandHandler
    * @access public
    * @since 1.0.0
    *
-   * @param CommandMessage $command The command.
+   * @param UpdateUserCommand $command The command.
    *
-   * @return ?UpdateUserResult The result.
+   * @return UpdateUserResult The result.
    *
    * @throws UserNotFoundException If the user is not found.
    */
-  public function __invoke(CommandMessage $command): ?UpdateUserResult
+  public function __invoke(UpdateUserCommand $command): UpdateUserResult
   {
-    if (!$command instanceof UpdateUserCommand) {
-      return null;
-    }
-
     $userId = new UserId(value: $command->id);
     $user = $this->userRepository->findById(id: $userId);
 

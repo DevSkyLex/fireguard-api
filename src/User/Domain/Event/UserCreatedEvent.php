@@ -9,10 +9,10 @@ use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
- * Event UserRegisteredEvent
+ * Event UserCreatedEvent
  * @final
  *
- * Emitted when a new user is registered.
+ * Emitted when a new user is created.
  *
  * @category Event
  * @package User\Domain\Event
@@ -20,7 +20,7 @@ use Shared\Domain\ValueObject\Uuid;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class UserRegisteredEvent implements DomainEvent
+final readonly class UserCreatedEvent implements DomainEvent
 {
   private Uuid $eventId;
 

@@ -24,6 +24,18 @@ doctrine:
         dir: '%kernel.project_dir%/src/Client/Infrastructure/Persistence/Doctrine/Record'
         prefix: 'Client\Infrastructure\Persistence\Doctrine\Record'
         alias: Client
+      User:
+        is_bundle: false
+        type: attribute
+        dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Entity'
+        prefix: 'User\Infrastructure\Persistence\Doctrine\Entity'
+        alias: User
+      Auth:
+        is_bundle: false
+        type: attribute
+        dir: '%kernel.project_dir%/src/Auth/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'Auth\Infrastructure\Persistence\Doctrine\Record'
+        alias: Auth
     controller_resolver:
       auto_mapping: false
 

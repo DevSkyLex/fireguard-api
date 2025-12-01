@@ -20,9 +20,17 @@ services:
     tags: ['messenger.message_handler']
 
   User\Application\UseCase\Query\GetUser\GetUserHandler:
-    tags: ['messenger.message_handler']
+    tags:
+      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\GetUser\GetUserQuery }
 
   User\Application\UseCase\Query\ListUsers\ListUsersHandler:
+    tags:
+      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\ListUsers\ListUsersQuery }
+
+  User\Application\EventHandler\UserCreatedEventHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\EventHandler\UserEmailVerifiedEventHandler:
     tags: ['messenger.message_handler']
 
   User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper: ~
@@ -32,3 +40,14 @@ services:
   User\Presentation\Api\Processor\UpdateUserProcessor: ~
   User\Presentation\Api\Provider\UserProvider: ~
   User\Presentation\Api\Provider\ListUsersProvider: ~
+
+  # Console Commands
+  User\Infrastructure\Symfony\Command\CreateUserConsoleCommand:
+    tags: ['console.command']
+
+  User\Infrastructure\Symfony\Command\ListUsersCommand:
+    tags: ['console.command']
+
+  # DataFixtures
+  User\Infrastructure\DataFixtures\UserFixtures:
+    tags: ['doctrine.fixture.orm']

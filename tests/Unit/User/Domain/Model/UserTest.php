@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
 use Shared\Domain\ValueObject\TenantId;
 use Shared\Domain\ValueObject\Uuid;
-use User\Domain\Event\UserRegisteredEvent;
+use User\Domain\Event\UserCreatedEvent;
 use User\Domain\Model\User;
 use User\Domain\ValueObject\HashedPassword;
 use User\Domain\ValueObject\UserId;
@@ -81,7 +81,7 @@ final class UserTest extends TestCase
     // Verify Event
     $events = $user->releaseEvents();
     $this->assertCount(1, $events);
-    $this->assertInstanceOf(UserRegisteredEvent::class, $events[0]);
+    $this->assertInstanceOf(UserCreatedEvent::class, $events[0]);
     $this->assertEquals($id->value, $events[0]->aggregateId());
   }
 

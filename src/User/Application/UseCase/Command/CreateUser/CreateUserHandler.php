@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\CreateUser;
 
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
-use Shared\Application\Port\Outbound\EventBusPort;
-use Shared\Application\Port\Outbound\HashingPort;
-use Shared\Application\Port\Outbound\UuidGeneratorPort;
+use Shared\Application\Port\Outbound\{
+  EventBusPort,
+  HashingPort,
+  UuidGeneratorPort
+};
 use Shared\Domain\ValueObject\Email;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
+use User\Domain\ValueObject\{
+  HashedPassword,
+  UserId,
+  Username,
+  UserProfile
+};
 
 /**
  * Handler CreateUserHandler
@@ -30,13 +31,13 @@ use User\Domain\ValueObject\UserProfile;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class CreateUserHandler implements CommandHandler
+final readonly class CreateUserHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes a new instance of the 
+   * Initializes a new instance of the
    * CreateUserHandler class.
    *
    * @access public
@@ -65,14 +66,11 @@ final readonly class CreateUserHandler implements CommandHandler
    * @access public
    * @since 1.0.0
    *
-   * @param CommandMessage $command The command.
-   * @return ?ResultMessage
+   * @param CreateUserCommand $command The command.
+   * @return CreateUserResult
    */
-  public function __invoke(CommandMessage $command): ?ResultMessage
+  public function __invoke(CreateUserCommand $command): CreateUserResult
   {
-    if (!$command instanceof CreateUserCommand) {
-      return null;
-    }
 
     // Generate user ID
     $userId = new UserId(value: $this->uuidGenerator->generate());

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\DeleteUser;
 
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\UserId;
@@ -23,7 +20,7 @@ use User\Domain\ValueObject\UserId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class DeleteUserHandler implements CommandHandler
+final readonly class DeleteUserHandler
 {
   //#region Constructor
   /**
@@ -51,18 +48,14 @@ final readonly class DeleteUserHandler implements CommandHandler
    * @access public
    * @since 1.0.0
    *
-   * @param CommandMessage $command The command.
+   * @param DeleteUserCommand $command The command.
    *
-   * @return ?DeleteUserResult The result.
+   * @return DeleteUserResult The result.
    *
    * @throws UserNotFoundException If the user is not found.
    */
-  public function __invoke(CommandMessage $command): ?DeleteUserResult
+  public function __invoke(DeleteUserCommand $command): DeleteUserResult
   {
-    if (!$command instanceof DeleteUserCommand) {
-      return null;
-    }
-
     $userId = new UserId(value: $command->id);
     $user = $this->userRepository->findById(id: $userId);
 
