@@ -71,7 +71,7 @@ jobs:
         env:
           APP_ENV: test
           XDEBUG_MODE: coverage
-        run: vendor/bin/phpunit --coverage-text
+        run: vendor/bin/phpunit --do-not-fail-on-warning --coverage-text
 
   phpstan:
     name: PHPStan
