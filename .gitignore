@@ -1,4 +1,3 @@
-
 ###> symfony/framework-bundle ###
 /.env.local
 /.env.local.php
@@ -13,11 +12,6 @@
 /phpunit.xml
 /.phpunit.cache/
 ###< phpunit/phpunit ###
-
-###> qossmic/deptrac ###
-/.deptrac.cache
-###< qossmic/deptrac ###
-
 ###> phpstan/phpstan ###
 phpstan.neon
 ###< phpstan/phpstan ###
@@ -25,3 +19,7 @@ phpstan.neon
 ###> jwt keys ###
 /config/jwt/
 ###< jwt keys ###
+
+###> deptrac/deptrac ###
+/.deptrac.cache
+###< deptrac/deptrac ###

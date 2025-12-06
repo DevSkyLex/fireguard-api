@@ -32,7 +32,7 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Run Deptrac
-        run: vendor/bin/deptrac
+        run: vendor/bin/deptrac analyse --no-progress
 
   phpunit:
     name: PHPUnit
@@ -47,13 +47,29 @@ jobs:
         with:
           php-version: '8.4'
           coverage: xdebug
+          extensions: pdo_sqlite, sqlite3
           tools: composer:v2
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
+      - name: Generate JWT keys for tests
+        run: |
+          mkdir -p config/jwt
+          openssl genpkey -algorithm RSA -out config/jwt/private.key -pkeyopt rsa_keygen_bits:2048
+          openssl rsa -pubout -in config/jwt/private.key -out config/jwt/public.key
+          chmod 600 config/jwt/private.key
+
+      - name: Setup test database
+        env:
+          APP_ENV: test
+        run: |
+          php bin/console doctrine:database:create --env=test --if-not-exists
+          php bin/console doctrine:schema:create --env=test
+
       - name: Run test suite
         env:
+          APP_ENV: test
           XDEBUG_MODE: coverage
         run: vendor/bin/phpunit --coverage-text
 

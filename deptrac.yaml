@@ -2,57 +2,123 @@ deptrac:
   paths:
     - ./src
   exclude_files:
-    - "#.*Tests.*#"
+    - '#.*test.*#i'
+
   layers:
-    # Shared layers
-    - name: SharedDomain
-      collectors:
-        - type: classLike
-          value: '^Shared\\\\Domain\\\\.*'
-    - name: SharedApplication
-      collectors:
-        - type: classLike
-          value: '^Shared\\\\Application\\\\.*'
-    - name: SharedInfrastructure
-      collectors:
-        - type: classLike
-          value: '^Shared\\\\Infrastructure\\\\.*'
-    # Module layers (Auth, User, Client, Tenant, Session)
+    # ============================================
+    # Module Layers (Auth, Client, User, etc.)
+    # ============================================
+
+    # Domain Layer - Core business logic (excludes Shared module)
     - name: Domain
       collectors:
-        - type: classLike
-          value: '^(Auth|User|Client|Tenant|Session)\\\\Domain\\\\.*'
+        - type: bool
+          must:
+            - type: directory
+              value: src/.*/Domain/.*
+          must_not:
+            - type: directory
+              value: src/Shared/.*
+
+    # Application Layer - Use cases, ports (excludes Shared module)
     - name: Application
       collectors:
-        - type: classLike
-          value: '^(Auth|User|Client|Tenant|Session)\\\\Application\\\\.*'
+        - type: bool
+          must:
+            - type: directory
+              value: src/.*/Application/.*
+          must_not:
+            - type: directory
+              value: src/Shared/.*
+
+    # Infrastructure Layer - Adapters, persistence (excludes Shared module)
     - name: Infrastructure
       collectors:
-        - type: classLike
-          value: '^(Auth|User|Client|Tenant|Session)\\\\Infrastructure\\\\.*'
+        - type: bool
+          must:
+            - type: directory
+              value: src/.*/Infrastructure/.*
+          must_not:
+            - type: directory
+              value: src/Shared/.*
+
+    # Presentation Layer - Controllers, API (excludes Shared module)
     - name: Presentation
       collectors:
-        - type: classLike
-          value: '^(Auth|User|Client|Tenant|Session)\\\\Presentation\\\\.*'
+        - type: bool
+          must:
+            - type: directory
+              value: src/.*/Presentation/.*
+          must_not:
+            - type: directory
+              value: src/Shared/.*
+
+    # ============================================
+    # Shared Kernel Layers
+    # ============================================
+
+    # Shared Domain - Value objects, interfaces shared across modules
+    - name: SharedDomain
+      collectors:
+        - type: directory
+          value: src/Shared/Domain/.*
+
+    # Shared Application - Shared ports and use case interfaces
+    - name: SharedApplication
+      collectors:
+        - type: directory
+          value: src/Shared/Application/.*
+
+    # Shared Infrastructure - Shared adapters (Symfony, Doctrine, etc.)
+    - name: SharedInfrastructure
+      collectors:
+        - type: directory
+          value: src/Shared/Infrastructure/.*
+
   ruleset:
-    SharedDomain: []
-    SharedApplication:
-      - SharedDomain
-    SharedInfrastructure:
-      - SharedApplication
-      - SharedDomain
+    # ============================================
+    # Hexagonal Architecture Rules
+    # ============================================
+
+    # Domain: Only depends on SharedDomain (pure business logic)
     Domain:
       - SharedDomain
+
+    # Application: Depends on Domain layers, defines Ports
     Application:
       - Domain
       - SharedDomain
       - SharedApplication
+
+    # Infrastructure: Implements Ports, can depend on all layers
     Infrastructure:
+      - Domain
+      - Application
+      - SharedDomain
+      - SharedApplication
+      - SharedInfrastructure
+
+    # Presentation: Entry points, uses Application layer
+    Presentation:
       - Application
       - Domain
       - SharedDomain
       - SharedApplication
-    Presentation:
-      - Application
+      - SharedInfrastructure
+      - Infrastructure
+
+    # ============================================
+    # Shared Kernel Rules
+    # ============================================
+
+    # SharedDomain: No dependencies (pure)
+    SharedDomain: ~
+
+    # SharedApplication: Only depends on SharedDomain
+    SharedApplication:
+      - SharedDomain
+
+    # SharedInfrastructure: Can depend on Shared layers
+    SharedInfrastructure:
       - SharedDomain
       - SharedApplication
