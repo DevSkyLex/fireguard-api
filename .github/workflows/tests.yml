@@ -64,7 +64,7 @@ jobs:
         env:
           APP_ENV: test
         run: |
-          php bin/console doctrine:database:create --env=test --if-not-exists
+          mkdir -p var
           php bin/console doctrine:schema:create --env=test
 
       - name: Run test suite
