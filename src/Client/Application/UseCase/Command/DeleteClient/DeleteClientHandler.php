@@ -7,10 +7,8 @@ namespace Client\Application\UseCase\Command\DeleteClient;
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\ValueObject\ClientId;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\EventBusPort;
+use Shared\Domain\Service\EventIdProvider;
 
 /**
  * Handler DeleteClientHandler
@@ -24,7 +22,7 @@ use Shared\Application\Port\Outbound\EventBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class DeleteClientHandler implements CommandHandler
+final readonly class DeleteClientHandler
 {
   //#region Constructor
   /**
@@ -40,7 +38,8 @@ final readonly class DeleteClientHandler implements CommandHandler
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly EventBusPort $eventBus
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
   ) {}
   //#endregion
 
@@ -55,10 +54,11 @@ final readonly class DeleteClientHandler implements CommandHandler
    *
    * @param DeleteClientCommand $command The command to handle.
    *
-   * @return null Always returns null.
+   * @return void None.
+   *
    * @throws InvalidClientException If the client is not found.
    */
-  public function __invoke(CommandMessage $command): ?ResultMessage
+  public function __invoke(DeleteClientCommand $command): void
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);
@@ -69,7 +69,7 @@ final readonly class DeleteClientHandler implements CommandHandler
     }
 
     // Soft delete the client
-    $client->delete();
+    $client->delete($this->eventIdProvider);
 
     // Save the client (with deletedAt set)
     $this->clientRepository->save(client: $client);
@@ -78,8 +78,6 @@ final readonly class DeleteClientHandler implements CommandHandler
     foreach ($client->releaseEvents() as $event) {
       $this->eventBus->publish(event: $event);
     }
-
-    return null;
   }
   //#endregion
 }

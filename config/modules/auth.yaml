@@ -8,7 +8,7 @@ services:
     class: Auth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository
 
   Auth\Application\Port\Outbound\ClientRepositoryPort:
-    class: Auth\Infrastructure\Symfony\Adapter\Outbound\ClientRepositoryAdapter
+    class: Auth\Infrastructure\OAuth2\Adapter\ClientRepositoryPortAdapter
 
   Auth\Application\Port\Outbound\RefreshTokenRepositoryPort:
     class: Auth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository
@@ -17,32 +17,69 @@ services:
     class: Auth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository
 
   Auth\Application\Port\Outbound\AuthorizationServerPort:
-    class: Auth\Infrastructure\League\Adapter\Outbound\AuthorizationServerAdapter
+    class: Auth\Infrastructure\OAuth2\Server\AuthorizationServerAdapter
 
   Auth\Application\Port\Outbound\ClientValidationPort:
-    class: Auth\Infrastructure\Symfony\Adapter\Outbound\ClientValidationAdapter
+    class: Auth\Infrastructure\OAuth2\Adapter\ClientValidationAdapter
 
   Auth\Application\Port\Outbound\JwtTokenServicePort:
-    alias: Auth\Application\Service\JwtTokenService
+    alias: Auth\Infrastructure\Jwt\JwtTokenService
 
-  Auth\Presentation\Api\Port\RefreshTokenCookieServicePort:
-    alias: Auth\Presentation\Api\Service\RefreshTokenCookieService
+  Auth\Application\Port\Outbound\TokenRevocationPort:
+    alias: Auth\Infrastructure\Token\TokenRevocationService
+
+  Auth\Application\Port\Outbound\JwtParserPort:
+    alias: Auth\Infrastructure\Jwt\JwtParserService
+
+  Auth\Application\Port\Outbound\TokenCachePort:
+    alias: Auth\Infrastructure\Cache\TokenCacheService
+
+  Auth\Infrastructure\Token\TokenRevocationService: ~
+  Auth\Infrastructure\Jwt\JwtParserService: ~
+  Auth\Infrastructure\Cache\TokenCacheService: ~
+  Auth\Infrastructure\RateLimiter\LoginRateLimiterAdapter: ~
+
+  # Domain Services
+  Auth\Domain\Service\TokenValidationService: ~
+
+  # Use Case Command Handlers
+  Auth\Application\UseCase\Command\Login\LoginHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Logout\LogoutHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\RevokeToken\RevokeTokenHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\IssueToken\IssueTokenHandler:
+    tags: ['messenger.message_handler']
+
+  # Use Case Query Handlers
+  Auth\Application\UseCase\Query\ValidateToken\ValidateTokenHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Query\IntrospectToken\IntrospectTokenHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Query\RefreshToken\RefreshTokenHandler:
+    tags: ['messenger.message_handler']
 
   # League OAuth2 Server
   League\OAuth2\Server\Repositories\ClientRepositoryInterface:
-    class: Auth\Infrastructure\League\Adapter\Outbound\ClientRepositoryAdapter
+    class: Auth\Infrastructure\OAuth2\Repository\ClientRepositoryAdapter
 
   League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface:
-    class: Auth\Infrastructure\League\Adapter\Outbound\AccessTokenRepositoryAdapter
+    class: Auth\Infrastructure\OAuth2\Repository\AccessTokenRepositoryAdapter
 
   League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface:
-    class: Auth\Infrastructure\League\Adapter\Outbound\RefreshTokenRepositoryAdapter
+    class: Auth\Infrastructure\OAuth2\Repository\RefreshTokenRepositoryAdapter
 
   League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface:
-    class: Auth\Infrastructure\League\Adapter\Outbound\AuthCodeRepositoryAdapter
+    class: Auth\Infrastructure\OAuth2\Repository\AuthCodeRepositoryAdapter
 
   League\OAuth2\Server\Repositories\ScopeRepositoryInterface:
-    class: Auth\Infrastructure\League\Adapter\Outbound\ScopeRepositoryAdapter
+    class: Auth\Infrastructure\OAuth2\Repository\ScopeRepositoryAdapter
 
   access_token_ttl:
     class: DateInterval
@@ -85,69 +122,40 @@ services:
       $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
       $authCodeTTL: '@auth_code_ttl'
 
-  Auth\Presentation\Api\Processor\IssueTokenProcessor: ~
+  Auth\Presentation\Http\OAuth2\IssueTokenProcessor: ~
 
-  Auth\Presentation\Api\Processor\RevokeTokenProcessor:
+  Auth\Presentation\Http\OAuth2\RevokeTokenProcessor:
     arguments:
       $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
 
-  Auth\Presentation\Api\Processor\IntrospectTokenProcessor:
-    arguments:
-      $issuer: '%env(OAUTH_ISSUER)%'
+  Auth\Presentation\Http\OAuth2\IntrospectTokenProcessor: ~
 
   # Refresh Token Cookie Service
-  Auth\Presentation\Api\Service\RefreshTokenCookieService:
-    arguments:
-      $environment: '%kernel.environment%'
-      $cookieBaseName: '%env(REFRESH_TOKEN_COOKIE_NAME)%'
-      $lifetimeShort: '%env(int:REFRESH_TOKEN_LIFETIME_SHORT)%'
-      $lifetimeLong: '%env(int:REFRESH_TOKEN_LIFETIME_LONG)%'
+  Auth\Presentation\Service\RefreshTokenCookieService: ~
 
-  # JWT Token Service (for direct user authentication, NOT OAuth2)
-  Auth\Application\Service\JwtTokenService:
-    arguments:
-      $privateKeyPath: '%kernel.project_dir%/config/jwt/private.key'
-      $publicKeyPath: '%kernel.project_dir%/config/jwt/public.key'
-      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
-      $issuer: '%env(OAUTH_ISSUER)%'
-      $accessTokenTtl: 3600
-      $refreshTokenTtl: '%env(int:REFRESH_TOKEN_LIFETIME_LONG)%'
+  # JWT Token Service (uses #[Autowire] attributes)
+  Auth\Infrastructure\Jwt\JwtTokenService: ~
 
-  # Login/Logout Processors (use JwtTokenService, NOT OAuth2)
-  Auth\Presentation\Api\Processor\LoginProcessor: ~
+  # Auth Processors
+  Auth\Presentation\Http\Auth\LoginProcessor: ~
+  Auth\Presentation\Http\Auth\RefreshTokenProcessor: ~
+  Auth\Presentation\Http\Auth\LogoutProcessor: ~
 
-  Auth\Presentation\Api\Processor\RefreshTokenProcessor: ~
+  # WellKnown Providers
+  Auth\Presentation\Http\WellKnown\UserInfoProvider: ~
+  Auth\Presentation\Http\WellKnown\OpenIdConfigurationProvider: ~
+  Auth\Presentation\Http\WellKnown\JwksProvider: ~
 
-  Auth\Presentation\Api\Processor\LogoutProcessor:
-    arguments:
-      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
-
-  # Refresh Token Cookie Event Subscriber
-  Auth\Presentation\Api\EventSubscriber\RefreshTokenCookieSubscriber:
-    tags: ['kernel.event_subscriber']
-
-  # OpenID Connect Providers
-  Auth\Presentation\Api\Provider\UserInfoProvider: ~
-
-  Auth\Presentation\Api\Provider\OpenIdConfigurationProvider:
-    arguments:
-      $issuer: '%env(OAUTH_ISSUER)%'
-
-  Auth\Presentation\Api\Provider\JwksProvider:
-    arguments:
-      $publicKeyPath: '%kernel.project_dir%/config/jwt/public.key'
+  # Event Listener
+  Auth\Infrastructure\EventListener\RefreshTokenCookieListener: ~
 
   # Symfony Security
-  Auth\Infrastructure\Symfony\Security\SecurityUserProvider: ~
+  Auth\Infrastructure\Security\User\SecurityUserProvider: ~
+  Auth\Infrastructure\Security\Authenticator\OAuth2Authenticator: ~
 
-  Auth\Infrastructure\Symfony\Security\OAuth2Authenticator: ~
-
-  Auth\Infrastructure\Symfony\Security\Voter\OAuth2ScopeVoter:
-    tags: ['security.voter']
-
-  Auth\Infrastructure\Symfony\Security\Voter\ResourceOwnerVoter:
-    tags: ['security.voter']
+  # Voters
+  Auth\Infrastructure\Security\Voter\OAuth2ScopeVoter: ~
+  Auth\Infrastructure\Security\Voter\ResourceOwnerVoter: ~
 
   # Console Commands
-  Auth\Infrastructure\Symfony\Command\GenerateTokenCommand:
-    tags: ['console.command']
+  Auth\Infrastructure\Console\GenerateTokenCommand: ~

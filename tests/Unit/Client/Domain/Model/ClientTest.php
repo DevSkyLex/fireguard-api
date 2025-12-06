@@ -28,6 +28,7 @@ use Shared\Domain\ValueObject\{
   Scope,
   Scopes
 };
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test ClientTest
@@ -71,7 +72,8 @@ final class ClientTest extends TestCase
       secret: $clientSecret,
       redirectUris: $redirectUris,
       grantTypes: $grantTypes,
-      scopes: $scopes
+      scopes: $scopes,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     self::assertSame(expected: $clientId, actual: $client->id());
@@ -125,7 +127,8 @@ final class ClientTest extends TestCase
     $client->updateDetails(
       name: $newName,
       redirectUris: $newRedirectUris,
-      scopes: $newScopes
+      scopes: $newScopes,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     self::assertSame(expected: $newName, actual: $client->name());
@@ -154,7 +157,7 @@ final class ClientTest extends TestCase
     $newHashedSecret = password_hash('new-secret', PASSWORD_BCRYPT);
     $newSecret = new ClientSecret(value: $newHashedSecret);
 
-    $client->regenerateSecret(newSecret: $newSecret);
+    $client->regenerateSecret(newSecret: $newSecret, eventIdProvider: new TestEventIdProvider());
 
     self::assertNotSame(expected: $oldSecret, actual: $client->secret());
     self::assertSame(expected: $newSecret, actual: $client->secret());
@@ -177,10 +180,10 @@ final class ClientTest extends TestCase
   public function testActivateSetsClientAsActive(): void
   {
     $client = $this->createTestClient();
-    $client->deactivate();
+    $client->deactivate(new TestEventIdProvider());
     $client->releaseEvents();
 
-    $client->activate();
+    $client->activate(new TestEventIdProvider());
 
     self::assertTrue(condition: $client->isActive());
     $events = $client->releaseEvents();
@@ -204,7 +207,7 @@ final class ClientTest extends TestCase
     $client = $this->createTestClient();
     $client->releaseEvents();
 
-    $client->deactivate();
+    $client->deactivate(new TestEventIdProvider());
 
     self::assertFalse(condition: $client->isActive());
     $events = $client->releaseEvents();
@@ -228,7 +231,7 @@ final class ClientTest extends TestCase
     $client = $this->createTestClient();
     $client->releaseEvents();
 
-    $client->delete();
+    $client->delete(new TestEventIdProvider());
 
     self::assertTrue(condition: $client->isDeleted());
     $events = $client->releaseEvents();
@@ -331,7 +334,8 @@ final class ClientTest extends TestCase
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
     );
   }
   //#endregion

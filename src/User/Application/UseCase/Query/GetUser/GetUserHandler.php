@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Query\GetUser;
 
-use Shared\Application\Handler\QueryHandler;
-use Shared\Application\Message\QueryMessage;
-use Shared\Application\Message\ResultMessage;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
@@ -22,15 +19,15 @@ use User\Domain\ValueObject\UserId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetUserHandler implements QueryHandler
+final readonly class GetUserHandler
 {
   //#region Constructor
   /**
    * Constructor
-   * 
-   * Initializes a new instance of the 
+   *
+   * Initializes a new instance of the
    * GetUserHandler class.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
@@ -46,19 +43,16 @@ final readonly class GetUserHandler implements QueryHandler
    * Method __invoke
    *
    * Handles the query.
-   * 
+   *
    * @access public
    * @since 1.0.0
    *
-   * @param QueryMessage $query The query.
-   * 
+   * @param GetUserQuery $query The query.
+   *
    * @return GetUserResult The result.
    */
-  public function __invoke(QueryMessage $query): GetUserResult
+  public function __invoke(GetUserQuery $query): GetUserResult
   {
-    if (!$query instanceof GetUserQuery) {
-      return new GetUserResult(user: null);
-    }
 
     $user = $this->userRepository->findById(id: new UserId(value: $query->id));
 

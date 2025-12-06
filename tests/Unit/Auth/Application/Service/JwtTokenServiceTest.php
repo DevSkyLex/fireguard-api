@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\Service;
 
-use Auth\Application\Service\JwtTokenService;
+use Auth\Infrastructure\Jwt\JwtTokenService;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @covers \Auth\Application\Service\JwtTokenService
+ * @covers \Auth\Infrastructure\Jwt\JwtTokenService
  */
 #[CoversClass(className: JwtTokenService::class)]
 final class JwtTokenServiceTest extends TestCase

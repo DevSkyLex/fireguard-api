@@ -8,11 +8,9 @@ use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientSecret;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Application\Port\Outbound\HashingPort;
+use Shared\Domain\Service\EventIdProvider;
 
 /**
  * Handler RegenerateClientSecretHandler
@@ -26,7 +24,7 @@ use Shared\Application\Port\Outbound\HashingPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RegenerateClientSecretHandler implements CommandHandler
+final readonly class RegenerateClientSecretHandler
 {
   //#region Constructor
   /**
@@ -44,9 +42,9 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
     private readonly HashingPort $hashing,
-    private readonly EventBusPort $eventBus
-  ) {
-  }
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
+  ) {}
   //#endregion
 
   //#region Methods
@@ -63,7 +61,7 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
    * @return RegenerateClientSecretResult The result message with the new plain secret.
    * @throws InvalidClientException If the client is not found.
    */
-  public function __invoke(CommandMessage $command): ResultMessage
+  public function __invoke(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);
@@ -82,7 +80,7 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
     );
 
     // Regenerate the client secret
-    $client->regenerateSecret(newSecret: $hashedSecret);
+    $client->regenerateSecret(newSecret: $hashedSecret, eventIdProvider: $this->eventIdProvider);
 
     // Save the client
     $this->clientRepository->save(client: $client);

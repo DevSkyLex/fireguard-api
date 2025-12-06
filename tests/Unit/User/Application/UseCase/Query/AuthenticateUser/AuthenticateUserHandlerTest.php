@@ -18,6 +18,7 @@ use User\Domain\ValueObject\HashedPassword;
 use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test AuthenticateUserHandlerTest
@@ -93,14 +94,16 @@ final class AuthenticateUserHandlerTest extends TestCase
     // Arrange
     $query = new AuthenticateUserQuery('jdoe', 'password123');
 
+    $eventIdProvider = new TestEventIdProvider();
     $user = User::register(
-      UserId::generate(),
-      new Username('jdoe'),
-      new Email('jdoe@example.com'),
-      HashedPassword::fromPlain('password123'),
-      new UserProfile('John', 'Doe')
+      id: new UserId('550e8400-e29b-41d4-a716-446655440000'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
     );
-    $user->verifyEmail();
+    $user->verifyEmail($eventIdProvider);
 
     $this->userRepository->method('findByUsername')->willReturn($user);
     $this->userRepository->expects($this->once())->method('save')->with($user);
@@ -157,14 +160,16 @@ final class AuthenticateUserHandlerTest extends TestCase
     // Arrange
     $query = new AuthenticateUserQuery('jdoe', 'wrongpassword');
 
+    $eventIdProvider = new TestEventIdProvider();
     $user = User::register(
-      UserId::generate(),
-      new Username('jdoe'),
-      new Email('jdoe@example.com'),
-      HashedPassword::fromPlain('password123'),
-      new UserProfile('John', 'Doe')
+      id: new UserId('550e8400-e29b-41d4-a716-446655440001'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
     );
-    $user->verifyEmail();
+    $user->verifyEmail($eventIdProvider);
 
     $this->userRepository->method('findByUsername')->willReturn($user);
 

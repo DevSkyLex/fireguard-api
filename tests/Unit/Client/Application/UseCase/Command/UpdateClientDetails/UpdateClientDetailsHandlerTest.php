@@ -27,6 +27,7 @@ use Shared\Domain\ValueObject\{
   Scope,
   Scopes
 };
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test UpdateClientDetailsHandlerTest
@@ -59,13 +60,15 @@ final class UpdateClientDetailsHandlerTest extends TestCase
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
 
     // Create real client
+    $eventIdProvider = new TestEventIdProvider();
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Original Name'),
       secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://old.example.com')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: $eventIdProvider,
     );
     $client->releaseEvents(); // Clear creation events
 
@@ -93,7 +96,8 @@ final class UpdateClientDetailsHandlerTest extends TestCase
     // Handler
     $handler = new UpdateClientDetailsHandler(
       clientRepository: $repository,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     // Execute
@@ -134,7 +138,8 @@ final class UpdateClientDetailsHandlerTest extends TestCase
 
     $handler = new UpdateClientDetailsHandler(
       clientRepository: $repository,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     $this->expectException(InvalidClientException::class);

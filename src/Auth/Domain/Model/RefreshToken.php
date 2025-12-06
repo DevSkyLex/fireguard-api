@@ -23,12 +23,12 @@ final class RefreshToken
 {
   /**
    * Constructor
-   * 
+   *
    * Initializes a new instance of the RefreshToken class.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @param string $identifier The refresh token identifier.
    * @param DateTimeImmutable $expiryDateTime The expiry date time.
    * @param string $accessTokenIdentifier The access token identifier.
@@ -46,12 +46,12 @@ final class RefreshToken
 
   /**
    * Method identifier
-   * 
+   *
    * Gets the refresh token identifier.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @return string The identifier.
    */
   public function identifier(): string
@@ -61,12 +61,12 @@ final class RefreshToken
 
   /**
    * Method expiryDateTime
-   * 
+   *
    * Gets the expiry date time.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @return DateTimeImmutable The expiry date time.
    */
   public function expiryDateTime(): DateTimeImmutable
@@ -76,12 +76,12 @@ final class RefreshToken
 
   /**
    * Method accessTokenIdentifier
-   * 
+   *
    * Gets the access token identifier.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @return string The access token identifier.
    */
   public function accessTokenIdentifier(): string
@@ -91,12 +91,12 @@ final class RefreshToken
 
   /**
    * Method clientIdentifier
-   * 
+   *
    * Gets the client identifier.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @return OAuthClientIdentifier The client identifier.
    */
   public function clientIdentifier(): OAuthClientIdentifier
@@ -106,12 +106,12 @@ final class RefreshToken
 
   /**
    * Method isRevoked
-   * 
+   *
    * Checks if the token is revoked.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @return bool True if revoked, false otherwise.
    */
   public function isRevoked(): bool
@@ -121,16 +121,31 @@ final class RefreshToken
 
   /**
    * Method revoke
-   * 
+   *
    * Revokes the token.
-   * 
+   *
    * @access public
    * @since 1.0.0
-   * 
+   *
    * @return void
    */
   public function revoke(): void
   {
     $this->isRevoked = true;
+  }
+
+  /**
+   * Method isExpired
+   *
+   * Checks if the token is expired.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @return bool True if expired, false otherwise.
+   */
+  public function isExpired(): bool
+  {
+    return $this->expiryDateTime < new DateTimeImmutable();
   }
 }

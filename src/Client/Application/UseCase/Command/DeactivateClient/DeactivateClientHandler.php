@@ -7,10 +7,8 @@ namespace Client\Application\UseCase\Command\DeactivateClient;
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\ValueObject\ClientId;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\EventBusPort;
+use Shared\Domain\Service\EventIdProvider;
 
 /**
  * Handler DeactivateClientHandler
@@ -24,7 +22,7 @@ use Shared\Application\Port\Outbound\EventBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class DeactivateClientHandler implements CommandHandler
+final readonly class DeactivateClientHandler
 {
   //#region Constructor
   /**
@@ -40,7 +38,8 @@ final readonly class DeactivateClientHandler implements CommandHandler
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly EventBusPort $eventBus
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
   ) {}
   //#endregion
 
@@ -55,10 +54,10 @@ final readonly class DeactivateClientHandler implements CommandHandler
    *
    * @param DeactivateClientCommand $command The command to handle.
    *
-   * @return null Always returns null.
+   * @return void
    * @throws InvalidClientException If the client is not found.
    */
-  public function __invoke(CommandMessage $command): ?ResultMessage
+  public function __invoke(DeactivateClientCommand $command): void
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);
@@ -69,7 +68,7 @@ final readonly class DeactivateClientHandler implements CommandHandler
     }
 
     // Deactivate the client
-    $client->deactivate();
+    $client->deactivate($this->eventIdProvider);
 
     // Save the client
     $this->clientRepository->save(client: $client);
@@ -79,7 +78,6 @@ final readonly class DeactivateClientHandler implements CommandHandler
       $this->eventBus->publish(event: $event);
     }
 
-    return null;
   }
   //#endregion
 }

@@ -20,19 +20,4 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class ClientId extends Uuid
 {
-  /**
-   * Method generate
-   * @static
-   *
-   * Generates a new ClientId.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return self A new ClientId instance.
-   */
-  public static function generate(): self
-  {
-    return new self(parent::generate()->value);
-  }
 }

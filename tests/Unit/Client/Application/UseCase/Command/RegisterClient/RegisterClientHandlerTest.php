@@ -11,13 +11,14 @@ use Client\Application\UseCase\Command\RegisterClient\{
   RegisterClientResult
 };
 use Client\Domain\Model\Client;
+use Client\Domain\ValueObject\ClientId;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{
   EventBusPort,
-  HashingPort,
-  UuidGeneratorPort
+  HashingPort
 };
 use Shared\Domain\ValueObject\{
   GrantType,
@@ -27,6 +28,7 @@ use Shared\Domain\ValueObject\{
   Scope,
   Scopes
 };
+use Tests\Helper\TestEventIdProvider;
 
 use function strlen;
 
@@ -63,10 +65,13 @@ final class RegisterClientHandlerTest extends TestCase
     $hashedSecretValue = '$2y$10$hashedsecret';
 
     // Mocks
-    $uuidGenerator = $this->createMock(UuidGeneratorPort::class);
-    $uuidGenerator->expects(self::once())
-      ->method('generate')
-      ->willReturn($clientId);
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(ClientId::class)
+      ->willReturn(new ClientId($clientId));
+
+    $eventIdProvider = new TestEventIdProvider();
 
     $hashingPort = $this->createMock(HashingPort::class);
     $hashingPort->expects(self::once())
@@ -93,9 +98,10 @@ final class RegisterClientHandlerTest extends TestCase
     // Handler
     $handler = new RegisterClientHandler(
       clientRepository: $repository,
-      uuidGenerator: $uuidGenerator,
+      uuidFactory: $uuidFactory,
       hashing: $hashingPort,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: $eventIdProvider,
     );
 
     // Execute

@@ -1,0 +1,80 @@
+monolog:
+    channels:
+        - deprecation
+        - security   # Security events (login, logout, token)
+
+when@dev:
+    monolog:
+        handlers:
+            # Main application log
+            main:
+                type: stream
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                level: debug
+                channels: ["!event"]
+
+            # Security events (login, logout, token generation)
+            security:
+                type: stream
+                path: "%kernel.logs_dir%/security.%kernel.environment%.log"
+                level: info
+                channels: [security]
+
+            # Console output
+            console:
+                type: console
+                process_psr_3_messages: false
+                channels: ["!event", "!doctrine", "!console"]
+
+when@test:
+    monolog:
+        handlers:
+            main:
+                type: fingers_crossed
+                action_level: critical
+                handler: nested
+                excluded_http_codes: [400, 401, 403, 404, 405, 422]
+                channels: ["!event"]
+            nested:
+                type: stream
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                level: warning
+
+when@prod:
+    monolog:
+        handlers:
+            # Main application - fingers_crossed for error aggregation
+            main:
+                type: fingers_crossed
+                action_level: error
+                handler: nested
+                excluded_http_codes: [404, 405]
+                channels: ["!deprecation", "!security"]
+                buffer_size: 50
+
+            nested:
+                type: stream
+                path: php://stderr
+                level: warning
+                formatter: monolog.formatter.json
+
+            # Security events - always log in prod
+            security:
+                type: stream
+                path: php://stderr
+                level: info
+                channels: [security]
+                formatter: monolog.formatter.json
+
+            # Console output
+            console:
+                type: console
+                process_psr_3_messages: false
+                channels: ["!event", "!doctrine"]
+
+            # Deprecations
+            deprecation:
+                type: stream
+                channels: [deprecation]
+                path: php://stderr
+                formatter: monolog.formatter.json

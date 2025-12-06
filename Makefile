@@ -8,7 +8,7 @@ CONSOLE_BIN ?= bin/console
 .PHONY: phpunit phpat phpstan lint cache-clear test
 
 phpunit:
-	$(PHP) $(PHPUNIT_BIN)
+	$(PHP) $(PHPUNIT_BIN) --testdox
 
 phpstan:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPSTAN_BIN) analyse -c phpstan.dist.neon

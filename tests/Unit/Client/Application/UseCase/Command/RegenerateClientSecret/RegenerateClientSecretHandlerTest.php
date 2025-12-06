@@ -28,6 +28,7 @@ use Shared\Domain\ValueObject\{
   Scope,
   Scopes
 };
+use Tests\Helper\TestEventIdProvider;
 
 use function strlen;
 use function password_hash;
@@ -64,13 +65,15 @@ final class RegenerateClientSecretHandlerTest extends TestCase
     $newHashedSecret = '$2y$10$newhashedsecret';
 
     // Create real client
+    $eventIdProvider = new TestEventIdProvider();
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Test Client'),
       secret: new ClientSecret(password_hash('old_secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: $eventIdProvider,
     );
     $client->releaseEvents();
 
@@ -100,7 +103,8 @@ final class RegenerateClientSecretHandlerTest extends TestCase
     $handler = new RegenerateClientSecretHandler(
       clientRepository: $repository,
       hashing: $hashing,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     // Execute
@@ -143,7 +147,8 @@ final class RegenerateClientSecretHandlerTest extends TestCase
     $handler = new RegenerateClientSecretHandler(
       clientRepository: $repository,
       hashing: $hashing,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     $this->expectException(InvalidClientException::class);

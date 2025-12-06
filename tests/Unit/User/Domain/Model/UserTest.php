@@ -17,6 +17,7 @@ use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
 use User\Domain\ValueObject\UserStatus;
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test UserTest
@@ -49,21 +50,23 @@ final class UserTest extends TestCase
   public function testCanBeRegistered(): void
   {
     // Arrange
-    $id = UserId::generate();
+    $id = new UserId('550e8400-e29b-41d4-a716-446655440000');
     $username = new Username('jdoe');
     $email = new Email('jdoe@example.com');
     $password = HashedPassword::fromPlain('password123');
     $profile = new UserProfile('John', 'Doe');
-    $tenantId = new TenantId(Uuid::generate());
+    $eventIdProvider = new TestEventIdProvider();
+    $tenantId = TenantId::fromString('550e8400-e29b-41d4-a716-446655440001');
 
     // Act
     $user = User::register(
-      $id,
-      $username,
-      $email,
-      $password,
-      $profile,
-      $tenantId
+      id: $id,
+      username: $username,
+      email: $email,
+      password: $password,
+      profile: $profile,
+      eventIdProvider: $eventIdProvider,
+      tenantId: $tenantId,
     );
 
     // Assert
@@ -100,14 +103,16 @@ final class UserTest extends TestCase
   public function testCanAuthenticate(): void
   {
     // Arrange
+    $eventIdProvider = new TestEventIdProvider();
     $user = User::register(
-      UserId::generate(),
-      new Username('jdoe'),
-      new Email('jdoe@example.com'),
-      HashedPassword::fromPlain('password123'),
-      new UserProfile('John', 'Doe')
+      id: new UserId('550e8400-e29b-41d4-a716-446655440002'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
     );
-    $user->verifyEmail();
+    $user->verifyEmail($eventIdProvider);
 
     // Act
     $user->authenticate('password123');

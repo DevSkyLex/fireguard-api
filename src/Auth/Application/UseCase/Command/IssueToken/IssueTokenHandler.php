@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\IssueToken;
 
+use Auth\Application\Port\Inbound\IssueTokenUseCasePort;
 use Auth\Application\Port\Outbound\AuthorizationServerPort;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 
 /**
  * Handler IssueTokenHandler
@@ -22,7 +20,7 @@ use Shared\Application\Message\ResultMessage;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class IssueTokenHandler implements CommandHandler
+final readonly class IssueTokenHandler implements IssueTokenUseCasePort
 {
   //#region Constructor
   /**
@@ -45,19 +43,19 @@ final readonly class IssueTokenHandler implements CommandHandler
   //#region Methods
   /**
    * Method __invoke
+   * {@inheritdoc}
    *
    * Handles the IssueTokenCommand.
    *
    * @access public
    * @since 1.0.0
    *
-   * @param CommandMessage $command The command.
+   * @param IssueTokenCommand $command The command.
    *
-   * @return ResultMessage The result.
+   * @return IssueTokenResult The result.
    */
-  public function __invoke(CommandMessage $command): ResultMessage
+  public function __invoke(IssueTokenCommand $command): IssueTokenResult
   {
-    assert($command instanceof IssueTokenCommand);
 
     return $this->authorizationServer->issueAccessToken(
       grantType: $command->grantType,
@@ -69,6 +67,14 @@ final readonly class IssueTokenHandler implements CommandHandler
       redirectUri: $command->redirectUri,
       codeVerifier: $command->codeVerifier
     );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function execute(IssueTokenCommand $command): IssueTokenResult
+  {
+    return $this->__invoke($command);
   }
   //#endregion
 }

@@ -10,6 +10,7 @@ use User\Domain\ValueObject\HashedPassword;
 use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Class UserTestFactory
@@ -49,12 +50,14 @@ final class UserTestFactory
     ?string $email = null,
     ?string $username = null,
   ): User {
+    $eventIdProvider = new TestEventIdProvider();
     return User::register(
       id: new UserId($id ?? self::DEFAULT_UUID),
       username: new Username($username ?? self::DEFAULT_USERNAME),
       email: new Email($email ?? self::DEFAULT_EMAIL),
       password: new HashedPassword(password_hash(self::DEFAULT_PASSWORD, PASSWORD_BCRYPT)),
       profile: new UserProfile(self::DEFAULT_FIRST_NAME, self::DEFAULT_LAST_NAME),
+      eventIdProvider: $eventIdProvider,
     );
   }
 
@@ -73,7 +76,7 @@ final class UserTestFactory
     ?string $username = null,
   ): User {
     $user = self::createPending($id, $email, $username);
-    $user->verifyEmail();
+    $user->verifyEmail(new TestEventIdProvider());
     return $user;
   }
 

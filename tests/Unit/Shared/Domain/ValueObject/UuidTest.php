@@ -21,7 +21,7 @@ use Shared\Domain\ValueObject\Uuid;
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * 
+ *
  * @covers \Shared\Domain\ValueObject\Uuid
  */
 #[CoversClass(className: Uuid::class)]
@@ -86,26 +86,6 @@ final class UuidTest extends TestCase
     $this->assertFalse(condition: $u1->equals($u3));
   }
 
-  /**
-   * Method testGenerate
-   *
-   * Tests the generate factory method.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value.
-   */
-  #[Test]
-  public function testGenerate(): void
-  {
-    $uuid = Uuid::generate();
-
-    $this->assertInstanceOf(
-      expected: Uuid::class, 
-      actual: $uuid
-    );
-  }
   //#endregion
 }
 

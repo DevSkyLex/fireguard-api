@@ -26,15 +26,10 @@ services:
     Client\Application\Port\Outbound\ClientRepositoryPort:
         alias: Client\Infrastructure\Persistence\Doctrine\Repository\ClientRepository
 
-    # Console Commands
-    Client\Infrastructure\Symfony\Command\CreateClientCommand:
-        tags: ['console.command']
-
-    Client\Infrastructure\Symfony\Command\ListClientsCommand:
-        tags: ['console.command']
-
-    Client\Infrastructure\Symfony\Command\DeleteClientCommand:
-        tags: ['console.command']
+    # Console Commands use #[AsCommand]
+    Client\Infrastructure\Symfony\Command\CreateClientCommand: ~
+    Client\Infrastructure\Symfony\Command\ListClientsCommand: ~
+    Client\Infrastructure\Symfony\Command\DeleteClientCommand: ~
 
     # DataFixtures
     Client\Infrastructure\DataFixtures\ClientFixtures:

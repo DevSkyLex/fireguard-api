@@ -335,9 +335,11 @@ class OAuth2FlowTest extends OAuth2WebTestCase
 
     $response = $client->getResponse();
 
-    if ($response->getStatusCode() !== Response::HTTP_OK && $response->getStatusCode() !== Response::HTTP_CREATED) {
-      $this->markTestSkipped('Could not obtain token: ' . $response->getContent());
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Token request should succeed. Response: ' . $response->getContent()
+    );
 
     $data = json_decode($response->getContent() ?: '{}', true);
     $accessToken = $data['access_token'] ?? '';
@@ -461,12 +463,8 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       }
     }
 
-    // Skip if no tokens were generated (auth issues in test env)
-    if (count($tokens) === 0) {
-      $this->markTestSkipped('Could not generate tokens in test environment');
-    }
-
-    $this->assertGreaterThan(0, count($tokens), 'Should be able to request at least one token');
+    // Verify tokens were generated
+    $this->assertGreaterThan(0, count($tokens), 'Should be able to generate at least one token');
 
     // All tokens should be unique
     $this->assertCount(count($tokens), array_unique($tokens), 'All tokens should be unique');

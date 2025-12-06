@@ -27,6 +27,7 @@ use Shared\Domain\ValueObject\{
   Scope,
   Scopes
 };
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test ActivateClientHandlerTest
@@ -59,15 +60,17 @@ final class ActivateClientHandlerTest extends TestCase
     $clientId = '123e4567-e89b-12d3-a456-426614174000';
 
     // Create real client and deactivate it first
+    $eventIdProvider = new TestEventIdProvider();
     $client = Client::register(
       id: new ClientId($clientId),
       name: new ClientName('Test Client'),
       secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: $eventIdProvider,
     );
-    $client->deactivate();
+    $client->deactivate($eventIdProvider);
     $client->releaseEvents();
 
     // Mocks
@@ -88,9 +91,11 @@ final class ActivateClientHandlerTest extends TestCase
     $command = new ActivateClientCommand(clientId: $clientId);
 
     // Handler
+    $eventIdProvider2 = new TestEventIdProvider();
     $handler = new ActivateClientHandler(
       clientRepository: $repository,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: $eventIdProvider2,
     );
 
     // Execute
@@ -126,7 +131,8 @@ final class ActivateClientHandlerTest extends TestCase
 
     $handler = new ActivateClientHandler(
       clientRepository: $repository,
-      eventBus: $eventBus
+      eventBus: $eventBus,
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     $this->expectException(InvalidClientException::class);

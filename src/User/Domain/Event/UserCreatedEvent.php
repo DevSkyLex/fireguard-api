@@ -22,24 +22,22 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class UserCreatedEvent implements DomainEvent
 {
-  private Uuid $eventId;
-
   /**
    * Constructor
    *
+   * @param Uuid $eventId The unique event identifier.
    * @param string $userId The user ID.
    * @param string $username The username.
    * @param string $email The user email.
    * @param DateTimeImmutable $occurredAt When the event occurred.
    */
   public function __construct(
+    private Uuid $eventId,
     public string $userId,
     public string $username,
     public string $email,
     public DateTimeImmutable $occurredAt,
-  ) {
-    $this->eventId = Uuid::generate();
-  }
+  ) {}
 
   /**
    * Method eventId

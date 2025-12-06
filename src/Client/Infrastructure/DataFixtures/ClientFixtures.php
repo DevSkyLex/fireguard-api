@@ -17,6 +17,8 @@ use Shared\Domain\ValueObject\GrantTypes;
 use Shared\Domain\ValueObject\RedirectUri;
 use Shared\Domain\ValueObject\Scope;
 use Shared\Domain\ValueObject\Scopes;
+use Shared\Infrastructure\Service\UuidEventIdProvider;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 
 /**
  * Fixtures ClientFixtures
@@ -180,7 +182,8 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
       secret: new ClientSecret(password_hash($secret, PASSWORD_BCRYPT)),
       redirectUris: $redirectUriObjects,
       grantTypes: new GrantTypes(...$grantTypes),
-      scopes: new Scopes(...$scopes)
+      scopes: new Scopes(...$scopes),
+      eventIdProvider: new UuidEventIdProvider(new UuidGeneratorAdapter()),
     );
 
     // Clear domain events

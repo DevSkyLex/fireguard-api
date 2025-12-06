@@ -9,13 +9,10 @@ use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientName;
 use Client\Domain\ValueObject\ClientSecret;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
+use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Application\Port\Outbound\HashingPort;
-use Shared\Application\Port\Outbound\UuidGeneratorPort;
-use Shared\Domain\ValueObject\Uuid;
+use Shared\Domain\Service\EventIdProvider;
 
 /**
  * Handler RegisterClientHandler
@@ -29,30 +26,28 @@ use Shared\Domain\ValueObject\Uuid;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RegisterClientHandler implements CommandHandler
+final readonly class RegisterClientHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes a new instance of the 
-   * RegisterClientHandler class.
-   *
    * @access public
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository The client repository.
-   * @param UuidGeneratorPort $uuidGenerator The UUID generator.
+   * @param UuidFactory $uuidFactory The UUID factory.
    * @param HashingPort $hashing The hashing service.
    * @param EventBusPort $eventBus The event bus.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly UuidGeneratorPort $uuidGenerator,
+    private readonly UuidFactory $uuidFactory,
     private readonly HashingPort $hashing,
-    private readonly EventBusPort $eventBus
-  ) {
-  }
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
+  ) {}
   //#endregion
 
   //#region Methods
@@ -68,10 +63,10 @@ final readonly class RegisterClientHandler implements CommandHandler
    *
    * @return RegisterClientResult The result message.
    */
-  public function __invoke(CommandMessage $command): ResultMessage
+  public function __invoke(RegisterClientCommand $command): RegisterClientResult
   {
-    // Generate client ID
-    $clientId = new ClientId(value: $this->uuidGenerator->generate());
+    // Generate client ID using factory
+    $clientId = $this->uuidFactory->create(ClientId::class);
 
     // Generate plain secret (32 random bytes = 64 hex chars)
     $plainSecret = bin2hex(random_bytes(32));
@@ -81,14 +76,15 @@ final readonly class RegisterClientHandler implements CommandHandler
       value: $this->hashing->hash(value: $plainSecret)->value
     );
 
-    // Create the client
+    // Create the client with event ID provider
     $client = Client::register(
       id: $clientId,
       name: new ClientName(value: $command->name),
       secret: $hashedSecret,
       redirectUris: $command->redirectUris,
       grantTypes: $command->grantTypes,
-      scopes: $command->scopes
+      scopes: $command->scopes,
+      eventIdProvider: $this->eventIdProvider,
     );
 
     // Save the client

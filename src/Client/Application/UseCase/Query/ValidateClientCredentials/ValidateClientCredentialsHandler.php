@@ -6,9 +6,6 @@ namespace Client\Application\UseCase\Query\ValidateClientCredentials;
 
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\ValueObject\ClientId;
-use Shared\Application\Handler\QueryHandler;
-use Shared\Application\Message\QueryMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\HashingPort;
 use Throwable;
 
@@ -25,7 +22,7 @@ use Throwable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ValidateClientCredentialsHandler implements QueryHandler
+final readonly class ValidateClientCredentialsHandler
 {
   //#region Constructor
   /**
@@ -59,7 +56,7 @@ final readonly class ValidateClientCredentialsHandler implements QueryHandler
    *
    * @return ValidateClientCredentialsResult The result message.
    */
-  public function __invoke(QueryMessage $query): ResultMessage
+  public function __invoke(ValidateClientCredentialsQuery $query): ValidateClientCredentialsResult
   {
     try {
       $clientId = new ClientId(value: $query->clientId);

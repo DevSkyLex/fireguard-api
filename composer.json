@@ -4,7 +4,7 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
         "api-platform/doctrine-orm": "^4.2",
@@ -27,9 +27,11 @@
         "symfony/framework-bundle": "7.3.*",
         "symfony/mailer": "7.3.*",
         "symfony/messenger": "7.3.*",
+        "symfony/monolog-bundle": "^4.0",
         "symfony/property-access": "7.3.*",
         "symfony/property-info": "7.3.*",
         "symfony/psr-http-message-bridge": "7.3.*",
+        "symfony/rate-limiter": "7.3.*",
         "symfony/runtime": "7.3.*",
         "symfony/security-bundle": "7.3.*",
         "symfony/serializer": "7.3.*",
@@ -53,7 +55,9 @@
             "Shared\\": "src/Shared/",
             "Client\\": "src/Client/",
             "User\\": "src/User/",
-            "Auth\\": "src/Auth/"
+            "Auth\\": "src/Auth/",
+            "Tenant\\": "src/Tenant/",
+            "Session\\": "src/Session/"
         }
     },
     "autoload-dev": {

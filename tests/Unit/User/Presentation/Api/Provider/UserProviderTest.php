@@ -20,6 +20,7 @@ use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
 use User\Presentation\Api\Dto\UserOutput;
 use User\Presentation\Api\Provider\UserProvider;
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test UserProviderTest
@@ -93,13 +94,15 @@ final class UserProviderTest extends TestCase
   public function testProvidesUserResource(): void
   {
     // Arrange
-    $id = UserId::generate();
+    $eventIdProvider = new TestEventIdProvider();
+    $id = new UserId('550e8400-e29b-41d4-a716-446655440000');
     $user = User::register(
-      $id,
-      new Username('jdoe'),
-      new Email('jdoe@example.com'),
-      HashedPassword::fromPlain('password123'),
-      new UserProfile('John', 'Doe')
+      id: $id,
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
     );
 
     $result = new GetUserResult($user);
@@ -137,7 +140,7 @@ final class UserProviderTest extends TestCase
   public function testReturnsNullIfUserNotFound(): void
   {
     // Arrange
-    $id = UserId::generate();
+    $id = new UserId('550e8400-e29b-41d4-a716-446655440001');
     $result = new GetUserResult(null);
 
     $this->queryBus->method('ask')->willReturn($result);

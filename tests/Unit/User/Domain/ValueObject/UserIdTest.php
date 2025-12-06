@@ -26,9 +26,9 @@ final class UserIdTest extends TestCase
 {
   //#region Methods
   /**
-   * Method testCanBeGenerated
+   * Method testCanBeCreatedWithValidUuid
    *
-   * Tests that a UserId can be generated.
+   * Tests that a UserId can be created with a valid UUID.
    *
    * @access public
    * @since 1.0.0
@@ -36,10 +36,11 @@ final class UserIdTest extends TestCase
    * @return void No return value.
    */
   #[Test]
-  public function testCanBeGenerated(): void
+  public function testCanBeCreatedWithValidUuid(): void
   {
-    $id = UserId::generate();
+    $id = new UserId('550e8400-e29b-41d4-a716-446655440000');
     $this->assertInstanceOf(UserId::class, $id);
+    $this->assertEquals('550e8400-e29b-41d4-a716-446655440000', $id->value);
   }
   //#endregion
 }

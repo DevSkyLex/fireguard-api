@@ -27,6 +27,7 @@ use Shared\Domain\ValueObject\{
   Scope,
   Scopes
 };
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test ValidateClientCredentialsHandlerTest
@@ -66,7 +67,8 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
       secret: new ClientSecret(password_hash($plainSecret, PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     // Mocks
@@ -158,7 +160,8 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
       secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
       redirectUris: [new RedirectUri('https://example.com')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     $repository = $this->createMock(ClientRepositoryPort::class);

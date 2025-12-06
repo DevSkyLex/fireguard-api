@@ -20,6 +20,7 @@ use Shared\Domain\ValueObject\RedirectUri;
 use Shared\Domain\ValueObject\Scope;
 use Shared\Domain\ValueObject\Scopes;
 use Symfony\Component\Uid\Uuid;
+use Tests\Helper\TestEventIdProvider;
 
 /**
  * Test ClientMapperTest
@@ -142,7 +143,8 @@ final class ClientMapperTest extends TestCase
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     $record = ClientMapper::toRecord(client: $client);
@@ -178,7 +180,8 @@ final class ClientMapperTest extends TestCase
       secret: new ClientSecret(value: $hashedSecret),
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
     );
 
     // Domain -> Record -> Domain

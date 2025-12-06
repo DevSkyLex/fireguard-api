@@ -7,7 +7,7 @@ security:
   providers:
     # Custom user provider that loads users from the domain layer
     app_user_provider:
-      id: Auth\Infrastructure\Symfony\Security\SecurityUserProvider
+      id: Auth\Infrastructure\Security\User\SecurityUserProvider
 
   firewalls:
     dev:
@@ -30,7 +30,7 @@ security:
       stateless: true
       provider: app_user_provider
       custom_authenticators:
-        - Auth\Infrastructure\Symfony\Security\OAuth2Authenticator
+        - Auth\Infrastructure\Security\Authenticator\OAuth2Authenticator
 
     # Main firewall for web interface (if any)
     main:

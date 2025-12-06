@@ -6,9 +6,6 @@ namespace Client\Application\UseCase\Query\GetClient;
 
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\ValueObject\ClientId;
-use Shared\Application\Handler\QueryHandler;
-use Shared\Application\Message\QueryMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Domain\Exception\EntityNotFoundException;
 
 /**
@@ -23,13 +20,13 @@ use Shared\Domain\Exception\EntityNotFoundException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetClientHandler implements QueryHandler
+final readonly class GetClientHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes a new instance of 
+   * Initializes a new instance of
    * the GetClientHandler class.
    *
    * @access public
@@ -58,7 +55,7 @@ final readonly class GetClientHandler implements QueryHandler
    *
    * @throws EntityNotFoundException If the client is not found.
    */
-  public function __invoke(QueryMessage $query): ResultMessage
+  public function __invoke(GetClientQuery $query): GetClientResult
   {
     $clientId = new ClientId(value: $query->clientId);
 

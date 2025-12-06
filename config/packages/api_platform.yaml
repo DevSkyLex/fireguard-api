@@ -1,5 +1,6 @@
 api_platform:
-  title: Hello API Platform
+  title: Fireguard Auth API
+  description: OAuth2 and OpenID Connect Authorization Server
   version: 1.0.0
   defaults:
     stateless: true
@@ -7,6 +8,6 @@ api_platform:
       vary: ["Content-Type", "Authorization", "Origin"]
   mapping:
     paths:
-      - '%kernel.project_dir%/src/Auth/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Auth/Presentation/Resource'
       - '%kernel.project_dir%/src/Client/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/User/Presentation/Api/Resource'

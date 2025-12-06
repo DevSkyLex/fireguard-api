@@ -7,9 +7,6 @@ namespace Client\Application\UseCase\Query\ListClients;
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Application\UseCase\Query\GetClient\GetClientResult;
 use Client\Domain\Model\Client;
-use Shared\Application\Handler\QueryHandler;
-use Shared\Application\Message\QueryMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Query\PaginatedResult;
 
 /**
@@ -24,7 +21,7 @@ use Shared\Application\Query\PaginatedResult;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ListClientsHandler implements QueryHandler
+final readonly class ListClientsHandler
 {
   //#region Constructor
   /**
@@ -56,7 +53,7 @@ final readonly class ListClientsHandler implements QueryHandler
    *
    * @return PaginatedResult<GetClientResult> The paginated result.
    */
-  public function __invoke(QueryMessage $query): ResultMessage
+  public function __invoke(ListClientsQuery $query): PaginatedResult
   {
     $clients = $this->clientRepository->findAll(
       offset: $query->pagination->offset,

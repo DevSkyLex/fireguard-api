@@ -9,6 +9,8 @@ use Client\Domain\Model\Client;
 use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientName;
 use Client\Domain\ValueObject\ClientSecret;
+use Shared\Application\Factory\UuidFactory;
+use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\GrantType;
 use Shared\Domain\ValueObject\GrantTypes;
 use Shared\Domain\ValueObject\RedirectUri;
@@ -55,7 +57,9 @@ final class CreateClientCommand extends Command
    * @param ClientRepositoryPort $clientRepository
    */
   public function __construct(
-    private readonly ClientRepositoryPort $clientRepository
+    private readonly ClientRepositoryPort $clientRepository,
+    private readonly UuidFactory $uuidFactory,
+    private readonly EventIdProvider $eventIdProvider,
   ) { parent::__construct(); }
   //#endregion
 
@@ -163,7 +167,7 @@ HELP
           $clientId = new ClientId($customId);
         } catch (Throwable) {
           // If invalid UUID format, generate a new one and warn user
-          $clientId = ClientId::generate();
+          $clientId = $this->uuidFactory->create(ClientId::class);
           $io->warning(sprintf(
             'Provided ID "%s" is not a valid UUID. Generated: %s',
             $customId,
@@ -171,7 +175,7 @@ HELP
           ));
         }
       } else {
-        $clientId = ClientId::generate();
+        $clientId = $this->uuidFactory->create(ClientId::class);
       }
 
       // Generate or use provided secret
@@ -207,7 +211,8 @@ HELP
         secret: $clientSecret,
         redirectUris: $redirectUriObjects,
         grantTypes: new GrantTypes(...$grantTypes),
-        scopes: new Scopes(...$scopes)
+        scopes: new Scopes(...$scopes),
+        eventIdProvider: $this->eventIdProvider,
       );
 
       // Clear events

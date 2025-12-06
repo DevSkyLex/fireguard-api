@@ -4,20 +4,17 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\CreateUser;
 
-use Shared\Application\Port\Outbound\{
-  EventBusPort,
-  HashingPort,
-  UuidGeneratorPort
-};
+use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventBusPort;
+use Shared\Application\Port\Outbound\HashingPort;
+use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\Email;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User;
-use User\Domain\ValueObject\{
-  HashedPassword,
-  UserId,
-  Username,
-  UserProfile
-};
+use User\Domain\ValueObject\HashedPassword;
+use User\Domain\ValueObject\UserId;
+use User\Domain\ValueObject\Username;
+use User\Domain\ValueObject\UserProfile;
 
 /**
  * Handler CreateUserHandler
@@ -37,24 +34,22 @@ final readonly class CreateUserHandler
   /**
    * Constructor
    *
-   * Initializes a new instance of the
-   * CreateUserHandler class.
-   *
    * @access public
    * @since 1.0.0
    *
    * @param UserRepositoryPort $userRepository The user repository.
-   * @param UuidGeneratorPort $uuidGenerator The UUID generator.
+   * @param UuidFactory $uuidFactory The UUID factory.
    * @param HashingPort $hashing The hashing service.
    * @param EventBusPort $eventBus The event bus.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
-    private readonly UuidGeneratorPort $uuidGenerator,
+    private readonly UuidFactory $uuidFactory,
     private readonly HashingPort $hashing,
-    private readonly EventBusPort $eventBus
-  ) {
-  }
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
+  ) {}
   //#endregion
 
   //#region Methods
@@ -71,16 +66,15 @@ final readonly class CreateUserHandler
    */
   public function __invoke(CreateUserCommand $command): CreateUserResult
   {
-
-    // Generate user ID
-    $userId = new UserId(value: $this->uuidGenerator->generate());
+    // Generate user ID using factory
+    $userId = $this->uuidFactory->create(UserId::class);
 
     // Hash the password
     $hashedPassword = new HashedPassword(
       value: $this->hashing->hash(value: $command->password)->value
     );
 
-    // Create the user
+    // Create the user with event ID provider
     $user = User::register(
       id: $userId,
       username: new Username(value: $command->username),
@@ -89,9 +83,10 @@ final readonly class CreateUserHandler
       profile: new UserProfile(
         firstName: $command->firstName,
         lastName: $command->lastName,
-        avatarUrl: $command->avatarUrl
+        avatarUrl: $command->avatarUrl,
       ),
-      tenantId: null // TODO: Handle tenant ID
+      eventIdProvider: $this->eventIdProvider,
+      tenantId: null, // TODO: Handle tenant ID
     );
 
     // Save the user

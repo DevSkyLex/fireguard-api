@@ -7,10 +7,8 @@ namespace Client\Application\UseCase\Command\ActivateClient;
 use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\ValueObject\ClientId;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\EventBusPort;
+use Shared\Domain\Service\EventIdProvider;
 
 /**
  * Handler ActivateClientHandler
@@ -24,23 +22,23 @@ use Shared\Application\Port\Outbound\EventBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ActivateClientHandler implements CommandHandler
+final readonly class ActivateClientHandler
 {
   //#region Constructor
   /**
    * Constructor
-   *
-   * Initializes a new instance of the ActivateClientHandler class.
    *
    * @access public
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository The client repository.
    * @param EventBusPort $eventBus The event bus.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly EventBusPort $eventBus
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
   ) {}
   //#endregion
 
@@ -55,10 +53,10 @@ final readonly class ActivateClientHandler implements CommandHandler
    *
    * @param ActivateClientCommand $command The command to handle.
    *
-   * @return null Always returns null.
+   * @return void
    * @throws InvalidClientException If the client is not found.
    */
-  public function __invoke(CommandMessage $command): ?ResultMessage
+  public function __invoke(ActivateClientCommand $command): void
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);
@@ -69,7 +67,7 @@ final readonly class ActivateClientHandler implements CommandHandler
     }
 
     // Activate the client
-    $client->activate();
+    $client->activate($this->eventIdProvider);
 
     // Save the client
     $this->clientRepository->save(client: $client);
@@ -79,7 +77,6 @@ final readonly class ActivateClientHandler implements CommandHandler
       $this->eventBus->publish(event: $event);
     }
 
-    return null;
   }
   //#endregion
 }

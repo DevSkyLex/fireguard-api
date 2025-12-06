@@ -15,6 +15,8 @@ use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
+use Shared\Infrastructure\Service\UuidEventIdProvider;
+use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 
 /**
  * Fixtures UserFixtures
@@ -114,7 +116,8 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
         firstName: $firstName,
         lastName: $lastName
       ),
-      tenantId: TenantId::fromString('00000000-0000-4000-8000-000000000001')
+      tenantId: TenantId::fromString('00000000-0000-4000-8000-000000000001'),
+      eventIdProvider: new UuidEventIdProvider(new UuidGeneratorAdapter()),
     );
 
     // Clear domain events to avoid handler issues during fixtures

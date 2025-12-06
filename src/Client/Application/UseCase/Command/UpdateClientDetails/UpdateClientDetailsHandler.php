@@ -8,10 +8,8 @@ use Client\Application\Port\Outbound\ClientRepositoryPort;
 use Client\Domain\Exception\InvalidClientException;
 use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientName;
-use Shared\Application\Handler\CommandHandler;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Outbound\EventBusPort;
+use Shared\Domain\Service\EventIdProvider;
 
 /**
  * Handler UpdateClientDetailsHandler
@@ -25,13 +23,13 @@ use Shared\Application\Port\Outbound\EventBusPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class UpdateClientDetailsHandler implements CommandHandler
+final readonly class UpdateClientDetailsHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes a new instance of the 
+   * Initializes a new instance of the
    * UpdateClientDetailsHandler class.
    *
    * @access public
@@ -42,9 +40,9 @@ final readonly class UpdateClientDetailsHandler implements CommandHandler
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
-    private readonly EventBusPort $eventBus
-  ) {
-  }
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
+  ) {}
   //#endregion
 
   //#region Methods
@@ -58,10 +56,10 @@ final readonly class UpdateClientDetailsHandler implements CommandHandler
    *
    * @param UpdateClientDetailsCommand $command The command to handle.
    *
-   * @return null Always returns null.
+   * @return void
    * @throws InvalidClientException If the client is not found.
    */
-  public function __invoke(CommandMessage $command): ?ResultMessage
+  public function __invoke(UpdateClientDetailsCommand $command): void
   {
     // Find the client
     $clientId = new ClientId(value: $command->clientId);
@@ -75,7 +73,8 @@ final readonly class UpdateClientDetailsHandler implements CommandHandler
     $client->updateDetails(
       name: new ClientName(value: $command->name),
       redirectUris: $command->redirectUris,
-      scopes: $command->scopes
+      scopes: $command->scopes,
+      eventIdProvider: $this->eventIdProvider,
     );
 
     // Save the client
@@ -86,7 +85,6 @@ final readonly class UpdateClientDetailsHandler implements CommandHandler
       $this->eventBus->publish(event: $event);
     }
 
-    return null;
   }
   //#endregion
 }

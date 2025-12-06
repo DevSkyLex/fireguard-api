@@ -29,6 +29,14 @@ services:
   Shared\Application\Port\Inbound\QueryBusPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerQueryBusAdapter'
   Shared\Application\Port\Inbound\EventListenerPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerEventListenerAdapter'
 
+  # Application layer factories
+  Shared\Application\Factory\UuidFactory:
+    arguments:
+      $generator: '@Shared\Application\Port\Outbound\UuidGeneratorPort'
+
+  # Domain service bindings
+  Shared\Domain\Service\EventIdProvider: '@Shared\Infrastructure\Service\UuidEventIdProvider'
+
   # Port to Adapter bindings (Outbound Ports)
   Shared\Application\Port\Outbound\CachePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter'
   Shared\Application\Port\Outbound\ClockPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter'
@@ -40,3 +48,5 @@ services:
   Shared\Application\Port\Outbound\TranslationPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\TranslatorAdapter'
   Shared\Application\Port\Outbound\UuidGeneratorPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter'
   Shared\Application\Port\Outbound\HashingPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter'
+  Shared\Application\Port\Outbound\EventDispatcherPort: '@Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter'
+  Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\RateLimiter\LoginRateLimiterAdapter'

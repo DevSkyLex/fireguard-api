@@ -7,22 +7,18 @@ namespace Shared\Domain\ValueObject;
 use Shared\Domain\Exception\InvalidValueException;
 use Stringable;
 
-use function vsprintf;
-use function bin2hex;
-use function random_bytes;
-use function ord;
-use function chr;
 use function preg_match;
-use function str_split;
 
 /**
  * ValueObject Uuid
  *
- * It represents a UUID.
+ * Represents a UUID (Universally Unique Identifier).
+ * This is a pure Domain Value Object - UUID generation is handled
+ * by UuidFactory in the Application layer to maintain hexagonal purity.
  *
  * @category ValueObject
  * @package Shared\Domain\ValueObject
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -32,7 +28,7 @@ readonly class Uuid implements Stringable
   /**
    * Constant PATTERN
    *
-   * The pattern used to validate the UUID.
+   * The pattern used to validate the UUID (supports v1-v7).
    *
    * @access private
    * @since 1.0.0
@@ -46,15 +42,14 @@ readonly class Uuid implements Stringable
   /**
    * Constructor
    *
-   * Initializes a new instance of
-   * the Uuid class.
+   * Initializes a new instance of the Uuid class.
    *
    * @access public
    * @since 1.0.0
    *
-   * @param string $value The UUID.
+   * @param string $value The UUID string.
    *
-   * @throws InvalidValueException If the UUID is invalid.
+   * @throws InvalidValueException If the UUID format is invalid.
    */
   public function __construct(public string $value)
   {
@@ -65,25 +60,6 @@ readonly class Uuid implements Stringable
   //#endregion
 
   //#region Methods
-  /**
-   * Method generate
-   *
-   * Generates a new UUID v7.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return self A new Uuid instance.
-   */
-  public static function generate(): self
-  {
-    $data = random_bytes(16);
-    $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // set version to 0100
-    $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
-
-    return new self(value: vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4)));
-  }
-
   /**
    * Method equals
    *

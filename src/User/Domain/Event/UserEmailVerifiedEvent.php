@@ -22,22 +22,20 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class UserEmailVerifiedEvent implements DomainEvent
 {
-  private Uuid $eventId;
-
   /**
    * Constructor
    *
+   * @param Uuid $eventId The unique event identifier.
    * @param string $userId The user ID.
    * @param string $email The verified email.
    * @param DateTimeImmutable $occurredAt When the event occurred.
    */
   public function __construct(
+    private Uuid $eventId,
     public string $userId,
     public string $email,
     public DateTimeImmutable $occurredAt,
-  ) {
-    $this->eventId = Uuid::generate();
-  }
+  ) {}
 
   /**
    * Method eventId

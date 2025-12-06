@@ -19,13 +19,18 @@ use Auth\Domain\Model\AccessToken;
  */
 interface AccessTokenRepositoryPort
 {
+  //#region Methods
   /**
    * Method save
    *
    * Saves an access token.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @param AccessToken $accessToken The access token to save.
-   * @return void
+   *
+   * @return void No return value
    */
   public function save(AccessToken $accessToken): void;
 
@@ -34,8 +39,13 @@ interface AccessTokenRepositoryPort
    *
    * Finds an access token by its identifier.
    *
+   * @access public
+   * @since 1.0.0
+   *
    * @param string $identifier The token identifier.
+   *
    * @return AccessToken|null The access token or null if not found.
    */
   public function find(string $identifier): ?AccessToken;
+  //#endregion
 }

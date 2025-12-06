@@ -13,6 +13,7 @@ use Client\Domain\Event\ClientDeletedEvent;
 use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientName;
 use Client\Domain\ValueObject\ClientSecret;
+use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\GrantType;
 use Shared\Domain\ValueObject\GrantTypes;
@@ -96,6 +97,7 @@ final class Client
    * @param array<RedirectUri> $redirectUris The allowed redirect URIs.
    * @param GrantTypes $grantTypes The allowed grant types.
    * @param Scopes $scopes The allowed scopes.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    *
    * @return self The new Client instance.
    */
@@ -105,7 +107,8 @@ final class Client
     ClientSecret $secret,
     array $redirectUris,
     GrantTypes $grantTypes,
-    Scopes $scopes
+    Scopes $scopes,
+    EventIdProvider $eventIdProvider,
   ): self {
     $client = new self(
       id: $id,
@@ -119,9 +122,10 @@ final class Client
     );
 
     $client->recordEvent(new ClientRegisteredEvent(
+      eventId: $eventIdProvider->nextEventId(),
       clientId: $id,
       name: $name,
-      occurredAt: $client->createdAt
+      occurredAt: $client->createdAt,
     ));
 
     return $client;
@@ -336,9 +340,11 @@ final class Client
    * @access public
    * @since 1.0.0
    *
+   * @param EventIdProvider $eventIdProvider The event ID provider.
+   *
    * @return void No return value.
    */
-  public function activate(): void
+  public function activate(EventIdProvider $eventIdProvider): void
   {
     if ($this->isActive)
       return;
@@ -346,8 +352,9 @@ final class Client
     $this->isActive = true;
 
     $this->recordEvent(new ClientActivatedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       clientId: $this->id,
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     ));
   }
 
@@ -359,9 +366,11 @@ final class Client
    * @access public
    * @since 1.0.0
    *
+   * @param EventIdProvider $eventIdProvider The event ID provider.
+   *
    * @return void No return value.
    */
-  public function deactivate(): void
+  public function deactivate(EventIdProvider $eventIdProvider): void
   {
     if (!$this->isActive) {
       return; // Already inactive
@@ -370,8 +379,9 @@ final class Client
     $this->isActive = false;
 
     $this->recordEvent(new ClientDeactivatedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       clientId: $this->id,
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     ));
   }
 
@@ -384,16 +394,18 @@ final class Client
    * @since 1.0.0
    *
    * @param ClientSecret $newSecret The new hashed secret.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    *
    * @return void No return value.
    */
-  public function regenerateSecret(ClientSecret $newSecret): void
+  public function regenerateSecret(ClientSecret $newSecret, EventIdProvider $eventIdProvider): void
   {
     $this->secret = $newSecret;
 
     $this->recordEvent(new ClientSecretRegeneratedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       clientId: $this->id,
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     ));
   }
 
@@ -408,22 +420,25 @@ final class Client
    * @param ClientName $name The new client name.
    * @param array<RedirectUri> $redirectUris The new redirect URIs.
    * @param Scopes $scopes The new scopes.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    *
    * @return void No return value.
    */
   public function updateDetails(
     ClientName $name,
     array $redirectUris,
-    Scopes $scopes
+    Scopes $scopes,
+    EventIdProvider $eventIdProvider,
   ): void {
     $this->name = $name;
     $this->redirectUris = array_values(array_map(fn(RedirectUri $uri) => $uri->value, $redirectUris));
     $this->scopes = $scopes;
 
     $this->recordEvent(new ClientUpdatedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       clientId: $this->id,
       name: $name,
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     ));
   }
 
@@ -435,9 +450,11 @@ final class Client
    * @access public
    * @since 1.0.0
    *
+   * @param EventIdProvider $eventIdProvider The event ID provider.
+   *
    * @return void No return value.
    */
-  public function delete(): void
+  public function delete(EventIdProvider $eventIdProvider): void
   {
     if ($this->isDeleted()) {
       return; // Already deleted
@@ -446,8 +463,9 @@ final class Client
     $this->deletedAt = new DateTimeImmutable();
 
     $this->recordEvent(new ClientDeletedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       clientId: $this->id,
-      occurredAt: $this->deletedAt
+      occurredAt: $this->deletedAt,
     ));
   }
   //#endregion

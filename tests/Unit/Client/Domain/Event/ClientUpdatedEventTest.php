@@ -9,6 +9,7 @@ use Client\Domain\ValueObject\ClientId;
 use Client\Domain\ValueObject\ClientName;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\ValueObject\Uuid;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -45,6 +46,7 @@ final class ClientUpdatedEventTest extends TestCase
 		$occurredAt = new DateTimeImmutable();
 
 		$event = new ClientUpdatedEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440001'),
 			clientId: $clientId,
 			name: $clientName,
 			occurredAt: $occurredAt
@@ -66,18 +68,17 @@ final class ClientUpdatedEventTest extends TestCase
 	 * @return void No return value
 	 */
 	#[Test]
-	public function testEventIdIsAutomaticallyGenerated(): void
+	public function testEventIdIsProvided(): void
 	{
+		$eventId = new Uuid('550e8400-e29b-41d4-a716-446655440002');
 		$event = new ClientUpdatedEvent(
+			eventId: $eventId,
 			clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
 			name: new ClientName(value: 'Updated Client'),
 			occurredAt: new DateTimeImmutable()
 		);
 
-		self::assertMatchesRegularExpression(
-			pattern: '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
-			string: $event->eventId()->value
-		);
+		self::assertSame(expected: $eventId, actual: $event->eventId());
 	}
 
 	/**
@@ -95,6 +96,7 @@ final class ClientUpdatedEventTest extends TestCase
 	{
 		$clientId = '123e4567-e89b-12d3-a456-426614174000';
 		$event = new ClientUpdatedEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440003'),
 			clientId: new ClientId(value: $clientId),
 			name: new ClientName(value: 'Updated Client'),
 			occurredAt: new DateTimeImmutable()
@@ -117,6 +119,7 @@ final class ClientUpdatedEventTest extends TestCase
 	public function testAggregateTypeReturnsClient(): void
 	{
 		$event = new ClientUpdatedEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440004'),
 			clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
 			name: new ClientName(value: 'Updated Client'),
 			occurredAt: new DateTimeImmutable()
@@ -142,6 +145,7 @@ final class ClientUpdatedEventTest extends TestCase
 		$clientName = 'Updated Client';
 
 		$event = new ClientUpdatedEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440005'),
 			clientId: new ClientId(value: $clientId),
 			name: new ClientName(value: $clientName),
 			occurredAt: new DateTimeImmutable()

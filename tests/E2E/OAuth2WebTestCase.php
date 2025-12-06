@@ -13,6 +13,7 @@ use Doctrine\ORM\Tools\SchemaTool;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use User\Infrastructure\DataFixtures\UserFixtures;
 
 /**
@@ -118,5 +119,64 @@ abstract class OAuth2WebTestCase extends WebTestCase
     $this->accessToken = $data['access_token'] ?? null;
 
     return $this->accessToken;
+  }
+
+  /**
+   * Create a user via message bus
+   */
+  protected function createUser(KernelBrowser $client, string $email, string $password): void
+  {
+    $container = static::getContainer();
+    /** @var MessageBusInterface $bus */
+    $bus = $container->get(MessageBusInterface::class);
+
+    $command = new \User\Application\UseCase\Command\CreateUser\CreateUserCommand(
+      username: 'user' . uniqid(),
+      email: $email,
+      password: $password,
+      firstName: 'Test',
+      lastName: 'User',
+    );
+
+    $bus->dispatch($command);
+  }
+
+  /**
+   * Create and activate a user
+   */
+  protected function createAndActivateUser(KernelBrowser $client, string $email, string $password): void
+  {
+    $this->createUser($client, $email, $password);
+
+    // Activate user directly in database
+    $container = static::getContainer();
+    /** @var EntityManagerInterface $em */
+    $em = $container->get(EntityManagerInterface::class);
+
+    $em->getConnection()->executeStatement(
+      "UPDATE users SET status = 'active' WHERE email = ?",
+      [$email]
+    );
+
+    // Verify user exists and password is correct
+    $row = $em->getConnection()->fetchAssociative(
+      "SELECT id, email, password, status FROM users WHERE email = ?",
+      [$email]
+    );
+
+    if (!$row) {
+      throw new \RuntimeException("User not found after creation: {$email}");
+    }
+
+    if (!password_verify($password, $row['password'])) {
+      throw new \RuntimeException("Password verification failed. Hash: {$row['password']}");
+    }
+
+    if ($row['status'] !== 'active') {
+      throw new \RuntimeException("User status is not active: {$row['status']}");
+    }
+
+    // Clear entity manager to ensure fresh data
+    $em->clear();
   }
 }

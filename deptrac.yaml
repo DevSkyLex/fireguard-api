@@ -4,6 +4,7 @@ deptrac:
   exclude_files:
     - "#.*Tests.*#"
   layers:
+    # Shared layers
     - name: SharedDomain
       collectors:
         - type: classLike
@@ -16,18 +17,23 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Shared\\\\Infrastructure\\\\.*'
+    # Module layers (Auth, User, Client, Tenant, Session)
     - name: Domain
       collectors:
         - type: classLike
-          value: '^App\\\\.+\\\\Domain\\\\.*'
+          value: '^(Auth|User|Client|Tenant|Session)\\\\Domain\\\\.*'
     - name: Application
       collectors:
         - type: classLike
-          value: '^App\\\\.+\\\\Application\\\\.*'
+          value: '^(Auth|User|Client|Tenant|Session)\\\\Application\\\\.*'
     - name: Infrastructure
       collectors:
         - type: classLike
-          value: '^App\\\\.+\\\\Infrastructure\\\\.*'
+          value: '^(Auth|User|Client|Tenant|Session)\\\\Infrastructure\\\\.*'
+    - name: Presentation
+      collectors:
+        - type: classLike
+          value: '^(Auth|User|Client|Tenant|Session)\\\\Presentation\\\\.*'
   ruleset:
     SharedDomain: []
     SharedApplication:
@@ -44,5 +50,9 @@ deptrac:
     Infrastructure:
       - Application
       - Domain
+      - SharedDomain
+      - SharedApplication
+    Presentation:
+      - Application
       - SharedDomain
       - SharedApplication

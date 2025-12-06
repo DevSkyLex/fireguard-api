@@ -193,9 +193,11 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $response = $client->getResponse();
 
-    if ($response->getStatusCode() !== Response::HTTP_OK && $response->getStatusCode() !== Response::HTTP_CREATED) {
-      $this->markTestSkipped('Login failed: ' . $response->getContent());
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed. Response: ' . $response->getContent()
+    );
 
     // Check for refresh token cookie
     $cookies = $response->headers->getCookies();
@@ -216,64 +218,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
   //#region Helper Methods
 
-  /**
-   * Create a user via console command simulation
-   */
-  private function createUser(KernelBrowser $client, string $email, string $password): void
-  {
-    $container = static::getContainer();
-    /** @var MessageBusInterface $bus */
-    $bus = $container->get(MessageBusInterface::class);
-
-    $command = new \User\Application\UseCase\Command\CreateUser\CreateUserCommand(
-      username: 'user' . uniqid(),
-      email: $email,
-      password: $password,
-      firstName: 'Test',
-      lastName: 'User',
-    );
-
-    $bus->dispatch($command);
-  }
-
-  /**
-   * Create and activate a user
-   */
-  private function createAndActivateUser(KernelBrowser $client, string $email, string $password): void
-  {
-    $this->createUser($client, $email, $password);
-
-    // Activate user directly in database
-    $container = static::getContainer();
-    /** @var EntityManagerInterface $em */
-    $em = $container->get(EntityManagerInterface::class);
-
-    $em->getConnection()->executeStatement(
-      "UPDATE users SET status = 'active' WHERE email = ?",
-      [$email]
-    );
-
-    // Debug: verify user exists and password is correct
-    $row = $em->getConnection()->fetchAssociative(
-      "SELECT id, email, password, status FROM users WHERE email = ?",
-      [$email]
-    );
-
-    if (!$row) {
-      throw new \RuntimeException("User not found after creation: {$email}");
-    }
-
-    if (!password_verify($password, $row['password'])) {
-      throw new \RuntimeException("Password verification failed. Hash: {$row['password']}");
-    }
-
-    if ($row['status'] !== 'active') {
-      throw new \RuntimeException("User status is not active: {$row['status']}");
-    }
-
-    // Clear entity manager to ensure fresh data
-    $em->clear();
-  }
+  // createUser and createAndActivateUser are inherited from OAuth2WebTestCase
 
   //#endregion
 
@@ -307,9 +252,11 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $response = $client->getResponse();
 
-    if ($response->getStatusCode() !== Response::HTTP_OK && $response->getStatusCode() !== Response::HTTP_CREATED) {
-      $this->markTestSkipped('Login failed: ' . $response->getContent());
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed. Response: ' . $response->getContent()
+    );
 
     // Get the refresh token cookie
     $cookies = $response->headers->getCookies();
@@ -322,9 +269,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       }
     }
 
-    if ($refreshTokenCookie === null) {
-      $this->markTestSkipped('No refresh token cookie set');
-    }
+    $this->assertNotNull($refreshTokenCookie, 'Refresh token cookie should be set');
 
     // Step 2: Use refresh token to get new access token
     $client->request(
@@ -434,9 +379,11 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $loginResponse = $client->getResponse();
 
-    if ($loginResponse->getStatusCode() !== Response::HTTP_OK && $loginResponse->getStatusCode() !== Response::HTTP_CREATED) {
-      $this->markTestSkipped('Login failed: ' . $loginResponse->getContent());
-    }
+    $this->assertContains(
+      $loginResponse->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed. Response: ' . $loginResponse->getContent()
+    );
 
     $loginData = json_decode($loginResponse->getContent() ?: '{}', true);
     $accessToken = $loginData['access_token'] ?? '';
@@ -518,9 +465,11 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $loginResponse = $client->getResponse();
 
-    if ($loginResponse->getStatusCode() !== Response::HTTP_OK && $loginResponse->getStatusCode() !== Response::HTTP_CREATED) {
-      $this->markTestSkipped('Login failed: ' . $loginResponse->getContent());
-    }
+    $this->assertContains(
+      $loginResponse->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed. Response: ' . $loginResponse->getContent()
+    );
 
     $loginData = json_decode($loginResponse->getContent() ?: '{}', true);
     $accessToken = $loginData['access_token'] ?? '';
@@ -537,9 +486,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       }
     }
 
-    if ($refreshTokenCookie === null) {
-      $this->markTestSkipped('No refresh token cookie set');
-    }
+    $this->assertNotNull($refreshTokenCookie, 'Refresh token cookie should be set');
 
     // Step 2: Refresh token
     $client->request(
@@ -671,9 +618,11 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $response = $client->getResponse();
 
-    if ($response->getStatusCode() !== Response::HTTP_OK && $response->getStatusCode() !== Response::HTTP_CREATED) {
-      $this->markTestSkipped('Login failed: ' . $response->getContent());
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Login should succeed. Response: ' . $response->getContent()
+    );
 
     $data = json_decode($response->getContent() ?: '{}', true);
 

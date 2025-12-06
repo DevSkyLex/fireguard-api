@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace User\Domain\Model;
 
 use DateTimeImmutable;
+use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\Email;
 use Shared\Domain\ValueObject\TenantId;
@@ -99,8 +100,7 @@ final class User
    * Method register
    * @static
    *
-   * Factory method to register
-   * a new user.
+   * Factory method to register a new user.
    *
    * @access public
    * @since 1.0.0
@@ -110,6 +110,7 @@ final class User
    * @param Email $email The user email.
    * @param HashedPassword $password The hashed password.
    * @param UserProfile $profile The user profile.
+   * @param EventIdProvider $eventIdProvider The event ID provider.
    * @param TenantId|null $tenantId The tenant ID.
    *
    * @return self The new user instance.
@@ -120,6 +121,7 @@ final class User
     Email $email,
     HashedPassword $password,
     UserProfile $profile,
+    EventIdProvider $eventIdProvider,
     ?TenantId $tenantId = null,
   ): self {
     $user = new self(
@@ -135,6 +137,7 @@ final class User
     );
 
     $user->recordEvent(new UserCreatedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       userId: $id->value,
       username: $username->value,
       email: $email->value,
@@ -147,15 +150,16 @@ final class User
   /**
    * Method verifyEmail
    *
-   * Marks the user's email as verified and
-   * activates the account.
+   * Marks the user's email as verified and activates the account.
    *
    * @access public
    * @since 1.0.0
    *
+   * @param EventIdProvider $eventIdProvider The event ID provider.
+   *
    * @return void No return value
    */
-  public function verifyEmail(): void
+  public function verifyEmail(EventIdProvider $eventIdProvider): void
   {
     if ($this->emailVerified)
       return;
@@ -164,6 +168,7 @@ final class User
     $this->status = UserStatus::ACTIVE;
 
     $this->recordEvent(event: new UserEmailVerifiedEvent(
+      eventId: $eventIdProvider->nextEventId(),
       userId: $this->id->value,
       email: $this->email->value,
       occurredAt: new DateTimeImmutable(),

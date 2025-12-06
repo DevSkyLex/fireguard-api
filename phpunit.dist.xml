@@ -15,14 +15,12 @@
         <ini name="error_reporting" value="-1" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />
+        <env name="SYMFONY_DEPRECATIONS_HELPER" value="disabled" />
     </php>
 
     <testsuites>
         <testsuite name="Architecture Unit Tests">
             <directory>tests/Architecture/Unit</directory>
-        </testsuite>
-        <testsuite name="General Unit Tests">
-            <directory>tests/Unit</directory>
         </testsuite>
         <testsuite name="General Integration Tests">
             <directory>tests/Integration</directory>
@@ -32,6 +30,9 @@
         </testsuite>
         <testsuite name="E2E Tests">
             <directory>tests/E2E</directory>
+        </testsuite>
+        <testsuite name="General Unit Tests">
+            <directory>tests/Unit</directory>
         </testsuite>
     </testsuites>
 

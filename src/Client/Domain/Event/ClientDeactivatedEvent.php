@@ -23,36 +23,22 @@ use DateTimeImmutable;
  */
 final readonly class ClientDeactivatedEvent implements DomainEvent
 {
-  //#region Properties
-  /**
-   * Property eventId
-   *
-   * The unique identifier for this event.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @var Uuid $eventId
-   */
-  private Uuid $eventId;
-  //#endregion
-
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes a new instance of the ClientDeactivatedEvent class.
-   *
    * @access public
    * @since 1.0.0
    *
+   * @param Uuid $eventId The unique event identifier.
    * @param ClientId $clientId The client ID.
    * @param DateTimeImmutable $occurredAt When the event occurred.
    */
   public function __construct(
+    private Uuid $eventId,
     public ClientId $clientId,
-    public DateTimeImmutable $occurredAt
-  ) { $this->eventId = Uuid::generate(); }
+    public DateTimeImmutable $occurredAt,
+  ) {}
   //#endregion
 
   //#region Methods

@@ -8,15 +8,17 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Application\Port\Outbound\HashingPort;
-use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Shared\Domain\ValueObject\HashedSecret;
+use Tests\Helper\TestEventIdProvider;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Application\UseCase\Command\CreateUser\CreateUserCommand;
 use User\Application\UseCase\Command\CreateUser\CreateUserHandler;
 use User\Application\UseCase\Command\CreateUser\CreateUserResult;
 use User\Domain\Model\User;
+use User\Domain\ValueObject\UserId;
 
 /**
  * Test CreateUserHandlerTest
@@ -46,15 +48,26 @@ final class CreateUserHandlerTest extends TestCase
   private UserRepositoryPort&MockObject $userRepository;
 
   /**
-   * Property uuidGenerator
+   * Property uuidFactory
    *
-   * Mock of the UUID generator.
+   * Mock of the UUID factory.
    *
    * @access private
    *
-   * @var UuidGeneratorPort&MockObject
+   * @var UuidFactory&MockObject
    */
-  private UuidGeneratorPort&MockObject $uuidGenerator;
+  private UuidFactory&MockObject $uuidFactory;
+
+  /**
+   * Property eventIdProvider
+   *
+   * Event ID provider for tests.
+   *
+   * @access private
+   *
+   * @var TestEventIdProvider
+   */
+  private TestEventIdProvider $eventIdProvider;
 
   /**
    * Property hashing
@@ -103,14 +116,16 @@ final class CreateUserHandlerTest extends TestCase
   protected function setUp(): void
   {
     $this->userRepository = $this->createMock(UserRepositoryPort::class);
-    $this->uuidGenerator = $this->createMock(UuidGeneratorPort::class);
+    $this->uuidFactory = $this->createMock(UuidFactory::class);
     $this->hashing = $this->createMock(HashingPort::class);
     $this->eventBus = $this->createMock(EventBusPort::class);
+    $this->eventIdProvider = new TestEventIdProvider();
     $this->handler = new CreateUserHandler(
-      $this->userRepository,
-      $this->uuidGenerator,
-      $this->hashing,
-      $this->eventBus
+      userRepository: $this->userRepository,
+      uuidFactory: $this->uuidFactory,
+      hashing: $this->hashing,
+      eventBus: $this->eventBus,
+      eventIdProvider: $this->eventIdProvider,
     );
   }
   //#endregion
@@ -142,9 +157,10 @@ final class CreateUserHandlerTest extends TestCase
     $userId = '123e4567-e89b-12d3-a456-426614174000';
     $hashedPassword = new HashedSecret('$2y$10$hashedpassword');
 
-    $this->uuidGenerator->expects($this->once())
-      ->method('generate')
-      ->willReturn($userId);
+    $this->uuidFactory->expects($this->once())
+      ->method('create')
+      ->with(UserId::class)
+      ->willReturn(new UserId($userId));
 
     $this->hashing->expects($this->once())
       ->method('hash')

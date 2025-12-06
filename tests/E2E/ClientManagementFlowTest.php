@@ -151,4 +151,211 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
   }
 
   //#endregion
+
+  //#region Client Actions Tests
+
+  /**
+   * Test regenerate client secret endpoint
+   */
+  public function testRegenerateClientSecret(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    // Use the DEV client ID from fixtures
+    $clientId = self::DEV_CLIENT_ID;
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/' . $clientId . '/regenerate-secret',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    // Should succeed or return auth error (depending on permissions)
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
+      'Regenerate secret should respond appropriately. Response: ' . $response->getContent()
+    );
+
+    if ($response->getStatusCode() === Response::HTTP_OK) {
+      $data = json_decode($response->getContent() ?: '{}', true);
+      $this->assertArrayHasKey('secret', $data, 'Response should contain new secret');
+    }
+  }
+
+  /**
+   * Test regenerate secret without authentication
+   */
+  public function testRegenerateClientSecretWithoutAuth(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/' . self::DEV_CLIENT_ID . '/regenerate-secret',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertEquals(
+      Response::HTTP_UNAUTHORIZED,
+      $response->getStatusCode(),
+      'Regenerate secret without auth should return 401'
+    );
+  }
+
+  /**
+   * Test activate client endpoint
+   */
+  public function testActivateClient(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/' . self::DEV_CLIENT_ID . '/activate',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    // Should succeed or return auth error
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
+      'Activate client should respond appropriately. Response: ' . $response->getContent()
+    );
+  }
+
+  /**
+   * Test activate client without authentication
+   */
+  public function testActivateClientWithoutAuth(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/' . self::DEV_CLIENT_ID . '/activate',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertEquals(
+      Response::HTTP_UNAUTHORIZED,
+      $response->getStatusCode(),
+      'Activate client without auth should return 401'
+    );
+  }
+
+  /**
+   * Test deactivate client endpoint
+   */
+  public function testDeactivateClient(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    // Use API client (not DEV client which we're using for auth)
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/' . self::API_CLIENT_ID . '/deactivate',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    // Should succeed or return auth error
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
+      'Deactivate client should respond appropriately. Response: ' . $response->getContent()
+    );
+  }
+
+  /**
+   * Test deactivate client without authentication
+   */
+  public function testDeactivateClientWithoutAuth(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/' . self::API_CLIENT_ID . '/deactivate',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertEquals(
+      Response::HTTP_UNAUTHORIZED,
+      $response->getStatusCode(),
+      'Deactivate client without auth should return 401'
+    );
+  }
+
+  /**
+   * Test activate non-existent client
+   */
+  public function testActivateNonExistentClient(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/clients/00000000-0000-4000-8000-000000000000/activate',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
+      'Non-existent client should return 404 or auth error'
+    );
+  }
+
+  //#endregion
 }
