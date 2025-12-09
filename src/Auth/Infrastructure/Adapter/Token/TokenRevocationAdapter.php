@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Auth\Infrastructure\Token;
+namespace Auth\Infrastructure\Adapter\Token;
 
 use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
 use Auth\Application\Port\Outbound\RefreshTokenRepositoryPort;
@@ -16,18 +16,19 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 /**
- * Service TokenRevocationService
+ * Adapter TokenRevocationAdapter
  * @final
  *
- * Handles token revocation for both access and refresh tokens.
+ * Handles token revocation for both access 
+ * and refresh tokens.
  *
- * @category Service
- * @package Auth\Infrastructure\Token
+ * @category Adapter
+ * @package Auth\Infrastructure\Adapter\Token
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class TokenRevocationService implements TokenRevocationPort
+final class TokenRevocationAdapter implements TokenRevocationPort
 {
   //#region Traits
   use CryptTrait;

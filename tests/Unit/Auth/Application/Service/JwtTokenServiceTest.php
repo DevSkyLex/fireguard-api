@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\Service;
 
-use Auth\Infrastructure\Jwt\JwtTokenService;
+use Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -19,9 +19,9 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @covers \Auth\Infrastructure\Jwt\JwtTokenService
+ * @covers \Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter
  */
-#[CoversClass(className: JwtTokenService::class)]
+#[CoversClass(className: JwtTokenAdapter::class)]
 final class JwtTokenServiceTest extends TestCase
 {
   //#region Properties
@@ -32,9 +32,9 @@ final class JwtTokenServiceTest extends TestCase
    *
    * @access private
    *
-   * @var JwtTokenService
+   * @var JwtTokenAdapter
    */
-  private JwtTokenService $service;
+  private JwtTokenAdapter $service;
 
   /**
    * Property privateKeyPath
@@ -79,7 +79,7 @@ final class JwtTokenServiceTest extends TestCase
       $this->markTestSkipped('JWT keys not found in config/jwt/. Generate keys first.');
     }
 
-    $this->service = new JwtTokenService(
+    $this->service = new JwtTokenAdapter(
       privateKeyPath: $this->privateKeyPath,
       publicKeyPath: $this->publicKeyPath,
       encryptionKey: base64_encode(random_bytes(32)),
@@ -281,7 +281,7 @@ final class JwtTokenServiceTest extends TestCase
     /** @var non-empty-string $publicKeyPath */
     $publicKeyPath = $this->publicKeyPath;
 
-    $shortTtlService = new JwtTokenService(
+    $shortTtlService = new JwtTokenAdapter(
       privateKeyPath: $privateKeyPath,
       publicKeyPath: $publicKeyPath,
       encryptionKey: base64_encode(random_bytes(32)),
@@ -420,7 +420,7 @@ final class JwtTokenServiceTest extends TestCase
     $customAccessTtl = 1800;  // 30 minutes
     $customRefreshTtl = 43200; // 12 hours
 
-    $service = new JwtTokenService(
+    $service = new JwtTokenAdapter(
       privateKeyPath: $privateKeyPath,
       publicKeyPath: $publicKeyPath,
       encryptionKey: base64_encode(random_bytes(32)),

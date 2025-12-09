@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Adapter\Mfa;
 
 use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
+use Auth\Application\UseCase\Command\MfaVerify\MfaVerifyResult;
 use Otp\Application\UseCase\Command\VerifyOtp\VerifyOtpCommand;
 use Otp\Application\UseCase\Command\VerifyOtp\VerifyOtpHandler;
-use Otp\Presentation\Api\Dto\VerifyOtpInput;
-use Otp\Presentation\Api\Dto\VerifyOtpOutput;
 
 /**
  * Adapter OtpModuleChallengeVerifierAdapter
@@ -40,21 +39,20 @@ final readonly class OtpModuleChallengeVerifierAdapter implements ChallengeVerif
   /**
    * {@inheritDoc}
    */
-  public function verify(string $token, VerifyOtpInput $input): VerifyOtpOutput
+  public function verify(string $challengeToken, string $code): MfaVerifyResult
   {
     $command = new VerifyOtpCommand(
-      code: $input->code,
-      challengeToken: $token,
+      code: $code,
+      challengeToken: $challengeToken,
     );
 
     $result = $this->handler->__invoke($command);
 
-    $output = new VerifyOtpOutput();
-    $output->success = $result->success;
-    $output->attemptsRemaining = $result->attemptsRemaining;
-    $output->error = $result->error;
-
-    return $output;
+    return new MfaVerifyResult(
+      success: $result->success,
+      attemptsRemaining: $result->attemptsRemaining,
+      error: $result->error,
+    );
   }
   //#endregion
 }

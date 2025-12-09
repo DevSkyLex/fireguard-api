@@ -23,21 +23,21 @@ services:
     class: Auth\Infrastructure\OAuth2\Adapter\ClientValidationAdapter
 
   Auth\Application\Port\Outbound\JwtTokenServicePort:
-    alias: Auth\Infrastructure\Jwt\JwtTokenService
+    alias: Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter
 
   Auth\Application\Port\Outbound\TokenRevocationPort:
-    alias: Auth\Infrastructure\Token\TokenRevocationService
+    alias: Auth\Infrastructure\Adapter\Token\TokenRevocationAdapter
 
   Auth\Application\Port\Outbound\JwtParserPort:
-    alias: Auth\Infrastructure\Jwt\JwtParserService
+    alias: Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter
 
   Auth\Application\Port\Outbound\TokenCachePort:
-    alias: Auth\Infrastructure\Cache\TokenCacheService
+    alias: Auth\Infrastructure\Adapter\Cache\TokenCacheAdapter
 
-  Auth\Infrastructure\Token\TokenRevocationService: ~
-  Auth\Infrastructure\Jwt\JwtParserService: ~
-  Auth\Infrastructure\Cache\TokenCacheService: ~
-  Auth\Infrastructure\RateLimiter\LoginRateLimiterAdapter: ~
+  Auth\Infrastructure\Adapter\Token\TokenRevocationAdapter: ~
+  Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
+  Auth\Infrastructure\Adapter\Cache\TokenCacheAdapter: ~
+  Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter: ~
 
   # Domain Services
   Auth\Domain\Service\TokenValidationService: ~
@@ -133,8 +133,8 @@ services:
   # Refresh Token Cookie Service
   Auth\Presentation\Service\RefreshTokenCookieService: ~
 
-  # JWT Token Service (uses #[Autowire] attributes)
-  Auth\Infrastructure\Jwt\JwtTokenService: ~
+  # JWT Token Adapter (uses #[Autowire] attributes)
+  Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter: ~
 
   # Auth Processors
   Auth\Presentation\Http\Auth\LoginProcessor: ~

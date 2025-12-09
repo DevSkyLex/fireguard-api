@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Auth\Infrastructure\Jwt;
+namespace Auth\Infrastructure\Adapter\Jwt;
 
 use Auth\Application\Port\Outbound\JwtParserPort;
 use DateTimeImmutable;
@@ -18,18 +18,18 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 /**
- * Service JwtParserService
+ * Adapter JwtParserAdapter
  * @final
  *
  * Parses and validates JWT tokens.
  *
- * @category Service
- * @package Auth\Infrastructure\Jwt
+ * @category Adapter
+ * @package Auth\Infrastructure\Adapter\Jwt
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class JwtParserService implements JwtParserPort
+final class JwtParserAdapter implements JwtParserPort
 {
   //#region Properties
   /**
@@ -45,7 +45,7 @@ final class JwtParserService implements JwtParserPort
    * Constructor
    *
    * Initializes a new instance of the
-   * JwtParserService class.
+   * JwtParserAdapter class.
    *
    * @access public
    * @since 1.0.0
@@ -130,10 +130,10 @@ final class JwtParserService implements JwtParserPort
       $constraints = [
         new SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()),
         new StrictValidAt(new class implements ClockInterface {
-          public function now(): DateTimeImmutable
-          {
-            return new DateTimeImmutable();
-          }
+        public function now(): DateTimeImmutable
+        {
+          return new DateTimeImmutable();
+        }
         }),
       ];
 

@@ -2,24 +2,25 @@
 
 declare(strict_types=1);
 
-namespace Auth\Infrastructure\Cache;
+namespace Auth\Infrastructure\Adapter\Cache;
 
+use Auth\Application\Port\Outbound\TokenCachePort;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Service TokenCacheService
+ * Adapter TokenCacheAdapter
  * @final
  *
  * Caches token introspection results for performance.
  *
- * @category Cache
- * @package Auth\Infrastructure\Cache
+ * @category Adapter
+ * @package Auth\Infrastructure\Adapter\Cache
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class TokenCacheService implements \Auth\Application\Port\Outbound\TokenCachePort
+final readonly class TokenCacheAdapter implements TokenCachePort
 {
   //#region Constants
   /**
@@ -52,7 +53,7 @@ final readonly class TokenCacheService implements \Auth\Application\Port\Outboun
    * Constructor
    *
    * Initializes a new instance of the
-   * TokenCacheService class.
+   * TokenCacheAdapter class.
    *
    * @access public
    * @since 1.0.0
@@ -65,7 +66,8 @@ final readonly class TokenCacheService implements \Auth\Application\Port\Outboun
     private CacheItemPoolInterface $cache,
     #[Autowire('%env(int:TOKEN_CACHE_TTL)%')]
     private int $ttl = self::DEFAULT_TTL,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

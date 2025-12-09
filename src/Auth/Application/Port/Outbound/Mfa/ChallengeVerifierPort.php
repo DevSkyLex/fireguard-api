@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound\Mfa;
 
-use Otp\Presentation\Api\Dto\VerifyOtpInput;
-use Otp\Presentation\Api\Dto\VerifyOtpOutput;
+use Auth\Application\UseCase\Command\MfaVerify\MfaVerifyResult;
 
 /**
  * Interface ChallengeVerifierPort
@@ -20,10 +19,10 @@ interface ChallengeVerifierPort
   /**
    * Verifies an OTP code for a given challenge token.
    *
-   * @param string $token The challenge token.
-   * @param VerifyOtpInput $input The verification input (code).
+   * @param string $challengeToken The challenge token.
+   * @param string $code The verification code.
    *
-   * @return VerifyOtpOutput The verification result.
+   * @return MfaVerifyResult The verification result.
    */
-  public function verify(string $token, VerifyOtpInput $input): VerifyOtpOutput;
+  public function verify(string $challengeToken, string $code): MfaVerifyResult;
 }

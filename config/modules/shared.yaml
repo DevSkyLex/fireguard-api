@@ -49,4 +49,4 @@ services:
   Shared\Application\Port\Outbound\UuidGeneratorPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter'
   Shared\Application\Port\Outbound\HashingPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter'
   Shared\Application\Port\Outbound\EventDispatcherPort: '@Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter'
-  Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\RateLimiter\LoginRateLimiterAdapter'
+  Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter'

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Auth\Infrastructure\RateLimiter;
+namespace Auth\Infrastructure\Adapter\RateLimiter;
 
 use Shared\Domain\ValueObject\RateLimitResult;
 use Shared\Application\Port\Outbound\RateLimiterPort;
@@ -16,7 +16,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
  * Rate limiter for login attempts using Symfony RateLimiter.
  *
  * @category Adapter
- * @package Auth\Infrastructure\RateLimiter
+ * @package Auth\Infrastructure\Adapter\RateLimiter
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -38,7 +38,8 @@ final readonly class LoginRateLimiterAdapter implements RateLimiterPort
   public function __construct(
     #[Autowire(service: 'limiter.login')]
     private RateLimiterFactory $loginLimiter,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

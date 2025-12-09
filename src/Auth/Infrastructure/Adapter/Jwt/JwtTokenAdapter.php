@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Auth\Infrastructure\Jwt;
+namespace Auth\Infrastructure\Adapter\Jwt;
 
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use DateInterval;
@@ -14,19 +14,19 @@ use League\OAuth2\Server\CryptTrait;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * Service JwtTokenService
+ * Adapter JwtTokenAdapter
  * @final
  *
  * Generates JWT tokens for direct user authentication.
  * This is separate from OAuth2 and used for the /api/auth/login endpoint.
  *
- * @category Service
- * @package Auth\Infrastructure\Jwt
+ * @category Adapter
+ * @package Auth\Infrastructure\Adapter\Jwt
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class JwtTokenService implements JwtTokenServicePort
+final class JwtTokenAdapter implements JwtTokenServicePort
 {
   //#region Traits
   /**
@@ -61,7 +61,7 @@ final class JwtTokenService implements JwtTokenServicePort
    * Constructor
    *
    * Initializes a new instance of the 
-   * JwtTokenService class.
+   * JwtTokenAdapter class.
    *
    * @access public
    * @since 1.0.0

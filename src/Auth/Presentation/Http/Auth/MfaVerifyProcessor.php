@@ -95,11 +95,8 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     }
 
     // 2. Verify OTP
-    $verificationInput = new \Otp\Presentation\Api\Dto\VerifyOtpInput();
-    $verificationInput->code = $data->code;
-
     try {
-      $result = $this->verifier->verify($challengeToken, $verificationInput);
+      $result = $this->verifier->verify($challengeToken, $data->code);
     } catch (\Exception $e) {
       throw new BadRequestHttpException($e->getMessage());
     }
