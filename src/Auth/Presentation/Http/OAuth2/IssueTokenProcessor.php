@@ -6,8 +6,8 @@ namespace Auth\Presentation\Http\OAuth2;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Presentation\Dto\Request\TokenInput;
-use Auth\Presentation\Dto\Response\TokenOutput;
+use Auth\Presentation\Dto\Input\TokenInput;
+use Auth\Presentation\Dto\Output\TokenOutput;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -35,17 +35,43 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 final readonly class IssueTokenProcessor implements ProcessorInterface
 {
   //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initializes a new instance of the
+   * IssueTokenProcessor class.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param AuthorizationServer $authorizationServer The authorization server.
+   * @param RequestStack $requestStack The request stack.
+   * @param LoggerInterface $logger The logger.
+   */
   public function __construct(
-    private AuthorizationServer $authorizationServer,
-    private RequestStack $requestStack,
+    private readonly AuthorizationServer $authorizationServer,
+    private readonly RequestStack $requestStack,
     #[Autowire(service: 'monolog.logger.security')]
-    private LoggerInterface $logger,
+    private readonly LoggerInterface $logger,
   ) {}
   //#endregion
 
   //#region Methods
   /**
+   * Method process
    * {@inheritDoc}
+   * 
+   * Processes the token issuance request.
+   * 
+   * @access public
+   * @since 1.0.0
+   * 
+   * @param mixed $data The data.
+   * @param Operation $operation The operation.
+   * @param array<string, mixed> $uriVariables The URI variables.
+   * @param array<string, mixed> $context The context.
+   * 
+   * @return ?TokenOutput The token output.
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?TokenOutput
   {
@@ -65,27 +91,33 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
     $psrRequest = $psrHttpFactory->createRequest($request);
 
     $parsedBody = array_filter([
-      'grant_type' => $data->grantType,
-      'client_id' => $data->clientId,
+      'grant_type'    => $data->grantType,
+      'client_id'     => $data->clientId,
       'client_secret' => $data->clientSecret,
-      'scope' => $data->scope,
+      'scope'         => $data->scope,
       'refresh_token' => $data->refreshToken,
-      'code' => $data->code,
-      'redirect_uri' => $data->redirectUri,
+      'code'          => $data->code,
+      'redirect_uri'  => $data->redirectUri,
       'code_verifier' => $data->codeVerifier,
-    ], fn($value) => !is_null($value));
+    ], fn($value)     => $value !== null);
 
-    $psrRequest = $psrRequest->withParsedBody($parsedBody);
+    $psrRequest = $psrRequest->withParsedBody(data: $parsedBody);
 
     try {
-      $response = $this->authorizationServer->respondToAccessTokenRequest($psrRequest, new Psr7Response());
+      $response = $this->authorizationServer->respondToAccessTokenRequest(
+        request: $psrRequest,
+        response: new Psr7Response()
+      );
 
-      $body = json_decode((string) $response->getBody(), true);
+      $body = json_decode(
+        json: (string) $response->getBody(),
+        associative: true
+      );
 
       $this->logger->info('OAuth2 token issued', [
         'grant_type' => $data->grantType,
-        'client_id' => $data->clientId,
-        'ip' => $request->getClientIp(),
+        'client_id'  => $data->clientId,
+        'ip'         => $request->getClientIp(),
       ]);
 
       $tokenResponse = new TokenOutput();
@@ -100,9 +132,9 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
     } catch (OAuthServerException $exception) {
       $this->logger->warning('OAuth2 token issuance failed', [
         'grant_type' => $data->grantType,
-        'client_id' => $data->clientId,
-        'error' => $exception->getMessage(),
-        'ip' => $request->getClientIp(),
+        'client_id'  => $data->clientId,
+        'error'      => $exception->getMessage(),
+        'ip'         => $request->getClientIp(),
       ]);
 
       throw new BadRequestHttpException(

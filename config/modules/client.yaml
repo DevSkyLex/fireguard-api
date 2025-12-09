@@ -27,9 +27,9 @@ services:
         alias: Client\Infrastructure\Persistence\Doctrine\Repository\ClientRepository
 
     # Console Commands use #[AsCommand]
-    Client\Infrastructure\Symfony\Command\CreateClientCommand: ~
-    Client\Infrastructure\Symfony\Command\ListClientsCommand: ~
-    Client\Infrastructure\Symfony\Command\DeleteClientCommand: ~
+    Client\Infrastructure\Console\CreateClientCommand: ~
+    Client\Infrastructure\Console\ListClientsCommand: ~
+    Client\Infrastructure\Console\DeleteClientCommand: ~
 
     # DataFixtures
     Client\Infrastructure\DataFixtures\ClientFixtures:

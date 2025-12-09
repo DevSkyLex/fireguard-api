@@ -13,7 +13,7 @@ use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
 use User\Domain\ValueObject\UserProfile;
 use User\Domain\ValueObject\UserStatus;
-use User\Infrastructure\Persistence\Doctrine\Entity\UserRecord;
+use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 /**
  * Mapper UserMapper

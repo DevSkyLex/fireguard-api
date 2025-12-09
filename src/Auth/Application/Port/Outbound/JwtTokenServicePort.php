@@ -29,6 +29,26 @@ interface JwtTokenServicePort
   public function generateTokens(string $userId, string $email, array $scopes = []): array;
 
   /**
+   * Generates a Pre-Auth Token for MFA workflows.
+   *
+   * @param string $userId The user ID.
+   * @param string $challengeToken The OTP challenge token associated with this flow.
+   * @param int $ttl Lifetime in seconds (default 300).
+   *
+   * @return string The valid JWT token.
+   */
+  public function generatePreAuthToken(string $userId, string $challengeToken, int $ttl = 300): string;
+
+  /**
+   * Decodes a Pre-Auth Token.
+   *
+   * @param string $token The JWT token string.
+   *
+   * @return array<string, mixed>|null The payload if valid, null otherwise.
+   */
+  public function decodePreAuthToken(string $token): ?array;
+
+  /**
    * Decode a refresh token.
    *
    * @param string $refreshToken The encrypted refresh token.

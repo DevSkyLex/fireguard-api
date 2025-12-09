@@ -8,8 +8,8 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
 use Auth\Application\Port\Outbound\RefreshTokenRepositoryPort;
-use Auth\Presentation\Dto\Request\TokenIntrospectionInput;
-use Auth\Presentation\Dto\Response\TokenIntrospectionOutput;
+use Auth\Presentation\Dto\Input\TokenIntrospectionInput;
+use Auth\Presentation\Dto\Output\TokenIntrospectionOutput;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Lcobucci\JWT\Encoding\JoseEncoder;
@@ -40,7 +40,8 @@ final readonly class IntrospectTokenProcessor implements ProcessorInterface
     private RefreshTokenRepositoryPort $refreshTokenRepository,
     #[Autowire('%env(OAUTH_ISSUER)%')]
     private string $issuer = '',
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -70,7 +71,8 @@ final readonly class IntrospectTokenProcessor implements ProcessorInterface
 
   private function introspectAccessToken(string $token, TokenIntrospectionOutput $output): TokenIntrospectionOutput
   {
-    if ($token === '') return $output;
+    if ($token === '')
+      return $output;
 
     $parser = new Parser(new JoseEncoder());
     $parsedToken = $parser->parse($token);

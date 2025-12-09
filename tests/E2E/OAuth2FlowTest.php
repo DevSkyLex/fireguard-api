@@ -215,7 +215,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/.well-known/openid-configuration',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $client->getResponse();
@@ -242,7 +242,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $client->getResponse();

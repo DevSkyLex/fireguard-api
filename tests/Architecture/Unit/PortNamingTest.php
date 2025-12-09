@@ -22,8 +22,28 @@ use RecursiveIteratorIterator;
  */
 final class PortNamingTest extends TestCase
 {
+  //#region Constants
+  /**
+   * Constant PORT_SUFFIX
+   *
+   * @access private
+   *
+   * @var string
+   */
   private const string PORT_SUFFIX = 'Port';
+  //#endregion
 
+  //#region Methods
+  /**
+   * Method testAllPortsEndWithPortSuffix
+   *
+   * Ensures every port class ends with 
+   * the "Port" suffix
+   *
+   * @access public
+   *
+   * @return void No return value.
+   */
   public function testAllPortsEndWithPortSuffix(): void
   {
     $modules = ModuleCollection::all();

@@ -6,7 +6,7 @@ namespace Auth\Presentation\Http\OAuth2;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Presentation\Dto\Request\TokenRevocationInput;
+use Auth\Presentation\Dto\Input\TokenRevocationInput;
 use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Token\Parser;
 use Lcobucci\JWT\Token\Plain;

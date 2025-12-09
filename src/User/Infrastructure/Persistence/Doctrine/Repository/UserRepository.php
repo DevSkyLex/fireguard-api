@@ -10,7 +10,7 @@ use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User;
 use User\Domain\ValueObject\UserId;
 use User\Domain\ValueObject\Username;
-use User\Infrastructure\Persistence\Doctrine\Entity\UserRecord;
+use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 
 /**

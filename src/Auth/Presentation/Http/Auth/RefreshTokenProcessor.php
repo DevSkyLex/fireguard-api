@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\UseCase\Query\RefreshToken\RefreshTokenQuery;
 use Auth\Application\UseCase\Query\RefreshToken\RefreshTokenResult;
-use Auth\Presentation\Dto\Response\LoginOutput;
+use Auth\Presentation\Dto\Output\LoginOutput;
 use Auth\Presentation\Service\RefreshTokenCookieService;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -49,7 +49,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     private readonly QueryBusPort $queryBus,
     private readonly RequestStack $requestStack,
     private readonly RefreshTokenCookieService $cookieService,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -72,7 +73,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?LoginOutput
   {
     $request = $this->requestStack->getCurrentRequest();
-    if ($request === null) return null;
+    if ($request === null)
+      return null;
 
     $refreshToken = $this->cookieService->getRefreshTokenFromRequest(request: $request);
 

@@ -1,0 +1,26 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Handlers
+    Tenant\Application\UseCase\:
+        resource: '../../src/Tenant/Application/UseCase/'
+
+    # Repository
+    Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+
+    Tenant\Infrastructure\Persistence\Doctrine\Mapper\TenantMapper: ~
+
+    # Port Binding
+    Tenant\Application\Port\Outbound\TenantRepositoryPort:
+        alias: Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository
+
+    # Providers
+    Tenant\Presentation\Api\Provider\GetTenantProvider: ~
+    Tenant\Presentation\Api\Provider\ListTenantsProvider: ~
+
+    # Processors
+    Tenant\Presentation\Api\Processor\CreateTenantProcessor: ~

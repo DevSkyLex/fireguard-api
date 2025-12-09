@@ -27,8 +27,8 @@ doctrine:
       User:
         is_bundle: false
         type: attribute
-        dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Entity'
-        prefix: 'User\Infrastructure\Persistence\Doctrine\Entity'
+        dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'User\Infrastructure\Persistence\Doctrine\Record'
         alias: User
       Auth:
         is_bundle: false
@@ -36,6 +36,12 @@ doctrine:
         dir: '%kernel.project_dir%/src/Auth/Infrastructure/Persistence/Doctrine/Record'
         prefix: 'Auth\Infrastructure\Persistence\Doctrine\Record'
         alias: Auth
+      Otp:
+        is_bundle: false
+        type: attribute
+        dir: '%kernel.project_dir%/src/Otp/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'Otp\Infrastructure\Persistence\Doctrine\Record'
+        alias: Otp
     controller_resolver:
       auto_mapping: false
 

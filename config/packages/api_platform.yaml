@@ -11,3 +11,7 @@ api_platform:
       - '%kernel.project_dir%/src/Auth/Presentation/Resource'
       - '%kernel.project_dir%/src/Client/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/User/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Session/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Tenant/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Otp/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/TrustedDevice/Presentation/Api/Resource'

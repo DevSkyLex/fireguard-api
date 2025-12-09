@@ -48,7 +48,7 @@ final class WellKnownApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/.well-known/openid-configuration',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $this->client?->getResponse();
@@ -76,7 +76,7 @@ final class WellKnownApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/.well-known/openid-configuration',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $this->client?->getResponse();
@@ -109,7 +109,7 @@ final class WellKnownApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $this->client?->getResponse();
@@ -137,7 +137,7 @@ final class WellKnownApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $this->client?->getResponse();
@@ -163,7 +163,7 @@ final class WellKnownApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/json']
     );
 
     $response = $this->client?->getResponse();

@@ -140,6 +140,7 @@ services:
   Auth\Presentation\Http\Auth\LoginProcessor: ~
   Auth\Presentation\Http\Auth\RefreshTokenProcessor: ~
   Auth\Presentation\Http\Auth\LogoutProcessor: ~
+  Auth\Presentation\Http\Auth\MfaVerifyProcessor: ~
 
   # WellKnown Providers
   Auth\Presentation\Http\WellKnown\UserInfoProvider: ~
@@ -159,3 +160,16 @@ services:
 
   # Console Commands
   Auth\Infrastructure\Console\GenerateTokenCommand: ~
+
+  # Consent Repository
+  Auth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  Auth\Application\Port\Outbound\ConsentRepositoryPort:
+    alias: Auth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository
+
+  # Consent Handlers
+  Auth\Application\UseCase\Command\GrantConsent\GrantConsentHandler: ~
+  Auth\Application\UseCase\Query\CheckConsent\CheckConsentHandler: ~
+

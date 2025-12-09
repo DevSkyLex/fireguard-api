@@ -1,0 +1,32 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # TrustedDevice Module - Ports
+  TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort:
+    alias: TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRepository
+
+  # Infrastructure
+  TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper\TrustedDeviceMapper: ~
+
+  # Command Handlers
+  TrustedDevice\Application\UseCase\Command\TrustDevice\TrustDeviceHandler: ~
+  TrustedDevice\Application\UseCase\Command\RevokeDevice\RevokeDeviceHandler: ~
+  TrustedDevice\Application\UseCase\Command\RevokeAllDevices\RevokeAllDevicesHandler: ~
+
+  # Query Handlers
+  TrustedDevice\Application\UseCase\Query\CheckDeviceTrusted\CheckDeviceTrustedHandler: ~
+  TrustedDevice\Application\UseCase\Query\ListTrustedDevices\ListTrustedDevicesHandler: ~
+
+  # API Processors
+  TrustedDevice\Presentation\Api\Processor\TrustDeviceProcessor: ~
+  TrustedDevice\Presentation\Api\Processor\RevokeDeviceProcessor: ~
+  TrustedDevice\Presentation\Api\Processor\RevokeAllDevicesProcessor: ~
+
+  # API Providers
+  TrustedDevice\Presentation\Api\Provider\ListTrustedDevicesProvider: ~

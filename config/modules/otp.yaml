@@ -1,0 +1,49 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # OTP Module - Ports
+  Otp\Application\Port\Outbound\OtpRepositoryPort:
+    alias: Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository
+
+  Otp\Application\Port\Outbound\OtpNotifierPort:
+    alias: Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter
+
+  Otp\Application\Port\Outbound\TotpServicePort:
+    alias: Otp\Infrastructure\Adapter\Notifier\TotpAdapter
+
+  # OTP Repository
+  Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  Otp\Infrastructure\Persistence\Doctrine\Mapper\OtpMapper: ~
+
+  # OTP Notifier
+  Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter:
+    arguments:
+      $senderEmail: '%env(MAILER_FROM)%'
+
+  Otp\Infrastructure\Adapter\Notifier\TotpAdapter: ~
+
+  # Command Handlers
+  Otp\Application\UseCase\Command\GenerateOtp\GenerateOtpHandler: ~
+  Otp\Application\UseCase\Command\VerifyOtp\VerifyOtpHandler: ~
+  Otp\Application\UseCase\Command\SetupTotp\SetupTotpHandler: ~
+
+  # Query Handlers
+  Otp\Application\UseCase\Query\GetOtpStatus\GetOtpStatusHandler: ~
+
+  # API Processors
+  Otp\Presentation\Api\Processor\GenerateOtpProcessor: ~
+  Otp\Presentation\Api\Processor\VerifyOtpProcessor: ~
+  Otp\Presentation\Api\Processor\SetupTotpProcessor: ~
+  Otp\Presentation\Api\Processor\CreateChallengeProcessor: ~
+  Otp\Presentation\Api\Processor\ResendChallengeProcessor: ~
+
+  # API Providers
+  Otp\Presentation\Api\Provider\GetOtpStatusProvider: ~
+  Otp\Presentation\Api\Provider\ListPurposesProvider: ~
+  Otp\Presentation\Api\Provider\ListChannelsProvider: ~
+

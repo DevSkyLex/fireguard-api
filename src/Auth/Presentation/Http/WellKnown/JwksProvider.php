@@ -6,7 +6,7 @@ namespace Auth\Presentation\Http\WellKnown;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Presentation\Dto\Response\JwksOutput;
+use Auth\Presentation\Dto\Output\JwksOutput;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -37,7 +37,7 @@ final readonly class JwksProvider implements ProviderInterface
    */
   public function __construct(
     #[Autowire('%kernel.project_dir%/config/jwt/public.key')]
-    private string $publicKeyPath
+    private readonly string $publicKeyPath
   ) {}
   //#endregion
 

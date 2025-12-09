@@ -21,4 +21,23 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class TenantId extends Uuid
 {
+  //#region Methods
+  /**
+   * Method fromString
+   * @static
+   *
+   * Creates a TenantId from a string value.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param string $value The UUID string.
+   *
+   * @return self The created TenantId.
+   */
+  public static function fromString(string $value): self
+  {
+    return new self(value: $value);
+  }
+  //#endregion
 }

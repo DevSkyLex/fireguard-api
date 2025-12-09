@@ -53,13 +53,13 @@ readonly class RefreshTokenCookieService
    */
   public function __construct(
     #[Autowire(value: '%kernel.environment%')]
-    private string $environment = 'prod',
+    private readonly string $environment = 'prod',
     #[Autowire(value: '%env(REFRESH_TOKEN_COOKIE_NAME)%')]
-    private string $cookieBaseName = 'refresh_token',
+    private readonly string $cookieBaseName = 'refresh_token',
     #[Autowire(value: '%env(int:REFRESH_TOKEN_LIFETIME_SHORT)%')]
-    private int $lifetimeShort = 86400,
+    private readonly int $lifetimeShort = 86400,
     #[Autowire(value: '%env(int:REFRESH_TOKEN_LIFETIME_LONG)%')]
-    private int $lifetimeLong = 2592000,
+    private readonly int $lifetimeLong = 2592000,
   ) {}
   //#endregion
 
@@ -67,7 +67,8 @@ readonly class RefreshTokenCookieService
   /**
    * Method getCookieName
    *
-   * Get the cookie name based on the environment.
+   * Get the cookie name based on 
+   * the environment.
    *
    * @access public
    * @since 1.0.0

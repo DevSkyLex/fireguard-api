@@ -6,7 +6,7 @@ namespace Auth\Presentation\Http\WellKnown;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Auth\Presentation\Dto\Response\OpenIdConfigurationOutput;
+use Auth\Presentation\Dto\Output\OpenIdConfigurationOutput;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -38,10 +38,11 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
    * @param string $issuer The issuer URL.
    */
   public function __construct(
-    private RequestStack $requestStack,
+    private readonly RequestStack $requestStack,
     #[Autowire('%env(OAUTH_ISSUER)%')]
-    private string $issuer = ''
-  ) {}
+    private readonly string $issuer = ''
+  ) {
+  }
   //#endregion
 
   //#region Methods

@@ -1,0 +1,27 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Handlers
+    Session\Application\UseCase\:
+        resource: '../../src/Session/Application/UseCase/'
+
+    # Repository
+    Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+
+    Session\Infrastructure\Persistence\Doctrine\Mapper\SessionMapper: ~
+
+    # Port Binding
+    Session\Application\Port\Outbound\SessionRepositoryPort:
+        alias: Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository
+
+    # Providers
+    Session\Presentation\Api\Provider\ListUserSessionsProvider: ~
+    Session\Presentation\Api\Provider\GetSessionProvider: ~
+
+    # Processors
+    Session\Presentation\Api\Processor\RevokeSessionProcessor: ~
+    Session\Presentation\Api\Processor\RevokeAllSessionsProcessor: ~

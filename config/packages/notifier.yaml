@@ -1,0 +1,18 @@
+framework:
+  notifier:
+    # SMS Transports - configure in .env
+    # Examples:
+    #   - Twilio: twilio://SID:TOKEN@default?from=+1234567890
+    #   - Vonage: vonage://KEY:SECRET@default?from=SENDER_NAME
+    texter_transports:
+      sms: '%env(SMS_DSN)%'
+
+    # Channel policy
+    channel_policy:
+      urgent: ['sms', 'email']
+      high: ['email', 'sms']
+      medium: ['email']
+      low: ['email']
+
+    admin_recipients:
+      - { email: '%env(ADMIN_EMAIL)%' }

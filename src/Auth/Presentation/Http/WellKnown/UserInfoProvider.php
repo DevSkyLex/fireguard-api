@@ -7,7 +7,7 @@ namespace Auth\Presentation\Http\WellKnown;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Auth\Presentation\Dto\Response\UserInfoOutput;
+use Auth\Presentation\Dto\Output\UserInfoOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
@@ -45,8 +45,8 @@ final readonly class UserInfoProvider implements ProviderInterface
    * @param QueryBusPort $queryBus The query bus.
    */
   public function __construct(
-    private Security $security,
-    private QueryBusPort $queryBus
+    private readonly Security $security,
+    private readonly QueryBusPort $queryBus
   ) {}
   //#endregion
 

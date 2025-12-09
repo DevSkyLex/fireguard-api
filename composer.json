@@ -19,6 +19,7 @@
         "nyholm/psr7": "^1.8",
         "phpdocumentor/reflection-docblock": "^5.6",
         "phpstan/phpdoc-parser": "^2.3",
+        "scheb/2fa-totp": "^7.13",
         "symfony/asset": "7.3.*",
         "symfony/console": "7.3.*",
         "symfony/dotenv": "7.3.*",
@@ -28,6 +29,7 @@
         "symfony/mailer": "7.3.*",
         "symfony/messenger": "7.3.*",
         "symfony/monolog-bundle": "^4.0",
+        "symfony/notifier": "7.3.*",
         "symfony/property-access": "7.3.*",
         "symfony/property-info": "7.3.*",
         "symfony/psr-http-message-bridge": "7.3.*",
@@ -51,14 +53,19 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\": "src/",
+            "App\\": "src/App/",
             "Shared\\": "src/Shared/",
             "Client\\": "src/Client/",
             "User\\": "src/User/",
             "Auth\\": "src/Auth/",
             "Tenant\\": "src/Tenant/",
-            "Session\\": "src/Session/"
-        }
+            "Session\\": "src/Session/",
+            "Otp\\": "src/Otp/",
+            "TrustedDevice\\": "src/TrustedDevice/"
+        },
+        "classmap": [
+            "src/Kernel.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

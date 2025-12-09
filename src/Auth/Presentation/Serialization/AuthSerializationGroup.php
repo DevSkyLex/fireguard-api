@@ -20,4 +20,5 @@ final readonly class AuthSerializationGroup
 {
   public const string READ = 'token:read';
   public const string WRITE = 'token:write';
+  public const string CONSENT_READ = 'consent:read';
 }

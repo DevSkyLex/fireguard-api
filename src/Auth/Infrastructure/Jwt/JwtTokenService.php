@@ -29,12 +29,27 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 final class JwtTokenService implements JwtTokenServicePort
 {
   //#region Traits
+  /**
+   * Trait CryptTrait
+   *
+   * Provides encryption and decryption 
+   * methods.
+   *
+   * @since 1.0.0
+   * 
+   * @see CryptTrait
+   */
   use CryptTrait;
   //#endregion
 
   //#region Properties
   /**
    * Property jwtConfig
+   *
+   * The JWT configuration.
+   * 
+   * @access private
+   * @since 1.0.0
    *
    * @var Configuration
    */
@@ -45,18 +60,18 @@ final class JwtTokenService implements JwtTokenServicePort
   /**
    * Constructor
    *
-   * @param string $privateKeyPath Path to the private key file.
-   * @param string $publicKeyPath Path to the public key file.
-   * @param string $encryptionKey Encryption key for refresh tokens.
-   * @param string $issuer The JWT issuer (your domain).
-   * @param int $accessTokenTtl Access token TTL in seconds.
-   * @param int $refreshTokenTtl Refresh token TTL in seconds.
-   */
-  /**
+   * Initializes a new instance of the 
+   * JwtTokenService class.
+   *
+   * @access public
+   * @since 1.0.0
+   *
    * @param non-empty-string $privateKeyPath
    * @param non-empty-string $publicKeyPath
    * @param non-empty-string $encryptionKey
    * @param non-empty-string $issuer
+   * @param int $accessTokenTtl Access token TTL in seconds.
+   * @param int $refreshTokenTtl Refresh token TTL in seconds.
    */
   public function __construct(
     #[Autowire('%kernel.project_dir%/config/jwt/private.key')]
@@ -114,18 +129,80 @@ final class JwtTokenService implements JwtTokenServicePort
     /** @var non-empty-string $refreshTokenPayload */
     $refreshTokenPayload = json_encode([
       'refresh_token_id' => $refreshTokenId,
-      'access_token_id'  => $accessTokenId,
-      'user_id'          => $userId,
-      'scopes'           => $scopes,
-      'expires_at'       => $refreshTokenExpiry->getTimestamp(),
+      'access_token_id' => $accessTokenId,
+      'user_id' => $userId,
+      'scopes' => $scopes,
+      'expires_at' => $refreshTokenExpiry->getTimestamp(),
     ]);
 
     return [
-      'access_token'  => $accessToken->toString(),
+      'access_token' => $accessToken->toString(),
       'refresh_token' => $this->encrypt($refreshTokenPayload),
-      'token_type'    => 'Bearer',
-      'expires_in'    => $this->accessTokenTtl,
+      'token_type' => 'Bearer',
+      'expires_in' => $this->accessTokenTtl,
     ];
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function generatePreAuthToken(string $userId, string $challengeToken, int $ttl = 300): string
+  {
+    if ($userId === '') {
+      throw new \InvalidArgumentException('User ID cannot be empty');
+    }
+
+    $now = new DateTimeImmutable();
+    $expiry = $now->add(new DateInterval("PT{$ttl}S"));
+    $tokenId = bin2hex(random_bytes(20));
+
+    $token = $this->jwtConfig->builder()
+      ->issuedBy($this->issuer)
+      ->permittedFor($this->issuer)
+      ->identifiedBy($tokenId)
+      ->relatedTo($userId)
+      ->issuedAt($now)
+      ->expiresAt($expiry)
+      ->withClaim('scope', 'pre_auth')
+      ->withClaim('challenge_token', $challengeToken)
+      ->getToken($this->jwtConfig->signer(), $this->jwtConfig->signingKey());
+
+    return $token->toString();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function decodePreAuthToken(string $token): ?array
+  {
+    if ($token === '') {
+      return null;
+    }
+
+    try {
+      $parser = new \Lcobucci\JWT\Token\Parser(new \Lcobucci\JWT\Encoding\JoseEncoder());
+
+      /** @var \Lcobucci\JWT\Token\Plain $parsedToken */
+      $parsedToken = $parser->parse($token);
+
+      $validator = new \Lcobucci\JWT\Validation\Validator();
+
+      // Validate signature
+      if (!$validator->validate($parsedToken, new \Lcobucci\JWT\Validation\Constraint\SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()))) {
+        return null;
+      }
+
+      // Validate expiry via constraints or manually
+      if ($parsedToken->isExpired(new DateTimeImmutable())) {
+        return null;
+      }
+
+      // Validate constraints (Issuer, etc) if needed, but signature + expiry is decent for now.
+
+      return $parsedToken->claims()->all();
+    } catch (\Throwable) {
+      return null;
+    }
   }
 
   /**
@@ -147,12 +224,12 @@ final class JwtTokenService implements JwtTokenServicePort
 
       if (
         !isset(
-          $payload['refresh_token_id'],
-          $payload['access_token_id'],
-          $payload['user_id'],
-          $payload['scopes'],
-          $payload['expires_at']
-        )
+        $payload['refresh_token_id'],
+        $payload['access_token_id'],
+        $payload['user_id'],
+        $payload['scopes'],
+        $payload['expires_at']
+      )
         || !is_string($payload['refresh_token_id'])
         || !is_string($payload['access_token_id'])
         || !is_string($payload['user_id'])

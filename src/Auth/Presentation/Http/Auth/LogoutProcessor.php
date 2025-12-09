@@ -7,7 +7,7 @@ namespace Auth\Presentation\Http\Auth;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\UseCase\Command\Logout\LogoutCommand;
-use Auth\Presentation\Dto\Response\LogoutOutput;
+use Auth\Presentation\Dto\Output\LogoutOutput;
 use Auth\Presentation\Service\RefreshTokenCookieService;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -77,7 +77,8 @@ final readonly class LogoutProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     #[Autowire(service: 'monolog.logger.security')]
     private LoggerInterface $logger,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

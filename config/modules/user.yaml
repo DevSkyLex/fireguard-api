@@ -42,8 +42,8 @@ services:
   User\Presentation\Api\Provider\ListUsersProvider: ~
 
   # Console Commands use #[AsCommand]
-  User\Infrastructure\Symfony\Command\CreateUserConsoleCommand: ~
-  User\Infrastructure\Symfony\Command\ListUsersCommand: ~
+  User\Infrastructure\Console\CreateUserConsoleCommand: ~
+  User\Infrastructure\Console\ListUsersCommand: ~
 
   # DataFixtures
   User\Infrastructure\DataFixtures\UserFixtures:
