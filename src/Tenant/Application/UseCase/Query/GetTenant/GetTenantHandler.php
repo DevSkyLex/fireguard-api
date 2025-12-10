@@ -20,7 +20,7 @@ use Tenant\Domain\ValueObject\TenantId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetTenantHandler
+final readonly class GetTenantHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

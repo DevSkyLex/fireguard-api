@@ -23,7 +23,7 @@ use User\Domain\ValueObject\Username;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class AuthenticateUserHandler
+final readonly class AuthenticateUserHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

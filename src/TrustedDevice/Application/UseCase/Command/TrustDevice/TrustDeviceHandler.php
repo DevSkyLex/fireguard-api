@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace TrustedDevice\Application\UseCase\Command\TrustDevice;
 
+use Shared\Application\Message\CommandHandler;
 use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
 use TrustedDevice\Domain\Model\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\DeviceFingerprint;
@@ -22,14 +23,40 @@ use Shared\Application\Factory\UuidFactory;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class TrustDeviceHandler
+final readonly class TrustDeviceHandler implements CommandHandler
 {
+  //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initialize the handler with the 
+   * device repository and UUID factory.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param TrustedDeviceRepositoryPort $repository The device repository.
+   * @param UuidFactory $uuidFactory The UUID factory.
+   */
   public function __construct(
-    private TrustedDeviceRepositoryPort $repository,
-    private UuidFactory $uuidFactory,
-  ) {
-  }
+    private readonly TrustedDeviceRepositoryPort $repository,
+    private readonly UuidFactory $uuidFactory,
+  ) {}
+  //#endregion
 
+  //#region Methods
+  /**
+   * Method __invoke
+   *
+   * Handles the trust device command.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param TrustDeviceCommand $command The command.
+   *
+   * @return TrustDeviceResult The result.
+   */
   public function __invoke(TrustDeviceCommand $command): TrustDeviceResult
   {
     // Create fingerprint
@@ -68,7 +95,7 @@ final readonly class TrustDeviceHandler
     // Get token before saving (plain token only available at creation)
     $plainToken = $device->token()->plain();
 
-    $this->repository->save($device);
+    $this->repository->save(device: $device);
 
     return new TrustDeviceResult(
       deviceId: $deviceId->value,
@@ -77,4 +104,5 @@ final readonly class TrustDeviceHandler
       expiresAt: $device->expiresAt(),
     );
   }
+  //#endregion
 }

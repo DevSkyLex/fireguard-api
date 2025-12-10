@@ -22,7 +22,7 @@ use Shared\Domain\ValueObject\Scopes;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GrantConsentHandler
+final readonly class GrantConsentHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**

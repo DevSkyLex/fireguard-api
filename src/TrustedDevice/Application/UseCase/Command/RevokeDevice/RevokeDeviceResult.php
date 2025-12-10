@@ -4,38 +4,38 @@ declare(strict_types=1);
 
 namespace TrustedDevice\Application\UseCase\Command\RevokeDevice;
 
-use Shared\Application\Message\CommandMessage;
+use Shared\Application\Message\ResultMessage;
 
 /**
- * Command RevokeDeviceCommand
+ * Result RevokeDeviceResult
  * @final
  *
- * Command to revoke a trusted device.
+ * Result of revoking a trusted device.
  *
- * @category Command
+ * @category Result
  * @package TrustedDevice\Application\UseCase\Command\RevokeDevice
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RevokeDeviceCommand implements CommandMessage
+final readonly class RevokeDeviceResult implements ResultMessage
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initialize the command with the 
-   * device ID and user ID.
+   * Initialize the result with the 
+   * success status and device ID.
    *
    * @access public
    * @since 1.0.0
    *
-   * @param string $deviceId The device ID.
-   * @param string $userId The user ID.
+   * @param bool $success Whether the revocation was successful.
+   * @param string $deviceId The revoked device ID.
    */
   public function __construct(
+    public readonly bool $success,
     public readonly string $deviceId,
-    public readonly string $userId,
   ) {}
   //#endregion
 }

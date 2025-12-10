@@ -20,7 +20,7 @@ use Session\Domain\ValueObject\SessionId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetSessionHandler
+final readonly class GetSessionHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

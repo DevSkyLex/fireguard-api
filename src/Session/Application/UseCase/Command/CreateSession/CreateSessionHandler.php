@@ -22,7 +22,7 @@ use Shared\Application\Factory\UuidFactory;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class CreateSessionHandler
+final readonly class CreateSessionHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**

@@ -23,7 +23,7 @@ use function count;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ListUserSessionsHandler
+final readonly class ListUserSessionsHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**
@@ -38,7 +38,8 @@ final readonly class ListUserSessionsHandler
    */
   public function __construct(
     private readonly SessionRepositoryPort $sessionRepository,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

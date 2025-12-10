@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Otp\Application\UseCase\Command\SetupTotp;
 
 use Otp\Application\Port\Outbound\TotpServicePort;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler SetupTotpHandler
@@ -18,7 +19,7 @@ use Otp\Application\Port\Outbound\TotpServicePort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class SetupTotpHandler
+final readonly class SetupTotpHandler implements CommandHandler
 {
   //#region Constructor
   /**

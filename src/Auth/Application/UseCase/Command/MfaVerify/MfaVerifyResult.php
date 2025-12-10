@@ -27,11 +27,19 @@ final readonly class MfaVerifyResult implements ResultMessage
    * @param bool $success Whether verification succeeded.
    * @param int $attemptsRemaining Remaining verification attempts.
    * @param string|null $error Error message if failed.
+   * @param string|null $accessToken The access token (if success).
+   * @param string|null $refreshToken The refresh token (if success).
+   * @param string $tokenType The token type.
+   * @param int $expiresIn Token expiration in seconds.
    */
   public function __construct(
     public bool $success,
     public int $attemptsRemaining = 0,
     public ?string $error = null,
+    public ?string $accessToken = null,
+    public ?string $refreshToken = null,
+    public string $tokenType = 'Bearer',
+    public int $expiresIn = 0,
   ) {
   }
   //#endregion

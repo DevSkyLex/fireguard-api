@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\RevokeToken;
 
-use Auth\Application\Port\Inbound\RevokeTokenUseCasePort;
 use Auth\Application\Port\Outbound\TokenRevocationPort;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler RevokeTokenHandler
@@ -19,16 +19,22 @@ use Auth\Application\Port\Outbound\TokenRevocationPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RevokeTokenHandler implements RevokeTokenUseCasePort
+final readonly class RevokeTokenHandler implements CommandHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
+   * Initializes a new instance of the 
+   * RevokeTokenHandler class.
+   *
+   * @access public
+   * @since 1.0.0
+   *
    * @param TokenRevocationPort $tokenRevocation The token revocation service.
    */
   public function __construct(
-    private TokenRevocationPort $tokenRevocation,
+    private readonly TokenRevocationPort $tokenRevocation,
   ) {}
   //#endregion
 
@@ -37,6 +43,9 @@ final readonly class RevokeTokenHandler implements RevokeTokenUseCasePort
    * Method __invoke
    *
    * Handles the RevokeTokenCommand.
+   * 
+   * @access public
+   * @since 1.0.0
    *
    * @param RevokeTokenCommand $command The command.
    *
@@ -50,7 +59,8 @@ final readonly class RevokeTokenHandler implements RevokeTokenUseCasePort
       if ($this->tokenRevocation->revokeRefreshToken($command->token)) {
         return new RevokeTokenResult(revoked: true);
       }
-    } elseif ($command->tokenTypeHint === RevokeTokenCommand::HINT_ACCESS_TOKEN) {
+    } 
+    elseif ($command->tokenTypeHint === RevokeTokenCommand::HINT_ACCESS_TOKEN) {
       if ($this->tokenRevocation->revokeAccessToken($command->token)) {
         return new RevokeTokenResult(revoked: true);
       }
@@ -63,12 +73,5 @@ final readonly class RevokeTokenHandler implements RevokeTokenUseCasePort
     return new RevokeTokenResult(revoked: $revoked);
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(RevokeTokenCommand $command): RevokeTokenResult
-  {
-    return $this->__invoke($command);
-  }
   //#endregion
 }

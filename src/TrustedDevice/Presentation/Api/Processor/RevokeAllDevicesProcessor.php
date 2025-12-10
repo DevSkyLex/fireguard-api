@@ -39,8 +39,8 @@ final readonly class RevokeAllDevicesProcessor implements ProcessorInterface
       userId: $user->getUserIdentifier(),
     );
 
-    $count = $this->handler->__invoke($command);
+    $result = $this->handler->__invoke($command);
 
-    return ['revoked' => $count];
+    return ['revoked' => $result->revokedCount];
   }
 }

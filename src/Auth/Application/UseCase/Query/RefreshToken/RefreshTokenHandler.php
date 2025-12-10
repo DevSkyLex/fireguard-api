@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Query\RefreshToken;
 
-use Auth\Application\Port\Inbound\RefreshTokenUseCasePort;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use Psr\Log\LoggerInterface;
+use Auth\Domain\Event\TokenRefreshedEvent;
+use Auth\Domain\Event\TokenRefreshFailedEvent;
+use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
 use User\Application\UseCase\Query\GetUser\GetUserQuery;
 use User\Application\UseCase\Query\GetUser\GetUserResult;
@@ -26,28 +27,22 @@ use User\Application\UseCase\Query\GetUser\GetUserResult;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RefreshTokenHandler implements RefreshTokenUseCasePort
+final readonly class RefreshTokenHandler implements QueryHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes a new instance of the
-   * RefreshTokenHandler class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
    * @param JwtTokenServicePort $tokenService The JWT token service.
    * @param QueryBusPort $queryBus The query bus.
-   * @param LoggerInterface $logger The security logger.
+   * @param EventDispatcherPort $eventDispatcher The event dispatcher.
    */
   public function __construct(
     private JwtTokenServicePort $tokenService,
     private QueryBusPort $queryBus,
-    #[Autowire(service: 'monolog.logger.security')]
-    private LoggerInterface $logger,
-  ) {}
+    private EventDispatcherPort $eventDispatcher,
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -55,9 +50,6 @@ final readonly class RefreshTokenHandler implements RefreshTokenUseCasePort
    * Method __invoke
    *
    * Handles the RefreshTokenQuery.
-   *
-   * @access public
-   * @since 1.0.0
    *
    * @param RefreshTokenQuery $query The query.
    *
@@ -72,9 +64,12 @@ final readonly class RefreshTokenHandler implements RefreshTokenUseCasePort
     $payload = $this->tokenService->decodeRefreshToken($query->refreshToken);
 
     if ($payload === null) {
-      $this->logger->warning('Invalid refresh token attempt', [
-        'ip' => $query->ipAddress,
-      ]);
+      $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
+        userId: null,
+        ipAddress: $query->ipAddress,
+        reason: 'invalid_token',
+      ));
+
       return RefreshTokenResult::failed('Invalid or expired refresh token');
     }
 
@@ -87,7 +82,7 @@ final readonly class RefreshTokenHandler implements RefreshTokenUseCasePort
     /** @var non-empty-string $userId */
 
     // Verify user is still active
-    $userResult = $this->verifyUserActive($userId);
+    $userResult = $this->verifyUserActive($userId, $query->ipAddress);
     if ($userResult !== null) {
       return $userResult;
     }
@@ -101,10 +96,10 @@ final readonly class RefreshTokenHandler implements RefreshTokenUseCasePort
       scopes: $scopes
     );
 
-    $this->logger->info('Token refreshed successfully', [
-      'user_id' => $userId,
-      'ip' => $query->ipAddress,
-    ]);
+    $this->eventDispatcher->dispatch(new TokenRefreshedEvent(
+      userId: $userId,
+      ipAddress: $query->ipAddress,
+    ));
 
     return new RefreshTokenResult(
       success: true,
@@ -122,50 +117,47 @@ final readonly class RefreshTokenHandler implements RefreshTokenUseCasePort
    *
    * Verifies that the user is still active.
    *
-   * @access private
-   * @since 1.0.0
-   *
    * @param string $userId The user ID.
+   * @param string|null $ipAddress The IP address.
    *
    * @return RefreshTokenResult|null Error result if user is not active, null otherwise.
    */
-  private function verifyUserActive(string $userId): ?RefreshTokenResult
+  private function verifyUserActive(string $userId, ?string $ipAddress): ?RefreshTokenResult
   {
     try {
       /** @var GetUserResult $userResult */
       $userResult = $this->queryBus->ask(new GetUserQuery(id: $userId));
 
       if ($userResult->user === null) {
-        $this->logger->warning('Refresh token for non-existent user', [
-          'user_id' => $userId,
-        ]);
+        $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
+          userId: $userId,
+          ipAddress: $ipAddress,
+          reason: 'user_not_found',
+        ));
+
         return RefreshTokenResult::failed('User not found');
       }
 
       if (!$userResult->user->canLogin()) {
-        $this->logger->warning('Refresh token for inactive user', [
-          'user_id' => $userId,
-        ]);
+        $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
+          userId: $userId,
+          ipAddress: $ipAddress,
+          reason: 'user_inactive',
+        ));
+
         return RefreshTokenResult::failed('User account is not active');
       }
 
       return null;
+    } catch (Throwable) {
+      $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
+        userId: $userId,
+        ipAddress: $ipAddress,
+        reason: 'verification_error',
+      ));
 
-    } catch (Throwable $e) {
-      $this->logger->error('Error verifying user for refresh token', [
-        'user_id' => $userId,
-        'error' => $e->getMessage(),
-      ]);
       return RefreshTokenResult::failed('Failed to verify user');
     }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(RefreshTokenQuery $query): RefreshTokenResult
-  {
-    return $this->__invoke($query);
   }
   //#endregion
 }

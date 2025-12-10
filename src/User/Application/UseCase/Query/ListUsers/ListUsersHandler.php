@@ -22,7 +22,7 @@ use function count;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ListUsersHandler
+final readonly class ListUsersHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

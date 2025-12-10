@@ -22,7 +22,7 @@ use Shared\Domain\Service\EventIdProvider;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class DeleteClientHandler
+final readonly class DeleteClientHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**
@@ -40,7 +40,8 @@ final readonly class DeleteClientHandler
     private readonly ClientRepositoryPort $clientRepository,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

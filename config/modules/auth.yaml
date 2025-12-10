@@ -65,6 +65,9 @@ services:
   Auth\Application\UseCase\Query\RefreshToken\RefreshTokenHandler:
     tags: ['messenger.message_handler']
 
+  Auth\Application\UseCase\Command\MfaVerify\MfaVerifyHandler:
+    tags: ['messenger.message_handler']
+
   # League OAuth2 Server
   League\OAuth2\Server\Repositories\ClientRepositoryInterface:
     class: Auth\Infrastructure\OAuth2\Repository\ClientRepositoryAdapter

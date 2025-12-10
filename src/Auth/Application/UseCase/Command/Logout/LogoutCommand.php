@@ -34,8 +34,8 @@ final readonly class LogoutCommand implements CommandMessage
    * @param string|null $accessToken The JWT access token from header.
    */
   public function __construct(
-    public ?string $refreshToken = null,
-    public ?string $accessToken = null,
+    public readonly ?string $refreshToken = null,
+    public readonly ?string $accessToken = null,
   ) {}
   //#endregion
 }

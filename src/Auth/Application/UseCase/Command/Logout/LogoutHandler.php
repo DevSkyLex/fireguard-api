@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Logout;
 
-use Auth\Application\Port\Inbound\LogoutUseCasePort;
 use Auth\Application\Port\Outbound\TokenRevocationPort;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler LogoutHandler
@@ -19,13 +19,14 @@ use Auth\Application\Port\Outbound\TokenRevocationPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class LogoutHandler implements LogoutUseCasePort
+final readonly class LogoutHandler implements CommandHandler
 {
   //#region Constructor
   /**
    * Constructor
    *
-   * Initializes the handler with the token revocation service.
+   * Initializes the handler with the 
+   * token revocation service.
    *
    * @access public
    * @since 1.0.0
@@ -34,7 +35,8 @@ final readonly class LogoutHandler implements LogoutUseCasePort
    */
   public function __construct(
     private readonly TokenRevocationPort $tokenRevocation,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -74,12 +76,5 @@ final readonly class LogoutHandler implements LogoutUseCasePort
     );
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(LogoutCommand $command): LogoutResult
-  {
-    return $this->__invoke($command);
-  }
   //#endregion
 }

@@ -18,9 +18,22 @@ namespace TrustedDevice\Application\UseCase\Query\CheckDeviceTrusted;
  */
 final readonly class CheckDeviceTrustedQuery
 {
+  //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initializes a new instance of the 
+   * CheckDeviceTrustedQuery class.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param string $token The token.
+   * @param string $userId The user ID.
+   */
   public function __construct(
-    public string $token,
-    public string $userId,
-  ) {
-  }
+    public readonly string $token,
+    public readonly string $userId,
+  ) {}
+  //#endregion
 }

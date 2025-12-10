@@ -9,6 +9,7 @@ use Otp\Application\Port\Outbound\OtpRepositoryPort;
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\OtpId;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler GenerateOtpHandler
@@ -22,7 +23,7 @@ use Shared\Application\Factory\UuidFactory;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GenerateOtpHandler
+final readonly class GenerateOtpHandler implements CommandHandler
 {
   //#region Constructor
   /**
@@ -41,7 +42,8 @@ final readonly class GenerateOtpHandler
     private readonly OtpRepositoryPort $otpRepository,
     private readonly OtpNotifierPort $otpNotifier,
     private readonly UuidFactory $uuidFactory,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

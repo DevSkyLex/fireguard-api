@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Login;
 
-use Auth\Application\Port\Inbound\LoginUseCasePort;
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
-use Shared\Application\Port\Outbound\RateLimiterPort;
+use Auth\Domain\Event\LoginFailedEvent;
 use Auth\Domain\Event\TokenIssuedEvent;
 use Auth\Domain\Event\UserLoggedInEvent;
 use Auth\Domain\ValueObject\DefaultScopes;
-use Psr\Log\LoggerInterface;
+use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\RateLimiterPort;
 use Throwable;
 use User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserQuery;
 use User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserResult;
@@ -22,7 +21,8 @@ use User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserResult;
  * Handler LoginHandler
  * @final
  *
- * Handles user authentication and token generation.
+ * Handles user authentication and
+ * token generation.
  *
  * @category Handler
  * @package Auth\Application\UseCase\Command\Login
@@ -30,7 +30,7 @@ use User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserResult;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class LoginHandler implements LoginUseCasePort
+final readonly class LoginHandler implements CommandHandler
 {
   //#region Constructor
   /**
@@ -46,15 +46,12 @@ final readonly class LoginHandler implements LoginUseCasePort
    * @param JwtTokenServicePort $tokenService The JWT token service.
    * @param EventDispatcherPort $eventDispatcher The event dispatcher.
    * @param RateLimiterPort $rateLimiter The rate limiter.
-   * @param LoggerInterface $logger The security logger.
    */
   public function __construct(
-    private QueryBusPort $queryBus,
-    private JwtTokenServicePort $tokenService,
-    private EventDispatcherPort $eventDispatcher,
-    private RateLimiterPort $rateLimiter,
-    #[Autowire(service: 'monolog.logger.security')]
-    private LoggerInterface $logger,
+    private readonly QueryBusPort $queryBus,
+    private readonly JwtTokenServicePort $tokenService,
+    private readonly EventDispatcherPort $eventDispatcher,
+    private readonly RateLimiterPort $rateLimiter,
   ) {}
   //#endregion
 
@@ -63,7 +60,7 @@ final readonly class LoginHandler implements LoginUseCasePort
    * Method __invoke
    *
    * Handles the LoginCommand.
-   *
+   * 
    * @access public
    * @since 1.0.0
    *
@@ -78,11 +75,11 @@ final readonly class LoginHandler implements LoginUseCasePort
     $rateLimit = $this->rateLimiter->consume($rateLimitKey);
 
     if (!$rateLimit->accepted) {
-      $this->logger->warning('Login rate limit exceeded', [
-        'email' => $command->email,
-        'ip' => $command->ipAddress,
-        'retry_after' => $rateLimit->retryAfter,
-      ]);
+      $this->eventDispatcher->dispatch(new LoginFailedEvent(
+        email: $command->email,
+        ipAddress: $command->ipAddress,
+        reason: 'rate_limit_exceeded',
+      ));
 
       return LoginResult::failed(
         sprintf('Too many login attempts. Please try again in %d seconds.', $rateLimit->retryAfter)
@@ -99,11 +96,11 @@ final readonly class LoginHandler implements LoginUseCasePort
       );
 
       if (!$authResult->authenticated || $authResult->userId === null) {
-        $this->logger->warning('Failed login attempt', [
-          'email' => $command->email,
-          'ip' => $command->ipAddress,
-          'reason' => 'invalid_credentials',
-        ]);
+        $this->eventDispatcher->dispatch(new LoginFailedEvent(
+          email: $command->email,
+          ipAddress: $command->ipAddress,
+          reason: 'invalid_credentials',
+        ));
 
         return LoginResult::failed();
       }
@@ -118,12 +115,6 @@ final readonly class LoginHandler implements LoginUseCasePort
         email: $authResult->email ?? $command->email,
         scopes: $scopes
       );
-
-      $this->logger->info('User authenticated successfully', [
-        'user_id' => $authResult->userId,
-        'email' => $authResult->email,
-        'ip' => $command->ipAddress,
-      ]);
 
       // Dispatch domain events
       $this->eventDispatcher->dispatch(new UserLoggedInEvent(
@@ -151,13 +142,12 @@ final readonly class LoginHandler implements LoginUseCasePort
         expiresIn: $tokens['expires_in'],
         scopes: $scopes,
       );
-
-    } catch (Throwable $e) {
-      $this->logger->error('Login error', [
-        'email' => $command->email,
-        'ip' => $command->ipAddress,
-        'error' => $e->getMessage(),
-      ]);
+    } catch (Throwable) {
+      $this->eventDispatcher->dispatch(new LoginFailedEvent(
+        email: $command->email,
+        ipAddress: $command->ipAddress,
+        reason: 'internal_error',
+      ));
 
       return LoginResult::failed();
     }
@@ -168,29 +158,16 @@ final readonly class LoginHandler implements LoginUseCasePort
    *
    * Generates a rate limit key based on email and IP.
    *
-   * @access private
-   * @since 1.0.0
-   *
    * @param LoginCommand $command The command.
    *
    * @return string The rate limit key.
    */
   private function getRateLimitKey(LoginCommand $command): string
   {
-    // Combine email and IP for rate limiting
-    // This prevents both brute force on single account and distributed attacks
     $emailHash = hash('sha256', strtolower($command->email));
     $ipHash = hash('sha256', $command->ipAddress ?? 'unknown');
 
     return sprintf('login_%s_%s', substr($emailHash, 0, 16), substr($ipHash, 0, 16));
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(LoginCommand $command): LoginResult
-  {
-    return $this->__invoke($command);
   }
   //#endregion
 }

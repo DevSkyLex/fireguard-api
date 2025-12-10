@@ -6,6 +6,7 @@ namespace Auth\Application\UseCase\Query\CheckConsent;
 
 use Auth\Application\Port\Outbound\ConsentRepositoryPort;
 use Shared\Domain\ValueObject\Scopes;
+use Shared\Application\Message\QueryHandler;
 
 /**
  * Handler CheckConsentHandler
@@ -19,7 +20,7 @@ use Shared\Domain\ValueObject\Scopes;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class CheckConsentHandler
+final readonly class CheckConsentHandler implements QueryHandler
 {
   //#region Constructor
   /**
@@ -34,9 +35,8 @@ final readonly class CheckConsentHandler
    * @param ConsentRepositoryPort $consentRepository The consent repository.
    */
   public function __construct(
-    private ConsentRepositoryPort $consentRepository,
-  ) {
-  }
+    private readonly ConsentRepositoryPort $consentRepository,
+  ) {}
   //#endregion
 
   //#region Methods

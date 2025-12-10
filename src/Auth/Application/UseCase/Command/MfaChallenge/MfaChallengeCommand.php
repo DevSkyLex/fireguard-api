@@ -24,7 +24,8 @@ final readonly class MfaChallengeCommand implements CommandMessage
   /**
    * Constructor
    *
-   * Initializes a new instance of the MfaChallengeCommand class.
+   * Initializes a new instance of the 
+   * MfaChallengeCommand class.
    *
    * @access public
    * @since 1.0.0
@@ -36,12 +37,11 @@ final readonly class MfaChallengeCommand implements CommandMessage
    * @param int|null $ttlSeconds Optional custom TTL in seconds.
    */
   public function __construct(
-    public string $userId,
-    public string $purpose,
-    public string $channel,
-    public string $recipient,
-    public ?int $ttlSeconds = null,
-  ) {
-  }
+    public readonly string $userId,
+    public readonly string $purpose,
+    public readonly string $channel,
+    public readonly string $recipient,
+    public readonly ?int $ttlSeconds = null,
+  ) {}
   //#endregion
 }

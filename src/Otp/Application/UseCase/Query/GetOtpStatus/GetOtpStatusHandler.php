@@ -7,6 +7,7 @@ namespace Otp\Application\UseCase\Query\GetOtpStatus;
 use Otp\Application\Port\Outbound\OtpRepositoryPort;
 use Otp\Domain\Exception\OtpNotFoundException;
 use Otp\Domain\ValueObject\OtpId;
+use Shared\Application\Message\QueryHandler;
 
 /**
  * Handler GetOtpStatusHandler
@@ -20,7 +21,7 @@ use Otp\Domain\ValueObject\OtpId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetOtpStatusHandler
+final readonly class GetOtpStatusHandler implements QueryHandler
 {
   //#region Constructor
   /**
@@ -60,9 +61,10 @@ final readonly class GetOtpStatusHandler
       id: new OtpId(value: $query->otpId)
     );
 
-    if ($otp === null) throw OtpNotFoundException::create(
-      id: $query->otpId
-    );
+    if ($otp === null)
+      throw OtpNotFoundException::create(
+        id: $query->otpId
+      );
 
     return new GetOtpStatusResult(
       status: $otp->status(),

@@ -36,11 +36,10 @@ final readonly class MfaChallengeResult implements ResultMessage
    * @param int $maxAttempts Maximum verification attempts allowed.
    */
   public function __construct(
-    public string $challengeToken,
-    public string $maskedRecipient,
-    public DateTimeImmutable $expiresAt,
-    public int $maxAttempts,
-  ) {
-  }
+    public readonly string $challengeToken,
+    public readonly string $maskedRecipient,
+    public readonly DateTimeImmutable $expiresAt,
+    public readonly int $maxAttempts,
+  ) {}
   //#endregion
 }

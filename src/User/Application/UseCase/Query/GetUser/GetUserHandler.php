@@ -19,7 +19,7 @@ use User\Domain\ValueObject\UserId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetUserHandler
+final readonly class GetUserHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**
@@ -35,7 +35,8 @@ final readonly class GetUserHandler
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

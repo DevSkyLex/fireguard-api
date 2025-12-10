@@ -10,7 +10,7 @@ use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
  * Handler ListTrustedDevicesHandler
  * @final
  */
-final readonly class ListTrustedDevicesHandler
+final readonly class ListTrustedDevicesHandler implements \Shared\Application\Message\QueryHandler
 {
   public function __construct(
     private TrustedDeviceRepositoryPort $repository,

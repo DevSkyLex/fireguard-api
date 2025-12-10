@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Query\ValidateToken;
 
-use Auth\Application\Port\Inbound\ValidateTokenUseCasePort;
 use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
 use Auth\Application\Port\Outbound\JwtParserPort;
 use Throwable;
+use Shared\Application\Message\QueryHandler;
 
 /**
  * Handler ValidateTokenHandler
@@ -21,7 +21,7 @@ use Throwable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ValidateTokenHandler implements ValidateTokenUseCasePort
+final readonly class ValidateTokenHandler implements QueryHandler
 {
   //#region Constructor
   /**
@@ -37,8 +37,8 @@ final readonly class ValidateTokenHandler implements ValidateTokenUseCasePort
    * @param AccessTokenRepositoryPort $accessTokenRepository The access token repository.
    */
   public function __construct(
-    private JwtParserPort $jwtParser,
-    private AccessTokenRepositoryPort $accessTokenRepository,
+    private readonly JwtParserPort $jwtParser,
+    private readonly AccessTokenRepositoryPort $accessTokenRepository,
   ) {}
   //#endregion
 
@@ -97,12 +97,5 @@ final readonly class ValidateTokenHandler implements ValidateTokenUseCasePort
     }
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(ValidateTokenQuery $query): ValidateTokenResult
-  {
-    return $this->__invoke($query);
-  }
   //#endregion
 }

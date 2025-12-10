@@ -10,6 +10,7 @@ use Otp\Domain\Exception\OtpMaxAttemptsException;
 use Otp\Domain\Exception\OtpNotFoundException;
 use Otp\Domain\ValueObject\ChallengeToken;
 use Otp\Domain\ValueObject\OtpId;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler VerifyOtpHandler
@@ -23,7 +24,7 @@ use Otp\Domain\ValueObject\OtpId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class VerifyOtpHandler
+final readonly class VerifyOtpHandler implements CommandHandler
 {
   //#region Constructor
   /**

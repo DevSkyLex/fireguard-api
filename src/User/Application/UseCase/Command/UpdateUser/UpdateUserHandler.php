@@ -21,7 +21,7 @@ use User\Domain\ValueObject\UserProfile;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class UpdateUserHandler
+final readonly class UpdateUserHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**
@@ -37,7 +37,8 @@ final readonly class UpdateUserHandler
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

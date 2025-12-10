@@ -28,7 +28,7 @@ use User\Domain\ValueObject\UserProfile;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class CreateUserHandler
+final readonly class CreateUserHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**
@@ -49,7 +49,8 @@ final readonly class CreateUserHandler
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

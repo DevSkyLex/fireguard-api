@@ -20,7 +20,7 @@ use Session\Domain\ValueObject\SessionId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RevokeSessionHandler
+final readonly class RevokeSessionHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**

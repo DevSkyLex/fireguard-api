@@ -11,6 +11,7 @@ use Tenant\Domain\Model\Tenant;
 use Tenant\Domain\ValueObject\TenantId;
 use Tenant\Domain\ValueObject\TenantName;
 use Tenant\Domain\ValueObject\TenantSettings;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler CreateTenantHandler
@@ -24,11 +25,14 @@ use Tenant\Domain\ValueObject\TenantSettings;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class CreateTenantHandler
+final readonly class CreateTenantHandler implements CommandHandler
 {
   //#region Constructor
   /**
    * Constructor
+   *
+   * Initializes a new instance of the 
+   * CreateTenantHandler class.
    *
    * @access public
    * @since 1.0.0
@@ -37,10 +41,9 @@ final readonly class CreateTenantHandler
    * @param UuidFactory $uuidFactory The UUID factory.
    */
   public function __construct(
-    private TenantRepositoryPort $tenantRepository,
-    private UuidFactory $uuidFactory,
-  ) {
-  }
+    private readonly TenantRepositoryPort $tenantRepository,
+    private readonly UuidFactory $uuidFactory,
+  ) {}
   //#endregion
 
   //#region Methods

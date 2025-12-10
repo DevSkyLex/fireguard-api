@@ -36,10 +36,10 @@ final readonly class LoginCommand implements CommandMessage
    * @param string|null $ipAddress The client IP address.
    */
   public function __construct(
-    public string $email,
-    public string $password,
-    public bool $rememberMe = false,
-    public ?string $ipAddress = null,
+    public readonly string $email,
+    public readonly string $password,
+    public readonly bool $rememberMe = false,
+    public readonly ?string $ipAddress = null,
   ) {}
   //#endregion
 }

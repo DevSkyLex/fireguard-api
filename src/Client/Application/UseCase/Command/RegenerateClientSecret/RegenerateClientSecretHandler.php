@@ -24,7 +24,7 @@ use Shared\Domain\Service\EventIdProvider;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RegenerateClientSecretHandler
+final readonly class RegenerateClientSecretHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**
@@ -44,7 +44,8 @@ final readonly class RegenerateClientSecretHandler
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

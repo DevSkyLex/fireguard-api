@@ -29,11 +29,17 @@ final readonly class RevokeTokenCommand implements CommandMessage
   /**
    * Constructor
    *
+   * Initializes a new instance of the 
+   * RevokeTokenCommand class.
+   *
+   * @access public
+   * @since 1.0.0
+   *
    * @param string $token The token to revoke.
    * @param string|null $tokenTypeHint Optional hint about the token type.
    */
   public function __construct(
-    public string $token,
-    public ?string $tokenTypeHint = null,
+    public readonly string $token,
+    public readonly ?string $tokenTypeHint = null,
   ) {}
 }

@@ -22,7 +22,7 @@ use Throwable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ValidateClientCredentialsHandler
+final readonly class ValidateClientCredentialsHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

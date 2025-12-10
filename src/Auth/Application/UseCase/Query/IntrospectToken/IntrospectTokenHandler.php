@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Query\IntrospectToken;
 
-use Auth\Application\Port\Inbound\IntrospectTokenUseCasePort;
 use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
 use Auth\Application\Port\Outbound\JwtParserPort;
 use Auth\Application\Port\Outbound\RefreshTokenRepositoryPort;
 use Auth\Application\Port\Outbound\TokenCachePort;
 use DateTimeImmutable;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Shared\Application\Message\QueryHandler;
 use Throwable;
 
 /**
@@ -26,7 +26,7 @@ use Throwable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class IntrospectTokenHandler implements IntrospectTokenUseCasePort
+final readonly class IntrospectTokenHandler implements QueryHandler
 {
   //#region Constructor
   /**
@@ -45,12 +45,12 @@ final readonly class IntrospectTokenHandler implements IntrospectTokenUseCasePor
    * @param string $issuer The token issuer.
    */
   public function __construct(
-    private JwtParserPort $jwtParser,
-    private AccessTokenRepositoryPort $accessTokenRepository,
-    private RefreshTokenRepositoryPort $refreshTokenRepository,
-    private TokenCachePort $tokenCache,
+    private readonly JwtParserPort $jwtParser,
+    private readonly AccessTokenRepositoryPort $accessTokenRepository,
+    private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
+    private readonly TokenCachePort $tokenCache,
     #[Autowire('%env(OAUTH_ISSUER)%')]
-    private string $issuer = '',
+    private readonly string $issuer = '',
   ) {}
   //#endregion
 
@@ -236,12 +236,5 @@ final readonly class IntrospectTokenHandler implements IntrospectTokenUseCasePor
     );
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(IntrospectTokenQuery $query): IntrospectTokenResult
-  {
-    return $this->__invoke($query);
-  }
   //#endregion
 }

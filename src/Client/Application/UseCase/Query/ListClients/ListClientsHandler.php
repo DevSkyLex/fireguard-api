@@ -21,7 +21,7 @@ use Shared\Application\Query\PaginatedResult;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class ListClientsHandler
+final readonly class ListClientsHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

@@ -20,7 +20,7 @@ use User\Domain\ValueObject\UserId;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class DeleteUserHandler
+final readonly class DeleteUserHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**
@@ -36,7 +36,8 @@ final readonly class DeleteUserHandler
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

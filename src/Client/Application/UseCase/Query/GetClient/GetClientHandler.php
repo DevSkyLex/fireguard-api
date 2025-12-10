@@ -20,7 +20,7 @@ use Shared\Domain\Exception\EntityNotFoundException;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class GetClientHandler
+final readonly class GetClientHandler implements \Shared\Application\Message\QueryHandler
 {
   //#region Constructor
   /**

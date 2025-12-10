@@ -26,7 +26,7 @@ use Shared\Domain\Service\EventIdProvider;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RegisterClientHandler
+final readonly class RegisterClientHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**
@@ -47,7 +47,8 @@ final readonly class RegisterClientHandler
     private readonly HashingPort $hashing,
     private readonly EventBusPort $eventBus,
     private readonly EventIdProvider $eventIdProvider,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods

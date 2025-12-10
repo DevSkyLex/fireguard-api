@@ -18,7 +18,7 @@ use Session\Application\Port\Outbound\SessionRepositoryPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class RevokeAllUserSessionsHandler
+final readonly class RevokeAllUserSessionsHandler implements \Shared\Application\Message\CommandHandler
 {
   //#region Constructor
   /**

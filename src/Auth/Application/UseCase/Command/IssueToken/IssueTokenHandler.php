@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\IssueToken;
 
-use Auth\Application\Port\Inbound\IssueTokenUseCasePort;
 use Auth\Application\Port\Outbound\AuthorizationServerPort;
+use Shared\Application\Message\CommandHandler;
 
 /**
  * Handler IssueTokenHandler
@@ -20,7 +20,7 @@ use Auth\Application\Port\Outbound\AuthorizationServerPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class IssueTokenHandler implements IssueTokenUseCasePort
+final readonly class IssueTokenHandler implements CommandHandler
 {
   //#region Constructor
   /**
@@ -35,9 +35,8 @@ final readonly class IssueTokenHandler implements IssueTokenUseCasePort
    * @param AuthorizationServerPort $authorizationServer The authorization server port.
    */
   public function __construct(
-    private AuthorizationServerPort $authorizationServer
-  ) {
-  }
+    private readonly AuthorizationServerPort $authorizationServer
+  ) {}
   //#endregion
 
   //#region Methods
@@ -56,7 +55,6 @@ final readonly class IssueTokenHandler implements IssueTokenUseCasePort
    */
   public function __invoke(IssueTokenCommand $command): IssueTokenResult
   {
-
     return $this->authorizationServer->issueAccessToken(
       grantType: $command->grantType,
       clientId: $command->clientId,
@@ -69,12 +67,5 @@ final readonly class IssueTokenHandler implements IssueTokenUseCasePort
     );
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  public function execute(IssueTokenCommand $command): IssueTokenResult
-  {
-    return $this->__invoke($command);
-  }
   //#endregion
 }
