@@ -42,6 +42,12 @@ doctrine:
         dir: '%kernel.project_dir%/src/Otp/Infrastructure/Persistence/Doctrine/Record'
         prefix: 'Otp\Infrastructure\Persistence\Doctrine\Record'
         alias: Otp
+      Authorization:
+        is_bundle: false
+        type: attribute
+        dir: '%kernel.project_dir%/src/Authorization/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'Authorization\Infrastructure\Persistence\Doctrine\Record'
+        alias: Authorization
     controller_resolver:
       auto_mapping: false
 

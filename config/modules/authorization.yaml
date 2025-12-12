@@ -1,0 +1,54 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # Authorization Module - Ports
+  Authorization\Application\Port\Outbound\PermissionRepositoryPort:
+    class: Authorization\Infrastructure\Persistence\Doctrine\Repository\PermissionRepository
+
+  Authorization\Application\Port\Outbound\RoleRepositoryPort:
+    class: Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleRepository
+
+  Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort:
+    class: Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleAssignmentRepository
+
+  # Inbound Port (Authorization API)
+  Authorization\Application\Port\Inbound\AuthorizationPort:
+    class: Authorization\Application\Service\AuthorizationService
+
+  # Mappers
+  Authorization\Infrastructure\Persistence\Doctrine\Mapper\PermissionMapper: ~
+  Authorization\Infrastructure\Persistence\Doctrine\Mapper\RoleMapper: ~
+  Authorization\Infrastructure\Persistence\Doctrine\Mapper\RoleAssignmentMapper: ~
+
+  # Repositories
+  Authorization\Infrastructure\Persistence\Doctrine\Repository\PermissionRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleAssignmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  # Authorization Service
+  Authorization\Application\Service\AuthorizationService: ~
+
+  # Security Voters
+  Authorization\Infrastructure\Security\Voter\PermissionVoter:
+    tags: ['security.voter']
+
+  Authorization\Infrastructure\Security\Voter\RoleVoter:
+    tags: ['security.voter']
+
+  # DataFixtures
+  Authorization\Infrastructure\DataFixtures\AuthorizationFixtures:
+    tags: ['doctrine.fixture.orm']
+
+  # Console Commands
+  Authorization\Infrastructure\Console\AssignRoleCommand:
+    tags: ['console.command']

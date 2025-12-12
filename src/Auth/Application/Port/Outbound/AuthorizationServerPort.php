@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Auth\Application\Port\Outbound;
 
 use Auth\Application\UseCase\Command\IssueToken\IssueTokenResult;
+use Auth\Domain\Exception\AuthorizationException;
 
 /**
  * Interface AuthorizationServerPort
@@ -40,7 +41,7 @@ interface AuthorizationServerPort
    *
    * @return IssueTokenResult The token result.
    *
-   * @throws \Auth\Domain\Exception\AuthorizationException If token issuance fails.
+   * @throws AuthorizationException If token issuance fails.
    */
   public function issueAccessToken(
     string $grantType,

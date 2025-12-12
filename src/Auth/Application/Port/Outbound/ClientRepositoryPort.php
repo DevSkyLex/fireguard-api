@@ -20,13 +20,19 @@ use Shared\Domain\ValueObject\OAuthClientIdentifier;
  */
 interface ClientRepositoryPort
 {
+  //#region Methods
   /**
    * Method find
    *
    * Finds a client by its OAuth identifier.
+   * 
+   * @access public
+   * @since 1.0.0
    *
    * @param OAuthClientIdentifier $identifier The client identifier.
+   * 
    * @return Client|null The client or null if not found.
    */
   public function find(OAuthClientIdentifier $identifier): ?Client;
+  //#endregion
 }

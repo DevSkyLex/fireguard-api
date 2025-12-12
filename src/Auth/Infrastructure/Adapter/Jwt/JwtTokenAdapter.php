@@ -12,6 +12,7 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use League\OAuth2\Server\CryptTrait;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Authorization\Application\Service\AuthorizationService;
 
 /**
  * Adapter JwtTokenAdapter
@@ -72,6 +73,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    * @param non-empty-string $issuer
    * @param int $accessTokenTtl Access token TTL in seconds.
    * @param int $refreshTokenTtl Refresh token TTL in seconds.
+   * @param AuthorizationService|null $authorizationService Authorization service for roles/permissions.
    */
   public function __construct(
     #[Autowire('%kernel.project_dir%/config/jwt/private.key')]
@@ -86,6 +88,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     private readonly int $accessTokenTtl = 3600,
     #[Autowire('%env(int:REFRESH_TOKEN_LIFETIME_LONG)%')]
     private readonly int $refreshTokenTtl = 86400,
+    private readonly ?AuthorizationService $authorizationService = null,
   ) {
     $this->setEncryptionKey(key: $encryptionKey);
 
@@ -115,6 +118,14 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     $accessTokenId = bin2hex(random_bytes(20));
     $refreshTokenId = bin2hex(random_bytes(20));
 
+    // Get user roles and permissions from authorization service
+    $roles = [];
+    $permissions = [];
+    if ($this->authorizationService !== null) {
+      $roles = $this->authorizationService->getUserRoleNames(userId: $userId);
+      $permissions = $this->authorizationService->getUserPermissionNames(userId: $userId);
+    }
+
     $accessToken = $this->jwtConfig->builder()
       ->issuedBy($this->issuer)
       ->permittedFor($this->issuer)
@@ -124,6 +135,8 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       ->expiresAt($accessTokenExpiry)
       ->withClaim('email', $email)
       ->withClaim('scopes', $scopes)
+      ->withClaim('roles', $roles)
+      ->withClaim('permissions', $permissions)
       ->getToken($this->jwtConfig->signer(), $this->jwtConfig->signingKey());
 
     /** @var non-empty-string $refreshTokenPayload */
@@ -142,6 +155,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       'expires_in' => $this->accessTokenTtl,
     ];
   }
+
 
   /**
    * {@inheritDoc}

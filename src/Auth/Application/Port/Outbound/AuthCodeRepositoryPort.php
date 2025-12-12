@@ -19,6 +19,7 @@ use Auth\Domain\Model\AuthCode;
  */
 interface AuthCodeRepositoryPort
 {
+  //#region Methods
   /**
    * Method save
    * 
@@ -46,4 +47,5 @@ interface AuthCodeRepositoryPort
    * @return AuthCode|null The auth code or null if not found.
    */
   public function find(string $identifier): ?AuthCode;
+  //#endregion
 }

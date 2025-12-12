@@ -17,8 +17,14 @@ namespace Auth\Application\Port\Outbound;
  */
 interface TokenRevocationPort
 {
+  //#region Methods
   /**
+   * Method revokeRefreshToken
+   * 
    * Revoke a refresh token.
+   * 
+   * @access public
+   * @since 1.0.0
    *
    * @param string $encryptedToken The encrypted refresh token.
    *
@@ -27,7 +33,12 @@ interface TokenRevocationPort
   public function revokeRefreshToken(string $encryptedToken): bool;
 
   /**
+   * Method revokeAccessToken
+   * 
    * Revoke an access token (JWT).
+   * 
+   * @access public
+   * @since 1.0.0
    *
    * @param string $jwtToken The JWT access token.
    *
@@ -36,11 +47,17 @@ interface TokenRevocationPort
   public function revokeAccessToken(string $jwtToken): bool;
 
   /**
+   * Method revokeAllUserTokens
+   * 
    * Revoke all tokens for a user.
+   * 
+   * @access public
+   * @since 1.0.0
    *
    * @param string $userId The user identifier.
    *
    * @return void
    */
   public function revokeAllUserTokens(string $userId): void;
+  //#endregion
 }

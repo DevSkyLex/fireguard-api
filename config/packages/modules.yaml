@@ -10,4 +10,5 @@ imports:
   - { resource: '../modules/tenant.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/trusted_device.yaml' }
+  - { resource: '../modules/authorization.yaml' }
 

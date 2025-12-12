@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Persistence\Doctrine\Record;
 
+use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
 use DateTimeImmutable;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -26,6 +29,18 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_status', columns: ['status'])]
 class UserRecord
 {
+  //#region Constructor
+  /**
+   * Constructor
+   *
+   * Initializes collections.
+   */
+  public function __construct()
+  {
+    $this->roles = new ArrayCollection();
+  }
+  //#endregion
+
   //#region Properties
   /**
    * Property id
@@ -196,5 +211,21 @@ class UserRecord
    */
   #[ORM\Column(type: 'integer')]
   public int $failedLoginAttempts = 0;
+
+  /**
+   * Property roles
+   *
+   * The roles assigned to this user.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @var Collection<int, RoleRecord>
+   */
+  #[ORM\ManyToMany(targetEntity: RoleRecord::class)]
+  #[ORM\JoinTable(name: 'user_roles')]
+  #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id')]
+  #[ORM\InverseJoinColumn(name: 'role_id', referencedColumnName: 'id')]
+  public Collection $roles;
   //#endregion
 }
