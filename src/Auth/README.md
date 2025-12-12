@@ -376,36 +376,33 @@ The module follows **Hexagonal Architecture** (Ports & Adapters) principles:
 
 ```
 src/Auth/
-├── Application/              # Application Layer
+├── Application/              # Application Layer (Use Cases)
 │   ├── Port/                 # Ports (Interfaces)
-│   │   ├── Inbound/          # Use Case Interfaces (Inputs)
-│   │   └── Outbound/         # Repository/Service Interfaces (Outputs)
+│   │   ├── Inbound/          # Use Case Interfaces
+│   │   └── Outbound/         # Infrastructure Interfaces
 │   ├── UseCase/              # Business Logic
-│   │   ├── Command/          # Write operations (Command pattern)
+│   │   ├── Command/          # Write operations
 │   │   └── Query/            # Read operations
-│   └── Validation/           # Business specific validation
+│   └── Validation/           # Application Validation
 │
-├── Domain/                   # Domain Layer (Core)
-│   ├── Aggregate/            # Aggregates (e.g., TokenSession)
+├── Domain/                   # Domain Layer (Core Business)
+│   ├── Aggregate/            # Aggregates Roots
 │   ├── Event/                # Domain Events
-│   ├── Model/                # Entities (AccessToken, RefreshToken)
-│   ├── Service/              # Domain Services (Business logic requiring multiple entities)
-│   └── ValueObject/          # Value Objects (TokenId, Scope)
+│   ├── Model/                # Entities
+│   ├── Service/              # Domain Services
+│   └── ValueObject/          # Value Objects
 │
 ├── Infrastructure/           # Infrastructure Layer (Adapters)
-│   ├── Persistence/
-│   │   └── Doctrine/         # Doctrine Repositories Implementation
-│   ├── Security/
-│   │   └── Authenticator/    # Symfony Authenticator Integration
-│   └── Service/              # Concrete implementations (JWT encoding, OAuth2 libraries)
+│   ├── Adapter/              # External Service Adapters
+│   ├── OAuth2/               # OAuth2 Server Implementation
+│   ├── Persistence/          # Doctrine Repositories
+│   └── Security/             # Symfony Security Integration
 │
 └── Presentation/             # Presentation Layer (API)
-    ├── Dto/
-    │   ├── Input/            # Request Data Transfer Objects
-    │   └── Output/           # Response Data Transfer Objects
-    ├── Http/                 # Processors & Providers
-    ├── Resource/             # API Platform Resources definitions
-    └── Serialization/        # Serialization Groups configuration
+    ├── Dto/                  # Data Transfer Objects
+    ├── Http/                 # API Platform Processors/Providers
+    ├── Resource/             # API Resources
+    └── Serialization/        # Serialization Groups
 ```
 
 ---

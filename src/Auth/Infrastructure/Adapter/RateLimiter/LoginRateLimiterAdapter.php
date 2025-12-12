@@ -37,9 +37,8 @@ final readonly class LoginRateLimiterAdapter implements RateLimiterPort
    */
   public function __construct(
     #[Autowire(service: 'limiter.login')]
-    private RateLimiterFactory $loginLimiter,
-  ) {
-  }
+    private readonly RateLimiterFactory $loginLimiter,
+  ) {}
   //#endregion
 
   //#region Methods
