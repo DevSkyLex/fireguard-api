@@ -29,3 +29,10 @@ cache-clear:
 # Run every test suite and static analysis in sequence
 test: phpstan deptrac lint phpunit
 
+# Start local SonarQube server
+sonar-up:
+	docker compose -f compose.sonar.yaml up -d sonarqube
+
+# Run SonarQube analysis (requires server to be up)
+sonar-scan:
+	docker compose -f compose.sonar.yaml run --rm -e SONAR_TOKEN sonar-scanner
