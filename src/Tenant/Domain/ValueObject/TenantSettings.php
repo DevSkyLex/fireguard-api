@@ -41,7 +41,8 @@ final readonly class TenantSettings
     public bool $allowPublicClients = false,
     public array $allowedScopes = ['openid', 'profile', 'email'],
     public ?string $customIssuer = null,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -130,13 +131,21 @@ final readonly class TenantSettings
    */
   public static function fromArray(array $data): self
   {
+    $accessTokenTtl = $data['access_token_ttl'] ?? 3600;
+    $refreshTokenTtl = $data['refresh_token_ttl'] ?? 86400;
+    $customIssuer = $data['custom_issuer'] ?? null;
+    $allowedScopesRaw = $data['allowed_scopes'] ?? ['openid', 'profile', 'email'];
+    $allowedScopes = is_array($allowedScopesRaw)
+      ? array_values(array_filter($allowedScopesRaw, 'is_string'))
+      : ['openid', 'profile', 'email'];
+
     return new self(
-      accessTokenTtl: (int) ($data['access_token_ttl'] ?? 3600),
-      refreshTokenTtl: (int) ($data['refresh_token_ttl'] ?? 86400),
+      accessTokenTtl: is_numeric($accessTokenTtl) ? (int) $accessTokenTtl : 3600,
+      refreshTokenTtl: is_numeric($refreshTokenTtl) ? (int) $refreshTokenTtl : 86400,
       requirePkce: (bool) ($data['require_pkce'] ?? true),
       allowPublicClients: (bool) ($data['allow_public_clients'] ?? false),
-      allowedScopes: array_values((array) ($data['allowed_scopes'] ?? ['openid', 'profile', 'email'])),
-      customIssuer: isset($data['custom_issuer']) ? (string) $data['custom_issuer'] : null,
+      allowedScopes: $allowedScopes,
+      customIssuer: is_scalar($customIssuer) ? (string) $customIssuer : null,
     );
   }
   //#endregion

@@ -39,7 +39,8 @@ final readonly class SessionMetadata
     public ?string $country = null,
     public ?string $city = null,
     public bool $rememberMe = false,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -80,13 +81,20 @@ final readonly class SessionMetadata
    */
   public static function fromArray(array $data): self
   {
+    $deviceType = $data['device_type'] ?? null;
+    $browser = $data['browser'] ?? null;
+    $operatingSystem = $data['operating_system'] ?? null;
+    $country = $data['country'] ?? null;
+    $city = $data['city'] ?? null;
+    $rememberMe = $data['remember_me'] ?? false;
+
     return new self(
-      deviceType: isset($data['device_type']) ? (string) $data['device_type'] : null,
-      browser: isset($data['browser']) ? (string) $data['browser'] : null,
-      operatingSystem: isset($data['operating_system']) ? (string) $data['operating_system'] : null,
-      country: isset($data['country']) ? (string) $data['country'] : null,
-      city: isset($data['city']) ? (string) $data['city'] : null,
-      rememberMe: (bool) ($data['remember_me'] ?? false),
+      deviceType: is_scalar($deviceType) ? (string) $deviceType : null,
+      browser: is_scalar($browser) ? (string) $browser : null,
+      operatingSystem: is_scalar($operatingSystem) ? (string) $operatingSystem : null,
+      country: is_scalar($country) ? (string) $country : null,
+      city: is_scalar($city) ? (string) $city : null,
+      rememberMe: (bool) $rememberMe,
     );
   }
   //#endregion

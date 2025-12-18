@@ -64,7 +64,7 @@ final class PresentationNamingTest extends TestCase
   public function testProcessorsEndWithProcessorSuffix(): void
   {
     $this->assertPresentationNaming(
-      directory: 'Processor', 
+      directory: 'Processor',
       suffix: 'Processor'
     );
   }
@@ -83,7 +83,7 @@ final class PresentationNamingTest extends TestCase
   public function testProvidersEndWithProviderSuffix(): void
   {
     $this->assertPresentationNaming(
-      directory: 'Provider', 
+      directory: 'Provider',
       suffix: 'Provider'
     );
   }
@@ -126,6 +126,9 @@ final class PresentationNamingTest extends TestCase
       );
 
       foreach ($iterator as $file) {
+        if (!$file instanceof \SplFileInfo) {
+          continue;
+        }
         if (!$file->isFile() || $file->getExtension() !== 'php') {
           continue;
         }

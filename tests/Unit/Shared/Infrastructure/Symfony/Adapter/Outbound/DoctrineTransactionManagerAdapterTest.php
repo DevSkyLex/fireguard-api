@@ -32,7 +32,7 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
 
     $this->entityManager->expects($this->once())
       ->method('wrapInTransaction')
-      ->willReturnCallback(function ($callback) {
+      ->willReturnCallback(function (callable $callback) {
         return $callback($this->entityManager);
       });
 
@@ -48,7 +48,7 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
 
     $this->entityManager->expects($this->once())
       ->method('wrapInTransaction')
-      ->willReturnCallback(function ($callback) {
+      ->willReturnCallback(function (callable $callback) {
         return $callback($this->entityManager);
       });
 

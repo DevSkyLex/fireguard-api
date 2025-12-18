@@ -40,7 +40,8 @@ final readonly class GetPermissionProvider implements ProviderInterface
    */
   public function __construct(
     private readonly PermissionRepositoryPort $permissionRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -63,7 +64,7 @@ final readonly class GetPermissionProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
 
-    if ($id === null) {
+    if (!is_string($id)) {
       return null;
     }
 

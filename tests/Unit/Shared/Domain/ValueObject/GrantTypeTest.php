@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Domain\ValueObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\GrantType;
+use OAuth\Domain\ValueObject\GrantType;
 
 /**
  * Class GrantTypeTest
@@ -18,7 +18,7 @@ use Shared\Domain\ValueObject\GrantType;
  * @category Unit Test
  * @package Tests\Unit\Shared\Domain\ValueObject
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * @covers \Shared\Domain\ValueObject\GrantType
+ * @covers \OAuth\Domain\ValueObject\GrantType
  */
 #[CoversClass(className: GrantType::class)]
 final class GrantTypeTest extends TestCase

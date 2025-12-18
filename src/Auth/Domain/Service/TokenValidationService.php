@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Domain\Service;
 
-use Auth\Domain\Model\AccessToken;
-use Auth\Domain\Model\RefreshToken;
+use OAuth\Domain\Model\AccessToken;
+use OAuth\Domain\Model\RefreshToken;
 
 /**
  * Service TokenValidationService

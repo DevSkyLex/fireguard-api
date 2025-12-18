@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Domain\ValueObject\RedirectUri;
+use OAuth\Domain\ValueObject\RedirectUri;
 
 /**
  * Class RedirectUriTest
@@ -19,7 +19,7 @@ use Shared\Domain\ValueObject\RedirectUri;
  * @package Tests\Unit\Shared\Domain\ValueObject
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Shared\Domain\ValueObject\RedirectUri
+ * @covers \OAuth\Domain\ValueObject\RedirectUri
  */
 #[CoversClass(className: RedirectUri::class)]
 final class RedirectUriTest extends TestCase

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Domain\Model;
 
-use Auth\Domain\Model\AccessToken;
+use OAuth\Domain\Model\AccessToken;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Class AccessTokenTest
@@ -23,7 +23,7 @@ use Shared\Domain\ValueObject\Scopes;
  * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Auth\Domain\Model\AccessToken
+ * @covers \OAuth\Domain\Model\AccessToken
  */
 #[CoversClass(className: AccessToken::class)]
 final class AccessTokenTest extends TestCase

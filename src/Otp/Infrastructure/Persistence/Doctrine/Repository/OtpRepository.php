@@ -94,7 +94,7 @@ final readonly class OtpRepository implements OtpRepositoryPort
       ->getQuery()
       ->getOneOrNullResult();
 
-    if ($record === null) {
+    if (!$record instanceof OtpRecord) {
       return null;
     }
 
@@ -124,7 +124,7 @@ final readonly class OtpRepository implements OtpRepositoryPort
   public function revokeAllForUser(string $userId, OtpPurpose $purpose): int
   {
     // Set expires_at to now for all active OTPs
-    return $this->entityManager->createQueryBuilder()
+    $result = $this->entityManager->createQueryBuilder()
       ->update(OtpRecord::class, 'o')
       ->set('o.expiresAt', ':now')
       ->where('o.userId = :userId')
@@ -136,6 +136,8 @@ final readonly class OtpRepository implements OtpRepositoryPort
       ->setParameter('now', new DateTimeImmutable())
       ->getQuery()
       ->execute();
+
+    return is_int($result) ? $result : 0;
   }
   //#endregion
 }

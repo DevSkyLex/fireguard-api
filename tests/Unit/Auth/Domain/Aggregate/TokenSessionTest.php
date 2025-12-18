@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Domain\Aggregate;
 
 use Auth\Domain\Aggregate\TokenSession;
-use Auth\Domain\Event\TokenIssuedEvent;
-use Auth\Domain\Event\TokenRevokedEvent;
+use OAuth\Domain\Event\TokenIssuedEvent;
+use OAuth\Domain\Event\TokenRevokedEvent;
 use Auth\Domain\Event\UserLoggedInEvent;
 use Auth\Domain\Event\UserLoggedOutEvent;
 use PHPUnit\Framework\TestCase;

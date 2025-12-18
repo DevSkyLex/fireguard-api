@@ -37,8 +37,8 @@ use User\Infrastructure\Persistence\Doctrine\Repository\UserRepository;
 final class UserRepositoryIntegrationTest extends KernelTestCase
 {
   //#region Properties
-  private ?EntityManagerInterface $entityManager = null;
-  private ?UserRepository $repository = null;
+  private EntityManagerInterface $entityManager;
+  private UserRepository $repository;
   //#endregion
 
   //#region Setup
@@ -71,9 +71,8 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   protected function tearDown(): void
   {
     parent::tearDown();
-    $this->entityManager?->close();
-    $this->entityManager = null;
-    $this->repository = null;
+    $this->entityManager->close();
+    // No need to set to null if not nullable, or we should use @var to satisfy PHPStan if we must
   }
   //#endregion
 
@@ -83,9 +82,9 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440001', 'testuser1', 'test1@example.com');
 
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
-    $foundUser = $this->repository?->findById(new UserId('550e8400-e29b-41d4-a716-446655440001'));
+    $foundUser = $this->repository->findById(new UserId('550e8400-e29b-41d4-a716-446655440001'));
 
     self::assertNotNull($foundUser);
     self::assertSame('550e8400-e29b-41d4-a716-446655440001', $foundUser->id()->value);
@@ -96,7 +95,7 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testFindByIdReturnsNullWhenNotFound(): void
   {
-    $foundUser = $this->repository?->findById(new UserId('00000000-0000-4000-8000-000000000000'));
+    $foundUser = $this->repository->findById(new UserId('00000000-0000-4000-8000-000000000000'));
 
     self::assertNull($foundUser);
   }
@@ -105,9 +104,9 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   public function testFindByUsername(): void
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440002', 'uniqueuser', 'unique@example.com');
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
-    $foundUser = $this->repository?->findByUsername(new Username('uniqueuser'));
+    $foundUser = $this->repository->findByUsername(new Username('uniqueuser'));
 
     self::assertNotNull($foundUser);
     self::assertSame('uniqueuser', $foundUser->username()->value);
@@ -116,7 +115,7 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testFindByUsernameReturnsNullWhenNotFound(): void
   {
-    $foundUser = $this->repository?->findByUsername(new Username('nonexistent'));
+    $foundUser = $this->repository->findByUsername(new Username('nonexistent'));
 
     self::assertNull($foundUser);
   }
@@ -125,9 +124,9 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   public function testFindByEmail(): void
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440003', 'emailuser', 'findme@example.com');
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
-    $foundUser = $this->repository?->findByEmail(new Email('findme@example.com'));
+    $foundUser = $this->repository->findByEmail(new Email('findme@example.com'));
 
     self::assertNotNull($foundUser);
     self::assertSame('findme@example.com', $foundUser->email()->value);
@@ -136,7 +135,7 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testFindByEmailReturnsNullWhenNotFound(): void
   {
-    $foundUser = $this->repository?->findByEmail(new Email('notfound@example.com'));
+    $foundUser = $this->repository->findByEmail(new Email('notfound@example.com'));
 
     self::assertNull($foundUser);
   }
@@ -145,40 +144,40 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   public function testExistsByUsername(): void
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440004', 'existsuser', 'exists@example.com');
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
     self::assertTrue($this->repository->existsByUsername(new Username('existsuser')));
-    self::assertFalse($this->repository?->existsByUsername(new Username('doesnotexist')));
+    self::assertFalse($this->repository->existsByUsername(new Username('doesnotexist')));
   }
 
   #[Test]
   public function testExistsByEmail(): void
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440005', 'emailexists', 'emailexists@example.com');
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
     self::assertTrue($this->repository->existsByEmail(new Email('emailexists@example.com')));
-    self::assertFalse($this->repository?->existsByEmail(new Email('notexists@example.com')));
+    self::assertFalse($this->repository->existsByEmail(new Email('notexists@example.com')));
   }
 
   #[Test]
   public function testSaveUpdatesExistingUser(): void
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440006', 'updateuser', 'update@example.com');
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
     // Retrieve and verify email
-    $foundUser = $this->repository?->findById(new UserId('550e8400-e29b-41d4-a716-446655440006'));
+    $foundUser = $this->repository->findById(new UserId('550e8400-e29b-41d4-a716-446655440006'));
     self::assertNotNull($foundUser);
     self::assertFalse($foundUser->isEmailVerified());
 
     // Verify email
     $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
     $foundUser->verifyEmail($eventIdProvider);
-    $this->repository?->save($foundUser);
+    $this->repository->save($foundUser);
 
     // Verify update
-    $updatedUser = $this->repository?->findById(new UserId('550e8400-e29b-41d4-a716-446655440006'));
+    $updatedUser = $this->repository->findById(new UserId('550e8400-e29b-41d4-a716-446655440006'));
     self::assertNotNull($updatedUser);
     self::assertTrue($updatedUser->isEmailVerified());
   }
@@ -187,17 +186,17 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   public function testDelete(): void
   {
     $user = $this->createTestUser('550e8400-e29b-41d4-a716-446655440007', 'deleteuser', 'delete@example.com');
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
     // Verify exists
-    $foundUser = $this->repository?->findById(new UserId('550e8400-e29b-41d4-a716-446655440007'));
+    $foundUser = $this->repository->findById(new UserId('550e8400-e29b-41d4-a716-446655440007'));
     self::assertNotNull($foundUser);
 
     // Delete
-    $this->repository?->delete($foundUser);
+    $this->repository->delete($foundUser);
 
     // Verify deleted
-    $deletedUser = $this->repository?->findById(new UserId('550e8400-e29b-41d4-a716-446655440007'));
+    $deletedUser = $this->repository->findById(new UserId('550e8400-e29b-41d4-a716-446655440007'));
     self::assertNull($deletedUser);
   }
 
@@ -211,12 +210,12 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
         "alluser$i",
         "all$i@example.com"
       );
-      $this->repository?->save($user);
+      $this->repository->save($user);
     }
 
-    $allUsers = $this->repository?->findAll();
+    $allUsers = $this->repository->findAll();
 
-    self::assertCount(3, $allUsers ?? []);
+    self::assertCount(3, $allUsers);
   }
 
   #[Test]
@@ -234,9 +233,9 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
     );
     $user->releaseEvents();
 
-    $this->repository?->save($user);
+    $this->repository->save($user);
 
-    $foundUser = $this->repository?->findById(new UserId('550e8400-e29b-41d4-a716-446655440010'));
+    $foundUser = $this->repository->findById(new UserId('550e8400-e29b-41d4-a716-446655440010'));
     self::assertNotNull($foundUser);
     self::assertSame('John', $foundUser->profile()->firstName);
     self::assertSame('Doe', $foundUser->profile()->lastName);

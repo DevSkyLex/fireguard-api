@@ -41,7 +41,8 @@ final readonly class DeleteRoleProcessor implements ProcessorInterface
    */
   public function __construct(
     private readonly RoleRepositoryPort $roleRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -65,7 +66,7 @@ final readonly class DeleteRoleProcessor implements ProcessorInterface
   {
     $id = $uriVariables['id'] ?? null;
 
-    if ($id === null) {
+    if (!is_string($id)) {
       throw RoleNotFoundException::withId(roleId: 'unknown');
     }
 

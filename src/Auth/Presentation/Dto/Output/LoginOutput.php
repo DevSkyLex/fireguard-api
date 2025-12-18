@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Presentation\Dto\Output;
 
 use ApiPlatform\Metadata\ApiProperty;
-use Auth\Presentation\Serialization\AuthSerializationGroup;
+use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
@@ -39,7 +39,7 @@ final class LoginOutput
    *
    * @var ?string
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[SerializedName('access_token')]
   #[ApiProperty(
     description: 'JWT access token for API authentication',
@@ -72,7 +72,7 @@ final class LoginOutput
    *
    * @var string
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[SerializedName('token_type')]
   #[ApiProperty(
     description: 'Token type (always Bearer)',
@@ -107,7 +107,7 @@ final class LoginOutput
    *
    * @var ?int
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[SerializedName('expires_in')]
   #[ApiProperty(
     description: 'Token lifetime in seconds',
@@ -141,7 +141,7 @@ final class LoginOutput
    *
    * @var ?string
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'Space-separated list of granted scopes',
     readable: true,
@@ -168,7 +168,7 @@ final class LoginOutput
    *
    * @var ?bool
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'If true, authentication is incomplete. Use mfa_token to verify code.',
     example: true,
@@ -183,7 +183,7 @@ final class LoginOutput
    *
    * @var ?string
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'Temporary Pre-Auth Token (JWT) covering the partial authentication state.',
     example: 'eyJ...',
@@ -198,7 +198,7 @@ final class LoginOutput
    *
    * @var ?string
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'The OTP challenge token (reference).',
     example: 'abc...',

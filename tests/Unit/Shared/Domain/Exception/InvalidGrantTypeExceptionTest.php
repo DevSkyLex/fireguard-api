@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Domain\Exception;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\Exception\InvalidGrantTypeException;
+use OAuth\Domain\Exception\InvalidGrantTypeException;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -20,7 +20,7 @@ use Shared\Domain\Exception\InvalidValueException;
  * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Shared\Domain\Exception\InvalidGrantTypeException
+ * @covers \OAuth\Domain\Exception\InvalidGrantTypeException
  */
 #[CoversClass(className: InvalidGrantTypeException::class)]
 final class InvalidGrantTypeExceptionTest extends TestCase

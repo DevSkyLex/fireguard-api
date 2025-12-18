@@ -63,7 +63,10 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
     $query = new ListUserSessionsQuery(userId: $userId, activeOnly: true);
     $result = ($this->handler)($query);
 
-    $currentSessionId = $context['request']?->getSession()?->getId() ?? '';
+    $request = isset($context['request']) && $context['request'] instanceof \Symfony\Component\HttpFoundation\Request
+      ? $context['request']
+      : null;
+    $currentSessionId = $request?->getSession()->getId() ?? '';
 
     return array_map(
       callback: function ($session) use ($currentSessionId): SessionOutput {

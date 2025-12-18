@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\UseCase\Command\Logout;
 
-use Auth\Application\Port\Outbound\TokenRevocationPort;
+use OAuth\Application\Port\Outbound\TokenRevocationPort;
 use Shared\Application\Message\CommandHandler;
 
 /**

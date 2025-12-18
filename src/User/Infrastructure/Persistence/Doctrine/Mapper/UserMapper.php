@@ -63,12 +63,13 @@ final class UserMapper
     $passwordProperty = $reflection->getProperty('password');
     $passwordProperty->setAccessible(true);
     $password = $passwordProperty->getValue($user);
-    $record->password = $password->value;
+    $record->password = ($password instanceof HashedPassword) ? $password->value : '';
 
     // Access private failedLoginAttempts property via reflection
     $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
     $attemptsProperty->setAccessible(true);
-    $record->failedLoginAttempts = $attemptsProperty->getValue($user);
+    $attempts = $attemptsProperty->getValue($user);
+    $record->failedLoginAttempts = is_int($attempts) ? $attempts : 0;
 
     return $record;
   }
@@ -104,12 +105,13 @@ final class UserMapper
     $passwordProperty = $reflection->getProperty('password');
     $passwordProperty->setAccessible(true);
     $password = $passwordProperty->getValue($user);
-    $record->password = $password->value;
+    $record->password = ($password instanceof HashedPassword) ? $password->value : '';
 
     // Access private failedLoginAttempts property via reflection
     $attemptsProperty = $reflection->getProperty('failedLoginAttempts');
     $attemptsProperty->setAccessible(true);
-    $record->failedLoginAttempts = $attemptsProperty->getValue($user);
+    $attempts = $attemptsProperty->getValue($user);
+    $record->failedLoginAttempts = is_int($attempts) ? $attempts : 0;
   }
 
   /**

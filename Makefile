@@ -5,8 +5,9 @@ PHPSTAN_BIN ?= vendor/bin/phpstan
 PHpat_BIN ?= vendor/bin/phpat
 DEPTRAC_BIN ?= vendor/bin/deptrac
 CONSOLE_BIN ?= bin/console
+PHP_CS_FIXER_BIN ?= vendor/bin/php-cs-fixer
 
-.PHONY: phpunit phpat phpstan deptrac lint cache-clear test
+.PHONY: phpunit phpat phpstan deptrac lint cache-clear test cs-fix cs-lint
 
 phpunit:
 	$(PHP) $(PHPUNIT_BIN) --testdox
@@ -22,12 +23,18 @@ lint:
 	$(PHP) $(CONSOLE_BIN) lint:container
 	$(PHP) $(CONSOLE_BIN) lint:yaml config
 
+cs-lint:
+	$(PHP) $(PHP_CS_FIXER_BIN) fix --dry-run --diff
+
+cs-fix:
+	$(PHP) $(PHP_CS_FIXER_BIN) fix
+
 # Clear and warmup cache to detect configuration errors
 cache-clear:
 	$(PHP) $(CONSOLE_BIN) cache:clear
 
 # Run every test suite and static analysis in sequence
-test: phpstan deptrac lint phpunit
+test: cs-lint phpstan deptrac lint phpunit
 
 # Start local SonarQube server
 sonar-up:

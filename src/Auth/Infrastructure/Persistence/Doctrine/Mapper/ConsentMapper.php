@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Auth\Domain\Model\Consent;
-use Auth\Domain\ValueObject\ConsentId;
+use OAuth\Domain\Model\Consent;
+use OAuth\Domain\ValueObject\ConsentId;
 use Auth\Infrastructure\Persistence\Doctrine\Record\ConsentRecord;
 use ReflectionClass;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\Scopes;
 use Symfony\Component\Uid\Uuid;
 
 /**

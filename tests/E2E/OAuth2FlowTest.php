@@ -54,7 +54,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('access_token', $data, 'Response should contain access_token');
     $this->assertArrayHasKey('token_type', $data, 'Response should contain token_type');
@@ -62,7 +62,8 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertEquals('Bearer', $data['token_type']);
     $this->assertGreaterThan(0, $data['expires_in']);
 
-    $accessToken = $data['access_token'];
+    $tokenValue = $data['access_token'] ?? '';
+    $accessToken = is_string($tokenValue) ? $tokenValue : '';
 
     // Step 2: Introspect token
     $client->request(
@@ -84,7 +85,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       'Introspection should succeed'
     );
 
-    $introspectData = json_decode($response->getContent() ?: '{}', true);
+    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertTrue($introspectData['active'] ?? false, 'Token should be active');
 
     // Step 3: Access protected resource with token
@@ -139,7 +140,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     );
 
     $response = $client->getResponse();
-    $introspectData = json_decode($response->getContent() ?: '{}', true);
+    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertFalse($introspectData['active'] ?? true, 'Revoked token should be inactive');
   }
 
@@ -221,7 +222,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $response = $client->getResponse();
     $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('issuer', $data);
     $this->assertArrayHasKey('authorization_endpoint', $data);
@@ -248,14 +249,15 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $response = $client->getResponse();
     $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('keys', $data);
     $this->assertIsArray($data['keys']);
     $this->assertNotEmpty($data['keys']);
 
     // Verify key structure
-    $key = $data['keys'][0];
+    $keys = $data['keys'];
+    $key = (isset($keys[0]) && is_array($keys[0])) ? $keys[0] : [];
     $this->assertArrayHasKey('kty', $key);
     $this->assertArrayHasKey('use', $key);
     $this->assertArrayHasKey('kid', $key);
@@ -341,8 +343,9 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $accessToken = $data['access_token'] ?? '';
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $tokenValue = $data['access_token'] ?? '';
+    $accessToken = is_string($tokenValue) ? $tokenValue : '';
 
     // Access userinfo
     $client->request(
@@ -393,7 +396,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       'Introspection should always return 200'
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertFalse($data['active'] ?? true, 'Invalid token should be inactive');
   }
 
@@ -458,7 +461,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       $response = $client->getResponse();
 
       if ($response->getStatusCode() === Response::HTTP_OK || $response->getStatusCode() === Response::HTTP_CREATED) {
-        $data = json_decode($response->getContent() ?: '{}', true);
+        $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
         $tokens[] = $data['access_token'] ?? '';
       }
     }
@@ -482,10 +485,11 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       );
 
       $response = $client->getResponse();
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertTrue($data['active'] ?? false, 'Each token should be active');
     }
   }
 
   //#endregion
 }
+

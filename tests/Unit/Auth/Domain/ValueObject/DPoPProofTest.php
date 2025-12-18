@@ -7,7 +7,7 @@ namespace Tests\Unit\Auth\Domain\ValueObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Auth\Domain\ValueObject\DPoPProof;
+use OAuth\Domain\ValueObject\DPoPProof;
 use DateTimeImmutable;
 use Shared\Domain\Exception\InvalidValueException;
 

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Presentation\Api\Validator;
+namespace Tests\Unit\Shared\Presentation\Api\Validator;
 
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Presentation\Api\Validator\ValidScopes;
-use Shared\Presentation\Api\Validator\ValidScopesValidator;
+use OAuth\Presentation\Api\Validator\ValidScopes\ValidScopes;
+use OAuth\Presentation\Api\Validator\ValidScopes\ValidScopesValidator;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
 

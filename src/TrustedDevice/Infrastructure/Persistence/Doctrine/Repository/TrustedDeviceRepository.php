@@ -73,7 +73,7 @@ final readonly class TrustedDeviceRepository implements TrustedDeviceRepositoryP
 
   public function revokeAllForUser(string $userId): int
   {
-    return $this->entityManager->createQueryBuilder()
+    $result = $this->entityManager->createQueryBuilder()
       ->update(TrustedDeviceRecord::class, 'd')
       ->set('d.revoked', ':true')
       ->where('d.userId = :userId')
@@ -83,6 +83,8 @@ final readonly class TrustedDeviceRepository implements TrustedDeviceRepositoryP
       ->setParameter('false', false)
       ->getQuery()
       ->execute();
+
+    return is_int($result) ? $result : 0;
   }
 
   public function delete(TrustedDeviceId $id): void

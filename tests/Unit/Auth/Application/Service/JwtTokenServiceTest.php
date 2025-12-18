@@ -159,8 +159,9 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $payload = $this->service->decodeRefreshToken($tokens['refresh_token']);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
-    $this->assertNotNull($payload);
     $this->assertArrayHasKey('refresh_token_id', $payload);
     $this->assertArrayHasKey('access_token_id', $payload);
     $this->assertArrayHasKey('user_id', $payload);
@@ -347,6 +348,8 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertCount(3, $parts, 'JWT should have 3 parts');
 
     $payload = json_decode(base64_decode($parts[1]), true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     $this->assertArrayHasKey('iss', $payload, 'JWT should have issuer');
     $this->assertArrayHasKey('sub', $payload, 'JWT should have subject');
@@ -382,8 +385,8 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $payload = $this->service->decodeRefreshToken($tokens['refresh_token']);
-
-    $this->assertNotNull($payload);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     // Verify values are not empty
     $this->assertNotEmpty($payload['refresh_token_id'], 'refresh_token_id should not be empty');
@@ -462,6 +465,8 @@ final class JwtTokenServiceTest extends TestCase
     // Parse the JWT to check expiration
     $parts = explode('.', $tokens['access_token']);
     $payload = json_decode(base64_decode($parts[1]), true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     $expectedExp = time() + $this->service->getAccessTokenTtl();
 
@@ -488,8 +493,8 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $payload = $this->service->decodeRefreshToken($tokens['refresh_token']);
-
-    $this->assertNotNull($payload);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     $expectedExp = time() + $this->service->getRefreshTokenTtl();
 
@@ -517,6 +522,8 @@ final class JwtTokenServiceTest extends TestCase
 
     $parts = explode('.', $tokens['access_token']);
     $payload = json_decode(base64_decode($parts[1]), true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     $this->assertEquals('https://test.example.com', $payload['iss']);
   }
@@ -543,6 +550,8 @@ final class JwtTokenServiceTest extends TestCase
 
     $parts = explode('.', $tokens['access_token']);
     $payload = json_decode(base64_decode($parts[1]), true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     $this->assertEquals($userId, $payload['sub']);
   }
@@ -569,6 +578,8 @@ final class JwtTokenServiceTest extends TestCase
 
     $parts = explode('.', $tokens['access_token']);
     $payload = json_decode(base64_decode($parts[1]), true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
 
     $this->assertEquals($scopes, $payload['scopes']);
 

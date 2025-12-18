@@ -55,7 +55,7 @@ final readonly class GetChallengeStatusProvider implements ProviderInterface
   {
     $token = $uriVariables['token'] ?? null;
 
-    if ($token === null) {
+    if (!is_string($token)) {
       throw new NotFoundHttpException('Challenge token is required.');
     }
 

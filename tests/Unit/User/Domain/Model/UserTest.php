@@ -76,7 +76,9 @@ final class UserTest extends TestCase
     $this->assertTrue($user->profile()->equals($profile));
     $this->assertEquals(UserStatus::PENDING_VERIFICATION, $user->status());
     $this->assertFalse($user->isEmailVerified());
-    $this->assertTrue($user->tenantId()->equals($tenantId));
+    $tenant = $user->tenantId();
+    $this->assertNotNull($tenant);
+    $this->assertTrue($tenant->equals($tenantId));
     $this->assertInstanceOf(\DateTimeImmutable::class, $user->createdAt());
     $this->assertNull($user->lastLoginAt());
     $this->assertEquals(0, $user->failedLoginAttempts());

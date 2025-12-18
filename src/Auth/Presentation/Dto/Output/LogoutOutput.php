@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Presentation\Dto\Output;
 
 use ApiPlatform\Metadata\ApiProperty;
-use Auth\Presentation\Serialization\AuthSerializationGroup;
+use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
@@ -38,7 +38,7 @@ final class LogoutOutput
    *
    * @var string
    */
-  #[Groups(groups: [AuthSerializationGroup::READ])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'Confirmation message indicating successful logout',
     readable: true,

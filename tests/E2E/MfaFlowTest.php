@@ -60,7 +60,7 @@ class MfaFlowTest extends OAuth2WebTestCase
 
     $this->assertContains($response->getStatusCode(), [200, 201, 202]);
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('mfa_required', $data);
     $this->assertTrue($data['mfa_required'], 'MFA should be required');
@@ -123,14 +123,15 @@ class MfaFlowTest extends OAuth2WebTestCase
       'MFA verify should succeed. Response: ' . $verifyResponse->getContent()
     );
 
-    $verifyData = json_decode($verifyResponse->getContent() ?: '{}', true);
+    $verifyData = $this->decodeJsonResponse($verifyResponse->getContent() ?: '{}');
 
     $this->assertArrayHasKey('access_token', $verifyData);
     $this->assertArrayHasKey('token_type', $verifyData);
     $this->assertEquals('Bearer', $verifyData['token_type']);
 
     // Ensure tokens work (logout)
-    $accessToken = $verifyData['access_token'];
+    $tokenValue = $verifyData['access_token'] ?? '';
+    $accessToken = is_string($tokenValue) ? $tokenValue : '';
 
     $client->request(
       method: 'POST',
@@ -156,3 +157,4 @@ class MfaFlowTest extends OAuth2WebTestCase
     parent::tearDown();
   }
 }
+

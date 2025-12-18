@@ -84,7 +84,8 @@ final class Otp
     private int $attempts = 0,
     private ?DateTimeImmutable $verifiedAt = null,
     private DateTimeImmutable $createdAt = new DateTimeImmutable(),
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -394,8 +395,8 @@ final class Otp
    */
   public function canVerify(): bool
   {
-    return !$this->isExpired() 
-      && !$this->isVerified() 
+    return !$this->isExpired()
+      && !$this->isVerified()
       && $this->hasAttemptsRemaining();
   }
 
@@ -436,13 +437,15 @@ final class Otp
    */
   public function verify(string $inputCode): bool
   {
-    if ($this->isExpired()) throw OtpExpiredException::create(
-      id: $this->id
-    );
+    if ($this->isExpired())
+      throw OtpExpiredException::create(
+        id: $this->id
+      );
 
-    if (!$this->hasAttemptsRemaining()) throw OtpMaxAttemptsException::create(
-      id: $this->id
-    );
+    if (!$this->hasAttemptsRemaining())
+      throw OtpMaxAttemptsException::create(
+        id: $this->id
+      );
 
     $this->attempts++;
 
@@ -545,6 +548,7 @@ final class Otp
   private function maskPhone(string $phone): string
   {
     $digits = preg_replace('/[^0-9]/', '', $phone);
+    $digits = is_string($digits) ? $digits : '';
     if (strlen($digits) < 4) {
       return '****';
     }

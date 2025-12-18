@@ -44,7 +44,8 @@ final readonly class UserProvider implements ProviderInterface
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -66,7 +67,8 @@ final readonly class UserProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
 
-    if (!$id) return null;
+    if (!is_string($id))
+      return null;
 
     $query = new GetUserQuery(id: $id);
 
@@ -74,8 +76,9 @@ final readonly class UserProvider implements ProviderInterface
     $result = $this->queryBus->ask(query: $query);
     $user = $result->user;
 
-    if (!$user) return null;
-  
+    if (!$user)
+      return null;
+
     $output = new UserOutput();
     $output->id = $user->id()->value;
     $output->username = $user->username()->value;

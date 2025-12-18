@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Security\DPoP;
 
 use Auth\Application\Port\Outbound\DPoPValidatorPort;
-use Auth\Domain\ValueObject\DPoPProof;
-use DateTimeImmutable;
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\Token\Plain;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
+use OAuth\Domain\ValueObject\DPoPProof;
 use Psr\Cache\CacheItemPoolInterface;
 use Throwable;
+
+use function explode;
+use function is_array;
+use function is_string;
+use function json_decode;
+use function json_encode;
+use function base64_decode;
+use function base64_encode;
+use function bin2hex;
+use function random_bytes;
+use function strtr;
 
 /**
  * Service DPoPValidator
@@ -31,14 +36,28 @@ use Throwable;
  */
 final readonly class DPoPValidator implements DPoPValidatorPort
 {
-  //#region Properties
+  //#region Constants
   /**
+   * Constant NONCE_TTL
+   *
    * Nonce cache TTL in seconds.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @var int
    */
   private const int NONCE_TTL = 300;
 
   /**
+   * Constant MAX_PROOF_AGE
+   *
    * Maximum proof age in seconds.
+   *
+   * @access private
+   * @since 1.0.0
+   *
+   * @var int
    */
   private const int MAX_PROOF_AGE = 300;
   //#endregion
@@ -54,12 +73,26 @@ final readonly class DPoPValidator implements DPoPValidatorPort
    */
   public function __construct(
     private CacheItemPoolInterface $cache,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
   /**
-   * {@inheritDoc}
+   * Method validateProof
+   *
+   * Validates a DPoP proof.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param string $dpopHeader The DPoP header.
+   * @param string $httpMethod The HTTP method.
+   * @param string $httpUri The HTTP URI.
+   * @param string|null $expectedNonce The expected nonce.
+   * @param string|null $accessToken The access token.
+   *
+   * @return DPoPProof|null The DPoP proof or null if invalid.
    */
   public function validateProof(
     string $dpopHeader,
@@ -86,10 +119,14 @@ final readonly class DPoPValidator implements DPoPValidatorPort
       }
 
       // Extract public key from JWK
-      $jwk = $header['jwk'] ?? null;
-      if (!is_array($jwk)) {
+      $jwkRaw = $header['jwk'] ?? null;
+      if (!is_array($jwkRaw)) {
         return null;
       }
+
+      // Convert to array<string, mixed>
+      /** @var array<string, mixed> $jwk */
+      $jwk = array_filter($jwkRaw, fn($key): bool => is_string($key), ARRAY_FILTER_USE_KEY);
 
       // Calculate thumbprint
       $thumbprint = $this->calculateJwkThumbprint($jwk);
@@ -110,7 +147,7 @@ final readonly class DPoPValidator implements DPoPValidatorPort
 
       // Check for replay (JTI uniqueness)
       $jti = $payload['jti'] ?? null;
-      if ($jti === null || $this->isJtiUsed($jti)) {
+      if (!is_string($jti) || $this->isJtiUsed($jti)) {
         return null;
       }
 
@@ -132,6 +169,7 @@ final readonly class DPoPValidator implements DPoPValidatorPort
       }
 
       // Create the proof
+      /** @var array<string, mixed> $payload */
       $proof = DPoPProof::fromJwt($payload, $thumbprint);
 
       // Validate method and URI
@@ -195,10 +233,14 @@ final readonly class DPoPValidator implements DPoPValidatorPort
         return null;
       }
 
-      $jwk = $header['jwk'] ?? null;
-      if (!is_array($jwk)) {
+      $jwkRaw = $header['jwk'] ?? null;
+      if (!is_array($jwkRaw)) {
         return null;
       }
+
+      // Convert to array<string, mixed>
+      /** @var array<string, mixed> $jwk */
+      $jwk = array_filter($jwkRaw, fn($key): bool => is_string($key), ARRAY_FILTER_USE_KEY);
 
       return $this->calculateJwkThumbprint($jwk);
     } catch (Throwable) {

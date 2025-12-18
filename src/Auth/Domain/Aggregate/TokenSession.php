@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Auth\Domain\Aggregate;
 
-use Auth\Domain\Event\TokenIssuedEvent;
-use Auth\Domain\Event\TokenRevokedEvent;
+use OAuth\Domain\Event\TokenIssuedEvent;
+use OAuth\Domain\Event\TokenRevokedEvent;
 use Auth\Domain\Event\UserLoggedInEvent;
 use Auth\Domain\Event\UserLoggedOutEvent;
-use Auth\Domain\ValueObject\TokenExpiry;
-use Auth\Domain\ValueObject\TokenIdentifier;
+use OAuth\Domain\ValueObject\TokenExpiry;
+use OAuth\Domain\ValueObject\TokenIdentifier;
 use DateTimeImmutable;
 
 /**

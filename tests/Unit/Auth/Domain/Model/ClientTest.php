@@ -10,12 +10,12 @@ use PHPUnit\Framework\Attributes\{
   Test
 };
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\ValueObject\{
+use OAuth\Domain\ValueObject\{
   GrantType,
-  HashedSecret,
   OAuthClientIdentifier,
   Scope
 };
+use Shared\Domain\ValueObject\HashedSecret;
 
 /**
  * Class ClientTest
@@ -61,7 +61,7 @@ final class ClientTest extends TestCase
      * @var list<Scope> $scopes 
      */
     $scopes = [Scope::READ, Scope::WRITE];
-    
+
     $secret = new HashedSecret(value: '$hashed_secret');
 
     $client = new Client(

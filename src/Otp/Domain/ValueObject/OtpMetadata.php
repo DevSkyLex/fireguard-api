@@ -83,10 +83,14 @@ final readonly class OtpMetadata
    */
   public static function fromArray(array $data): self
   {
+    $ipAddress = $data['ip_address'] ?? $data['ipAddress'] ?? null;
+    $userAgent = $data['user_agent'] ?? $data['userAgent'] ?? null;
+    $deviceId = $data['device_id'] ?? $data['deviceId'] ?? null;
+
     return new self(
-      ipAddress: $data['ip_address'] ?? $data['ipAddress'] ?? null,
-      userAgent: $data['user_agent'] ?? $data['userAgent'] ?? null,
-      deviceId: $data['device_id'] ?? $data['deviceId'] ?? null,
+      ipAddress: is_string($ipAddress) ? $ipAddress : null,
+      userAgent: is_string($userAgent) ? $userAgent : null,
+      deviceId: is_string($deviceId) ? $deviceId : null,
     );
   }
 

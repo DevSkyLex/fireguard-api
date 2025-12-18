@@ -49,7 +49,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     );
 
     if ($response->getStatusCode() === Response::HTTP_OK) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('hydra:member', $data);
       $this->assertIsArray($data['hydra:member']);
     }
@@ -258,3 +258,4 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
 
   //#endregion
 }
+

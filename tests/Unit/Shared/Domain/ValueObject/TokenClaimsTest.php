@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Domain\ValueObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\TokenClaims;
+use OAuth\Domain\ValueObject\TokenClaims;
 
 /**
  * Test TokenClaimsTest
@@ -21,7 +21,7 @@ use Shared\Domain\ValueObject\TokenClaims;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Shared\Domain\ValueObject\TokenClaims
+ * @covers \OAuth\Domain\ValueObject\TokenClaims
  */
 #[CoversClass(className: TokenClaims::class)]
 final class TokenClaimsTest extends TestCase

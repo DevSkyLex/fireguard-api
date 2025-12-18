@@ -44,7 +44,8 @@ final readonly class RoleRepository implements RoleRepositoryPort
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
     private readonly RoleMapper $mapper,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -68,7 +69,8 @@ final readonly class RoleRepository implements RoleRepositoryPort
       id: $id->value
     );
 
-    if ($record === null) return null; 
+    if ($record === null)
+      return null;
 
     return $this->mapper->toDomain(record: $record);
   }
@@ -92,7 +94,8 @@ final readonly class RoleRepository implements RoleRepositoryPort
       ->getRepository(className: RoleRecord::class)
       ->findOneBy(criteria: ['name' => $name->value]);
 
-    if ($record === null) return null;
+    if ($record === null)
+      return null;
 
     return $this->mapper->toDomain(record: $record);
   }
@@ -148,7 +151,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
     );
 
     $record = $this->mapper->toRecord(
-      role: $role, 
+      role: $role,
       record: $existingRecord
     );
 
@@ -159,7 +162,9 @@ final readonly class RoleRepository implements RoleRepositoryPort
         entityName: PermissionRecord::class,
         id: $permission->id()->value
       );
-      $record->permissions->add($permissionRecord);
+      if ($permissionRecord !== null) {
+        $record->permissions->add($permissionRecord);
+      }
     }
 
     $this->entityManager->persist($record);

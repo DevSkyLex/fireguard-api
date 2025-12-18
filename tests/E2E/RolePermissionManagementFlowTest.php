@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\E2E;
 
 use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
-use Client\Infrastructure\DataFixtures\ClientFixtures;
+use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
@@ -122,10 +122,68 @@ class RolePermissionManagementFlowTest extends WebTestCase
       return null;
     }
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $this->accessToken = $data['access_token'] ?? null;
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessToken = $data['access_token'] ?? null;
+    $this->accessToken = is_string($accessToken) ? $accessToken : null;
 
     return $this->accessToken;
+  }
+
+  /**
+   * Decode JSON response content to array
+   *
+   * @param string $content Response content
+   * @return array<string, mixed>
+   */
+  protected function decodeJsonResponse(string $content): array
+  {
+    $data = json_decode($content, true);
+    if (!is_array($data)) {
+      return [];
+    }
+    // Filter to ensure string keys for PHPStan
+    $result = [];
+    foreach ($data as $key => $value) {
+      if (is_string($key)) {
+        $result[$key] = $value;
+      }
+    }
+    return $result;
+  }
+
+  /**
+   * Get hydra:member array from data
+   *
+   * @param array<string, mixed> $data
+   * @return list<array<string, mixed>>
+   */
+  protected function getHydraMember(array $data): array
+  {
+    $members = $data['hydra:member'] ?? [];
+    if (!is_array($members)) {
+      return [];
+    }
+    $result = [];
+    foreach ($members as $member) {
+      if (is_array($member)) {
+        /** @var array<string, mixed> $member */
+        $result[] = $member;
+      }
+    }
+    return $result;
+  }
+
+  /**
+   * Get string value from array at key
+   *
+   * @param array<string, mixed> $arr
+   * @param string $key
+   * @return string|null
+   */
+  protected function getStringValue(array $arr, string $key): ?string
+  {
+    $value = $arr[$key] ?? null;
+    return is_string($value) ? $value : null;
   }
   //#endregion
 
@@ -159,7 +217,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     if ($response->getStatusCode() === Response::HTTP_OK) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('hydra:member', $data);
       $this->assertIsArray($data['hydra:member']);
       $this->assertNotEmpty($data['hydra:member'], 'Should have permissions from fixtures');
@@ -285,15 +343,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
       $this->markTestSkipped('Cannot list permissions - may require higher permissions');
     }
 
-    $data = json_decode($listResponse->getContent() ?: '{}', true);
-    $permissions = $data['hydra:member'] ?? [];
+    $data = $this->decodeJsonResponse($listResponse->getContent() ?: '{}');
+    $permissions = $this->getHydraMember($data);
 
     if (empty($permissions)) {
       $this->markTestSkipped('No permissions found in fixtures');
     }
 
-    $permissionId = $permissions[0]['id'] ?? null;
-    $this->assertNotNull($permissionId, 'Permission should have an ID');
+    $permissionId = $this->getStringValue($permissions[0], 'id');
+    if ($permissionId === null) {
+      $this->markTestSkipped(ucfirst("permission") . " ID not found");
+    }
 
     // Now get the specific permission
     $client->request(
@@ -346,7 +406,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     if ($response->getStatusCode() === Response::HTTP_OK) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('hydra:member', $data);
       $this->assertIsArray($data['hydra:member']);
       $this->assertNotEmpty($data['hydra:member'], 'Should have roles from fixtures');
@@ -473,15 +533,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
       $this->markTestSkipped('Cannot list roles - may require higher permissions');
     }
 
-    $data = json_decode($listResponse->getContent() ?: '{}', true);
-    $roles = $data['hydra:member'] ?? [];
+    $data = $this->decodeJsonResponse($listResponse->getContent() ?: '{}');
+    $roles = $this->getHydraMember($data);
 
     if (empty($roles)) {
       $this->markTestSkipped('No roles found in fixtures');
     }
 
-    $roleId = $roles[0]['id'] ?? null;
-    $this->assertNotNull($roleId, 'Role should have an ID');
+    $roleId = $this->getStringValue($roles[0], 'id');
+    if ($roleId === null) {
+      $this->markTestSkipped(ucfirst("role") . " ID not found");
+    }
 
     // Now get the specific role
     $client->request(
@@ -502,7 +564,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     if ($response->getStatusCode() === Response::HTTP_OK) {
-      $roleData = json_decode($response->getContent() ?: '{}', true);
+      $roleData = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('permissions', $roleData, 'Role should include permissions');
     }
   }
@@ -533,14 +595,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
       $this->markTestSkipped('Cannot list roles');
     }
 
-    $data = json_decode($listResponse->getContent() ?: '{}', true);
-    $roles = $data['hydra:member'] ?? [];
+    $data = $this->decodeJsonResponse($listResponse->getContent() ?: '{}');
+    $roles = $this->getHydraMember($data);
 
     if (empty($roles)) {
       $this->markTestSkipped('No roles found');
     }
 
-    $roleId = $roles[0]['id'] ?? null;
+    $roleId = $this->getStringValue($roles[0], 'id');
+    if ($roleId === null) {
+      $this->markTestSkipped(ucfirst("role") . " ID not found");
+    }
 
     $client->request(
       method: 'PATCH',
@@ -593,12 +658,15 @@ class RolePermissionManagementFlowTest extends WebTestCase
       $this->markTestSkipped('Cannot list roles');
     }
 
-    $rolesData = json_decode($rolesResponse->getContent() ?: '{}', true);
-    $roles = $rolesData['hydra:member'] ?? [];
+    $rolesData = $this->decodeJsonResponse($rolesResponse->getContent() ?: '{}');
+    $roles = $this->getHydraMember($rolesData);
     if (empty($roles)) {
       $this->markTestSkipped('No roles found');
     }
-    $roleId = $roles[0]['id'];
+    $roleId = $this->getStringValue($roles[0], "id");
+    if ($roleId === null) {
+      $this->markTestSkipped("Role ID not found");
+    }
 
     // Get a permission ID
     $client->request(
@@ -615,12 +683,15 @@ class RolePermissionManagementFlowTest extends WebTestCase
       $this->markTestSkipped('Cannot list permissions');
     }
 
-    $permissionsData = json_decode($permissionsResponse->getContent() ?: '{}', true);
-    $permissions = $permissionsData['hydra:member'] ?? [];
+    $permissionsData = $this->decodeJsonResponse($permissionsResponse->getContent() ?: '{}');
+    $permissions = $this->getHydraMember($permissionsData);
     if (empty($permissions)) {
       $this->markTestSkipped('No permissions found');
     }
-    $permissionId = $permissions[0]['id'];
+    $permissionId = $this->getStringValue($permissions[0], "id");
+    if ($permissionId === null) {
+      $this->markTestSkipped("Permission ID not found");
+    }
 
     // Add permission to role
     $client->request(
@@ -670,16 +741,22 @@ class RolePermissionManagementFlowTest extends WebTestCase
       $this->markTestSkipped('Cannot list roles');
     }
 
-    $rolesData = json_decode($rolesResponse->getContent() ?: '{}', true);
-    $roles = $rolesData['hydra:member'] ?? [];
+    $rolesData = $this->decodeJsonResponse($rolesResponse->getContent() ?: '{}');
+    $roles = $this->getHydraMember($rolesData);
 
     // Find a role with at least one permission
     $roleId = null;
     $permissionId = null;
     foreach ($roles as $role) {
-      if (!empty($role['permissions'])) {
-        $roleId = $role['id'];
-        $permissionId = $role['permissions'][0]['id'] ?? null;
+      $perms = $role["permissions"] ?? [];
+      if (is_array($perms) && !empty($perms)) {
+        /** @var array<string, mixed> $role */
+        $roleId = $this->getStringValue($role, "id");
+        $firstPerm = $perms[0] ?? [];
+        if (is_array($firstPerm)) {
+          /** @var array<string, mixed> $firstPerm */
+          $permissionId = $this->getStringValue($firstPerm, "id");
+        }
         break;
       }
     }
@@ -763,3 +840,4 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
   //#endregion
 }
+

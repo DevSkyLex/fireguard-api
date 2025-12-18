@@ -51,7 +51,8 @@ final class MessengerEventBusAdapterTest extends TestCase
 
     $this->messageBus->expects($this->exactly(2))
       ->method('dispatch')
-      ->willReturnCallback(function ($message) use ($event1, $event2) {
+      ->willReturnCallback(function (object $message) use ($event1, $event2) {
+        /** @var int $callCount */
         static $callCount = 0;
         $callCount++;
         if ($callCount === 1) {

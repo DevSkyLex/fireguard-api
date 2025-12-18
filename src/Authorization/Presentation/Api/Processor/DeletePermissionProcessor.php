@@ -40,7 +40,8 @@ final readonly class DeletePermissionProcessor implements ProcessorInterface
    */
   public function __construct(
     private readonly PermissionRepositoryPort $permissionRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -64,7 +65,7 @@ final readonly class DeletePermissionProcessor implements ProcessorInterface
   {
     $id = $uriVariables['id'] ?? null;
 
-    if ($id === null) {
+    if (!is_string($id)) {
       throw PermissionNotFoundException::withId(permissionId: 'unknown');
     }
 

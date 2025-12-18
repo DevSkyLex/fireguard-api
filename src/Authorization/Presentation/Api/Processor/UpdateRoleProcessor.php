@@ -52,7 +52,8 @@ final readonly class UpdateRoleProcessor implements ProcessorInterface
   public function __construct(
     private readonly RoleRepositoryPort $roleRepository,
     private readonly PermissionRepositoryPort $permissionRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -77,7 +78,7 @@ final readonly class UpdateRoleProcessor implements ProcessorInterface
     /** @var RoleInput $data */
     $id = $uriVariables['id'] ?? null;
 
-    if ($id === null) {
+    if (!is_string($id)) {
       throw RoleNotFoundException::withId(roleId: 'unknown');
     }
 

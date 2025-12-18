@@ -14,6 +14,12 @@ services:
 
   TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper\TrustedDeviceMapper: ~
 
+  # Event Listeners
+  TrustedDevice\Infrastructure\EventListener\TrustedDeviceCookieListener: ~
+
+  # Presentation Services
+  TrustedDevice\Presentation\Service\TrustedDeviceCookieService: ~
+
   # Command Handlers
   TrustedDevice\Application\UseCase\Command\TrustDevice\TrustDeviceHandler: ~
   TrustedDevice\Application\UseCase\Command\RevokeDevice\RevokeDeviceHandler: ~

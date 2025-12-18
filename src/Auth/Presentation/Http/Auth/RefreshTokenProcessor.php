@@ -6,8 +6,8 @@ namespace Auth\Presentation\Http\Auth;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\UseCase\Query\RefreshToken\RefreshTokenQuery;
-use Auth\Application\UseCase\Query\RefreshToken\RefreshTokenResult;
+use OAuth\Application\UseCase\Query\RefreshToken\RefreshTokenQuery;
+use OAuth\Application\UseCase\Query\RefreshToken\RefreshTokenResult;
 use Auth\Presentation\Dto\Output\LoginOutput;
 use Auth\Presentation\Service\RefreshTokenCookieService;
 use Shared\Application\Port\Inbound\QueryBusPort;

@@ -58,7 +58,11 @@ final readonly class GetTenantProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    $tenantId = $uriVariables['id'] ?? throw new NotFoundHttpException('Tenant ID is required.');
+    $tenantId = $uriVariables['id'] ?? null;
+
+    if (!is_string($tenantId)) {
+      throw new NotFoundHttpException('Tenant ID is required.');
+    }
 
     try {
       $query = new GetTenantQuery(tenantId: $tenantId);

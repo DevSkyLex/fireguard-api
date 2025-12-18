@@ -7,8 +7,8 @@ namespace Tests\Unit\Shared\Domain\ValueObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\Exception\InvalidOAuthClientIdentifierException;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\Exception\InvalidOAuthClientIdentifierException;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
 
 /**
  * Class OAuthClientIdentifierTest
@@ -20,7 +20,7 @@ use Shared\Domain\ValueObject\OAuthClientIdentifier;
  * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Shared\Domain\ValueObject\OAuthClientIdentifier
+ * @covers \OAuth\Domain\ValueObject\OAuthClientIdentifier
  */
 #[CoversClass(className: OAuthClientIdentifier::class)]
 final class OAuthClientIdentifierTest extends TestCase

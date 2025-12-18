@@ -17,6 +17,8 @@ use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
+use OAuth\Application\Port\Outbound\JwtParserPort as OAuthJwtParserPort;
+
 /**
  * Adapter JwtParserAdapter
  * @final
@@ -29,7 +31,7 @@ use Throwable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class JwtParserAdapter implements JwtParserPort
+final class JwtParserAdapter implements JwtParserPort, OAuthJwtParserPort
 {
   //#region Properties
   /**

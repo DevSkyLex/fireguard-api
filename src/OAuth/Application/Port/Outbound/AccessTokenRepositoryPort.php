@@ -1,0 +1,51 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OAuth\Application\Port\Outbound;
+
+use OAuth\Domain\Model\AccessToken;
+
+/**
+ * Interface AccessTokenRepositoryPort
+ *
+ * Port for Access Token persistence.
+ *
+ * @category Port
+ * @package Auth\Application\Port\Outbound
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+interface AccessTokenRepositoryPort
+{
+  //#region Methods
+  /**
+   * Method save
+   *
+   * Saves an access token.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param AccessToken $accessToken The access token to save.
+   *
+   * @return void No return value
+   */
+  public function save(AccessToken $accessToken): void;
+
+  /**
+   * Method find
+   *
+   * Finds an access token by its identifier.
+   *
+   * @access public
+   * @since 1.0.0
+   *
+   * @param string $identifier The token identifier.
+   *
+   * @return AccessToken|null The access token or null if not found.
+   */
+  public function find(string $identifier): ?AccessToken;
+  //#endregion
+}

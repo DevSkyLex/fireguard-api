@@ -66,6 +66,9 @@ final class PortNamingTest extends TestCase
       );
 
       foreach ($iterator as $file) {
+        if (!$file instanceof \SplFileInfo) {
+          continue;
+        }
         if (!$file->isFile() || $file->getExtension() !== 'php') {
           continue;
         }
@@ -73,9 +76,10 @@ final class PortNamingTest extends TestCase
         $shortName = $file->getBasename('.php');
 
         if (!str_ends_with(haystack: $shortName, needle: self::PORT_SUFFIX)) {
+          $pathname = $file->getPathname();
           $violations[] = sprintf(
             '%s must end with suffix %s.',
-            $module->namespace . '\\' . ArchitectureLayer::APPLICATION->value . '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', substr($file->getPathname(), strlen($applicationPath) + 1, -4)),
+            $module->namespace . '\\' . ArchitectureLayer::APPLICATION->value . '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', substr($pathname, strlen($applicationPath) + 1, -4)),
             self::PORT_SUFFIX
           );
         }

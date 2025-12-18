@@ -7,8 +7,8 @@ namespace Tests\Unit\Shared\Domain\ValueObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Test ScopesTest
@@ -22,7 +22,7 @@ use Shared\Domain\ValueObject\Scopes;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @covers \Shared\Domain\ValueObject\Scopes
+ * @covers \OAuth\Domain\ValueObject\Scopes
  */
 #[CoversClass(className: Scopes::class)]
 final class ScopesTest extends TestCase

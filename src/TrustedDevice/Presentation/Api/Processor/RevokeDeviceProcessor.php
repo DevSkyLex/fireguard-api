@@ -33,7 +33,7 @@ final readonly class RevokeDeviceProcessor implements ProcessorInterface
     }
 
     $deviceId = $uriVariables['id'] ?? null;
-    if ($deviceId === null) {
+    if (!is_string($deviceId)) {
       throw new BadRequestHttpException('Device ID is required.');
     }
 

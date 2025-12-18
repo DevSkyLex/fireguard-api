@@ -75,13 +75,13 @@ final readonly class AddPermissionToRoleProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RoleOutput
   {
     $roleId = $uriVariables['roleId'] ?? null;
-    $permissionId = $data->permissionId ?? null;
+    $permissionId = is_object($data) && property_exists($data, 'permissionId') ? $data->permissionId : null;
 
-    if ($roleId === null) {
+    if (!is_string($roleId)) {
       throw RoleNotFoundException::withId(roleId: 'unknown');
     }
 
-    if ($permissionId === null) {
+    if (!is_string($permissionId)) {
       throw PermissionNotFoundException::withId(permissionId: 'unknown');
     }
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Auth\Domain\Model;
 
-use Auth\Domain\Model\Consent;
-use Auth\Domain\ValueObject\ConsentId;
+use OAuth\Domain\Model\Consent;
+use OAuth\Domain\ValueObject\ConsentId;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\Scopes;
-use Shared\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\Scope;
 
 /**
  * Test ConsentTest

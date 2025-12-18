@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Auth\Application\UseCase\Command\GrantConsent;
 
-use Auth\Application\Port\Outbound\ConsentRepositoryPort;
-use Auth\Application\UseCase\Command\GrantConsent\GrantConsentCommand;
-use Auth\Application\UseCase\Command\GrantConsent\GrantConsentHandler;
-use Auth\Application\UseCase\Command\GrantConsent\GrantConsentResult;
-use Auth\Domain\Model\Consent;
-use Auth\Domain\ValueObject\ConsentId;
+use OAuth\Application\Port\Outbound\ConsentRepositoryPort;
+use OAuth\Application\UseCase\Command\GrantConsent\GrantConsentCommand;
+use OAuth\Application\UseCase\Command\GrantConsent\GrantConsentHandler;
+use OAuth\Application\UseCase\Command\GrantConsent\GrantConsentResult;
+use OAuth\Domain\Model\Consent;
+use OAuth\Domain\ValueObject\ConsentId;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Test GrantConsentHandlerTest

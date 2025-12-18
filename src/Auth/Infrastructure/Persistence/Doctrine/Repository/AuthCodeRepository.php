@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Port\Outbound\AuthCodeRepositoryPort;
-use Auth\Domain\Model\AuthCode;
+use OAuth\Application\Port\Outbound\AuthCodeRepositoryPort;
+use OAuth\Domain\Model\AuthCode;
 use Auth\Infrastructure\Persistence\Doctrine\Record\AuthCodeRecord;
 use Doctrine\ORM\EntityManagerInterface;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Repository AuthCodeRepository

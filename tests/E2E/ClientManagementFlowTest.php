@@ -84,7 +84,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     );
 
     if ($response->getStatusCode() === Response::HTTP_OK || $response->getStatusCode() === Response::HTTP_CREATED) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('access_token', $data, 'Response should contain access_token');
     }
   }
@@ -187,7 +187,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     );
 
     if ($response->getStatusCode() === Response::HTTP_OK) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('secret', $data, 'Response should contain new secret');
     }
   }
@@ -359,3 +359,4 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
 
   //#endregion
 }
+

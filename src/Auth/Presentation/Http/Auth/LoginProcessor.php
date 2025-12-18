@@ -76,10 +76,13 @@ final readonly class LoginProcessor implements ProcessorInterface
       throw new \InvalidArgumentException('Invalid input data');
     }
 
+    $request = $this->requestStack->getCurrentRequest();
+    $ipAddress = $request !== null ? ($request->getClientIp() ?? '127.0.0.1') : '127.0.0.1';
+
     $command = new LoginCommand(
       email: $data->email ?? '',
       password: $data->password ?? '',
-      ipAddress: $context['request']?->getClientIp() ?? '127.0.0.1',
+      ipAddress: $ipAddress,
     );
 
     /** @var LoginResult $result */

@@ -83,11 +83,32 @@ final readonly class OtpContext
    */
   public static function fromArray(array $inputData): self
   {
+    $transactionId = $inputData['transaction_id'] ?? $inputData['transactionId'] ?? null;
+    $description = $inputData['description'] ?? null;
+    $data = $inputData['data'] ?? null;
+
     return new self(
-      transactionId: $inputData['transaction_id'] ?? $inputData['transactionId'] ?? null,
-      description: $inputData['description'] ?? null,
-      data: $inputData['data'] ?? null,
+      transactionId: is_string($transactionId) ? $transactionId : null,
+      description: is_string($description) ? $description : null,
+      data: is_array($data) ? self::filterStringKeys($data) : null,
     );
+  }
+
+  /**
+   * Filter array to ensure string keys.
+   *
+   * @param array<mixed, mixed> $arr
+   * @return array<string, mixed>
+   */
+  private static function filterStringKeys(array $arr): array
+  {
+    $result = [];
+    foreach ($arr as $key => $value) {
+      if (is_string($key)) {
+        $result[$key] = $value;
+      }
+    }
+    return $result;
   }
 
   /**

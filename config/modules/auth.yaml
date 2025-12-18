@@ -4,34 +4,34 @@ services:
     autoconfigure: true
 
   # Auth Module - Ports
-  Auth\Application\Port\Outbound\AccessTokenRepositoryPort:
+  OAuth\Application\Port\Outbound\AccessTokenRepositoryPort:
     class: Auth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository
 
   Auth\Application\Port\Outbound\ClientRepositoryPort:
-    class: Auth\Infrastructure\OAuth2\Adapter\ClientRepositoryPortAdapter
+    class: OAuth\Infrastructure\OAuth2\Adapter\ClientRepositoryPortAdapter
 
-  Auth\Application\Port\Outbound\RefreshTokenRepositoryPort:
+  OAuth\Application\Port\Outbound\RefreshTokenRepositoryPort:
     class: Auth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository
 
-  Auth\Application\Port\Outbound\AuthCodeRepositoryPort:
+  OAuth\Application\Port\Outbound\AuthCodeRepositoryPort:
     class: Auth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository
 
-  Auth\Application\Port\Outbound\AuthorizationServerPort:
-    class: Auth\Infrastructure\OAuth2\Server\AuthorizationServerAdapter
+  OAuth\Application\Port\Outbound\AuthorizationServerPort:
+    class: OAuth\Infrastructure\OAuth2\Server\AuthorizationServerAdapter
 
-  Auth\Application\Port\Outbound\ClientValidationPort:
-    class: Auth\Infrastructure\OAuth2\Adapter\ClientValidationAdapter
+  OAuth\Application\Port\Outbound\ClientValidationPort:
+    class: OAuth\Infrastructure\OAuth2\Adapter\ClientValidationAdapter
 
   Auth\Application\Port\Outbound\JwtTokenServicePort:
     alias: Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter
 
-  Auth\Application\Port\Outbound\TokenRevocationPort:
+  OAuth\Application\Port\Outbound\TokenRevocationPort:
     alias: Auth\Infrastructure\Adapter\Token\TokenRevocationAdapter
 
   Auth\Application\Port\Outbound\JwtParserPort:
     alias: Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter
 
-  Auth\Application\Port\Outbound\TokenCachePort:
+  OAuth\Application\Port\Outbound\TokenCachePort:
     alias: Auth\Infrastructure\Adapter\Cache\TokenCacheAdapter
 
   Auth\Infrastructure\Adapter\Token\TokenRevocationAdapter: ~
@@ -49,20 +49,20 @@ services:
   Auth\Application\UseCase\Command\Logout\LogoutHandler:
     tags: ['messenger.message_handler']
 
-  Auth\Application\UseCase\Command\RevokeToken\RevokeTokenHandler:
+  OAuth\Application\UseCase\Command\RevokeToken\RevokeTokenHandler:
     tags: ['messenger.message_handler']
 
-  Auth\Application\UseCase\Command\IssueToken\IssueTokenHandler:
+  OAuth\Application\UseCase\Command\IssueToken\IssueTokenHandler:
     tags: ['messenger.message_handler']
 
   # Use Case Query Handlers
-  Auth\Application\UseCase\Query\ValidateToken\ValidateTokenHandler:
+  OAuth\Application\UseCase\Query\ValidateToken\ValidateTokenHandler:
     tags: ['messenger.message_handler']
 
-  Auth\Application\UseCase\Query\IntrospectToken\IntrospectTokenHandler:
+  OAuth\Application\UseCase\Query\IntrospectToken\IntrospectTokenHandler:
     tags: ['messenger.message_handler']
 
-  Auth\Application\UseCase\Query\RefreshToken\RefreshTokenHandler:
+  OAuth\Application\UseCase\Query\RefreshToken\RefreshTokenHandler:
     tags: ['messenger.message_handler']
 
   Auth\Application\UseCase\Command\MfaVerify\MfaVerifyHandler:
@@ -70,19 +70,19 @@ services:
 
   # League OAuth2 Server
   League\OAuth2\Server\Repositories\ClientRepositoryInterface:
-    class: Auth\Infrastructure\OAuth2\Repository\ClientRepositoryAdapter
+    class: OAuth\Infrastructure\OAuth2\Repository\ClientRepositoryAdapter
 
   League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface:
-    class: Auth\Infrastructure\OAuth2\Repository\AccessTokenRepositoryAdapter
+    class: OAuth\Infrastructure\OAuth2\Repository\AccessTokenRepositoryAdapter
 
   League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface:
-    class: Auth\Infrastructure\OAuth2\Repository\RefreshTokenRepositoryAdapter
+    class: OAuth\Infrastructure\OAuth2\Repository\RefreshTokenRepositoryAdapter
 
   League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface:
-    class: Auth\Infrastructure\OAuth2\Repository\AuthCodeRepositoryAdapter
+    class: OAuth\Infrastructure\OAuth2\Repository\AuthCodeRepositoryAdapter
 
   League\OAuth2\Server\Repositories\ScopeRepositoryInterface:
-    class: Auth\Infrastructure\OAuth2\Repository\ScopeRepositoryAdapter
+    class: OAuth\Infrastructure\OAuth2\Repository\ScopeRepositoryAdapter
 
   access_token_ttl:
     class: DateInterval
@@ -125,13 +125,13 @@ services:
       $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
       $authCodeTTL: '@auth_code_ttl'
 
-  Auth\Presentation\Http\OAuth2\IssueTokenProcessor: ~
+  OAuth\Presentation\Api\Processor\Token\IssueTokenProcessor: ~
 
-  Auth\Presentation\Http\OAuth2\RevokeTokenProcessor:
+  OAuth\Presentation\Api\Processor\Token\RevokeTokenProcessor:
     arguments:
       $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
 
-  Auth\Presentation\Http\OAuth2\IntrospectTokenProcessor: ~
+  OAuth\Presentation\Api\Processor\Token\IntrospectTokenProcessor: ~
 
   # Refresh Token Cookie Service
   Auth\Presentation\Service\RefreshTokenCookieService: ~
@@ -146,9 +146,9 @@ services:
   Auth\Presentation\Http\Auth\MfaVerifyProcessor: ~
 
   # WellKnown Providers
-  Auth\Presentation\Http\WellKnown\UserInfoProvider: ~
-  Auth\Presentation\Http\WellKnown\OpenIdConfigurationProvider: ~
-  Auth\Presentation\Http\WellKnown\JwksProvider: ~
+  OAuth\Presentation\Api\Provider\WellKnown\UserInfoProvider: ~
+  OAuth\Presentation\Api\Provider\WellKnown\OpenIdConfigurationProvider: ~
+  OAuth\Presentation\Api\Provider\WellKnown\JwksProvider: ~
 
   # Event Listener
   Auth\Infrastructure\EventListener\RefreshTokenCookieListener: ~
@@ -169,10 +169,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.entity_manager'
 
-  Auth\Application\Port\Outbound\ConsentRepositoryPort:
+  OAuth\Application\Port\Outbound\ConsentRepositoryPort:
     alias: Auth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository
 
   # Consent Handlers
-  Auth\Application\UseCase\Command\GrantConsent\GrantConsentHandler: ~
-  Auth\Application\UseCase\Query\CheckConsent\CheckConsentHandler: ~
+  OAuth\Application\UseCase\Command\GrantConsent\GrantConsentHandler: ~
+  OAuth\Application\UseCase\Query\CheckConsent\CheckConsentHandler: ~
 

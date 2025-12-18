@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Presentation\Dto\Input;
 
 use ApiPlatform\Metadata\ApiProperty;
-use Auth\Presentation\Serialization\AuthSerializationGroup;
+use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -41,7 +41,7 @@ final class LoginInput
    */
   #[Assert\NotBlank(message: 'The email field is required.')]
   #[Assert\Email(message: 'The email must be a valid email address.')]
-  #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_WRITE])]
   #[SerializedName(serializedName: 'email')]
   #[ApiProperty(
     description: 'Email address of the user attempting to authenticate',
@@ -86,7 +86,7 @@ final class LoginInput
     minMessage: 'Password must be at least {{ limit }} characters long.',
     maxMessage: 'Password cannot exceed {{ limit }} characters.'
   )]
-  #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_WRITE])]
   #[SerializedName(serializedName: 'password')]
   #[ApiProperty(
     description: 'Password of the user (write-only, never returned in responses)',
@@ -125,7 +125,7 @@ final class LoginInput
    * 
    * @var bool
    */
-  #[Groups(groups: [AuthSerializationGroup::WRITE])]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_WRITE])]
   #[SerializedName(serializedName: 'remember_me')]
   #[ApiProperty(
     description: 'Extend session duration (30 days if true, default 1 day if false)',

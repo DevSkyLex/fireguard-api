@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Token;
 
-use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
-use Auth\Application\Port\Outbound\RefreshTokenRepositoryPort;
-use Auth\Application\Port\Outbound\TokenRevocationPort;
+use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\TokenRevocationPort;
 use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Token\Parser;
 use Lcobucci\JWT\Token\Plain;
@@ -74,6 +74,9 @@ final class TokenRevocationAdapter implements TokenRevocationPort
       }
 
       $tokenId = $payload['refresh_token_id'];
+      if (!is_string($tokenId)) {
+        return false;
+      }
       $token = $this->refreshTokenRepository->find($tokenId);
 
       if ($token !== null) {
@@ -119,6 +122,9 @@ final class TokenRevocationAdapter implements TokenRevocationPort
       }
 
       $tokenId = $claims->get('jti');
+      if (!is_string($tokenId)) {
+        return false;
+      }
       $token = $this->accessTokenRepository->find($tokenId);
 
       if ($token !== null) {

@@ -49,7 +49,9 @@ final class AssignRoleCommand extends Command
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager
-  ) { parent::__construct(); }
+  ) {
+    parent::__construct();
+  }
   //#endregion
 
   //#region Methods
@@ -116,9 +118,16 @@ HELP
   {
     $io = new SymfonyStyle($input, $output);
 
-    $email = $input->getArgument('email');
-    $roleName = $input->getArgument('role');
+    $emailRaw = $input->getArgument('email');
+    $roleNameRaw = $input->getArgument('role');
     $remove = $input->getOption('remove');
+
+    if (!is_string($emailRaw) || !is_string($roleNameRaw)) {
+      $io->error('Email and role arguments must be strings.');
+      return Command::FAILURE;
+    }
+    $email = $emailRaw;
+    $roleName = $roleNameRaw;
 
     try {
       // Find the user
@@ -144,6 +153,7 @@ HELP
         if (!empty($availableRoles)) {
           $io->note('Available roles:');
           foreach ($availableRoles as $availableRole) {
+            /** @var RoleRecord $availableRole */
             $io->writeln(sprintf('  - %s', $availableRole->name));
           }
         }
@@ -178,6 +188,7 @@ HELP
       // Show current roles
       $currentRoles = [];
       foreach ($user->roles as $userRole) {
+        /** @var RoleRecord $userRole */
         $currentRoles[] = $userRole->name;
       }
 

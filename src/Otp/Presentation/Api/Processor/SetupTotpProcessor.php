@@ -54,7 +54,8 @@ final readonly class SetupTotpProcessor implements ProcessorInterface
     }
 
     $userId = $user->getUserIdentifier();
-    $accountName = method_exists($user, 'getEmail') ? $user->getEmail() : $userId;
+    $accountNameRaw = method_exists($user, 'getEmail') ? $user->getEmail() : null;
+    $accountName = is_string($accountNameRaw) ? $accountNameRaw : $userId;
 
     $command = new SetupTotpCommand(
       userId: $userId,

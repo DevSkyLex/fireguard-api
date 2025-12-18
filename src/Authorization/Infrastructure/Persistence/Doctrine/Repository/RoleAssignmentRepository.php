@@ -76,7 +76,8 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
       id: $id->value
     );
 
-    if ($record === null) return null;
+    if ($record === null)
+      return null;
 
     return $this->mapper->toDomain(record: $record);
   }
@@ -111,9 +112,19 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
 
     $records = $qb->getQuery()->getResult();
 
+    if (!is_array($records)) {
+      return [];
+    }
+
+    /** @var list<RoleAssignmentRecord> $filteredRecords */
+    $filteredRecords = array_values(array_filter(
+      $records,
+      static fn($r): bool => $r instanceof RoleAssignmentRecord
+    ));
+
     return array_map(
-      fn(RoleAssignmentRecord $record) => $this->mapper->toDomain(record: $record),
-      $records
+      fn(RoleAssignmentRecord $record): RoleAssignment => $this->mapper->toDomain(record: $record),
+      $filteredRecords
     );
   }
 
@@ -193,7 +204,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
     );
 
     $record = $this->mapper->toRecord(
-      assignment: $assignment, 
+      assignment: $assignment,
       record: $existingRecord
     );
 

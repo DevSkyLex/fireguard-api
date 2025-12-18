@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Auth\Application\UseCase\Query\CheckConsent;
 
-use Auth\Application\Port\Outbound\ConsentRepositoryPort;
-use Auth\Application\UseCase\Query\CheckConsent\CheckConsentHandler;
-use Auth\Application\UseCase\Query\CheckConsent\CheckConsentQuery;
-use Auth\Application\UseCase\Query\CheckConsent\CheckConsentResult;
-use Auth\Domain\Model\Consent;
-use Auth\Domain\ValueObject\ConsentId;
+use OAuth\Application\Port\Outbound\ConsentRepositoryPort;
+use OAuth\Application\UseCase\Query\CheckConsent\CheckConsentHandler;
+use OAuth\Application\UseCase\Query\CheckConsent\CheckConsentQuery;
+use OAuth\Application\UseCase\Query\CheckConsent\CheckConsentResult;
+use OAuth\Domain\Model\Consent;
+use OAuth\Domain\ValueObject\ConsentId;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Test CheckConsentHandlerTest

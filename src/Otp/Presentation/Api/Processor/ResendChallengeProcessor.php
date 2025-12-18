@@ -65,7 +65,7 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
   {
     $token = $uriVariables['token'] ?? null;
 
-    if ($token === null) {
+    if (!is_string($token)) {
       throw new NotFoundHttpException('Challenge token is required.');
     }
 

@@ -39,7 +39,8 @@ final readonly class DeleteUserProcessor implements ProcessorInterface
    */
   public function __construct(
     private readonly CommandBusPort $commandBus
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -61,7 +62,8 @@ final readonly class DeleteUserProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
   {
     $id = $uriVariables['id'] ?? null;
-    if (!$id) return;
+    if (!is_string($id))
+      return;
 
     $command = new DeleteUserCommand(id: $id);
     $this->commandBus->dispatch(command: $command);

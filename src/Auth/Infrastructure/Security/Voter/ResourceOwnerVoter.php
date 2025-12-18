@@ -75,7 +75,8 @@ final class ResourceOwnerVoter extends Voter
         $result = $subject->$method();
 
         if (is_object($result) && property_exists($result, 'value')) {
-          return (string) $result->value;
+          $value = $result->value;
+          return is_string($value) || is_int($value) ? (string) $value : null;
         }
 
         if (is_object($result) && method_exists($result, '__toString')) {

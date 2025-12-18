@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
-use Client\Infrastructure\DataFixtures\ClientFixtures;
+use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
@@ -115,8 +115,9 @@ abstract class OAuth2WebTestCase extends WebTestCase
       return null;
     }
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $this->accessToken = $data['access_token'] ?? null;
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessToken = $data['access_token'] ?? null;
+    $this->accessToken = is_string($accessToken) ? $accessToken : null;
 
     return $this->accessToken;
   }
@@ -168,15 +169,42 @@ abstract class OAuth2WebTestCase extends WebTestCase
       throw new \RuntimeException("User not found after creation: {$email}");
     }
 
-    if (!password_verify($password, $row['password'])) {
-      throw new \RuntimeException("Password verification failed. Hash: {$row['password']}");
+    $passwordHash = is_string($row['password']) ? $row['password'] : '';
+    $status = is_string($row['status']) ? $row['status'] : '';
+
+    if (!password_verify($password, $passwordHash)) {
+      throw new \RuntimeException("Password verification failed. Hash: {$passwordHash}");
     }
 
-    if ($row['status'] !== 'active') {
-      throw new \RuntimeException("User status is not active: {$row['status']}");
+    if ($status !== 'active') {
+      throw new \RuntimeException("User status is not active: {$status}");
     }
 
     // Clear entity manager to ensure fresh data
     $em->clear();
   }
+
+  /**
+   * Decode JSON response content to array
+   *
+   * @param string $content Response content
+   * @return array<string, mixed>
+   */
+  protected function decodeJsonResponse(string $content): array
+  {
+    $data = json_decode($content, true);
+    if (!is_array($data)) {
+      return [];
+    }
+    // Filter to ensure string keys for PHPStan
+    $result = [];
+    foreach ($data as $key => $value) {
+      if (is_string($key)) {
+        $result[$key] = $value;
+      }
+    }
+    return $result;
+  }
 }
+
+

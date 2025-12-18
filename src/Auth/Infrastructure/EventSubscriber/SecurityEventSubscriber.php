@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\EventSubscriber;
 
 use Auth\Domain\Event\LoginFailedEvent;
-use Auth\Domain\Event\TokenRefreshedEvent;
-use Auth\Domain\Event\TokenRefreshFailedEvent;
+use OAuth\Domain\Event\TokenRefreshedEvent;
+use OAuth\Domain\Event\TokenRefreshFailedEvent;
 use Auth\Domain\Event\UserLoggedInEvent;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

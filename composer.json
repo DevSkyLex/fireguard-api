@@ -55,7 +55,7 @@
         "psr-4": {
             "App\\": "src/App/",
             "Shared\\": "src/Shared/",
-            "Client\\": "src/Client/",
+            "OAuth\\": "src/OAuth/",
             "User\\": "src/User/",
             "Auth\\": "src/Auth/",
             "Tenant\\": "src/Tenant/",
@@ -108,6 +108,7 @@
     "require-dev": {
         "deptrac/deptrac": "^4.3",
         "doctrine/doctrine-fixtures-bundle": "*",
+        "friendsofphp/php-cs-fixer": "^3.92",
         "phpat/phpat": "^0.12.0",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-symfony": "^2.0",

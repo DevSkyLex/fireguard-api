@@ -1,0 +1,163 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\OAuth\Domain\Event;
+
+use OAuth\Domain\Event\ClientRegisteredEvent;
+use OAuth\Domain\ValueObject\ClientId;
+use OAuth\Domain\ValueObject\ClientName;
+use DateTimeImmutable;
+use PHPUnit\Framework\TestCase;
+use Shared\Domain\ValueObject\Uuid;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+
+/**
+ * Test ClientRegisteredEventTest
+ * @final
+ *
+ * Test class for the ClientRegisteredEvent domain event.
+ *
+ * @category Event Tests
+ * @package Tests\Client\Domain\Event
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+#[CoversClass(className: ClientRegisteredEvent::class)]
+final class ClientRegisteredEventTest extends TestCase
+{
+	//#region Methods
+	/**
+	 * Method testEventIsCreatedWithAllProperties
+	 *
+	 * Test that the event is created
+	 * with all required properties
+	 *
+	 * @access public
+	 *
+	 * @return void No return value
+	 */
+	#[Test]
+	public function testEventIsCreatedWithAllProperties(): void
+	{
+		$clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
+		$clientName = new ClientName(value: 'My OAuth Client');
+		$occurredAt = new DateTimeImmutable();
+
+		$event = new ClientRegisteredEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440001'),
+			clientId: $clientId,
+			name: $clientName,
+			occurredAt: $occurredAt
+		);
+
+		self::assertSame(expected: $clientId, actual: $event->clientId);
+		self::assertSame(expected: $clientName, actual: $event->name);
+		self::assertSame(expected: $occurredAt, actual: $event->occurredAt());
+	}
+
+	/**
+	 * Method testEventIdIsAutomaticallyGenerated
+	 *
+	 * Test that the event ID is
+	 * automatically generated
+	 *
+	 * @access public
+	 *
+	 * @return void No return value
+	 */
+	#[Test]
+	public function testEventIdIsProvided(): void
+	{
+		$eventId = new Uuid('550e8400-e29b-41d4-a716-446655440002');
+		$event = new ClientRegisteredEvent(
+			eventId: $eventId,
+			clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
+			name: new ClientName(value: 'My OAuth Client'),
+			occurredAt: new DateTimeImmutable()
+		);
+
+		self::assertSame(expected: $eventId, actual: $event->eventId());
+	}
+
+	/**
+	 * Method testAggregateIdReturnsClientId
+	 *
+	 * Test that aggregateId returns
+	 * the client ID value
+	 *
+	 * @access public
+	 *
+	 * @return void No return value
+	 */
+	#[Test]
+	public function testAggregateIdReturnsClientId(): void
+	{
+		$clientId = '123e4567-e89b-12d3-a456-426614174000';
+		$event = new ClientRegisteredEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440003'),
+			clientId: new ClientId(value: $clientId),
+			name: new ClientName(value: 'My OAuth Client'),
+			occurredAt: new DateTimeImmutable()
+		);
+
+		self::assertSame(expected: $clientId, actual: $event->aggregateId());
+	}
+
+	/**
+	 * Method testAggregateTypeReturnsClient
+	 *
+	 * Test that aggregateType returns
+	 * 'client'
+	 *
+	 * @access public
+	 *
+	 * @return void No return value
+	 */
+	#[Test]
+	public function testAggregateTypeReturnsClient(): void
+	{
+		$event = new ClientRegisteredEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440004'),
+			clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
+			name: new ClientName(value: 'My OAuth Client'),
+			occurredAt: new DateTimeImmutable()
+		);
+
+		self::assertSame(expected: 'client', actual: $event->aggregateType());
+	}
+
+	/**
+	 * Method testPayloadContainsEventData
+	 *
+	 * Test that payload contains
+	 * the event data
+	 *
+	 * @access public
+	 *
+	 * @return void No return value
+	 */
+	#[Test]
+	public function testPayloadContainsEventData(): void
+	{
+		$clientId = '123e4567-e89b-12d3-a456-426614174000';
+		$clientName = 'My OAuth Client';
+
+		$event = new ClientRegisteredEvent(
+			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440005'),
+			clientId: new ClientId(value: $clientId),
+			name: new ClientName(value: $clientName),
+			occurredAt: new DateTimeImmutable()
+		);
+
+		$payload = $event->payload();
+
+		self::assertArrayHasKey(key: 'client_id', array: $payload);
+		self::assertArrayHasKey(key: 'name', array: $payload);
+		self::assertSame(expected: $clientId, actual: $payload['client_id']);
+		self::assertSame(expected: $clientName, actual: $payload['name']);
+	}
+	//#endregion
+}
+

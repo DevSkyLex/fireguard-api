@@ -6,9 +6,9 @@ namespace Auth\Application\UseCase\Command\Login;
 
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Domain\Event\LoginFailedEvent;
-use Auth\Domain\Event\TokenIssuedEvent;
+use OAuth\Domain\Event\TokenIssuedEvent;
 use Auth\Domain\Event\UserLoggedInEvent;
-use Auth\Domain\ValueObject\DefaultScopes;
+use OAuth\Domain\ValueObject\DefaultScopes;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

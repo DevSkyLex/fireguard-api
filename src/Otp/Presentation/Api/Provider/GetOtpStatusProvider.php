@@ -48,7 +48,7 @@ final readonly class GetOtpStatusProvider implements ProviderInterface
   {
     $otpId = $uriVariables['id'] ?? null;
 
-    if ($otpId === null) {
+    if (!is_string($otpId)) {
       throw new NotFoundHttpException('OTP ID is required.');
     }
 

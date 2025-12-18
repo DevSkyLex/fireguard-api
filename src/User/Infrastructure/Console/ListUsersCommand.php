@@ -66,8 +66,11 @@ final class ListUsersCommand extends Command
   {
     $io = new SymfonyStyle($input, $output);
 
-    $limit = (int) $input->getOption('limit');
-    $page = (int) $input->getOption('page');
+    $limitRaw = $input->getOption('limit');
+    $pageRaw = $input->getOption('page');
+
+    $limit = is_numeric($limitRaw) ? (int) $limitRaw : 50;
+    $page = is_numeric($pageRaw) ? (int) $pageRaw : 1;
 
     $query = new ListUsersQuery(
       page: $page,

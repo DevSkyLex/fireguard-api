@@ -39,7 +39,8 @@ final readonly class MfaVerifyHandler implements CommandHandler
   public function __construct(
     private readonly JwtTokenServicePort $jwtService,
     private readonly ChallengeVerifierPort $challengeVerifier,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -70,7 +71,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
     $userId = $tokenClaims['sub'] ?? null;
     $email = $tokenClaims['email'] ?? null;
 
-    if ($challengeToken === null || $userId === null) {
+    if (!is_string($challengeToken) || !is_string($userId) || $userId === '') {
       throw AuthorizationException::invalidGrant('Invalid pre-auth token payload');
     }
 
@@ -88,7 +89,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
     // 3. Generate final tokens
     $tokens = $this->jwtService->generateTokens(
       userId: $userId,
-      email: $email ?? '',
+      email: is_string($email) ? $email : '',
       scopes: [],
     );
 

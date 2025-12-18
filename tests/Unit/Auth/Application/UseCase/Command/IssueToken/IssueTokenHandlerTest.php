@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Application\UseCase\Command\IssueToken;
 
-use Auth\Application\Port\Outbound\AuthorizationServerPort;
-use Auth\Application\UseCase\Command\IssueToken\IssueTokenCommand;
-use Auth\Application\UseCase\Command\IssueToken\IssueTokenHandler;
-use Auth\Application\UseCase\Command\IssueToken\IssueTokenResult;
+use OAuth\Application\Port\Outbound\AuthorizationServerPort;
+use OAuth\Application\UseCase\Command\IssueToken\IssueTokenCommand;
+use OAuth\Application\UseCase\Command\IssueToken\IssueTokenHandler;
+use OAuth\Application\UseCase\Command\IssueToken\IssueTokenResult;
 use Auth\Domain\Exception\AuthorizationException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\ValueObject\GrantType;
-use Shared\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\GrantType;
+use OAuth\Domain\ValueObject\Scope;
 
 /**
  * Class IssueTokenHandlerTest
@@ -26,7 +26,7 @@ use Shared\Domain\ValueObject\Scope;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @covers \Auth\Application\UseCase\Command\IssueToken\IssueTokenHandler
+ * @covers \OAuth\Application\UseCase\Command\IssueToken\IssueTokenHandler
  */
 #[CoversClass(className: IssueTokenHandler::class)]
 final class IssueTokenHandlerTest extends TestCase

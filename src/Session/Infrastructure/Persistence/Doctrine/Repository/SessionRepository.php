@@ -142,7 +142,8 @@ final class SessionRepository implements SessionRepositoryPort
       ->setParameter(key: 'now', value: new \DateTimeImmutable())
       ->setParameter(key: 'userId', value: $userId);
 
-    return $qb->getQuery()->execute();
+    $result = $qb->getQuery()->execute();
+    return is_int($result) ? $result : 0;
   }
 
   /**

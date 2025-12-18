@@ -42,7 +42,8 @@ final readonly class CreateUserProcessor implements ProcessorInterface
    */
   public function __construct(
     private readonly CommandBusPort $commandBus
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -67,11 +68,11 @@ final readonly class CreateUserProcessor implements ProcessorInterface
     $input = $data;
 
     $command = new CreateUserCommand(
-      username: $input->username,
-      email: $input->email,
-      password: $input->password,
-      firstName: $input->firstName,
-      lastName: $input->lastName,
+      username: $input->username ?? '',
+      email: $input->email ?? '',
+      password: $input->password ?? '',
+      firstName: $input->firstName ?? '',
+      lastName: $input->lastName ?? '',
       avatarUrl: $input->avatarUrl,
       tenantId: $input->tenantId
     );

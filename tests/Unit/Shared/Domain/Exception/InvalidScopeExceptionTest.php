@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Domain\Exception;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\Exception\InvalidScopeException;
+use OAuth\Domain\Exception\InvalidScopeException;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -20,7 +20,7 @@ use Shared\Domain\Exception\InvalidValueException;
  * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Shared\Domain\Exception\InvalidScopeException
+ * @covers \OAuth\Domain\Exception\InvalidScopeException
  */
 #[CoversClass(className: InvalidScopeException::class)]
 final class InvalidScopeExceptionTest extends TestCase

@@ -69,7 +69,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       "Login should succeed. Response: {$content}"
     );
 
-    $data = json_decode($content, true);
+    $data = $this->decodeJsonResponse($content);
     $this->assertArrayHasKey(
       key: 'access_token',
       array: $data,
@@ -83,7 +83,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     );
 
     $this->assertEquals(
-      expected: 'Bearer', 
+      expected: 'Bearer',
       actual: $data['token_type'],
       message: 'Response should contain token_type'
     );
@@ -359,7 +359,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       message: 'Refresh should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertArrayHasKey(
       key: 'access_token',
       array: $data,
@@ -488,8 +488,9 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       message: 'Login should succeed. Response: ' . $loginResponse->getContent()
     );
 
-    $loginData = json_decode($loginResponse->getContent() ?: '{}', true);
-    $accessToken = $loginData['access_token'] ?? '';
+    $loginData = $this->decodeJsonResponse($loginResponse->getContent() ?: '{}');
+    $tokenValue = $loginData['access_token'] ?? '';
+    $accessToken = is_string($tokenValue) ? $tokenValue : '';
 
     // Step 2: Logout
     $client->request(
@@ -510,7 +511,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       message: 'Logout should succeed'
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertArrayHasKey(
       key: 'message',
       array: $data,
@@ -596,12 +597,10 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       message: 'Login should succeed. Response: ' . $loginResponse->getContent()
     );
 
-    $loginData = json_decode(
-      json: $loginResponse->getContent() ?: '{}',
-      associative: true
-    );
+    $loginData = $this->decodeJsonResponse($loginResponse->getContent() ?: '{}');
 
-    $accessToken = $loginData['access_token'] ?? '';
+    $tokenValue = $loginData['access_token'] ?? '';
+    $accessToken = is_string($tokenValue) ? $tokenValue : '';
 
     $this->assertNotEmpty(
       actual: $accessToken,
@@ -642,12 +641,10 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       message: 'Refresh should succeed'
     );
 
-    $refreshData = json_decode(
-      json: $refreshResponse->getContent() ?: '{}',
-      associative: true
-    );
+    $refreshData = $this->decodeJsonResponse($refreshResponse->getContent() ?: '{}');
 
-    $newAccessToken = $refreshData['access_token'] ?? '';
+    $newTokenValue = $refreshData['access_token'] ?? '';
+    $newAccessToken = is_string($newTokenValue) ? $newTokenValue : '';
 
     $this->assertNotEmpty(
       actual: $newAccessToken,
@@ -793,7 +790,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       message: 'Login should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('access_token', $data);
     $this->assertArrayHasKey('token_type', $data);
@@ -807,3 +804,4 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
   //#endregion
 }
+

@@ -55,17 +55,21 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
       'Login should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $originalAccessToken = $data['access_token'] ?? '';
 
     // Check for refresh token in response or cookie
-    $refreshToken = $data['refresh_token'] ?? null;
+    $refreshTokenVal = $data['refresh_token'] ?? null;
+    $refreshToken = is_string($refreshTokenVal) ? $refreshTokenVal : null;
 
     // If refresh token is in cookie, extract it
     $cookies = $response->headers->getCookies();
     foreach ($cookies as $cookie) {
       if ($cookie->getName() === 'refresh_token') {
-        $refreshToken = $cookie->getValue();
+        $cookieValue = $cookie->getValue();
+        if (is_string($cookieValue) && $cookieValue !== '') {
+          $refreshToken = $cookieValue;
+        }
         break;
       }
     }
@@ -92,7 +96,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
       'Refresh token should succeed. Response: ' . $response->getContent()
     );
 
-    $newData = json_decode($response->getContent() ?: '{}', true);
+    $newData = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('access_token', $newData, 'Response should contain new access_token');
     $this->assertNotEquals(
@@ -254,7 +258,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     );
 
     if (in_array($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED])) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('access_token', $data, 'Response should contain new access_token');
     }
   }
@@ -286,3 +290,4 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
 
   //#endregion
 }
+

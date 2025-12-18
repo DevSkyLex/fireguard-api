@@ -4,7 +4,7 @@ includes:
     - vendor/phpat/phpat/extension.neon
 
 parameters:
-    level: 7
+    level: max
     paths:
         - src/
         - tests/

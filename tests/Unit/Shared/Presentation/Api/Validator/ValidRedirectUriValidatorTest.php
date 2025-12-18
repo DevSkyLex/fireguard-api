@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Tests\Shared\Presentation\Api\Validator;
+namespace Tests\Unit\Shared\Presentation\Api\Validator;
 
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Shared\Presentation\Api\Validator\ValidRedirectUri;
-use Shared\Presentation\Api\Validator\ValidRedirectUriValidator;
+use OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUri;
+use OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUriValidator;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
 

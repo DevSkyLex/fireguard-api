@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
-use Auth\Domain\Model\AccessToken;
+use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
+use OAuth\Domain\Model\AccessToken;
 use Auth\Infrastructure\Persistence\Doctrine\Record\AccessTokenRecord;
 use Doctrine\ORM\EntityManagerInterface;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Repository AccessTokenRepository

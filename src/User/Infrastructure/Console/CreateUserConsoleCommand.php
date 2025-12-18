@@ -146,8 +146,15 @@ HELP
   {
     $io = new SymfonyStyle($input, $output);
 
-    $email = $input->getArgument('email');
-    $password = $input->getArgument('password');
+    $emailRaw = $input->getArgument('email');
+    $passwordRaw = $input->getArgument('password');
+
+    if (!is_string($emailRaw)) {
+      $io->error('Email is required.');
+      return Command::FAILURE;
+    }
+    $email = $emailRaw;
+    $password = is_string($passwordRaw) ? $passwordRaw : null;
 
     // Prompt for password if not provided
     if ($password === null) {
@@ -166,7 +173,12 @@ HELP
         return $value;
       });
 
-      $password = $helper->ask($input, $output, $question);
+      $passwordResult = $helper->ask($input, $output, $question);
+      if (!is_string($passwordResult)) {
+        $io->error('Password is required.');
+        return Command::FAILURE;
+      }
+      $password = $passwordResult;
 
       // Confirm password
       $confirmQuestion = new Question('Confirm password: ');
@@ -181,11 +193,17 @@ HELP
       }
     }
 
-    $username = $input->getOption('username') ?? $email;
-    $firstName = $input->getOption('first-name') ?? '';
-    $lastName = $input->getOption('last-name') ?? '';
-    $avatarUrl = $input->getOption('avatar');
-    $tenantId = $input->getOption('tenant');
+    $usernameRaw = $input->getOption('username');
+    $firstNameRaw = $input->getOption('first-name');
+    $lastNameRaw = $input->getOption('last-name');
+    $avatarRaw = $input->getOption('avatar');
+    $tenantRaw = $input->getOption('tenant');
+
+    $username = is_string($usernameRaw) ? $usernameRaw : $email;
+    $firstName = is_string($firstNameRaw) ? $firstNameRaw : '';
+    $lastName = is_string($lastNameRaw) ? $lastNameRaw : '';
+    $avatarUrl = is_string($avatarRaw) ? $avatarRaw : null;
+    $tenantId = is_string($tenantRaw) ? $tenantRaw : null;
 
     try {
       $command = new CreateUserCommand(

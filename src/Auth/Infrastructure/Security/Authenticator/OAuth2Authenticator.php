@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\Authenticator;
 
-use Auth\Application\Port\Outbound\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Auth\Infrastructure\Security\User\SecurityUserProvider;
 use DateTimeImmutable;
@@ -150,7 +150,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       $tokenId = $claims->get('jti');
       $userId = $claims->get('sub');
 
-      if ($tokenId === null || $userId === null) {
+      if (!is_string($tokenId) || !is_string($userId)) {
         throw new CustomUserMessageAuthenticationException(
           message: 'Invalid token: missing required claims'
         );
@@ -197,15 +197,19 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         }
 
         // Get scopes from JWT claims
-        $scopes = $claims->get('scopes', []);
+        $scopesClaim = $claims->get('scopes', []);
+        $scopes = is_array($scopesClaim) ? array_values(array_filter($scopesClaim, 'is_string')) : [];
       }
 
       $userBadge = new UserBadge(
-        userIdentifier: (string) $userId,
-        userLoader: fn(string $id) => $this->userProvider->loadUserById($id, $scopes)
+        userIdentifier: $userId,
+        userLoader: fn(string $id) => $this->userProvider->loadUserById(
+          userId: $id,
+          scopes: $scopes
+        )
       );
 
-      return new SelfValidatingPassport($userBadge);
+      return new SelfValidatingPassport(userBadge: $userBadge);
     } catch (CustomUserMessageAuthenticationException $exception) {
       throw $exception;
     } catch (Throwable $exception) {

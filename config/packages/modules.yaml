@@ -3,7 +3,7 @@
 
 imports:
   - { resource: '../modules/shared.yaml' }
-  - { resource: '../modules/client.yaml' }
+  - { resource: '../modules/oauth.yaml' }
   - { resource: '../modules/auth.yaml' }
   - { resource: '../modules/user.yaml' }
   - { resource: '../modules/session.yaml' }

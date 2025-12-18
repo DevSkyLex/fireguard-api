@@ -42,7 +42,8 @@ final readonly class GetRoleProvider implements ProviderInterface
    */
   public function __construct(
     private readonly RoleRepositoryPort $roleRepository
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -65,7 +66,7 @@ final readonly class GetRoleProvider implements ProviderInterface
   {
     $id = $uriVariables['id'] ?? null;
 
-    if ($id === null) {
+    if (!is_string($id)) {
       return null;
     }
 

@@ -23,7 +23,7 @@ use Auth\Presentation\Dto\Output\{
   LoginOutput,
   LogoutOutput
 };
-use Auth\Presentation\Serialization\AuthSerializationGroup;
+use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -53,8 +53,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: LoginInput::class,
       output: LoginOutput::class,
       processor: LoginProcessor::class,
-      normalizationContext: ['groups' => [AuthSerializationGroup::READ]],
-      denormalizationContext: ['groups' => [AuthSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
+      denormalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_WRITE]],
       openapi: new Operation(
         tags: ['Authentication'],
         summary: 'User Login',
@@ -100,7 +100,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: LoginOutput::class,
       processor: RefreshTokenProcessor::class,
-      normalizationContext: ['groups' => [AuthSerializationGroup::READ]],
+      normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       openapi: new Operation(
         tags: ['Authentication'],
         summary: 'Refresh Access Token',
@@ -140,7 +140,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: LogoutOutput::class,
       processor: LogoutProcessor::class,
-      normalizationContext: ['groups' => [AuthSerializationGroup::READ]],
+      normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       openapi: new Operation(
         tags: ['Authentication'],
         summary: 'User Logout',
@@ -165,7 +165,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: \Auth\Presentation\Dto\Input\MfaVerifyInput::class,
       output: LoginOutput::class,
       processor: \Auth\Presentation\Http\Auth\MfaVerifyProcessor::class,
-      normalizationContext: ['groups' => [AuthSerializationGroup::READ]],
+      normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       openapi: new Operation(
         tags: ['Authentication'],
         summary: 'Verify MFA Challenge',

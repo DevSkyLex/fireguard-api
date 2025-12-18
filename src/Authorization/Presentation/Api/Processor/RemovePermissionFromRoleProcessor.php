@@ -77,11 +77,11 @@ final readonly class RemovePermissionFromRoleProcessor implements ProcessorInter
     $roleId = $uriVariables['roleId'] ?? null;
     $permissionId = $uriVariables['permissionId'] ?? null;
 
-    if ($roleId === null) {
+    if (!is_string($roleId)) {
       throw RoleNotFoundException::withId(roleId: 'unknown');
     }
 
-    if ($permissionId === null) {
+    if (!is_string($permissionId)) {
       throw PermissionNotFoundException::withId(permissionId: 'unknown');
     }
 

@@ -12,7 +12,8 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Service RefreshTokenCookieService
  *
- * Manages refresh token cookies with proper security prefixes.
+ * Manages refresh token cookies with 
+ * proper security prefixes.
  *
  * @category Service
  * @package Auth\Presentation\Service

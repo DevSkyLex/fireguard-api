@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Domain\Event;
 
-use Auth\Domain\Event\TokenIssuedEvent;
+use OAuth\Domain\Event\TokenIssuedEvent;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,7 +19,7 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @covers \Auth\Domain\Event\TokenIssuedEvent
+ * @covers \OAuth\Domain\Event\TokenIssuedEvent
  */
 #[CoversClass(className: TokenIssuedEvent::class)]
 final class TokenIssuedEventTest extends TestCase

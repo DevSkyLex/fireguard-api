@@ -37,7 +37,8 @@ final readonly class UuidGeneratorAdapter implements UuidGeneratorPort
    */
   public function __construct(
     private readonly ?Closure $generator = null,
-  ) {}
+  ) {
+  }
   //#endregion
 
   //#region Methods
@@ -58,9 +59,12 @@ final readonly class UuidGeneratorAdapter implements UuidGeneratorPort
       $generator = $this->generator ?? static fn(): Uuid => Uuid::v7();
       $uuid = $generator();
 
+      if (!$uuid instanceof Uuid) {
+        throw new \RuntimeException('Generator must return a Uuid instance');
+      }
+
       return $uuid->toRfc4122();
-    }
-    catch (Throwable $exception) {
+    } catch (Throwable $exception) {
       throw UuidGenerationException::dueToRandomFailure(
         previous: $exception
       );

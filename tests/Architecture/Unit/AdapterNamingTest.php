@@ -82,6 +82,9 @@ final class AdapterNamingTest extends TestCase
       );
 
       foreach ($iterator as $file) {
+        if (!$file instanceof \SplFileInfo) {
+          continue;
+        }
         if (!$file->isFile() || $file->getExtension() !== 'php') {
           continue;
         }
@@ -89,12 +92,12 @@ final class AdapterNamingTest extends TestCase
         $shortName = $file->getBasename('.php');
 
         if (!str_ends_with($shortName, self::ADAPTER_SUFFIX)) {
+          $pathName = $file->getPathname();
           $relativePath = str_replace(
             $module->path . DIRECTORY_SEPARATOR,
             '',
-            $file->getPathname()
+            $pathName
           );
-          assert(is_string($relativePath));
 
           $classPath = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
           $classPath = str_replace('.php', '', $classPath);

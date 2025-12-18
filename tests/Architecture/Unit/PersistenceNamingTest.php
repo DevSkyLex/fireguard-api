@@ -136,6 +136,9 @@ final class PersistenceNamingTest extends TestCase
         );
 
         foreach ($iterator as $file) {
+          if (!$file instanceof \SplFileInfo) {
+            continue;
+          }
           if (!$file->isFile() || $file->getExtension() !== 'php') {
             continue;
           }

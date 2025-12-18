@@ -52,12 +52,12 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed'
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('access_token', $data);
 
     // Scope may or may not be in response depending on implementation
-    if (isset($data['scope'])) {
+    if (isset($data['scope']) && is_string($data['scope'])) {
       $grantedScopes = explode(' ', $data['scope']);
       $this->assertNotEmpty($grantedScopes, 'Should have at least one scope');
     }
@@ -93,9 +93,9 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed'
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
-    if (isset($data['scope'])) {
+    if (isset($data['scope']) && is_string($data['scope'])) {
       $grantedScopes = explode(' ', $data['scope']);
       $this->assertNotEmpty($grantedScopes, 'Should have at least one scope');
     }
@@ -134,7 +134,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     );
 
     if (in_array($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED])) {
-      $data = json_decode($response->getContent() ?: '{}', true);
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('access_token', $data);
     }
   }
@@ -206,8 +206,9 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $accessToken = $data['access_token'] ?? '';
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessTokenVal = $data['access_token'] ?? '';
+    $accessToken = is_string($accessTokenVal) ? $accessTokenVal : '';
 
     // Introspect the token
     $client->request(
@@ -230,7 +231,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Introspection should succeed'
     );
 
-    $introspectData = json_decode($response->getContent() ?: '{}', true);
+    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('active', $introspectData);
     $this->assertTrue($introspectData['active'], 'Token should be active');
@@ -270,8 +271,9 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $accessToken = $data['access_token'] ?? '';
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessTokenVal = $data['access_token'] ?? '';
+    $accessToken = is_string($accessTokenVal) ? $accessTokenVal : '';
 
     // Revoke the token
     $client->request(
@@ -300,7 +302,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     );
 
     $response = $client->getResponse();
-    $introspectData = json_decode($response->getContent() ?: '{}', true);
+    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertFalse($introspectData['active'] ?? true, 'Revoked token should be inactive');
   }
@@ -339,7 +341,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('expires_in', $data, 'Response should contain expires_in');
     $this->assertIsInt($data['expires_in'], 'expires_in should be an integer');
@@ -377,8 +379,9 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $accessToken = $data['access_token'] ?? '';
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessTokenVal = $data['access_token'] ?? '';
+    $accessToken = is_string($accessTokenVal) ? $accessTokenVal : '';
 
     // Introspect
     $client->request(
@@ -394,11 +397,12 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     );
 
     $response = $client->getResponse();
-    $introspectData = json_decode($response->getContent() ?: '{}', true);
+    $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     if ($introspectData['active'] ?? false) {
       $this->assertArrayHasKey('exp', $introspectData, 'Active token should have exp claim');
-      $this->assertGreaterThan(time(), $introspectData['exp'], 'Token should not be expired');
+      $exp = $introspectData['exp'] ?? 0;
+      $this->assertGreaterThan(time(), is_int($exp) ? $exp : 0, 'Token should not be expired');
     }
   }
 
@@ -436,7 +440,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     $this->assertArrayHasKey('token_type', $data);
     $this->assertEquals('Bearer', $data['token_type'], 'Token type should be Bearer');
@@ -473,8 +477,9 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       'Token request should succeed. Response: ' . $response->getContent()
     );
 
-    $data = json_decode($response->getContent() ?: '{}', true);
-    $accessToken = $data['access_token'] ?? '';
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessTokenVal = $data['access_token'] ?? '';
+    $accessToken = is_string($accessTokenVal) ? $accessTokenVal : '';
 
     // Test with correct Bearer format
     $client->request(
@@ -581,3 +586,4 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
 
   //#endregion
 }
+

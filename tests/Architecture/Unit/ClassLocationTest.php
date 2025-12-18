@@ -53,6 +53,9 @@ final class ClassLocationTest extends TestCase
       );
 
       foreach ($iterator as $file) {
+        if (!$file instanceof \SplFileInfo) {
+          continue;
+        }
         if (!$file->isFile() || $file->getExtension() !== 'php') {
           continue;
         }
@@ -63,12 +66,12 @@ final class ClassLocationTest extends TestCase
           continue;
         }
 
+        $pathname = $file->getPathname();
         $relativePath = str_replace(
           $module->path . DIRECTORY_SEPARATOR,
           '',
-          $file->getPathname()
+          $pathname
         );
-        assert(is_string($relativePath));
 
         // Must be in Infrastructure/
         if (!str_starts_with($relativePath, 'Infrastructure')) {
@@ -190,6 +193,9 @@ final class ClassLocationTest extends TestCase
       );
 
       foreach ($iterator as $file) {
+        if (!$file instanceof \SplFileInfo) {
+          continue;
+        }
         if (!$file->isFile() || $file->getExtension() !== 'php') {
           continue;
         }
@@ -200,12 +206,12 @@ final class ClassLocationTest extends TestCase
           continue;
         }
 
+        $pathname = $file->getPathname();
         $relativePath = str_replace(
           $module->path . DIRECTORY_SEPARATOR,
           '',
-          $file->getPathname()
+          $pathname
         );
-        assert(is_string($relativePath));
 
         if (!str_starts_with($relativePath, $allowedPath)) {
           $classPath = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);

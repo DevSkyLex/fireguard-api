@@ -58,7 +58,11 @@ final readonly class GetSessionProvider implements ProviderInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    $sessionId = $uriVariables['id'] ?? throw new NotFoundHttpException('Session ID is required.');
+    $sessionId = $uriVariables['id'] ?? null;
+
+    if (!is_string($sessionId)) {
+      throw new NotFoundHttpException('Session ID is required.');
+    }
 
     try {
       $query = new GetSessionQuery(sessionId: $sessionId);

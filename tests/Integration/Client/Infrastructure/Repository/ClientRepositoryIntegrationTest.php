@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Client\Infrastructure\Repository;
 
-use Client\Domain\Model\Client;
-use Client\Domain\ValueObject\ClientId;
-use Client\Domain\ValueObject\ClientName;
-use Client\Domain\ValueObject\ClientSecret;
-use Client\Infrastructure\Persistence\Doctrine\Repository\ClientRepository;
+use OAuth\Domain\Model\Client;
+use OAuth\Domain\ValueObject\ClientId;
+use OAuth\Domain\ValueObject\ClientName;
+use OAuth\Domain\ValueObject\ClientSecret;
+use OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\GrantType;
-use Shared\Domain\ValueObject\GrantTypes;
-use Shared\Domain\ValueObject\RedirectUri;
-use Shared\Domain\ValueObject\Scope;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\GrantType;
+use OAuth\Domain\ValueObject\GrantTypes;
+use OAuth\Domain\ValueObject\RedirectUri;
+use OAuth\Domain\ValueObject\Scope;
+use OAuth\Domain\ValueObject\Scopes;
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -38,8 +38,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 final class ClientRepositoryIntegrationTest extends KernelTestCase
 {
   //#region Properties
-  private ?EntityManagerInterface $entityManager = null;
-  private ?ClientRepository $repository = null;
+  private EntityManagerInterface $entityManager;
+  private ClientRepository $repository;
   //#endregion
 
   //#region Setup
@@ -70,9 +70,7 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
   protected function tearDown(): void
   {
     parent::tearDown();
-    $this->entityManager?->close();
-    $this->entityManager = null;
-    $this->repository = null;
+    $this->entityManager->close();
   }
   //#endregion
 
@@ -82,9 +80,9 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
   {
     $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174001', 'Test Client 1');
 
-    $this->repository?->save($client);
+    $this->repository->save($client);
 
-    $foundClient = $this->repository?->findById(new ClientId('123e4567-e89b-12d3-a456-426614174001'));
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174001'));
 
     self::assertNotNull($foundClient);
     self::assertSame('123e4567-e89b-12d3-a456-426614174001', $foundClient->id()->value);
@@ -95,7 +93,7 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testFindByIdReturnsNullWhenNotFound(): void
   {
-    $foundClient = $this->repository?->findById(new ClientId('00000000-0000-4000-8000-000000000000'));
+    $foundClient = $this->repository->findById(new ClientId('00000000-0000-4000-8000-000000000000'));
 
     self::assertNull($foundClient);
   }
@@ -104,19 +102,19 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
   public function testSaveUpdatesExistingClient(): void
   {
     $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174002', 'Original Name');
-    $this->repository?->save($client);
+    $this->repository->save($client);
 
     // Retrieve and modify
-    $foundClient = $this->repository?->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
     self::assertNotNull($foundClient);
 
     // Deactivate the client
     $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
     $foundClient->deactivate($eventIdProvider);
-    $this->repository?->save($foundClient);
+    $this->repository->save($foundClient);
 
     // Verify update
-    $updatedClient = $this->repository?->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
+    $updatedClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
     self::assertNotNull($updatedClient);
     self::assertFalse($updatedClient->isActive());
   }
@@ -125,27 +123,27 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
   public function testExistsByName(): void
   {
     $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174003', 'Unique Client Name');
-    $this->repository?->save($client);
+    $this->repository->save($client);
 
     self::assertTrue($this->repository->existsByName(new ClientName('Unique Client Name')));
-    self::assertFalse($this->repository?->existsByName(new ClientName('Non Existent Name')));
+    self::assertFalse($this->repository->existsByName(new ClientName('Non Existent Name')));
   }
 
   #[Test]
   public function testDelete(): void
   {
     $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174004', 'Client To Delete');
-    $this->repository?->save($client);
+    $this->repository->save($client);
 
     // Verify exists
-    $foundClient = $this->repository?->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
     self::assertNotNull($foundClient);
 
     // Delete
-    $this->repository?->delete($foundClient);
+    $this->repository->delete($foundClient);
 
     // Verify deleted
-    $deletedClient = $this->repository?->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
+    $deletedClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
     self::assertNull($deletedClient);
   }
 
@@ -158,18 +156,18 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
         sprintf('123e4567-e89b-12d3-a456-42661417400%d', $i),
         "Client $i"
       );
-      $this->repository?->save($client);
+      $this->repository->save($client);
     }
 
     // Test pagination
-    $firstPage = $this->repository?->findAll(0, 2);
-    self::assertCount(2, $firstPage ?? []);
+    $firstPage = $this->repository->findAll(0, 2);
+    self::assertCount(2, $firstPage);
 
-    $secondPage = $this->repository?->findAll(2, 2);
-    self::assertCount(2, $secondPage ?? []);
+    $secondPage = $this->repository->findAll(2, 2);
+    self::assertCount(2, $secondPage);
 
-    $thirdPage = $this->repository?->findAll(4, 2);
-    self::assertCount(1, $thirdPage ?? []);
+    $thirdPage = $this->repository->findAll(4, 2);
+    self::assertCount(1, $thirdPage);
   }
 
   #[Test]
@@ -207,9 +205,9 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
     );
     $client->releaseEvents();
 
-    $this->repository?->save($client);
+    $this->repository->save($client);
 
-    $foundClient = $this->repository?->findById(new ClientId('123e4567-e89b-12d3-a456-426614174010'));
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174010'));
     self::assertNotNull($foundClient);
     self::assertCount(3, $foundClient->redirectUris());
     self::assertCount(2, $foundClient->grantTypes()->toArray());

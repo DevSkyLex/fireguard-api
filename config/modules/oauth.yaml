@@ -1,0 +1,49 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  # OAuth Module - Validators
+  OAuth\Presentation\Api\Validator\ValidScopes\ValidScopes\ValidScopesValidator: ~
+  OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUri\ValidRedirectUriValidator: ~
+
+  # UseCases - Auto-register
+  OAuth\Application\UseCase\:
+    resource: '../../src/OAuth/Application/UseCase/'
+
+  # Client Query Handlers
+  OAuth\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsHandler:
+    tags:
+      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsQuery }
+
+  OAuth\Application\UseCase\Query\GetClient\GetClientHandler:
+    tags:
+      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\GetClient\GetClientQuery }
+
+  # Repository
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  OAuth\Infrastructure\Persistence\Doctrine\Mapper\ClientMapper: ~
+
+  # Port Binding
+  OAuth\Application\Port\Outbound\JwtParserPort:
+    alias: Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter
+
+  OAuth\Application\Port\Outbound\ClientRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository
+
+
+
+  OAuth\Application\Port\Outbound\LeagueClientRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository
+
+  # Console Commands
+  OAuth\Infrastructure\Console\CreateClientCommand: ~
+  OAuth\Infrastructure\Console\ListClientsCommand: ~
+  OAuth\Infrastructure\Console\DeleteClientCommand: ~
+
+  # DataFixtures
+  OAuth\Infrastructure\DataFixtures\ClientFixtures:
+    tags: ['doctrine.fixture.orm']

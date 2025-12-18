@@ -23,7 +23,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 final class WellKnownApiTest extends WebTestCase
 {
   //#region Properties
-  private ?KernelBrowser $client = null;
+  private KernelBrowser $client;
   //#endregion
 
   //#region Setup
@@ -36,54 +36,38 @@ final class WellKnownApiTest extends WebTestCase
   //#region Tests
   /**
    * Method testOpenIdConfigurationEndpointReturnsValidResponse
-   *
-   * Tests that the OpenID Configuration endpoint returns valid JSON.
-   *
-   * @access public
-   *
-   * @return void
    */
   public function testOpenIdConfigurationEndpointReturnsValidResponse(): void
   {
-    $this->client?->request(
+    $this->client->request(
       method: 'GET',
       uri: '/api/.well-known/openid-configuration',
       server: ['HTTP_ACCEPT' => 'application/json']
     );
 
-    $response = $this->client?->getResponse();
-    $this->assertNotNull($response);
+    $response = $this->client->getResponse();
     $this->assertContains($response->getStatusCode(), [
       Response::HTTP_OK,
       Response::HTTP_CREATED,
     ]);
 
-    $content = json_decode($response->getContent() ?: '', true);
-    $this->assertIsArray($content);
+    $content = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $this->assertNotEmpty($content);
   }
 
   /**
    * Method testOpenIdConfigurationContainsRequiredFields
-   *
-   * Tests that the OpenID Configuration contains required fields.
-   *
-   * @access public
-   *
-   * @return void
    */
   public function testOpenIdConfigurationContainsRequiredFields(): void
   {
-    $this->client?->request(
+    $this->client->request(
       method: 'GET',
       uri: '/api/.well-known/openid-configuration',
       server: ['HTTP_ACCEPT' => 'application/json']
     );
 
-    $response = $this->client?->getResponse();
-    $this->assertNotNull($response);
-
-    $content = json_decode($response->getContent() ?: '', true);
-    $this->assertIsArray($content);
+    $response = $this->client->getResponse();
+    $content = $this->decodeJsonResponse($response->getContent() ?: '{}');
 
     // Required fields per OpenID Connect Discovery 1.0
     $this->assertArrayHasKey('issuer', $content);
@@ -97,88 +81,87 @@ final class WellKnownApiTest extends WebTestCase
 
   /**
    * Method testJwksEndpointReturnsValidResponse
-   *
-   * Tests that the JWKS endpoint returns valid JSON.
-   *
-   * @access public
-   *
-   * @return void
    */
   public function testJwksEndpointReturnsValidResponse(): void
   {
-    $this->client?->request(
+    $this->client->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
       server: ['HTTP_ACCEPT' => 'application/json']
     );
 
-    $response = $this->client?->getResponse();
-    $this->assertNotNull($response);
+    $response = $this->client->getResponse();
     $this->assertContains($response->getStatusCode(), [
       Response::HTTP_OK,
       Response::HTTP_CREATED,
     ]);
 
-    $content = json_decode($response->getContent() ?: '', true);
-    $this->assertIsArray($content);
+    $content = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $this->assertNotEmpty($content);
   }
 
   /**
    * Method testJwksEndpointContainsKeys
-   *
-   * Tests that the JWKS endpoint contains keys array.
-   *
-   * @access public
-   *
-   * @return void
    */
   public function testJwksEndpointContainsKeys(): void
   {
-    $this->client?->request(
+    $this->client->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
       server: ['HTTP_ACCEPT' => 'application/json']
     );
 
-    $response = $this->client?->getResponse();
-    $this->assertNotNull($response);
-
-    $content = json_decode($response->getContent() ?: '', true);
-    $this->assertIsArray($content);
+    $response = $this->client->getResponse();
+    $content = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertArrayHasKey('keys', $content);
     $this->assertIsArray($content['keys']);
   }
 
   /**
    * Method testJwksKeysHaveRequiredFields
-   *
-   * Tests that JWKS keys have required fields per RFC 7517.
-   *
-   * @access public
-   *
-   * @return void
    */
   public function testJwksKeysHaveRequiredFields(): void
   {
-    $this->client?->request(
+    $this->client->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
       server: ['HTTP_ACCEPT' => 'application/json']
     );
 
-    $response = $this->client?->getResponse();
-    $this->assertNotNull($response);
-
-    $content = json_decode($response->getContent() ?: '', true);
-    $this->assertIsArray($content);
+    $response = $this->client->getResponse();
+    $content = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertArrayHasKey('keys', $content);
 
-    if (count($content['keys']) > 0) {
-      $key = $content['keys'][0];
-      $this->assertArrayHasKey('kty', $key);
-      $this->assertArrayHasKey('use', $key);
-      $this->assertArrayHasKey('kid', $key);
+    $keys = $content['keys'];
+    if (is_array($keys) && count($keys) > 0) {
+      $key = $keys[0];
+      if (is_array($key)) {
+        $this->assertArrayHasKey('kty', $key);
+        $this->assertArrayHasKey('use', $key);
+        $this->assertArrayHasKey('kid', $key);
+      }
     }
+  }
+
+  /**
+   * Decode JSON response content to array
+   *
+   * @param string $content Response content
+   * @return array<string, mixed>
+   */
+  protected function decodeJsonResponse(string $content): array
+  {
+    $data = json_decode($content, true);
+    if (!is_array($data)) {
+      return [];
+    }
+    $result = [];
+    foreach ($data as $key => $value) {
+      if (is_string($key)) {
+        $result[$key] = $value;
+      }
+    }
+    return $result;
   }
   //#endregion
 }

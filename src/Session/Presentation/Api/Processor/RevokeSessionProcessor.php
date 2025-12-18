@@ -57,7 +57,11 @@ final readonly class RevokeSessionProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    $sessionId = $uriVariables['id'] ?? throw new NotFoundHttpException('Session ID is required.');
+    $sessionId = $uriVariables['id'] ?? null;
+
+    if (!is_string($sessionId)) {
+      throw new NotFoundHttpException('Session ID is required.');
+    }
 
     try {
       $command = new RevokeSessionCommand(

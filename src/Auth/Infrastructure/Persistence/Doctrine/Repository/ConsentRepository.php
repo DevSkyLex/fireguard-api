@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Port\Outbound\ConsentRepositoryPort;
-use Auth\Domain\Model\Consent;
-use Auth\Domain\ValueObject\ConsentId;
+use OAuth\Application\Port\Outbound\ConsentRepositoryPort;
+use OAuth\Domain\Model\Consent;
+use OAuth\Domain\ValueObject\ConsentId;
 use Auth\Infrastructure\Persistence\Doctrine\Mapper\ConsentMapper;
 use Auth\Infrastructure\Persistence\Doctrine\Record\ConsentRecord;
 use DateTimeImmutable;
@@ -140,7 +140,8 @@ final class ConsentRepository implements ConsentRepositoryPort
       ->setParameter(key: 'now', value: new DateTimeImmutable())
       ->setParameter(key: 'userId', value: $userId);
 
-    return $qb->getQuery()->execute();
+    $result = $qb->getQuery()->execute();
+    return is_int($result) ? $result : 0;
   }
   //#endregion
 }

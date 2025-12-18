@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use DateTimeImmutable;
 use Shared\Domain\Exception\InvalidValueException;
-use Shared\Domain\ValueObject\TokenExpiry;
+use OAuth\Domain\ValueObject\TokenExpiry;
 
 /**
  * Class TokenExpiryTest

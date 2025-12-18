@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Application\Port\Outbound;
 
 use Auth\Domain\Model\Client;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
 
 /**
  * Interface ClientRepositoryPort

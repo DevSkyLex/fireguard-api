@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
-use Auth\Application\Port\Outbound\RefreshTokenRepositoryPort;
-use Auth\Domain\Model\RefreshToken;
+use OAuth\Application\Port\Outbound\RefreshTokenRepositoryPort;
+use OAuth\Domain\Model\RefreshToken;
 use Auth\Infrastructure\Persistence\Doctrine\Record\RefreshTokenRecord;
 use Doctrine\ORM\EntityManagerInterface;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
 
 /**
  * Repository RefreshTokenRepository

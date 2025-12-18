@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Auth\Domain\Model;
 
-use Shared\Domain\ValueObject\{
+use Shared\Domain\ValueObject\HashedSecret;
+use OAuth\Domain\ValueObject\{
   GrantType,
-  HashedSecret,
   OAuthClientIdentifier,
   Scope
 };

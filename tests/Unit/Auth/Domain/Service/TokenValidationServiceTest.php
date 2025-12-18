@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Auth\Domain\Service;
 
-use Auth\Domain\Model\AccessToken;
-use Auth\Domain\Model\RefreshToken;
+use OAuth\Domain\Model\AccessToken;
+use OAuth\Domain\Model\RefreshToken;
 use Auth\Domain\Service\TokenValidationResult;
 use Auth\Domain\Service\TokenValidationService;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\OAuthClientIdentifier;
-use Shared\Domain\ValueObject\Scopes;
+use OAuth\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scopes;
 
 /**
  * Class TokenValidationServiceTest

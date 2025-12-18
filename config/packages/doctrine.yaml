@@ -18,12 +18,12 @@ doctrine:
       Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
     auto_mapping: true
     mappings:
-      Client:
+      OAuth:
         is_bundle: false
         type: attribute
-        dir: '%kernel.project_dir%/src/Client/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'Client\Infrastructure\Persistence\Doctrine\Record'
-        alias: Client
+        dir: '%kernel.project_dir%/src/OAuth/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'OAuth\Infrastructure\Persistence\Doctrine\Record'
+        alias: OAuth
       User:
         is_bundle: false
         type: attribute

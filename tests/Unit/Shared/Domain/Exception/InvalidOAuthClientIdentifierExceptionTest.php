@@ -7,7 +7,7 @@ namespace Tests\Unit\Shared\Domain\Exception;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\Exception\InvalidOAuthClientIdentifierException;
+use OAuth\Domain\Exception\InvalidOAuthClientIdentifierException;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -20,7 +20,7 @@ use Shared\Domain\Exception\InvalidValueException;
  * 
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  * 
- * @covers \Shared\Domain\Exception\InvalidOAuthClientIdentifierException
+ * @covers \OAuth\Domain\Exception\InvalidOAuthClientIdentifierException
  */
 #[CoversClass(className: InvalidOAuthClientIdentifierException::class)]
 final class InvalidOAuthClientIdentifierExceptionTest extends TestCase

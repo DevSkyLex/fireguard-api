@@ -72,7 +72,7 @@ final readonly class UpdateUserProcessor implements ProcessorInterface
       return null;
 
     $id = $uriVariables['id'] ?? null;
-    if (!$id)
+    if (!is_string($id))
       return null;
 
     $command = new UpdateUserCommand(
@@ -90,7 +90,8 @@ final readonly class UpdateUserProcessor implements ProcessorInterface
     $result = $this->queryBus->ask(query: $query);
     $user = $result->user;
 
-    if (!$user) return null;
+    if (!$user)
+      return null;
 
     $output = new UserOutput();
     $output->id = $user->id()->value;

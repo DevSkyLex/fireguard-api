@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Console;
 
-use Client\Application\Port\Outbound\ClientRepositoryPort;
-use Client\Domain\ValueObject\ClientId;
+use OAuth\Application\Port\Outbound\ClientRepositoryPort;
+use OAuth\Domain\ValueObject\ClientId;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Auth\Application\UseCase\Command\IssueToken\IssueTokenCommand;
-use Auth\Application\UseCase\Command\IssueToken\IssueTokenResult;
+use OAuth\Application\UseCase\Command\IssueToken\IssueTokenCommand;
+use OAuth\Application\UseCase\Command\IssueToken\IssueTokenResult;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -121,9 +121,13 @@ HELP
   {
     $io = new SymfonyStyle($input, $output);
 
-    $clientId = $input->getArgument('client-id');
-    $clientSecret = $input->getArgument('client-secret');
-    $scope = $input->getOption('scope');
+    $clientIdArg = $input->getArgument('client-id');
+    $clientSecretArg = $input->getArgument('client-secret');
+    $scopeOption = $input->getOption('scope');
+
+    $clientId = is_string($clientIdArg) ? $clientIdArg : '';
+    $clientSecret = is_string($clientSecretArg) ? $clientSecretArg : '';
+    $scope = is_string($scopeOption) ? $scopeOption : null;
 
     try {
       $client = $this->clientRepository->findById(new ClientId($clientId));
