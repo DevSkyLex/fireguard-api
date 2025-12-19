@@ -10,13 +10,10 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Record ConsentRecord
- * @final
- *
- * Doctrine entity for Consent persistence.
+ * Record ConsentRecord.
  *
  * @category Record
- * @package Auth\Infrastructure\Persistence\Doctrine\Record
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -27,84 +24,68 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_consent_user', columns: ['user_id'])]
 final class ConsentRecord
 {
-  //#region Properties
-  /**
-   * Property id
-   *
-   * The consent ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var Uuid
-   */
-  #[ORM\Id]
-  #[ORM\Column(type: UuidType::NAME, unique: true)]
-  public Uuid $id;
+    // #region Properties
+    /**
+     * Property id.
+     *
+     * The consent ID.
+     *
+     * @since 1.0.0
+     */
+    #[ORM\Id]
+    #[ORM\Column(type: UuidType::NAME, unique: true)]
+    public Uuid $id;
 
-  /**
-   * Property userId
-   *
-   * The user ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  #[ORM\Column(name: 'user_id', type: 'string', length: 36)]
-  public string $userId;
+    /**
+     * Property userId.
+     *
+     * The user ID.
+     *
+     * @since 1.0.0
+     */
+    #[ORM\Column(name: 'user_id', type: 'string', length: 36)]
+    public string $userId;
 
-  /**
-   * Property clientId
-   *
-   * The client ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  #[ORM\Column(name: 'client_id', type: 'string', length: 36)]
-  public string $clientId;
+    /**
+     * Property clientId.
+     *
+     * The client ID.
+     *
+     * @since 1.0.0
+     */
+    #[ORM\Column(name: 'client_id', type: 'string', length: 36)]
+    public string $clientId;
 
-  /**
-   * Property scopes
-   *
-   * The granted scopes.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var array<string>
-   */
-  #[ORM\Column(type: 'json')]
-  public array $scopes = [];
+    /**
+     * Property scopes.
+     *
+     * The granted scopes.
+     *
+     * @since 1.0.0
+     *
+     * @var array<string>
+     */
+    #[ORM\Column(type: 'json')]
+    public array $scopes = [];
 
-  /**
-   * Property grantedAt
-   *
-   * The grant timestamp.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var DateTimeImmutable
-   */
-  #[ORM\Column(name: 'granted_at', type: 'datetime_immutable')]
-  public DateTimeImmutable $grantedAt;
+    /**
+     * Property grantedAt.
+     *
+     * The grant timestamp.
+     *
+     * @since 1.0.0
+     */
+    #[ORM\Column(name: 'granted_at', type: 'datetime_immutable')]
+    public DateTimeImmutable $grantedAt;
 
-  /**
-   * Property revokedAt
-   *
-   * The revocation timestamp.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @var DateTimeImmutable|null
-   */
-  #[ORM\Column(name: 'revoked_at', type: 'datetime_immutable', nullable: true)]
-  public ?DateTimeImmutable $revokedAt = null;
-  //#endregion
+    /**
+     * Property revokedAt.
+     *
+     * The revocation timestamp.
+     *
+     * @since 1.0.0
+     */
+    #[ORM\Column(name: 'revoked_at', type: 'datetime_immutable', nullable: true)]
+    public ?DateTimeImmutable $revokedAt = null;
+    // #endregion
 }

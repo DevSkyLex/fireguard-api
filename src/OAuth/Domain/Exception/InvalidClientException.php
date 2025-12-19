@@ -4,62 +4,59 @@ declare(strict_types=1);
 
 namespace OAuth\Domain\Exception;
 
-use Shared\Domain\Exception\DomainException;
 use OAuth\Domain\ValueObject\ClientId;
+use Shared\Domain\Exception\DomainException;
 
 use function sprintf;
 
 /**
- * Exception InvalidClientException
- * @final
- *
- * Thrown when an OAuth client is invalid or not found.
+ * Exception InvalidClientException.
  *
  * @category Exception
- * @package OAuth\Domain\Exception
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class InvalidClientException extends DomainException
 {
-  /**
-   * Method forId
-   * @static
-   *
-   * Creates an exception for an invalid client ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param ClientId $clientId The invalid client ID.
-   *
-   * @return self The exception instance.
-   */
-  public static function forId(ClientId $clientId): self
-  {
-    return new self(
-      message: sprintf('Client with ID "%s" is invalid or not found.', $clientId->value)
-    );
-  }
+    /**
+     * Method forId.
+     *
+     * @static
+     *
+     * Creates an exception for an invalid client ID.
+     *
+     * @since 1.0.0
+     *
+     * @param ClientId $clientId the invalid client ID
+     *
+     * @return self the exception instance
+     */
+    public static function forId(ClientId $clientId): self
+    {
+        return new self(
+            message: sprintf('Client with ID "%s" is invalid or not found.', $clientId->value)
+        );
+    }
 
-  /**
-   * Method inactive
-   * @static
-   *
-   * Creates an exception for an inactive client.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param ClientId $clientId The client ID.
-   *
-   * @return self The exception instance.
-   */
-  public static function inactive(ClientId $clientId): self
-  {
-    return new self(
-      message: sprintf('Client "%s" is inactive.', $clientId->value)
-    );
-  }
+    /**
+     * Method inactive.
+     *
+     * @static
+     *
+     * Creates an exception for an inactive client.
+     *
+     * @since 1.0.0
+     *
+     * @param ClientId $clientId the client ID
+     *
+     * @return self the exception instance
+     */
+    public static function inactive(ClientId $clientId): self
+    {
+        return new self(
+            message: sprintf('Client "%s" is inactive.', $clientId->value)
+        );
+    }
 }

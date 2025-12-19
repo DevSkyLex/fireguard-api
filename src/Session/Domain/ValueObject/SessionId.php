@@ -7,14 +7,10 @@ namespace Session\Domain\ValueObject;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
- * ValueObject SessionId
- * @final
- *
- * Represents a unique session identifier.
- * Inherits UUID v4 generation from parent via Late Static Binding.
+ * ValueObject SessionId.
  *
  * @category ValueObject
- * @package Session\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

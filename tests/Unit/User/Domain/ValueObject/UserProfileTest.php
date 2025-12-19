@@ -10,13 +10,10 @@ use PHPUnit\Framework\TestCase;
 use User\Domain\ValueObject\UserProfile;
 
 /**
- * Test UserProfileTest
- * @final
- *
- * Unit tests for the UserProfile Value Object.
+ * Test UserProfileTest.
  *
  * @category ValueObject Tests
- * @package Tests\Unit\User\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,45 +21,43 @@ use User\Domain\ValueObject\UserProfile;
 #[CoversClass(UserProfile::class)]
 final class UserProfileTest extends TestCase
 {
-  //#region Methods
-  /**
-   * Method testHandlesFullName
-   *
-   * Tests that user profile handles
-   * full name correctly.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value.
-   */
-  #[Test]
-  public function testHandlesFullName(): void
-  {
-    $profile = new UserProfile('John', 'Doe');
-    $this->assertEquals('John Doe', $profile->fullName());
-  }
+    // #region Methods
+    /**
+     * Method testHandlesFullName.
+     *
+     * Tests that user profile handles
+     * full name correctly.
+     *
+     * @since 1.0.0
+     *
+     * @return void no return value
+     */
+    #[Test]
+    public function testHandlesFullName(): void
+    {
+        $profile = new UserProfile('John', 'Doe');
+        $this->assertEquals('John Doe', $profile->fullName());
+    }
 
-  /**
-   * Method testChecksEquality
-   *
-   * Tests that user profile checks
-   * equality correctly.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value.
-   */
-  #[Test]
-  public function testChecksEquality(): void
-  {
-    $profile1 = new UserProfile('John', 'Doe');
-    $profile2 = new UserProfile('John', 'Doe');
-    $profile3 = new UserProfile('Jane', 'Doe');
+    /**
+     * Method testChecksEquality.
+     *
+     * Tests that user profile checks
+     * equality correctly.
+     *
+     * @since 1.0.0
+     *
+     * @return void no return value
+     */
+    #[Test]
+    public function testChecksEquality(): void
+    {
+        $profile1 = new UserProfile('John', 'Doe');
+        $profile2 = new UserProfile('John', 'Doe');
+        $profile3 = new UserProfile('Jane', 'Doe');
 
-    $this->assertTrue($profile1->equals($profile2));
-    $this->assertFalse($profile1->equals($profile3));
-  }
-  //#endregion
+        $this->assertTrue($profile1->equals($profile2));
+        $this->assertFalse($profile1->equals($profile3));
+    }
+    // #endregion
 }

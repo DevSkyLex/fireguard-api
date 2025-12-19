@@ -6,39 +6,38 @@ namespace Tenant\Domain\Exception;
 
 use Shared\Domain\Exception\EntityNotFoundException;
 
+use function sprintf;
+
 /**
- * Exception TenantNotFoundException
- * @final
- *
- * Thrown when a tenant cannot be found.
+ * Exception TenantNotFoundException.
  *
  * @category Exception
- * @package Tenant\Domain\Exception
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class TenantNotFoundException extends EntityNotFoundException
 {
-  //#region Methods
-  /**
-   * Method withId
-   * @static
-   *
-   * Creates an exception for a missing tenant by ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $id The tenant ID.
-   *
-   * @return self The exception.
-   */
-  public static function withId(string $id): self
-  {
-    return new self(
-      message: sprintf('Tenant with ID "%s" not found.', $id)
-    );
-  }
-  //#endregion
+    // #region Methods
+    /**
+     * Method withId.
+     *
+     * @static
+     *
+     * Creates an exception for a missing tenant by ID.
+     *
+     * @since 1.0.0
+     *
+     * @param string $id the tenant ID
+     *
+     * @return self the exception
+     */
+    public static function withId(string $id): self
+    {
+        return new self(
+            message: sprintf('Tenant with ID "%s" not found.', $id)
+        );
+    }
+    // #endregion
 }

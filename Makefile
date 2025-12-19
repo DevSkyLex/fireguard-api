@@ -24,10 +24,10 @@ lint:
 	$(PHP) $(CONSOLE_BIN) lint:yaml config
 
 cs-lint:
-	$(PHP) $(PHP_CS_FIXER_BIN) fix --dry-run --diff
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff
 
 cs-fix:
-	$(PHP) $(PHP_CS_FIXER_BIN) fix
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix
 
 # Clear and warmup cache to detect configuration errors
 cache-clear:

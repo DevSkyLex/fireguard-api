@@ -7,6 +7,13 @@ services:
   Authorization\Application\Port\Outbound\PermissionRepositoryPort:
     class: Authorization\Infrastructure\Persistence\Doctrine\Repository\PermissionRepository
 
+  Authorization\Presentation\:
+    resource: '../../src/Authorization/Presentation'
+
+  Authorization\Presentation\Api\Provider\ListPermissionsProvider:
+    tags: ['api_platform.state_provider']
+
+
   Authorization\Application\Port\Outbound\RoleRepositoryPort:
     class: Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleRepository
 

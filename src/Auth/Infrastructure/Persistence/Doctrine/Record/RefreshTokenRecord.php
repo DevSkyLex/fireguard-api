@@ -8,13 +8,10 @@ use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Record RefreshTokenRecord
- * @final
- *
- * Doctrine entity for Refresh Token persistence.
+ * Record RefreshTokenRecord.
  *
  * @category Record
- * @package Auth\Infrastructure\Persistence\Doctrine\Record
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -23,56 +20,46 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'refresh_tokens')]
 final class RefreshTokenRecord
 {
-  //#region Properties
-  /**
-   * Property identifier
-   *
-   * The token identifier.
-   *
-   * @var string
-   */
-  #[ORM\Id]
-  #[ORM\Column(type: 'string', length: 100, unique: true)]
-  public string $identifier;
+    // #region Properties
+    /**
+     * Property identifier.
+     *
+     * The token identifier.
+     */
+    #[ORM\Id]
+    #[ORM\Column(type: 'string', length: 100, unique: true)]
+    public string $identifier;
 
-  /**
-   * Property accessTokenIdentifier
-   *
-   * The access token identifier.
-   *
-   * @var string
-   */
-  #[ORM\Column(type: 'string', length: 100)]
-  public string $accessTokenIdentifier;
+    /**
+     * Property accessTokenIdentifier.
+     *
+     * The access token identifier.
+     */
+    #[ORM\Column(type: 'string', length: 100)]
+    public string $accessTokenIdentifier;
 
-  /**
-   * Property clientIdentifier
-   *
-   * The client identifier.
-   *
-   * @var string
-   */
-  #[ORM\Column(type: 'string', length: 100)]
-  public string $clientIdentifier;
+    /**
+     * Property clientIdentifier.
+     *
+     * The client identifier.
+     */
+    #[ORM\Column(type: 'string', length: 100)]
+    public string $clientIdentifier;
 
-  /**
-   * Property expiry
-   *
-   * The expiry date and time.
-   *
-   * @var DateTimeImmutable
-   */
-  #[ORM\Column(type: 'datetime_immutable')]
-  public DateTimeImmutable $expiry;
+    /**
+     * Property expiry.
+     *
+     * The expiry date and time.
+     */
+    #[ORM\Column(type: 'datetime_immutable')]
+    public DateTimeImmutable $expiry;
 
-  /**
-   * Property isRevoked
-   *
-   * Whether the token is revoked.
-   *
-   * @var bool
-   */
-  #[ORM\Column(type: 'boolean')]
-  public bool $isRevoked = false;
-  //#endregion
+    /**
+     * Property isRevoked.
+     *
+     * Whether the token is revoked.
+     */
+    #[ORM\Column(type: 'boolean')]
+    public bool $isRevoked = false;
+    // #endregion
 }

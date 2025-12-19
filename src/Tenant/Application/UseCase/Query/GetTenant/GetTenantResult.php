@@ -8,39 +8,35 @@ use DateTimeImmutable;
 use Tenant\Domain\ValueObject\TenantSettings;
 
 /**
- * Result GetTenantResult
- * @final
- *
- * Result of getting a tenant.
+ * Result GetTenantResult.
  *
  * @category Result
- * @package Tenant\Application\UseCase\Query\GetTenant
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class GetTenantResult
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $tenantId The tenant ID.
-   * @param string $name The tenant name.
-   * @param TenantSettings $settings The tenant settings.
-   * @param bool $isActive Whether the tenant is active.
-   * @param DateTimeImmutable $createdAt The creation timestamp.
-   */
-  public function __construct(
-    public string $tenantId,
-    public string $name,
-    public TenantSettings $settings,
-    public bool $isActive,
-    public DateTimeImmutable $createdAt,
-  ) {
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param string            $tenantId  the tenant ID
+     * @param string            $name      the tenant name
+     * @param TenantSettings    $settings  the tenant settings
+     * @param bool              $isActive  whether the tenant is active
+     * @param DateTimeImmutable $createdAt the creation timestamp
+     */
+    public function __construct(
+        public string $tenantId,
+        public string $name,
+        public TenantSettings $settings,
+        public bool $isActive,
+        public DateTimeImmutable $createdAt,
+    ) {
+    }
+    // #endregion
 }

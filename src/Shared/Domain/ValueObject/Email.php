@@ -7,75 +7,73 @@ namespace Shared\Domain\ValueObject;
 use Shared\Domain\Exception\InvalidValueException;
 use Stringable;
 
+use function filter_var;
+
 /**
- * ValueObject Email
- * @final
- *
- * It represents an email address.
+ * ValueObject Email.
  *
  * @category ValueObject
- * @package Shared\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class Email implements Stringable
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of
-   * the Email class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $value The email address.
-   *
-   * @throws InvalidValueException If the email address is invalid.
-   */
-  public function __construct(public string $value)
-  {
-    if (!filter_var(
-      value: $value,
-      filter: FILTER_VALIDATE_EMAIL
-    )) throw InvalidValueException::because(message: 'Invalid email address.');
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of
+     * the Email class.
+     *
+     * @since 1.0.0
+     *
+     * @param string $value the email address
+     *
+     * @throws InvalidValueException if the email address is invalid
+     */
+    public function __construct(public string $value)
+    {
+        if (!filter_var(
+            value: $value,
+            filter: FILTER_VALIDATE_EMAIL
+        )) {
+            throw InvalidValueException::because(message: 'Invalid email address.');
+        }
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method equals
-   *
-   * Compares two Email objects for equality.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param self $other The Email object to compare.
-   *
-   * @return bool True if the two Email objects are equal, false otherwise.
-   */
-  public function equals(self $other): bool
-  {
-    return $this->value === $other->value;
-  }
+    // #region Methods
+    /**
+     * Method equals.
+     *
+     * Compares two Email objects for equality.
+     *
+     * @since 1.0.0
+     *
+     * @param self $other the Email object to compare
+     *
+     * @return bool true if the two Email objects are equal, false otherwise
+     */
+    public function equals(self $other): bool
+    {
+        return $this->value === $other->value;
+    }
 
-  /**
-   * Method __toString
-   *
-   * Returns the string representation
-   * of the Email object.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return string The string representation of the Email object.
-   */
-  public function __toString(): string
-  {
-    return $this->value;
-  }
-  //#endregion
+    /**
+     * Method __toString.
+     *
+     * Returns the string representation
+     * of the Email object.
+     *
+     * @since 1.0.0
+     *
+     * @return string the string representation of the Email object
+     */
+    public function __toString(): string
+    {
+        return $this->value;
+    }
+    // #endregion
 }

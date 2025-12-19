@@ -4,125 +4,132 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 use Shared\Infrastructure\Exception\FileStorageException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
 
+use function array_diff;
+use function is_dir;
+use function mkdir;
+use function rmdir;
+use function scandir;
+use function sys_get_temp_dir;
+use function uniqid;
+use function unlink;
+
 /**
- * Test FileStorageAdapterTest
+ * Test FileStorageAdapterTest.
  *
  * Unit tests for the FileStorageAdapter.
  *
  * @category Unit Test
- * @package Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound
- * 
+ *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * 
+ *
  * @covers \Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter
  */
 #[CoversClass(className: FileStorageAdapter::class)]
 final class FileStorageAdapterTest extends TestCase
 {
-  private string $tempDir;
-  private FileStorageAdapter $adapter;
+    private string $tempDir;
+    private FileStorageAdapter $adapter;
 
-  /**
-   * Set up the test environment.
-   */
-  protected function setUp(): void
-  {
-    $this->tempDir = sys_get_temp_dir() . '/file_storage_test_' . uniqid();
-    mkdir($this->tempDir);
-    $this->adapter = new FileStorageAdapter($this->tempDir);
-  }
-
-  /**
-   * Clean up the test environment.
-   */
-  protected function tearDown(): void
-  {
-    $this->recursiveRemove($this->tempDir);
-  }
-
-  /**
-   * Recursively remove a directory and its contents.
-   *
-   * @param string $dir The directory to remove.
-   */
-  private function recursiveRemove(string $dir): void
-  {
-    if (!is_dir($dir)) {
-      return;
+    /**
+     * Set up the test environment.
+     */
+    protected function setUp(): void
+    {
+        $this->tempDir = sys_get_temp_dir() . '/file_storage_test_' . uniqid();
+        mkdir($this->tempDir);
+        $this->adapter = new FileStorageAdapter($this->tempDir);
     }
-    $files = array_diff(scandir($dir), ['.', '..']);
-    foreach ($files as $file) {
-      (is_dir("$dir/$file")) ? $this->recursiveRemove("$dir/$file") : unlink("$dir/$file");
+
+    /**
+     * Clean up the test environment.
+     */
+    protected function tearDown(): void
+    {
+        $this->recursiveRemove($this->tempDir);
     }
-    rmdir($dir);
-  }
 
-  /**
-   * Test that a file can be written and read.
-   */
-  #[Test]
-  public function testWriteAndRead(): void
-  {
-    $path = 'test.txt';
-    $content = 'Hello World';
+    /**
+     * Recursively remove a directory and its contents.
+     *
+     * @param string $dir the directory to remove
+     */
+    private function recursiveRemove(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            (is_dir("$dir/$file")) ? $this->recursiveRemove("$dir/$file") : unlink("$dir/$file");
+        }
+        rmdir($dir);
+    }
 
-    $this->adapter->write($path, $content);
-    $this->assertTrue($this->adapter->exists($path));
-    $this->assertEquals($content, $this->adapter->read($path));
-  }
+    /**
+     * Test that a file can be written and read.
+     */
+    #[Test]
+    public function testWriteAndRead(): void
+    {
+        $path = 'test.txt';
+        $content = 'Hello World';
 
-  /**
-   * Test that writing a file creates necessary subdirectories.
-   */
-  #[Test]
-  public function testWriteCreatesDirectories(): void
-  {
-    $path = 'subdir/test.txt';
-    $content = 'Hello Subdir';
+        $this->adapter->write($path, $content);
+        $this->assertTrue($this->adapter->exists($path));
+        $this->assertEquals($content, $this->adapter->read($path));
+    }
 
-    $this->adapter->write($path, $content);
-    $this->assertTrue($this->adapter->exists($path));
-    $this->assertEquals($content, $this->adapter->read($path));
-  }
+    /**
+     * Test that writing a file creates necessary subdirectories.
+     */
+    #[Test]
+    public function testWriteCreatesDirectories(): void
+    {
+        $path = 'subdir/test.txt';
+        $content = 'Hello Subdir';
 
-  /**
-   * Test that reading a non-existent file throws an exception.
-   */
-  #[Test]
-  public function testReadThrowsExceptionIfFileNotFound(): void
-  {
-    $this->expectException(FileStorageException::class);
-    $this->adapter->read('non_existent.txt');
-  }
+        $this->adapter->write($path, $content);
+        $this->assertTrue($this->adapter->exists($path));
+        $this->assertEquals($content, $this->adapter->read($path));
+    }
 
-  /**
-   * Test that a file can be deleted.
-   */
-  #[Test]
-  public function testDelete(): void
-  {
-    $path = 'test.txt';
-    $this->adapter->write($path, 'content');
-    $this->assertTrue($this->adapter->exists($path));
+    /**
+     * Test that reading a non-existent file throws an exception.
+     */
+    #[Test]
+    public function testReadThrowsExceptionIfFileNotFound(): void
+    {
+        $this->expectException(FileStorageException::class);
+        $this->adapter->read('non_existent.txt');
+    }
 
-    $this->adapter->delete($path);
-    $this->assertFalse($this->adapter->exists($path));
-  }
+    /**
+     * Test that a file can be deleted.
+     */
+    #[Test]
+    public function testDelete(): void
+    {
+        $path = 'test.txt';
+        $this->adapter->write($path, 'content');
+        $this->assertTrue($this->adapter->exists($path));
 
-  /**
-   * Test that deleting a non-existent file does not throw an exception.
-   */
-  #[Test]
-  public function testDeleteNonExistentFileDoesNotThrow(): void
-  {
-    $this->expectNotToPerformAssertions();
-    $this->adapter->delete('non_existent.txt');
-  }
+        $this->adapter->delete($path);
+        $this->assertFalse($this->adapter->exists($path));
+    }
+
+    /**
+     * Test that deleting a non-existent file does not throw an exception.
+     */
+    #[Test]
+    public function testDeleteNonExistentFileDoesNotThrow(): void
+    {
+        $this->expectNotToPerformAssertions();
+        $this->adapter->delete('non_existent.txt');
+    }
 }
-

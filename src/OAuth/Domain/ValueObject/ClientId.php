@@ -7,13 +7,10 @@ namespace OAuth\Domain\ValueObject;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
- * ValueObject ClientId
- * @final
- *
- * Represents a unique identifier for an OAuth client.
+ * ValueObject ClientId.
  *
  * @category ValueObject
- * @package OAuth\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

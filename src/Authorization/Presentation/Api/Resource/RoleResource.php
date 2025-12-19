@@ -5,368 +5,361 @@ declare(strict_types=1);
 namespace Authorization\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{
-  ApiResource,
-  Get,
-  GetCollection,
-  Post,
-  Patch,
-  Delete,
-  Link
+    ApiResource,
+    Delete,
+    Get,
+    GetCollection,
+    Link,
+    Patch,
+    Post
 };
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
 use ApiPlatform\OpenApi\Model\{
-  Operation,
-  Response
+    Operation,
+    Response
 };
 use ArrayObject;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
 use Authorization\Presentation\Api\Dto\AddPermissionInput;
 use Authorization\Presentation\Api\Dto\RoleInput;
 use Authorization\Presentation\Api\Dto\RoleOutput;
 use Authorization\Presentation\Api\Processor\{
-  CreateRoleProcessor,
-  UpdateRoleProcessor,
-  DeleteRoleProcessor,
-  AddPermissionToRoleProcessor,
-  RemovePermissionFromRoleProcessor
+    AddPermissionToRoleProcessor,
+    CreateRoleProcessor,
+    DeleteRoleProcessor,
+    RemovePermissionFromRoleProcessor,
+    UpdateRoleProcessor
 };
 use Authorization\Presentation\Api\Provider\{
-  GetRoleProvider,
-  ListRolesProvider
+    GetRoleProvider,
+    ListRolesProvider
 };
 use Authorization\Presentation\Api\Serialization\RoleSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
- * Resource RoleResource
- * @final
- *
- * Role-Based Access Control (RBAC) API Resource.
- *
- * This resource exposes endpoints for managing roles in the RBAC system.
- * Roles group permissions together and can be assigned to users. Each role
- * can have multiple permissions, and system roles are protected from deletion.
+ * Resource RoleResource.
  *
  * @category Resource
- * @package Authorization\Presentation\Api\Resource
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-  shortName: 'Role',
-  description: 'Role-Based Access Control (RBAC) role management. Roles group permissions together.',
-  operations: [
-    new GetCollection(
-      name: 'role_list',
-      uriTemplate: '/roles',
-      input: false,
-      output: RoleOutput::class,
-      provider: ListRolesProvider::class,
-      normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'List all roles',
-        description: 'Returns a paginated list of all roles with their associated permissions. Requires ROLE_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'List of roles retrieved successfully',
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
-          ),
-        ],
-      ),
-    ),
-    new Get(
-      name: 'role_get',
-      uriTemplate: '/roles/{id}',
-      input: false,
-      output: RoleOutput::class,
-      provider: GetRoleProvider::class,
-      normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'Get role details',
-        description: 'Returns details of a specific role including all its assigned permissions. Requires ROLE_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'Role details retrieved successfully',
-            links: new ArrayObject([
-              'UpdateRole' => [
-                'operationId' => 'role_update',
-                'description' => 'Update this role',
-                'parameters' => [
-                  'id' => '$response.body#/id',
+    shortName: 'Role',
+    description: 'Role-Based Access Control (RBAC) role management. Roles group permissions together.',
+    operations: [
+        new GetCollection(
+            name: 'role_list',
+            uriTemplate: '/roles',
+            input: false,
+            output: RoleOutput::class,
+            provider: ListRolesProvider::class,
+            normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
+            security: "is_granted('ROLE_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'List all roles',
+                description: 'Returns a paginated list of all roles with their associated permissions. Requires ROLE_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'List of roles retrieved successfully',
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_ADMIN required'
+                    ),
                 ],
-              ],
-              'DeleteRole' => [
-                'operationId' => 'role_delete',
-                'description' => 'Delete this role (if not a system role)',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-              'AddPermission' => [
-                'operationId' => 'role_add_permission',
-                'description' => 'Add a permission to this role',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-            ]),
-          ),
-          HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found'
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
-          ),
-        ],
-      ),
-    ),
-    new Post(
-      name: 'role_create',
-      uriTemplate: '/roles',
-      input: RoleInput::class,
-      output: RoleOutput::class,
-      processor: CreateRoleProcessor::class,
-      normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      denormalizationContext: ['groups' => [RoleSerializationGroup::WRITE]],
-      security: "is_granted('ROLE_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'Create a new role',
-        description: 'Creates a new role with optional permissions. Role names must be unique and follow the naming convention (lowercase, starts with letter). Requires ROLE_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_CREATED => new Response(
-            description: 'Role created successfully',
-            links: new ArrayObject([
-              'GetRole' => [
-                'operationId' => 'role_get',
-                'description' => 'Get the created role details',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-              'AddPermission' => [
-                'operationId' => 'role_add_permission',
-                'description' => 'Add a permission to this role',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-            ]),
-          ),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed'
-          ),
-          HttpResponse::HTTP_CONFLICT => new Response(
-            description: 'Role name already exists'
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
-          ),
-        ],
-      ),
-    ),
-    new Patch(
-      name: 'role_update',
-      uriTemplate: '/roles/{id}',
-      input: RoleInput::class,
-      output: RoleOutput::class,
-      processor: UpdateRoleProcessor::class,
-      normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      denormalizationContext: ['groups' => [RoleSerializationGroup::UPDATE]],
-      security: "is_granted('ROLE_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'Update a role',
-        description: 'Updates the description or permissions of an existing role. Role name cannot be changed after creation. Requires ROLE_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'Role updated successfully',
-            links: new ArrayObject([
-              'GetRole' => [
-                'operationId' => 'role_get',
-                'description' => 'Get the updated role details',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-            ]),
-          ),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed'
-          ),
-          HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found'
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
-          ),
-        ],
-      ),
-    ),
-    new Delete(
-      name: 'role_delete',
-      uriTemplate: '/roles/{id}',
-      input: false,
-      output: false,
-      processor: DeleteRoleProcessor::class,
-      security: "is_granted('ROLE_SUPER_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'Delete a role',
-        description: 'Permanently deletes a role. System roles cannot be deleted. Users assigned to this role will lose these permissions. Requires ROLE_SUPER_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_NO_CONTENT => new Response(
-            description: 'Role deleted successfully',
-          ),
-          HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found'
-          ),
-          HttpResponse::HTTP_CONFLICT => new Response(
-            description: 'Cannot delete system role'
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required'
-          ),
-        ],
-      ),
-    ),
-    new Post(
-      name: 'role_add_permission',
-      uriTemplate: '/roles/{roleId}/permissions',
-      uriVariables: [
-        'roleId' => new Link(
-          fromClass: RoleRecord::class,
-          identifiers: ['id']
-        )
-      ],
-      input: AddPermissionInput::class,
-      output: RoleOutput::class,
-      processor: AddPermissionToRoleProcessor::class,
-      normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'Add permission to role',
-        description: 'Adds a permission to an existing role. If the permission is already assigned, no error is returned. Requires ROLE_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'Permission added successfully - role returned with updated permissions',
-            links: new ArrayObject([
-              'GetRole' => [
-                'operationId' => 'role_get',
-                'description' => 'Get the role details',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-              'RemovePermission' => [
-                'operationId' => 'role_remove_permission',
-                'description' => 'Remove a permission from this role',
-                'parameters' => [
-                  'id' => '$response.body#/id',
-                ],
-              ],
-            ]),
-          ),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - permission ID invalid'
-          ),
-          HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role or permission not found'
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
-          ),
-        ],
-      ),
-    ),
-    new Delete(
-      name: 'role_remove_permission',
-      uriTemplate: '/roles/{roleId}/permissions/{permissionId}',
-      uriVariables: [
-        'roleId' => new Link(
-          fromClass: RoleRecord::class,
-          identifiers: ['id']
+            ),
         ),
-        'permissionId' => new Link(
-          fromClass: PermissionRecord::class,
-          identifiers: ['id']
-        )
-      ],
-      input: false,
-      output: RoleOutput::class,
-      processor: RemovePermissionFromRoleProcessor::class,
-      normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
-      openapi: new Operation(
-        tags: ['Authorization - Roles'],
-        summary: 'Remove permission from role',
-        description: 'Removes a permission from an existing role. Returns the updated role. Requires ROLE_ADMIN.',
-        security: [['bearerAuth' => []]],
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'Permission removed successfully - role returned with updated permissions',
-            links: new ArrayObject([
-              'GetRole' => [
-                'operationId' => 'role_get',
-                'description' => 'Get the role details',
-                'parameters' => [
-                  'id' => '$response.body#/id',
+        new Get(
+            name: 'role_get',
+            uriTemplate: '/roles/{id}',
+            input: false,
+            output: RoleOutput::class,
+            provider: GetRoleProvider::class,
+            normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
+            security: "is_granted('ROLE_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'Get role details',
+                description: 'Returns details of a specific role including all its assigned permissions. Requires ROLE_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'Role details retrieved successfully',
+                        links: new ArrayObject([
+                            'UpdateRole' => [
+                                'operationId' => 'role_update',
+                                'description' => 'Update this role',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                            'DeleteRole' => [
+                                'operationId' => 'role_delete',
+                                'description' => 'Delete this role (if not a system role)',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                            'AddPermission' => [
+                                'operationId' => 'role_add_permission',
+                                'description' => 'Add a permission to this role',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                        ]),
+                    ),
+                    HttpResponse::HTTP_NOT_FOUND => new Response(
+                        description: 'Role not found'
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_ADMIN required'
+                    ),
                 ],
-              ],
-              'AddPermission' => [
-                'operationId' => 'role_add_permission',
-                'description' => 'Add a permission to this role',
-                'parameters' => [
-                  'id' => '$response.body#/id',
+            ),
+        ),
+        new Post(
+            name: 'role_create',
+            uriTemplate: '/roles',
+            input: RoleInput::class,
+            output: RoleOutput::class,
+            processor: CreateRoleProcessor::class,
+            normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
+            denormalizationContext: ['groups' => [RoleSerializationGroup::WRITE]],
+            security: "is_granted('ROLE_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'Create a new role',
+                description: 'Creates a new role with optional permissions. Role names must be unique and follow the naming convention (lowercase, starts with letter). Requires ROLE_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_CREATED => new Response(
+                        description: 'Role created successfully',
+                        links: new ArrayObject([
+                            'GetRole' => [
+                                'operationId' => 'role_get',
+                                'description' => 'Get the created role details',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                            'AddPermission' => [
+                                'operationId' => 'role_add_permission',
+                                'description' => 'Add a permission to this role',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                        ]),
+                    ),
+                    HttpResponse::HTTP_BAD_REQUEST => new Response(
+                        description: 'Invalid request - validation failed'
+                    ),
+                    HttpResponse::HTTP_CONFLICT => new Response(
+                        description: 'Role name already exists'
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_ADMIN required'
+                    ),
                 ],
-              ],
-            ]),
-          ),
-          HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role or permission not found, or permission not assigned to role'
-          ),
-          HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
-          ),
-          HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
-          ),
-        ],
-      ),
-    )
-  ]
+            ),
+        ),
+        new Patch(
+            name: 'role_update',
+            uriTemplate: '/roles/{id}',
+            input: RoleInput::class,
+            output: RoleOutput::class,
+            processor: UpdateRoleProcessor::class,
+            normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
+            denormalizationContext: ['groups' => [RoleSerializationGroup::UPDATE]],
+            security: "is_granted('ROLE_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'Update a role',
+                description: 'Updates the description or permissions of an existing role. Role name cannot be changed after creation. Requires ROLE_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'Role updated successfully',
+                        links: new ArrayObject([
+                            'GetRole' => [
+                                'operationId' => 'role_get',
+                                'description' => 'Get the updated role details',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                        ]),
+                    ),
+                    HttpResponse::HTTP_BAD_REQUEST => new Response(
+                        description: 'Invalid request - validation failed'
+                    ),
+                    HttpResponse::HTTP_NOT_FOUND => new Response(
+                        description: 'Role not found'
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_ADMIN required'
+                    ),
+                ],
+            ),
+        ),
+        new Delete(
+            name: 'role_delete',
+            uriTemplate: '/roles/{id}',
+            input: false,
+            output: false,
+            processor: DeleteRoleProcessor::class,
+            security: "is_granted('ROLE_SUPER_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'Delete a role',
+                description: 'Permanently deletes a role. System roles cannot be deleted. Users assigned to this role will lose these permissions. Requires ROLE_SUPER_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_NO_CONTENT => new Response(
+                        description: 'Role deleted successfully',
+                    ),
+                    HttpResponse::HTTP_NOT_FOUND => new Response(
+                        description: 'Role not found'
+                    ),
+                    HttpResponse::HTTP_CONFLICT => new Response(
+                        description: 'Cannot delete system role'
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_SUPER_ADMIN required'
+                    ),
+                ],
+            ),
+        ),
+        new Post(
+            name: 'role_add_permission',
+            uriTemplate: '/roles/{roleId}/permissions',
+            uriVariables: [
+                'roleId' => new Link(
+                    fromClass: RoleRecord::class,
+                    identifiers: ['id']
+                ),
+            ],
+            input: AddPermissionInput::class,
+            output: RoleOutput::class,
+            processor: AddPermissionToRoleProcessor::class,
+            normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
+            security: "is_granted('ROLE_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'Add permission to role',
+                description: 'Adds a permission to an existing role. If the permission is already assigned, no error is returned. Requires ROLE_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'Permission added successfully - role returned with updated permissions',
+                        links: new ArrayObject([
+                            'GetRole' => [
+                                'operationId' => 'role_get',
+                                'description' => 'Get the role details',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                            'RemovePermission' => [
+                                'operationId' => 'role_remove_permission',
+                                'description' => 'Remove a permission from this role',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                        ]),
+                    ),
+                    HttpResponse::HTTP_BAD_REQUEST => new Response(
+                        description: 'Invalid request - permission ID invalid'
+                    ),
+                    HttpResponse::HTTP_NOT_FOUND => new Response(
+                        description: 'Role or permission not found'
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_ADMIN required'
+                    ),
+                ],
+            ),
+        ),
+        new Delete(
+            name: 'role_remove_permission',
+            uriTemplate: '/roles/{roleId}/permissions/{permissionId}',
+            uriVariables: [
+                'roleId' => new Link(
+                    fromClass: RoleRecord::class,
+                    identifiers: ['id']
+                ),
+                'permissionId' => new Link(
+                    fromClass: PermissionRecord::class,
+                    identifiers: ['id']
+                ),
+            ],
+            input: false,
+            output: RoleOutput::class,
+            processor: RemovePermissionFromRoleProcessor::class,
+            normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
+            security: "is_granted('ROLE_ADMIN')",
+            openapi: new Operation(
+                tags: ['Authorization - Roles'],
+                summary: 'Remove permission from role',
+                description: 'Removes a permission from an existing role. Returns the updated role. Requires ROLE_ADMIN.',
+                security: [['bearerAuth' => []]],
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'Permission removed successfully - role returned with updated permissions',
+                        links: new ArrayObject([
+                            'GetRole' => [
+                                'operationId' => 'role_get',
+                                'description' => 'Get the role details',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                            'AddPermission' => [
+                                'operationId' => 'role_add_permission',
+                                'description' => 'Add a permission to this role',
+                                'parameters' => [
+                                    'id' => '$response.body#/id',
+                                ],
+                            ],
+                        ]),
+                    ),
+                    HttpResponse::HTTP_NOT_FOUND => new Response(
+                        description: 'Role or permission not found, or permission not assigned to role'
+                    ),
+                    HttpResponse::HTTP_UNAUTHORIZED => new Response(
+                        description: 'Authentication required - missing or invalid access token'
+                    ),
+                    HttpResponse::HTTP_FORBIDDEN => new Response(
+                        description: 'Insufficient permissions - ROLE_ADMIN required'
+                    ),
+                ],
+            ),
+        ),
+    ]
 )]
 final class RoleResource
 {

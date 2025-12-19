@@ -12,13 +12,10 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 /**
- * Processor RevokeAllSessionsProcessor
- * @final
- *
- * API Platform processor for revoking all user sessions.
+ * Processor RevokeAllSessionsProcessor.
  *
  * @category Processor
- * @package Session\Presentation\Api\Processor
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -27,41 +24,40 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
  */
 final readonly class RevokeAllSessionsProcessor implements ProcessorInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param RevokeAllUserSessionsHandler $handler The command handler.
-   * @param Security $security The security service.
-   */
-  public function __construct(
-    private RevokeAllUserSessionsHandler $handler,
-    private Security $security,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method process
-   * {@inheritDoc}
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
-  {
-    $user = $this->security->getUser();
-    if ($user === null) {
-      throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param RevokeAllUserSessionsHandler $handler  the command handler
+     * @param Security                     $security the security service
+     */
+    public function __construct(
+        private RevokeAllUserSessionsHandler $handler,
+        private Security $security,
+    ) {
     }
+    // #endregion
 
-    $command = new RevokeAllUserSessionsCommand(
-      userId: $user->getUserIdentifier(),
-      reason: 'User requested logout from all devices'
-    );
+    // #region Methods
+    /**
+     * Method process
+     * {@inheritDoc}
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
+    {
+        $user = $this->security->getUser();
+        if (null === $user) {
+            throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
+        }
 
-    ($this->handler)($command);
-  }
-  //#endregion
+        $command = new RevokeAllUserSessionsCommand(
+            userId: $user->getUserIdentifier(),
+            reason: 'User requested logout from all devices'
+        );
+
+        ($this->handler)($command);
+    }
+    // #endregion
 }

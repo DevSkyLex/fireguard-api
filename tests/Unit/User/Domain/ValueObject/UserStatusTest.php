@@ -10,13 +10,10 @@ use PHPUnit\Framework\TestCase;
 use User\Domain\ValueObject\UserStatus;
 
 /**
- * Test UserStatusTest
- * @final
- *
- * Unit tests for the UserStatus Enum.
+ * Test UserStatusTest.
  *
  * @category ValueObject Tests
- * @package Tests\Unit\User\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -24,31 +21,30 @@ use User\Domain\ValueObject\UserStatus;
 #[CoversClass(UserStatus::class)]
 final class UserStatusTest extends TestCase
 {
-  //#region Methods
-  /**
-   * Method testHasCorrectMethods
-   *
-   * Tests that user status has
-   * correct methods.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return void No return value.
-   */
-  #[Test]
-  public function testHasCorrectMethods(): void
-  {
-    $active = UserStatus::ACTIVE;
-    $inactive = UserStatus::INACTIVE;
+    // #region Methods
+    /**
+     * Method testHasCorrectMethods.
+     *
+     * Tests that user status has
+     * correct methods.
+     *
+     * @since 1.0.0
+     *
+     * @return void no return value
+     */
+    #[Test]
+    public function testHasCorrectMethods(): void
+    {
+        $active = UserStatus::ACTIVE;
+        $inactive = UserStatus::INACTIVE;
 
-    $this->assertTrue($active->isActive());
-    $this->assertTrue($active->canLogin());
-    $this->assertEquals('Active', $active->label());
+        $this->assertTrue($active->isActive());
+        $this->assertTrue($active->canLogin());
+        $this->assertEquals('Active', $active->label());
 
-    $this->assertFalse($inactive->isActive());
-    $this->assertFalse($inactive->canLogin());
-    $this->assertEquals('Inactive', $inactive->label());
-  }
-  //#endregion
+        $this->assertFalse($inactive->isActive());
+        $this->assertFalse($inactive->canLogin());
+        $this->assertEquals('Inactive', $inactive->label());
+    }
+    // #endregion
 }

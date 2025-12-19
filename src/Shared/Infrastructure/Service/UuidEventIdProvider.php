@@ -9,40 +9,34 @@ use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
- * Service UuidEventIdProvider
- * @final
- *
- * Implementation of EventIdProvider using UuidGeneratorPort.
+ * Service UuidEventIdProvider.
  *
  * @category Service
- * @package Shared\Infrastructure\Service
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class UuidEventIdProvider implements EventIdProvider
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param UuidGeneratorPort $uuidGenerator The UUID generator.
-   */
-  public function __construct(
-    private UuidGeneratorPort $uuidGenerator,
-  ) {}
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param UuidGeneratorPort $uuidGenerator the UUID generator
+     */
+    public function __construct(
+        private UuidGeneratorPort $uuidGenerator,
+    ) {
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * {@inheritDoc}
-   */
-  public function nextEventId(): Uuid
-  {
-    return new Uuid($this->uuidGenerator->generate());
-  }
-  //#endregion
+    // #region Methods
+    public function nextEventId(): Uuid
+    {
+        return new Uuid($this->uuidGenerator->generate());
+    }
+    // #endregion
 }

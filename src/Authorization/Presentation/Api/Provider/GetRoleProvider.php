@@ -12,104 +12,104 @@ use Authorization\Domain\ValueObject\RoleId;
 use Authorization\Presentation\Api\Dto\PermissionOutput;
 use Authorization\Presentation\Api\Dto\RoleOutput;
 
+use function array_map;
+use function is_string;
+
 /**
- * Provider GetRoleProvider
- * @final
+ * Provider GetRoleProvider.
  *
- * API Platform provider for fetching a single role.
+ * Provides the role output.
  *
  * @category Provider
- * @package Authorization\Presentation\Api\Provider
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
- * 
+ *
  * @implements ProviderInterface<RoleOutput>
  */
 final readonly class GetRoleProvider implements ProviderInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the 
-   * GetRoleProvider class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param RoleRepositoryPort $roleRepository The role repository.
-   */
-  public function __construct(
-    private readonly RoleRepositoryPort $roleRepository
-  ) {
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the
+     * GetRoleProvider class.
+     *
+     * @since 1.0.0
+     *
+     * @param RoleRepositoryPort $roleRepository the role repository
+     */
+    public function __construct(
+        private readonly RoleRepositoryPort $roleRepository,
+    ) {
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method provide
-   * {@inheritDoc}
-   *
-   * Provides the role output.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Operation $operation The operation.
-   * @param array<string, mixed> $uriVariables The URI variables.
-   * @param array<string, mixed> $context The context.
-   *
-   * @return RoleOutput|null The role output or null if not found.
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?RoleOutput
-  {
-    $id = $uriVariables['id'] ?? null;
+    // #region Methods
+    /**
+     * Method provide
+     * {@inheritDoc}
+     *
+     * Provides the role output.
+     *
+     * @since 1.0.0
+     *
+     * @param Operation            $operation    the operation
+     * @param array<string, mixed> $uriVariables the URI variables
+     * @param array<string, mixed> $context      the context
+     *
+     * @return RoleOutput|null the role output or null if not found
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?RoleOutput
+    {
+        $id = $uriVariables['id'] ?? null;
 
-    if (!is_string($id)) {
-      return null;
+        if (!is_string($id)) {
+            return null;
+        }
+
+        $role = $this->roleRepository->findById(id: new RoleId(value: $id));
+
+        if (null === $role) {
+            return null;
+        }
+
+        $output = new RoleOutput();
+        $output->id = $role->id()->value;
+        $output->name = $role->name()->value;
+        $output->description = $role->description();
+        $output->isSystem = $role->isSystem();
+        $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
+        $output->permissions = array_map(
+            fn (Permission $permission) => $this->mapPermissionToOutput($permission),
+            $role->permissions()
+        );
+
+        return $output;
     }
 
-    $role = $this->roleRepository->findById(id: new RoleId(value: $id));
+    /**
+     * Method mapPermissionToOutput.
+     *
+     * Maps a Permission to PermissionOutput.
+     *
+     * @since 1.0.0
+     *
+     * @param Permission $permission the permission
+     *
+     * @return PermissionOutput the permission output
+     */
+    private function mapPermissionToOutput(Permission $permission): PermissionOutput
+    {
+        $output = new PermissionOutput();
+        $output->id = $permission->id()->value;
+        $output->name = $permission->name()->value;
+        $output->description = $permission->description();
+        $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
 
-    if ($role === null) {
-      return null;
+        return $output;
     }
-
-    $output = new RoleOutput();
-    $output->id = $role->id()->value;
-    $output->name = $role->name()->value;
-    $output->description = $role->description();
-    $output->isSystem = $role->isSystem();
-    $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
-    $output->permissions = array_map(
-      fn(Permission $permission) => $this->mapPermissionToOutput($permission),
-      $role->permissions()
-    );
-
-    return $output;
-  }
-
-  /**
-   * Method mapPermissionToOutput
-   *
-   * Maps a Permission to PermissionOutput.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Permission $permission The permission.
-   *
-   * @return PermissionOutput The permission output.
-   */
-  private function mapPermissionToOutput(Permission $permission): PermissionOutput
-  {
-    $output = new PermissionOutput();
-    $output->id = $permission->id()->value;
-    $output->name = $permission->name()->value;
-    $output->description = $permission->description();
-    $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
-    return $output;
-  }
-  //#endregion
+    // #endregion
 }

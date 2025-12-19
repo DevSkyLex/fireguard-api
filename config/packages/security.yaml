@@ -40,6 +40,7 @@ security:
   # Role hierarchy
   role_hierarchy:
     ROLE_ADMIN: [ROLE_USER, ROLE_VERIFIED]
+    ROLE_SUPER_ADMIN: [ROLE_ADMIN]
     ROLE_VERIFIED: ROLE_USER
 
   # Access control rules

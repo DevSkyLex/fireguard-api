@@ -6,93 +6,91 @@ namespace OAuth\Domain\ValueObject;
 
 use InvalidArgumentException;
 
+use function bin2hex;
+use function random_bytes;
+
 /**
- * Class TokenIdentifier
- * @final
- *
- * Value object representing a unique token identifier.
+ * Class TokenIdentifier.
  *
  * @category ValueObject
- * @package Auth\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class TokenIdentifier
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the
-   * TokenIdentifier class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $value The token identifier value.
-   *
-   * @throws InvalidArgumentException If the value is empty.
-   */
-  public function __construct(
-    public string $value
-  ) {
-    if ($value === '') throw new InvalidArgumentException(
-      message: 'Token identifier cannot be empty'
-    );
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the
+     * TokenIdentifier class.
+     *
+     * @since 1.0.0
+     *
+     * @param string $value the token identifier value
+     *
+     * @throws InvalidArgumentException if the value is empty
+     */
+    public function __construct(
+        public string $value,
+    ) {
+        if ('' === $value) {
+            throw new InvalidArgumentException(
+                message: 'Token identifier cannot be empty'
+            );
+        }
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method generate
-   *
-   * Generates a new random token 
-   * identifier.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param positive-int $length The length of the identifier in bytes.
-   *
-   * @return self The generated identifier.
-   */
-  public static function generate(int $length = 20): self
-  {
-    return new self(bin2hex(random_bytes($length)));
-  }
+    // #region Methods
+    /**
+     * Method generate.
+     *
+     * Generates a new random token
+     * identifier.
+     *
+     * @since 1.0.0
+     *
+     * @param positive-int $length the length of the identifier in bytes
+     *
+     * @return self the generated identifier
+     */
+    public static function generate(int $length = 20): self
+    {
+        return new self(bin2hex(random_bytes($length)));
+    }
 
-  /**
-   * Method __toString
-   *
-   * Returns the string representation.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return string The token identifier.
-   */
-  public function __toString(): string
-  {
-    return $this->value;
-  }
+    /**
+     * Method __toString.
+     *
+     * Returns the string representation.
+     *
+     * @since 1.0.0
+     *
+     * @return string the token identifier
+     */
+    public function __toString(): string
+    {
+        return $this->value;
+    }
 
-  /**
-   * Method equals
-   *
-   * Checks if this identifier 
-   * equals another.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param self $other The other identifier.
-   *
-   * @return bool True if equal.
-   */
-  public function equals(self $other): bool
-  {
-    return $this->value === $other->value;
-  }
-  //#endregion
+    /**
+     * Method equals.
+     *
+     * Checks if this identifier
+     * equals another.
+     *
+     * @since 1.0.0
+     *
+     * @param self $other the other identifier
+     *
+     * @return bool true if equal
+     */
+    public function equals(self $other): bool
+    {
+        return $this->value === $other->value;
+    }
+    // #endregion
 }

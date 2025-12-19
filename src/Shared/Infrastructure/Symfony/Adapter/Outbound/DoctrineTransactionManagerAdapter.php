@@ -11,72 +11,66 @@ use Shared\Infrastructure\Exception\TransactionExecutionException;
 use Throwable;
 
 /**
- * Adapter DoctrineTransactionManagerAdapter
- * @final
- *
- * Adapter wrapping Doctrine's transactional capabilities
- * exposed through the transaction manager port.
+ * Adapter DoctrineTransactionManagerAdapter.
  *
  * @category Outbound Adapter
- * @package Shared\Infrastructure\Symfony\Adapter\Outbound
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class DoctrineTransactionManagerAdapter implements TransactionManagerPort
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initialize the Doctrine transaction
-   * manager adapter.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param EntityManagerInterface $entityManager The entity manager implementation.
-   */
-  public function __construct(
-    private readonly EntityManagerInterface $entityManager
-  ) {}
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initialize the Doctrine transaction
+     * manager adapter.
+     *
+     * @since 1.0.0
+     *
+     * @param EntityManagerInterface $entityManager the entity manager implementation
+     */
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+    ) {
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method transactional
-   * {@inheritdoc}
-   *
-   * Execute a transactional operation.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param callable $operation The operation to execute within a transaction.
-   *
-   * @return mixed The result of the operation.
-   *
-   * @throws TransactionExecutionException If an exception occurs during the transaction.
-   */
-  public function transactional(callable $operation): mixed
-  {
-    try {
-      return $this->entityManager->wrapInTransaction(
-        static function (EntityManagerInterface $entityManager) use ($operation) {
-          return $operation();
+    // #region Methods
+    /**
+     * Method transactional
+     * {@inheritdoc}
+     *
+     * Execute a transactional operation.
+     *
+     * @since 1.0.0
+     *
+     * @param callable $operation the operation to execute within a transaction
+     *
+     * @return mixed the result of the operation
+     *
+     * @throws TransactionExecutionException if an exception occurs during the transaction
+     */
+    public function transactional(callable $operation): mixed
+    {
+        try {
+            return $this->entityManager->wrapInTransaction(
+                static function (EntityManagerInterface $entityManager) use ($operation) {
+                    return $operation();
+                }
+            );
+        } catch (Throwable $exception) {
+            if ($exception instanceof DoctrineDBALException) {
+                throw TransactionExecutionException::wrap(
+                    previous: $exception,
+                );
+            }
+
+            throw TransactionExecutionException::wrap(
+                previous: $exception,
+            );
         }
-      );
     }
-    catch (Throwable $exception) {
-      if ($exception instanceof DoctrineDBALException) {
-        throw TransactionExecutionException::wrap(
-          previous: $exception,
-        );
-      }
-
-      throw TransactionExecutionException::wrap(
-        previous: $exception,
-      );
-    }
-  }
 }

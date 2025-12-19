@@ -6,24 +6,25 @@ namespace OAuth\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use InvalidArgumentException;
 use OAuth\Application\UseCase\Command\UpdateClientDetails\UpdateClientDetailsCommand;
 use OAuth\Application\UseCase\Query\GetClient\GetClientQuery;
 use OAuth\Application\UseCase\Query\GetClient\GetClientResult;
+use OAuth\Domain\ValueObject\RedirectUri;
+use OAuth\Domain\ValueObject\Scopes;
 use OAuth\Presentation\Api\Dto\Input\ClientInput;
 use OAuth\Presentation\Api\Dto\Output\ClientOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use OAuth\Domain\ValueObject\RedirectUri;
-use OAuth\Domain\ValueObject\Scopes;
+
+use function array_map;
+use function is_string;
 
 /**
- * Processor UpdateClientProcessor
- * @final
- *
- * API Platform processor for client update.
+ * Processor UpdateClientProcessor.
  *
  * @category Processor
- * @package OAuth\Presentation\Api\Processor
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,81 +33,78 @@ use OAuth\Domain\ValueObject\Scopes;
  */
 final readonly class UpdateClientProcessor implements ProcessorInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the UpdateClientProcessor class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param CommandBusPort $commandBus The command bus.
-   * @param QueryBusPort $queryBus The query bus.
-   */
-  public function __construct(
-    private readonly CommandBusPort $commandBus,
-    private readonly QueryBusPort $queryBus
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method process
-   * {@inheritDoc}
-   *
-   * Processes the client update.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param ClientInput $data The input data.
-   * @param Operation $operation The operation.
-   * @param array<string, mixed> $uriVariables The URI variables.
-   * @param array<string, mixed> $context The context.
-   *
-   * @return ClientOutput The processed output.
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
-  {
-    /** @var ClientInput $data */
-
-    $id = $uriVariables['id'] ?? null;
-
-    if (!is_string($id)) {
-      throw new \InvalidArgumentException('Client ID must be a string');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the UpdateClientProcessor class.
+     *
+     * @since 1.0.0
+     *
+     * @param CommandBusPort $commandBus the command bus
+     * @param QueryBusPort   $queryBus   the query bus
+     */
+    public function __construct(
+        private readonly CommandBusPort $commandBus,
+        private readonly QueryBusPort $queryBus,
+    ) {
     }
+    // #endregion
 
-    $name = $data->name ?? '';
+    // #region Methods
+    /**
+     * Method process
+     * {@inheritDoc}
+     *
+     * Processes the client update.
+     *
+     * @since 1.0.0
+     *
+     * @param ClientInput          $data         the input data
+     * @param Operation            $operation    the operation
+     * @param array<string, mixed> $uriVariables the URI variables
+     * @param array<string, mixed> $context      the context
+     *
+     * @return ClientOutput the processed output
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
+    {
+        /** @var ClientInput $data */
+        $id = $uriVariables['id'] ?? null;
 
-    // Convert DTO to Command
-    $command = new UpdateClientDetailsCommand(
-      clientId: $id,
-      name: $name,
-      redirectUris: array_map(fn(string $uri) => new RedirectUri($uri), $data->redirectUris),
-      scopes: Scopes::fromArray($data->scopes)
-    );
+        if (!is_string($id)) {
+            throw new InvalidArgumentException('Client ID must be a string');
+        }
 
-    // Dispatch command
-    $this->commandBus->dispatch($command);
+        $name = $data->name ?? '';
 
-    // Fetch updated client
-    $query = new GetClientQuery(clientId: $id);
-    /** @var GetClientResult $result */
-    $result = $this->queryBus->ask(query: $query);
+        // Convert DTO to Command
+        $command = new UpdateClientDetailsCommand(
+            clientId: $id,
+            name: $name,
+            redirectUris: array_map(fn (string $uri) => new RedirectUri($uri), $data->redirectUris),
+            scopes: Scopes::fromArray($data->scopes)
+        );
 
-    // Create output DTO
-    $output = new ClientOutput();
-    $output->id = $result->id;
-    $output->name = $result->name;
-    $output->redirectUris = $result->redirectUris;
-    $output->grantTypes = $result->grantTypes;
-    $output->scopes = $result->scopes;
-    $output->isActive = $result->isActive;
-    $output->createdAt = $result->createdAt;
+        // Dispatch command
+        $this->commandBus->dispatch($command);
 
-    return $output;
-  }
-  //#endregion
+        // Fetch updated client
+        $query = new GetClientQuery(clientId: $id);
+        /** @var GetClientResult $result */
+        $result = $this->queryBus->ask(query: $query);
+
+        // Create output DTO
+        $output = new ClientOutput();
+        $output->id = $result->id;
+        $output->name = $result->name;
+        $output->redirectUris = $result->redirectUris;
+        $output->grantTypes = $result->grantTypes;
+        $output->scopes = $result->scopes;
+        $output->isActive = $result->isActive;
+        $output->createdAt = $result->createdAt;
+
+        return $output;
+    }
+    // #endregion
 }

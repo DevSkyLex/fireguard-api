@@ -14,91 +14,82 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Throwable;
 
 /**
- * Adapter MessengerEventListener
- * @final
- *
- * Adapter for handling incoming events through
- * Symfony Messenger.
+ * Adapter MessengerEventListener.
  *
  * @category Inbound Adapter
- * @package Shared\Infrastructure\Symfony\Adapter\Inbound
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class MessengerEventListenerAdapter implements EventListenerPort
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initialize the event listener bus.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param MessageBusInterface $eventBus The message bus receiving events.
-   */
-  public function __construct(
-    private readonly MessageBusInterface $eventBus
-  ) {}
-  //#endregion
-
-  //#region Methods
-  /**
-   * {@inheritDoc}
-   */
-  public function handle(object $event): ?ResultMessage
-  {
-    try {
-      $envelope = $this->eventBus->dispatch(message: $event);
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initialize the event listener bus.
+     *
+     * @since 1.0.0
+     *
+     * @param MessageBusInterface $eventBus the message bus receiving events
+     */
+    public function __construct(
+        private readonly MessageBusInterface $eventBus,
+    ) {
     }
-    catch (Throwable $exception) {
-      throw MessengerRuntimeException::wrap(exception: $exception);
-    }
+    // #endregion
 
-    $handledStamp = $this->extractHandledStamp(
-      envelope: $envelope
-    );
+    // #region Methods
+    public function handle(object $event): ?ResultMessage
+    {
+        try {
+            $envelope = $this->eventBus->dispatch(message: $event);
+        } catch (Throwable $exception) {
+            throw MessengerRuntimeException::wrap(exception: $exception);
+        }
 
-    if ($handledStamp === null) {
-      return null;
-    }
+        $handledStamp = $this->extractHandledStamp(
+            envelope: $envelope
+        );
 
-    $result = $handledStamp->getResult();
+        if (null === $handledStamp) {
+            return null;
+        }
 
-    if ($result === null) {
-      return null;
-    }
+        $result = $handledStamp->getResult();
 
-    if (!$result instanceof ResultMessage) {
-      throw NoHandlerResultException::forMessage(message: $event);
-    }
+        if (null === $result) {
+            return null;
+        }
 
-    return $result;
-  }
+        if (!$result instanceof ResultMessage) {
+            throw NoHandlerResultException::forMessage(message: $event);
+        }
 
-  /**
-   * Method extractHandledStamp
-   *
-   * Extract the last handled stamp from the envelope.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Envelope $envelope The envelope to inspect.
-   *
-   * @return ?HandledStamp The handled stamp if present, null otherwise.
-   */
-  private function extractHandledStamp(Envelope $envelope): ?HandledStamp
-  {
-    $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
-
-    if (!$handledStamp instanceof HandledStamp) {
-      return null;
+        return $result;
     }
 
-    return $handledStamp;
-  }
-  //#endregion
+    /**
+     * Method extractHandledStamp.
+     *
+     * Extract the last handled stamp from the envelope.
+     *
+     * @since 1.0.0
+     *
+     * @param Envelope $envelope the envelope to inspect
+     *
+     * @return ?HandledStamp the handled stamp if present, null otherwise
+     */
+    private function extractHandledStamp(Envelope $envelope): ?HandledStamp
+    {
+        $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
+
+        if (!$handledStamp instanceof HandledStamp) {
+            return null;
+        }
+
+        return $handledStamp;
+    }
+    // #endregion
 }

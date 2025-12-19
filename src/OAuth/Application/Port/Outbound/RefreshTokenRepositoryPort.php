@@ -7,45 +7,41 @@ namespace OAuth\Application\Port\Outbound;
 use OAuth\Domain\Model\RefreshToken;
 
 /**
- * Interface RefreshTokenRepositoryPort
+ * Interface RefreshTokenRepositoryPort.
  *
  * Port for Refresh Token repository.
  *
  * @category Port
- * @package Auth\Application\Port\Outbound
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 interface RefreshTokenRepositoryPort
 {
-  //#region Methods
-  /**
-   * Method save
-   * 
-   * Saves a refresh token.
-   * 
-   * @access public
-   * @since 1.0.0
-   * 
-   * @param RefreshToken $refreshToken The refresh token to save.
-   * 
-   * @return void
-   */
-  public function save(RefreshToken $refreshToken): void;
+    // #region Methods
+    /**
+     * Method save.
+     *
+     * Saves a refresh token.
+     *
+     * @since 1.0.0
+     *
+     * @param RefreshToken $refreshToken the refresh token to save
+     */
+    public function save(RefreshToken $refreshToken): void;
 
-  /**
-   * Method find
-   * 
-   * Finds a refresh token by identifier.
-   * 
-   * @access public
-   * @since 1.0.0
-   * 
-   * @param string $identifier The refresh token identifier.
-   * 
-   * @return RefreshToken|null The refresh token or null if not found.
-   */
-  public function find(string $identifier): ?RefreshToken;
-  //#endregion
+    /**
+     * Method find.
+     *
+     * Finds a refresh token by identifier.
+     *
+     * @since 1.0.0
+     *
+     * @param string $identifier the refresh token identifier
+     *
+     * @return RefreshToken|null the refresh token or null if not found
+     */
+    public function find(string $identifier): ?RefreshToken;
+    // #endregion
 }

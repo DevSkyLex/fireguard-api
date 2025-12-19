@@ -5,59 +5,54 @@ declare(strict_types=1);
 namespace OAuth\Application\Port\Outbound;
 
 /**
- * Interface TokenRevocationPort
+ * Interface TokenRevocationPort.
  *
  * Port for token revocation operations.
  *
  * @category Port
- * @package Auth\Application\Port\Outbound
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 interface TokenRevocationPort
 {
-  //#region Methods
-  /**
-   * Method revokeRefreshToken
-   * 
-   * Revoke a refresh token.
-   * 
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $encryptedToken The encrypted refresh token.
-   *
-   * @return bool True if revoked successfully, false otherwise.
-   */
-  public function revokeRefreshToken(string $encryptedToken): bool;
+    // #region Methods
+    /**
+     * Method revokeRefreshToken.
+     *
+     * Revoke a refresh token.
+     *
+     * @since 1.0.0
+     *
+     * @param string $encryptedToken the encrypted refresh token
+     *
+     * @return bool true if revoked successfully, false otherwise
+     */
+    public function revokeRefreshToken(string $encryptedToken): bool;
 
-  /**
-   * Method revokeAccessToken
-   * 
-   * Revoke an access token (JWT).
-   * 
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $jwtToken The JWT access token.
-   *
-   * @return bool True if revoked successfully, false otherwise.
-   */
-  public function revokeAccessToken(string $jwtToken): bool;
+    /**
+     * Method revokeAccessToken.
+     *
+     * Revoke an access token (JWT).
+     *
+     * @since 1.0.0
+     *
+     * @param string $jwtToken the JWT access token
+     *
+     * @return bool true if revoked successfully, false otherwise
+     */
+    public function revokeAccessToken(string $jwtToken): bool;
 
-  /**
-   * Method revokeAllUserTokens
-   * 
-   * Revoke all tokens for a user.
-   * 
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $userId The user identifier.
-   *
-   * @return void
-   */
-  public function revokeAllUserTokens(string $userId): void;
-  //#endregion
+    /**
+     * Method revokeAllUserTokens.
+     *
+     * Revoke all tokens for a user.
+     *
+     * @since 1.0.0
+     *
+     * @param string $userId the user identifier
+     */
+    public function revokeAllUserTokens(string $userId): void;
+    // #endregion
 }

@@ -5,19 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Domain\ValueObject;
 
 use Authorization\Domain\ValueObject\RoleName;
-use Shared\Domain\Exception\InvalidValueException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
- * Test RoleNameTest
- * @final
- *
- * Unit tests for the RoleName value object.
+ * Test RoleNameTest.
  *
  * @category Value Object Tests
- * @package Tests\Unit\Authorization\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -25,108 +22,108 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RoleName::class)]
 final class RoleNameTest extends TestCase
 {
-  //#region Valid Name Tests
+    // #region Valid Name Tests
 
-  /**
-   * Test creating RoleName with valid lowercase name
-   */
-  #[Test]
-  public function testCreateWithValidLowercaseName(): void
-  {
-    $name = 'admin';
-    $roleName = new RoleName($name);
+    /**
+     * Test creating RoleName with valid lowercase name.
+     */
+    #[Test]
+    public function testCreateWithValidLowercaseName(): void
+    {
+        $name = 'admin';
+        $roleName = new RoleName($name);
 
-    $this->assertEquals($name, $roleName->value);
-  }
+        $this->assertEquals($name, $roleName->value);
+    }
 
-  /**
-   * Test creating RoleName with underscores
-   */
-  #[Test]
-  public function testCreateWithUnderscores(): void
-  {
-    $name = 'super_admin';
-    $roleName = new RoleName($name);
+    /**
+     * Test creating RoleName with underscores.
+     */
+    #[Test]
+    public function testCreateWithUnderscores(): void
+    {
+        $name = 'super_admin';
+        $roleName = new RoleName($name);
 
-    $this->assertEquals($name, $roleName->value);
-  }
+        $this->assertEquals($name, $roleName->value);
+    }
 
-  /**
-   * Test creating RoleName with numbers
-   */
-  #[Test]
-  public function testCreateWithNumbers(): void
-  {
-    $name = 'admin2';
-    $roleName = new RoleName($name);
+    /**
+     * Test creating RoleName with numbers.
+     */
+    #[Test]
+    public function testCreateWithNumbers(): void
+    {
+        $name = 'admin2';
+        $roleName = new RoleName($name);
 
-    $this->assertEquals($name, $roleName->value);
-  }
+        $this->assertEquals($name, $roleName->value);
+    }
 
-  //#endregion
+    // #endregion
 
-  //#region Invalid Name Tests
+    // #region Invalid Name Tests
 
-  /**
-   * Test creating RoleName with uppercase throws exception
-   */
-  #[Test]
-  public function testCreateWithUppercaseThrowsException(): void
-  {
-    $this->expectException(InvalidValueException::class);
+    /**
+     * Test creating RoleName with uppercase throws exception.
+     */
+    #[Test]
+    public function testCreateWithUppercaseThrowsException(): void
+    {
+        $this->expectException(InvalidValueException::class);
 
-    new RoleName('ADMIN');
-  }
+        new RoleName('ADMIN');
+    }
 
-  /**
-   * Test creating RoleName with empty string throws exception
-   */
-  #[Test]
-  public function testCreateWithEmptyStringThrowsException(): void
-  {
-    $this->expectException(InvalidValueException::class);
+    /**
+     * Test creating RoleName with empty string throws exception.
+     */
+    #[Test]
+    public function testCreateWithEmptyStringThrowsException(): void
+    {
+        $this->expectException(InvalidValueException::class);
 
-    new RoleName('');
-  }
+        new RoleName('');
+    }
 
-  /**
-   * Test creating RoleName with special characters throws exception
-   */
-  #[Test]
-  public function testCreateWithSpecialCharactersThrowsException(): void
-  {
-    $this->expectException(InvalidValueException::class);
+    /**
+     * Test creating RoleName with special characters throws exception.
+     */
+    #[Test]
+    public function testCreateWithSpecialCharactersThrowsException(): void
+    {
+        $this->expectException(InvalidValueException::class);
 
-    new RoleName('admin@role');
-  }
+        new RoleName('admin@role');
+    }
 
-  //#endregion
+    // #endregion
 
-  //#region Equality Tests
+    // #region Equality Tests
 
-  /**
-   * Test RoleName equality
-   */
-  #[Test]
-  public function testRoleNameEquality(): void
-  {
-    $roleName1 = new RoleName('admin');
-    $roleName2 = new RoleName('admin');
+    /**
+     * Test RoleName equality.
+     */
+    #[Test]
+    public function testRoleNameEquality(): void
+    {
+        $roleName1 = new RoleName('admin');
+        $roleName2 = new RoleName('admin');
 
-    $this->assertTrue($roleName1->equals($roleName2));
-  }
+        $this->assertTrue($roleName1->equals($roleName2));
+    }
 
-  /**
-   * Test RoleName inequality
-   */
-  #[Test]
-  public function testRoleNameInequality(): void
-  {
-    $roleName1 = new RoleName('admin');
-    $roleName2 = new RoleName('user');
+    /**
+     * Test RoleName inequality.
+     */
+    #[Test]
+    public function testRoleNameInequality(): void
+    {
+        $roleName1 = new RoleName('admin');
+        $roleName2 = new RoleName('user');
 
-    $this->assertFalse($roleName1->equals($roleName2));
-  }
+        $this->assertFalse($roleName1->equals($roleName2));
+    }
 
-  //#endregion
+    // #endregion
 }

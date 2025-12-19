@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Session\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Delete;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Session\Application\UseCase\Command\RevokeSession\RevokeSessionHandler;
 use Session\Domain\Model\Session;
@@ -15,144 +15,130 @@ use Session\Domain\ValueObject\SessionId;
 use Session\Presentation\Api\Processor\RevokeSessionProcessor;
 use Shared\Domain\ValueObject\IpAddress;
 use Shared\Domain\ValueObject\UserAgent;
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
- * Test RevokeSessionProcessorTest
- * @final
- *
- * Test class for RevokeSessionProcessor.
+ * Test RevokeSessionProcessorTest.
  *
  * @category Processor Tests
- * @package Tests\Session\Presentation\Api\Processor
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(className: RevokeSessionProcessor::class)]
 final class RevokeSessionProcessorTest extends TestCase
 {
-  //#region Methods
+    // #region Methods
 
-  /**
-   * Creates a Security mock with an authenticated user.
-   */
-  private function createSecurityMock(): Security
-  {
-    $user = $this->createMock(UserInterface::class);
-    $security = $this->createMock(Security::class);
-    $security->method('getUser')->willReturn($user);
-    return $security;
-  }
+    /**
+     * Creates a Security mock with an authenticated user.
+     */
+    private function createSecurityMock(): Security
+    {
+        $user = $this->createMock(UserInterface::class);
+        $security = $this->createMock(Security::class);
+        $security->method('getUser')->willReturn($user);
 
-  /**
-   * Method testProcessRevokesSession
-   *
-   * Test that process revokes a session.
-   *
-   * @access public
-   *
-   * @return void
-   */
-  #[Test]
-  public function testProcessRevokesSession(): void
-  {
-    $sessionId = '123e4567-e89b-12d3-a456-426614174000';
+        return $security;
+    }
 
-    $session = Session::create(
-      id: new SessionId($sessionId),
-      userId: 'user-123',
-      ipAddress: new IpAddress('192.168.1.1'),
-      userAgent: new UserAgent('Mozilla/5.0'),
-    );
+    /**
+     * Method testProcessRevokesSession.
+     *
+     * Test that process revokes a session.
+     */
+    #[Test]
+    public function testProcessRevokesSession(): void
+    {
+        $sessionId = '123e4567-e89b-12d3-a456-426614174000';
 
-    $repository = $this->createMock(SessionRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('findById')
-      ->willReturn($session);
-    $repository->expects(self::once())
-      ->method('save');
+        $session = Session::create(
+            id: new SessionId($sessionId),
+            userId: 'user-123',
+            ipAddress: new IpAddress('192.168.1.1'),
+            userAgent: new UserAgent('Mozilla/5.0'),
+        );
 
-    $handler = new RevokeSessionHandler(sessionRepository: $repository);
-    $processor = new RevokeSessionProcessor(
-      handler: $handler,
-      security: $this->createSecurityMock(),
-    );
+        $repository = $this->createMock(SessionRepositoryPort::class);
+        $repository->expects(self::once())
+          ->method('findById')
+          ->willReturn($session);
+        $repository->expects(self::once())
+          ->method('save');
 
-    $processor->process(
-      data: new \stdClass(),
-      operation: new Delete(),
-      uriVariables: ['id' => $sessionId],
-      context: [],
-    );
+        $handler = new RevokeSessionHandler(sessionRepository: $repository);
+        $processor = new RevokeSessionProcessor(
+            handler: $handler,
+            security: $this->createSecurityMock(),
+        );
 
-    // No exception means success
-    self::assertTrue($session->isRevoked());
-  }
+        $processor->process(
+            data: new stdClass(),
+            operation: new Delete(),
+            uriVariables: ['id' => $sessionId],
+            context: [],
+        );
 
-  /**
-   * Method testProcessThrowsNotFoundWhenSessionMissing
-   *
-   * Test that process throws NotFoundHttpException when session is missing.
-   *
-   * @access public
-   *
-   * @return void
-   */
-  #[Test]
-  public function testProcessThrowsNotFoundWhenSessionMissing(): void
-  {
-    $sessionId = '123e4567-e89b-12d3-a456-426614174000';
+        // No exception means success
+        self::assertTrue($session->isRevoked());
+    }
 
-    $repository = $this->createMock(SessionRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('findById')
-      ->willReturn(null);
+    /**
+     * Method testProcessThrowsNotFoundWhenSessionMissing.
+     *
+     * Test that process throws NotFoundHttpException when session is missing.
+     */
+    #[Test]
+    public function testProcessThrowsNotFoundWhenSessionMissing(): void
+    {
+        $sessionId = '123e4567-e89b-12d3-a456-426614174000';
 
-    $handler = new RevokeSessionHandler(sessionRepository: $repository);
-    $processor = new RevokeSessionProcessor(
-      handler: $handler,
-      security: $this->createSecurityMock(),
-    );
+        $repository = $this->createMock(SessionRepositoryPort::class);
+        $repository->expects(self::once())
+          ->method('findById')
+          ->willReturn(null);
 
-    $this->expectException(NotFoundHttpException::class);
+        $handler = new RevokeSessionHandler(sessionRepository: $repository);
+        $processor = new RevokeSessionProcessor(
+            handler: $handler,
+            security: $this->createSecurityMock(),
+        );
 
-    $processor->process(
-      data: new \stdClass(),
-      operation: new Delete(),
-      uriVariables: ['id' => $sessionId],
-      context: [],
-    );
-  }
+        $this->expectException(NotFoundHttpException::class);
 
-  /**
-   * Method testProcessThrowsNotFoundWhenIdMissing
-   *
-   * Test that process throws NotFoundHttpException when ID is missing.
-   *
-   * @access public
-   *
-   * @return void
-   */
-  #[Test]
-  public function testProcessThrowsNotFoundWhenIdMissing(): void
-  {
-    $repository = $this->createMock(SessionRepositoryPort::class);
-    $handler = new RevokeSessionHandler(sessionRepository: $repository);
-    $processor = new RevokeSessionProcessor(
-      handler: $handler,
-      security: $this->createSecurityMock(),
-    );
+        $processor->process(
+            data: new stdClass(),
+            operation: new Delete(),
+            uriVariables: ['id' => $sessionId],
+            context: [],
+        );
+    }
 
-    $this->expectException(NotFoundHttpException::class);
+    /**
+     * Method testProcessThrowsNotFoundWhenIdMissing.
+     *
+     * Test that process throws NotFoundHttpException when ID is missing.
+     */
+    #[Test]
+    public function testProcessThrowsNotFoundWhenIdMissing(): void
+    {
+        $repository = $this->createMock(SessionRepositoryPort::class);
+        $handler = new RevokeSessionHandler(sessionRepository: $repository);
+        $processor = new RevokeSessionProcessor(
+            handler: $handler,
+            security: $this->createSecurityMock(),
+        );
 
-    $processor->process(
-      data: new \stdClass(),
-      operation: new Delete(),
-      uriVariables: [],
-      context: [],
-    );
-  }
-  //#endregion
+        $this->expectException(NotFoundHttpException::class);
+
+        $processor->process(
+            data: new stdClass(),
+            operation: new Delete(),
+            uriVariables: [],
+            context: [],
+        );
+    }
+    // #endregion
 }

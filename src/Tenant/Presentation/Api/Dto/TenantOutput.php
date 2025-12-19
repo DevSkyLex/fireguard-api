@@ -7,88 +7,71 @@ namespace Tenant\Presentation\Api\Dto;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 /**
- * DTO TenantOutput
- * @final
- *
- * Output DTO for tenant data.
+ * DTO TenantOutput.
  *
  * @category DTO
- * @package Tenant\Presentation\Api\Dto
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class TenantOutput
 {
-  //#region Properties
-  /**
-   * Property id
-   *
-   * The tenant ID.
-   *
-   * @var string
-   */
-  #[Groups(['tenant:read'])]
-  public string $id = '';
+    // #region Properties
+    /**
+     * Property id.
+     *
+     * The tenant ID.
+     */
+    #[Groups(['tenant:read'])]
+    public string $id = '';
 
-  /**
-   * Property name
-   *
-   * The tenant name.
-   *
-   * @var string
-   */
-  #[Groups(['tenant:read'])]
-  public string $name = '';
+    /**
+     * Property name.
+     *
+     * The tenant name.
+     */
+    #[Groups(['tenant:read'])]
+    public string $name = '';
 
-  /**
-   * Property isActive
-   *
-   * Whether the tenant is active.
-   *
-   * @var bool
-   */
-  #[Groups(['tenant:read'])]
-  public bool $isActive = true;
+    /**
+     * Property isActive.
+     *
+     * Whether the tenant is active.
+     */
+    #[Groups(['tenant:read'])]
+    public bool $isActive = true;
 
-  /**
-   * Property accessTokenTtl
-   *
-   * Access token TTL in seconds.
-   *
-   * @var int
-   */
-  #[Groups(['tenant:read', 'tenant:settings'])]
-  public int $accessTokenTtl = 3600;
+    /**
+     * Property accessTokenTtl.
+     *
+     * Access token TTL in seconds.
+     */
+    #[Groups(['tenant:read', 'tenant:settings'])]
+    public int $accessTokenTtl = 3600;
 
-  /**
-   * Property refreshTokenTtl
-   *
-   * Refresh token TTL in seconds.
-   *
-   * @var int
-   */
-  #[Groups(['tenant:read', 'tenant:settings'])]
-  public int $refreshTokenTtl = 86400;
+    /**
+     * Property refreshTokenTtl.
+     *
+     * Refresh token TTL in seconds.
+     */
+    #[Groups(['tenant:read', 'tenant:settings'])]
+    public int $refreshTokenTtl = 86400;
 
-  /**
-   * Property requirePkce
-   *
-   * Whether PKCE is required.
-   *
-   * @var bool
-   */
-  #[Groups(['tenant:read', 'tenant:settings'])]
-  public bool $requirePkce = true;
+    /**
+     * Property requirePkce.
+     *
+     * Whether PKCE is required.
+     */
+    #[Groups(['tenant:read', 'tenant:settings'])]
+    public bool $requirePkce = true;
 
-  /**
-   * Property createdAt
-   *
-   * The creation timestamp.
-   *
-   * @var string
-   */
-  #[Groups(['tenant:read'])]
-  public string $createdAt = '';
-  //#endregion
+    /**
+     * Property createdAt.
+     *
+     * The creation timestamp.
+     */
+    #[Groups(['tenant:read'])]
+    public string $createdAt = '';
+    // #endregion
 }

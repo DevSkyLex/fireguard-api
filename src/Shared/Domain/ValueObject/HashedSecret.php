@@ -4,71 +4,70 @@ declare(strict_types=1);
 
 namespace Shared\Domain\ValueObject;
 
-use Stringable;
 use Shared\Domain\Exception\InvalidValueException;
+use Stringable;
+
+use function str_starts_with;
 
 /**
- * ValueObject HashedSecret
+ * ValueObject HashedSecret.
  *
  * It represents a hashed secret.
  *
  * @category ValueObject
- * @package Shared\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 readonly class HashedSecret implements Stringable
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of
-   * the HashedSecret class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $value The hashed secret.
-   *
-   * @throws InvalidValueException If the hashed secret is invalid.
-   */
-  public function __construct(public string $value)
-  {
-    if ($value === '' || str_starts_with($value, '$') === false) {
-      throw InvalidValueException::because(message: 'Invalid hashed secret.');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of
+     * the HashedSecret class.
+     *
+     * @since 1.0.0
+     *
+     * @param string $value the hashed secret
+     *
+     * @throws InvalidValueException if the hashed secret is invalid
+     */
+    public function __construct(public string $value)
+    {
+        if ('' === $value || false === str_starts_with($value, '$')) {
+            throw InvalidValueException::because(message: 'Invalid hashed secret.');
+        }
     }
-  }
-  //#endregion
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method equals
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param self $other The other hashed secret to compare.
-   *
-   * @return bool True if the hashed secrets are equal, false otherwise.
-   */
-  public function equals(self $other): bool
-  {
-    return $this->value === $other->value;
-  }
+    // #region Methods
+    /**
+     * Method equals.
+     *
+     * @since 1.0.0
+     *
+     * @param self $other the other hashed secret to compare
+     *
+     * @return bool true if the hashed secrets are equal, false otherwise
+     */
+    public function equals(self $other): bool
+    {
+        return $this->value === $other->value;
+    }
 
-  /**
-   * Method __toString
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @return string The hashed secret as a string.
-   */
-  public function __toString(): string
-  {
-    return $this->value;
-  }
-  //#endregion
+    /**
+     * Method __toString.
+     *
+     * @since 1.0.0
+     *
+     * @return string the hashed secret as a string
+     */
+    public function __toString(): string
+    {
+        return $this->value;
+    }
+    // #endregion
 }

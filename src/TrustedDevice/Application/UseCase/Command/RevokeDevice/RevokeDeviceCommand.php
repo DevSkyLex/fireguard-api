@@ -7,35 +7,32 @@ namespace TrustedDevice\Application\UseCase\Command\RevokeDevice;
 use Shared\Application\Message\CommandMessage;
 
 /**
- * Command RevokeDeviceCommand
- * @final
- *
- * Command to revoke a trusted device.
+ * Command RevokeDeviceCommand.
  *
  * @category Command
- * @package TrustedDevice\Application\UseCase\Command\RevokeDevice
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class RevokeDeviceCommand implements CommandMessage
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initialize the command with the 
-   * device ID and user ID.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $deviceId The device ID.
-   * @param string $userId The user ID.
-   */
-  public function __construct(
-    public readonly string $deviceId,
-    public readonly string $userId,
-  ) {}
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initialize the command with the
+     * device ID and user ID.
+     *
+     * @since 1.0.0
+     *
+     * @param string $deviceId the device ID
+     * @param string $userId   the user ID
+     */
+    public function __construct(
+        public readonly string $deviceId,
+        public readonly string $userId,
+    ) {
+    }
+    // #endregion
 }

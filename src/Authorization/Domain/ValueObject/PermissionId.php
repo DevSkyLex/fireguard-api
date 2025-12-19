@@ -7,13 +7,10 @@ namespace Authorization\Domain\ValueObject;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
- * ValueObject PermissionId
- * @final
- *
- * Represents a unique identifier for a Permission.
+ * ValueObject PermissionId.
  *
  * @category ValueObject
- * @package Authorization\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

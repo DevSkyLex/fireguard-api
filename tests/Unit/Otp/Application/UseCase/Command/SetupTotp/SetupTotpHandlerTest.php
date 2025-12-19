@@ -14,45 +14,41 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Test SetupTotpHandlerTest
- * @final
- *
- * Tests for SetupTotpHandler.
+ * Test SetupTotpHandlerTest.
  *
  * @category Unit Tests
- * @package Tests\Unit\Otp\Application\UseCase\Command\SetupTotp
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(SetupTotpHandler::class)]
 final class SetupTotpHandlerTest extends TestCase
 {
-  #[Test]
-  public function testInvokeGeneratesTotpSecret(): void
-  {
-    $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
-    $qrCodeUri = 'otpauth://totp/FireGuard%20Auth:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=FireGuard%20Auth';
+    #[Test]
+    public function testInvokeGeneratesTotpSecret(): void
+    {
+        $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
+        $qrCodeUri = 'otpauth://totp/FireGuard%20Auth:test@example.com?secret=JBSWY3DPEHPK3PXP&issuer=FireGuard%20Auth';
 
-    $totpService = $this->createMock(TotpServicePort::class);
-    $totpService->expects(self::once())
-      ->method('generateSecret')
-      ->willReturn($secret);
-    $totpService->expects(self::once())
-      ->method('getProvisioningUri')
-      ->with($secret, 'test@example.com', 'FireGuard Auth')
-      ->willReturn($qrCodeUri);
+        $totpService = $this->createMock(TotpServicePort::class);
+        $totpService->expects(self::once())
+          ->method('generateSecret')
+          ->willReturn($secret);
+        $totpService->expects(self::once())
+          ->method('getProvisioningUri')
+          ->with($secret, 'test@example.com', 'FireGuard Auth')
+          ->willReturn($qrCodeUri);
 
-    $handler = new SetupTotpHandler(totpService: $totpService);
+        $handler = new SetupTotpHandler(totpService: $totpService);
 
-    $command = new SetupTotpCommand(
-      userId: 'user-123',
-      accountName: 'test@example.com',
-    );
+        $command = new SetupTotpCommand(
+            userId: 'user-123',
+            accountName: 'test@example.com',
+        );
 
-    $result = $handler->__invoke($command);
+        $result = $handler->__invoke($command);
 
-    self::assertInstanceOf(SetupTotpResult::class, $result);
-    self::assertEquals('JBSWY3DPEHPK3PXP', $result->secret);
-    self::assertEquals($qrCodeUri, $result->qrCodeUri);
-  }
+        self::assertInstanceOf(SetupTotpResult::class, $result);
+        self::assertEquals('JBSWY3DPEHPK3PXP', $result->secret);
+        self::assertEquals($qrCodeUri, $result->qrCodeUri);
+    }
 }

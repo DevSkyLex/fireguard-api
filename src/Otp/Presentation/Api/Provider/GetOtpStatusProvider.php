@@ -12,14 +12,13 @@ use Otp\Domain\Exception\OtpNotFoundException;
 use Otp\Presentation\Api\Dto\OtpOutput;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+use function is_string;
+
 /**
- * Provider GetOtpStatusProvider
- * @final
- *
- * API Platform provider for OTP status.
+ * Provider GetOtpStatusProvider.
  *
  * @category Provider
- * @package Otp\Presentation\Api\Provider
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -28,45 +27,42 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final readonly class GetOtpStatusProvider implements ProviderInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @param GetOtpStatusHandler $handler The handler.
-   */
-  public function __construct(
-    private GetOtpStatusHandler $handler,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * {@inheritDoc}
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): OtpOutput
-  {
-    $otpId = $uriVariables['id'] ?? null;
-
-    if (!is_string($otpId)) {
-      throw new NotFoundHttpException('OTP ID is required.');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @param GetOtpStatusHandler $handler the handler
+     */
+    public function __construct(
+        private GetOtpStatusHandler $handler,
+    ) {
     }
+    // #endregion
 
-    try {
-      $query = new GetOtpStatusQuery(otpId: $otpId);
-      $result = $this->handler->__invoke($query);
+    // #region Methods
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): OtpOutput
+    {
+        $otpId = $uriVariables['id'] ?? null;
 
-      $output = new OtpOutput();
-      $output->id = $otpId;
-      $output->status = $result->status;
-      $output->maskedRecipient = $result->maskedRecipient;
-      $output->expiresAt = $result->expiresAt;
-      $output->attemptsRemaining = $result->attemptsRemaining;
+        if (!is_string($otpId)) {
+            throw new NotFoundHttpException('OTP ID is required.');
+        }
 
-      return $output;
-    } catch (OtpNotFoundException) {
-      throw new NotFoundHttpException('OTP not found.');
+        try {
+            $query = new GetOtpStatusQuery(otpId: $otpId);
+            $result = $this->handler->__invoke($query);
+
+            $output = new OtpOutput();
+            $output->id = $otpId;
+            $output->status = $result->status;
+            $output->maskedRecipient = $result->maskedRecipient;
+            $output->expiresAt = $result->expiresAt;
+            $output->attemptsRemaining = $result->attemptsRemaining;
+
+            return $output;
+        } catch (OtpNotFoundException) {
+            throw new NotFoundHttpException('OTP not found.');
+        }
     }
-  }
-  //#endregion
+    // #endregion
 }

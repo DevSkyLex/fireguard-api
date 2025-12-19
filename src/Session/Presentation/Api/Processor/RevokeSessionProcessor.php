@@ -13,14 +13,13 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+use function is_string;
+
 /**
- * Processor RevokeSessionProcessor
- * @final
- *
- * API Platform processor for revoking a session.
+ * Processor RevokeSessionProcessor.
  *
  * @category Processor
- * @package Session\Presentation\Api\Processor
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,49 +28,48 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final readonly class RevokeSessionProcessor implements ProcessorInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param RevokeSessionHandler $handler The command handler.
-   * @param Security $security The security service.
-   */
-  public function __construct(
-    private RevokeSessionHandler $handler,
-    private Security $security,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method process
-   * {@inheritDoc}
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
-  {
-    if ($this->security->getUser() === null) {
-      throw new AccessDeniedHttpException('Authentication required');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param RevokeSessionHandler $handler  the command handler
+     * @param Security             $security the security service
+     */
+    public function __construct(
+        private RevokeSessionHandler $handler,
+        private Security $security,
+    ) {
     }
+    // #endregion
 
-    $sessionId = $uriVariables['id'] ?? null;
+    // #region Methods
+    /**
+     * Method process
+     * {@inheritDoc}
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
+    {
+        if (null === $this->security->getUser()) {
+            throw new AccessDeniedHttpException('Authentication required');
+        }
 
-    if (!is_string($sessionId)) {
-      throw new NotFoundHttpException('Session ID is required.');
+        $sessionId = $uriVariables['id'] ?? null;
+
+        if (!is_string($sessionId)) {
+            throw new NotFoundHttpException('Session ID is required.');
+        }
+
+        try {
+            $command = new RevokeSessionCommand(
+                sessionId: $sessionId,
+                reason: 'User revoked session via API'
+            );
+            ($this->handler)($command);
+        } catch (SessionNotFoundException $e) {
+            throw new NotFoundHttpException($e->getMessage(), $e);
+        }
     }
-
-    try {
-      $command = new RevokeSessionCommand(
-        sessionId: $sessionId,
-        reason: 'User revoked session via API'
-      );
-      ($this->handler)($command);
-    } catch (SessionNotFoundException $e) {
-      throw new NotFoundHttpException($e->getMessage(), $e);
-    }
-  }
-  //#endregion
+    // #endregion
 }

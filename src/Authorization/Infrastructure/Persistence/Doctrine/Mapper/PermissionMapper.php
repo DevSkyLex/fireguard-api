@@ -10,67 +10,62 @@ use Authorization\Domain\ValueObject\PermissionName;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
 
 /**
- * Mapper PermissionMapper
- * @final
- *
- * Maps between Permission domain model and PermissionRecord Doctrine entity.
+ * Mapper PermissionMapper.
  *
  * @category Mapper
- * @package Authorization\Infrastructure\Persistence\Doctrine\Mapper
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class PermissionMapper
 {
-  //#region Methods
-  /**
-   * Method toDomain
-   *
-   * Converts a PermissionRecord to a 
-   * Permission domain model.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param PermissionRecord $record The record to convert.
-   *
-   * @return Permission The domain model.
-   */
-  public function toDomain(PermissionRecord $record): Permission
-  {
-    return new Permission(
-      id: new PermissionId(value: $record->id),
-      name: new PermissionName(value: $record->name),
-      description: $record->description,
-      createdAt: $record->createdAt,
-    );
-  }
+    // #region Methods
+    /**
+     * Method toDomain.
+     *
+     * Converts a PermissionRecord to a
+     * Permission domain model.
+     *
+     * @since 1.0.0
+     *
+     * @param PermissionRecord $record the record to convert
+     *
+     * @return Permission the domain model
+     */
+    public function toDomain(PermissionRecord $record): Permission
+    {
+        return new Permission(
+            id: new PermissionId(value: $record->id),
+            name: new PermissionName(value: $record->name),
+            description: $record->description,
+            createdAt: $record->createdAt,
+        );
+    }
 
-  /**
-   * Method toRecord
-   *
-   * Converts a Permission domain model to a 
-   * PermissionRecord.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Permission $permission The domain model to convert.
-   * @param PermissionRecord|null $record Existing record to update, or null to create new.
-   *
-   * @return PermissionRecord The Doctrine record.
-   */
-  public function toRecord(Permission $permission, ?PermissionRecord $record = null): PermissionRecord
-  {
-    $record ??= new PermissionRecord();
+    /**
+     * Method toRecord.
+     *
+     * Converts a Permission domain model to a
+     * PermissionRecord.
+     *
+     * @since 1.0.0
+     *
+     * @param Permission            $permission the domain model to convert
+     * @param PermissionRecord|null $record     existing record to update, or null to create new
+     *
+     * @return PermissionRecord the Doctrine record
+     */
+    public function toRecord(Permission $permission, ?PermissionRecord $record = null): PermissionRecord
+    {
+        $record ??= new PermissionRecord();
 
-    $record->id = $permission->id()->value;
-    $record->name = $permission->name()->value;
-    $record->description = $permission->description();
-    $record->createdAt = $permission->createdAt();
+        $record->id = $permission->id()->value;
+        $record->name = $permission->name()->value;
+        $record->description = $permission->description();
+        $record->createdAt = $permission->createdAt();
 
-    return $record;
-  }
-  //#endregion
+        return $record;
+    }
+    // #endregion
 }

@@ -17,13 +17,10 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
 /**
- * Processor MfaVerifyProcessor
- * @final
- *
- * Handles MFA verification and issues the final access token.
+ * Processor MfaVerifyProcessor.
  *
  * @category Processor
- * @package Auth\Presentation\Http\Auth
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,90 +29,88 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
  */
 final readonly class MfaVerifyProcessor implements ProcessorInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes the processor with dependencies.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param MfaVerifyHandler $handler The MFA verify handler.
-   * @param RequestStack $requestStack The request stack.
-   * @param RefreshTokenCookieService $cookieService The cookie service.
-   */
-  public function __construct(
-    private readonly MfaVerifyHandler $handler,
-    private readonly RequestStack $requestStack,
-    private readonly RefreshTokenCookieService $cookieService,
-  ) {}
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method process
-   * {@inheritDoc}
-   *
-   * Processes the MFA verification request.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param MfaVerifyInput $data The input data.
-   * @param Operation $operation The operation.
-   * @param array<string, mixed> $uriVariables The URI variables.
-   * @param array<string, mixed> $context The context.
-   *
-   * @return LoginOutput The output.
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): LoginOutput
-  {
-    $request = $this->requestStack->getCurrentRequest();
-
-    // Dispatch command to handler
-    $command = new MfaVerifyCommand(
-      preAuthToken: $data->preAuthToken,
-      code: $data->code,
-    );
-
-    try {
-      $result = $this->handler->__invoke($command);
-    } 
-    catch (AuthorizationException $exception) {
-      throw new UnauthorizedHttpException(
-        challenge: 'Bearer',
-        message: $exception->getMessage()
-      );
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes the processor with dependencies.
+     *
+     * @since 1.0.0
+     *
+     * @param MfaVerifyHandler          $handler       the MFA verify handler
+     * @param RequestStack              $requestStack  the request stack
+     * @param RefreshTokenCookieService $cookieService the cookie service
+     */
+    public function __construct(
+        private readonly MfaVerifyHandler $handler,
+        private readonly RequestStack $requestStack,
+        private readonly RefreshTokenCookieService $cookieService,
+    ) {
     }
+    // #endregion
 
-    if (!$result->success) {
-      throw new BadRequestHttpException(
-        message: $result->error ?? 'Invalid code'
-      );
+    // #region Methods
+    /**
+     * Method process
+     * {@inheritDoc}
+     *
+     * Processes the MFA verification request.
+     *
+     * @since 1.0.0
+     *
+     * @param MfaVerifyInput       $data         the input data
+     * @param Operation            $operation    the operation
+     * @param array<string, mixed> $uriVariables the URI variables
+     * @param array<string, mixed> $context      the context
+     *
+     * @return LoginOutput the output
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): LoginOutput
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        // Dispatch command to handler
+        $command = new MfaVerifyCommand(
+            preAuthToken: $data->preAuthToken,
+            code: $data->code,
+        );
+
+        try {
+            $result = $this->handler->__invoke($command);
+        } catch (AuthorizationException $exception) {
+            throw new UnauthorizedHttpException(
+                challenge: 'Bearer',
+                message: $exception->getMessage()
+            );
+        }
+
+        if (!$result->success) {
+            throw new BadRequestHttpException(
+                message: $result->error ?? 'Invalid code'
+            );
+        }
+
+        // Build output
+        $output = new LoginOutput();
+        $output->accessToken = $result->accessToken;
+        $output->tokenType = $result->tokenType;
+        $output->expiresIn = $result->expiresIn;
+        $output->scope = '';
+
+        // Handle Refresh Token Cookie
+        if (null !== $result->refreshToken) {
+            $cookie = $this->cookieService->createCookie(
+                refreshToken: $result->refreshToken,
+                rememberMe: true
+            );
+
+            $request?->attributes->set(
+                key: '_refresh_token_cookie',
+                value: $cookie
+            );
+        }
+
+        return $output;
     }
-
-    // Build output
-    $output = new LoginOutput();
-    $output->accessToken = $result->accessToken;
-    $output->tokenType = $result->tokenType;
-    $output->expiresIn = $result->expiresIn;
-    $output->scope = '';
-
-    // Handle Refresh Token Cookie
-    if ($result->refreshToken !== null) {
-      $cookie = $this->cookieService->createCookie(
-        refreshToken: $result->refreshToken,
-        rememberMe: true
-      );
-
-      $request?->attributes->set(
-        key: '_refresh_token_cookie',
-        value: $cookie
-      );
-    }
-
-    return $output;
-  }
-  //#endregion
+    // #endregion
 }

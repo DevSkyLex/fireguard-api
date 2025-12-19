@@ -7,83 +7,79 @@ namespace Otp\Presentation\Api\Resource;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\OpenApi\Model\{
-  Operation,
-  Response
+    Operation,
+    Response
 };
 use ArrayObject;
-use Otp\Presentation\Api\Dto\PurposeOutput;
 use Otp\Presentation\Api\Dto\ChannelOutput;
-use Otp\Presentation\Api\Provider\ListPurposesProvider;
+use Otp\Presentation\Api\Dto\PurposeOutput;
 use Otp\Presentation\Api\Provider\ListChannelsProvider;
+use Otp\Presentation\Api\Provider\ListPurposesProvider;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
- * Resource ConfigResource
- * @final
- *
- * API Platform resource for OTP configuration discovery.
- * Exposes available purposes and channels.
+ * Resource ConfigResource.
  *
  * @category Resource
- * @package Otp\Presentation\Api\Resource
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-  shortName: 'OtpConfig',
-  routePrefix: '/otp',
-  description: 'OTP configuration discovery endpoints.',
-  operations: [
-    new Get(
-      name: 'list_purposes',
-      uriTemplate: '/purposes',
-      input: false,
-      output: PurposeOutput::class,
-      provider: ListPurposesProvider::class,
-      openapi: new Operation(
-        operationId: 'listPurposes',
-        tags: ['OTP'],
-        summary: 'List OTP purposes',
-        description: 'Returns all available OTP purposes with their default TTL and max attempts configuration.',
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'List of available OTP purposes',
-            links: new ArrayObject([
-              'CreateChallenge' => [
-                'operationId' => 'createChallenge',
-                'description' => 'Create a new OTP challenge using one of these purposes',
-              ],
-            ]),
-          ),
-        ],
-      ),
-    ),
-    new Get(
-      name: 'list_channels',
-      uriTemplate: '/channels',
-      input: false,
-      output: ChannelOutput::class,
-      provider: ListChannelsProvider::class,
-      openapi: new Operation(
-        operationId: 'listChannels',
-        tags: ['OTP'],
-        summary: 'List OTP channels',
-        description: 'Returns all available OTP delivery channels.',
-        responses: [
-          HttpResponse::HTTP_OK => new Response(
-            description: 'List of available OTP channels',
-            links: new ArrayObject([
-              'CreateChallenge' => [
-                'operationId' => 'createChallenge',
-                'description' => 'Create a new OTP challenge using one of these channels',
-              ],
-            ]),
-          ),
-        ],
-      ),
-    ),
-  ]
+    shortName: 'OtpConfig',
+    routePrefix: '/otp',
+    description: 'OTP configuration discovery endpoints.',
+    operations: [
+        new Get(
+            name: 'list_purposes',
+            uriTemplate: '/purposes',
+            input: false,
+            output: PurposeOutput::class,
+            provider: ListPurposesProvider::class,
+            openapi: new Operation(
+                operationId: 'listPurposes',
+                tags: ['OTP'],
+                summary: 'List OTP purposes',
+                description: 'Returns all available OTP purposes with their default TTL and max attempts configuration.',
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'List of available OTP purposes',
+                        links: new ArrayObject([
+                            'CreateChallenge' => [
+                                'operationId' => 'createChallenge',
+                                'description' => 'Create a new OTP challenge using one of these purposes',
+                            ],
+                        ]),
+                    ),
+                ],
+            ),
+        ),
+        new Get(
+            name: 'list_channels',
+            uriTemplate: '/channels',
+            input: false,
+            output: ChannelOutput::class,
+            provider: ListChannelsProvider::class,
+            openapi: new Operation(
+                operationId: 'listChannels',
+                tags: ['OTP'],
+                summary: 'List OTP channels',
+                description: 'Returns all available OTP delivery channels.',
+                responses: [
+                    HttpResponse::HTTP_OK => new Response(
+                        description: 'List of available OTP channels',
+                        links: new ArrayObject([
+                            'CreateChallenge' => [
+                                'operationId' => 'createChallenge',
+                                'description' => 'Create a new OTP challenge using one of these channels',
+                            ],
+                        ]),
+                    ),
+                ],
+            ),
+        ),
+    ]
 )]
 final class ConfigResource
 {

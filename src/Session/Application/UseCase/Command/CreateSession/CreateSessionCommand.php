@@ -9,37 +9,33 @@ use Shared\Domain\ValueObject\IpAddress;
 use Shared\Domain\ValueObject\UserAgent;
 
 /**
- * Command CreateSessionCommand
- * @final
- *
- * Command to create a new session.
+ * Command CreateSessionCommand.
  *
  * @category Command
- * @package Session\Application\UseCase\Command\CreateSession
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class CreateSessionCommand
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $userId The user ID.
-   * @param IpAddress $ipAddress The client IP address.
-   * @param UserAgent $userAgent The client user agent.
-   * @param SessionMetadata|null $metadata Optional session metadata.
-   */
-  public function __construct(
-    public string $userId,
-    public IpAddress $ipAddress,
-    public UserAgent $userAgent,
-    public ?SessionMetadata $metadata = null,
-  ) {
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param string               $userId    the user ID
+     * @param IpAddress            $ipAddress the client IP address
+     * @param UserAgent            $userAgent the client user agent
+     * @param SessionMetadata|null $metadata  optional session metadata
+     */
+    public function __construct(
+        public string $userId,
+        public IpAddress $ipAddress,
+        public UserAgent $userAgent,
+        public ?SessionMetadata $metadata = null,
+    ) {
+    }
+    // #endregion
 }

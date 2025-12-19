@@ -12,14 +12,13 @@ use Session\Presentation\Api\Dto\SessionOutput;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
+use function array_map;
+
 /**
- * Provider ListUserSessionsProvider
- * @final
- *
- * API Platform provider for listing user sessions.
+ * Provider ListUserSessionsProvider.
  *
  * @category Provider
- * @package Session\Presentation\Api\Provider
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -28,61 +27,61 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 final readonly class ListUserSessionsProvider implements ProviderInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param ListUserSessionsHandler $handler The query handler.
-   * @param Security $security The security service.
-   */
-  public function __construct(
-    private ListUserSessionsHandler $handler,
-    private Security $security,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method provide
-   * {@inheritDoc}
-   *
-   * @return list<SessionOutput>
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
-  {
-    $user = $this->security->getUser();
-    if ($user === null) {
-      throw new AccessDeniedHttpException('Authentication required');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param ListUserSessionsHandler $handler  the query handler
+     * @param Security                $security the security service
+     */
+    public function __construct(
+        private ListUserSessionsHandler $handler,
+        private Security $security,
+    ) {
     }
+    // #endregion
 
-    $userId = $user->getUserIdentifier();
-    $query = new ListUserSessionsQuery(userId: $userId, activeOnly: true);
-    $result = ($this->handler)($query);
+    // #region Methods
+    /**
+     * Method provide
+     * {@inheritDoc}
+     *
+     * @return list<SessionOutput>
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+    {
+        $user = $this->security->getUser();
+        if (null === $user) {
+            throw new AccessDeniedHttpException('Authentication required');
+        }
 
-    $request = isset($context['request']) && $context['request'] instanceof \Symfony\Component\HttpFoundation\Request
-      ? $context['request']
-      : null;
-    $currentSessionId = $request?->getSession()->getId() ?? '';
+        $userId = $user->getUserIdentifier();
+        $query = new ListUserSessionsQuery(userId: $userId, activeOnly: true);
+        $result = ($this->handler)($query);
 
-    return array_map(
-      callback: function ($session) use ($currentSessionId): SessionOutput {
-        $output = new SessionOutput();
-        $output->id = $session->sessionId;
-        $output->userId = $session->userId;
-        $output->ipAddress = $session->ipAddress;
-        $output->userAgent = $session->userAgent;
-        $output->createdAt = $session->createdAt->format('c');
-        $output->lastActivityAt = $session->lastActivityAt->format('c');
-        $output->isActive = !$session->isRevoked;
-        $output->isCurrent = $session->sessionId === $currentSessionId;
-        return $output;
-      },
-      array: $result->sessions,
-    );
-  }
-  //#endregion
+        $request = isset($context['request']) && $context['request'] instanceof \Symfony\Component\HttpFoundation\Request
+          ? $context['request']
+          : null;
+        $currentSessionId = $request?->getSession()->getId() ?? '';
+
+        return array_map(
+            callback: function ($session) use ($currentSessionId): SessionOutput {
+                $output = new SessionOutput();
+                $output->id = $session->sessionId;
+                $output->userId = $session->userId;
+                $output->ipAddress = $session->ipAddress;
+                $output->userAgent = $session->userAgent;
+                $output->createdAt = $session->createdAt->format('c');
+                $output->lastActivityAt = $session->lastActivityAt->format('c');
+                $output->isActive = !$session->isRevoked;
+                $output->isCurrent = $session->sessionId === $currentSessionId;
+
+                return $output;
+            },
+            array: $result->sessions,
+        );
+    }
+    // #endregion
 }

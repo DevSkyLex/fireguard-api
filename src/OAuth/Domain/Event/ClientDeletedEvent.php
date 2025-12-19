@@ -4,57 +4,53 @@ declare(strict_types=1);
 
 namespace OAuth\Domain\Event;
 
+use DateTimeImmutable;
 use OAuth\Domain\ValueObject\ClientId;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\ValueObject\Uuid;
-use DateTimeImmutable;
 
 /**
- * Event ClientDeletedEvent
- * @final
- *
- * Raised when a client is deleted.
+ * Event ClientDeletedEvent.
  *
  * @category Event
- * @package OAuth\Domain\Event
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class ClientDeletedEvent implements DomainEvent
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the 
-   * ClientDeletedEvent class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Uuid $eventId The unique event identifier.
-   * @param ClientId $clientId The client ID.
-   * @param DateTimeImmutable $occurredAt When the event occurred.
-   */
-  public function __construct(
-    private readonly Uuid $eventId,
-    public readonly ClientId $clientId,
-    public readonly DateTimeImmutable $occurredAt,
-  ) {}
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the
+     * ClientDeletedEvent class.
+     *
+     * @since 1.0.0
+     *
+     * @param Uuid              $eventId    the unique event identifier
+     * @param ClientId          $clientId   the client ID
+     * @param DateTimeImmutable $occurredAt when the event occurred
+     */
+    public function __construct(
+        private readonly Uuid $eventId,
+        public readonly ClientId $clientId,
+        public readonly DateTimeImmutable $occurredAt,
+    ) {
+    }
+    // #endregion
 
-    //#region Methods
+    // #region Methods
     /**
      * Method eventId
      * {@inheritDoc}
      *
      * Returns the event ID.
      *
-     * @access public
      * @since 1.0.0
      *
-     * @return Uuid The event ID.
+     * @return Uuid the event ID
      */
     public function eventId(): Uuid
     {
@@ -67,10 +63,9 @@ final readonly class ClientDeletedEvent implements DomainEvent
      *
      * Returns when the event occurred.
      *
-     * @access public
      * @since 1.0.0
      *
-     * @return DateTimeImmutable The occurrence timestamp.
+     * @return DateTimeImmutable the occurrence timestamp
      */
     public function occurredAt(): DateTimeImmutable
     {
@@ -83,10 +78,9 @@ final readonly class ClientDeletedEvent implements DomainEvent
      *
      * Returns the aggregate ID.
      *
-     * @access public
      * @since 1.0.0
      *
-     * @return string The aggregate ID.
+     * @return string the aggregate ID
      */
     public function aggregateId(): string
     {
@@ -99,10 +93,9 @@ final readonly class ClientDeletedEvent implements DomainEvent
      *
      * Returns the aggregate type.
      *
-     * @access public
      * @since 1.0.0
      *
-     * @return string The aggregate type.
+     * @return string the aggregate type
      */
     public function aggregateType(): string
     {
@@ -115,10 +108,9 @@ final readonly class ClientDeletedEvent implements DomainEvent
      *
      * Returns the event payload.
      *
-     * @access public
      * @since 1.0.0
      *
-     * @return array<string, mixed> The event payload.
+     * @return array<string, mixed> the event payload
      */
     public function payload(): array
     {
@@ -126,5 +118,5 @@ final readonly class ClientDeletedEvent implements DomainEvent
             'client_id' => $this->clientId->value,
         ];
     }
-    //#endregion
+    // #endregion
 }

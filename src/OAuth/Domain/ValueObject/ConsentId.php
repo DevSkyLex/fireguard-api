@@ -7,13 +7,10 @@ namespace OAuth\Domain\ValueObject;
 use Shared\Domain\ValueObject\Uuid;
 
 /**
- * ValueObject ConsentId
- * @final
- *
- * Represents a unique consent identifier.
+ * ValueObject ConsentId.
  *
  * @category ValueObject
- * @package Auth\Domain\ValueObject
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>

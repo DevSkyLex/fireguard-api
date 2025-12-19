@@ -15,98 +15,96 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Throwable;
 
 /**
- * Adapter MessengerQueryBus
- * @final
- *
- * Adapter for Symfony Messenger
+ * Adapter MessengerQueryBus.
  *
  * @category Inbound Adapter
- * @package Shared\Infrastructure\Symfony\Adapter\Inbound
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class MessengerQueryBusAdapter implements QueryBusPort
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initialize the query bus.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param MessageBusInterface $queryBus The query bus to use.
-   */
-  public function __construct(
-    private readonly MessageBusInterface $queryBus
-  ) {}
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method ask
-   *
-   * Ask a query to the query bus.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param QueryMessage $query The query to ask.
-   *
-   * @return ResultMessage The result of the query.
-   *
-   * @throws MessengerRuntimeException If the query bus fails to dispatch the query.
-   * @throws NoHandlerResultException If the query has no handler result.
-   */
-  public function ask(QueryMessage $query): ResultMessage
-  {
-    try {
-      $envelope = $this->queryBus->dispatch(message: $query);
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initialize the query bus.
+     *
+     * @since 1.0.0
+     *
+     * @param MessageBusInterface $queryBus the query bus to use
+     */
+    public function __construct(
+        private readonly MessageBusInterface $queryBus,
+    ) {
     }
-    catch (Throwable $exception) {
-      throw MessengerRuntimeException::wrap(exception: $exception);
+    // #endregion
+
+    // #region Methods
+    /**
+     * Method ask.
+     *
+     * Ask a query to the query bus.
+     *
+     * @since 1.0.0
+     *
+     * @param QueryMessage $query the query to ask
+     *
+     * @return ResultMessage the result of the query
+     *
+     * @throws MessengerRuntimeException if the query bus fails to dispatch the query
+     * @throws NoHandlerResultException  if the query has no handler result
+     */
+    public function ask(QueryMessage $query): ResultMessage
+    {
+        try {
+            $envelope = $this->queryBus->dispatch(message: $query);
+        } catch (Throwable $exception) {
+            throw MessengerRuntimeException::wrap(exception: $exception);
+        }
+
+        $handledStamp = $this->extractHandledStamp(
+            envelope: $envelope,
+            query: $query
+        );
+
+        $result = $handledStamp->getResult();
+
+        if (!$result instanceof ResultMessage) {
+            throw NoHandlerResultException::forMessage(
+                message: $query
+            );
+        }
+
+        return $result;
     }
 
-    $handledStamp = $this->extractHandledStamp(
-      envelope: $envelope,
-      query: $query
-    );
+    /**
+     * Method extractHandledStamp.
+     *
+     * Extract the handled stamp from the envelope.
+     *
+     * @since 1.0.0
+     *
+     * @param Envelope     $envelope the envelope to extract the handled stamp from
+     * @param QueryMessage $query    the query to extract the handled stamp from
+     *
+     * @return HandledStamp the handled stamp
+     *
+     * @throws NoHandlerResultException if the query has no handler result
+     */
+    private function extractHandledStamp(Envelope $envelope, QueryMessage $query): HandledStamp
+    {
+        $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
 
-    $result = $handledStamp->getResult();
+        if (!$handledStamp instanceof HandledStamp) {
+            throw NoHandlerResultException::forMessage(
+                message: $query
+            );
+        }
 
-    if (!$result instanceof ResultMessage) throw NoHandlerResultException::forMessage(
-      message: $query
-    );
-
-    return $result;
-  }
-
-  /**
-   * Method extractHandledStamp
-   *
-   * Extract the handled stamp from the envelope.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Envelope $envelope The envelope to extract the handled stamp from.
-   * @param QueryMessage $query The query to extract the handled stamp from.
-   *
-   * @return HandledStamp The handled stamp.
-   *
-   * @throws NoHandlerResultException If the query has no handler result.
-   */
-  private function extractHandledStamp(Envelope $envelope, QueryMessage $query): HandledStamp
-  {
-    $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
-
-    if (!$handledStamp instanceof HandledStamp) throw NoHandlerResultException::forMessage(
-      message: $query
-    );
-
-    return $handledStamp;
-  }
-  //#endregion
+        return $handledStamp;
+    }
+    // #endregion
 }

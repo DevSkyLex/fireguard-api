@@ -9,14 +9,13 @@ use ApiPlatform\State\ProcessorInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use User\Application\UseCase\Command\DeleteUser\DeleteUserCommand;
 
+use function is_string;
+
 /**
- * Processor DeleteUserProcessor
- * @final
- *
- * Processor for deleting a user.
+ * Processor DeleteUserProcessor.
  *
  * @category Processor
- * @package User\Presentation\Api\Processor
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -25,48 +24,47 @@ use User\Application\UseCase\Command\DeleteUser\DeleteUserCommand;
  */
 final readonly class DeleteUserProcessor implements ProcessorInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the
-   * DeleteUserProcessor class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param CommandBusPort $commandBus The command bus.
-   */
-  public function __construct(
-    private readonly CommandBusPort $commandBus
-  ) {
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the
+     * DeleteUserProcessor class.
+     *
+     * @since 1.0.0
+     *
+     * @param CommandBusPort $commandBus the command bus
+     */
+    public function __construct(
+        private readonly CommandBusPort $commandBus,
+    ) {
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method process
-   *
-   * Processes the delete user request.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param mixed $data The input data.
-   * @param Operation $operation The operation.
-   * @param array<string, mixed> $uriVariables The URI variables.
-   * @param array<string, mixed> $context The context.
-   *
-   * @return void No return value.
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
-  {
-    $id = $uriVariables['id'] ?? null;
-    if (!is_string($id))
-      return;
+    // #region Methods
+    /**
+     * Method process.
+     *
+     * Processes the delete user request.
+     *
+     * @since 1.0.0
+     *
+     * @param mixed                $data         the input data
+     * @param Operation            $operation    the operation
+     * @param array<string, mixed> $uriVariables the URI variables
+     * @param array<string, mixed> $context      the context
+     *
+     * @return void no return value
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
+    {
+        $id = $uriVariables['id'] ?? null;
+        if (!is_string($id)) {
+            return;
+        }
 
-    $command = new DeleteUserCommand(id: $id);
-    $this->commandBus->dispatch(command: $command);
-  }
-  //#endregion
+        $command = new DeleteUserCommand(id: $id);
+        $this->commandBus->dispatch(command: $command);
+    }
+    // #endregion
 }

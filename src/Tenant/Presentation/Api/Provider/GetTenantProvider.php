@@ -14,14 +14,13 @@ use Tenant\Application\UseCase\Query\GetTenant\GetTenantQuery;
 use Tenant\Domain\Exception\TenantNotFoundException;
 use Tenant\Presentation\Api\Dto\TenantOutput;
 
+use function is_string;
+
 /**
- * Provider GetTenantProvider
- * @final
- *
- * API Platform provider for getting a tenant.
+ * Provider GetTenantProvider.
  *
  * @category Provider
- * @package Tenant\Presentation\Api\Provider
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -30,57 +29,56 @@ use Tenant\Presentation\Api\Dto\TenantOutput;
  */
 final readonly class GetTenantProvider implements ProviderInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param GetTenantHandler $handler The query handler.
-   * @param Security $security The security service.
-   */
-  public function __construct(
-    private GetTenantHandler $handler,
-    private Security $security,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method provide
-   * {@inheritDoc}
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): TenantOutput
-  {
-    if ($this->security->getUser() === null) {
-      throw new AccessDeniedHttpException('Authentication required');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param GetTenantHandler $handler  the query handler
+     * @param Security         $security the security service
+     */
+    public function __construct(
+        private GetTenantHandler $handler,
+        private Security $security,
+    ) {
     }
+    // #endregion
 
-    $tenantId = $uriVariables['id'] ?? null;
+    // #region Methods
+    /**
+     * Method provide
+     * {@inheritDoc}
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): TenantOutput
+    {
+        if (null === $this->security->getUser()) {
+            throw new AccessDeniedHttpException('Authentication required');
+        }
 
-    if (!is_string($tenantId)) {
-      throw new NotFoundHttpException('Tenant ID is required.');
+        $tenantId = $uriVariables['id'] ?? null;
+
+        if (!is_string($tenantId)) {
+            throw new NotFoundHttpException('Tenant ID is required.');
+        }
+
+        try {
+            $query = new GetTenantQuery(tenantId: $tenantId);
+            $result = ($this->handler)($query);
+
+            $output = new TenantOutput();
+            $output->id = $result->tenantId;
+            $output->name = $result->name;
+            $output->isActive = $result->isActive;
+            $output->accessTokenTtl = $result->settings->accessTokenTtl;
+            $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
+            $output->requirePkce = $result->settings->requirePkce;
+            $output->createdAt = $result->createdAt->format('c');
+
+            return $output;
+        } catch (TenantNotFoundException $e) {
+            throw new NotFoundHttpException($e->getMessage(), $e);
+        }
     }
-
-    try {
-      $query = new GetTenantQuery(tenantId: $tenantId);
-      $result = ($this->handler)($query);
-
-      $output = new TenantOutput();
-      $output->id = $result->tenantId;
-      $output->name = $result->name;
-      $output->isActive = $result->isActive;
-      $output->accessTokenTtl = $result->settings->accessTokenTtl;
-      $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
-      $output->requirePkce = $result->settings->requirePkce;
-      $output->createdAt = $result->createdAt->format('c');
-
-      return $output;
-    } catch (TenantNotFoundException $e) {
-      throw new NotFoundHttpException($e->getMessage(), $e);
-    }
-  }
-  //#endregion
+    // #endregion
 }

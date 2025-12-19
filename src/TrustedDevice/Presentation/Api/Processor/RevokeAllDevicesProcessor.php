@@ -12,35 +12,34 @@ use TrustedDevice\Application\UseCase\Command\RevokeAllDevices\RevokeAllDevicesC
 use TrustedDevice\Application\UseCase\Command\RevokeAllDevices\RevokeAllDevicesHandler;
 
 /**
- * Processor RevokeAllDevicesProcessor
- * @final
+ * Processor RevokeAllDevicesProcessor.
  *
  * @implements ProcessorInterface<mixed, array{revoked: int}>
  */
 final readonly class RevokeAllDevicesProcessor implements ProcessorInterface
 {
-  public function __construct(
-    private RevokeAllDevicesHandler $handler,
-    private Security $security,
-  ) {
-  }
-
-  /**
-   * @return array{revoked: int}
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): array
-  {
-    $user = $this->security->getUser();
-    if ($user === null) {
-      throw new BadRequestHttpException('User must be authenticated.');
+    public function __construct(
+        private RevokeAllDevicesHandler $handler,
+        private Security $security,
+    ) {
     }
 
-    $command = new RevokeAllDevicesCommand(
-      userId: $user->getUserIdentifier(),
-    );
+    /**
+     * @return array{revoked: int}
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): array
+    {
+        $user = $this->security->getUser();
+        if (null === $user) {
+            throw new BadRequestHttpException('User must be authenticated.');
+        }
 
-    $result = $this->handler->__invoke($command);
+        $command = new RevokeAllDevicesCommand(
+            userId: $user->getUserIdentifier(),
+        );
 
-    return ['revoked' => $result->revokedCount];
-  }
+        $result = $this->handler->__invoke($command);
+
+        return ['revoked' => $result->revokedCount];
+    }
 }

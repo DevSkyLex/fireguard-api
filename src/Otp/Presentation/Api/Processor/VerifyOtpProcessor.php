@@ -13,14 +13,13 @@ use Otp\Presentation\Api\Dto\VerifyOtpInput;
 use Otp\Presentation\Api\Dto\VerifyOtpOutput;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+use function is_string;
+
 /**
- * Processor VerifyOtpProcessor
- * @final
- *
- * API Platform processor for OTP verification.
+ * Processor VerifyOtpProcessor.
  *
  * @category Processor
- * @package Otp\Presentation\Api\Processor
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -29,49 +28,47 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final readonly class VerifyOtpProcessor implements ProcessorInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @param VerifyOtpHandler $handler The handler.
-   */
-  public function __construct(
-    private VerifyOtpHandler $handler,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * {@inheritDoc}
-   *
-   * @param VerifyOtpInput $data
-   */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): VerifyOtpOutput
-  {
-    $otpId = $uriVariables['id'] ?? null;
-
-    if (!is_string($otpId)) {
-      throw new NotFoundHttpException('OTP ID is required.');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @param VerifyOtpHandler $handler the handler
+     */
+    public function __construct(
+        private VerifyOtpHandler $handler,
+    ) {
     }
+    // #endregion
 
-    try {
-      $command = new VerifyOtpCommand(
-        otpId: $otpId,
-        code: $data->code,
-      );
+    // #region Methods
+    /**
+     * @param VerifyOtpInput $data
+     */
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): VerifyOtpOutput
+    {
+        $otpId = $uriVariables['id'] ?? null;
 
-      $result = $this->handler->__invoke($command);
+        if (!is_string($otpId)) {
+            throw new NotFoundHttpException('OTP ID is required.');
+        }
 
-      $output = new VerifyOtpOutput();
-      $output->success = $result->success;
-      $output->attemptsRemaining = $result->attemptsRemaining;
-      $output->error = $result->error;
+        try {
+            $command = new VerifyOtpCommand(
+                otpId: $otpId,
+                code: $data->code,
+            );
 
-      return $output;
-    } catch (OtpNotFoundException) {
-      throw new NotFoundHttpException('OTP not found.');
+            $result = $this->handler->__invoke($command);
+
+            $output = new VerifyOtpOutput();
+            $output->success = $result->success;
+            $output->attemptsRemaining = $result->attemptsRemaining;
+            $output->error = $result->error;
+
+            return $output;
+        } catch (OtpNotFoundException) {
+            throw new NotFoundHttpException('OTP not found.');
+        }
     }
-  }
-  //#endregion
+    // #endregion
 }

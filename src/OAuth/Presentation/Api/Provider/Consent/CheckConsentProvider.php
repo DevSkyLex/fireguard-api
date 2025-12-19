@@ -6,9 +6,9 @@ namespace OAuth\Presentation\Api\Provider\Consent;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use OAuth\Application\UseCase\Query\CheckConsent\CheckConsentQuery;
 use OAuth\Application\UseCase\Query\CheckConsent\CheckConsentResult;
-use Auth\Infrastructure\Security\User\SecurityUser;
 use OAuth\Presentation\Api\Dto\Output\CheckConsentOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -16,14 +16,13 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
+use function explode;
+
 /**
- * Provider CheckConsentProvider
- * @final
- *
- * Provider for checking consent.
+ * Provider CheckConsentProvider.
  *
  * @category Provider
- * @package OAuth\Presentation\Api\Provider\Consent
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -32,89 +31,90 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
  */
 final readonly class CheckConsentProvider implements ProviderInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the 
-   * CheckConsentProvider class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Security $security The security service.
-   * @param QueryBusPort $queryBus The query bus.
-   * @param RequestStack $requestStack The request stack.
-   */
-  public function __construct(
-    private readonly Security $security,
-    private readonly QueryBusPort $queryBus,
-    private readonly RequestStack $requestStack,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method provide
-   * {@inheritDoc}
-   *
-   * Provides the consent check result.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Operation $operation The operation.
-   * @param array<string, mixed> $uriVariables The URI variables.
-   * @param array<string, mixed> $context The context.
-   *
-   * @return CheckConsentOutput The consent check result.
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): CheckConsentOutput
-  {
-    $user = $this->security->getUser();
-
-    if (!$user instanceof SecurityUser) {
-      throw new UnauthorizedHttpException(
-        challenge: 'Bearer',
-        message: 'Authentication required',
-      );
-    }
-
-    $request = $this->requestStack->getCurrentRequest();
-
-    if ($request === null)
-      throw new BadRequestHttpException(
-        message: 'Request not found',
-      );
-
-    $clientId = $request->query->get(key: 'client_id', default: null);
-    $scope = $request->query->get(key: 'scope', default: null);
-
-    if (empty($clientId))
-      throw new BadRequestHttpException(
-        message: 'Missing client_id parameter',
-      );
-
-    $requestedScopes = !empty($scope)
-      ? explode(' ', $scope)
-      : [];
-
-    /** 
-     * Query result
-     * @var CheckConsentResult $result 
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the
+     * CheckConsentProvider class.
+     *
+     * @since 1.0.0
+     *
+     * @param Security     $security     the security service
+     * @param QueryBusPort $queryBus     the query bus
+     * @param RequestStack $requestStack the request stack
      */
-    $result = $this->queryBus->ask(query: new CheckConsentQuery(
-      userId: $user->getId(),
-      clientId: $clientId,
-      requestedScopes: $requestedScopes,
-    ));
+    public function __construct(
+        private readonly Security $security,
+        private readonly QueryBusPort $queryBus,
+        private readonly RequestStack $requestStack,
+    ) {
+    }
+    // #endregion
 
-    return new CheckConsentOutput(
-      hasConsent: $result->hasConsent,
-      grantedScopes: $result->grantedScopes,
-      missingScopes: $result->missingScopes,
-      requiresConsentScreen: $result->requiresConsentScreen,
-    );
-  }
+    // #region Methods
+    /**
+     * Method provide
+     * {@inheritDoc}
+     *
+     * Provides the consent check result.
+     *
+     * @since 1.0.0
+     *
+     * @param Operation            $operation    the operation
+     * @param array<string, mixed> $uriVariables the URI variables
+     * @param array<string, mixed> $context      the context
+     *
+     * @return CheckConsentOutput the consent check result
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): CheckConsentOutput
+    {
+        $user = $this->security->getUser();
+
+        if (!$user instanceof SecurityUser) {
+            throw new UnauthorizedHttpException(
+                challenge: 'Bearer',
+                message: 'Authentication required',
+            );
+        }
+
+        $request = $this->requestStack->getCurrentRequest();
+
+        if (null === $request) {
+            throw new BadRequestHttpException(
+                message: 'Request not found',
+            );
+        }
+
+        $clientId = $request->query->get(key: 'client_id', default: null);
+        $scope = $request->query->get(key: 'scope', default: null);
+
+        if (empty($clientId)) {
+            throw new BadRequestHttpException(
+                message: 'Missing client_id parameter',
+            );
+        }
+
+        $requestedScopes = !empty($scope)
+          ? explode(' ', $scope)
+          : [];
+
+        /**
+         * Query result.
+         *
+         * @var CheckConsentResult $result
+         */
+        $result = $this->queryBus->ask(query: new CheckConsentQuery(
+            userId: $user->getId(),
+            clientId: $clientId,
+            requestedScopes: $requestedScopes,
+        ));
+
+        return new CheckConsentOutput(
+            hasConsent: $result->hasConsent,
+            grantedScopes: $result->grantedScopes,
+            missingScopes: $result->missingScopes,
+            requiresConsentScreen: $result->requiresConsentScreen,
+        );
+    }
 }

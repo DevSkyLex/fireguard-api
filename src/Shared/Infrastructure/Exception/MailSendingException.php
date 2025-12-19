@@ -4,45 +4,43 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Exception;
 
-use function sprintf;
 use Throwable;
 
+use function sprintf;
+
 /**
- * Exception MailSendingException
- * @final
- *
- * Exception thrown when a mail dispatch fails.
+ * Exception MailSendingException.
  *
  * @category Exception
- * @package Shared\Infrastructure\Exception
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final class MailSendingException extends InfrastructureException
 {
-  //#region Factory Methods
-  /**
-   * Method dispatchFailed
-   * @static
-   *
-   * Create an exception when dispatching
-   * an email fails.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $subject The subject of the email that failed to send.
-   * @param ?Throwable $previous The underlying exception if any.
-   *
-   * @return self The created exception instance.
-   */
-  public static function dispatchFailed(string $subject, ?Throwable $previous = null): self
-  {
-    return new self(
-      message: sprintf('Failed to send email with subject "%s".', $subject),
-      previous: $previous
-    );
-  }
-  //#endregion
+    // #region Factory Methods
+    /**
+     * Method dispatchFailed.
+     *
+     * @static
+     *
+     * Create an exception when dispatching
+     * an email fails.
+     *
+     * @since 1.0.0
+     *
+     * @param string     $subject  the subject of the email that failed to send
+     * @param ?Throwable $previous the underlying exception if any
+     *
+     * @return self the created exception instance
+     */
+    public static function dispatchFailed(string $subject, ?Throwable $previous = null): self
+    {
+        return new self(
+            message: sprintf('Failed to send email with subject "%s".', $subject),
+            previous: $previous
+        );
+    }
+    // #endregion
 }

@@ -7,8 +7,8 @@ namespace Otp\Infrastructure\Adapter\Notifier;
 use Otp\Application\Port\Outbound\OtpNotifierPort;
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{
-  OtpChannel,
-  OtpPurpose
+    OtpChannel,
+    OtpPurpose
 };
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -16,162 +16,157 @@ use Symfony\Component\Notifier\NotifierInterface;
 use Symfony\Component\Notifier\Recipient\Recipient;
 use Throwable;
 
+use function ceil;
+use function time;
+
 /**
- * Adapter OtpNotifierAdapter
- * @final
- *
- * Implements OtpNotifierPort using Symfony Notifier.
+ * Adapter OtpNotifierAdapter.
  *
  * @category Adapter
- * @package Otp\Infrastructure\Adapter\Notifier
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class OtpNotifierAdapter implements OtpNotifierPort
 {
-  //#region Constructor
-  /**
-   * Constructor
-   * 
-   * Initializes the adapter with the Symfony 
-   * Notifier and Mailer.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param NotifierInterface $notifier The Symfony Notifier.
-   * @param MailerInterface $mailer The Symfony Mailer for email fallback.
-   * @param string $senderEmail The sender email address.
-   */
-  public function __construct(
-    private readonly NotifierInterface $notifier,
-    private readonly MailerInterface $mailer,
-    private readonly string $senderEmail = 'noreply@fireguard.local',
-  ) {
-  }
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes the adapter with the Symfony
+     * Notifier and Mailer.
+     *
+     * @since 1.0.0
+     *
+     * @param NotifierInterface $notifier    the Symfony Notifier
+     * @param MailerInterface   $mailer      the Symfony Mailer for email fallback
+     * @param string            $senderEmail the sender email address
+     */
+    public function __construct(
+        private readonly NotifierInterface $notifier,
+        private readonly MailerInterface $mailer,
+        private readonly string $senderEmail = 'noreply@fireguard.local',
+    ) {
+    }
+    // #endregion
 
-  //#region Methods
-  /**
-   * Method send
-   * {@inheritDoc}
-   * 
-   * Sends the OTP to the recipient.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param Otp $otp The OTP.
-   *
-   * @return void No return value.
-   */
-  public function send(Otp $otp): void
-  {
-    if (!$otp->channel()->requiresDelivery())
-      return;
+    // #region Methods
+    /**
+     * Method send
+     * {@inheritDoc}
+     *
+     * Sends the OTP to the recipient.
+     *
+     * @since 1.0.0
+     *
+     * @param Otp $otp the OTP
+     *
+     * @return void no return value
+     */
+    public function send(Otp $otp): void
+    {
+        if (!$otp->channel()->requiresDelivery()) {
+            return;
+        }
 
-    match ($otp->channel()) {
-      OtpChannel::EMAIL => $this->sendEmail($otp),
-      OtpChannel::SMS => $this->sendSms($otp),
-      OtpChannel::TOTP => null,
-    };
-  }
-
-  /**
-   * Method sendEmail
-   *
-   * Sends OTP via email.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Otp $otp The OTP.
-   *
-   * @return void No return value.
-   */
-  private function sendEmail(Otp $otp): void
-  {
-    try {
-      $code = $otp->code()->plain();
-    } catch (Throwable) {
-      return;
+        match ($otp->channel()) {
+            OtpChannel::EMAIL => $this->sendEmail($otp),
+            OtpChannel::SMS => $this->sendSms($otp),
+            OtpChannel::TOTP => null,
+        };
     }
 
-    $email = (new Email())
-      ->from($this->senderEmail)
-      ->to($otp->recipient())
-      ->subject($this->getEmailSubject($otp))
-      ->html($this->getEmailHtml($otp, $code));
+    /**
+     * Method sendEmail.
+     *
+     * Sends OTP via email.
+     *
+     * @since 1.0.0
+     *
+     * @param Otp $otp the OTP
+     *
+     * @return void no return value
+     */
+    private function sendEmail(Otp $otp): void
+    {
+        try {
+            $code = $otp->code()->plain();
+        } catch (Throwable) {
+            return;
+        }
 
-    $this->mailer->send(message: $email);
-  }
+        $email = (new Email())
+          ->from($this->senderEmail)
+          ->to($otp->recipient())
+          ->subject($this->getEmailSubject($otp))
+          ->html($this->getEmailHtml($otp, $code));
 
-  /**
-   * Method sendSms
-   *
-   * Sends OTP via SMS using Notifier.
-   *
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Otp $otp The OTP.
-   *
-   * @return void No return value.
-   */
-  private function sendSms(Otp $otp): void
-  {
-    $notification = new \Otp\Infrastructure\Symfony\Notification\OtpNotification(otp: $otp);
-    $recipient = new Recipient(phone: $otp->recipient());
+        $this->mailer->send(message: $email);
+    }
 
-    $this->notifier->send(
-      notification: $notification,
-      recipient: $recipient
-    );
-  }
+    /**
+     * Method sendSms.
+     *
+     * Sends OTP via SMS using Notifier.
+     *
+     * @since 1.0.0
+     *
+     * @param Otp $otp the OTP
+     *
+     * @return void no return value
+     */
+    private function sendSms(Otp $otp): void
+    {
+        $notification = new \Otp\Infrastructure\Symfony\Notification\OtpNotification(otp: $otp);
+        $recipient = new Recipient(phone: $otp->recipient());
 
-  /**
-   * Method getEmailSubject
-   *
-   * Returns the email subject.
-   * 
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Otp $otp The OTP.
-   *
-   * @return string The subject.
-   */
-  private function getEmailSubject(Otp $otp): string
-  {
-    return match ($otp->purpose()) {
-      OtpPurpose::LOGIN => '[FireGuard] Your login verification code',
-      OtpPurpose::PASSWORD_RESET => '[FireGuard] Your password reset code',
-      OtpPurpose::EMAIL_VERIFICATION => '[FireGuard] Verify your email address',
-      OtpPurpose::PHONE_VERIFICATION => '[FireGuard] Verify your phone number',
-      OtpPurpose::SENSITIVE_OPERATION => '[FireGuard] Confirm your action',
-      OtpPurpose::TRANSACTION_APPROVAL => '[FireGuard] Approve your transaction',
-    };
-  }
+        $this->notifier->send(
+            notification: $notification,
+            recipient: $recipient
+        );
+    }
 
-  /**
-   * Method getEmailHtml
-   *
-   * Returns the HTML email content.
-   * 
-   * @access private
-   * @since 1.0.0
-   *
-   * @param Otp $otp The OTP.
-   * @param string $code The code.
-   *
-   * @return string The HTML content.
-   */
-  private function getEmailHtml(Otp $otp, string $code): string
-  {
-    $minutes = (int) ceil(($otp->expiresAt()->getTimestamp() - time()) / 60);
+    /**
+     * Method getEmailSubject.
+     *
+     * Returns the email subject.
+     *
+     * @since 1.0.0
+     *
+     * @param Otp $otp the OTP
+     *
+     * @return string the subject
+     */
+    private function getEmailSubject(Otp $otp): string
+    {
+        return match ($otp->purpose()) {
+            OtpPurpose::LOGIN => '[FireGuard] Your login verification code',
+            OtpPurpose::PASSWORD_RESET => '[FireGuard] Your password reset code',
+            OtpPurpose::EMAIL_VERIFICATION => '[FireGuard] Verify your email address',
+            OtpPurpose::PHONE_VERIFICATION => '[FireGuard] Verify your phone number',
+            OtpPurpose::SENSITIVE_OPERATION => '[FireGuard] Confirm your action',
+            OtpPurpose::TRANSACTION_APPROVAL => '[FireGuard] Approve your transaction',
+        };
+    }
 
-    return <<<HTML
+    /**
+     * Method getEmailHtml.
+     *
+     * Returns the HTML email content.
+     *
+     * @since 1.0.0
+     *
+     * @param Otp    $otp  the OTP
+     * @param string $code the code
+     *
+     * @return string the HTML content
+     */
+    private function getEmailHtml(Otp $otp, string $code): string
+    {
+        $minutes = (int) ceil(($otp->expiresAt()->getTimestamp() - time()) / 60);
+
+        return <<<HTML
     <!DOCTYPE html>
     <html>
     <head>
@@ -197,6 +192,6 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     </body>
     </html>
     HTML;
-  }
-  //#endregion
+    }
+    // #endregion
 }

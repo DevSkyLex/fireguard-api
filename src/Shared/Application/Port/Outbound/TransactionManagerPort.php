@@ -5,33 +5,32 @@ declare(strict_types=1);
 namespace Shared\Application\Port\Outbound;
 
 /**
- * Port TransactionManagerPort
+ * Port TransactionManagerPort.
  *
  * Port used to manage transactions
  * in the application.
  *
  * @category Outbound Port
- * @package Shared\Application\Port\Outbound
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 interface TransactionManagerPort
 {
-  //#region Methods
-  /**
-   * Method transactional
-   *
-   * Execute the given operation within
-   * a transactional boundary.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param callable():mixed $operation The operation to execute.
-   *
-   * @return mixed The result of the operation.
-   */
-  public function transactional(callable $operation): mixed;
-  //#endregion
+    // #region Methods
+    /**
+     * Method transactional.
+     *
+     * Execute the given operation within
+     * a transactional boundary.
+     *
+     * @since 1.0.0
+     *
+     * @param callable():mixed $operation the operation to execute
+     *
+     * @return mixed the result of the operation
+     */
+    public function transactional(callable $operation): mixed;
+    // #endregion
 }

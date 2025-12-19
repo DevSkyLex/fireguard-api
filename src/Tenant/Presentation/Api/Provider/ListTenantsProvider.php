@@ -12,14 +12,13 @@ use Tenant\Application\Port\Outbound\TenantRepositoryPort;
 use Tenant\Domain\Model\Tenant;
 use Tenant\Presentation\Api\Dto\TenantOutput;
 
+use function array_map;
+
 /**
- * Provider ListTenantsProvider
- * @final
- *
- * API Platform provider for listing tenants.
+ * Provider ListTenantsProvider.
  *
  * @category Provider
- * @package Tenant\Presentation\Api\Provider
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -28,52 +27,52 @@ use Tenant\Presentation\Api\Dto\TenantOutput;
  */
 final readonly class ListTenantsProvider implements ProviderInterface
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param TenantRepositoryPort $tenantRepository The tenant repository.
-   * @param Security $security The security service.
-   */
-  public function __construct(
-    private TenantRepositoryPort $tenantRepository,
-    private Security $security,
-  ) {
-  }
-  //#endregion
-
-  //#region Methods
-  /**
-   * Method provide
-   * {@inheritDoc}
-   *
-   * @return list<TenantOutput>
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
-  {
-    if ($this->security->getUser() === null) {
-      throw new AccessDeniedHttpException('Authentication required');
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * @since 1.0.0
+     *
+     * @param TenantRepositoryPort $tenantRepository the tenant repository
+     * @param Security             $security         the security service
+     */
+    public function __construct(
+        private TenantRepositoryPort $tenantRepository,
+        private Security $security,
+    ) {
     }
+    // #endregion
 
-    $tenants = $this->tenantRepository->findAll();
+    // #region Methods
+    /**
+     * Method provide
+     * {@inheritDoc}
+     *
+     * @return list<TenantOutput>
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+    {
+        if (null === $this->security->getUser()) {
+            throw new AccessDeniedHttpException('Authentication required');
+        }
 
-    return array_map(
-      callback: function (Tenant $tenant): TenantOutput {
-        $output = new TenantOutput();
-        $output->id = (string) $tenant->id();
-        $output->name = (string) $tenant->name();
-        $output->isActive = $tenant->isActive();
-        $output->accessTokenTtl = $tenant->settings()->accessTokenTtl;
-        $output->refreshTokenTtl = $tenant->settings()->refreshTokenTtl;
-        $output->requirePkce = $tenant->settings()->requirePkce;
-        $output->createdAt = $tenant->createdAt()->format('c');
-        return $output;
-      },
-      array: $tenants,
-    );
-  }
-  //#endregion
+        $tenants = $this->tenantRepository->findAll();
+
+        return array_map(
+            callback: function (Tenant $tenant): TenantOutput {
+                $output = new TenantOutput();
+                $output->id = (string) $tenant->id();
+                $output->name = (string) $tenant->name();
+                $output->isActive = $tenant->isActive();
+                $output->accessTokenTtl = $tenant->settings()->accessTokenTtl;
+                $output->refreshTokenTtl = $tenant->settings()->refreshTokenTtl;
+                $output->requirePkce = $tenant->settings()->requirePkce;
+                $output->createdAt = $tenant->createdAt()->format('c');
+
+                return $output;
+            },
+            array: $tenants,
+        );
+    }
+    // #endregion
 }

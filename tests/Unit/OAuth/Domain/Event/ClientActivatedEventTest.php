@@ -4,150 +4,135 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Domain\Event;
 
+use DateTimeImmutable;
 use OAuth\Domain\Event\ClientActivatedEvent;
 use OAuth\Domain\ValueObject\ClientId;
-use DateTimeImmutable;
-use PHPUnit\Framework\TestCase;
-use Shared\Domain\ValueObject\Uuid;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Shared\Domain\ValueObject\Uuid;
 
 /**
- * Test ClientActivatedEventTest
- * @final
- *
- * Test class for the ClientActivatedEvent domain event.
+ * Test ClientActivatedEventTest.
  *
  * @category Event Tests
- * @package Tests\Client\Domain\Event
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[CoversClass(className: ClientActivatedEvent::class)]
 final class ClientActivatedEventTest extends TestCase
 {
-	//#region Methods
-	/**
-	 * Method testEventIsCreatedWithAllProperties
-	 *
-	 * Test that the event is created
-	 * with all required properties
-	 *
-	 * @access public
-	 *
-	 * @return void No return value
-	 */
-	#[Test]
-	public function testEventIsCreatedWithAllProperties(): void
-	{
-		$clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
-		$occurredAt = new DateTimeImmutable();
+    // #region Methods
+    /**
+     * Method testEventIsCreatedWithAllProperties.
+     *
+     * Test that the event is created
+     * with all required properties
+     *
+     * @return void No return value
+     */
+    #[Test]
+    public function testEventIsCreatedWithAllProperties(): void
+    {
+        $clientId = new ClientId(value: '123e4567-e89b-12d3-a456-426614174000');
+        $occurredAt = new DateTimeImmutable();
 
-		$eventId = new Uuid('550e8400-e29b-41d4-a716-446655440001');
-		$event = new ClientActivatedEvent(
-			eventId: $eventId,
-			clientId: $clientId,
-			occurredAt: $occurredAt
-		);
+        $eventId = new Uuid('550e8400-e29b-41d4-a716-446655440001');
+        $event = new ClientActivatedEvent(
+            eventId: $eventId,
+            clientId: $clientId,
+            occurredAt: $occurredAt
+        );
 
-		self::assertSame(expected: $clientId, actual: $event->clientId);
-		self::assertSame(expected: $occurredAt, actual: $event->occurredAt());
-	}
+        self::assertSame(expected: $clientId, actual: $event->clientId);
+        self::assertSame(expected: $occurredAt, actual: $event->occurredAt());
+    }
 
-	/**
-	 * Method testEventIdIsAutomaticallyGenerated
-	 *
-	 * Test that the event ID is
-	 * automatically generated
-	 *
-	 * @access public
-	 *
-	 * @return void No return value
-	 */
-	#[Test]
-	public function testEventIdIsProvided(): void
-	{
-		$eventId = new Uuid('550e8400-e29b-41d4-a716-446655440002');
-		$event = new ClientActivatedEvent(
-			eventId: $eventId,
-			clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
-			occurredAt: new DateTimeImmutable()
-		);
+    /**
+     * Method testEventIdIsAutomaticallyGenerated.
+     *
+     * Test that the event ID is
+     * automatically generated
+     *
+     * @return void No return value
+     */
+    #[Test]
+    public function testEventIdIsProvided(): void
+    {
+        $eventId = new Uuid('550e8400-e29b-41d4-a716-446655440002');
+        $event = new ClientActivatedEvent(
+            eventId: $eventId,
+            clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
+            occurredAt: new DateTimeImmutable()
+        );
 
-		self::assertSame(expected: $eventId, actual: $event->eventId());
-	}
+        self::assertSame(expected: $eventId, actual: $event->eventId());
+    }
 
-	/**
-	 * Method testAggregateIdReturnsClientId
-	 *
-	 * Test that aggregateId returns
-	 * the client ID value
-	 *
-	 * @access public
-	 *
-	 * @return void No return value
-	 */
-	#[Test]
-	public function testAggregateIdReturnsClientId(): void
-	{
-		$clientId = '123e4567-e89b-12d3-a456-426614174000';
-		$event = new ClientActivatedEvent(
-			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440003'),
-			clientId: new ClientId(value: $clientId),
-			occurredAt: new DateTimeImmutable()
-		);
+    /**
+     * Method testAggregateIdReturnsClientId.
+     *
+     * Test that aggregateId returns
+     * the client ID value
+     *
+     * @return void No return value
+     */
+    #[Test]
+    public function testAggregateIdReturnsClientId(): void
+    {
+        $clientId = '123e4567-e89b-12d3-a456-426614174000';
+        $event = new ClientActivatedEvent(
+            eventId: new Uuid('550e8400-e29b-41d4-a716-446655440003'),
+            clientId: new ClientId(value: $clientId),
+            occurredAt: new DateTimeImmutable()
+        );
 
-		self::assertSame(expected: $clientId, actual: $event->aggregateId());
-	}
+        self::assertSame(expected: $clientId, actual: $event->aggregateId());
+    }
 
-	/**
-	 * Method testAggregateTypeReturnsClient
-	 *
-	 * Test that aggregateType returns
-	 * 'client'
-	 *
-	 * @access public
-	 *
-	 * @return void No return value
-	 */
-	#[Test]
-	public function testAggregateTypeReturnsClient(): void
-	{
-		$event = new ClientActivatedEvent(
-			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440004'),
-			clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
-			occurredAt: new DateTimeImmutable()
-		);
+    /**
+     * Method testAggregateTypeReturnsClient.
+     *
+     * Test that aggregateType returns
+     * 'client'
+     *
+     * @return void No return value
+     */
+    #[Test]
+    public function testAggregateTypeReturnsClient(): void
+    {
+        $event = new ClientActivatedEvent(
+            eventId: new Uuid('550e8400-e29b-41d4-a716-446655440004'),
+            clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
+            occurredAt: new DateTimeImmutable()
+        );
 
-		self::assertSame(expected: 'client', actual: $event->aggregateType());
-	}
+        self::assertSame(expected: 'client', actual: $event->aggregateType());
+    }
 
-	/**
-	 * Method testPayloadContainsEventData
-	 *
-	 * Test that payload contains
-	 * the event data
-	 *
-	 * @access public
-	 *
-	 * @return void No return value
-	 */
-	#[Test]
-	public function testPayloadContainsEventData(): void
-	{
-		$clientId = '123e4567-e89b-12d3-a456-426614174000';
+    /**
+     * Method testPayloadContainsEventData.
+     *
+     * Test that payload contains
+     * the event data
+     *
+     * @return void No return value
+     */
+    #[Test]
+    public function testPayloadContainsEventData(): void
+    {
+        $clientId = '123e4567-e89b-12d3-a456-426614174000';
 
-		$event = new ClientActivatedEvent(
-			eventId: new Uuid('550e8400-e29b-41d4-a716-446655440005'),
-			clientId: new ClientId(value: $clientId),
-			occurredAt: new DateTimeImmutable()
-		);
+        $event = new ClientActivatedEvent(
+            eventId: new Uuid('550e8400-e29b-41d4-a716-446655440005'),
+            clientId: new ClientId(value: $clientId),
+            occurredAt: new DateTimeImmutable()
+        );
 
-		$payload = $event->payload();
+        $payload = $event->payload();
 
-		self::assertArrayHasKey(key: 'client_id', array: $payload);
-		self::assertSame(expected: $clientId, actual: $payload['client_id']);
-	}
-	//#endregion
+        self::assertArrayHasKey(key: 'client_id', array: $payload);
+        self::assertSame(expected: $clientId, actual: $payload['client_id']);
+    }
+    // #endregion
 }
-

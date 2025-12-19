@@ -7,39 +7,36 @@ namespace Auth\Application\UseCase\Command\Login;
 use Shared\Application\Message\CommandMessage;
 
 /**
- * Command LoginCommand
- * @final
- *
- * Command to authenticate a user with email and password.
+ * Command LoginCommand.
  *
  * @category Command
- * @package Auth\Application\UseCase\Command\Login
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 final readonly class LoginCommand implements CommandMessage
 {
-  //#region Constructor
-  /**
-   * Constructor
-   *
-   * Initializes a new instance of the
-   * LoginCommand class.
-   *
-   * @access public
-   * @since 1.0.0
-   *
-   * @param string $email The user's email.
-   * @param string $password The user's password.
-   * @param bool $rememberMe Whether to extend token lifetime.
-   * @param string|null $ipAddress The client IP address.
-   */
-  public function __construct(
-    public readonly string $email,
-    public readonly string $password,
-    public readonly bool $rememberMe = false,
-    public readonly ?string $ipAddress = null,
-  ) {}
-  //#endregion
+    // #region Constructor
+    /**
+     * Constructor.
+     *
+     * Initializes a new instance of the
+     * LoginCommand class.
+     *
+     * @since 1.0.0
+     *
+     * @param string      $email      the user's email
+     * @param string      $password   the user's password
+     * @param bool        $rememberMe whether to extend token lifetime
+     * @param string|null $ipAddress  the client IP address
+     */
+    public function __construct(
+        public readonly string $email,
+        public readonly string $password,
+        public readonly bool $rememberMe = false,
+        public readonly ?string $ipAddress = null,
+    ) {
+    }
+    // #endregion
 }

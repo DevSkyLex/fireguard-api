@@ -10,13 +10,10 @@ use Otp\Domain\ValueObject\OtpChannel;
 use Otp\Presentation\Api\Dto\ChannelOutput;
 
 /**
- * Provider ListChannelsProvider
- * @final
- *
- * Provides the list of available OTP channels.
+ * Provider ListChannelsProvider.
  *
  * @category Provider
- * @package Otp\Presentation\Api\Provider
+ *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
@@ -25,31 +22,31 @@ use Otp\Presentation\Api\Dto\ChannelOutput;
  */
 final class ListChannelsProvider implements ProviderInterface
 {
-  //#region Methods
-  /**
-   * Method provide
-   * {@inheritDoc}
-   *
-   * @param Operation $operation The operation.
-   * @param array<string, mixed> $uriVariables The URI variables.
-   * @param array<string, mixed> $context The context.
-   *
-   * @return list<ChannelOutput>
-   */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
-  {
-    $channels = [];
+    // #region Methods
+    /**
+     * Method provide
+     * {@inheritDoc}
+     *
+     * @param Operation            $operation    the operation
+     * @param array<string, mixed> $uriVariables the URI variables
+     * @param array<string, mixed> $context      the context
+     *
+     * @return list<ChannelOutput>
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+    {
+        $channels = [];
 
-    foreach (OtpChannel::cases() as $channel) {
-      $output = new ChannelOutput();
-      $output->value = $channel->value;
-      $output->label = $channel->getLabel();
-      $output->requiresDelivery = $channel->requiresDelivery();
+        foreach (OtpChannel::cases() as $channel) {
+            $output = new ChannelOutput();
+            $output->value = $channel->value;
+            $output->label = $channel->getLabel();
+            $output->requiresDelivery = $channel->requiresDelivery();
 
-      $channels[] = $output;
+            $channels[] = $output;
+        }
+
+        return $channels;
     }
-
-    return $channels;
-  }
-  //#endregion
+    // #endregion
 }
