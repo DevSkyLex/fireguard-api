@@ -29,68 +29,68 @@ use function is_string;
  */
 final readonly class ActivateClientProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the ActivateClientProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param CommandBusPort $commandBus the command bus
-     * @param QueryBusPort   $queryBus   the query bus
-     */
-    public function __construct(
-        private readonly CommandBusPort $commandBus,
-        private readonly QueryBusPort $queryBus,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the ActivateClientProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param QueryBusPort   $queryBus   the query bus
+   */
+  public function __construct(
+    private readonly CommandBusPort $commandBus,
+    private readonly QueryBusPort $queryBus,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes the client activation.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed                $data         the input data (not used)
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return ClientOutput the processed output
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
+  {
+    $id = $uriVariables['id'] ?? null;
+
+    if (!is_string($id)) {
+      throw new InvalidArgumentException('Client ID must be a string');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes the client activation.
-     *
-     * @since 1.0.0
-     *
-     * @param mixed                $data         the input data (not used)
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return ClientOutput the processed output
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
-    {
-        $id = $uriVariables['id'] ?? null;
+    // Dispatch command
+    $command = new ActivateClientCommand(clientId: $id);
+    $this->commandBus->dispatch($command);
 
-        if (!is_string($id)) {
-            throw new InvalidArgumentException('Client ID must be a string');
-        }
+    // Fetch updated client
+    $query = new GetClientQuery(clientId: $id);
+    /** @var GetClientResult $result */
+    $result = $this->queryBus->ask(query: $query);
 
-        // Dispatch command
-        $command = new ActivateClientCommand(clientId: $id);
-        $this->commandBus->dispatch($command);
+    // Create output DTO
+    $output = new ClientOutput();
+    $output->id = $result->id;
+    $output->name = $result->name;
+    $output->redirectUris = $result->redirectUris;
+    $output->grantTypes = $result->grantTypes;
+    $output->scopes = $result->scopes;
+    $output->isActive = $result->isActive;
+    $output->createdAt = $result->createdAt;
 
-        // Fetch updated client
-        $query = new GetClientQuery(clientId: $id);
-        /** @var GetClientResult $result */
-        $result = $this->queryBus->ask(query: $query);
-
-        // Create output DTO
-        $output = new ClientOutput();
-        $output->id = $result->id;
-        $output->name = $result->name;
-        $output->redirectUris = $result->redirectUris;
-        $output->grantTypes = $result->grantTypes;
-        $output->scopes = $result->scopes;
-        $output->isActive = $result->isActive;
-        $output->createdAt = $result->createdAt;
-
-        return $output;
-    }
-    // #endregion
+    return $output;
+  }
+  // #endregion
 }

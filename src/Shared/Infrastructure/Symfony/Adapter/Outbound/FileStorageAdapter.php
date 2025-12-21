@@ -29,160 +29,160 @@ use function unlink;
  */
 final readonly class FileStorageAdapter implements FileStoragePort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the file storage adapter.
-     *
-     * @since 1.0.0
-     *
-     * @param string $basePath the base path for file storage
-     */
-    public function __construct(
-        private readonly string $basePath,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the file storage adapter.
+   *
+   * @since 1.0.0
+   *
+   * @param string $basePath the base path for file storage
+   */
+  public function __construct(
+    private readonly string $basePath,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method write
-     * {@inheritDoc}
-     *
-     * Write data to a file.
-     *
-     * @since 1.0.0
-     *
-     * @param string $path     the path to the file
-     * @param string $contents the data to write to the file
-     *
-     * @return void no return value
-     *
-     * @throws FileStorageException if the file write fails
-     */
-    public function write(string $path, string $contents): void
-    {
-        $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
-        $directory = dirname($fullPath);
+  // #region Methods
+  /**
+   * Method write
+   * {@inheritDoc}
+   *
+   * Write data to a file.
+   *
+   * @since 1.0.0
+   *
+   * @param string $path     the path to the file
+   * @param string $contents the data to write to the file
+   *
+   * @return void no return value
+   *
+   * @throws FileStorageException if the file write fails
+   */
+  public function write(string $path, string $contents): void
+  {
+    $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+    $directory = dirname($fullPath);
 
-        if (!is_dir(filename: $directory)) {
-            try {
-                if (!@mkdir(directory: $directory, recursive: true, permissions: 0775)) {
-                    throw FileStorageException::directoryCreationFailed(
-                        path: $directory
-                    );
-                }
-            } catch (Throwable $exception) {
-                throw FileStorageException::directoryCreationFailed(
-                    path: $directory,
-                    previous: $exception
-                );
-            }
+    if (!is_dir(filename: $directory)) {
+      try {
+        if (!@mkdir(directory: $directory, recursive: true, permissions: 0775)) {
+          throw FileStorageException::directoryCreationFailed(
+            path: $directory
+          );
         }
-
-        try {
-            if (false === file_put_contents($fullPath, $contents)) {
-                throw FileStorageException::writeFailed(
-                    path: $fullPath
-                );
-            }
-        } catch (Throwable $exception) {
-            throw FileStorageException::writeFailed(
-                path: $fullPath,
-                previous: $exception
-            );
-        }
+      } catch (Throwable $exception) {
+        throw FileStorageException::directoryCreationFailed(
+          path: $directory,
+          previous: $exception
+        );
+      }
     }
 
-    /**
-     * Method read
-     * {@inheritDoc}
-     *
-     * Read data from a file.
-     *
-     * @since 1.0.0
-     *
-     * @param string $path the path to the file
-     *
-     * @return string the file contents
-     *
-     * @throws FileStorageException if the file read fails
-     */
-    public function read(string $path): string
-    {
-        $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+    try {
+      if (false === file_put_contents($fullPath, $contents)) {
+        throw FileStorageException::writeFailed(
+          path: $fullPath
+        );
+      }
+    } catch (Throwable $exception) {
+      throw FileStorageException::writeFailed(
+        path: $fullPath,
+        previous: $exception
+      );
+    }
+  }
 
-        if (!is_file($fullPath)) {
-            throw FileStorageException::readFailed(
-                path: $fullPath
-            );
-        }
+  /**
+   * Method read
+   * {@inheritDoc}
+   *
+   * Read data from a file.
+   *
+   * @since 1.0.0
+   *
+   * @param string $path the path to the file
+   *
+   * @return string the file contents
+   *
+   * @throws FileStorageException if the file read fails
+   */
+  public function read(string $path): string
+  {
+    $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
 
-        $data = @file_get_contents($fullPath);
-
-        if (false === $data) {
-            throw FileStorageException::readFailed(
-                path: $fullPath
-            );
-        }
-
-        return $data;
+    if (!is_file($fullPath)) {
+      throw FileStorageException::readFailed(
+        path: $fullPath
+      );
     }
 
-    /**
-     * Method delete
-     * {@inheritDoc}
-     *
-     * Delete a file.
-     *
-     * @since 1.0.0
-     *
-     * @param string $path the path to the file
-     *
-     * @return void no return value
-     *
-     * @throws FileStorageException if the file deletion fails
-     */
-    public function delete(string $path): void
-    {
-        $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+    $data = @file_get_contents($fullPath);
 
-        if (!file_exists($fullPath)) {
-            return;
-        }
-
-        try {
-            if (!unlink($fullPath)) {
-                throw FileStorageException::deleteFailed(
-                    path: $fullPath
-                );
-            }
-        } catch (Throwable $exception) {
-            throw FileStorageException::deleteFailed(
-                path: $fullPath,
-                previous: $exception
-            );
-        }
+    if (false === $data) {
+      throw FileStorageException::readFailed(
+        path: $fullPath
+      );
     }
 
-    /**
-     * Method exists
-     * {@inheritDoc}
-     *
-     * Check if a file exists.
-     *
-     * @since 1.0.0
-     *
-     * @param string $path the path to the file
-     *
-     * @return bool true if the file exists, false otherwise
-     */
-    public function exists(string $path): bool
-    {
-        $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+    return $data;
+  }
 
-        return file_exists($fullPath);
+  /**
+   * Method delete
+   * {@inheritDoc}
+   *
+   * Delete a file.
+   *
+   * @since 1.0.0
+   *
+   * @param string $path the path to the file
+   *
+   * @return void no return value
+   *
+   * @throws FileStorageException if the file deletion fails
+   */
+  public function delete(string $path): void
+  {
+    $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+
+    if (!file_exists($fullPath)) {
+      return;
     }
-    // #endregion
+
+    try {
+      if (!unlink($fullPath)) {
+        throw FileStorageException::deleteFailed(
+          path: $fullPath
+        );
+      }
+    } catch (Throwable $exception) {
+      throw FileStorageException::deleteFailed(
+        path: $fullPath,
+        previous: $exception
+      );
+    }
+  }
+
+  /**
+   * Method exists
+   * {@inheritDoc}
+   *
+   * Check if a file exists.
+   *
+   * @since 1.0.0
+   *
+   * @param string $path the path to the file
+   *
+   * @return bool true if the file exists, false otherwise
+   */
+  public function exists(string $path): bool
+  {
+    $fullPath = $this->basePath . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
+
+    return file_exists($fullPath);
+  }
+  // #endregion
 }

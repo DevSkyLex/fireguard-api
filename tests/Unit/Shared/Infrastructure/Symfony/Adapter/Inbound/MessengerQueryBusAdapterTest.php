@@ -21,76 +21,76 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 #[CoversClass(className: MessengerQueryBusAdapter::class)]
 final class MessengerQueryBusAdapterTest extends TestCase
 {
-    private MessageBusInterface&MockObject $messageBus;
-    private MessengerQueryBusAdapter $adapter;
+  private MessageBusInterface&MockObject $messageBus;
+  private MessengerQueryBusAdapter $adapter;
 
-    protected function setUp(): void
-    {
-        $this->messageBus = $this->createMock(MessageBusInterface::class);
-        $this->adapter = new MessengerQueryBusAdapter($this->messageBus);
-    }
+  protected function setUp(): void
+  {
+    $this->messageBus = $this->createMock(MessageBusInterface::class);
+    $this->adapter = new MessengerQueryBusAdapter($this->messageBus);
+  }
 
-    #[Test]
-    public function testAskSuccess(): void
-    {
-        $query = $this->createMock(QueryMessage::class);
-        $result = $this->createMock(ResultMessage::class);
-        $handledStamp = new HandledStamp($result, 'handler');
-        $envelope = new Envelope($query, [$handledStamp]);
+  #[Test]
+  public function testAskSuccess(): void
+  {
+    $query = $this->createMock(QueryMessage::class);
+    $result = $this->createMock(ResultMessage::class);
+    $handledStamp = new HandledStamp($result, 'handler');
+    $envelope = new Envelope($query, [$handledStamp]);
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($query)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($query)
+      ->willReturn($envelope);
 
-        $actualResult = $this->adapter->ask($query);
+    $actualResult = $this->adapter->ask($query);
 
-        $this->assertSame($result, $actualResult);
-    }
+    $this->assertSame($result, $actualResult);
+  }
 
-    #[Test]
-    public function testAskThrowsMessengerRuntimeException(): void
-    {
-        $query = $this->createMock(QueryMessage::class);
-        $exception = new Exception('Dispatch error');
+  #[Test]
+  public function testAskThrowsMessengerRuntimeException(): void
+  {
+    $query = $this->createMock(QueryMessage::class);
+    $exception = new Exception('Dispatch error');
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($query)
-          ->willThrowException($exception);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($query)
+      ->willThrowException($exception);
 
-        $this->expectException(MessengerRuntimeException::class);
-        $this->adapter->ask($query);
-    }
+    $this->expectException(MessengerRuntimeException::class);
+    $this->adapter->ask($query);
+  }
 
-    #[Test]
-    public function testAskThrowsNoHandlerResultExceptionWhenNoStamp(): void
-    {
-        $query = $this->createMock(QueryMessage::class);
-        $envelope = new Envelope($query); // No HandledStamp
+  #[Test]
+  public function testAskThrowsNoHandlerResultExceptionWhenNoStamp(): void
+  {
+    $query = $this->createMock(QueryMessage::class);
+    $envelope = new Envelope($query); // No HandledStamp
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($query)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($query)
+      ->willReturn($envelope);
 
-        $this->expectException(NoHandlerResultException::class);
-        $this->adapter->ask($query);
-    }
+    $this->expectException(NoHandlerResultException::class);
+    $this->adapter->ask($query);
+  }
 
-    #[Test]
-    public function testAskThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
-    {
-        $query = $this->createMock(QueryMessage::class);
-        $handledStamp = new HandledStamp('not-a-result-message', 'handler');
-        $envelope = new Envelope($query, [$handledStamp]);
+  #[Test]
+  public function testAskThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
+  {
+    $query = $this->createMock(QueryMessage::class);
+    $handledStamp = new HandledStamp('not-a-result-message', 'handler');
+    $envelope = new Envelope($query, [$handledStamp]);
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($query)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($query)
+      ->willReturn($envelope);
 
-        $this->expectException(NoHandlerResultException::class);
-        $this->adapter->ask($query);
-    }
+    $this->expectException(NoHandlerResultException::class);
+    $this->adapter->ask($query);
+  }
 }

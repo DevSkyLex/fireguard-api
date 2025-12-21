@@ -21,19 +21,19 @@ use Shared\Application\Message\ResultMessage;
  */
 interface CommandBusPort
 {
-    // #region Methods
-    /**
-     * Method dispatch.
-     *
-     * Dispatch a command message and
-     * return its result message.
-     *
-     * @since 1.0.0
-     *
-     * @param CommandMessage $command the command to dispatch
-     *
-     * @return ResultMessage the result of the command
-     */
-    public function dispatch(CommandMessage $command): ResultMessage;
-    // #endregion
+  // #region Methods
+  /**
+   * Method dispatch.
+   *
+   * Dispatch a command message and
+   * return its result message.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandMessage $command the command to dispatch
+   *
+   * @return ResultMessage the result of the command
+   */
+  public function dispatch(CommandMessage $command): ResultMessage;
+  // #endregion
 }

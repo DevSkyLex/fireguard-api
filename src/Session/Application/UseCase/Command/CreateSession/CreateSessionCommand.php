@@ -19,23 +19,23 @@ use Shared\Domain\ValueObject\UserAgent;
  */
 final readonly class CreateSessionCommand
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string               $userId    the user ID
-     * @param IpAddress            $ipAddress the client IP address
-     * @param UserAgent            $userAgent the client user agent
-     * @param SessionMetadata|null $metadata  optional session metadata
-     */
-    public function __construct(
-        public string $userId,
-        public IpAddress $ipAddress,
-        public UserAgent $userAgent,
-        public ?SessionMetadata $metadata = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string               $userId    the user ID
+   * @param IpAddress            $ipAddress the client IP address
+   * @param UserAgent            $userAgent the client user agent
+   * @param SessionMetadata|null $metadata  optional session metadata
+   */
+  public function __construct(
+    public string $userId,
+    public IpAddress $ipAddress,
+    public UserAgent $userAgent,
+    public ?SessionMetadata $metadata = null,
+  ) {
+  }
+  // #endregion
 }

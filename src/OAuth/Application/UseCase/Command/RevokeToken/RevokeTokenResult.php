@@ -17,13 +17,13 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class RevokeTokenResult implements ResultMessage
 {
-    /**
-     * Constructor.
-     *
-     * @param bool $revoked whether the token was revoked
-     */
-    public function __construct(
-        public bool $revoked,
-    ) {
-    }
+  /**
+   * Constructor.
+   *
+   * @param bool $revoked whether the token was revoked
+   */
+  public function __construct(
+    public bool $revoked,
+  ) {
+  }
 }

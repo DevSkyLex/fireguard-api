@@ -21,19 +21,19 @@ use Shared\Application\Message\ResultMessage;
  */
 interface QueryBusPort
 {
-    // #region Methods
-    /**
-     * Method ask.
-     *
-     * Ask a query message handler and
-     * return its result.
-     *
-     * @since 1.0.0
-     *
-     * @param QueryMessage $query the query to ask
-     *
-     * @return ResultMessage the result of the query
-     */
-    public function ask(QueryMessage $query): ResultMessage;
-    // #endregion
+  // #region Methods
+  /**
+   * Method ask.
+   *
+   * Ask a query message handler and
+   * return its result.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryMessage $query the query to ask
+   *
+   * @return ResultMessage the result of the query
+   */
+  public function ask(QueryMessage $query): ResultMessage;
+  // #endregion
 }

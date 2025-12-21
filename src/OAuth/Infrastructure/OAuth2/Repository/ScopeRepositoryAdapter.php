@@ -21,41 +21,41 @@ use OAuth\Infrastructure\OAuth2\Entity\Scope as LeagueScope;
  */
 final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
 {
-    // #region Methods
-    public function getScopeEntityByIdentifier($identifier): ?LeagueScope
-    {
-        try {
-            if (empty($identifier)) {
-                return null;
-            }
+  // #region Methods
+  public function getScopeEntityByIdentifier($identifier): ?LeagueScope
+  {
+    try {
+      if (empty($identifier)) {
+        return null;
+      }
 
-            $domainScope = Scope::tryFrom(value: $identifier);
-            if (null === $domainScope) {
-                return null;
-            }
+      $domainScope = Scope::tryFrom(value: $identifier);
+      if (null === $domainScope) {
+        return null;
+      }
 
-            $scope = new LeagueScope();
-            $scope->setIdentifier(identifier: $identifier);
+      $scope = new LeagueScope();
+      $scope->setIdentifier(identifier: $identifier);
 
-            return $scope;
-        } catch (InvalidScopeException $exception) {
-            return null;
-        }
+      return $scope;
+    } catch (InvalidScopeException $exception) {
+      return null;
     }
+  }
 
-    /**
-     * @param string          $grantType
-     * @param string|int|null $userIdentifier
-     * @param string|null     $authCodeId
-     */
-    public function finalizeScopes(
-        array $scopes,
-        $grantType,
-        ClientEntityInterface $clientEntity,
-        $userIdentifier = null,
-        $authCodeId = null,
-    ): array {
-        return $scopes;
-    }
-    // #endregion
+  /**
+   * @param string          $grantType
+   * @param string|int|null $userIdentifier
+   * @param string|null     $authCodeId
+   */
+  public function finalizeScopes(
+    array $scopes,
+    $grantType,
+    ClientEntityInterface $clientEntity,
+    $userIdentifier = null,
+    $authCodeId = null,
+  ): array {
+    return $scopes;
+  }
+  // #endregion
 }

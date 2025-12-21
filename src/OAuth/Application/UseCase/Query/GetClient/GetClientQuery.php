@@ -17,19 +17,19 @@ use Shared\Application\Message\QueryMessage;
  */
 final readonly class GetClientQuery implements QueryMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the GetClientQuery class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $clientId the client ID
-     */
-    public function __construct(
-        public readonly string $clientId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the GetClientQuery class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $clientId the client ID
+   */
+  public function __construct(
+    public readonly string $clientId,
+  ) {
+  }
+  // #endregion
 }

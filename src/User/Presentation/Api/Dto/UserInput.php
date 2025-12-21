@@ -19,71 +19,71 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  */
 final class UserInput
 {
-    // #region Properties
-    /**
-     * Property username.
-     *
-     * The username.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    #[Assert\NotBlank]
-    #[Assert\Length(min: 3, max: 50)]
-    public ?string $username = null;
+  // #region Properties
+  /**
+   * Property username.
+   *
+   * The username.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  #[Assert\NotBlank]
+  #[Assert\Length(min: 3, max: 50)]
+  public ?string $username = null;
 
-    /**
-     * Property email.
-     *
-     * The user email.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    #[Assert\NotBlank]
-    #[Assert\Email]
-    public ?string $email = null;
+  /**
+   * Property email.
+   *
+   * The user email.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  #[Assert\NotBlank]
+  #[Assert\Email]
+  public ?string $email = null;
 
-    /**
-     * Property password.
-     *
-     * The user password.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    #[Assert\NotBlank]
-    #[Assert\Length(min: 8)]
-    public ?string $password = null;
+  /**
+   * Property password.
+   *
+   * The user password.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  #[Assert\NotBlank]
+  #[Assert\Length(min: 8)]
+  public ?string $password = null;
 
-    /**
-     * Property firstName.
-     *
-     * The first name.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    #[Assert\NotBlank]
-    #[Assert\Length(max: 100)]
-    public ?string $firstName = null;
+  /**
+   * Property firstName.
+   *
+   * The first name.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  #[Assert\NotBlank]
+  #[Assert\Length(max: 100)]
+  public ?string $firstName = null;
 
-    /**
-     * Property lastName.
-     *
-     * The last name.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    #[Assert\NotBlank]
-    #[Assert\Length(max: 100)]
-    public ?string $lastName = null;
+  /**
+   * Property lastName.
+   *
+   * The last name.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  #[Assert\NotBlank]
+  #[Assert\Length(max: 100)]
+  public ?string $lastName = null;
 
-    /**
-     * Property avatarUrl.
-     *
-     * The avatar URL.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    public ?string $avatarUrl = null;
+  /**
+   * Property avatarUrl.
+   *
+   * The avatar URL.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  public ?string $avatarUrl = null;
 
-    /**
-     * Property tenantId.
-     *
-     * The tenant ID.
-     */
-    #[Groups([UserSerializationGroup::WRITE])]
-    public ?string $tenantId = null;
-    // #endregion
+  /**
+   * Property tenantId.
+   *
+   * The tenant ID.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  public ?string $tenantId = null;
+  // #endregion
 }

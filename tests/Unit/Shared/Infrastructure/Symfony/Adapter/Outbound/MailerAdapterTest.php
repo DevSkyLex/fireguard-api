@@ -30,80 +30,80 @@ use function count;
 #[CoversClass(className: MailerAdapter::class)]
 final class MailerAdapterTest extends TestCase
 {
-    private MailerInterface&MockObject $mailer;
-    private MailerAdapter $adapter;
+  private MailerInterface&MockObject $mailer;
+  private MailerAdapter $adapter;
 
-    /**
-     * Set up the test environment.
-     */
-    protected function setUp(): void
-    {
-        $this->mailer = $this->createMock(MailerInterface::class);
-        $this->adapter = new MailerAdapter($this->mailer);
-    }
+  /**
+   * Set up the test environment.
+   */
+  protected function setUp(): void
+  {
+    $this->mailer = $this->createMock(MailerInterface::class);
+    $this->adapter = new MailerAdapter($this->mailer);
+  }
 
-    /**
-     * Test that an email is sent successfully.
-     */
-    #[Test]
-    public function testSendSuccess(): void
-    {
-        $to = ['recipient@example.com'];
-        $subject = 'Test Subject';
-        $body = '<p>Test Body</p>';
+  /**
+   * Test that an email is sent successfully.
+   */
+  #[Test]
+  public function testSendSuccess(): void
+  {
+    $to = ['recipient@example.com'];
+    $subject = 'Test Subject';
+    $body = '<p>Test Body</p>';
 
-        $this->mailer->expects($this->once())
-          ->method('send')
-          ->with($this->callback(function (Email $email) use ($to, $subject, $body) {
-              return $email->getSubject() === $subject
-                && $email->getHtmlBody() === $body
-                && 1 === count($email->getTo())
-                && $email->getTo()[0]->getAddress() === $to[0];
-          }));
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->with($this->callback(function (Email $email) use ($to, $subject, $body) {
+        return $email->getSubject() === $subject
+          && $email->getHtmlBody() === $body
+          && 1 === count($email->getTo())
+          && $email->getTo()[0]->getAddress() === $to[0];
+      }));
 
-        $this->adapter->send($to, $subject, $body);
-    }
+    $this->adapter->send($to, $subject, $body);
+  }
 
-    /**
-     * Test that an email is sent with CC and BCC recipients.
-     */
-    #[Test]
-    public function testSendWithCcAndBcc(): void
-    {
-        $to = ['recipient@example.com'];
-        $cc = ['cc@example.com'];
-        $bcc = ['bcc@example.com'];
-        $subject = 'Test Subject';
-        $body = 'Test Body';
+  /**
+   * Test that an email is sent with CC and BCC recipients.
+   */
+  #[Test]
+  public function testSendWithCcAndBcc(): void
+  {
+    $to = ['recipient@example.com'];
+    $cc = ['cc@example.com'];
+    $bcc = ['bcc@example.com'];
+    $subject = 'Test Subject';
+    $body = 'Test Body';
 
-        $this->mailer->expects($this->once())
-          ->method('send')
-          ->with($this->callback(function (Email $email) use ($cc, $bcc) {
-              return 1 === count($email->getCc())
-                && $email->getCc()[0]->getAddress() === $cc[0]
-                && 1 === count($email->getBcc())
-                && $email->getBcc()[0]->getAddress() === $bcc[0];
-          }));
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->with($this->callback(function (Email $email) use ($cc, $bcc) {
+        return 1 === count($email->getCc())
+          && $email->getCc()[0]->getAddress() === $cc[0]
+          && 1 === count($email->getBcc())
+          && $email->getBcc()[0]->getAddress() === $bcc[0];
+      }));
 
-        $this->adapter->send($to, $subject, $body, $cc, $bcc);
-    }
+    $this->adapter->send($to, $subject, $body, $cc, $bcc);
+  }
 
-    /**
-     * Test that sending fails and throws a MailSendingException.
-     */
-    #[Test]
-    public function testSendThrowsException(): void
-    {
-        $to = ['recipient@example.com'];
-        $subject = 'Test Subject';
-        $body = 'Test Body';
-        $exception = new Exception('Mail error');
+  /**
+   * Test that sending fails and throws a MailSendingException.
+   */
+  #[Test]
+  public function testSendThrowsException(): void
+  {
+    $to = ['recipient@example.com'];
+    $subject = 'Test Subject';
+    $body = 'Test Body';
+    $exception = new Exception('Mail error');
 
-        $this->mailer->expects($this->once())
-          ->method('send')
-          ->willThrowException($exception);
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->willThrowException($exception);
 
-        $this->expectException(MailSendingException::class);
-        $this->adapter->send($to, $subject, $body);
-    }
+    $this->expectException(MailSendingException::class);
+    $this->adapter->send($to, $subject, $body);
+  }
 }

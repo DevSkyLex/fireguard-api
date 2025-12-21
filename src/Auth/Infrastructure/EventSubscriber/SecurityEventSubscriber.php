@@ -23,86 +23,86 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 final readonly class SecurityEventSubscriber implements EventSubscriberInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param LoggerInterface $logger the security logger
-     */
-    public function __construct(
-        #[Autowire(service: 'monolog.logger.security')]
-        private LoggerInterface $logger,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param LoggerInterface $logger the security logger
+   */
+  public function __construct(
+    #[Autowire(service: 'monolog.logger.security')]
+    private LoggerInterface $logger,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * @return array<class-string, string>
-     */
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            UserLoggedInEvent::class => 'onUserLoggedIn',
-            LoginFailedEvent::class => 'onLoginFailed',
-            TokenRefreshedEvent::class => 'onTokenRefreshed',
-            TokenRefreshFailedEvent::class => 'onTokenRefreshFailed',
-        ];
-    }
+  // #region Methods
+  /**
+   * @return array<class-string, string>
+   */
+  public static function getSubscribedEvents(): array
+  {
+    return [
+      UserLoggedInEvent::class => 'onUserLoggedIn',
+      LoginFailedEvent::class => 'onLoginFailed',
+      TokenRefreshedEvent::class => 'onTokenRefreshed',
+      TokenRefreshFailedEvent::class => 'onTokenRefreshFailed',
+    ];
+  }
 
-    /**
-     * Handles UserLoggedInEvent.
-     *
-     * @param UserLoggedInEvent $event the event
-     */
-    public function onUserLoggedIn(UserLoggedInEvent $event): void
-    {
-        $this->logger->info('User authenticated successfully', [
-            'user_id' => $event->userId,
-            'email' => $event->email,
-            'ip' => $event->ipAddress,
-        ]);
-    }
+  /**
+   * Handles UserLoggedInEvent.
+   *
+   * @param UserLoggedInEvent $event the event
+   */
+  public function onUserLoggedIn(UserLoggedInEvent $event): void
+  {
+    $this->logger->info('User authenticated successfully', [
+      'user_id' => $event->userId,
+      'email' => $event->email,
+      'ip' => $event->ipAddress,
+    ]);
+  }
 
-    /**
-     * Handles LoginFailedEvent.
-     *
-     * @param LoginFailedEvent $event the event
-     */
-    public function onLoginFailed(LoginFailedEvent $event): void
-    {
-        $this->logger->warning('Login attempt failed', [
-            'email' => $event->email,
-            'ip' => $event->ipAddress,
-            'reason' => $event->reason,
-        ]);
-    }
+  /**
+   * Handles LoginFailedEvent.
+   *
+   * @param LoginFailedEvent $event the event
+   */
+  public function onLoginFailed(LoginFailedEvent $event): void
+  {
+    $this->logger->warning('Login attempt failed', [
+      'email' => $event->email,
+      'ip' => $event->ipAddress,
+      'reason' => $event->reason,
+    ]);
+  }
 
-    /**
-     * Handles TokenRefreshedEvent.
-     *
-     * @param TokenRefreshedEvent $event the event
-     */
-    public function onTokenRefreshed(TokenRefreshedEvent $event): void
-    {
-        $this->logger->info('Token refreshed successfully', [
-            'user_id' => $event->userId,
-            'ip' => $event->ipAddress,
-        ]);
-    }
+  /**
+   * Handles TokenRefreshedEvent.
+   *
+   * @param TokenRefreshedEvent $event the event
+   */
+  public function onTokenRefreshed(TokenRefreshedEvent $event): void
+  {
+    $this->logger->info('Token refreshed successfully', [
+      'user_id' => $event->userId,
+      'ip' => $event->ipAddress,
+    ]);
+  }
 
-    /**
-     * Handles TokenRefreshFailedEvent.
-     *
-     * @param TokenRefreshFailedEvent $event the event
-     */
-    public function onTokenRefreshFailed(TokenRefreshFailedEvent $event): void
-    {
-        $this->logger->warning('Token refresh failed', [
-            'user_id' => $event->userId,
-            'ip' => $event->ipAddress,
-            'reason' => $event->reason,
-        ]);
-    }
-    // #endregion
+  /**
+   * Handles TokenRefreshFailedEvent.
+   *
+   * @param TokenRefreshFailedEvent $event the event
+   */
+  public function onTokenRefreshFailed(TokenRefreshFailedEvent $event): void
+  {
+    $this->logger->warning('Token refresh failed', [
+      'user_id' => $event->userId,
+      'ip' => $event->ipAddress,
+      'reason' => $event->reason,
+    ]);
+  }
+  // #endregion
 }

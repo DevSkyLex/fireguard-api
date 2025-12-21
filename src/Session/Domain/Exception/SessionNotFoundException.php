@@ -19,25 +19,25 @@ use function sprintf;
  */
 final class SessionNotFoundException extends EntityNotFoundException
 {
-    // #region Methods
-    /**
-     * Method withId.
-     *
-     * @static
-     *
-     * Creates an exception for a missing session by ID.
-     *
-     * @since 1.0.0
-     *
-     * @param string $id the session ID
-     *
-     * @return self the exception
-     */
-    public static function withId(string $id): self
-    {
-        return new self(
-            message: sprintf('Session with ID "%s" not found.', $id)
-        );
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method withId.
+   *
+   * @static
+   *
+   * Creates an exception for a missing session by ID.
+   *
+   * @since 1.0.0
+   *
+   * @param string $id the session ID
+   *
+   * @return self the exception
+   */
+  public static function withId(string $id): self
+  {
+    return new self(
+      message: sprintf('Session with ID "%s" not found.', $id)
+    );
+  }
+  // #endregion
 }

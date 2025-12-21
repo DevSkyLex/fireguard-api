@@ -17,22 +17,22 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class LogoutCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes the command with refresh
-     * and access tokens.
-     *
-     * @since 1.0.0
-     *
-     * @param string|null $refreshToken the encrypted refresh token from cookie
-     * @param string|null $accessToken  the JWT access token from header
-     */
-    public function __construct(
-        public readonly ?string $refreshToken = null,
-        public readonly ?string $accessToken = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes the command with refresh
+   * and access tokens.
+   *
+   * @since 1.0.0
+   *
+   * @param string|null $refreshToken the encrypted refresh token from cookie
+   * @param string|null $accessToken  the JWT access token from header
+   */
+  public function __construct(
+    public readonly ?string $refreshToken = null,
+    public readonly ?string $accessToken = null,
+  ) {
+  }
+  // #endregion
 }

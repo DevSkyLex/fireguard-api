@@ -19,32 +19,32 @@ namespace Authorization\Domain\ValueObject;
  */
 enum SubjectType: string
 {
-    // #region Cases
-    /**
-     * Case USER.
-     *
-     * Role assigned directly to a user (global or
-     * scoped by external context).
-     */
-    case USER = 'user';
-    // #endregion
+  // #region Cases
+  /**
+   * Case USER.
+   *
+   * Role assigned directly to a user (global or
+   * scoped by external context).
+   */
+  case USER = 'user';
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method label.
-     *
-     * Returns a human-readable label for
-     * the subject type.
-     *
-     * @since 1.0.0
-     *
-     * @return string the human-readable label
-     */
-    public function label(): string
-    {
-        return match ($this) {
-            self::USER => 'User',
-        };
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method label.
+   *
+   * Returns a human-readable label for
+   * the subject type.
+   *
+   * @since 1.0.0
+   *
+   * @return string the human-readable label
+   */
+  public function label(): string
+  {
+    return match ($this) {
+      self::USER => 'User',
+    };
+  }
+  // #endregion
 }

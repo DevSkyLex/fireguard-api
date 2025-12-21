@@ -27,166 +27,166 @@ use function uniqid;
 #[CoversClass(className: LoginRateLimiterAdapter::class)]
 final class LoginRateLimiterAdapterTest extends KernelTestCase
 {
-    // #region Properties
-    private LoginRateLimiterAdapter $adapter;
-    private string $testKey;
-    // #endregion
+  // #region Properties
+  private LoginRateLimiterAdapter $adapter;
+  private string $testKey;
+  // #endregion
 
-    // #region Setup
-    protected function setUp(): void
-    {
-        self::bootKernel();
-        $container = static::getContainer();
+  // #region Setup
+  protected function setUp(): void
+  {
+    self::bootKernel();
+    $container = static::getContainer();
 
-        /** @var RateLimiterFactory $loginLimiter */
-        $loginLimiter = $container->get('limiter.login');
-        $this->adapter = new LoginRateLimiterAdapter(loginLimiter: $loginLimiter);
+    /** @var RateLimiterFactory $loginLimiter */
+    $loginLimiter = $container->get('limiter.login');
+    $this->adapter = new LoginRateLimiterAdapter(loginLimiter: $loginLimiter);
 
-        // Use unique key per test to avoid interference
-        $this->testKey = 'test_' . uniqid();
+    // Use unique key per test to avoid interference
+    $this->testKey = 'test_' . uniqid();
+  }
+
+  protected function tearDown(): void
+  {
+    // Reset the limiter after each test
+    $this->adapter->reset(key: $this->testKey);
+
+    // Ensure kernel is properly shut down to avoid class redeclaration issues
+    self::ensureKernelShutdown();
+
+    parent::tearDown();
+  }
+  // #endregion
+
+  // #region Consume Tests
+  /**
+   * Method testConsumeReturnsAcceptedOnFirstAttempt.
+   */
+  #[Test]
+  public function testConsumeReturnsAcceptedOnFirstAttempt(): void
+  {
+    $result = $this->adapter->consume(key: $this->testKey);
+
+    $this->assertInstanceOf(expected: RateLimitResult::class, actual: $result);
+    $this->assertTrue(condition: $result->accepted);
+    $this->assertGreaterThan(0, $result->remainingTokens);
+  }
+
+  /**
+   * Method testConsumeDecreasesRemainingTokens.
+   */
+  #[Test]
+  public function testConsumeDecreasesRemainingTokens(): void
+  {
+    $result1 = $this->adapter->consume(key: $this->testKey);
+    $result2 = $this->adapter->consume(key: $this->testKey);
+
+    $this->assertTrue(condition: $result1->accepted);
+    $this->assertTrue(condition: $result2->accepted);
+    $this->assertLessThan($result1->remainingTokens, $result2->remainingTokens);
+  }
+
+  /**
+   * Method testConsumeReturnsRejectedWhenLimitExceeded.
+   */
+  #[Test]
+  public function testConsumeReturnsRejectedWhenLimitExceeded(): void
+  {
+    // Consume all tokens (limit is 5 per minute based on config)
+    for ($i = 0; $i < 5; ++$i) {
+      $this->adapter->consume(key: $this->testKey);
     }
 
-    protected function tearDown(): void
-    {
-        // Reset the limiter after each test
-        $this->adapter->reset(key: $this->testKey);
+    // Next attempt should be rejected
+    $result = $this->adapter->consume(key: $this->testKey);
 
-        // Ensure kernel is properly shut down to avoid class redeclaration issues
-        self::ensureKernelShutdown();
+    $this->assertFalse(condition: $result->accepted);
+    $this->assertEquals(expected: 0, actual: $result->remainingTokens);
+    $this->assertGreaterThan(0, $result->retryAfter);
+  }
 
-        parent::tearDown();
-    }
-    // #endregion
+  /**
+   * Method testConsumeWithMultipleTokens.
+   */
+  #[Test]
+  public function testConsumeWithMultipleTokens(): void
+  {
+    $result = $this->adapter->consume(key: $this->testKey, tokens: 3);
 
-    // #region Consume Tests
-    /**
-     * Method testConsumeReturnsAcceptedOnFirstAttempt.
-     */
-    #[Test]
-    public function testConsumeReturnsAcceptedOnFirstAttempt(): void
-    {
-        $result = $this->adapter->consume(key: $this->testKey);
+    $this->assertTrue(condition: $result->accepted);
+    // Should have 2 remaining (5 - 3 = 2)
+    $this->assertEquals(expected: 2, actual: $result->remainingTokens);
+  }
 
-        $this->assertInstanceOf(expected: RateLimitResult::class, actual: $result);
-        $this->assertTrue(condition: $result->accepted);
-        $this->assertGreaterThan(0, $result->remainingTokens);
-    }
+  /**
+   * Method testDifferentKeysAreIndependent.
+   */
+  #[Test]
+  public function testDifferentKeysAreIndependent(): void
+  {
+    $key1 = $this->testKey . '_user1';
+    $key2 = $this->testKey . '_user2';
 
-    /**
-     * Method testConsumeDecreasesRemainingTokens.
-     */
-    #[Test]
-    public function testConsumeDecreasesRemainingTokens(): void
-    {
-        $result1 = $this->adapter->consume(key: $this->testKey);
-        $result2 = $this->adapter->consume(key: $this->testKey);
-
-        $this->assertTrue(condition: $result1->accepted);
-        $this->assertTrue(condition: $result2->accepted);
-        $this->assertLessThan($result1->remainingTokens, $result2->remainingTokens);
+    // Exhaust limit for key1
+    for ($i = 0; $i < 5; ++$i) {
+      $this->adapter->consume(key: $key1);
     }
 
-    /**
-     * Method testConsumeReturnsRejectedWhenLimitExceeded.
-     */
-    #[Test]
-    public function testConsumeReturnsRejectedWhenLimitExceeded(): void
-    {
-        // Consume all tokens (limit is 5 per minute based on config)
-        for ($i = 0; $i < 5; ++$i) {
-            $this->adapter->consume(key: $this->testKey);
-        }
+    // key2 should still be accepted
+    $result = $this->adapter->consume(key: $key2);
 
-        // Next attempt should be rejected
-        $result = $this->adapter->consume(key: $this->testKey);
+    $this->assertTrue(condition: $result->accepted);
 
-        $this->assertFalse(condition: $result->accepted);
-        $this->assertEquals(expected: 0, actual: $result->remainingTokens);
-        $this->assertGreaterThan(0, $result->retryAfter);
+    // Cleanup
+    $this->adapter->reset(key: $key1);
+    $this->adapter->reset(key: $key2);
+  }
+  // #endregion
+
+  // #region Reset Tests
+  /**
+   * Method testResetRestoresTokens.
+   */
+  #[Test]
+  public function testResetRestoresTokens(): void
+  {
+    // Consume some tokens
+    $this->adapter->consume(key: $this->testKey);
+    $this->adapter->consume(key: $this->testKey);
+    $this->adapter->consume(key: $this->testKey);
+
+    // Reset
+    $this->adapter->reset(key: $this->testKey);
+
+    // Should have full tokens again
+    $result = $this->adapter->consume(key: $this->testKey);
+
+    $this->assertTrue(condition: $result->accepted);
+    // Should have 4 remaining (5 - 1 = 4 after first consume post-reset)
+    $this->assertEquals(expected: 4, actual: $result->remainingTokens);
+  }
+
+  /**
+   * Method testResetAfterLimitExceeded.
+   */
+  #[Test]
+  public function testResetAfterLimitExceeded(): void
+  {
+    // Exhaust limit
+    for ($i = 0; $i < 6; ++$i) {
+      $this->adapter->consume(key: $this->testKey);
     }
 
-    /**
-     * Method testConsumeWithMultipleTokens.
-     */
-    #[Test]
-    public function testConsumeWithMultipleTokens(): void
-    {
-        $result = $this->adapter->consume(key: $this->testKey, tokens: 3);
+    // Verify rejected
+    $rejectedResult = $this->adapter->consume(key: $this->testKey);
+    $this->assertFalse(condition: $rejectedResult->accepted);
 
-        $this->assertTrue(condition: $result->accepted);
-        // Should have 2 remaining (5 - 3 = 2)
-        $this->assertEquals(expected: 2, actual: $result->remainingTokens);
-    }
+    // Reset
+    $this->adapter->reset(key: $this->testKey);
 
-    /**
-     * Method testDifferentKeysAreIndependent.
-     */
-    #[Test]
-    public function testDifferentKeysAreIndependent(): void
-    {
-        $key1 = $this->testKey . '_user1';
-        $key2 = $this->testKey . '_user2';
-
-        // Exhaust limit for key1
-        for ($i = 0; $i < 5; ++$i) {
-            $this->adapter->consume(key: $key1);
-        }
-
-        // key2 should still be accepted
-        $result = $this->adapter->consume(key: $key2);
-
-        $this->assertTrue(condition: $result->accepted);
-
-        // Cleanup
-        $this->adapter->reset(key: $key1);
-        $this->adapter->reset(key: $key2);
-    }
-    // #endregion
-
-    // #region Reset Tests
-    /**
-     * Method testResetRestoresTokens.
-     */
-    #[Test]
-    public function testResetRestoresTokens(): void
-    {
-        // Consume some tokens
-        $this->adapter->consume(key: $this->testKey);
-        $this->adapter->consume(key: $this->testKey);
-        $this->adapter->consume(key: $this->testKey);
-
-        // Reset
-        $this->adapter->reset(key: $this->testKey);
-
-        // Should have full tokens again
-        $result = $this->adapter->consume(key: $this->testKey);
-
-        $this->assertTrue(condition: $result->accepted);
-        // Should have 4 remaining (5 - 1 = 4 after first consume post-reset)
-        $this->assertEquals(expected: 4, actual: $result->remainingTokens);
-    }
-
-    /**
-     * Method testResetAfterLimitExceeded.
-     */
-    #[Test]
-    public function testResetAfterLimitExceeded(): void
-    {
-        // Exhaust limit
-        for ($i = 0; $i < 6; ++$i) {
-            $this->adapter->consume(key: $this->testKey);
-        }
-
-        // Verify rejected
-        $rejectedResult = $this->adapter->consume(key: $this->testKey);
-        $this->assertFalse(condition: $rejectedResult->accepted);
-
-        // Reset
-        $this->adapter->reset(key: $this->testKey);
-
-        // Should be accepted again
-        $result = $this->adapter->consume(key: $this->testKey);
-        $this->assertTrue(condition: $result->accepted);
-    }
-    // #endregion
+    // Should be accepted again
+    $result = $this->adapter->consume(key: $this->testKey);
+    $this->assertTrue(condition: $result->accepted);
+  }
+  // #endregion
 }

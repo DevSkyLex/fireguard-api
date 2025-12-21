@@ -21,16 +21,16 @@ use Shared\Domain\ValueObject\Uuid;
  */
 interface EventIdProvider
 {
-    // #region Methods
-    /**
-     * Method nextEventId.
-     *
-     * Generates a new unique event identifier.
-     *
-     * @since 1.0.0
-     *
-     * @return Uuid the new event ID
-     */
-    public function nextEventId(): Uuid;
-    // #endregion
+  // #region Methods
+  /**
+   * Method nextEventId.
+   *
+   * Generates a new unique event identifier.
+   *
+   * @since 1.0.0
+   *
+   * @return Uuid the new event ID
+   */
+  public function nextEventId(): Uuid;
+  // #endregion
 }

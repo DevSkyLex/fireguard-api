@@ -27,120 +27,120 @@ use function is_int;
  */
 final class ConsentRepository implements ConsentRepositoryPort
 {
-    // #region Properties
-    /**
-     * Property repository.
-     *
-     * @since 1.0.0
-     *
-     * @var EntityRepository<ConsentRecord>
-     */
-    private EntityRepository $repository;
-    // #endregion
+  // #region Properties
+  /**
+   * Property repository.
+   *
+   * @since 1.0.0
+   *
+   * @var EntityRepository<ConsentRecord>
+   */
+  private EntityRepository $repository;
+  // #endregion
 
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param EntityManagerInterface $entityManager the entity manager
-     */
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-    ) {
-        $this->repository = $entityManager->getRepository(className: ConsentRecord::class);
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   */
+  public function __construct(
+    private readonly EntityManagerInterface $entityManager,
+  ) {
+    $this->repository = $entityManager->getRepository(className: ConsentRecord::class);
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method save
-     * {@inheritDoc}
-     */
-    public function save(Consent $consent): void
-    {
-        $record = ConsentMapper::toRecord(consent: $consent);
-        $existingRecord = $this->repository->find(id: $record->id);
+  // #region Methods
+  /**
+   * Method save
+   * {@inheritDoc}
+   */
+  public function save(Consent $consent): void
+  {
+    $record = ConsentMapper::toRecord(consent: $consent);
+    $existingRecord = $this->repository->find(id: $record->id);
 
-        if ($existingRecord) {
-            $existingRecord->scopes = $record->scopes;
-            $existingRecord->revokedAt = $record->revokedAt;
-        } else {
-            $this->entityManager->persist(object: $record);
-        }
-
-        $this->entityManager->flush();
+    if ($existingRecord) {
+      $existingRecord->scopes = $record->scopes;
+      $existingRecord->revokedAt = $record->revokedAt;
+    } else {
+      $this->entityManager->persist(object: $record);
     }
 
-    /**
-     * Method findById
-     * {@inheritDoc}
-     */
-    public function findById(ConsentId $id): ?Consent
-    {
-        $record = $this->repository->find(id: $id->value);
+    $this->entityManager->flush();
+  }
 
-        if (!$record) {
-            return null;
-        }
+  /**
+   * Method findById
+   * {@inheritDoc}
+   */
+  public function findById(ConsentId $id): ?Consent
+  {
+    $record = $this->repository->find(id: $id->value);
 
-        return ConsentMapper::toDomain(record: $record);
+    if (!$record) {
+      return null;
     }
 
-    /**
-     * Method findByUserAndClient
-     * {@inheritDoc}
-     */
-    public function findByUserAndClient(string $userId, string $clientId): ?Consent
-    {
-        $record = $this->repository->findOneBy(criteria: [
-            'userId' => $userId,
-            'clientId' => $clientId,
-            'revokedAt' => null,
-        ]);
+    return ConsentMapper::toDomain(record: $record);
+  }
 
-        if (!$record) {
-            return null;
-        }
+  /**
+   * Method findByUserAndClient
+   * {@inheritDoc}
+   */
+  public function findByUserAndClient(string $userId, string $clientId): ?Consent
+  {
+    $record = $this->repository->findOneBy(criteria: [
+      'userId' => $userId,
+      'clientId' => $clientId,
+      'revokedAt' => null,
+    ]);
 
-        return ConsentMapper::toDomain(record: $record);
+    if (!$record) {
+      return null;
     }
 
-    /**
-     * Method findAllByUser
-     * {@inheritDoc}
-     */
-    public function findAllByUser(string $userId): array
-    {
-        $records = $this->repository->findBy(
-            criteria: ['userId' => $userId],
-            orderBy: ['grantedAt' => 'DESC']
-        );
+    return ConsentMapper::toDomain(record: $record);
+  }
 
-        return array_map(
-            callback: fn (ConsentRecord $record): Consent => ConsentMapper::toDomain(record: $record),
-            array: $records
-        );
-    }
+  /**
+   * Method findAllByUser
+   * {@inheritDoc}
+   */
+  public function findAllByUser(string $userId): array
+  {
+    $records = $this->repository->findBy(
+      criteria: ['userId' => $userId],
+      orderBy: ['grantedAt' => 'DESC']
+    );
 
-    /**
-     * Method revokeAllForUser
-     * {@inheritDoc}
-     */
-    public function revokeAllForUser(string $userId): int
-    {
-        $qb = $this->entityManager->createQueryBuilder();
-        $qb->update(update: ConsentRecord::class, alias: 'c')
-          ->set(key: 'c.revokedAt', value: ':now')
-          ->where(predicates: 'c.userId = :userId')
-          ->andWhere(where: 'c.revokedAt IS NULL')
-          ->setParameter(key: 'now', value: new DateTimeImmutable())
-          ->setParameter(key: 'userId', value: $userId);
+    return array_map(
+      callback: fn (ConsentRecord $record): Consent => ConsentMapper::toDomain(record: $record),
+      array: $records
+    );
+  }
 
-        $result = $qb->getQuery()->execute();
+  /**
+   * Method revokeAllForUser
+   * {@inheritDoc}
+   */
+  public function revokeAllForUser(string $userId): int
+  {
+    $qb = $this->entityManager->createQueryBuilder();
+    $qb->update(update: ConsentRecord::class, alias: 'c')
+      ->set(key: 'c.revokedAt', value: ':now')
+      ->where(predicates: 'c.userId = :userId')
+      ->andWhere(where: 'c.revokedAt IS NULL')
+      ->setParameter(key: 'now', value: new DateTimeImmutable())
+      ->setParameter(key: 'userId', value: $userId);
 
-        return is_int($result) ? $result : 0;
-    }
-    // #endregion
+    $result = $qb->getQuery()->execute();
+
+    return is_int($result) ? $result : 0;
+  }
+  // #endregion
 }

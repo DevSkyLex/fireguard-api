@@ -17,18 +17,18 @@ namespace OAuth\Application\Port\Outbound;
  */
 interface JwtParserPort
 {
-    // #region Methods
-    /**
-     * Method parse.
-     *
-     * Parses a JWT token string.
-     *
-     * @since 1.0.0
-     *
-     * @param string $token the token string
-     *
-     * @return array<string, mixed>|null the token claims or null if invalid
-     */
-    public function parse(string $token): ?array;
-    // #endregion
+  // #region Methods
+  /**
+   * Method parse.
+   *
+   * Parses a JWT token string.
+   *
+   * @since 1.0.0
+   *
+   * @param string $token the token string
+   *
+   * @return array<string, mixed>|null the token claims or null if invalid
+   */
+  public function parse(string $token): ?array;
+  // #endregion
 }

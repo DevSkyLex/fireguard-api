@@ -15,19 +15,19 @@ namespace Otp\Presentation\Api\Dto;
  */
 final class SetupTotpOutput
 {
-    // #region Properties
-    /**
-     * Property secret.
-     *
-     * The TOTP secret (base32 encoded).
-     */
-    public string $secret;
+  // #region Properties
+  /**
+   * Property secret.
+   *
+   * The TOTP secret (base32 encoded).
+   */
+  public string $secret;
 
-    /**
-     * Property qrCodeUri.
-     *
-     * The otpauth:// URI for QR code generation.
-     */
-    public string $qrCodeUri;
-    // #endregion
+  /**
+   * Property qrCodeUri.
+   *
+   * The otpauth:// URI for QR code generation.
+   */
+  public string $qrCodeUri;
+  // #endregion
 }

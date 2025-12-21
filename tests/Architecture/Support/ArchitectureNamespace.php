@@ -16,26 +16,26 @@ namespace App\Tests\Architecture\Support;
  */
 enum ArchitectureNamespace: string
 {
-    // #region Cases
-    /**
-     * Case ROOT.
-     *
-     * Application root namespace.
-     */
-    case ROOT = 'App';
+  // #region Cases
+  /**
+   * Case ROOT.
+   *
+   * Application root namespace.
+   */
+  case ROOT = 'App';
 
-    /**
-     * Case SHARED.
-     *
-     * Shared kernel namespace.
-     */
-    case SHARED = 'Shared';
+  /**
+   * Case SHARED.
+   *
+   * Shared kernel namespace.
+   */
+  case SHARED = 'Shared';
 
-    /**
-     * Case PORT.
-     *
-     * Port sub-namespace.
-     */
-    case PORT = 'Port';
-    // #endregion
+  /**
+   * Case PORT.
+   *
+   * Port sub-namespace.
+   */
+  case PORT = 'Port';
+  // #endregion
 }

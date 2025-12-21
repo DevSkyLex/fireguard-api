@@ -22,108 +22,108 @@ use function str_repeat;
 #[CoversClass(className: ClientName::class)]
 final class ClientNameTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testValidClientNameIsAccepted.
-     *
-     * Test the constructor with
-     * a valid client name
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testValidClientNameIsAccepted(): void
-    {
-        $clientName = new ClientName(value: 'My OAuth Client');
+  // #region Methods
+  /**
+   * Method testValidClientNameIsAccepted.
+   *
+   * Test the constructor with
+   * a valid client name
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testValidClientNameIsAccepted(): void
+  {
+    $clientName = new ClientName(value: 'My OAuth Client');
 
-        self::assertSame(
-            expected: 'My OAuth Client',
-            actual: $clientName->value
-        );
-    }
+    self::assertSame(
+      expected: 'My OAuth Client',
+      actual: $clientName->value
+    );
+  }
 
-    /**
-     * Method testTooShortClientNameThrowsException.
-     *
-     * Test the constructor with
-     * a too short client name
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testTooShortClientNameThrowsException(): void
-    {
-        $this->expectException(exception: InvalidValueException::class);
+  /**
+   * Method testTooShortClientNameThrowsException.
+   *
+   * Test the constructor with
+   * a too short client name
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testTooShortClientNameThrowsException(): void
+  {
+    $this->expectException(exception: InvalidValueException::class);
 
-        new ClientName(value: 'AB');
-    }
+    new ClientName(value: 'AB');
+  }
 
-    /**
-     * Method testTooLongClientNameThrowsException.
-     *
-     * Test the constructor with
-     * a too long client name
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testTooLongClientNameThrowsException(): void
-    {
-        $this->expectException(exception: InvalidValueException::class);
+  /**
+   * Method testTooLongClientNameThrowsException.
+   *
+   * Test the constructor with
+   * a too long client name
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testTooLongClientNameThrowsException(): void
+  {
+    $this->expectException(exception: InvalidValueException::class);
 
-        new ClientName(value: str_repeat(string: 'A', times: 101));
-    }
+    new ClientName(value: str_repeat(string: 'A', times: 101));
+  }
 
-    /**
-     * Method testEqualsReturnsTrueForSameValue.
-     *
-     * Test the equals method with
-     * the same value
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testEqualsReturnsTrueForSameValue(): void
-    {
-        $clientName1 = new ClientName(value: 'My OAuth Client');
-        $clientName2 = new ClientName(value: 'My OAuth Client');
+  /**
+   * Method testEqualsReturnsTrueForSameValue.
+   *
+   * Test the equals method with
+   * the same value
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testEqualsReturnsTrueForSameValue(): void
+  {
+    $clientName1 = new ClientName(value: 'My OAuth Client');
+    $clientName2 = new ClientName(value: 'My OAuth Client');
 
-        self::assertTrue(condition: $clientName1->equals(other: $clientName2));
-    }
+    self::assertTrue(condition: $clientName1->equals(other: $clientName2));
+  }
 
-    /**
-     * Method testEqualsReturnsFalseForDifferentValue.
-     *
-     * Test the equals method with
-     * different values
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testEqualsReturnsFalseForDifferentValue(): void
-    {
-        $clientName1 = new ClientName(value: 'My OAuth Client');
-        $clientName2 = new ClientName(value: 'Another Client');
+  /**
+   * Method testEqualsReturnsFalseForDifferentValue.
+   *
+   * Test the equals method with
+   * different values
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testEqualsReturnsFalseForDifferentValue(): void
+  {
+    $clientName1 = new ClientName(value: 'My OAuth Client');
+    $clientName2 = new ClientName(value: 'Another Client');
 
-        self::assertFalse(condition: $clientName1->equals(other: $clientName2));
-    }
+    self::assertFalse(condition: $clientName1->equals(other: $clientName2));
+  }
 
-    /**
-     * Method testToStringReturnsValue.
-     *
-     * Test the __toString method
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testToStringReturnsValue(): void
-    {
-        $clientName = new ClientName(value: 'My OAuth Client');
+  /**
+   * Method testToStringReturnsValue.
+   *
+   * Test the __toString method
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testToStringReturnsValue(): void
+  {
+    $clientName = new ClientName(value: 'My OAuth Client');
 
-        self::assertSame(
-            expected: 'My OAuth Client',
-            actual: (string) $clientName
-        );
-    }
-    // #endregion
+    self::assertSame(
+      expected: 'My OAuth Client',
+      actual: (string) $clientName
+    );
+  }
+  // #endregion
 }

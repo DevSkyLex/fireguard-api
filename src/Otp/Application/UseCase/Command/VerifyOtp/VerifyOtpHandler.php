@@ -24,74 +24,74 @@ use Shared\Application\Message\CommandHandler;
  */
 final readonly class VerifyOtpHandler implements CommandHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * VerifyOtpHandler class.
-     *
-     * @param OtpRepositoryPort $otpRepository the OTP repository
-     */
-    public function __construct(
-        private readonly OtpRepositoryPort $otpRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * VerifyOtpHandler class.
+   *
+   * @param OtpRepositoryPort $otpRepository the OTP repository
+   */
+  public function __construct(
+    private readonly OtpRepositoryPort $otpRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the VerifyOtpCommand.
+   *
+   * @since 1.0.0
+   *
+   * @param VerifyOtpCommand $command the command
+   *
+   * @return VerifyOtpResult the result
+   *
+   * @throws OtpNotFoundException if OTP not found
+   */
+  public function __invoke(VerifyOtpCommand $command): VerifyOtpResult
+  {
+    $otp = match (true) {
+      null !== $command->otpId => $this->otpRepository->findById(new OtpId($command->otpId)),
+      null !== $command->challengeToken => $this->otpRepository->findByChallengeToken(
+        ChallengeToken::fromString($command->challengeToken)
+      ),
+      default => throw new InvalidArgumentException('Either OTP ID or Challenge Token must be provided.'),
+    };
+
+    if (null === $otp) {
+      throw OtpNotFoundException::create($command->otpId ?? $command->challengeToken ?? 'unknown');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the VerifyOtpCommand.
-     *
-     * @since 1.0.0
-     *
-     * @param VerifyOtpCommand $command the command
-     *
-     * @return VerifyOtpResult the result
-     *
-     * @throws OtpNotFoundException if OTP not found
-     */
-    public function __invoke(VerifyOtpCommand $command): VerifyOtpResult
-    {
-        $otp = match (true) {
-            null !== $command->otpId => $this->otpRepository->findById(new OtpId($command->otpId)),
-            null !== $command->challengeToken => $this->otpRepository->findByChallengeToken(
-                ChallengeToken::fromString($command->challengeToken)
-            ),
-            default => throw new InvalidArgumentException('Either OTP ID or Challenge Token must be provided.'),
-        };
+    try {
+      $verified = $otp->verify($command->code);
 
-        if (null === $otp) {
-            throw OtpNotFoundException::create($command->otpId ?? $command->challengeToken ?? 'unknown');
-        }
+      // Persist updated state
+      $this->otpRepository->save($otp);
 
-        try {
-            $verified = $otp->verify($command->code);
+      if ($verified) {
+        return VerifyOtpResult::success();
+      }
 
-            // Persist updated state
-            $this->otpRepository->save($otp);
-
-            if ($verified) {
-                return VerifyOtpResult::success();
-            }
-
-            return VerifyOtpResult::failed(
-                attemptsRemaining: $otp->attemptsRemaining(),
-                error: 'Invalid verification code.',
-            );
-        } catch (OtpExpiredException) {
-            return VerifyOtpResult::failed(
-                attemptsRemaining: 0,
-                error: 'OTP has expired.',
-            );
-        } catch (OtpMaxAttemptsException) {
-            return VerifyOtpResult::failed(
-                attemptsRemaining: 0,
-                error: 'Maximum verification attempts exceeded.',
-            );
-        }
+      return VerifyOtpResult::failed(
+        attemptsRemaining: $otp->attemptsRemaining(),
+        error: 'Invalid verification code.',
+      );
+    } catch (OtpExpiredException) {
+      return VerifyOtpResult::failed(
+        attemptsRemaining: 0,
+        error: 'OTP has expired.',
+      );
+    } catch (OtpMaxAttemptsException) {
+      return VerifyOtpResult::failed(
+        attemptsRemaining: 0,
+        error: 'Maximum verification attempts exceeded.',
+      );
     }
-    // #endregion
+  }
+  // #endregion
 }

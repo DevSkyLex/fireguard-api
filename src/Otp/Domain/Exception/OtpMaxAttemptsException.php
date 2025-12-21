@@ -20,25 +20,25 @@ use function sprintf;
  */
 final class OtpMaxAttemptsException extends DomainException
 {
-    // #region Methods
-    /**
-     * Method create.
-     *
-     * @static
-     *
-     * Creates a new exception for max attempts exceeded.
-     *
-     * @since 1.0.0
-     *
-     * @param OtpId $id the OTP ID
-     *
-     * @return self the created exception
-     */
-    public static function create(OtpId $id): self
-    {
-        return new self(
-            message: sprintf('Maximum verification attempts exceeded for OTP "%s".', $id->value)
-        );
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method create.
+   *
+   * @static
+   *
+   * Creates a new exception for max attempts exceeded.
+   *
+   * @since 1.0.0
+   *
+   * @param OtpId $id the OTP ID
+   *
+   * @return self the created exception
+   */
+  public static function create(OtpId $id): self
+  {
+    return new self(
+      message: sprintf('Maximum verification attempts exceeded for OTP "%s".', $id->value)
+    );
+  }
+  // #endregion
 }

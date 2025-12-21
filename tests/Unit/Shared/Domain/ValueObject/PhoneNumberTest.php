@@ -24,102 +24,102 @@ use Shared\Domain\ValueObject\PhoneNumber;
 #[CoversClass(className: PhoneNumber::class)]
 final class PhoneNumberTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testCanBeCreatedWithValidValue.
-     *
-     * Tests that a valid PhoneNumber can
-     * be created.
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testCanBeCreatedWithValidValue(): void
-    {
-        $value = '+33612345678';
-        $phone = new PhoneNumber(value: $value);
+  // #region Methods
+  /**
+   * Method testCanBeCreatedWithValidValue.
+   *
+   * Tests that a valid PhoneNumber can
+   * be created.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCanBeCreatedWithValidValue(): void
+  {
+    $value = '+33612345678';
+    $phone = new PhoneNumber(value: $value);
 
-        $this->assertEquals(
-            expected: $value,
-            actual: $phone->value
-        );
-        $this->assertEquals(
-            expected: $value,
-            actual: (string) $phone
-        );
-    }
+    $this->assertEquals(
+      expected: $value,
+      actual: $phone->value
+    );
+    $this->assertEquals(
+      expected: $value,
+      actual: (string) $phone
+    );
+  }
 
-    /**
-     * Method testCannotBeCreatedWithInvalidValue.
-     *
-     * Tests that creating a PhoneNumber with an invalid
-     * value throws an exception.
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testCannotBeCreatedWithInvalidValue(): void
-    {
-        $this->expectException(exception: InvalidValueException::class);
-        new PhoneNumber(value: '0612345678');
-    }
+  /**
+   * Method testCannotBeCreatedWithInvalidValue.
+   *
+   * Tests that creating a PhoneNumber with an invalid
+   * value throws an exception.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCannotBeCreatedWithInvalidValue(): void
+  {
+    $this->expectException(exception: InvalidValueException::class);
+    new PhoneNumber(value: '0612345678');
+  }
 
-    /**
-     * Method testGetCountryCode.
-     *
-     * Tests extracting the country code.
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testGetCountryCode(): void
-    {
-        // Naive implementation grabs first 3 digits
-        $phone = new PhoneNumber(value: '+33612345678');
-        $this->assertEquals(
-            expected: '336',
-            actual: $phone->getCountryCode()
-        );
+  /**
+   * Method testGetCountryCode.
+   *
+   * Tests extracting the country code.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testGetCountryCode(): void
+  {
+    // Naive implementation grabs first 3 digits
+    $phone = new PhoneNumber(value: '+33612345678');
+    $this->assertEquals(
+      expected: '336',
+      actual: $phone->getCountryCode()
+    );
 
-        $phoneUS = new PhoneNumber(value: '+15551234567');
-        $this->assertEquals(
-            expected: '155',
-            actual: $phoneUS->getCountryCode()
-        );
-    }
+    $phoneUS = new PhoneNumber(value: '+15551234567');
+    $this->assertEquals(
+      expected: '155',
+      actual: $phoneUS->getCountryCode()
+    );
+  }
 
-    /**
-     * Method testGetNationalNumber.
-     *
-     * Tests extracting the national number.
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testGetNationalNumber(): void
-    {
-        // Naive implementation removes first 3 digits
-        $phone = new PhoneNumber('+33612345678');
-        $this->assertEquals('12345678', $phone->getNationalNumber());
-    }
+  /**
+   * Method testGetNationalNumber.
+   *
+   * Tests extracting the national number.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testGetNationalNumber(): void
+  {
+    // Naive implementation removes first 3 digits
+    $phone = new PhoneNumber('+33612345678');
+    $this->assertEquals('12345678', $phone->getNationalNumber());
+  }
 
-    /**
-     * Method testEquality.
-     *
-     * Tests equality comparison between
-     * PhoneNumber objects.
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testEquality(): void
-    {
-        $p1 = new PhoneNumber(value: '+33612345678');
-        $p2 = new PhoneNumber(value: '+33612345678');
-        $p3 = new PhoneNumber(value: '+15551234567');
+  /**
+   * Method testEquality.
+   *
+   * Tests equality comparison between
+   * PhoneNumber objects.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testEquality(): void
+  {
+    $p1 = new PhoneNumber(value: '+33612345678');
+    $p2 = new PhoneNumber(value: '+33612345678');
+    $p3 = new PhoneNumber(value: '+15551234567');
 
-        $this->assertTrue(condition: $p1->equals($p2));
-        $this->assertFalse(condition: $p1->equals($p3));
-    }
-    // #endregion
+    $this->assertTrue(condition: $p1->equals($p2));
+    $this->assertFalse(condition: $p1->equals($p3));
+  }
+  // #endregion
 }

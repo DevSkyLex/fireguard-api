@@ -7,8 +7,8 @@ namespace Otp\Infrastructure\Adapter\Notifier;
 use Otp\Application\Port\Outbound\OtpNotifierPort;
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{
-    OtpChannel,
-    OtpPurpose
+  OtpChannel,
+  OtpPurpose
 };
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -30,143 +30,143 @@ use function time;
  */
 final readonly class OtpNotifierAdapter implements OtpNotifierPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes the adapter with the Symfony
-     * Notifier and Mailer.
-     *
-     * @since 1.0.0
-     *
-     * @param NotifierInterface $notifier    the Symfony Notifier
-     * @param MailerInterface   $mailer      the Symfony Mailer for email fallback
-     * @param string            $senderEmail the sender email address
-     */
-    public function __construct(
-        private readonly NotifierInterface $notifier,
-        private readonly MailerInterface $mailer,
-        private readonly string $senderEmail = 'noreply@fireguard.local',
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes the adapter with the Symfony
+   * Notifier and Mailer.
+   *
+   * @since 1.0.0
+   *
+   * @param NotifierInterface $notifier    the Symfony Notifier
+   * @param MailerInterface   $mailer      the Symfony Mailer for email fallback
+   * @param string            $senderEmail the sender email address
+   */
+  public function __construct(
+    private readonly NotifierInterface $notifier,
+    private readonly MailerInterface $mailer,
+    private readonly string $senderEmail = 'noreply@fireguard.local',
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method send
-     * {@inheritDoc}
-     *
-     * Sends the OTP to the recipient.
-     *
-     * @since 1.0.0
-     *
-     * @param Otp $otp the OTP
-     *
-     * @return void no return value
-     */
-    public function send(Otp $otp): void
-    {
-        if (!$otp->channel()->requiresDelivery()) {
-            return;
-        }
-
-        match ($otp->channel()) {
-            OtpChannel::EMAIL => $this->sendEmail($otp),
-            OtpChannel::SMS => $this->sendSms($otp),
-            OtpChannel::TOTP => null,
-        };
+  // #region Methods
+  /**
+   * Method send
+   * {@inheritDoc}
+   *
+   * Sends the OTP to the recipient.
+   *
+   * @since 1.0.0
+   *
+   * @param Otp $otp the OTP
+   *
+   * @return void no return value
+   */
+  public function send(Otp $otp): void
+  {
+    if (!$otp->channel()->requiresDelivery()) {
+      return;
     }
 
-    /**
-     * Method sendEmail.
-     *
-     * Sends OTP via email.
-     *
-     * @since 1.0.0
-     *
-     * @param Otp $otp the OTP
-     *
-     * @return void no return value
-     */
-    private function sendEmail(Otp $otp): void
-    {
-        try {
-            $code = $otp->code()->plain();
-        } catch (Throwable) {
-            return;
-        }
+    match ($otp->channel()) {
+      OtpChannel::EMAIL => $this->sendEmail($otp),
+      OtpChannel::SMS => $this->sendSms($otp),
+      OtpChannel::TOTP => null,
+    };
+  }
 
-        $email = (new Email())
-          ->from($this->senderEmail)
-          ->to($otp->recipient())
-          ->subject($this->getEmailSubject($otp))
-          ->html($this->getEmailHtml($otp, $code));
-
-        $this->mailer->send(message: $email);
+  /**
+   * Method sendEmail.
+   *
+   * Sends OTP via email.
+   *
+   * @since 1.0.0
+   *
+   * @param Otp $otp the OTP
+   *
+   * @return void no return value
+   */
+  private function sendEmail(Otp $otp): void
+  {
+    try {
+      $code = $otp->code()->plain();
+    } catch (Throwable) {
+      return;
     }
 
-    /**
-     * Method sendSms.
-     *
-     * Sends OTP via SMS using Notifier.
-     *
-     * @since 1.0.0
-     *
-     * @param Otp $otp the OTP
-     *
-     * @return void no return value
-     */
-    private function sendSms(Otp $otp): void
-    {
-        $notification = new \Otp\Infrastructure\Symfony\Notification\OtpNotification(otp: $otp);
-        $recipient = new Recipient(phone: $otp->recipient());
+    $email = (new Email())
+      ->from($this->senderEmail)
+      ->to($otp->recipient())
+      ->subject($this->getEmailSubject($otp))
+      ->html($this->getEmailHtml($otp, $code));
 
-        $this->notifier->send(
-            notification: $notification,
-            recipient: $recipient
-        );
-    }
+    $this->mailer->send(message: $email);
+  }
 
-    /**
-     * Method getEmailSubject.
-     *
-     * Returns the email subject.
-     *
-     * @since 1.0.0
-     *
-     * @param Otp $otp the OTP
-     *
-     * @return string the subject
-     */
-    private function getEmailSubject(Otp $otp): string
-    {
-        return match ($otp->purpose()) {
-            OtpPurpose::LOGIN => '[FireGuard] Your login verification code',
-            OtpPurpose::PASSWORD_RESET => '[FireGuard] Your password reset code',
-            OtpPurpose::EMAIL_VERIFICATION => '[FireGuard] Verify your email address',
-            OtpPurpose::PHONE_VERIFICATION => '[FireGuard] Verify your phone number',
-            OtpPurpose::SENSITIVE_OPERATION => '[FireGuard] Confirm your action',
-            OtpPurpose::TRANSACTION_APPROVAL => '[FireGuard] Approve your transaction',
-        };
-    }
+  /**
+   * Method sendSms.
+   *
+   * Sends OTP via SMS using Notifier.
+   *
+   * @since 1.0.0
+   *
+   * @param Otp $otp the OTP
+   *
+   * @return void no return value
+   */
+  private function sendSms(Otp $otp): void
+  {
+    $notification = new \Otp\Infrastructure\Symfony\Notification\OtpNotification(otp: $otp);
+    $recipient = new Recipient(phone: $otp->recipient());
 
-    /**
-     * Method getEmailHtml.
-     *
-     * Returns the HTML email content.
-     *
-     * @since 1.0.0
-     *
-     * @param Otp    $otp  the OTP
-     * @param string $code the code
-     *
-     * @return string the HTML content
-     */
-    private function getEmailHtml(Otp $otp, string $code): string
-    {
-        $minutes = (int) ceil(($otp->expiresAt()->getTimestamp() - time()) / 60);
+    $this->notifier->send(
+      notification: $notification,
+      recipient: $recipient
+    );
+  }
 
-        return <<<HTML
+  /**
+   * Method getEmailSubject.
+   *
+   * Returns the email subject.
+   *
+   * @since 1.0.0
+   *
+   * @param Otp $otp the OTP
+   *
+   * @return string the subject
+   */
+  private function getEmailSubject(Otp $otp): string
+  {
+    return match ($otp->purpose()) {
+      OtpPurpose::LOGIN => '[FireGuard] Your login verification code',
+      OtpPurpose::PASSWORD_RESET => '[FireGuard] Your password reset code',
+      OtpPurpose::EMAIL_VERIFICATION => '[FireGuard] Verify your email address',
+      OtpPurpose::PHONE_VERIFICATION => '[FireGuard] Verify your phone number',
+      OtpPurpose::SENSITIVE_OPERATION => '[FireGuard] Confirm your action',
+      OtpPurpose::TRANSACTION_APPROVAL => '[FireGuard] Approve your transaction',
+    };
+  }
+
+  /**
+   * Method getEmailHtml.
+   *
+   * Returns the HTML email content.
+   *
+   * @since 1.0.0
+   *
+   * @param Otp    $otp  the OTP
+   * @param string $code the code
+   *
+   * @return string the HTML content
+   */
+  private function getEmailHtml(Otp $otp, string $code): string
+  {
+    $minutes = (int) ceil(($otp->expiresAt()->getTimestamp() - time()) / 60);
+
+    return <<<HTML
     <!DOCTYPE html>
     <html>
     <head>
@@ -192,6 +192,6 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
     </body>
     </html>
     HTML;
-    }
-    // #endregion
+  }
+  // #endregion
 }

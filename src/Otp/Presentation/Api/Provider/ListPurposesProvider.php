@@ -22,32 +22,32 @@ use Otp\Presentation\Api\Dto\PurposeOutput;
  */
 final class ListPurposesProvider implements ProviderInterface
 {
-    // #region Methods
-    /**
-     * Method provide
-     * {@inheritDoc}
-     *
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return list<PurposeOutput>
-     */
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
-    {
-        $purposes = [];
+  // #region Methods
+  /**
+   * Method provide
+   * {@inheritDoc}
+   *
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return list<PurposeOutput>
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  {
+    $purposes = [];
 
-        foreach (OtpPurpose::cases() as $purpose) {
-            $output = new PurposeOutput();
-            $output->value = $purpose->value;
-            $output->label = $purpose->getLabel();
-            $output->ttlSeconds = $purpose->getDefaultTtlSeconds();
-            $output->maxAttempts = $purpose->getDefaultMaxAttempts();
+    foreach (OtpPurpose::cases() as $purpose) {
+      $output = new PurposeOutput();
+      $output->value = $purpose->value;
+      $output->label = $purpose->getLabel();
+      $output->ttlSeconds = $purpose->getDefaultTtlSeconds();
+      $output->maxAttempts = $purpose->getDefaultMaxAttempts();
 
-            $purposes[] = $output;
-        }
-
-        return $purposes;
+      $purposes[] = $output;
     }
-    // #endregion
+
+    return $purposes;
+  }
+  // #endregion
 }

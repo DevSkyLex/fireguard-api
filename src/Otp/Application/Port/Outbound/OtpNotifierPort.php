@@ -19,14 +19,14 @@ use Otp\Domain\Model\Otp;
  */
 interface OtpNotifierPort
 {
-    // #region Methods
-    /**
-     * Method send.
-     *
-     * Sends an OTP notification to the recipient.
-     *
-     * @param Otp $otp the OTP to send
-     */
-    public function send(Otp $otp): void;
-    // #endregion
+  // #region Methods
+  /**
+   * Method send.
+   *
+   * Sends an OTP notification to the recipient.
+   *
+   * @param Otp $otp the OTP to send
+   */
+  public function send(Otp $otp): void;
+  // #endregion
 }

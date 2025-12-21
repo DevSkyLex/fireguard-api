@@ -18,19 +18,19 @@ use User\Domain\Model\User;
  */
 final readonly class GetUserResult implements ResultMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the GetUserResult class.
-     *
-     * @since 1.0.0
-     *
-     * @param User|null $user the user, or null if not found
-     */
-    public function __construct(
-        public readonly ?User $user,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the GetUserResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param User|null $user the user, or null if not found
+   */
+  public function __construct(
+    public readonly ?User $user,
+  ) {
+  }
+  // #endregion
 }

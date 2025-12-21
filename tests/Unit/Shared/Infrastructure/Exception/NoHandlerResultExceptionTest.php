@@ -24,15 +24,15 @@ use stdClass;
 #[CoversClass(className: NoHandlerResultException::class)]
 final class NoHandlerResultExceptionTest extends TestCase
 {
-    /**
-     * Test the forMessage factory method.
-     */
-    #[Test]
-    public function testForMessage(): void
-    {
-        $message = new stdClass();
-        $exception = NoHandlerResultException::forMessage($message);
+  /**
+   * Test the forMessage factory method.
+   */
+  #[Test]
+  public function testForMessage(): void
+  {
+    $message = new stdClass();
+    $exception = NoHandlerResultException::forMessage($message);
 
-        $this->assertSame('No handler result returned for message "stdClass".', $exception->getMessage());
-    }
+    $this->assertSame('No handler result returned for message "stdClass".', $exception->getMessage());
+  }
 }

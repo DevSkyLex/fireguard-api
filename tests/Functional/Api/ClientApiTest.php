@@ -21,50 +21,50 @@ use function json_encode;
  */
 final class ClientApiTest extends WebTestCase
 {
-    // #region Properties
-    private ?KernelBrowser $client = null;
-    // #endregion
+  // #region Properties
+  private ?KernelBrowser $client = null;
+  // #endregion
 
-    // #region Setup
-    protected function setUp(): void
-    {
-        $this->client = static::createClient();
-    }
-    // #endregion
+  // #region Setup
+  protected function setUp(): void
+  {
+    $this->client = static::createClient();
+  }
+  // #endregion
 
-    // #region Tests
-    /**
-     * Method testClientEndpointsRequireAuthentication.
-     *
-     * Tests that client endpoints require authentication.
-     */
-    public function testClientEndpointsRequireAuthentication(): void
-    {
-        // Client management requires ROLE_ADMIN per security.yaml
-        // Without authentication, should get 401
-        $this->client?->request(
-            method: 'POST',
-            uri: '/api/clients',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([
-                'name' => 'Test Client',
-                'redirectUris' => ['https://example.com/callback'],
-                'grantTypes' => ['client_credentials'],
-                'scopes' => ['read'],
-            ]) ?: ''
-        );
+  // #region Tests
+  /**
+   * Method testClientEndpointsRequireAuthentication.
+   *
+   * Tests that client endpoints require authentication.
+   */
+  public function testClientEndpointsRequireAuthentication(): void
+  {
+    // Client management requires ROLE_ADMIN per security.yaml
+    // Without authentication, should get 401
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/clients',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'name' => 'Test Client',
+        'redirectUris' => ['https://example.com/callback'],
+        'grantTypes' => ['client_credentials'],
+        'scopes' => ['read'],
+      ]) ?: ''
+    );
 
-        $response = $this->client?->getResponse();
-        $this->assertNotNull($response);
-        // Should require authentication
-        $this->assertContains($response->getStatusCode(), [
-            Response::HTTP_UNAUTHORIZED,
-            Response::HTTP_FORBIDDEN,
-            Response::HTTP_NOT_FOUND, // If endpoint not exposed
-        ]);
-    }
-    // #endregion
+    $response = $this->client?->getResponse();
+    $this->assertNotNull($response);
+    // Should require authentication
+    $this->assertContains($response->getStatusCode(), [
+      Response::HTTP_UNAUTHORIZED,
+      Response::HTTP_FORBIDDEN,
+      Response::HTTP_NOT_FOUND, // If endpoint not exposed
+    ]);
+  }
+  // #endregion
 }

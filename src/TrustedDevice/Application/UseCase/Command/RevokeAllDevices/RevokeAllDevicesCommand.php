@@ -17,20 +17,20 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class RevokeAllDevicesCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the command with
-     * the user ID.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the user ID
-     */
-    public function __construct(
-        public readonly string $userId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the command with
+   * the user ID.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   */
+  public function __construct(
+    public readonly string $userId,
+  ) {
+  }
+  // #endregion
 }

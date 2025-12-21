@@ -23,56 +23,56 @@ use OAuth\Infrastructure\OAuth2\Entity\RefreshToken as LeagueRefreshToken;
  */
 final readonly class RefreshTokenRepositoryAdapter implements RefreshTokenRepositoryInterface
 {
-    // #region Constructor
-    public function __construct(
-        private RefreshTokenRepositoryPort $refreshTokenRepository,
-    ) {
+  // #region Constructor
+  public function __construct(
+    private RefreshTokenRepositoryPort $refreshTokenRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  public function getNewRefreshToken(): RefreshTokenEntityInterface
+  {
+    return new LeagueRefreshToken();
+  }
+
+  public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
+  {
+    $token = new RefreshToken(
+      identifier: $refreshTokenEntity->getIdentifier(),
+      expiryDateTime: DateTimeImmutable::createFromInterface($refreshTokenEntity->getExpiryDateTime()),
+      accessTokenIdentifier: $refreshTokenEntity->getAccessToken()->getIdentifier(),
+      clientIdentifier: new OAuthClientIdentifier((string) $refreshTokenEntity->getAccessToken()->getClient()->getIdentifier())
+    );
+
+    $this->refreshTokenRepository->save($token);
+  }
+
+  /**
+   * @param string $tokenId
+   */
+  public function revokeRefreshToken($tokenId): void
+  {
+    $token = $this->refreshTokenRepository->find($tokenId);
+
+    if ($token) {
+      $token->revoke();
+      $this->refreshTokenRepository->save($token);
     }
-    // #endregion
+  }
 
-    // #region Methods
-    public function getNewRefreshToken(): RefreshTokenEntityInterface
-    {
-        return new LeagueRefreshToken();
+  /**
+   * @param string $tokenId
+   */
+  public function isRefreshTokenRevoked($tokenId): bool
+  {
+    $token = $this->refreshTokenRepository->find($tokenId);
+
+    if (!$token) {
+      return true;
     }
 
-    public function persistNewRefreshToken(RefreshTokenEntityInterface $refreshTokenEntity): void
-    {
-        $token = new RefreshToken(
-            identifier: $refreshTokenEntity->getIdentifier(),
-            expiryDateTime: DateTimeImmutable::createFromInterface($refreshTokenEntity->getExpiryDateTime()),
-            accessTokenIdentifier: $refreshTokenEntity->getAccessToken()->getIdentifier(),
-            clientIdentifier: new OAuthClientIdentifier((string) $refreshTokenEntity->getAccessToken()->getClient()->getIdentifier())
-        );
-
-        $this->refreshTokenRepository->save($token);
-    }
-
-    /**
-     * @param string $tokenId
-     */
-    public function revokeRefreshToken($tokenId): void
-    {
-        $token = $this->refreshTokenRepository->find($tokenId);
-
-        if ($token) {
-            $token->revoke();
-            $this->refreshTokenRepository->save($token);
-        }
-    }
-
-    /**
-     * @param string $tokenId
-     */
-    public function isRefreshTokenRevoked($tokenId): bool
-    {
-        $token = $this->refreshTokenRepository->find($tokenId);
-
-        if (!$token) {
-            return true;
-        }
-
-        return $token->isRevoked();
-    }
-    // #endregion
+    return $token->isRevoked();
+  }
+  // #endregion
 }

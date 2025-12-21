@@ -16,68 +16,68 @@ namespace Shared\Application\Log;
  */
 enum LogLevel: string
 {
-    // #region Cases
-    /**
-     * Case ALERT.
-     *
-     * Alert level.
-     *
-     * @since 1.0.0
-     */
-    case ALERT = 'alert';
+  // #region Cases
+  /**
+   * Case ALERT.
+   *
+   * Alert level.
+   *
+   * @since 1.0.0
+   */
+  case ALERT = 'alert';
 
-    /**
-     * Case CRITICAL.
-     *
-     * Critical level.
-     *
-     * @since 1.0.0
-     */
-    case CRITICAL = 'critical';
+  /**
+   * Case CRITICAL.
+   *
+   * Critical level.
+   *
+   * @since 1.0.0
+   */
+  case CRITICAL = 'critical';
 
-    /**
-     * Case ERROR.
-     *
-     * Error level.
-     *
-     * @since 1.0.0
-     */
-    case ERROR = 'error';
+  /**
+   * Case ERROR.
+   *
+   * Error level.
+   *
+   * @since 1.0.0
+   */
+  case ERROR = 'error';
 
-    /**
-     * Case WARNING.
-     *
-     * Warning level.
-     *
-     * @since 1.0.0
-     */
-    case WARNING = 'warning';
+  /**
+   * Case WARNING.
+   *
+   * Warning level.
+   *
+   * @since 1.0.0
+   */
+  case WARNING = 'warning';
 
-    /**
-     * Case NOTICE.
-     *
-     * Notice level.
-     *
-     * @since 1.0.0
-     */
-    case NOTICE = 'notice';
+  /**
+   * Case NOTICE.
+   *
+   * Notice level.
+   *
+   * @since 1.0.0
+   */
+  case NOTICE = 'notice';
 
-    /**
-     * Case INFO.
-     *
-     * Info level.
-     *
-     * @since 1.0.0
-     */
-    case INFO = 'info';
+  /**
+   * Case INFO.
+   *
+   * Info level.
+   *
+   * @since 1.0.0
+   */
+  case INFO = 'info';
 
-    /**
-     * Case DEBUG.
-     *
-     * Debug level.
-     *
-     * @since 1.0.0
-     */
-    case DEBUG = 'debug';
-    // #endregion
+  /**
+   * Case DEBUG.
+   *
+   * Debug level.
+   *
+   * @since 1.0.0
+   */
+  case DEBUG = 'debug';
+  // #endregion
 }

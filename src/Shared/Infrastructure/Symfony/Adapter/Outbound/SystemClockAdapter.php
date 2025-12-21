@@ -18,20 +18,20 @@ use Shared\Application\Port\Outbound\ClockPort;
  */
 final readonly class SystemClockAdapter implements ClockPort
 {
-    // #region Methods
-    /**
-     * Method now
-     * {@inheritDoc}
-     *
-     * Returns the current date and time.
-     *
-     * @since 1.0.0
-     *
-     * @return DateTimeImmutable the current date and time
-     */
-    public function now(): DateTimeImmutable
-    {
-        return new DateTimeImmutable(datetime: 'now');
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method now
+   * {@inheritDoc}
+   *
+   * Returns the current date and time.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeImmutable the current date and time
+   */
+  public function now(): DateTimeImmutable
+  {
+    return new DateTimeImmutable(datetime: 'now');
+  }
+  // #endregion
 }

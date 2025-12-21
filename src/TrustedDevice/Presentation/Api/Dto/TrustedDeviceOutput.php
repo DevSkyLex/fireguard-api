@@ -11,9 +11,9 @@ use DateTimeImmutable;
  */
 final class TrustedDeviceOutput
 {
-    public string $id;
-    public string $name;
-    public DateTimeImmutable $lastUsedAt;
-    public DateTimeImmutable $expiresAt;
-    public DateTimeImmutable $createdAt;
+  public string $id;
+  public string $name;
+  public DateTimeImmutable $lastUsedAt;
+  public DateTimeImmutable $expiresAt;
+  public DateTimeImmutable $createdAt;
 }

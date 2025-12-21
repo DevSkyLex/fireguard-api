@@ -17,63 +17,63 @@ namespace Otp\Domain\ValueObject;
  */
 enum OtpChannel: string
 {
-    // #region Cases
-    /**
-     * Case EMAIL.
-     *
-     * OTP sent via email.
-     */
-    case EMAIL = 'email';
+  // #region Cases
+  /**
+   * Case EMAIL.
+   *
+   * OTP sent via email.
+   */
+  case EMAIL = 'email';
 
-    /**
-     * Case SMS.
-     *
-     * OTP sent via SMS.
-     */
-    case SMS = 'sms';
+  /**
+   * Case SMS.
+   *
+   * OTP sent via SMS.
+   */
+  case SMS = 'sms';
 
-    /**
-     * Case TOTP.
-     *
-     * Time-based OTP (authenticator app).
-     */
-    case TOTP = 'totp';
-    // #endregion
+  /**
+   * Case TOTP.
+   *
+   * Time-based OTP (authenticator app).
+   */
+  case TOTP = 'totp';
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method requiresDelivery.
-     *
-     * Returns whether this channel requires active delivery.
-     *
-     * @since 1.0.0
-     *
-     * @return bool true if delivery is needed
-     */
-    public function requiresDelivery(): bool
-    {
-        return match ($this) {
-            self::EMAIL, self::SMS => true,
-            self::TOTP => false,
-        };
-    }
+  // #region Methods
+  /**
+   * Method requiresDelivery.
+   *
+   * Returns whether this channel requires active delivery.
+   *
+   * @since 1.0.0
+   *
+   * @return bool true if delivery is needed
+   */
+  public function requiresDelivery(): bool
+  {
+    return match ($this) {
+      self::EMAIL, self::SMS => true,
+      self::TOTP => false,
+    };
+  }
 
-    /**
-     * Method getLabel.
-     *
-     * Returns a human-readable label for this channel.
-     *
-     * @since 1.0.0
-     *
-     * @return string human-readable label
-     */
-    public function getLabel(): string
-    {
-        return match ($this) {
-            self::EMAIL => 'Email',
-            self::SMS => 'SMS',
-            self::TOTP => 'Authenticator App',
-        };
-    }
-    // #endregion
+  /**
+   * Method getLabel.
+   *
+   * Returns a human-readable label for this channel.
+   *
+   * @since 1.0.0
+   *
+   * @return string human-readable label
+   */
+  public function getLabel(): string
+  {
+    return match ($this) {
+      self::EMAIL => 'Email',
+      self::SMS => 'SMS',
+      self::TOTP => 'Authenticator App',
+    };
+  }
+  // #endregion
 }

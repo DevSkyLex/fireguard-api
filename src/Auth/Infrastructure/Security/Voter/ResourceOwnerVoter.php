@@ -30,62 +30,62 @@ use function property_exists;
 #[AutoconfigureTag(name: 'security.voter')]
 final class ResourceOwnerVoter extends Voter
 {
-    // #region Constants
-    public const string OWNER = 'OWNER';
-    public const string VIEW_OWN = 'VIEW_OWN';
-    public const string EDIT_OWN = 'EDIT_OWN';
-    public const string DELETE_OWN = 'DELETE_OWN';
-    // #endregion
+  // #region Constants
+  public const string OWNER = 'OWNER';
+  public const string VIEW_OWN = 'VIEW_OWN';
+  public const string EDIT_OWN = 'EDIT_OWN';
+  public const string DELETE_OWN = 'DELETE_OWN';
+  // #endregion
 
-    // #region Methods
-    protected function supports(string $attribute, mixed $subject): bool
-    {
-        return in_array($attribute, [self::OWNER, self::VIEW_OWN, self::EDIT_OWN, self::DELETE_OWN], true)
-          && is_object($subject);
+  // #region Methods
+  protected function supports(string $attribute, mixed $subject): bool
+  {
+    return in_array($attribute, [self::OWNER, self::VIEW_OWN, self::EDIT_OWN, self::DELETE_OWN], true)
+      && is_object($subject);
+  }
+
+  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+  {
+    $user = $token->getUser();
+
+    if (!$user instanceof SecurityUser) {
+      return false;
     }
 
-    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
-    {
-        $user = $token->getUser();
+    $ownerId = $this->getOwnerId($subject);
 
-        if (!$user instanceof SecurityUser) {
-            return false;
-        }
-
-        $ownerId = $this->getOwnerId($subject);
-
-        if (null === $ownerId) {
-            return false;
-        }
-
-        return $user->getId() === $ownerId;
+    if (null === $ownerId) {
+      return false;
     }
 
-    private function getOwnerId(object $subject): ?string
-    {
-        $methods = ['getOwnerId', 'getUserId', 'ownerId', 'userId', 'getOwner', 'getUser'];
+    return $user->getId() === $ownerId;
+  }
 
-        foreach ($methods as $method) {
-            if (method_exists($subject, $method)) {
-                $result = $subject->$method();
+  private function getOwnerId(object $subject): ?string
+  {
+    $methods = ['getOwnerId', 'getUserId', 'ownerId', 'userId', 'getOwner', 'getUser'];
 
-                if (is_object($result) && property_exists($result, 'value')) {
-                    $value = $result->value;
+    foreach ($methods as $method) {
+      if (method_exists($subject, $method)) {
+        $result = $subject->$method();
 
-                    return is_string($value) || is_int($value) ? (string) $value : null;
-                }
+        if (is_object($result) && property_exists($result, 'value')) {
+          $value = $result->value;
 
-                if (is_object($result) && method_exists($result, '__toString')) {
-                    return (string) $result;
-                }
-
-                if (is_string($result)) {
-                    return $result;
-                }
-            }
+          return is_string($value) || is_int($value) ? (string) $value : null;
         }
 
-        return null;
+        if (is_object($result) && method_exists($result, '__toString')) {
+          return (string) $result;
+        }
+
+        if (is_string($result)) {
+          return $result;
+        }
+      }
     }
-    // #endregion
+
+    return null;
+  }
+  // #endregion
 }

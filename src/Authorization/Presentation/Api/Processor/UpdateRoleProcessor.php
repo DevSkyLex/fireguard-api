@@ -34,132 +34,132 @@ use function is_string;
  */
 final readonly class UpdateRoleProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * UpdateRoleProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleRepositoryPort       $roleRepository       the role repository
-     * @param PermissionRepositoryPort $permissionRepository the permission repository
-     */
-    public function __construct(
-        private readonly RoleRepositoryPort $roleRepository,
-        private readonly PermissionRepositoryPort $permissionRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * UpdateRoleProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleRepositoryPort       $roleRepository       the role repository
+   * @param PermissionRepositoryPort $permissionRepository the permission repository
+   */
+  public function __construct(
+    private readonly RoleRepositoryPort $roleRepository,
+    private readonly PermissionRepositoryPort $permissionRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes the role update.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleInput            $data         the input data
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return RoleOutput the processed output
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RoleOutput
+  {
+    /** @var RoleInput $data */
+    $id = $uriVariables['id'] ?? null;
+
+    if (!is_string($id)) {
+      throw RoleNotFoundException::withId(roleId: 'unknown');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes the role update.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleInput            $data         the input data
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return RoleOutput the processed output
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RoleOutput
-    {
-        /** @var RoleInput $data */
-        $id = $uriVariables['id'] ?? null;
+    $role = $this->roleRepository->findById(id: new RoleId(value: $id));
 
-        if (!is_string($id)) {
-            throw RoleNotFoundException::withId(roleId: 'unknown');
+    if (null === $role) {
+      throw RoleNotFoundException::withId(roleId: $id);
+    }
+
+    // Update name and description using the update method
+    $role->update(
+      name: new RoleName(value: '' !== $data->name ? $data->name : $role->name()->value),
+      description: $data->description ?? $role->description()
+    );
+
+    // Update permissions if provided
+    if (!empty($data->permissionIds)) {
+      // Clear existing permissions
+      foreach ($role->permissions() as $existingPermission) {
+        $role->removePermission(permission: $existingPermission);
+      }
+
+      // Add new permissions
+      foreach ($data->permissionIds as $permissionId) {
+        $permission = $this->permissionRepository->findById(id: new PermissionId(value: $permissionId));
+        if (null !== $permission) {
+          $role->addPermission(permission: $permission);
         }
-
-        $role = $this->roleRepository->findById(id: new RoleId(value: $id));
-
-        if (null === $role) {
-            throw RoleNotFoundException::withId(roleId: $id);
-        }
-
-        // Update name and description using the update method
-        $role->update(
-            name: new RoleName(value: '' !== $data->name ? $data->name : $role->name()->value),
-            description: $data->description ?? $role->description()
-        );
-
-        // Update permissions if provided
-        if (!empty($data->permissionIds)) {
-            // Clear existing permissions
-            foreach ($role->permissions() as $existingPermission) {
-                $role->removePermission(permission: $existingPermission);
-            }
-
-            // Add new permissions
-            foreach ($data->permissionIds as $permissionId) {
-                $permission = $this->permissionRepository->findById(id: new PermissionId(value: $permissionId));
-                if (null !== $permission) {
-                    $role->addPermission(permission: $permission);
-                }
-            }
-        }
-
-        // Save
-        $this->roleRepository->save(role: $role);
-
-        // Return output
-        return $this->mapRoleToOutput(role: $role);
+      }
     }
 
-    /**
-     * Method mapRoleToOutput.
-     *
-     * Maps a Role to RoleOutput.
-     *
-     * @since 1.0.0
-     *
-     * @param Role $role the role
-     *
-     * @return RoleOutput the role output
-     */
-    private function mapRoleToOutput(Role $role): RoleOutput
-    {
-        $output = new RoleOutput();
-        $output->id = $role->id()->value;
-        $output->name = $role->name()->value;
-        $output->description = $role->description();
-        $output->isSystem = $role->isSystem();
-        $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
-        $output->permissions = array_map(
-            fn (Permission $permission) => $this->mapPermissionToOutput($permission),
-            $role->permissions()
-        );
+    // Save
+    $this->roleRepository->save(role: $role);
 
-        return $output;
-    }
+    // Return output
+    return $this->mapRoleToOutput(role: $role);
+  }
 
-    /**
-     * Method mapPermissionToOutput.
-     *
-     * Maps a Permission to PermissionOutput.
-     *
-     * @since 1.0.0
-     *
-     * @param Permission $permission the permission
-     *
-     * @return PermissionOutput the permission output
-     */
-    private function mapPermissionToOutput(Permission $permission): PermissionOutput
-    {
-        $output = new PermissionOutput();
-        $output->id = $permission->id()->value;
-        $output->name = $permission->name()->value;
-        $output->description = $permission->description();
-        $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
+  /**
+   * Method mapRoleToOutput.
+   *
+   * Maps a Role to RoleOutput.
+   *
+   * @since 1.0.0
+   *
+   * @param Role $role the role
+   *
+   * @return RoleOutput the role output
+   */
+  private function mapRoleToOutput(Role $role): RoleOutput
+  {
+    $output = new RoleOutput();
+    $output->id = $role->id()->value;
+    $output->name = $role->name()->value;
+    $output->description = $role->description();
+    $output->isSystem = $role->isSystem();
+    $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
+    $output->permissions = array_map(
+      fn (Permission $permission) => $this->mapPermissionToOutput($permission),
+      $role->permissions()
+    );
 
-        return $output;
-    }
-    // #endregion
+    return $output;
+  }
+
+  /**
+   * Method mapPermissionToOutput.
+   *
+   * Maps a Permission to PermissionOutput.
+   *
+   * @since 1.0.0
+   *
+   * @param Permission $permission the permission
+   *
+   * @return PermissionOutput the permission output
+   */
+  private function mapPermissionToOutput(Permission $permission): PermissionOutput
+  {
+    $output = new PermissionOutput();
+    $output->id = $permission->id()->value;
+    $output->name = $permission->name()->value;
+    $output->description = $permission->description();
+    $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
+
+    return $output;
+  }
+  // #endregion
 }

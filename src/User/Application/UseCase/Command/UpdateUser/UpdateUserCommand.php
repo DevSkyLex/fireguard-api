@@ -17,26 +17,26 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class UpdateUserCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the command with the user ID
-     * and optional profile data.
-     *
-     * @since 1.0.0
-     *
-     * @param string      $id        the user ID
-     * @param string|null $firstName the first name
-     * @param string|null $lastName  the last name
-     * @param string|null $avatarUrl the avatar URL
-     */
-    public function __construct(
-        public readonly string $id,
-        public readonly ?string $firstName = null,
-        public readonly ?string $lastName = null,
-        public readonly ?string $avatarUrl = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the command with the user ID
+   * and optional profile data.
+   *
+   * @since 1.0.0
+   *
+   * @param string      $id        the user ID
+   * @param string|null $firstName the first name
+   * @param string|null $lastName  the last name
+   * @param string|null $avatarUrl the avatar URL
+   */
+  public function __construct(
+    public readonly string $id,
+    public readonly ?string $firstName = null,
+    public readonly ?string $lastName = null,
+    public readonly ?string $avatarUrl = null,
+  ) {
+  }
+  // #endregion
 }

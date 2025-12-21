@@ -18,41 +18,41 @@ use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
  */
 final readonly class RevokeAllDevicesHandler implements CommandHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes the handler with a
-     * device repository.
-     *
-     * @since 1.0.0
-     *
-     * @param TrustedDeviceRepositoryPort $repository the device repository
-     */
-    public function __construct(
-        private readonly TrustedDeviceRepositoryPort $repository,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes the handler with a
+   * device repository.
+   *
+   * @since 1.0.0
+   *
+   * @param TrustedDeviceRepositoryPort $repository the device repository
+   */
+  public function __construct(
+    private readonly TrustedDeviceRepositoryPort $repository,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Revokes all trusted devices
-     * for a user.
-     *
-     * @since 1.0.0
-     *
-     * @param RevokeAllDevicesCommand $command the command
-     *
-     * @return RevokeAllDevicesResult the result
-     */
-    public function __invoke(RevokeAllDevicesCommand $command): RevokeAllDevicesResult
-    {
-        $count = $this->repository->revokeAllForUser(userId: $command->userId);
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Revokes all trusted devices
+   * for a user.
+   *
+   * @since 1.0.0
+   *
+   * @param RevokeAllDevicesCommand $command the command
+   *
+   * @return RevokeAllDevicesResult the result
+   */
+  public function __invoke(RevokeAllDevicesCommand $command): RevokeAllDevicesResult
+  {
+    $count = $this->repository->revokeAllForUser(userId: $command->userId);
 
-        return new RevokeAllDevicesResult(revokedCount: $count);
-    }
-    // #endregion
+    return new RevokeAllDevicesResult(revokedCount: $count);
+  }
+  // #endregion
 }

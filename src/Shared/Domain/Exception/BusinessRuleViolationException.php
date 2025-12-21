@@ -17,23 +17,23 @@ use function sprintf;
  */
 final class BusinessRuleViolationException extends DomainException
 {
-    // #region Methods
-    /**
-     * Method because.
-     *
-     * Creates an exception with a specific rule violation message.
-     *
-     * @since 1.0.0
-     *
-     * @param string $rule the business rule that was violated
-     *
-     * @return self the exception instance
-     */
-    public static function because(string $rule): self
-    {
-        return new self(
-            message: sprintf('Business rule violated: %s', $rule)
-        );
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method because.
+   *
+   * Creates an exception with a specific rule violation message.
+   *
+   * @since 1.0.0
+   *
+   * @param string $rule the business rule that was violated
+   *
+   * @return self the exception instance
+   */
+  public static function because(string $rule): self
+  {
+    return new self(
+      message: sprintf('Business rule violated: %s', $rule)
+    );
+  }
+  // #endregion
 }

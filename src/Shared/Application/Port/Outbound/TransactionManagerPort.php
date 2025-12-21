@@ -18,19 +18,19 @@ namespace Shared\Application\Port\Outbound;
  */
 interface TransactionManagerPort
 {
-    // #region Methods
-    /**
-     * Method transactional.
-     *
-     * Execute the given operation within
-     * a transactional boundary.
-     *
-     * @since 1.0.0
-     *
-     * @param callable():mixed $operation the operation to execute
-     *
-     * @return mixed the result of the operation
-     */
-    public function transactional(callable $operation): mixed;
-    // #endregion
+  // #region Methods
+  /**
+   * Method transactional.
+   *
+   * Execute the given operation within
+   * a transactional boundary.
+   *
+   * @since 1.0.0
+   *
+   * @param callable():mixed $operation the operation to execute
+   *
+   * @return mixed the result of the operation
+   */
+  public function transactional(callable $operation): mixed;
+  // #endregion
 }

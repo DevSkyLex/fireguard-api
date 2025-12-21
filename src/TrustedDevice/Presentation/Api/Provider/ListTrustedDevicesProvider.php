@@ -19,36 +19,36 @@ use TrustedDevice\Presentation\Api\Dto\TrustedDeviceOutput;
  */
 final readonly class ListTrustedDevicesProvider implements ProviderInterface
 {
-    public function __construct(
-        private ListTrustedDevicesHandler $handler,
-        private Security $security,
-    ) {
+  public function __construct(
+    private ListTrustedDevicesHandler $handler,
+    private Security $security,
+  ) {
+  }
+
+  /**
+   * @return list<TrustedDeviceOutput>
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  {
+    $user = $this->security->getUser();
+    if (null === $user) {
+      throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    /**
-     * @return list<TrustedDeviceOutput>
-     */
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
-    {
-        $user = $this->security->getUser();
-        if (null === $user) {
-            throw new BadRequestHttpException('User must be authenticated.');
-        }
+    $query = new ListTrustedDevicesQuery(userId: $user->getUserIdentifier());
+    $result = $this->handler->__invoke($query);
 
-        $query = new ListTrustedDevicesQuery(userId: $user->getUserIdentifier());
-        $result = $this->handler->__invoke($query);
-
-        $outputs = [];
-        foreach ($result->devices as $device) {
-            $output = new TrustedDeviceOutput();
-            $output->id = $device->id;
-            $output->name = $device->name;
-            $output->lastUsedAt = $device->lastUsedAt;
-            $output->expiresAt = $device->expiresAt;
-            $output->createdAt = $device->createdAt;
-            $outputs[] = $output;
-        }
-
-        return $outputs;
+    $outputs = [];
+    foreach ($result->devices as $device) {
+      $output = new TrustedDeviceOutput();
+      $output->id = $device->id;
+      $output->name = $device->name;
+      $output->lastUsedAt = $device->lastUsedAt;
+      $output->expiresAt = $device->expiresAt;
+      $output->createdAt = $device->createdAt;
+      $outputs[] = $output;
     }
+
+    return $outputs;
+  }
 }

@@ -24,16 +24,16 @@ use Shared\Infrastructure\Exception\MailSendingException;
 #[CoversClass(className: MailSendingException::class)]
 final class MailSendingExceptionTest extends TestCase
 {
-    /**
-     * Test the dispatchFailed factory method.
-     */
-    #[Test]
-    public function testDispatchFailed(): void
-    {
-        $previous = new Exception('Previous error');
-        $exception = MailSendingException::dispatchFailed('Subject', $previous);
+  /**
+   * Test the dispatchFailed factory method.
+   */
+  #[Test]
+  public function testDispatchFailed(): void
+  {
+    $previous = new Exception('Previous error');
+    $exception = MailSendingException::dispatchFailed('Subject', $previous);
 
-        $this->assertSame('Failed to send email with subject "Subject".', $exception->getMessage());
-        $this->assertSame($previous, $exception->getPrevious());
-    }
+    $this->assertSame('Failed to send email with subject "Subject".', $exception->getMessage());
+    $this->assertSame($previous, $exception->getPrevious());
+  }
 }

@@ -19,19 +19,19 @@ namespace OAuth\Application\Port\Outbound;
  */
 interface ClientValidationPort
 {
-    // #region Methods
-    /**
-     * Method validateCredentials.
-     *
-     * Validates client credentials.
-     *
-     * @since 1.0.0
-     *
-     * @param string $clientId     the client ID
-     * @param string $clientSecret the client secret
-     *
-     * @return bool true if credentials are valid, false otherwise
-     */
-    public function validateCredentials(string $clientId, string $clientSecret): bool;
-    // #endregion
+  // #region Methods
+  /**
+   * Method validateCredentials.
+   *
+   * Validates client credentials.
+   *
+   * @since 1.0.0
+   *
+   * @param string $clientId     the client ID
+   * @param string $clientSecret the client secret
+   *
+   * @return bool true if credentials are valid, false otherwise
+   */
+  public function validateCredentials(string $clientId, string $clientSecret): bool;
+  // #endregion
 }

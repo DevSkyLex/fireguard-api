@@ -17,20 +17,20 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class DeleteUserCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * DeleteUserCommand class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $id the user ID
-     */
-    public function __construct(
-        public string $id,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteUserCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $id the user ID
+   */
+  public function __construct(
+    public string $id,
+  ) {
+  }
+  // #endregion
 }

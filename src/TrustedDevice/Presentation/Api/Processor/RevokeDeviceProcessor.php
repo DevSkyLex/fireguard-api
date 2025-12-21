@@ -20,31 +20,31 @@ use function is_string;
  */
 final readonly class RevokeDeviceProcessor implements ProcessorInterface
 {
-    public function __construct(
-        private RevokeDeviceHandler $handler,
-        private Security $security,
-    ) {
+  public function __construct(
+    private RevokeDeviceHandler $handler,
+    private Security $security,
+  ) {
+  }
+
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): null
+  {
+    $user = $this->security->getUser();
+    if (null === $user) {
+      throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): null
-    {
-        $user = $this->security->getUser();
-        if (null === $user) {
-            throw new BadRequestHttpException('User must be authenticated.');
-        }
-
-        $deviceId = $uriVariables['id'] ?? null;
-        if (!is_string($deviceId)) {
-            throw new BadRequestHttpException('Device ID is required.');
-        }
-
-        $command = new RevokeDeviceCommand(
-            deviceId: $deviceId,
-            userId: $user->getUserIdentifier(),
-        );
-
-        $this->handler->__invoke($command);
-
-        return null;
+    $deviceId = $uriVariables['id'] ?? null;
+    if (!is_string($deviceId)) {
+      throw new BadRequestHttpException('Device ID is required.');
     }
+
+    $command = new RevokeDeviceCommand(
+      deviceId: $deviceId,
+      userId: $user->getUserIdentifier(),
+    );
+
+    $this->handler->__invoke($command);
+
+    return null;
+  }
 }

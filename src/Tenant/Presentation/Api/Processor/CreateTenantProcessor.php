@@ -29,58 +29,58 @@ use function date;
  */
 final readonly class CreateTenantProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param CreateTenantHandler $handler  the command handler
-     * @param Security            $security the security service
-     */
-    public function __construct(
-        private CreateTenantHandler $handler,
-        private Security $security,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param CreateTenantHandler $handler  the command handler
+   * @param Security            $security the security service
+   */
+  public function __construct(
+    private CreateTenantHandler $handler,
+    private Security $security,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): TenantOutput
+  {
+    if (null === $this->security->getUser()) {
+      throw new AccessDeniedHttpException('Authentication required');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): TenantOutput
-    {
-        if (null === $this->security->getUser()) {
-            throw new AccessDeniedHttpException('Authentication required');
-        }
+    /** @var TenantInput $data */
+    $settings = new TenantSettings(
+      accessTokenTtl: $data->accessTokenTtl,
+      refreshTokenTtl: $data->refreshTokenTtl,
+      requirePkce: $data->requirePkce,
+      allowPublicClients: $data->allowPublicClients,
+    );
 
-        /** @var TenantInput $data */
-        $settings = new TenantSettings(
-            accessTokenTtl: $data->accessTokenTtl,
-            refreshTokenTtl: $data->refreshTokenTtl,
-            requirePkce: $data->requirePkce,
-            allowPublicClients: $data->allowPublicClients,
-        );
+    $command = new CreateTenantCommand(
+      name: $data->name,
+      settings: $settings,
+    );
 
-        $command = new CreateTenantCommand(
-            name: $data->name,
-            settings: $settings,
-        );
+    $result = ($this->handler)($command);
 
-        $result = ($this->handler)($command);
+    $output = new TenantOutput();
+    $output->id = $result->tenantId;
+    $output->name = $data->name;
+    $output->isActive = true;
+    $output->accessTokenTtl = $data->accessTokenTtl;
+    $output->refreshTokenTtl = $data->refreshTokenTtl;
+    $output->requirePkce = $data->requirePkce;
+    $output->createdAt = date('c');
 
-        $output = new TenantOutput();
-        $output->id = $result->tenantId;
-        $output->name = $data->name;
-        $output->isActive = true;
-        $output->accessTokenTtl = $data->accessTokenTtl;
-        $output->refreshTokenTtl = $data->refreshTokenTtl;
-        $output->requirePkce = $data->requirePkce;
-        $output->createdAt = date('c');
-
-        return $output;
-    }
-    // #endregion
+    return $output;
+  }
+  // #endregion
 }

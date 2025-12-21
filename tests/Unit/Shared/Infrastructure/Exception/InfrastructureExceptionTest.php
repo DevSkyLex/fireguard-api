@@ -23,13 +23,13 @@ use Shared\Infrastructure\Exception\InfrastructureException;
 #[CoversClass(className: InfrastructureException::class)]
 final class InfrastructureExceptionTest extends TestCase
 {
-    /**
-     * Test that metadata returns an empty array by default.
-     */
-    #[Test]
-    public function testMetadataReturnsEmptyArrayByDefault(): void
-    {
-        $exception = new class () extends InfrastructureException {};
-        $this->assertSame([], $exception->metadata());
-    }
+  /**
+   * Test that metadata returns an empty array by default.
+   */
+  #[Test]
+  public function testMetadataReturnsEmptyArrayByDefault(): void
+  {
+    $exception = new class () extends InfrastructureException {};
+    $this->assertSame([], $exception->metadata());
+  }
 }

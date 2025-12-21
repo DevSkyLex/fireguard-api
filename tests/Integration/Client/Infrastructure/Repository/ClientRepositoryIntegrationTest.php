@@ -38,200 +38,200 @@ use function sprintf;
 #[CoversClass(className: ClientRepository::class)]
 final class ClientRepositoryIntegrationTest extends KernelTestCase
 {
-    // #region Properties
-    private EntityManagerInterface $entityManager;
-    private ClientRepository $repository;
-    // #endregion
+  // #region Properties
+  private EntityManagerInterface $entityManager;
+  private ClientRepository $repository;
+  // #endregion
 
-    // #region Setup
-    protected function setUp(): void
-    {
-        self::bootKernel();
-        $container = static::getContainer();
+  // #region Setup
+  protected function setUp(): void
+  {
+    self::bootKernel();
+    $container = static::getContainer();
 
-        /** @var EntityManagerInterface $entityManager */
-        $entityManager = $container->get('doctrine.orm.entity_manager');
-        $this->entityManager = $entityManager;
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = $container->get('doctrine.orm.entity_manager');
+    $this->entityManager = $entityManager;
 
-        // Create schema
-        $schemaTool = new SchemaTool($this->entityManager);
-        $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
+    // Create schema
+    $schemaTool = new SchemaTool($this->entityManager);
+    $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
 
-        try {
-            $schemaTool->dropSchema($metadata);
-        } catch (Throwable) {
-            // Schema might not exist
-        }
-
-        $schemaTool->createSchema($metadata);
-
-        $this->repository = new ClientRepository($this->entityManager);
+    try {
+      $schemaTool->dropSchema($metadata);
+    } catch (Throwable) {
+      // Schema might not exist
     }
 
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-        $this->entityManager->close();
-    }
-    // #endregion
+    $schemaTool->createSchema($metadata);
 
-    // #region Tests
-    #[Test]
-    public function testSaveAndFindById(): void
-    {
-        $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174001', 'Test Client 1');
+    $this->repository = new ClientRepository($this->entityManager);
+  }
 
-        $this->repository->save($client);
+  protected function tearDown(): void
+  {
+    parent::tearDown();
+    $this->entityManager->close();
+  }
+  // #endregion
 
-        $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174001'));
+  // #region Tests
+  #[Test]
+  public function testSaveAndFindById(): void
+  {
+    $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174001', 'Test Client 1');
 
-        self::assertNotNull($foundClient);
-        self::assertSame('123e4567-e89b-12d3-a456-426614174001', $foundClient->id()->value);
-        self::assertSame('Test Client 1', $foundClient->name()->value);
-        self::assertTrue($foundClient->isActive());
-    }
+    $this->repository->save($client);
 
-    #[Test]
-    public function testFindByIdReturnsNullWhenNotFound(): void
-    {
-        $foundClient = $this->repository->findById(new ClientId('00000000-0000-4000-8000-000000000000'));
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174001'));
 
-        self::assertNull($foundClient);
-    }
+    self::assertNotNull($foundClient);
+    self::assertSame('123e4567-e89b-12d3-a456-426614174001', $foundClient->id()->value);
+    self::assertSame('Test Client 1', $foundClient->name()->value);
+    self::assertTrue($foundClient->isActive());
+  }
 
-    #[Test]
-    public function testSaveUpdatesExistingClient(): void
-    {
-        $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174002', 'Original Name');
-        $this->repository->save($client);
+  #[Test]
+  public function testFindByIdReturnsNullWhenNotFound(): void
+  {
+    $foundClient = $this->repository->findById(new ClientId('00000000-0000-4000-8000-000000000000'));
 
-        // Retrieve and modify
-        $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
-        self::assertNotNull($foundClient);
+    self::assertNull($foundClient);
+  }
 
-        // Deactivate the client
-        $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
-        $foundClient->deactivate($eventIdProvider);
-        $this->repository->save($foundClient);
+  #[Test]
+  public function testSaveUpdatesExistingClient(): void
+  {
+    $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174002', 'Original Name');
+    $this->repository->save($client);
 
-        // Verify update
-        $updatedClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
-        self::assertNotNull($updatedClient);
-        self::assertFalse($updatedClient->isActive());
-    }
+    // Retrieve and modify
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
+    self::assertNotNull($foundClient);
 
-    #[Test]
-    public function testExistsByName(): void
-    {
-        $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174003', 'Unique Client Name');
-        $this->repository->save($client);
+    // Deactivate the client
+    $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
+    $foundClient->deactivate($eventIdProvider);
+    $this->repository->save($foundClient);
 
-        self::assertTrue($this->repository->existsByName(new ClientName('Unique Client Name')));
-        self::assertFalse($this->repository->existsByName(new ClientName('Non Existent Name')));
-    }
+    // Verify update
+    $updatedClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174002'));
+    self::assertNotNull($updatedClient);
+    self::assertFalse($updatedClient->isActive());
+  }
 
-    #[Test]
-    public function testDelete(): void
-    {
-        $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174004', 'Client To Delete');
-        $this->repository->save($client);
+  #[Test]
+  public function testExistsByName(): void
+  {
+    $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174003', 'Unique Client Name');
+    $this->repository->save($client);
 
-        // Verify exists
-        $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
-        self::assertNotNull($foundClient);
+    self::assertTrue($this->repository->existsByName(new ClientName('Unique Client Name')));
+    self::assertFalse($this->repository->existsByName(new ClientName('Non Existent Name')));
+  }
 
-        // Delete
-        $this->repository->delete($foundClient);
+  #[Test]
+  public function testDelete(): void
+  {
+    $client = $this->createTestClient('123e4567-e89b-12d3-a456-426614174004', 'Client To Delete');
+    $this->repository->save($client);
 
-        // Verify deleted
-        $deletedClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
-        self::assertNull($deletedClient);
-    }
+    // Verify exists
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
+    self::assertNotNull($foundClient);
 
-    #[Test]
-    public function testFindAllWithPagination(): void
-    {
-        // Create multiple clients
-        for ($i = 1; $i <= 5; ++$i) {
-            $client = $this->createTestClient(
-                sprintf('123e4567-e89b-12d3-a456-42661417400%d', $i),
-                "Client $i"
-            );
-            $this->repository->save($client);
-        }
+    // Delete
+    $this->repository->delete($foundClient);
 
-        // Test pagination
-        $firstPage = $this->repository->findAll(0, 2);
-        self::assertCount(2, $firstPage);
+    // Verify deleted
+    $deletedClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174004'));
+    self::assertNull($deletedClient);
+  }
 
-        $secondPage = $this->repository->findAll(2, 2);
-        self::assertCount(2, $secondPage);
-
-        $thirdPage = $this->repository->findAll(4, 2);
-        self::assertCount(1, $thirdPage);
+  #[Test]
+  public function testFindAllWithPagination(): void
+  {
+    // Create multiple clients
+    for ($i = 1; $i <= 5; ++$i) {
+      $client = $this->createTestClient(
+        sprintf('123e4567-e89b-12d3-a456-42661417400%d', $i),
+        "Client $i"
+      );
+      $this->repository->save($client);
     }
 
-    #[Test]
-    public function testCount(): void
-    {
-        self::assertSame(0, $this->repository->count());
+    // Test pagination
+    $firstPage = $this->repository->findAll(0, 2);
+    self::assertCount(2, $firstPage);
 
-        for ($i = 1; $i <= 3; ++$i) {
-            $client = $this->createTestClient(
-                sprintf('123e4567-e89b-12d3-a456-52661417400%d', $i),
-                "Count Client $i"
-            );
-            $this->repository->save($client);
-        }
+    $secondPage = $this->repository->findAll(2, 2);
+    self::assertCount(2, $secondPage);
 
-        self::assertSame(3, $this->repository->count());
+    $thirdPage = $this->repository->findAll(4, 2);
+    self::assertCount(1, $thirdPage);
+  }
+
+  #[Test]
+  public function testCount(): void
+  {
+    self::assertSame(0, $this->repository->count());
+
+    for ($i = 1; $i <= 3; ++$i) {
+      $client = $this->createTestClient(
+        sprintf('123e4567-e89b-12d3-a456-52661417400%d', $i),
+        "Count Client $i"
+      );
+      $this->repository->save($client);
     }
 
-    #[Test]
-    public function testClientWithMultipleRedirectUris(): void
-    {
-        $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
-        $client = Client::register(
-            id: new ClientId('123e4567-e89b-12d3-a456-426614174010'),
-            name: new ClientName('Multi Redirect Client'),
-            secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
-            redirectUris: [
-                new RedirectUri('https://example.com/callback1'),
-                new RedirectUri('https://example.com/callback2'),
-                new RedirectUri('https://example.com/callback3'),
-            ],
-            grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE, GrantType::REFRESH_TOKEN),
-            scopes: new Scopes(Scope::READ, Scope::WRITE, Scope::OPENID),
-            eventIdProvider: $eventIdProvider,
-        );
-        $client->releaseEvents();
+    self::assertSame(3, $this->repository->count());
+  }
 
-        $this->repository->save($client);
+  #[Test]
+  public function testClientWithMultipleRedirectUris(): void
+  {
+    $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
+    $client = Client::register(
+      id: new ClientId('123e4567-e89b-12d3-a456-426614174010'),
+      name: new ClientName('Multi Redirect Client'),
+      secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
+      redirectUris: [
+        new RedirectUri('https://example.com/callback1'),
+        new RedirectUri('https://example.com/callback2'),
+        new RedirectUri('https://example.com/callback3'),
+      ],
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE, GrantType::REFRESH_TOKEN),
+      scopes: new Scopes(Scope::READ, Scope::WRITE, Scope::OPENID),
+      eventIdProvider: $eventIdProvider,
+    );
+    $client->releaseEvents();
 
-        $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174010'));
-        self::assertNotNull($foundClient);
-        self::assertCount(3, $foundClient->redirectUris());
-        self::assertCount(2, $foundClient->grantTypes()->toArray());
-        self::assertCount(3, $foundClient->scopes()->toArray());
-    }
-    // #endregion
+    $this->repository->save($client);
 
-    // #region Helpers
-    private function createTestClient(string $id, string $name): Client
-    {
-        $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
-        $client = Client::register(
-            id: new ClientId($id),
-            name: new ClientName($name),
-            secret: new ClientSecret(password_hash('test-secret', PASSWORD_BCRYPT)),
-            redirectUris: [new RedirectUri('https://example.com/callback')],
-            grantTypes: new GrantTypes(GrantType::CLIENT_CREDENTIALS),
-            scopes: new Scopes(Scope::READ),
-            eventIdProvider: $eventIdProvider,
-        );
-        $client->releaseEvents();
+    $foundClient = $this->repository->findById(new ClientId('123e4567-e89b-12d3-a456-426614174010'));
+    self::assertNotNull($foundClient);
+    self::assertCount(3, $foundClient->redirectUris());
+    self::assertCount(2, $foundClient->grantTypes()->toArray());
+    self::assertCount(3, $foundClient->scopes()->toArray());
+  }
+  // #endregion
 
-        return $client;
-    }
-    // #endregion
+  // #region Helpers
+  private function createTestClient(string $id, string $name): Client
+  {
+    $eventIdProvider = new UuidEventIdProvider(new UuidGeneratorAdapter());
+    $client = Client::register(
+      id: new ClientId($id),
+      name: new ClientName($name),
+      secret: new ClientSecret(password_hash('test-secret', PASSWORD_BCRYPT)),
+      redirectUris: [new RedirectUri('https://example.com/callback')],
+      grantTypes: new GrantTypes(GrantType::CLIENT_CREDENTIALS),
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: $eventIdProvider,
+    );
+    $client->releaseEvents();
+
+    return $client;
+  }
+  // #endregion
 }

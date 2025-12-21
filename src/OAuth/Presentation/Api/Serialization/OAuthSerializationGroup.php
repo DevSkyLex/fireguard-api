@@ -15,89 +15,89 @@ namespace OAuth\Presentation\Api\Serialization;
  */
 final readonly class OAuthSerializationGroup
 {
-    // #region Constants
-    /**
-     * Constant TOKEN_READ.
-     *
-     * Group TOKEN_READ
-     * Used for reading token data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string TOKEN_READ = 'token:read';
+  // #region Constants
+  /**
+   * Constant TOKEN_READ.
+   *
+   * Group TOKEN_READ
+   * Used for reading token data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string TOKEN_READ = 'token:read';
 
-    /**
-     * Constant TOKEN_WRITE.
-     *
-     * Group TOKEN_WRITE
-     * Used for writing/creating token data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string TOKEN_WRITE = 'token:write';
+  /**
+   * Constant TOKEN_WRITE.
+   *
+   * Group TOKEN_WRITE
+   * Used for writing/creating token data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string TOKEN_WRITE = 'token:write';
 
-    /**
-     * Constant CONSENT_READ.
-     *
-     * Group CONSENT_READ
-     * Used for reading consent data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string CONSENT_READ = 'consent:read';
+  /**
+   * Constant CONSENT_READ.
+   *
+   * Group CONSENT_READ
+   * Used for reading consent data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CONSENT_READ = 'consent:read';
 
-    /**
-     * Constant CLIENT_READ.
-     *
-     * Group CLIENT_READ
-     * Used for reading client data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string CLIENT_READ = 'client:read';
+  /**
+   * Constant CLIENT_READ.
+   *
+   * Group CLIENT_READ
+   * Used for reading client data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CLIENT_READ = 'client:read';
 
-    /**
-     * Constant CLIENT_WRITE.
-     *
-     * Group CLIENT_WRITE
-     * Used for writing/creating client data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string CLIENT_WRITE = 'client:write';
+  /**
+   * Constant CLIENT_WRITE.
+   *
+   * Group CLIENT_WRITE
+   * Used for writing/creating client data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CLIENT_WRITE = 'client:write';
 
-    /**
-     * Constant CLIENT_UPDATE.
-     *
-     * Group CLIENT_UPDATE
-     * Used for updating client data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string CLIENT_UPDATE = 'client:update';
+  /**
+   * Constant CLIENT_UPDATE.
+   *
+   * Group CLIENT_UPDATE
+   * Used for updating client data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CLIENT_UPDATE = 'client:update';
 
-    /**
-     * Constant CLIENT_SECRET.
-     *
-     * Group CLIENT_SECRET
-     * Used for exposing client secret.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string CLIENT_SECRET = 'client:secret';
-    // #endregion
+  /**
+   * Constant CLIENT_SECRET.
+   *
+   * Group CLIENT_SECRET
+   * Used for exposing client secret.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CLIENT_SECRET = 'client:secret';
+  // #endregion
 }

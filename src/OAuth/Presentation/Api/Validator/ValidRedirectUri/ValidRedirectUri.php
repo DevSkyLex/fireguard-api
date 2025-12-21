@@ -19,27 +19,27 @@ use Symfony\Component\Validator\Constraint;
 #[Attribute(Attribute::TARGET_PROPERTY | Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class ValidRedirectUri extends Constraint
 {
-    // #region Properties
-    /**
-     * Property messageInvalid.
-     */
-    public string $messageInvalid = 'The redirect URI "{{ uri }}" is not a valid URL.';
+  // #region Properties
+  /**
+   * Property messageInvalid.
+   */
+  public string $messageInvalid = 'The redirect URI "{{ uri }}" is not a valid URL.';
 
-    /**
-     * Property messageScheme.
-     */
-    public string $messageScheme = 'The redirect URI "{{ uri }}" must use HTTPS (except for localhost).';
+  /**
+   * Property messageScheme.
+   */
+  public string $messageScheme = 'The redirect URI "{{ uri }}" must use HTTPS (except for localhost).';
 
-    /**
-     * Property messageFragment.
-     */
-    public string $messageFragment = 'The redirect URI "{{ uri }}" must not contain a fragment.';
+  /**
+   * Property messageFragment.
+   */
+  public string $messageFragment = 'The redirect URI "{{ uri }}" must not contain a fragment.';
 
-    /**
-     * Property allowLocalhost.
-     *
-     * Whether to allow HTTP for localhost.
-     */
-    public bool $allowLocalhost = true;
-    // #endregion
+  /**
+   * Property allowLocalhost.
+   *
+   * Whether to allow HTTP for localhost.
+   */
+  public bool $allowLocalhost = true;
+  // #endregion
 }

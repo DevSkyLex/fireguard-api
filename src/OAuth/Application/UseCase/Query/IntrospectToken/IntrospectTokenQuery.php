@@ -17,22 +17,22 @@ use Shared\Application\Message\QueryMessage;
  */
 final readonly class IntrospectTokenQuery implements QueryMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * IntrospectTokenQuery class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $token         the token to introspect
-     * @param string $tokenTypeHint the token type hint (access_token, refresh_token)
-     */
-    public function __construct(
-        public string $token,
-        public string $tokenTypeHint = 'access_token',
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * IntrospectTokenQuery class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $token         the token to introspect
+   * @param string $tokenTypeHint the token type hint (access_token, refresh_token)
+   */
+  public function __construct(
+    public string $token,
+    public string $tokenTypeHint = 'access_token',
+  ) {
+  }
+  // #endregion
 }

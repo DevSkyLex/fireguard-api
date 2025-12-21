@@ -21,23 +21,23 @@ use User\Domain\ValueObject\HashedPassword;
 #[CoversClass(HashedPassword::class)]
 final class HashedPasswordTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testVerifiesCorrectly.
-     *
-     * Tests that hashed password verifies
-     * correctly.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testVerifiesCorrectly(): void
-    {
-        $password = HashedPassword::fromPlain('secret');
-        $this->assertTrue($password->verify('secret'));
-        $this->assertFalse($password->verify('wrong'));
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method testVerifiesCorrectly.
+   *
+   * Tests that hashed password verifies
+   * correctly.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testVerifiesCorrectly(): void
+  {
+    $password = HashedPassword::fromPlain('secret');
+    $this->assertTrue($password->verify('secret'));
+    $this->assertFalse($password->verify('wrong'));
+  }
+  // #endregion
 }

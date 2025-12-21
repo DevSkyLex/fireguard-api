@@ -17,19 +17,19 @@ use Tenant\Domain\ValueObject\TenantSettings;
  */
 final readonly class CreateTenantCommand
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string              $name     the tenant name
-     * @param TenantSettings|null $settings the tenant settings
-     */
-    public function __construct(
-        public string $name,
-        public ?TenantSettings $settings = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string              $name     the tenant name
+   * @param TenantSettings|null $settings the tenant settings
+   */
+  public function __construct(
+    public string $name,
+    public ?TenantSettings $settings = null,
+  ) {
+  }
+  // #endregion
 }

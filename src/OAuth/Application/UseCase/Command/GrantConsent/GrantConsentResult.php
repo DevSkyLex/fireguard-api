@@ -17,19 +17,19 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class GrantConsentResult implements ResultMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string $consentId the consent ID
-     * @param bool   $isNew     whether this is a new consent
-     */
-    public function __construct(
-        public string $consentId,
-        public bool $isNew,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $consentId the consent ID
+   * @param bool   $isNew     whether this is a new consent
+   */
+  public function __construct(
+    public string $consentId,
+    public bool $isNew,
+  ) {
+  }
+  // #endregion
 }

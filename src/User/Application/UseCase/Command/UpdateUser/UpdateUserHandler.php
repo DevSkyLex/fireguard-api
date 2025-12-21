@@ -20,60 +20,60 @@ use User\Domain\ValueObject\UserProfile;
  */
 final readonly class UpdateUserHandler implements \Shared\Application\Message\CommandHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * UpdateUserHandler class.
-     *
-     * @since 1.0.0
-     *
-     * @param UserRepositoryPort $userRepository the user repository
-     */
-    public function __construct(
-        private readonly UserRepositoryPort $userRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * UpdateUserHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param UserRepositoryPort $userRepository the user repository
+   */
+  public function __construct(
+    private readonly UserRepositoryPort $userRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the command.
+   *
+   * @since 1.0.0
+   *
+   * @param UpdateUserCommand $command the command
+   *
+   * @return UpdateUserResult the result
+   *
+   * @throws UserNotFoundException if the user is not found
+   */
+  public function __invoke(UpdateUserCommand $command): UpdateUserResult
+  {
+    $userId = new UserId(value: $command->id);
+    $user = $this->userRepository->findById(id: $userId);
+
+    if (!$user) {
+      throw UserNotFoundException::withId(id: $userId->value);
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the command.
-     *
-     * @since 1.0.0
-     *
-     * @param UpdateUserCommand $command the command
-     *
-     * @return UpdateUserResult the result
-     *
-     * @throws UserNotFoundException if the user is not found
-     */
-    public function __invoke(UpdateUserCommand $command): UpdateUserResult
-    {
-        $userId = new UserId(value: $command->id);
-        $user = $this->userRepository->findById(id: $userId);
+    // Update profile if fields are provided
+    $currentProfile = $user->profile();
 
-        if (!$user) {
-            throw UserNotFoundException::withId(id: $userId->value);
-        }
+    $newProfile = new UserProfile(
+      firstName: $command->firstName ?? $currentProfile->firstName,
+      lastName: $command->lastName ?? $currentProfile->lastName,
+      avatarUrl: $command->avatarUrl ?? $currentProfile->avatarUrl
+    );
 
-        // Update profile if fields are provided
-        $currentProfile = $user->profile();
+    $user->updateProfile(profile: $newProfile);
 
-        $newProfile = new UserProfile(
-            firstName: $command->firstName ?? $currentProfile->firstName,
-            lastName: $command->lastName ?? $currentProfile->lastName,
-            avatarUrl: $command->avatarUrl ?? $currentProfile->avatarUrl
-        );
+    $this->userRepository->save(user: $user);
 
-        $user->updateProfile(profile: $newProfile);
-
-        $this->userRepository->save(user: $user);
-
-        return new UpdateUserResult(userId: $user->id()->value);
-    }
-    // #endregion
+    return new UpdateUserResult(userId: $user->id()->value);
+  }
+  // #endregion
 }

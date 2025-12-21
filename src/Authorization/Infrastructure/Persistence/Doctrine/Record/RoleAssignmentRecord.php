@@ -25,87 +25,87 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'unique_assignment', columns: ['role_id', 'subject_type', 'subject_id'])]
 class RoleAssignmentRecord
 {
-    // #region Properties
-    /**
-     * Property id.
-     *
-     * The assignment ID.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Id]
-    #[ORM\Column(type: 'string', length: 36)]
-    public string $id;
+  // #region Properties
+  /**
+   * Property id.
+   *
+   * The assignment ID.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Id]
+  #[ORM\Column(type: 'string', length: 36)]
+  public string $id;
 
-    /**
-     * Property roleId.
-     *
-     * The role ID.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Column(type: 'string', length: 36)]
-    public string $roleId;
+  /**
+   * Property roleId.
+   *
+   * The role ID.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'string', length: 36)]
+  public string $roleId;
 
-    /**
-     * Property subjectType.
-     *
-     * The subject type (user).
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Column(type: 'string', length: 20)]
-    public string $subjectType;
+  /**
+   * Property subjectType.
+   *
+   * The subject type (user).
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'string', length: 20)]
+  public string $subjectType;
 
-    /**
-     * Property subjectId.
-     *
-     * The subject ID.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Column(type: 'string', length: 36)]
-    public string $subjectId;
+  /**
+   * Property subjectId.
+   *
+   * The subject ID.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'string', length: 36)]
+  public string $subjectId;
 
-    /**
-     * Property tenantId.
-     *
-     * The tenant ID for multi-tenant support.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Column(type: 'string', length: 36, nullable: true)]
-    public ?string $tenantId = null;
+  /**
+   * Property tenantId.
+   *
+   * The tenant ID for multi-tenant support.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'string', length: 36, nullable: true)]
+  public ?string $tenantId = null;
 
-    /**
-     * Property assignedAt.
-     *
-     * When the role was assigned.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Column(type: 'datetime_immutable')]
-    public DateTimeImmutable $assignedAt;
+  /**
+   * Property assignedAt.
+   *
+   * When the role was assigned.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'datetime_immutable')]
+  public DateTimeImmutable $assignedAt;
 
-    /**
-     * Property expiresAt.
-     *
-     * When the assignment expires.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
-    public ?DateTimeImmutable $expiresAt = null;
+  /**
+   * Property expiresAt.
+   *
+   * When the assignment expires.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $expiresAt = null;
 
-    /**
-     * Property role.
-     *
-     * The role entity.
-     *
-     * @since 1.0.0
-     */
-    #[ORM\ManyToOne(targetEntity: RoleRecord::class)]
-    #[ORM\JoinColumn(name: 'role_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
-    public ?RoleRecord $role = null;
-    // #endregion
+  /**
+   * Property role.
+   *
+   * The role entity.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\ManyToOne(targetEntity: RoleRecord::class)]
+  #[ORM\JoinColumn(name: 'role_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+  public ?RoleRecord $role = null;
+  // #endregion
 }

@@ -24,67 +24,67 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(className: Scopes::class)]
 final class ScopesTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testCanBeCreatedAndAccessed.
-     *
-     * Tests that Scopes can be created with variadic parameters
-     * and that the collection can be accessed and queried.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testCanBeCreatedAndAccessed(): void
-    {
-        $s1 = Scope::READ;
-        $s2 = Scope::WRITE;
-        $scopes = new Scopes($s1, $s2);
+  // #region Methods
+  /**
+   * Method testCanBeCreatedAndAccessed.
+   *
+   * Tests that Scopes can be created with variadic parameters
+   * and that the collection can be accessed and queried.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCanBeCreatedAndAccessed(): void
+  {
+    $s1 = Scope::READ;
+    $s2 = Scope::WRITE;
+    $scopes = new Scopes($s1, $s2);
 
-        $this->assertCount(expectedCount: 2, haystack: $scopes);
-        $this->assertTrue(condition: $scopes->contains($s1));
-        $this->assertTrue(condition: $scopes->contains($s2));
-        $this->assertFalse(condition: $scopes->contains(Scope::DELETE));
+    $this->assertCount(expectedCount: 2, haystack: $scopes);
+    $this->assertTrue(condition: $scopes->contains($s1));
+    $this->assertTrue(condition: $scopes->contains($s2));
+    $this->assertFalse(condition: $scopes->contains(Scope::DELETE));
+  }
+
+  /**
+   * Method testIteration.
+   *
+   * Tests that Scopes collection can be iterated over.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testIteration(): void
+  {
+    $s1 = Scope::READ;
+    $scopes = new Scopes($s1);
+
+    foreach ($scopes as $scope) {
+      $this->assertSame(expected: $s1, actual: $scope);
     }
+  }
 
-    /**
-     * Method testIteration.
-     *
-     * Tests that Scopes collection can be iterated over.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testIteration(): void
-    {
-        $s1 = Scope::READ;
-        $scopes = new Scopes($s1);
+  /**
+   * Method testFromArray.
+   *
+   * Tests that Scopes can be created from an array of strings.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testFromArray(): void
+  {
+    $scopes = Scopes::fromArray(['READ', 'WRITE']);
 
-        foreach ($scopes as $scope) {
-            $this->assertSame(expected: $s1, actual: $scope);
-        }
-    }
+    $this->assertCount(expectedCount: 2, haystack: $scopes);
+    $this->assertTrue(condition: $scopes->contains(Scope::READ));
+  }
 
-    /**
-     * Method testFromArray.
-     *
-     * Tests that Scopes can be created from an array of strings.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testFromArray(): void
-    {
-        $scopes = Scopes::fromArray(['READ', 'WRITE']);
-
-        $this->assertCount(expectedCount: 2, haystack: $scopes);
-        $this->assertTrue(condition: $scopes->contains(Scope::READ));
-    }
-
-    // #endregion
+  // #endregion
 }

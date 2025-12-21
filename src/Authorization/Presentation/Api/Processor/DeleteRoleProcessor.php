@@ -26,62 +26,62 @@ use function is_string;
  */
 final readonly class DeleteRoleProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * DeleteRoleProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleRepositoryPort $roleRepository the role repository
-     */
-    public function __construct(
-        private readonly RoleRepositoryPort $roleRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteRoleProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleRepositoryPort $roleRepository the role repository
+   */
+  public function __construct(
+    private readonly RoleRepositoryPort $roleRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes the role deletion.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed                $data         the input data
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return void no return value
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
+  {
+    $id = $uriVariables['id'] ?? null;
+
+    if (!is_string($id)) {
+      throw RoleNotFoundException::withId(roleId: 'unknown');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes the role deletion.
-     *
-     * @since 1.0.0
-     *
-     * @param mixed                $data         the input data
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return void no return value
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
-    {
-        $id = $uriVariables['id'] ?? null;
+    $role = $this->roleRepository->findById(id: new RoleId(value: $id));
 
-        if (!is_string($id)) {
-            throw RoleNotFoundException::withId(roleId: 'unknown');
-        }
-
-        $role = $this->roleRepository->findById(id: new RoleId(value: $id));
-
-        if (null === $role) {
-            throw RoleNotFoundException::withId(roleId: $id);
-        }
-
-        // Prevent deletion of system roles
-        if ($role->isSystem()) {
-            throw new BadRequestHttpException(
-                message: 'System roles cannot be deleted.'
-            );
-        }
-
-        // Delete
-        $this->roleRepository->delete(role: $role);
+    if (null === $role) {
+      throw RoleNotFoundException::withId(roleId: $id);
     }
-    // #endregion
+
+    // Prevent deletion of system roles
+    if ($role->isSystem()) {
+      throw new BadRequestHttpException(
+        message: 'System roles cannot be deleted.'
+      );
+    }
+
+    // Delete
+    $this->roleRepository->delete(role: $role);
+  }
+  // #endregion
 }

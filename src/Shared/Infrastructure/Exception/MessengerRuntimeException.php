@@ -17,26 +17,26 @@ use Throwable;
  */
 final class MessengerRuntimeException extends InfrastructureException
 {
-    // #region Methods
-    /**
-     * Method wrap.
-     *
-     * @static
-     *
-     * Wrap a throwable exception.
-     *
-     * @since 1.0.0
-     *
-     * @param Throwable $exception the exception to wrap
-     *
-     * @return self the wrapped exception
-     */
-    public static function wrap(Throwable $exception): self
-    {
-        return new self(
-            message: $exception->getMessage(),
-            previous: $exception
-        );
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method wrap.
+   *
+   * @static
+   *
+   * Wrap a throwable exception.
+   *
+   * @since 1.0.0
+   *
+   * @param Throwable $exception the exception to wrap
+   *
+   * @return self the wrapped exception
+   */
+  public static function wrap(Throwable $exception): self
+  {
+    return new self(
+      message: $exception->getMessage(),
+      previous: $exception
+    );
+  }
+  // #endregion
 }

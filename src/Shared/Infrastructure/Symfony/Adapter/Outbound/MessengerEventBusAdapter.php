@@ -21,48 +21,48 @@ use Throwable;
  */
 final readonly class MessengerEventBusAdapter implements EventBusPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the event bus.
-     *
-     * @since 1.0.0
-     *
-     * @param MessageBusInterface $eventBus the messenger bus to publish events
-     */
-    public function __construct(
-        private readonly MessageBusInterface $eventBus,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the event bus.
+   *
+   * @since 1.0.0
+   *
+   * @param MessageBusInterface $eventBus the messenger bus to publish events
+   */
+  public function __construct(
+    private readonly MessageBusInterface $eventBus,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method publish
-     * {@inheritDoc}
-     *
-     * Publish one or multiple domain events.
-     *
-     * @since 1.0.0
-     *
-     * @param DomainEvent ...$events The events to publish.
-     *
-     * @return void no return value
-     *
-     * @throws MessengerRuntimeException if the messenger fails to dispatch the event
-     */
-    public function publish(DomainEvent ...$events): void
-    {
-        foreach ($events as $event) {
-            try {
-                $this->eventBus->dispatch(message: $event);
-            } catch (Throwable $exception) {
-                throw MessengerRuntimeException::wrap(
-                    exception: $exception
-                );
-            }
-        }
+  // #region Methods
+  /**
+   * Method publish
+   * {@inheritDoc}
+   *
+   * Publish one or multiple domain events.
+   *
+   * @since 1.0.0
+   *
+   * @param DomainEvent ...$events The events to publish.
+   *
+   * @return void no return value
+   *
+   * @throws MessengerRuntimeException if the messenger fails to dispatch the event
+   */
+  public function publish(DomainEvent ...$events): void
+  {
+    foreach ($events as $event) {
+      try {
+        $this->eventBus->dispatch(message: $event);
+      } catch (Throwable $exception) {
+        throw MessengerRuntimeException::wrap(
+          exception: $exception
+        );
+      }
     }
-    // #endregion
+  }
+  // #endregion
 }

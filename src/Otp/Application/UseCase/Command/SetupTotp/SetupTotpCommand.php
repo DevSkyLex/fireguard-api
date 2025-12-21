@@ -17,22 +17,22 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class SetupTotpCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * SetupTotpCommand class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId      the user ID
-     * @param string $accountName the account name/email for display
-     */
-    public function __construct(
-        public readonly string $userId,
-        public readonly string $accountName,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * SetupTotpCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId      the user ID
+   * @param string $accountName the account name/email for display
+   */
+  public function __construct(
+    public readonly string $userId,
+    public readonly string $accountName,
+  ) {
+  }
+  // #endregion
 }

@@ -17,27 +17,27 @@ use DateTimeImmutable;
  */
 final readonly class LoginFailedEvent
 {
-    // #region Properties
-    /**
-     * Property occurredAt.
-     */
-    public DateTimeImmutable $occurredAt;
-    // #endregion
+  // #region Properties
+  /**
+   * Property occurredAt.
+   */
+  public DateTimeImmutable $occurredAt;
+  // #endregion
 
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param string      $email     the email used in the attempt
-     * @param string|null $ipAddress the IP address
-     * @param string      $reason    the failure reason
-     */
-    public function __construct(
-        public string $email,
-        public ?string $ipAddress,
-        public string $reason,
-    ) {
-        $this->occurredAt = new DateTimeImmutable();
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param string      $email     the email used in the attempt
+   * @param string|null $ipAddress the IP address
+   * @param string      $reason    the failure reason
+   */
+  public function __construct(
+    public string $email,
+    public ?string $ipAddress,
+    public string $reason,
+  ) {
+    $this->occurredAt = new DateTimeImmutable();
+  }
+  // #endregion
 }

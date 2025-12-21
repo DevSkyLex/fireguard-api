@@ -17,19 +17,19 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class CreateUserResult implements ResultMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the CreateUserResult class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the created user ID
-     */
-    public function __construct(
-        public readonly string $userId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateUserResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the created user ID
+   */
+  public function __construct(
+    public readonly string $userId,
+  ) {
+  }
+  // #endregion
 }

@@ -21,90 +21,90 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 #[CoversClass(className: MessengerEventListenerAdapter::class)]
 final class MessengerEventListenerAdapterTest extends TestCase
 {
-    private MessageBusInterface&MockObject $messageBus;
-    private MessengerEventListenerAdapter $adapter;
+  private MessageBusInterface&MockObject $messageBus;
+  private MessengerEventListenerAdapter $adapter;
 
-    protected function setUp(): void
-    {
-        $this->messageBus = $this->createMock(MessageBusInterface::class);
-        $this->adapter = new MessengerEventListenerAdapter($this->messageBus);
-    }
+  protected function setUp(): void
+  {
+    $this->messageBus = $this->createMock(MessageBusInterface::class);
+    $this->adapter = new MessengerEventListenerAdapter($this->messageBus);
+  }
 
-    #[Test]
-    public function testHandleSuccess(): void
-    {
-        $event = new stdClass();
-        $result = $this->createMock(ResultMessage::class);
-        $handledStamp = new HandledStamp($result, 'handler');
-        $envelope = new Envelope($event, [$handledStamp]);
+  #[Test]
+  public function testHandleSuccess(): void
+  {
+    $event = new stdClass();
+    $result = $this->createMock(ResultMessage::class);
+    $handledStamp = new HandledStamp($result, 'handler');
+    $envelope = new Envelope($event, [$handledStamp]);
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($event)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-        $actualResult = $this->adapter->handle($event);
+    $actualResult = $this->adapter->handle($event);
 
-        $this->assertSame($result, $actualResult);
-    }
+    $this->assertSame($result, $actualResult);
+  }
 
-    #[Test]
-    public function testHandleReturnsNullWhenNoHandledStamp(): void
-    {
-        $event = new stdClass();
-        $envelope = new Envelope($event); // No HandledStamp
+  #[Test]
+  public function testHandleReturnsNullWhenNoHandledStamp(): void
+  {
+    $event = new stdClass();
+    $envelope = new Envelope($event); // No HandledStamp
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($event)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-        $this->assertNull($this->adapter->handle($event));
-    }
+    $this->assertNull($this->adapter->handle($event));
+  }
 
-    #[Test]
-    public function testHandleReturnsNullWhenResultIsNull(): void
-    {
-        $event = new stdClass();
-        $handledStamp = new HandledStamp(null, 'handler');
-        $envelope = new Envelope($event, [$handledStamp]);
+  #[Test]
+  public function testHandleReturnsNullWhenResultIsNull(): void
+  {
+    $event = new stdClass();
+    $handledStamp = new HandledStamp(null, 'handler');
+    $envelope = new Envelope($event, [$handledStamp]);
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($event)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-        $this->assertNull($this->adapter->handle($event));
-    }
+    $this->assertNull($this->adapter->handle($event));
+  }
 
-    #[Test]
-    public function testHandleThrowsMessengerRuntimeException(): void
-    {
-        $event = new stdClass();
-        $exception = new Exception('Dispatch error');
+  #[Test]
+  public function testHandleThrowsMessengerRuntimeException(): void
+  {
+    $event = new stdClass();
+    $exception = new Exception('Dispatch error');
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($event)
-          ->willThrowException($exception);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willThrowException($exception);
 
-        $this->expectException(MessengerRuntimeException::class);
-        $this->adapter->handle($event);
-    }
+    $this->expectException(MessengerRuntimeException::class);
+    $this->adapter->handle($event);
+  }
 
-    #[Test]
-    public function testHandleThrowsNoHandlerResultExceptionWhenResultInvalid(): void
-    {
-        $event = new stdClass();
-        $handledStamp = new HandledStamp('invalid-result', 'handler');
-        $envelope = new Envelope($event, [$handledStamp]);
+  #[Test]
+  public function testHandleThrowsNoHandlerResultExceptionWhenResultInvalid(): void
+  {
+    $event = new stdClass();
+    $handledStamp = new HandledStamp('invalid-result', 'handler');
+    $envelope = new Envelope($event, [$handledStamp]);
 
-        $this->messageBus->expects($this->once())
-          ->method('dispatch')
-          ->with($event)
-          ->willReturn($envelope);
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($event)
+      ->willReturn($envelope);
 
-        $this->expectException(NoHandlerResultException::class);
-        $this->adapter->handle($event);
-    }
+    $this->expectException(NoHandlerResultException::class);
+    $this->adapter->handle($event);
+  }
 }

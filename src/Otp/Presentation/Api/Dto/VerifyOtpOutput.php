@@ -15,26 +15,26 @@ namespace Otp\Presentation\Api\Dto;
  */
 final class VerifyOtpOutput
 {
-    // #region Properties
-    /**
-     * Property success.
-     *
-     * Whether verification was successful.
-     */
-    public bool $success;
+  // #region Properties
+  /**
+   * Property success.
+   *
+   * Whether verification was successful.
+   */
+  public bool $success;
 
-    /**
-     * Property attemptsRemaining.
-     *
-     * Remaining verification attempts.
-     */
-    public int $attemptsRemaining;
+  /**
+   * Property attemptsRemaining.
+   *
+   * Remaining verification attempts.
+   */
+  public int $attemptsRemaining;
 
-    /**
-     * Property error.
-     *
-     * Error message if failed.
-     */
-    public ?string $error = null;
-    // #endregion
+  /**
+   * Property error.
+   *
+   * Error message if failed.
+   */
+  public ?string $error = null;
+  // #endregion
 }

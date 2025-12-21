@@ -28,184 +28,190 @@ use function strtr;
  */
 class AuthorizationCodeFlowTest extends OAuth2WebTestCase
 {
-    // #region PKCE Helper Methods
+  // #region PKCE Helper Methods
 
-    /**
-     * Generate a code verifier for PKCE.
-     */
-    private function generateCodeVerifier(): string
-    {
-        return bin2hex(random_bytes(32));
-    }
+  /**
+   * Method generateCodeVerifier.
+   *
+   * Generate a code verifier for PKCE.
+   *
+   * @since 1.0.0
+   *
+   * @return string the code verifier
+   */
+  private function generateCodeVerifier(): string
+  {
+    return bin2hex(random_bytes(32));
+  }
 
-    /**
-     * Generate code challenge from verifier (S256 method).
-     */
-    private function generateCodeChallenge(string $verifier): string
-    {
-        $hash = hash('sha256', $verifier, true);
+  /**
+   * Generate code challenge from verifier (S256 method).
+   */
+  private function generateCodeChallenge(string $verifier): string
+  {
+    $hash = hash('sha256', $verifier, true);
 
-        return rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
-    }
+    return rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
+  }
 
-    // #endregion
+  // #endregion
 
-    // #region Authorization Code Grant Tests
+  // #region Authorization Code Grant Tests
 
-    /**
-     * Test authorization code grant requires code parameter.
-     */
-    public function testAuthorizationCodeGrantRequiresCode(): void
-    {
-        $client = static::createClientWithFixtures();
+  /**
+   * Test authorization code grant requires code parameter.
+   */
+  public function testAuthorizationCodeGrantRequiresCode(): void
+  {
+    $client = static::createClientWithFixtures();
 
-        $client->request(
-            method: 'POST',
-            uri: '/api/oauth2/token',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([
-                'grant_type' => 'authorization_code',
-                'client_id' => self::DEV_CLIENT_ID,
-                'client_secret' => self::DEV_CLIENT_SECRET,
-                'redirect_uri' => 'https://example.com/callback',
-                'code_verifier' => $this->generateCodeVerifier(),
-                // Missing 'code' parameter
-            ]) ?: ''
-        );
+    $client->request(
+      method: 'POST',
+      uri: '/api/oauth2/token',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'grant_type' => 'authorization_code',
+        'client_id' => self::DEV_CLIENT_ID,
+        'client_secret' => self::DEV_CLIENT_SECRET,
+        'redirect_uri' => 'https://example.com/callback',
+        'code_verifier' => $this->generateCodeVerifier(),
+        // Missing 'code' parameter
+      ]) ?: ''
+    );
 
-        $response = $client->getResponse();
+    $response = $client->getResponse();
 
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-            'Missing code should be rejected'
-        );
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
+      'Missing code should be rejected'
+    );
+  }
 
-    /**
-     * Test authorization code grant requires redirect_uri.
-     */
-    public function testAuthorizationCodeGrantRequiresRedirectUri(): void
-    {
-        $client = static::createClientWithFixtures();
+  /**
+   * Test authorization code grant requires redirect_uri.
+   */
+  public function testAuthorizationCodeGrantRequiresRedirectUri(): void
+  {
+    $client = static::createClientWithFixtures();
 
-        $client->request(
-            method: 'POST',
-            uri: '/api/oauth2/token',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([
-                'grant_type' => 'authorization_code',
-                'client_id' => self::DEV_CLIENT_ID,
-                'client_secret' => self::DEV_CLIENT_SECRET,
-                'code' => 'fake_authorization_code',
-                'code_verifier' => $this->generateCodeVerifier(),
-                // Missing 'redirect_uri' parameter
-            ]) ?: ''
-        );
+    $client->request(
+      method: 'POST',
+      uri: '/api/oauth2/token',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'grant_type' => 'authorization_code',
+        'client_id' => self::DEV_CLIENT_ID,
+        'client_secret' => self::DEV_CLIENT_SECRET,
+        'code' => 'fake_authorization_code',
+        'code_verifier' => $this->generateCodeVerifier(),
+        // Missing 'redirect_uri' parameter
+      ]) ?: ''
+    );
 
-        $response = $client->getResponse();
+    $response = $client->getResponse();
 
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-            'Missing redirect_uri should be rejected'
-        );
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
+      'Missing redirect_uri should be rejected'
+    );
+  }
 
-    /**
-     * Test authorization code grant requires code_verifier (PKCE mandatory in OAuth 2.1).
-     */
-    public function testAuthorizationCodeGrantRequiresCodeVerifier(): void
-    {
-        $client = static::createClientWithFixtures();
+  /**
+   * Test authorization code grant requires code_verifier (PKCE mandatory in OAuth 2.1).
+   */
+  public function testAuthorizationCodeGrantRequiresCodeVerifier(): void
+  {
+    $client = static::createClientWithFixtures();
 
-        $client->request(
-            method: 'POST',
-            uri: '/api/oauth2/token',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([
-                'grant_type' => 'authorization_code',
-                'client_id' => self::DEV_CLIENT_ID,
-                'client_secret' => self::DEV_CLIENT_SECRET,
-                'code' => 'fake_authorization_code',
-                'redirect_uri' => 'https://example.com/callback',
-                // Missing 'code_verifier' parameter - PKCE is mandatory
-            ]) ?: ''
-        );
+    $client->request(
+      method: 'POST',
+      uri: '/api/oauth2/token',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'grant_type' => 'authorization_code',
+        'client_id' => self::DEV_CLIENT_ID,
+        'client_secret' => self::DEV_CLIENT_SECRET,
+        'code' => 'fake_authorization_code',
+        'redirect_uri' => 'https://example.com/callback',
+        // Missing 'code_verifier' parameter - PKCE is mandatory
+      ]) ?: ''
+    );
 
-        $response = $client->getResponse();
+    $response = $client->getResponse();
 
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-            'Missing code_verifier should be rejected (PKCE mandatory)'
-        );
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
+      'Missing code_verifier should be rejected (PKCE mandatory)'
+    );
+  }
 
-    /**
-     * Test authorization code grant with invalid code.
-     */
-    public function testAuthorizationCodeGrantWithInvalidCode(): void
-    {
-        $client = static::createClientWithFixtures();
+  /**
+   * Test authorization code grant with invalid code.
+   */
+  public function testAuthorizationCodeGrantWithInvalidCode(): void
+  {
+    $client = static::createClientWithFixtures();
 
-        $codeVerifier = $this->generateCodeVerifier();
+    $codeVerifier = $this->generateCodeVerifier();
 
-        $client->request(
-            method: 'POST',
-            uri: '/api/oauth2/token',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([
-                'grant_type' => 'authorization_code',
-                'client_id' => self::DEV_CLIENT_ID,
-                'client_secret' => self::DEV_CLIENT_SECRET,
-                'code' => 'invalid_authorization_code',
-                'redirect_uri' => 'https://example.com/callback',
-                'code_verifier' => $codeVerifier,
-            ]) ?: ''
-        );
+    $client->request(
+      method: 'POST',
+      uri: '/api/oauth2/token',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'grant_type' => 'authorization_code',
+        'client_id' => self::DEV_CLIENT_ID,
+        'client_secret' => self::DEV_CLIENT_SECRET,
+        'code' => 'invalid_authorization_code',
+        'redirect_uri' => 'https://example.com/callback',
+        'code_verifier' => $codeVerifier,
+      ]) ?: ''
+    );
 
-        $response = $client->getResponse();
+    $response = $client->getResponse();
 
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-            'Invalid authorization code should be rejected'
-        );
-    }
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
+      'Invalid authorization code should be rejected'
+    );
+  }
 
-    // #endregion
+  // #endregion
 
-    // #region PKCE Validation Tests
+  // #region PKCE Validation Tests
 
-    /**
-     * Test PKCE S256 challenge generation is correct.
-     */
-    public function testPkceS256ChallengeGeneration(): void
-    {
-        $verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
-        $expectedChallenge = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
+  /**
+   * Test PKCE S256 challenge generation is correct.
+   */
+  public function testPkceS256ChallengeGeneration(): void
+  {
+    $verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+    $expectedChallenge = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
 
-        $actualChallenge = $this->generateCodeChallenge($verifier);
+    $actualChallenge = $this->generateCodeChallenge($verifier);
 
-        $this->assertEquals(
-            $expectedChallenge,
-            $actualChallenge,
-            'PKCE S256 challenge should match RFC 7636 test vector'
-        );
-    }
+    $this->assertEquals(
+      $expectedChallenge,
+      $actualChallenge,
+      'PKCE S256 challenge should match RFC 7636 test vector'
+    );
+  }
 
-    // #endregion
+  // #endregion
 }

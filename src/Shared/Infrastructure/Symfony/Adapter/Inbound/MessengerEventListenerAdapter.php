@@ -24,72 +24,72 @@ use Throwable;
  */
 final readonly class MessengerEventListenerAdapter implements EventListenerPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the event listener bus.
-     *
-     * @since 1.0.0
-     *
-     * @param MessageBusInterface $eventBus the message bus receiving events
-     */
-    public function __construct(
-        private readonly MessageBusInterface $eventBus,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the event listener bus.
+   *
+   * @since 1.0.0
+   *
+   * @param MessageBusInterface $eventBus the message bus receiving events
+   */
+  public function __construct(
+    private readonly MessageBusInterface $eventBus,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    public function handle(object $event): ?ResultMessage
-    {
-        try {
-            $envelope = $this->eventBus->dispatch(message: $event);
-        } catch (Throwable $exception) {
-            throw MessengerRuntimeException::wrap(exception: $exception);
-        }
-
-        $handledStamp = $this->extractHandledStamp(
-            envelope: $envelope
-        );
-
-        if (null === $handledStamp) {
-            return null;
-        }
-
-        $result = $handledStamp->getResult();
-
-        if (null === $result) {
-            return null;
-        }
-
-        if (!$result instanceof ResultMessage) {
-            throw NoHandlerResultException::forMessage(message: $event);
-        }
-
-        return $result;
+  // #region Methods
+  public function handle(object $event): ?ResultMessage
+  {
+    try {
+      $envelope = $this->eventBus->dispatch(message: $event);
+    } catch (Throwable $exception) {
+      throw MessengerRuntimeException::wrap(exception: $exception);
     }
 
-    /**
-     * Method extractHandledStamp.
-     *
-     * Extract the last handled stamp from the envelope.
-     *
-     * @since 1.0.0
-     *
-     * @param Envelope $envelope the envelope to inspect
-     *
-     * @return ?HandledStamp the handled stamp if present, null otherwise
-     */
-    private function extractHandledStamp(Envelope $envelope): ?HandledStamp
-    {
-        $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
+    $handledStamp = $this->extractHandledStamp(
+      envelope: $envelope
+    );
 
-        if (!$handledStamp instanceof HandledStamp) {
-            return null;
-        }
-
-        return $handledStamp;
+    if (null === $handledStamp) {
+      return null;
     }
-    // #endregion
+
+    $result = $handledStamp->getResult();
+
+    if (null === $result) {
+      return null;
+    }
+
+    if (!$result instanceof ResultMessage) {
+      throw NoHandlerResultException::forMessage(message: $event);
+    }
+
+    return $result;
+  }
+
+  /**
+   * Method extractHandledStamp.
+   *
+   * Extract the last handled stamp from the envelope.
+   *
+   * @since 1.0.0
+   *
+   * @param Envelope $envelope the envelope to inspect
+   *
+   * @return ?HandledStamp the handled stamp if present, null otherwise
+   */
+  private function extractHandledStamp(Envelope $envelope): ?HandledStamp
+  {
+    $handledStamp = $envelope->last(stampFqcn: HandledStamp::class);
+
+    if (!$handledStamp instanceof HandledStamp) {
+      return null;
+    }
+
+    return $handledStamp;
+  }
+  // #endregion
 }

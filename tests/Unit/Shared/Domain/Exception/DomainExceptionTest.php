@@ -23,24 +23,24 @@ use Shared\Domain\Exception\DomainException;
 #[CoversClass(className: DomainException::class)]
 final class DomainExceptionTest extends TestCase
 {
-    /**
-     * Method testCodeReturnsExpectedFormat.
-     *
-     * Tests that the code() method returns the exception class name
-     * in uppercase snake_case format.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testCodeReturnsExpectedFormat(): void
-    {
-        $exception = new class ('Test message') extends DomainException {};
-        $code = $exception->code();
+  /**
+   * Method testCodeReturnsExpectedFormat.
+   *
+   * Tests that the code() method returns the exception class name
+   * in uppercase snake_case format.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testCodeReturnsExpectedFormat(): void
+  {
+    $exception = new class ('Test message') extends DomainException {};
+    $code = $exception->code();
 
-        // Anonymous classes include file path and random hash in their name
-        // Just verify we get a non-empty string back
-        $this->assertNotEmpty($code);
-    }
+    // Anonymous classes include file path and random hash in their name
+    // Just verify we get a non-empty string back
+    $this->assertNotEmpty($code);
+  }
 }

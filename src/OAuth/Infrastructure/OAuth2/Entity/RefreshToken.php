@@ -19,25 +19,25 @@ use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
  */
 final class RefreshToken implements RefreshTokenEntityInterface
 {
-    // #region Traits
-    /**
-     * Trait RefreshTokenTrait.
-     *
-     * Refresh token trait implementation.
-     *
-     * @since 1.0.0
-     * @see RefreshTokenTrait
-     */
-    use RefreshTokenTrait;
+  // #region Traits
+  /**
+   * Trait RefreshTokenTrait.
+   *
+   * Refresh token trait implementation.
+   *
+   * @since 1.0.0
+   * @see RefreshTokenTrait
+   */
+  use RefreshTokenTrait;
 
-    /**
-     * Trait EntityTrait.
-     *
-     * Entity trait implementation.
-     *
-     * @since 1.0.0
-     * @see EntityTrait
-     */
-    use EntityTrait;
-    // #endregion
+  /**
+   * Trait EntityTrait.
+   *
+   * Entity trait implementation.
+   *
+   * @since 1.0.0
+   * @see EntityTrait
+   */
+  use EntityTrait;
+  // #endregion
 }

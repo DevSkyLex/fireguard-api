@@ -17,21 +17,21 @@ use Shared\Application\Message\QueryMessage;
  */
 final readonly class RefreshTokenQuery implements QueryMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * RefreshTokenQuery class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $refreshToken the encrypted refresh token
-     */
-    public function __construct(
-        public string $refreshToken,
-        public ?string $ipAddress = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * RefreshTokenQuery class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $refreshToken the encrypted refresh token
+   */
+  public function __construct(
+    public string $refreshToken,
+    public ?string $ipAddress = null,
+  ) {
+  }
+  // #endregion
 }

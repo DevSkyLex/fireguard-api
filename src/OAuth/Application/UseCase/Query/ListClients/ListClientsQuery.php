@@ -18,19 +18,19 @@ use Shared\Application\Query\Pagination;
  */
 final readonly class ListClientsQuery implements QueryMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the ListClientsQuery class.
-     *
-     * @since 1.0.0
-     *
-     * @param Pagination $pagination the pagination settings
-     */
-    public function __construct(
-        public readonly Pagination $pagination,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the ListClientsQuery class.
+   *
+   * @since 1.0.0
+   *
+   * @param Pagination $pagination the pagination settings
+   */
+  public function __construct(
+    public readonly Pagination $pagination,
+  ) {
+  }
+  // #endregion
 }

@@ -18,28 +18,28 @@ use TrustedDevice\Application\UseCase\Command\RevokeAllDevices\RevokeAllDevicesH
  */
 final readonly class RevokeAllDevicesProcessor implements ProcessorInterface
 {
-    public function __construct(
-        private RevokeAllDevicesHandler $handler,
-        private Security $security,
-    ) {
+  public function __construct(
+    private RevokeAllDevicesHandler $handler,
+    private Security $security,
+  ) {
+  }
+
+  /**
+   * @return array{revoked: int}
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): array
+  {
+    $user = $this->security->getUser();
+    if (null === $user) {
+      throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    /**
-     * @return array{revoked: int}
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): array
-    {
-        $user = $this->security->getUser();
-        if (null === $user) {
-            throw new BadRequestHttpException('User must be authenticated.');
-        }
+    $command = new RevokeAllDevicesCommand(
+      userId: $user->getUserIdentifier(),
+    );
 
-        $command = new RevokeAllDevicesCommand(
-            userId: $user->getUserIdentifier(),
-        );
+    $result = $this->handler->__invoke($command);
 
-        $result = $this->handler->__invoke($command);
-
-        return ['revoked' => $result->revokedCount];
-    }
+    return ['revoked' => $result->revokedCount];
+  }
 }

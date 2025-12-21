@@ -19,29 +19,29 @@ use OAuth\Domain\Model\RefreshToken;
  */
 interface RefreshTokenRepositoryPort
 {
-    // #region Methods
-    /**
-     * Method save.
-     *
-     * Saves a refresh token.
-     *
-     * @since 1.0.0
-     *
-     * @param RefreshToken $refreshToken the refresh token to save
-     */
-    public function save(RefreshToken $refreshToken): void;
+  // #region Methods
+  /**
+   * Method save.
+   *
+   * Saves a refresh token.
+   *
+   * @since 1.0.0
+   *
+   * @param RefreshToken $refreshToken the refresh token to save
+   */
+  public function save(RefreshToken $refreshToken): void;
 
-    /**
-     * Method find.
-     *
-     * Finds a refresh token by identifier.
-     *
-     * @since 1.0.0
-     *
-     * @param string $identifier the refresh token identifier
-     *
-     * @return RefreshToken|null the refresh token or null if not found
-     */
-    public function find(string $identifier): ?RefreshToken;
-    // #endregion
+  /**
+   * Method find.
+   *
+   * Finds a refresh token by identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param string $identifier the refresh token identifier
+   *
+   * @return RefreshToken|null the refresh token or null if not found
+   */
+  public function find(string $identifier): ?RefreshToken;
+  // #endregion
 }

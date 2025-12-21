@@ -36,100 +36,100 @@ use function json_decode;
  */
 final class RevokeTokenProcessor implements ProcessorInterface
 {
-    use CryptTrait;
+  use CryptTrait;
 
-    // #region Constructor
-    public function __construct(
-        private readonly AccessTokenRepositoryInterface $accessTokenRepository,
-        private readonly RefreshTokenRepositoryInterface $refreshTokenRepository,
-        #[Autowire(service: 'monolog.logger.security')]
-        private readonly LoggerInterface $logger,
-        string $encryptionKey,
-    ) {
-        $this->setEncryptionKey($encryptionKey);
+  // #region Constructor
+  public function __construct(
+    private readonly AccessTokenRepositoryInterface $accessTokenRepository,
+    private readonly RefreshTokenRepositoryInterface $refreshTokenRepository,
+    #[Autowire(service: 'monolog.logger.security')]
+    private readonly LoggerInterface $logger,
+    string $encryptionKey,
+  ) {
+    $this->setEncryptionKey($encryptionKey);
+  }
+  // #endregion
+
+  // #region Methods
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?JsonResponse
+  {
+    if (!$data instanceof TokenRevocationInput) {
+      return null;
     }
-    // #endregion
 
-    // #region Methods
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?JsonResponse
-    {
-        if (!$data instanceof TokenRevocationInput) {
-            return null;
-        }
+    $token = $data->token;
+    $hint = $data->tokenTypeHint;
 
-        $token = $data->token;
-        $hint = $data->tokenTypeHint;
-
-        if ('refresh_token' === $hint && null !== $token) {
-            if ($this->revokeRefreshToken($token)) {
-                return new JsonResponse(null, Response::HTTP_OK);
-            }
-        } elseif ('access_token' === $hint && null !== $token) {
-            if ($this->revokeAccessToken($token)) {
-                return new JsonResponse(null, Response::HTTP_OK);
-            }
-        }
-
-        if (null !== $token && ($this->revokeRefreshToken($token) || $this->revokeAccessToken($token))) {
-            return new JsonResponse(null, Response::HTTP_OK);
-        }
-
+    if ('refresh_token' === $hint && null !== $token) {
+      if ($this->revokeRefreshToken($token)) {
         return new JsonResponse(null, Response::HTTP_OK);
+      }
+    } elseif ('access_token' === $hint && null !== $token) {
+      if ($this->revokeAccessToken($token)) {
+        return new JsonResponse(null, Response::HTTP_OK);
+      }
     }
 
-    private function revokeRefreshToken(string $token): bool
-    {
-        try {
-            $decrypted = $this->decrypt($token);
-            $payload = json_decode($decrypted, true);
+    if (null !== $token && ($this->revokeRefreshToken($token) || $this->revokeAccessToken($token))) {
+      return new JsonResponse(null, Response::HTTP_OK);
+    }
 
-            if (!is_array($payload)) {
-                return false;
-            }
+    return new JsonResponse(null, Response::HTTP_OK);
+  }
 
-            $refreshTokenId = $payload['refresh_token_id'] ?? null;
-            if (is_string($refreshTokenId)) {
-                $this->refreshTokenRepository->revokeRefreshToken($refreshTokenId);
-                $this->logger->info('Refresh token revoked', [
-                    'token_id' => $refreshTokenId,
-                ]);
+  private function revokeRefreshToken(string $token): bool
+  {
+    try {
+      $decrypted = $this->decrypt($token);
+      $payload = json_decode($decrypted, true);
 
-                return true;
-            }
-        } catch (Throwable $e) {
-        }
-
+      if (!is_array($payload)) {
         return false;
+      }
+
+      $refreshTokenId = $payload['refresh_token_id'] ?? null;
+      if (is_string($refreshTokenId)) {
+        $this->refreshTokenRepository->revokeRefreshToken($refreshTokenId);
+        $this->logger->info('Refresh token revoked', [
+          'token_id' => $refreshTokenId,
+        ]);
+
+        return true;
+      }
+    } catch (Throwable $e) {
     }
 
-    private function revokeAccessToken(string $token): bool
-    {
-        try {
-            if ('' === $token) {
-                return false;
-            }
+    return false;
+  }
 
-            $parser = new Parser(new JoseEncoder());
-            $parsedToken = $parser->parse($token);
-
-            if ($parsedToken instanceof Plain) {
-                $claims = $parsedToken->claims();
-                if ($claims->has('jti')) {
-                    $tokenId = $claims->get('jti');
-                    if (is_string($tokenId)) {
-                        $this->accessTokenRepository->revokeAccessToken($tokenId);
-                        $this->logger->info('Access token revoked', [
-                            'token_id' => $tokenId,
-                        ]);
-
-                        return true;
-                    }
-                }
-            }
-        } catch (Throwable $e) {
-        }
-
+  private function revokeAccessToken(string $token): bool
+  {
+    try {
+      if ('' === $token) {
         return false;
+      }
+
+      $parser = new Parser(new JoseEncoder());
+      $parsedToken = $parser->parse($token);
+
+      if ($parsedToken instanceof Plain) {
+        $claims = $parsedToken->claims();
+        if ($claims->has('jti')) {
+          $tokenId = $claims->get('jti');
+          if (is_string($tokenId)) {
+            $this->accessTokenRepository->revokeAccessToken($tokenId);
+            $this->logger->info('Access token revoked', [
+              'token_id' => $tokenId,
+            ]);
+
+            return true;
+          }
+        }
+      }
+    } catch (Throwable $e) {
     }
-    // #endregion
+
+    return false;
+  }
+  // #endregion
 }

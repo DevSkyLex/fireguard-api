@@ -20,56 +20,56 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'access_tokens')]
 final class AccessTokenRecord
 {
-    // #region Properties
-    /**
-     * Property identifier.
-     *
-     * The token identifier.
-     */
-    #[ORM\Id]
-    #[ORM\Column(type: 'string', length: 100, unique: true)]
-    public string $identifier;
+  // #region Properties
+  /**
+   * Property identifier.
+   *
+   * The token identifier.
+   */
+  #[ORM\Id]
+  #[ORM\Column(type: 'string', length: 100, unique: true)]
+  public string $identifier;
 
-    /**
-     * Property clientIdentifier.
-     *
-     * The client identifier.
-     */
-    #[ORM\Column(type: 'string', length: 100)]
-    public string $clientIdentifier;
+  /**
+   * Property clientIdentifier.
+   *
+   * The client identifier.
+   */
+  #[ORM\Column(type: 'string', length: 100)]
+  public string $clientIdentifier;
 
-    /**
-     * Property userIdentifier.
-     *
-     * The user identifier (nullable).
-     */
-    #[ORM\Column(type: 'string', length: 100, nullable: true)]
-    public ?string $userIdentifier = null;
+  /**
+   * Property userIdentifier.
+   *
+   * The user identifier (nullable).
+   */
+  #[ORM\Column(type: 'string', length: 100, nullable: true)]
+  public ?string $userIdentifier = null;
 
-    /**
-     * Property scopes.
-     *
-     * The scopes associated with the token.
-     *
-     * @var array<string>
-     */
-    #[ORM\Column(type: 'json')]
-    public array $scopes = [];
+  /**
+   * Property scopes.
+   *
+   * The scopes associated with the token.
+   *
+   * @var array<string>
+   */
+  #[ORM\Column(type: 'json')]
+  public array $scopes = [];
 
-    /**
-     * Property expiry.
-     *
-     * The expiry date and time.
-     */
-    #[ORM\Column(type: 'datetime_immutable')]
-    public DateTimeImmutable $expiry;
+  /**
+   * Property expiry.
+   *
+   * The expiry date and time.
+   */
+  #[ORM\Column(type: 'datetime_immutable')]
+  public DateTimeImmutable $expiry;
 
-    /**
-     * Property isRevoked.
-     *
-     * Whether the token is revoked.
-     */
-    #[ORM\Column(type: 'boolean')]
-    public bool $isRevoked = false;
-    // #endregion
+  /**
+   * Property isRevoked.
+   *
+   * Whether the token is revoked.
+   */
+  #[ORM\Column(type: 'boolean')]
+  public bool $isRevoked = false;
+  // #endregion
 }

@@ -23,22 +23,22 @@ use Shared\Domain\Exception\InvalidValueException;
 #[CoversClass(className: InvalidValueException::class)]
 final class InvalidValueExceptionTest extends TestCase
 {
-    /**
-     * Method testBecause.
-     *
-     * Tests the because factory method creates an exception
-     * with the provided message.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testBecause(): void
-    {
-        $message = 'Invalid value provided';
-        $exception = InvalidValueException::because($message);
+  /**
+   * Method testBecause.
+   *
+   * Tests the because factory method creates an exception
+   * with the provided message.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testBecause(): void
+  {
+    $message = 'Invalid value provided';
+    $exception = InvalidValueException::because($message);
 
-        $this->assertSame($message, $exception->getMessage());
-    }
+    $this->assertSame($message, $exception->getMessage());
+  }
 }

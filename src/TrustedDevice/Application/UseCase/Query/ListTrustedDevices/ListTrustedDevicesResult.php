@@ -11,13 +11,13 @@ use DateTimeImmutable;
  */
 final readonly class ListTrustedDevicesResult
 {
-    /**
-     * @param list<TrustedDeviceItem> $devices
-     */
-    public function __construct(
-        public array $devices,
-    ) {
-    }
+  /**
+   * @param list<TrustedDeviceItem> $devices
+   */
+  public function __construct(
+    public array $devices,
+  ) {
+  }
 }
 
 /**
@@ -25,13 +25,13 @@ final readonly class ListTrustedDevicesResult
  */
 final readonly class TrustedDeviceItem
 {
-    public function __construct(
-        public string $id,
-        public string $name,
-        public DateTimeImmutable $lastUsedAt,
-        public DateTimeImmutable $expiresAt,
-        public DateTimeImmutable $createdAt,
-        public bool $isCurrentDevice = false,
-    ) {
-    }
+  public function __construct(
+    public string $id,
+    public string $name,
+    public DateTimeImmutable $lastUsedAt,
+    public DateTimeImmutable $expiresAt,
+    public DateTimeImmutable $createdAt,
+    public bool $isCurrentDevice = false,
+  ) {
+  }
 }

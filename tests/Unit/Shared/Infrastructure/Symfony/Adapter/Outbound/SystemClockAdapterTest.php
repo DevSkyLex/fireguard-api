@@ -26,17 +26,17 @@ use function time;
 #[CoversClass(className: SystemClockAdapter::class)]
 final class SystemClockAdapterTest extends TestCase
 {
-    /**
-     * Test that the current time is returned.
-     */
-    #[Test]
-    public function testNow(): void
-    {
-        $adapter = new SystemClockAdapter();
-        $now = $adapter->now();
+  /**
+   * Test that the current time is returned.
+   */
+  #[Test]
+  public function testNow(): void
+  {
+    $adapter = new SystemClockAdapter();
+    $now = $adapter->now();
 
-        $this->assertInstanceOf(DateTimeImmutable::class, $now);
-        // Allow a small delta for execution time
-        $this->assertEqualsWithDelta(time(), $now->getTimestamp(), 1);
-    }
+    $this->assertInstanceOf(DateTimeImmutable::class, $now);
+    // Allow a small delta for execution time
+    $this->assertEqualsWithDelta(time(), $now->getTimestamp(), 1);
+  }
 }

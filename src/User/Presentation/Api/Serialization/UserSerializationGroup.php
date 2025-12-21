@@ -15,25 +15,25 @@ namespace User\Presentation\Api\Serialization;
  */
 final readonly class UserSerializationGroup
 {
-    /**
-     * Group READ.
-     *
-     * Used for reading user data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string READ = 'user:read';
+  /**
+   * Group READ.
+   *
+   * Used for reading user data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string READ = 'user:read';
 
-    /**
-     * Group WRITE.
-     *
-     * Used for writing/creating user data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string WRITE = 'user:write';
+  /**
+   * Group WRITE.
+   *
+   * Used for writing/creating user data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string WRITE = 'user:write';
 }

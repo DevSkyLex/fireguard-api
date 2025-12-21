@@ -28,30 +28,30 @@ use function substr;
 #[AutoconfigureTag('security.voter')]
 final class OAuth2ScopeVoter extends Voter
 {
-    // #region Constants
-    private const string SCOPE_PREFIX = 'SCOPE_';
-    // #endregion
+  // #region Constants
+  private const string SCOPE_PREFIX = 'SCOPE_';
+  // #endregion
 
-    // #region Methods
-    protected function supports(string $attribute, mixed $subject): bool
-    {
-        return str_starts_with(
-            haystack: $attribute,
-            needle: self::SCOPE_PREFIX
-        );
+  // #region Methods
+  protected function supports(string $attribute, mixed $subject): bool
+  {
+    return str_starts_with(
+      haystack: $attribute,
+      needle: self::SCOPE_PREFIX
+    );
+  }
+
+  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+  {
+    $user = $token->getUser();
+
+    if (!$user instanceof SecurityUser) {
+      return false;
     }
 
-    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
-    {
-        $user = $token->getUser();
+    $requiredScope = strtolower(substr($attribute, strlen(self::SCOPE_PREFIX)));
 
-        if (!$user instanceof SecurityUser) {
-            return false;
-        }
-
-        $requiredScope = strtolower(substr($attribute, strlen(self::SCOPE_PREFIX)));
-
-        return $user->hasScope(scope: $requiredScope);
-    }
-    // #endregion
+    return $user->hasScope(scope: $requiredScope);
+  }
+  // #endregion
 }

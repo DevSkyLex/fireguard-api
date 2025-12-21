@@ -28,75 +28,75 @@ use User\Presentation\Api\Processor\CreateUserProcessor;
 #[CoversClass(CreateUserProcessor::class)]
 final class CreateUserProcessorTest extends TestCase
 {
-    // #region Properties
-    /**
-     * Property commandBus.
-     *
-     * Mock of the command bus.
-     */
-    private CommandBusPort&MockObject $commandBus;
+  // #region Properties
+  /**
+   * Property commandBus.
+   *
+   * Mock of the command bus.
+   */
+  private CommandBusPort&MockObject $commandBus;
 
-    /**
-     * Property processor.
-     *
-     * The processor under test.
-     */
-    private CreateUserProcessor $processor;
-    // #endregion
+  /**
+   * Property processor.
+   *
+   * The processor under test.
+   */
+  private CreateUserProcessor $processor;
+  // #endregion
 
-    // #region Setup
-    /**
-     * Method setUp.
-     *
-     * Set up the test environment.
-     *
-     * @return void no return value
-     */
-    protected function setUp(): void
-    {
-        $this->commandBus = $this->createMock(CommandBusPort::class);
-        $this->processor = new CreateUserProcessor($this->commandBus);
-    }
-    // #endregion
+  // #region Setup
+  /**
+   * Method setUp.
+   *
+   * Set up the test environment.
+   *
+   * @return void no return value
+   */
+  protected function setUp(): void
+  {
+    $this->commandBus = $this->createMock(CommandBusPort::class);
+    $this->processor = new CreateUserProcessor($this->commandBus);
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method testProcessesCreationRequest.
-     *
-     * Tests that the processor processes
-     * a creation request successfully.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testProcessesCreationRequest(): void
-    {
-        // Arrange
-        $input = new UserInput();
-        $input->username = 'jdoe';
-        $input->email = 'jdoe@example.com';
-        $input->password = 'password123';
-        $input->firstName = 'John';
-        $input->lastName = 'Doe';
+  // #region Methods
+  /**
+   * Method testProcessesCreationRequest.
+   *
+   * Tests that the processor processes
+   * a creation request successfully.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testProcessesCreationRequest(): void
+  {
+    // Arrange
+    $input = new UserInput();
+    $input->username = 'jdoe';
+    $input->email = 'jdoe@example.com';
+    $input->password = 'password123';
+    $input->firstName = 'John';
+    $input->lastName = 'Doe';
 
-        $result = new CreateUserResult('user-id-123');
+    $result = new CreateUserResult('user-id-123');
 
-        $this->commandBus->expects($this->once())
-          ->method('dispatch')
-          ->with($this->isInstanceOf(CreateUserCommand::class))
-          ->willReturn($result);
+    $this->commandBus->expects($this->once())
+      ->method('dispatch')
+      ->with($this->isInstanceOf(CreateUserCommand::class))
+      ->willReturn($result);
 
-        $operation = new Post();
+    $operation = new Post();
 
-        // Act
-        $output = $this->processor->process($input, $operation);
+    // Act
+    $output = $this->processor->process($input, $operation);
 
-        // Assert
-        $this->assertInstanceOf(UserOutput::class, $output);
-        $this->assertEquals('user-id-123', $output->id);
-        $this->assertEquals('jdoe', $output->username);
-    }
-    // #endregion
+    // Assert
+    $this->assertInstanceOf(UserOutput::class, $output);
+    $this->assertEquals('user-id-123', $output->id);
+    $this->assertEquals('jdoe', $output->username);
+  }
+  // #endregion
 }

@@ -35,123 +35,123 @@ use function property_exists;
  */
 final readonly class AddPermissionToRoleProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * AddPermissionToRoleProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleRepositoryPort       $roleRepository       the role repository
-     * @param PermissionRepositoryPort $permissionRepository the permission repository
-     */
-    public function __construct(
-        private readonly RoleRepositoryPort $roleRepository,
-        private readonly PermissionRepositoryPort $permissionRepository,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * AddPermissionToRoleProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleRepositoryPort       $roleRepository       the role repository
+   * @param PermissionRepositoryPort $permissionRepository the permission repository
+   */
+  public function __construct(
+    private readonly RoleRepositoryPort $roleRepository,
+    private readonly PermissionRepositoryPort $permissionRepository,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes adding a permission to a role.
-     *
-     * @since 1.0.0
-     *
-     * @param mixed                $data         the input data
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return RoleOutput the updated role
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RoleOutput
-    {
-        $roleId = $uriVariables['roleId'] ?? null;
-        $permissionId = is_object($data) && property_exists($data, 'permissionId') ? $data->permissionId : null;
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes adding a permission to a role.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed                $data         the input data
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return RoleOutput the updated role
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RoleOutput
+  {
+    $roleId = $uriVariables['roleId'] ?? null;
+    $permissionId = is_object($data) && property_exists($data, 'permissionId') ? $data->permissionId : null;
 
-        if (!is_string($roleId)) {
-            throw RoleNotFoundException::withId(roleId: 'unknown');
-        }
-
-        if (!is_string($permissionId)) {
-            throw PermissionNotFoundException::withId(permissionId: 'unknown');
-        }
-
-        $role = $this->roleRepository->findById(id: new RoleId(value: $roleId));
-
-        if (null === $role) {
-            throw RoleNotFoundException::withId(roleId: $roleId);
-        }
-
-        $permission = $this->permissionRepository->findById(id: new PermissionId(value: $permissionId));
-
-        if (null === $permission) {
-            throw PermissionNotFoundException::withId(permissionId: $permissionId);
-        }
-
-        // Add permission to role (void return)
-        $role->addPermission(permission: $permission);
-
-        // Save
-        $this->roleRepository->save(role: $role);
-
-        // Return output
-        return $this->mapRoleToOutput(role: $role);
+    if (!is_string($roleId)) {
+      throw RoleNotFoundException::withId(roleId: 'unknown');
     }
 
-    /**
-     * Method mapRoleToOutput.
-     *
-     * Maps a Role to RoleOutput.
-     *
-     * @since 1.0.0
-     *
-     * @param Role $role the role
-     *
-     * @return RoleOutput the role output
-     */
-    private function mapRoleToOutput(Role $role): RoleOutput
-    {
-        $output = new RoleOutput();
-        $output->id = $role->id()->value;
-        $output->name = $role->name()->value;
-        $output->description = $role->description();
-        $output->isSystem = $role->isSystem();
-        $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
-        $output->permissions = array_map(
-            fn (Permission $permission) => $this->mapPermissionToOutput($permission),
-            $role->permissions()
-        );
-
-        return $output;
+    if (!is_string($permissionId)) {
+      throw PermissionNotFoundException::withId(permissionId: 'unknown');
     }
 
-    /**
-     * Method mapPermissionToOutput.
-     *
-     * Maps a Permission to PermissionOutput.
-     *
-     * @since 1.0.0
-     *
-     * @param Permission $permission the permission
-     *
-     * @return PermissionOutput the permission output
-     */
-    private function mapPermissionToOutput(Permission $permission): PermissionOutput
-    {
-        $output = new PermissionOutput();
-        $output->id = $permission->id()->value;
-        $output->name = $permission->name()->value;
-        $output->description = $permission->description();
-        $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
+    $role = $this->roleRepository->findById(id: new RoleId(value: $roleId));
 
-        return $output;
+    if (null === $role) {
+      throw RoleNotFoundException::withId(roleId: $roleId);
     }
-    // #endregion
+
+    $permission = $this->permissionRepository->findById(id: new PermissionId(value: $permissionId));
+
+    if (null === $permission) {
+      throw PermissionNotFoundException::withId(permissionId: $permissionId);
+    }
+
+    // Add permission to role (void return)
+    $role->addPermission(permission: $permission);
+
+    // Save
+    $this->roleRepository->save(role: $role);
+
+    // Return output
+    return $this->mapRoleToOutput(role: $role);
+  }
+
+  /**
+   * Method mapRoleToOutput.
+   *
+   * Maps a Role to RoleOutput.
+   *
+   * @since 1.0.0
+   *
+   * @param Role $role the role
+   *
+   * @return RoleOutput the role output
+   */
+  private function mapRoleToOutput(Role $role): RoleOutput
+  {
+    $output = new RoleOutput();
+    $output->id = $role->id()->value;
+    $output->name = $role->name()->value;
+    $output->description = $role->description();
+    $output->isSystem = $role->isSystem();
+    $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
+    $output->permissions = array_map(
+      fn (Permission $permission) => $this->mapPermissionToOutput($permission),
+      $role->permissions()
+    );
+
+    return $output;
+  }
+
+  /**
+   * Method mapPermissionToOutput.
+   *
+   * Maps a Permission to PermissionOutput.
+   *
+   * @since 1.0.0
+   *
+   * @param Permission $permission the permission
+   *
+   * @return PermissionOutput the permission output
+   */
+  private function mapPermissionToOutput(Permission $permission): PermissionOutput
+  {
+    $output = new PermissionOutput();
+    $output->id = $permission->id()->value;
+    $output->name = $permission->name()->value;
+    $output->description = $permission->description();
+    $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
+
+    return $output;
+  }
+  // #endregion
 }

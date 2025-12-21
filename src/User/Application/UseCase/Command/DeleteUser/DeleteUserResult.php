@@ -17,20 +17,20 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class DeleteUserResult implements ResultMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * DeleteUserResult class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the deleted user ID
-     */
-    public function __construct(
-        public readonly string $userId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteUserResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the deleted user ID
+   */
+  public function __construct(
+    public readonly string $userId,
+  ) {
+  }
+  // #endregion
 }

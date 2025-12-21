@@ -21,56 +21,56 @@ use Throwable;
  */
 final readonly class DoctrineTransactionManagerAdapter implements TransactionManagerPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the Doctrine transaction
-     * manager adapter.
-     *
-     * @since 1.0.0
-     *
-     * @param EntityManagerInterface $entityManager the entity manager implementation
-     */
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the Doctrine transaction
+   * manager adapter.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager implementation
+   */
+  public function __construct(
+    private readonly EntityManagerInterface $entityManager,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method transactional
-     * {@inheritdoc}
-     *
-     * Execute a transactional operation.
-     *
-     * @since 1.0.0
-     *
-     * @param callable $operation the operation to execute within a transaction
-     *
-     * @return mixed the result of the operation
-     *
-     * @throws TransactionExecutionException if an exception occurs during the transaction
-     */
-    public function transactional(callable $operation): mixed
-    {
-        try {
-            return $this->entityManager->wrapInTransaction(
-                static function (EntityManagerInterface $entityManager) use ($operation) {
-                    return $operation();
-                }
-            );
-        } catch (Throwable $exception) {
-            if ($exception instanceof DoctrineDBALException) {
-                throw TransactionExecutionException::wrap(
-                    previous: $exception,
-                );
-            }
-
-            throw TransactionExecutionException::wrap(
-                previous: $exception,
-            );
+  // #region Methods
+  /**
+   * Method transactional
+   * {@inheritdoc}
+   *
+   * Execute a transactional operation.
+   *
+   * @since 1.0.0
+   *
+   * @param callable $operation the operation to execute within a transaction
+   *
+   * @return mixed the result of the operation
+   *
+   * @throws TransactionExecutionException if an exception occurs during the transaction
+   */
+  public function transactional(callable $operation): mixed
+  {
+    try {
+      return $this->entityManager->wrapInTransaction(
+        static function (EntityManagerInterface $entityManager) use ($operation) {
+          return $operation();
         }
+      );
+    } catch (Throwable $exception) {
+      if ($exception instanceof DoctrineDBALException) {
+        throw TransactionExecutionException::wrap(
+          previous: $exception,
+        );
+      }
+
+      throw TransactionExecutionException::wrap(
+        previous: $exception,
+      );
     }
+  }
 }

@@ -15,17 +15,17 @@ namespace Tenant\Application\UseCase\Command\CreateTenant;
  */
 final readonly class CreateTenantResult
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string $tenantId the created tenant ID
-     */
-    public function __construct(
-        public string $tenantId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $tenantId the created tenant ID
+   */
+  public function __construct(
+    public string $tenantId,
+  ) {
+  }
+  // #endregion
 }

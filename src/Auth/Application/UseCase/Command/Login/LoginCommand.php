@@ -17,26 +17,26 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class LoginCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * LoginCommand class.
-     *
-     * @since 1.0.0
-     *
-     * @param string      $email      the user's email
-     * @param string      $password   the user's password
-     * @param bool        $rememberMe whether to extend token lifetime
-     * @param string|null $ipAddress  the client IP address
-     */
-    public function __construct(
-        public readonly string $email,
-        public readonly string $password,
-        public readonly bool $rememberMe = false,
-        public readonly ?string $ipAddress = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * LoginCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string      $email      the user's email
+   * @param string      $password   the user's password
+   * @param bool        $rememberMe whether to extend token lifetime
+   * @param string|null $ipAddress  the client IP address
+   */
+  public function __construct(
+    public readonly string $email,
+    public readonly string $password,
+    public readonly bool $rememberMe = false,
+    public readonly ?string $ipAddress = null,
+  ) {
+  }
+  // #endregion
 }

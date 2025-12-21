@@ -27,52 +27,52 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[CoversClass(className: TranslatorAdapter::class)]
 final class TranslatorAdapterTest extends TestCase
 {
-    private TranslatorInterface&MockObject $translator;
-    private TranslatorAdapter $adapter;
+  private TranslatorInterface&MockObject $translator;
+  private TranslatorAdapter $adapter;
 
-    /**
-     * Set up the test environment.
-     */
-    protected function setUp(): void
-    {
-        $this->translator = $this->createMock(TranslatorInterface::class);
-        $this->adapter = new TranslatorAdapter($this->translator);
-    }
+  /**
+   * Set up the test environment.
+   */
+  protected function setUp(): void
+  {
+    $this->translator = $this->createMock(TranslatorInterface::class);
+    $this->adapter = new TranslatorAdapter($this->translator);
+  }
 
-    /**
-     * Test that a message is translated successfully.
-     */
-    #[Test]
-    public function testTranslateSuccess(): void
-    {
-        $id = 'message.id';
-        $parameters = ['%param%' => 'value'];
-        $domain = 'messages';
-        $locale = 'en';
-        $translated = 'Translated Message';
+  /**
+   * Test that a message is translated successfully.
+   */
+  #[Test]
+  public function testTranslateSuccess(): void
+  {
+    $id = 'message.id';
+    $parameters = ['%param%' => 'value'];
+    $domain = 'messages';
+    $locale = 'en';
+    $translated = 'Translated Message';
 
-        $this->translator->expects($this->once())
-          ->method('trans')
-          ->with($id, $parameters, $domain, $locale)
-          ->willReturn($translated);
+    $this->translator->expects($this->once())
+      ->method('trans')
+      ->with($id, $parameters, $domain, $locale)
+      ->willReturn($translated);
 
-        $this->assertEquals($translated, $this->adapter->translate($id, $parameters, $domain, $locale));
-    }
+    $this->assertEquals($translated, $this->adapter->translate($id, $parameters, $domain, $locale));
+  }
 
-    /**
-     * Test that translation fails and throws a TranslationException.
-     */
-    #[Test]
-    public function testTranslateThrowsException(): void
-    {
-        $id = 'message.id';
-        $exception = new Exception('Translation error');
+  /**
+   * Test that translation fails and throws a TranslationException.
+   */
+  #[Test]
+  public function testTranslateThrowsException(): void
+  {
+    $id = 'message.id';
+    $exception = new Exception('Translation error');
 
-        $this->translator->expects($this->once())
-          ->method('trans')
-          ->willThrowException($exception);
+    $this->translator->expects($this->once())
+      ->method('trans')
+      ->willThrowException($exception);
 
-        $this->expectException(TranslationException::class);
-        $this->adapter->translate($id);
-    }
+    $this->expectException(TranslationException::class);
+    $this->adapter->translate($id);
+  }
 }

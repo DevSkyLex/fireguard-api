@@ -23,23 +23,23 @@ use Shared\Domain\Exception\EntityNotFoundException;
 #[CoversClass(className: EntityNotFoundException::class)]
 final class EntityNotFoundExceptionTest extends TestCase
 {
-    /**
-     * Method testForId.
-     *
-     * Tests the forId factory method creates an exception
-     * with the expected message format.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testForId(): void
-    {
-        $entityName = 'User';
-        $id = '123';
-        $exception = EntityNotFoundException::forId($entityName, $id);
+  /**
+   * Method testForId.
+   *
+   * Tests the forId factory method creates an exception
+   * with the expected message format.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testForId(): void
+  {
+    $entityName = 'User';
+    $id = '123';
+    $exception = EntityNotFoundException::forId($entityName, $id);
 
-        $this->assertSame('User with ID "123" not found.', $exception->getMessage());
-    }
+    $this->assertSame('User with ID "123" not found.', $exception->getMessage());
+  }
 }

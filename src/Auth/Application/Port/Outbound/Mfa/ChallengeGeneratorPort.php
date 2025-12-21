@@ -22,16 +22,16 @@ use Auth\Application\UseCase\Command\MfaChallenge\MfaChallengeResult;
  */
 interface ChallengeGeneratorPort
 {
-    /**
-     * Method generate.
-     *
-     * Generates an MFA challenge for the given parameters.
-     *
-     * @since 1.0.0
-     *
-     * @param MfaChallengeCommand $command the challenge generation parameters
-     *
-     * @return MfaChallengeResult the generated challenge result
-     */
-    public function generate(MfaChallengeCommand $command): MfaChallengeResult;
+  /**
+   * Method generate.
+   *
+   * Generates an MFA challenge for the given parameters.
+   *
+   * @since 1.0.0
+   *
+   * @param MfaChallengeCommand $command the challenge generation parameters
+   *
+   * @return MfaChallengeResult the generated challenge result
+   */
+  public function generate(MfaChallengeCommand $command): MfaChallengeResult;
 }

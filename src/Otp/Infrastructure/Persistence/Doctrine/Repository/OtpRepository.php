@@ -26,102 +26,102 @@ use function is_int;
  */
 final readonly class OtpRepository implements OtpRepositoryPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param EntityManagerInterface $entityManager the entity manager
-     * @param OtpMapper              $mapper        the mapper
-     */
-    public function __construct(
-        private EntityManagerInterface $entityManager,
-        private OtpMapper $mapper,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   * @param OtpMapper              $mapper        the mapper
+   */
+  public function __construct(
+    private EntityManagerInterface $entityManager,
+    private OtpMapper $mapper,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    public function save(Otp $otp): void
-    {
-        $repository = $this->entityManager->getRepository(OtpRecord::class);
-        $existingRecord = $repository->find($otp->id()->value);
+  // #region Methods
+  public function save(Otp $otp): void
+  {
+    $repository = $this->entityManager->getRepository(OtpRecord::class);
+    $existingRecord = $repository->find($otp->id()->value);
 
-        $record = $this->mapper->toRecord($otp, $existingRecord);
+    $record = $this->mapper->toRecord($otp, $existingRecord);
 
-        if (null === $existingRecord) {
-            $this->entityManager->persist($record);
-        }
-
-        $this->entityManager->flush();
+    if (null === $existingRecord) {
+      $this->entityManager->persist($record);
     }
 
-    public function findById(OtpId $id): ?Otp
-    {
-        $repository = $this->entityManager->getRepository(OtpRecord::class);
-        $record = $repository->find($id->value);
+    $this->entityManager->flush();
+  }
 
-        if (null === $record) {
-            return null;
-        }
+  public function findById(OtpId $id): ?Otp
+  {
+    $repository = $this->entityManager->getRepository(OtpRecord::class);
+    $record = $repository->find($id->value);
 
-        return $this->mapper->toDomain($record);
+    if (null === $record) {
+      return null;
     }
 
-    public function findActiveByUserAndPurpose(string $userId, OtpPurpose $purpose): ?Otp
-    {
-        $repository = $this->entityManager->getRepository(OtpRecord::class);
+    return $this->mapper->toDomain($record);
+  }
 
-        $record = $repository->createQueryBuilder('o')
-          ->where('o.userId = :userId')
-          ->andWhere('o.purpose = :purpose')
-          ->andWhere('o.expiresAt > :now')
-          ->andWhere('o.verifiedAt IS NULL')
-          ->setParameter('userId', $userId)
-          ->setParameter('purpose', $purpose->value)
-          ->setParameter('now', new DateTimeImmutable())
-          ->orderBy('o.createdAt', 'DESC')
-          ->setMaxResults(1)
-          ->getQuery()
-          ->getOneOrNullResult();
+  public function findActiveByUserAndPurpose(string $userId, OtpPurpose $purpose): ?Otp
+  {
+    $repository = $this->entityManager->getRepository(OtpRecord::class);
 
-        if (!$record instanceof OtpRecord) {
-            return null;
-        }
+    $record = $repository->createQueryBuilder('o')
+      ->where('o.userId = :userId')
+      ->andWhere('o.purpose = :purpose')
+      ->andWhere('o.expiresAt > :now')
+      ->andWhere('o.verifiedAt IS NULL')
+      ->setParameter('userId', $userId)
+      ->setParameter('purpose', $purpose->value)
+      ->setParameter('now', new DateTimeImmutable())
+      ->orderBy('o.createdAt', 'DESC')
+      ->setMaxResults(1)
+      ->getQuery()
+      ->getOneOrNullResult();
 
-        return $this->mapper->toDomain($record);
+    if (!$record instanceof OtpRecord) {
+      return null;
     }
 
-    public function findByChallengeToken(\Otp\Domain\ValueObject\ChallengeToken $token): ?Otp
-    {
-        $repository = $this->entityManager->getRepository(OtpRecord::class);
+    return $this->mapper->toDomain($record);
+  }
 
-        /** @var OtpRecord|null $record */
-        $record = $repository->findOneBy(['challengeToken' => $token->value]);
+  public function findByChallengeToken(\Otp\Domain\ValueObject\ChallengeToken $token): ?Otp
+  {
+    $repository = $this->entityManager->getRepository(OtpRecord::class);
 
-        if (null === $record) {
-            return null;
-        }
+    /** @var OtpRecord|null $record */
+    $record = $repository->findOneBy(['challengeToken' => $token->value]);
 
-        return $this->mapper->toDomain($record);
+    if (null === $record) {
+      return null;
     }
 
-    public function revokeAllForUser(string $userId, OtpPurpose $purpose): int
-    {
-        // Set expires_at to now for all active OTPs
-        $result = $this->entityManager->createQueryBuilder()
-          ->update(OtpRecord::class, 'o')
-          ->set('o.expiresAt', ':now')
-          ->where('o.userId = :userId')
-          ->andWhere('o.purpose = :purpose')
-          ->andWhere('o.expiresAt > :now')
-          ->andWhere('o.verifiedAt IS NULL')
-          ->setParameter('userId', $userId)
-          ->setParameter('purpose', $purpose->value)
-          ->setParameter('now', new DateTimeImmutable())
-          ->getQuery()
-          ->execute();
+    return $this->mapper->toDomain($record);
+  }
 
-        return is_int($result) ? $result : 0;
-    }
-    // #endregion
+  public function revokeAllForUser(string $userId, OtpPurpose $purpose): int
+  {
+    // Set expires_at to now for all active OTPs
+    $result = $this->entityManager->createQueryBuilder()
+      ->update(OtpRecord::class, 'o')
+      ->set('o.expiresAt', ':now')
+      ->where('o.userId = :userId')
+      ->andWhere('o.purpose = :purpose')
+      ->andWhere('o.expiresAt > :now')
+      ->andWhere('o.verifiedAt IS NULL')
+      ->setParameter('userId', $userId)
+      ->setParameter('purpose', $purpose->value)
+      ->setParameter('now', new DateTimeImmutable())
+      ->getQuery()
+      ->execute();
+
+    return is_int($result) ? $result : 0;
+  }
+  // #endregion
 }

@@ -17,23 +17,23 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class VerifyOtpCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * VerifyOtpCommand class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $otpId the OTP ID
-     * @param string $code  the verification code
-     */
-    public function __construct(
-        public readonly string $code,
-        public readonly ?string $otpId = null,
-        public readonly ?string $challengeToken = null,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * VerifyOtpCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $otpId the OTP ID
+   * @param string $code  the verification code
+   */
+  public function __construct(
+    public readonly string $code,
+    public readonly ?string $otpId = null,
+    public readonly ?string $challengeToken = null,
+  ) {
+  }
+  // #endregion
 }

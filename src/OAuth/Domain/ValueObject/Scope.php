@@ -20,83 +20,83 @@ use function array_column;
  */
 enum Scope: string
 {
-    // #region Cases
-    /**
-     * Case OPENID.
-     *
-     * OpenID scope.
-     */
-    case OPENID = 'OPENID';
+  // #region Cases
+  /**
+   * Case OPENID.
+   *
+   * OpenID scope.
+   */
+  case OPENID = 'OPENID';
 
-    /**
-     * Case PROFILE.
-     *
-     * Profile scope.
-     */
-    case PROFILE = 'PROFILE';
+  /**
+   * Case PROFILE.
+   *
+   * Profile scope.
+   */
+  case PROFILE = 'PROFILE';
 
-    /**
-     * Case EMAIL.
-     *
-     * Email scope.
-     */
-    case EMAIL = 'EMAIL';
+  /**
+   * Case EMAIL.
+   *
+   * Email scope.
+   */
+  case EMAIL = 'EMAIL';
 
-    /**
-     * Case PHONE.
-     *
-     * Phone scope.
-     */
-    case PHONE = 'PHONE';
+  /**
+   * Case PHONE.
+   *
+   * Phone scope.
+   */
+  case PHONE = 'PHONE';
 
-    /**
-     * Case ADDRESS.
-     *
-     * Address scope.
-     */
-    case ADDRESS = 'ADDRESS';
+  /**
+   * Case ADDRESS.
+   *
+   * Address scope.
+   */
+  case ADDRESS = 'ADDRESS';
 
-    /**
-     * Case READ.
-     *
-     * Read scope.
-     */
-    case READ = 'READ';
+  /**
+   * Case READ.
+   *
+   * Read scope.
+   */
+  case READ = 'READ';
 
-    /**
-     * Case WRITE.
-     *
-     * Write scope.
-     */
-    case WRITE = 'WRITE';
+  /**
+   * Case WRITE.
+   *
+   * Write scope.
+   */
+  case WRITE = 'WRITE';
 
-    /**
-     * Case ADMIN.
-     *
-     * Admin scope.
-     */
-    case ADMIN = 'ADMIN';
+  /**
+   * Case ADMIN.
+   *
+   * Admin scope.
+   */
+  case ADMIN = 'ADMIN';
 
-    /**
-     * Case DELETE.
-     *
-     * Delete scope.
-     */
-    case DELETE = 'DELETE';
-    // #endregion
+  /**
+   * Case DELETE.
+   *
+   * Delete scope.
+   */
+  case DELETE = 'DELETE';
+  // #endregion
 
-    /**
-     * Method values.
-     *
-     * Returns an array of all
-     * possible values.
-     *
-     * @since 2.0.0
-     *
-     * @return list<string> an array of values
-     */
-    public static function values(): array
-    {
-        return array_column(self::cases(), 'value');
-    }
+  /**
+   * Method values.
+   *
+   * Returns an array of all
+   * possible values.
+   *
+   * @since 2.0.0
+   *
+   * @return list<string> an array of values
+   */
+  public static function values(): array
+  {
+    return array_column(self::cases(), 'value');
+  }
 }

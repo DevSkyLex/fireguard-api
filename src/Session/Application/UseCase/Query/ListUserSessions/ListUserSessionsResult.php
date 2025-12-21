@@ -17,22 +17,22 @@ use Session\Application\UseCase\Query\GetSession\GetSessionResult;
  */
 final readonly class ListUserSessionsResult
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * ListUserSessionsResult class.
-     *
-     * @since 1.0.0
-     *
-     * @param list<GetSessionResult> $sessions   the sessions
-     * @param int                    $totalCount the total count
-     */
-    public function __construct(
-        public readonly array $sessions,
-        public readonly int $totalCount,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListUserSessionsResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param list<GetSessionResult> $sessions   the sessions
+   * @param int                    $totalCount the total count
+   */
+  public function __construct(
+    public readonly array $sessions,
+    public readonly int $totalCount,
+  ) {
+  }
+  // #endregion
 }

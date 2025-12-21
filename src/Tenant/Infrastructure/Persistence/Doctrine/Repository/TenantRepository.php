@@ -25,99 +25,99 @@ use function array_map;
  */
 final class TenantRepository implements TenantRepositoryPort
 {
-    // #region Properties
-    /**
-     * Property repository.
-     *
-     * The Doctrine entity repository.
-     *
-     * @since 1.0.0
-     *
-     * @var EntityRepository<TenantRecord>
-     */
-    private EntityRepository $repository;
-    // #endregion
+  // #region Properties
+  /**
+   * Property repository.
+   *
+   * The Doctrine entity repository.
+   *
+   * @since 1.0.0
+   *
+   * @var EntityRepository<TenantRecord>
+   */
+  private EntityRepository $repository;
+  // #endregion
 
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param EntityManagerInterface $entityManager the entity manager
-     */
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-    ) {
-        $this->repository = $entityManager->getRepository(className: TenantRecord::class);
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   */
+  public function __construct(
+    private readonly EntityManagerInterface $entityManager,
+  ) {
+    $this->repository = $entityManager->getRepository(className: TenantRecord::class);
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method save
-     * {@inheritDoc}
-     */
-    public function save(Tenant $tenant): void
-    {
-        $record = TenantMapper::toRecord(tenant: $tenant);
-        $existingRecord = $this->repository->find(id: $record->id);
+  // #region Methods
+  /**
+   * Method save
+   * {@inheritDoc}
+   */
+  public function save(Tenant $tenant): void
+  {
+    $record = TenantMapper::toRecord(tenant: $tenant);
+    $existingRecord = $this->repository->find(id: $record->id);
 
-        if ($existingRecord) {
-            $existingRecord->name = $record->name;
-            $existingRecord->settings = $record->settings;
-            $existingRecord->isActive = $record->isActive;
-        } else {
-            $this->entityManager->persist(object: $record);
-        }
-
-        $this->entityManager->flush();
+    if ($existingRecord) {
+      $existingRecord->name = $record->name;
+      $existingRecord->settings = $record->settings;
+      $existingRecord->isActive = $record->isActive;
+    } else {
+      $this->entityManager->persist(object: $record);
     }
 
-    /**
-     * Method findById
-     * {@inheritDoc}
-     */
-    public function findById(TenantId $id): ?Tenant
-    {
-        $record = $this->repository->find(id: (string) $id);
+    $this->entityManager->flush();
+  }
 
-        if (!$record) {
-            return null;
-        }
+  /**
+   * Method findById
+   * {@inheritDoc}
+   */
+  public function findById(TenantId $id): ?Tenant
+  {
+    $record = $this->repository->find(id: (string) $id);
 
-        return TenantMapper::toDomain(record: $record);
+    if (!$record) {
+      return null;
     }
 
-    /**
-     * Method findAll
-     * {@inheritDoc}
-     */
-    public function findAll(): array
-    {
-        $records = $this->repository->findBy(
-            criteria: ['isActive' => true],
-            orderBy: ['name' => 'ASC']
-        );
+    return TenantMapper::toDomain(record: $record);
+  }
 
-        return array_map(
-            callback: fn (TenantRecord $record): Tenant => TenantMapper::toDomain(record: $record),
-            array: $records
-        );
+  /**
+   * Method findAll
+   * {@inheritDoc}
+   */
+  public function findAll(): array
+  {
+    $records = $this->repository->findBy(
+      criteria: ['isActive' => true],
+      orderBy: ['name' => 'ASC']
+    );
+
+    return array_map(
+      callback: fn (TenantRecord $record): Tenant => TenantMapper::toDomain(record: $record),
+      array: $records
+    );
+  }
+
+  /**
+   * Method delete
+   * {@inheritDoc}
+   */
+  public function delete(TenantId $id): void
+  {
+    $record = $this->repository->find(id: (string) $id);
+
+    if ($record) {
+      $this->entityManager->remove(object: $record);
+      $this->entityManager->flush();
     }
-
-    /**
-     * Method delete
-     * {@inheritDoc}
-     */
-    public function delete(TenantId $id): void
-    {
-        $record = $this->repository->find(id: (string) $id);
-
-        if ($record) {
-            $this->entityManager->remove(object: $record);
-            $this->entityManager->flush();
-        }
-    }
-    // #endregion
+  }
+  // #endregion
 }

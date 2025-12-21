@@ -20,79 +20,79 @@ use Session\Domain\ValueObject\SessionId;
  */
 interface SessionRepositoryPort
 {
-    // #region Methods
-    /**
-     * Method save.
-     *
-     * Saves a session.
-     *
-     * @since 1.0.0
-     *
-     * @param Session $session the session to save
-     */
-    public function save(Session $session): void;
+  // #region Methods
+  /**
+   * Method save.
+   *
+   * Saves a session.
+   *
+   * @since 1.0.0
+   *
+   * @param Session $session the session to save
+   */
+  public function save(Session $session): void;
 
-    /**
-     * Method findById.
-     *
-     * Finds a session by ID.
-     *
-     * @since 1.0.0
-     *
-     * @param SessionId $id the session ID
-     *
-     * @return Session|null the session or null if not found
-     */
-    public function findById(SessionId $id): ?Session;
+  /**
+   * Method findById.
+   *
+   * Finds a session by ID.
+   *
+   * @since 1.0.0
+   *
+   * @param SessionId $id the session ID
+   *
+   * @return Session|null the session or null if not found
+   */
+  public function findById(SessionId $id): ?Session;
 
-    /**
-     * Method findByUserId.
-     *
-     * Finds all sessions for a user.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the user ID
-     *
-     * @return list<Session> the user's sessions
-     */
-    public function findByUserId(string $userId): array;
+  /**
+   * Method findByUserId.
+   *
+   * Finds all sessions for a user.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   *
+   * @return list<Session> the user's sessions
+   */
+  public function findByUserId(string $userId): array;
 
-    /**
-     * Method findActiveByUserId.
-     *
-     * Finds all active (non-revoked) sessions for a user.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the user ID
-     *
-     * @return list<Session> the user's active sessions
-     */
-    public function findActiveByUserId(string $userId): array;
+  /**
+   * Method findActiveByUserId.
+   *
+   * Finds all active (non-revoked) sessions for a user.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   *
+   * @return list<Session> the user's active sessions
+   */
+  public function findActiveByUserId(string $userId): array;
 
-    /**
-     * Method revokeAllForUser.
-     *
-     * Revokes all sessions for a user.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the user ID
-     *
-     * @return int the number of sessions revoked
-     */
-    public function revokeAllForUser(string $userId): int;
+  /**
+   * Method revokeAllForUser.
+   *
+   * Revokes all sessions for a user.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   *
+   * @return int the number of sessions revoked
+   */
+  public function revokeAllForUser(string $userId): int;
 
-    /**
-     * Method delete.
-     *
-     * Deletes a session.
-     *
-     * @since 1.0.0
-     *
-     * @param SessionId $id the session ID
-     */
-    public function delete(SessionId $id): void;
-    // #endregion
+  /**
+   * Method delete.
+   *
+   * Deletes a session.
+   *
+   * @since 1.0.0
+   *
+   * @param SessionId $id the session ID
+   */
+  public function delete(SessionId $id): void;
+  // #endregion
 }

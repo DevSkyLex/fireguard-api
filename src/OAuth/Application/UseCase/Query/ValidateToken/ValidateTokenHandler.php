@@ -22,78 +22,78 @@ use function is_string;
  */
 final readonly class ValidateTokenHandler implements QueryHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * ValidateTokenHandler class.
-     *
-     * @since 1.0.0
-     *
-     * @param JwtParserPort             $jwtParser             the JWT parser
-     * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
-     */
-    public function __construct(
-        private readonly JwtParserPort $jwtParser,
-        private readonly AccessTokenRepositoryPort $accessTokenRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ValidateTokenHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param JwtParserPort             $jwtParser             the JWT parser
+   * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
+   */
+  public function __construct(
+    private readonly JwtParserPort $jwtParser,
+    private readonly AccessTokenRepositoryPort $accessTokenRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the ValidateTokenQuery.
+   *
+   * @since 1.0.0
+   *
+   * @param ValidateTokenQuery $query the query
+   *
+   * @return ValidateTokenResult the result
+   */
+  public function __invoke(ValidateTokenQuery $query): ValidateTokenResult
+  {
+    try {
+      $tokenData = $this->jwtParser->parse($query->accessToken);
+
+      if (null === $tokenData) {
+        return ValidateTokenResult::invalid('Failed to parse token');
+      }
+
+      $tokenId = $tokenData['jti'] ?? null;
+      if (null === $tokenId || !is_string($tokenId)) {
+        return ValidateTokenResult::invalid('Token has no identifier');
+      }
+
+      $accessToken = $this->accessTokenRepository->find($tokenId);
+
+      if (null === $accessToken) {
+        return ValidateTokenResult::invalid('Token not found');
+      }
+
+      if ($accessToken->isRevoked()) {
+        return ValidateTokenResult::invalid('Token has been revoked');
+      }
+
+      if ($accessToken->isExpired()) {
+        return ValidateTokenResult::invalid('Token has expired');
+      }
+
+      return new ValidateTokenResult(
+        valid: true,
+        tokenId: $tokenId,
+        userId: $accessToken->userIdentifier(),
+        clientId: (string) $accessToken->clientIdentifier(),
+        scopes: $accessToken->scopes()->toArray(),
+        expiresAt: $accessToken->expiry()->getTimestamp(),
+      );
+
+    } catch (Throwable $e) {
+      return ValidateTokenResult::invalid($e->getMessage());
     }
-    // #endregion
+  }
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the ValidateTokenQuery.
-     *
-     * @since 1.0.0
-     *
-     * @param ValidateTokenQuery $query the query
-     *
-     * @return ValidateTokenResult the result
-     */
-    public function __invoke(ValidateTokenQuery $query): ValidateTokenResult
-    {
-        try {
-            $tokenData = $this->jwtParser->parse($query->accessToken);
-
-            if (null === $tokenData) {
-                return ValidateTokenResult::invalid('Failed to parse token');
-            }
-
-            $tokenId = $tokenData['jti'] ?? null;
-            if (null === $tokenId || !is_string($tokenId)) {
-                return ValidateTokenResult::invalid('Token has no identifier');
-            }
-
-            $accessToken = $this->accessTokenRepository->find($tokenId);
-
-            if (null === $accessToken) {
-                return ValidateTokenResult::invalid('Token not found');
-            }
-
-            if ($accessToken->isRevoked()) {
-                return ValidateTokenResult::invalid('Token has been revoked');
-            }
-
-            if ($accessToken->isExpired()) {
-                return ValidateTokenResult::invalid('Token has expired');
-            }
-
-            return new ValidateTokenResult(
-                valid: true,
-                tokenId: $tokenId,
-                userId: $accessToken->userIdentifier(),
-                clientId: (string) $accessToken->clientIdentifier(),
-                scopes: $accessToken->scopes()->toArray(),
-                expiresAt: $accessToken->expiry()->getTimestamp(),
-            );
-
-        } catch (Throwable $e) {
-            return ValidateTokenResult::invalid($e->getMessage());
-        }
-    }
-
-    // #endregion
+  // #endregion
 }

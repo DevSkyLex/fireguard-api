@@ -19,35 +19,35 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class LogoutOutput
 {
-    // #region Properties
-    /**
-     * Property message.
-     *
-     * Human-readable confirmation message.
-     * Indicates the logout was successful.
-     *
-     * @example Logged out successfully
-     *
-     * @since 1.0.0
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[ApiProperty(
-        description: 'Confirmation message indicating successful logout',
-        readable: true,
-        writable: false,
-        required: true,
-        identifier: false,
-        example: 'Logged out successfully',
-        openapiContext: [
-            'type' => 'string',
-            'default' => 'Logged out successfully',
-            'readOnly' => true,
-        ],
-        jsonSchemaContext: [
-            'type' => 'string',
-            'default' => 'Logged out successfully',
-        ],
-    )]
-    public string $message = 'Logged out successfully';
-    // #endregion
+  // #region Properties
+  /**
+   * Property message.
+   *
+   * Human-readable confirmation message.
+   * Indicates the logout was successful.
+   *
+   * @example Logged out successfully
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'Confirmation message indicating successful logout',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'Logged out successfully',
+    openapiContext: [
+      'type' => 'string',
+      'default' => 'Logged out successfully',
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'default' => 'Logged out successfully',
+    ],
+  )]
+  public string $message = 'Logged out successfully';
+  // #endregion
 }

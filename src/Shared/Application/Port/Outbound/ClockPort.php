@@ -20,16 +20,16 @@ use DateTimeImmutable;
  */
 interface ClockPort
 {
-    // #region Methods
-    /**
-     * Method now.
-     *
-     * Get the current time.
-     *
-     * @since 1.0.0
-     *
-     * @return DateTimeImmutable the current time
-     */
-    public function now(): DateTimeImmutable;
-    // #endregion
+  // #region Methods
+  /**
+   * Method now.
+   *
+   * Get the current time.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeImmutable the current time
+   */
+  public function now(): DateTimeImmutable;
+  // #endregion
 }

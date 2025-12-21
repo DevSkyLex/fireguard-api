@@ -17,20 +17,20 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class UpdateUserResult implements ResultMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * UpdateUserResult class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId the updated user ID
-     */
-    public function __construct(
-        public readonly string $userId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * UpdateUserResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the updated user ID
+   */
+  public function __construct(
+    public readonly string $userId,
+  ) {
+  }
+  // #endregion
 }

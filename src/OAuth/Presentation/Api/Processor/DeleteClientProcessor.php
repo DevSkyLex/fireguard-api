@@ -25,47 +25,47 @@ use function is_string;
  */
 final readonly class DeleteClientProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the DeleteClientProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param CommandBusPort $commandBus the command bus
-     */
-    public function __construct(
-        private readonly CommandBusPort $commandBus,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the DeleteClientProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   */
+  public function __construct(
+    private readonly CommandBusPort $commandBus,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes the client deletion.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed                $data         the input data (not used)
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
+  {
+    $id = $uriVariables['id'] ?? null;
+
+    if (!is_string($id)) {
+      throw new InvalidArgumentException('Client ID must be a string');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes the client deletion.
-     *
-     * @since 1.0.0
-     *
-     * @param mixed                $data         the input data (not used)
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
-    {
-        $id = $uriVariables['id'] ?? null;
-
-        if (!is_string($id)) {
-            throw new InvalidArgumentException('Client ID must be a string');
-        }
-
-        // Dispatch command
-        $command = new DeleteClientCommand(clientId: $id);
-        $this->commandBus->dispatch($command);
-    }
-    // #endregion
+    // Dispatch command
+    $command = new DeleteClientCommand(clientId: $id);
+    $this->commandBus->dispatch($command);
+  }
+  // #endregion
 }

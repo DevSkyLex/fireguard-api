@@ -19,183 +19,183 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class TrustedDeviceFlowTest extends OAuth2WebTestCase
 {
-    // #region Setup
+  // #region Setup
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        // Reset token cache between tests since fixtures are reloaded
-        $this->accessToken = null;
+  protected function setUp(): void
+  {
+    parent::setUp();
+    // Reset token cache between tests since fixtures are reloaded
+    $this->accessToken = null;
+  }
+
+  // #endregion
+
+  // #region List Tests
+
+  /**
+   * Test listing trusted devices with valid token.
+   */
+  public function testListTrustedDevicesWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'GET',
+      uri: '/api/trusted-devices',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND, Response::HTTP_METHOD_NOT_ALLOWED],
+      'Should return trusted devices list or appropriate auth response. Response: ' . $response->getContent()
+    );
+
+    if (Response::HTTP_OK === $response->getStatusCode()) {
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+      $this->assertArrayHasKey('member', $data);
+      $this->assertIsArray($data['member']);
     }
+  }
 
-    // #endregion
+  /**
+   * Test listing trusted devices without token.
+   */
+  public function testListTrustedDevicesWithoutToken(): void
+  {
+    $client = static::createClientWithFixtures();
 
-    // #region List Tests
+    $client->request(
+      method: 'GET',
+      uri: '/api/trusted-devices',
+      server: ['HTTP_ACCEPT' => 'application/ld+json']
+    );
 
-    /**
-     * Test listing trusted devices with valid token.
-     */
-    public function testListTrustedDevicesWithValidToken(): void
-    {
-        $client = static::createClientWithFixtures();
-        $token = $this->getAccessToken($client);
+    $response = $client->getResponse();
 
-        $this->assertNotNull($token, 'Should be able to obtain access token');
+    // The endpoint may return 401, 404, or 405 depending on routing configuration
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND, Response::HTTP_METHOD_NOT_ALLOWED],
+      'Should require authentication or not be found without user context'
+    );
+  }
 
-        $client->request(
-            method: 'GET',
-            uri: '/api/trusted-devices',
-            server: [
-                'HTTP_ACCEPT' => 'application/ld+json',
-                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-            ]
-        );
+  // #endregion
 
-        $response = $client->getResponse();
+  // #region Revoke Tests
 
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND, Response::HTTP_METHOD_NOT_ALLOWED],
-            'Should return trusted devices list or appropriate auth response. Response: ' . $response->getContent()
-        );
+  /**
+   * Test revoking a trusted device without authentication.
+   */
+  public function testRevokeDeviceWithoutAuth(): void
+  {
+    $client = static::createClientWithFixtures();
 
-        if (Response::HTTP_OK === $response->getStatusCode()) {
-            $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
-            $this->assertArrayHasKey('member', $data);
-            $this->assertIsArray($data['member']);
-        }
-    }
+    $client->request(
+      method: 'DELETE',
+      uri: '/api/trusted-devices/00000000-0000-4000-8000-000000000000',
+      server: ['HTTP_ACCEPT' => 'application/ld+json']
+    );
 
-    /**
-     * Test listing trusted devices without token.
-     */
-    public function testListTrustedDevicesWithoutToken(): void
-    {
-        $client = static::createClientWithFixtures();
+    $response = $client->getResponse();
 
-        $client->request(
-            method: 'GET',
-            uri: '/api/trusted-devices',
-            server: ['HTTP_ACCEPT' => 'application/ld+json']
-        );
+    $this->assertEquals(
+      Response::HTTP_UNAUTHORIZED,
+      $response->getStatusCode(),
+      'DELETE trusted device without auth should return 401'
+    );
+  }
 
-        $response = $client->getResponse();
+  /**
+   * Test revoking a non-existent trusted device.
+   */
+  public function testRevokeNonExistentDevice(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
 
-        // The endpoint may return 401, 404, or 405 depending on routing configuration
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND, Response::HTTP_METHOD_NOT_ALLOWED],
-            'Should require authentication or not be found without user context'
-        );
-    }
+    $this->assertNotNull($token, 'Should be able to obtain access token');
 
-    // #endregion
+    $client->request(
+      method: 'DELETE',
+      uri: '/api/trusted-devices/00000000-0000-4000-8000-000000000000',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
 
-    // #region Revoke Tests
+    $response = $client->getResponse();
 
-    /**
-     * Test revoking a trusted device without authentication.
-     */
-    public function testRevokeDeviceWithoutAuth(): void
-    {
-        $client = static::createClientWithFixtures();
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_NOT_FOUND, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
+      'Non-existent device should return 404 or auth error. Response: ' . $response->getContent()
+    );
+  }
 
-        $client->request(
-            method: 'DELETE',
-            uri: '/api/trusted-devices/00000000-0000-4000-8000-000000000000',
-            server: ['HTTP_ACCEPT' => 'application/ld+json']
-        );
+  // #endregion
 
-        $response = $client->getResponse();
+  // #region Revoke All Tests
 
-        $this->assertEquals(
-            Response::HTTP_UNAUTHORIZED,
-            $response->getStatusCode(),
-            'DELETE trusted device without auth should return 401'
-        );
-    }
+  /**
+   * Test revoking all trusted devices with valid token.
+   */
+  public function testRevokeAllDevicesWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
 
-    /**
-     * Test revoking a non-existent trusted device.
-     */
-    public function testRevokeNonExistentDevice(): void
-    {
-        $client = static::createClientWithFixtures();
-        $token = $this->getAccessToken($client);
+    $this->assertNotNull($token, 'Should be able to obtain access token');
 
-        $this->assertNotNull($token, 'Should be able to obtain access token');
+    $client->request(
+      method: 'POST',
+      uri: '/api/trusted-devices/revoke-all',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ]
+    );
 
-        $client->request(
-            method: 'DELETE',
-            uri: '/api/trusted-devices/00000000-0000-4000-8000-000000000000',
-            server: [
-                'HTTP_ACCEPT' => 'application/ld+json',
-                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-            ]
-        );
+    $response = $client->getResponse();
 
-        $response = $client->getResponse();
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
+      'Revoke all devices should respond appropriately. Response: ' . $response->getContent()
+    );
+  }
 
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_NOT_FOUND, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-            'Non-existent device should return 404 or auth error. Response: ' . $response->getContent()
-        );
-    }
+  /**
+   * Test revoking all trusted devices without authentication.
+   */
+  public function testRevokeAllDevicesWithoutAuth(): void
+  {
+    $client = static::createClientWithFixtures();
 
-    // #endregion
+    $client->request(
+      method: 'POST',
+      uri: '/api/trusted-devices/revoke-all',
+      server: ['HTTP_ACCEPT' => 'application/ld+json']
+    );
 
-    // #region Revoke All Tests
+    $response = $client->getResponse();
 
-    /**
-     * Test revoking all trusted devices with valid token.
-     */
-    public function testRevokeAllDevicesWithValidToken(): void
-    {
-        $client = static::createClientWithFixtures();
-        $token = $this->getAccessToken($client);
+    $this->assertEquals(
+      Response::HTTP_UNAUTHORIZED,
+      $response->getStatusCode(),
+      'POST revoke-all without auth should return 401'
+    );
+  }
 
-        $this->assertNotNull($token, 'Should be able to obtain access token');
-
-        $client->request(
-            method: 'POST',
-            uri: '/api/trusted-devices/revoke-all',
-            server: [
-                'HTTP_ACCEPT' => 'application/ld+json',
-                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-            ]
-        );
-
-        $response = $client->getResponse();
-
-        $this->assertContains(
-            $response->getStatusCode(),
-            [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-            'Revoke all devices should respond appropriately. Response: ' . $response->getContent()
-        );
-    }
-
-    /**
-     * Test revoking all trusted devices without authentication.
-     */
-    public function testRevokeAllDevicesWithoutAuth(): void
-    {
-        $client = static::createClientWithFixtures();
-
-        $client->request(
-            method: 'POST',
-            uri: '/api/trusted-devices/revoke-all',
-            server: ['HTTP_ACCEPT' => 'application/ld+json']
-        );
-
-        $response = $client->getResponse();
-
-        $this->assertEquals(
-            Response::HTTP_UNAUTHORIZED,
-            $response->getStatusCode(),
-            'POST revoke-all without auth should return 401'
-        );
-    }
-
-    // #endregion
+  // #endregion
 }

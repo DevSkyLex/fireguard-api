@@ -19,112 +19,112 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class RoleAssignedEvent implements DomainEvent
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize a new instance of the
-     * RoleAssignedEvent class.
-     *
-     * @since 1.0.0
-     *
-     * @param Uuid              $eventId      the event ID
-     * @param string            $assignmentId the assignment ID
-     * @param string            $roleId       the role ID
-     * @param string            $subjectType  the subject type (user)
-     * @param string            $subjectId    the subject ID
-     * @param DateTimeImmutable $occurredAt   when the event occurred
-     */
-    public function __construct(
-        private readonly Uuid $eventId,
-        private readonly string $assignmentId,
-        private readonly string $roleId,
-        private readonly string $subjectType,
-        private readonly string $subjectId,
-        private readonly DateTimeImmutable $occurredAt,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize a new instance of the
+   * RoleAssignedEvent class.
+   *
+   * @since 1.0.0
+   *
+   * @param Uuid              $eventId      the event ID
+   * @param string            $assignmentId the assignment ID
+   * @param string            $roleId       the role ID
+   * @param string            $subjectType  the subject type (user)
+   * @param string            $subjectId    the subject ID
+   * @param DateTimeImmutable $occurredAt   when the event occurred
+   */
+  public function __construct(
+    private readonly Uuid $eventId,
+    private readonly string $assignmentId,
+    private readonly string $roleId,
+    private readonly string $subjectType,
+    private readonly string $subjectId,
+    private readonly DateTimeImmutable $occurredAt,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method eventId
-     * {@inheritDoc}
-     *
-     * Get the event ID.
-     *
-     * @since 1.0.0
-     *
-     * @return Uuid the event ID
-     */
-    public function eventId(): Uuid
-    {
-        return $this->eventId;
-    }
+  // #region Methods
+  /**
+   * Method eventId
+   * {@inheritDoc}
+   *
+   * Get the event ID.
+   *
+   * @since 1.0.0
+   *
+   * @return Uuid the event ID
+   */
+  public function eventId(): Uuid
+  {
+    return $this->eventId;
+  }
 
-    /**
-     * Method occurredAt
-     * {@inheritDoc}
-     *
-     * Get when the event occurred.
-     *
-     * @since 1.0.0
-     *
-     * @return DateTimeImmutable when the event occurred
-     */
-    public function occurredAt(): DateTimeImmutable
-    {
-        return $this->occurredAt;
-    }
+  /**
+   * Method occurredAt
+   * {@inheritDoc}
+   *
+   * Get when the event occurred.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeImmutable when the event occurred
+   */
+  public function occurredAt(): DateTimeImmutable
+  {
+    return $this->occurredAt;
+  }
 
-    /**
-     * Method aggregateId
-     * {@inheritDoc}
-     *
-     * Get the aggregate ID.
-     *
-     * @since 1.0.0
-     *
-     * @return string the aggregate ID
-     */
-    public function aggregateId(): string
-    {
-        return $this->assignmentId;
-    }
+  /**
+   * Method aggregateId
+   * {@inheritDoc}
+   *
+   * Get the aggregate ID.
+   *
+   * @since 1.0.0
+   *
+   * @return string the aggregate ID
+   */
+  public function aggregateId(): string
+  {
+    return $this->assignmentId;
+  }
 
-    /**
-     * Method aggregateType
-     * {@inheritDoc}
-     *
-     * Get the aggregate type.
-     *
-     * @since 1.0.0
-     *
-     * @return string the aggregate type
-     */
-    public function aggregateType(): string
-    {
-        return 'RoleAssignment';
-    }
+  /**
+   * Method aggregateType
+   * {@inheritDoc}
+   *
+   * Get the aggregate type.
+   *
+   * @since 1.0.0
+   *
+   * @return string the aggregate type
+   */
+  public function aggregateType(): string
+  {
+    return 'RoleAssignment';
+  }
 
-    /**
-     * Method payload
-     * {@inheritDoc}
-     *
-     * Get the event payload.
-     *
-     * @since 1.0.0
-     *
-     * @return array<string, string> the event payload
-     */
-    public function payload(): array
-    {
-        return [
-            'assignmentId' => $this->assignmentId,
-            'roleId' => $this->roleId,
-            'subjectType' => $this->subjectType,
-            'subjectId' => $this->subjectId,
-        ];
-    }
-    // #endregion
+  /**
+   * Method payload
+   * {@inheritDoc}
+   *
+   * Get the event payload.
+   *
+   * @since 1.0.0
+   *
+   * @return array<string, string> the event payload
+   */
+  public function payload(): array
+  {
+    return [
+      'assignmentId' => $this->assignmentId,
+      'roleId' => $this->roleId,
+      'subjectType' => $this->subjectType,
+      'subjectId' => $this->subjectId,
+    ];
+  }
+  // #endregion
 }

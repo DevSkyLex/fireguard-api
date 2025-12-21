@@ -17,20 +17,20 @@ use RuntimeException;
  */
 abstract class ApplicationException extends RuntimeException
 {
-    // #region Methods
-    /**
-     * Method context.
-     *
-     * Returns the context of
-     * the exception.
-     *
-     * @since 1.0.0
-     *
-     * @return array<string, mixed> the context of the exception
-     */
-    public function context(): array
-    {
-        return [];
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method context.
+   *
+   * Returns the context of
+   * the exception.
+   *
+   * @since 1.0.0
+   *
+   * @return array<string, mixed> the context of the exception
+   */
+  public function context(): array
+  {
+    return [];
+  }
+  // #endregion
 }

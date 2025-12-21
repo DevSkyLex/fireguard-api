@@ -19,50 +19,50 @@ use Tenant\Domain\ValueObject\TenantId;
  */
 final readonly class GetTenantHandler implements \Shared\Application\Message\QueryHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param TenantRepositoryPort $tenantRepository the tenant repository
-     */
-    public function __construct(
-        private TenantRepositoryPort $tenantRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param TenantRepositoryPort $tenantRepository the tenant repository
+   */
+  public function __construct(
+    private TenantRepositoryPort $tenantRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the GetTenantQuery.
+   *
+   * @since 1.0.0
+   *
+   * @param GetTenantQuery $query the query to handle
+   *
+   * @return GetTenantResult the result
+   *
+   * @throws TenantNotFoundException if tenant is not found
+   */
+  public function __invoke(GetTenantQuery $query): GetTenantResult
+  {
+    $tenantId = TenantId::fromString(value: $query->tenantId);
+    $tenant = $this->tenantRepository->findById(id: $tenantId);
+
+    if (null === $tenant) {
+      throw TenantNotFoundException::withId(id: $query->tenantId);
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the GetTenantQuery.
-     *
-     * @since 1.0.0
-     *
-     * @param GetTenantQuery $query the query to handle
-     *
-     * @return GetTenantResult the result
-     *
-     * @throws TenantNotFoundException if tenant is not found
-     */
-    public function __invoke(GetTenantQuery $query): GetTenantResult
-    {
-        $tenantId = TenantId::fromString(value: $query->tenantId);
-        $tenant = $this->tenantRepository->findById(id: $tenantId);
-
-        if (null === $tenant) {
-            throw TenantNotFoundException::withId(id: $query->tenantId);
-        }
-
-        return new GetTenantResult(
-            tenantId: (string) $tenant->id(),
-            name: (string) $tenant->name(),
-            settings: $tenant->settings(),
-            isActive: $tenant->isActive(),
-            createdAt: $tenant->createdAt(),
-        );
-    }
-    // #endregion
+    return new GetTenantResult(
+      tenantId: (string) $tenant->id(),
+      name: (string) $tenant->name(),
+      settings: $tenant->settings(),
+      isActive: $tenant->isActive(),
+      createdAt: $tenant->createdAt(),
+    );
+  }
+  // #endregion
 }

@@ -21,87 +21,87 @@ use function json_encode;
  */
 final class UserApiTest extends WebTestCase
 {
-    // #region Properties
-    private ?KernelBrowser $client = null;
-    // #endregion
+  // #region Properties
+  private ?KernelBrowser $client = null;
+  // #endregion
 
-    // #region Setup
-    protected function setUp(): void
-    {
-        $this->client = static::createClient();
-    }
-    // #endregion
+  // #region Setup
+  protected function setUp(): void
+  {
+    $this->client = static::createClient();
+  }
+  // #endregion
 
-    // #region Tests
-    /**
-     * Method testCreateUserEndpointExists.
-     *
-     * Tests that the create user endpoint exists.
-     */
-    public function testCreateUserEndpointExists(): void
-    {
-        $this->client?->request(
-            method: 'POST',
-            uri: '/api/users',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([]) ?: ''
-        );
+  // #region Tests
+  /**
+   * Method testCreateUserEndpointExists.
+   *
+   * Tests that the create user endpoint exists.
+   */
+  public function testCreateUserEndpointExists(): void
+  {
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/users',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([]) ?: ''
+    );
 
-        $response = $this->client?->getResponse();
-        $this->assertNotNull($response);
-        // Should not be 404 - endpoint exists
-        $this->assertNotSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
-    }
+    $response = $this->client?->getResponse();
+    $this->assertNotNull($response);
+    // Should not be 404 - endpoint exists
+    $this->assertNotSame(Response::HTTP_NOT_FOUND, $response->getStatusCode());
+  }
 
-    /**
-     * Method testUserEndpointsRequireAuthentication.
-     *
-     * Tests that user endpoints require authentication.
-     */
-    public function testUserEndpointsRequireAuthentication(): void
-    {
-        $this->client?->request(
-            method: 'GET',
-            uri: '/api/users',
-            server: ['HTTP_ACCEPT' => 'application/ld+json']
-        );
+  /**
+   * Method testUserEndpointsRequireAuthentication.
+   *
+   * Tests that user endpoints require authentication.
+   */
+  public function testUserEndpointsRequireAuthentication(): void
+  {
+    $this->client?->request(
+      method: 'GET',
+      uri: '/api/users',
+      server: ['HTTP_ACCEPT' => 'application/ld+json']
+    );
 
-        $response = $this->client?->getResponse();
-        $this->assertNotNull($response);
-        // Should require authentication
-        $this->assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
-    }
+    $response = $this->client?->getResponse();
+    $this->assertNotNull($response);
+    // Should require authentication
+    $this->assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
 
-    /**
-     * Method testCreateUserWithoutAuthReturnsUnauthorized.
-     *
-     * Tests that creating a user without auth returns 401.
-     */
-    public function testCreateUserWithoutAuthReturnsUnauthorized(): void
-    {
-        $this->client?->request(
-            method: 'POST',
-            uri: '/api/users',
-            server: [
-                'CONTENT_TYPE' => 'application/ld+json',
-                'HTTP_ACCEPT' => 'application/ld+json',
-            ],
-            content: json_encode([
-                'username' => 'testuser',
-                'email' => 'test@example.com',
-                'password' => 'TestPassword123!',
-                'firstName' => 'Test',
-                'lastName' => 'User',
-            ]) ?: ''
-        );
+  /**
+   * Method testCreateUserWithoutAuthReturnsUnauthorized.
+   *
+   * Tests that creating a user without auth returns 401.
+   */
+  public function testCreateUserWithoutAuthReturnsUnauthorized(): void
+  {
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/users',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'username' => 'testuser',
+        'email' => 'test@example.com',
+        'password' => 'TestPassword123!',
+        'firstName' => 'Test',
+        'lastName' => 'User',
+      ]) ?: ''
+    );
 
-        $response = $this->client?->getResponse();
-        $this->assertNotNull($response);
-        // Should require authentication
-        $this->assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
-    }
-    // #endregion
+    $response = $this->client?->getResponse();
+    $this->assertNotNull($response);
+    // Should require authentication
+    $this->assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+  // #endregion
 }

@@ -19,99 +19,99 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class TenantCreatedEvent implements DomainEvent
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param Uuid              $eventId    the event ID
-     * @param string            $tenantId   the tenant ID
-     * @param string            $tenantName the tenant name
-     * @param DateTimeImmutable $occurredAt when the event occurred
-     */
-    public function __construct(
-        private Uuid $eventId,
-        private string $tenantId,
-        private string $tenantName,
-        private DateTimeImmutable $occurredAt,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param Uuid              $eventId    the event ID
+   * @param string            $tenantId   the tenant ID
+   * @param string            $tenantName the tenant name
+   * @param DateTimeImmutable $occurredAt when the event occurred
+   */
+  public function __construct(
+    private Uuid $eventId,
+    private string $tenantId,
+    private string $tenantName,
+    private DateTimeImmutable $occurredAt,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method eventId
-     * {@inheritDoc}
-     */
-    public function eventId(): Uuid
-    {
-        return $this->eventId;
-    }
+  // #region Methods
+  /**
+   * Method eventId
+   * {@inheritDoc}
+   */
+  public function eventId(): Uuid
+  {
+    return $this->eventId;
+  }
 
-    /**
-     * Method occurredAt
-     * {@inheritDoc}
-     */
-    public function occurredAt(): DateTimeImmutable
-    {
-        return $this->occurredAt;
-    }
+  /**
+   * Method occurredAt
+   * {@inheritDoc}
+   */
+  public function occurredAt(): DateTimeImmutable
+  {
+    return $this->occurredAt;
+  }
 
-    /**
-     * Method aggregateId
-     * {@inheritDoc}
-     */
-    public function aggregateId(): string
-    {
-        return $this->tenantId;
-    }
+  /**
+   * Method aggregateId
+   * {@inheritDoc}
+   */
+  public function aggregateId(): string
+  {
+    return $this->tenantId;
+  }
 
-    /**
-     * Method aggregateType
-     * {@inheritDoc}
-     */
-    public function aggregateType(): string
-    {
-        return 'Tenant';
-    }
+  /**
+   * Method aggregateType
+   * {@inheritDoc}
+   */
+  public function aggregateType(): string
+  {
+    return 'Tenant';
+  }
 
-    /**
-     * Method payload
-     * {@inheritDoc}
-     *
-     * @return array<string, mixed>
-     */
-    public function payload(): array
-    {
-        return [
-            'tenant_id' => $this->tenantId,
-            'tenant_name' => $this->tenantName,
-        ];
-    }
+  /**
+   * Method payload
+   * {@inheritDoc}
+   *
+   * @return array<string, mixed>
+   */
+  public function payload(): array
+  {
+    return [
+      'tenant_id' => $this->tenantId,
+      'tenant_name' => $this->tenantName,
+    ];
+  }
 
-    /**
-     * Method tenantId.
-     *
-     * @since 1.0.0
-     *
-     * @return string the tenant ID
-     */
-    public function tenantId(): string
-    {
-        return $this->tenantId;
-    }
+  /**
+   * Method tenantId.
+   *
+   * @since 1.0.0
+   *
+   * @return string the tenant ID
+   */
+  public function tenantId(): string
+  {
+    return $this->tenantId;
+  }
 
-    /**
-     * Method tenantName.
-     *
-     * @since 1.0.0
-     *
-     * @return string the tenant name
-     */
-    public function tenantName(): string
-    {
-        return $this->tenantName;
-    }
-    // #endregion
+  /**
+   * Method tenantName.
+   *
+   * @since 1.0.0
+   *
+   * @return string the tenant name
+   */
+  public function tenantName(): string
+  {
+    return $this->tenantName;
+  }
+  // #endregion
 }

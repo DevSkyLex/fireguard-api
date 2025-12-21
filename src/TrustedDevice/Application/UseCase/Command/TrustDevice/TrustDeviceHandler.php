@@ -22,83 +22,83 @@ use TrustedDevice\Domain\ValueObject\TrustedDeviceId;
  */
 final readonly class TrustDeviceHandler implements CommandHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initialize the handler with the
-     * device repository and UUID factory.
-     *
-     * @since 1.0.0
-     *
-     * @param TrustedDeviceRepositoryPort $repository  the device repository
-     * @param UuidFactory                 $uuidFactory the UUID factory
-     */
-    public function __construct(
-        private readonly TrustedDeviceRepositoryPort $repository,
-        private readonly UuidFactory $uuidFactory,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initialize the handler with the
+   * device repository and UUID factory.
+   *
+   * @since 1.0.0
+   *
+   * @param TrustedDeviceRepositoryPort $repository  the device repository
+   * @param UuidFactory                 $uuidFactory the UUID factory
+   */
+  public function __construct(
+    private readonly TrustedDeviceRepositoryPort $repository,
+    private readonly UuidFactory $uuidFactory,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the trust device command.
+   *
+   * @since 1.0.0
+   *
+   * @param TrustDeviceCommand $command the command
+   *
+   * @return TrustDeviceResult the result
+   */
+  public function __invoke(TrustDeviceCommand $command): TrustDeviceResult
+  {
+    // Create fingerprint
+    $fingerprint = DeviceFingerprint::create(
+      userAgent: $command->userAgent,
+      ipAddress: $command->ipAddress,
+      acceptLanguage: $command->acceptLanguage,
+    );
+
+    // Check if device already exists
+    $existing = $this->repository->findByUserIdAndFingerprint(
+      userId: $command->userId,
+      fingerprint: $fingerprint->value,
+    );
+
+    if (null !== $existing && $existing->isValid()) {
+      // Return existing valid device
+      return new TrustDeviceResult(
+        deviceId: $existing->id()->value,
+        token: $existing->token()->plain(),
+        deviceName: $existing->name(),
+        expiresAt: $existing->expiresAt(),
+      );
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the trust device command.
-     *
-     * @since 1.0.0
-     *
-     * @param TrustDeviceCommand $command the command
-     *
-     * @return TrustDeviceResult the result
-     */
-    public function __invoke(TrustDeviceCommand $command): TrustDeviceResult
-    {
-        // Create fingerprint
-        $fingerprint = DeviceFingerprint::create(
-            userAgent: $command->userAgent,
-            ipAddress: $command->ipAddress,
-            acceptLanguage: $command->acceptLanguage,
-        );
+    // Create new trusted device
+    $deviceId = $this->uuidFactory->create(TrustedDeviceId::class);
 
-        // Check if device already exists
-        $existing = $this->repository->findByUserIdAndFingerprint(
-            userId: $command->userId,
-            fingerprint: $fingerprint->value,
-        );
+    $device = TrustedDevice::trust(
+      id: $deviceId,
+      userId: $command->userId,
+      fingerprint: $fingerprint,
+      ttlDays: $command->ttlDays,
+    );
 
-        if (null !== $existing && $existing->isValid()) {
-            // Return existing valid device
-            return new TrustDeviceResult(
-                deviceId: $existing->id()->value,
-                token: $existing->token()->plain(),
-                deviceName: $existing->name(),
-                expiresAt: $existing->expiresAt(),
-            );
-        }
+    // Get token before saving (plain token only available at creation)
+    $plainToken = $device->token()->plain();
 
-        // Create new trusted device
-        $deviceId = $this->uuidFactory->create(TrustedDeviceId::class);
+    $this->repository->save(device: $device);
 
-        $device = TrustedDevice::trust(
-            id: $deviceId,
-            userId: $command->userId,
-            fingerprint: $fingerprint,
-            ttlDays: $command->ttlDays,
-        );
-
-        // Get token before saving (plain token only available at creation)
-        $plainToken = $device->token()->plain();
-
-        $this->repository->save(device: $device);
-
-        return new TrustDeviceResult(
-            deviceId: $deviceId->value,
-            token: $plainToken,
-            deviceName: $device->name(),
-            expiresAt: $device->expiresAt(),
-        );
-    }
-    // #endregion
+    return new TrustDeviceResult(
+      deviceId: $deviceId->value,
+      token: $plainToken,
+      deviceName: $device->name(),
+      expiresAt: $device->expiresAt(),
+    );
+  }
+  // #endregion
 }

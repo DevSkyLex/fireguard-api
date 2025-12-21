@@ -20,18 +20,18 @@ use Shared\Domain\Event\DomainEvent;
  */
 interface EventBusPort
 {
-    // #region Methods
-    /**
-     * Method publish.
-     *
-     * Publish events to the application.
-     *
-     * @since 1.0.0
-     *
-     * @param DomainEvent ...$events The events to publish.
-     *
-     * @return void no return value
-     */
-    public function publish(DomainEvent ...$events): void;
-    // #endregion
+  // #region Methods
+  /**
+   * Method publish.
+   *
+   * Publish events to the application.
+   *
+   * @since 1.0.0
+   *
+   * @param DomainEvent ...$events The events to publish.
+   *
+   * @return void no return value
+   */
+  public function publish(DomainEvent ...$events): void;
+  // #endregion
 }

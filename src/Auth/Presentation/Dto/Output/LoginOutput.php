@@ -20,168 +20,168 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
  */
 final class LoginOutput
 {
-    // #region Properties
-    /**
-     * Property accessToken.
-     *
-     * JWT access token for authenticated API requests.
-     * Use in Authorization header as: Bearer <token>
-     *
-     * @example eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
-     *
-     * @since 1.0.0
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[SerializedName('access_token')]
-    #[ApiProperty(
-        description: 'JWT access token for API authentication',
-        readable: true,
-        writable: false,
-        required: true,
-        identifier: false,
-        example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
-        openapiContext: [
-            'type' => 'string',
-            'readOnly' => true,
-        ],
-        jsonSchemaContext: [
-            'type' => 'string',
-            'readOnly' => true,
-        ],
-    )]
-    public ?string $accessToken = null;
+  // #region Properties
+  /**
+   * Property accessToken.
+   *
+   * JWT access token for authenticated API requests.
+   * Use in Authorization header as: Bearer <token>
+   *
+   * @example eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[SerializedName('access_token')]
+  #[ApiProperty(
+    description: 'JWT access token for API authentication',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+  )]
+  public ?string $accessToken = null;
 
-    /**
-     * Property tokenType.
-     *
-     * The type of token issued. Always 'Bearer'.
-     * Indicates the token should be used as a Bearer token.
-     *
-     * @example Bearer
-     *
-     * @since 1.0.0
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[SerializedName('token_type')]
-    #[ApiProperty(
-        description: 'Token type (always Bearer)',
-        readable: true,
-        writable: false,
-        required: true,
-        identifier: false,
-        example: 'Bearer',
-        openapiContext: [
-            'type' => 'string',
-            'enum' => ['Bearer'],
-            'default' => 'Bearer',
-            'readOnly' => true,
-        ],
-        jsonSchemaContext: [
-            'type' => 'string',
-            'default' => 'Bearer',
-        ],
-    )]
-    public string $tokenType = 'Bearer';
+  /**
+   * Property tokenType.
+   *
+   * The type of token issued. Always 'Bearer'.
+   * Indicates the token should be used as a Bearer token.
+   *
+   * @example Bearer
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[SerializedName('token_type')]
+  #[ApiProperty(
+    description: 'Token type (always Bearer)',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'Bearer',
+    openapiContext: [
+      'type' => 'string',
+      'enum' => ['Bearer'],
+      'default' => 'Bearer',
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'default' => 'Bearer',
+    ],
+  )]
+  public string $tokenType = 'Bearer';
 
-    /**
-     * Property expiresIn.
-     *
-     * Lifetime of the access token in seconds.
-     * After this duration, the token will expire.
-     *
-     * @example 3600
-     *
-     * @since 1.0.0
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[SerializedName('expires_in')]
-    #[ApiProperty(
-        description: 'Token lifetime in seconds',
-        readable: true,
-        writable: false,
-        required: true,
-        identifier: false,
-        example: 3600,
-        openapiContext: [
-            'type' => 'integer',
-            'minimum' => 1,
-            'example' => 3600,
-            'readOnly' => true,
-        ],
-        jsonSchemaContext: [
-            'type' => 'integer',
-            'minimum' => 1,
-        ],
-    )]
-    public ?int $expiresIn = null;
+  /**
+   * Property expiresIn.
+   *
+   * Lifetime of the access token in seconds.
+   * After this duration, the token will expire.
+   *
+   * @example 3600
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[SerializedName('expires_in')]
+  #[ApiProperty(
+    description: 'Token lifetime in seconds',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 3600,
+    openapiContext: [
+      'type' => 'integer',
+      'minimum' => 1,
+      'example' => 3600,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'integer',
+      'minimum' => 1,
+    ],
+  )]
+  public ?int $expiresIn = null;
 
-    /**
-     * Property scope.
-     *
-     * Space-separated list of granted permissions.
-     *
-     * @example openid profile email
-     *
-     * @since 1.0.0
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[ApiProperty(
-        description: 'Space-separated list of granted scopes',
-        readable: true,
-        writable: false,
-        required: false,
-        identifier: false,
-        example: 'openid profile email',
-        openapiContext: [
-            'type' => 'string',
-            'nullable' => true,
-            'readOnly' => true,
-        ],
-        jsonSchemaContext: [
-            'type' => 'string',
-            'nullable' => true,
-        ],
-    )]
-    public ?string $scope = null;
+  /**
+   * Property scope.
+   *
+   * Space-separated list of granted permissions.
+   *
+   * @example openid profile email
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'Space-separated list of granted scopes',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'openid profile email',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'nullable' => true,
+    ],
+  )]
+  public ?string $scope = null;
 
-    /**
-     * Property mfaRequired.
-     *
-     * Indicates if MFA is required to complete authentication.
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[ApiProperty(
-        description: 'If true, authentication is incomplete. Use mfa_token to verify code.',
-        example: true,
-    )]
-    #[SerializedName('mfa_required')]
-    public ?bool $mfaRequired = null;
+  /**
+   * Property mfaRequired.
+   *
+   * Indicates if MFA is required to complete authentication.
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'If true, authentication is incomplete. Use mfa_token to verify code.',
+    example: true,
+  )]
+  #[SerializedName('mfa_required')]
+  public ?bool $mfaRequired = null;
 
-    /**
-     * Property mfaToken.
-     *
-     * Pre-Auth Token to use for MFA verification.
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[ApiProperty(
-        description: 'Temporary Pre-Auth Token (JWT) covering the partial authentication state.',
-        example: 'eyJ...',
-    )]
-    #[SerializedName('mfa_token')]
-    public ?string $mfaToken = null;
+  /**
+   * Property mfaToken.
+   *
+   * Pre-Auth Token to use for MFA verification.
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'Temporary Pre-Auth Token (JWT) covering the partial authentication state.',
+    example: 'eyJ...',
+  )]
+  #[SerializedName('mfa_token')]
+  public ?string $mfaToken = null;
 
-    /**
-     * Property challengeToken.
-     *
-     * The challenge token from the OTP system.
-     */
-    #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
-    #[ApiProperty(
-        description: 'The OTP challenge token (reference).',
-        example: 'abc...',
-    )]
-    #[SerializedName('challenge_token')]
-    public ?string $challengeToken = null;
+  /**
+   * Property challengeToken.
+   *
+   * The challenge token from the OTP system.
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'The OTP challenge token (reference).',
+    example: 'abc...',
+  )]
+  #[SerializedName('challenge_token')]
+  public ?string $challengeToken = null;
 
-    // #endregion
+  // #endregion
 }

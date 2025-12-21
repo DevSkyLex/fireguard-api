@@ -17,40 +17,40 @@ use DateTimeImmutable;
  */
 final class OtpOutput
 {
-    // #region Properties
-    /**
-     * Property id.
-     *
-     * The OTP ID.
-     */
-    public string $id;
+  // #region Properties
+  /**
+   * Property id.
+   *
+   * The OTP ID.
+   */
+  public string $id;
 
-    /**
-     * Property status.
-     *
-     * The OTP status (pending, verified, expired, failed).
-     */
-    public string $status;
+  /**
+   * Property status.
+   *
+   * The OTP status (pending, verified, expired, failed).
+   */
+  public string $status;
 
-    /**
-     * Property maskedRecipient.
-     *
-     * The masked recipient.
-     */
-    public string $maskedRecipient;
+  /**
+   * Property maskedRecipient.
+   *
+   * The masked recipient.
+   */
+  public string $maskedRecipient;
 
-    /**
-     * Property expiresAt.
-     *
-     * When the OTP expires.
-     */
-    public DateTimeImmutable $expiresAt;
+  /**
+   * Property expiresAt.
+   *
+   * When the OTP expires.
+   */
+  public DateTimeImmutable $expiresAt;
 
-    /**
-     * Property attemptsRemaining.
-     *
-     * Remaining verification attempts.
-     */
-    public int $attemptsRemaining;
-    // #endregion
+  /**
+   * Property attemptsRemaining.
+   *
+   * Remaining verification attempts.
+   */
+  public int $attemptsRemaining;
+  // #endregion
 }

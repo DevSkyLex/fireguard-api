@@ -23,67 +23,67 @@ use function time;
  */
 final readonly class LoginRateLimiterAdapter implements RateLimiterPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * LoginRateLimiterAdapter class.
-     *
-     * @since 1.0.0
-     *
-     * @param RateLimiterFactory $loginLimiter the rate limiter factory
-     */
-    public function __construct(
-        #[Autowire(service: 'limiter.login')]
-        private readonly RateLimiterFactory $loginLimiter,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * LoginRateLimiterAdapter class.
+   *
+   * @since 1.0.0
+   *
+   * @param RateLimiterFactory $loginLimiter the rate limiter factory
+   */
+  public function __construct(
+    #[Autowire(service: 'limiter.login')]
+    private readonly RateLimiterFactory $loginLimiter,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method consume
-     * {@inheritDoc}
-     *
-     * Consumes tokens from the rate limiter for the given key.
-     *
-     * @since 1.0.0
-     *
-     * @param string $key    the key to rate limit
-     * @param int    $tokens the number of tokens to consume
-     *
-     * @return RateLimitResult the rate limit result
-     */
-    public function consume(string $key, int $tokens = 1): RateLimitResult
-    {
-        $limiter = $this->loginLimiter->create(key: $key);
-        $limit = $limiter->consume(tokens: $tokens);
+  // #region Methods
+  /**
+   * Method consume
+   * {@inheritDoc}
+   *
+   * Consumes tokens from the rate limiter for the given key.
+   *
+   * @since 1.0.0
+   *
+   * @param string $key    the key to rate limit
+   * @param int    $tokens the number of tokens to consume
+   *
+   * @return RateLimitResult the rate limit result
+   */
+  public function consume(string $key, int $tokens = 1): RateLimitResult
+  {
+    $limiter = $this->loginLimiter->create(key: $key);
+    $limit = $limiter->consume(tokens: $tokens);
 
-        if ($limit->isAccepted()) {
-            return RateLimitResult::accepted($limit->getRemainingTokens());
-        }
-
-        $retryAfter = $limit->getRetryAfter();
-        $seconds = $retryAfter->getTimestamp() - time();
-
-        return RateLimitResult::rejected(retryAfter: max(0, $seconds));
+    if ($limit->isAccepted()) {
+      return RateLimitResult::accepted($limit->getRemainingTokens());
     }
 
-    /**
-     * Method reset
-     * {@inheritDoc}
-     *
-     * Resets the rate limiter for the given key.
-     *
-     * @since 1.0.0
-     *
-     * @param string $key the key to reset
-     */
-    public function reset(string $key): void
-    {
-        $limiter = $this->loginLimiter->create(key: $key);
-        $limiter->reset();
-    }
-    // #endregion
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = $retryAfter->getTimestamp() - time();
+
+    return RateLimitResult::rejected(retryAfter: max(0, $seconds));
+  }
+
+  /**
+   * Method reset
+   * {@inheritDoc}
+   *
+   * Resets the rate limiter for the given key.
+   *
+   * @since 1.0.0
+   *
+   * @param string $key the key to reset
+   */
+  public function reset(string $key): void
+  {
+    $limiter = $this->loginLimiter->create(key: $key);
+    $limiter->reset();
+  }
+  // #endregion
 }

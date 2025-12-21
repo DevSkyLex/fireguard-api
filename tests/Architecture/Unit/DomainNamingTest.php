@@ -24,91 +24,91 @@ use function str_ends_with;
  */
 final class DomainNamingTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testEventsEndWithEventSuffix.
-     *
-     * Ensures every class in Domain/Event/
-     * ends with "Event".
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testEventsEndWithEventSuffix(): void
-    {
-        $this->assertDomainNaming('Event', 'Event');
-    }
+  // #region Methods
+  /**
+   * Method testEventsEndWithEventSuffix.
+   *
+   * Ensures every class in Domain/Event/
+   * ends with "Event".
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testEventsEndWithEventSuffix(): void
+  {
+    $this->assertDomainNaming('Event', 'Event');
+  }
 
-    /**
-     * Method testExceptionsEndWithExceptionSuffix.
-     *
-     * Ensures every class in Domain/Exception/ ends with "Exception".
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testExceptionsEndWithExceptionSuffix(): void
-    {
-        $this->assertDomainNaming('Exception', 'Exception');
-    }
+  /**
+   * Method testExceptionsEndWithExceptionSuffix.
+   *
+   * Ensures every class in Domain/Exception/ ends with "Exception".
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testExceptionsEndWithExceptionSuffix(): void
+  {
+    $this->assertDomainNaming('Exception', 'Exception');
+  }
 
-    /**
-     * Method assertDomainNaming.
-     *
-     * Asserts that all files in a domain subdirectory follow the naming convention.
-     *
-     * @param string $directory the subdirectory name under Domain/
-     * @param string $suffix    the required suffix
-     *
-     * @return void no return value
-     */
-    private function assertDomainNaming(string $directory, string $suffix): void
-    {
-        $violations = [];
+  /**
+   * Method assertDomainNaming.
+   *
+   * Asserts that all files in a domain subdirectory follow the naming convention.
+   *
+   * @param string $directory the subdirectory name under Domain/
+   * @param string $suffix    the required suffix
+   *
+   * @return void no return value
+   */
+  private function assertDomainNaming(string $directory, string $suffix): void
+  {
+    $violations = [];
 
-        foreach (ModuleCollection::all() as $module) {
-            if (!$module->hasLayer(ArchitectureLayer::DOMAIN)) {
-                continue;
-            }
+    foreach (ModuleCollection::all() as $module) {
+      if (!$module->hasLayer(ArchitectureLayer::DOMAIN)) {
+        continue;
+      }
 
-            $targetDir = $module->layerPath(ArchitectureLayer::DOMAIN)
-              . DIRECTORY_SEPARATOR . $directory;
+      $targetDir = $module->layerPath(ArchitectureLayer::DOMAIN)
+        . DIRECTORY_SEPARATOR . $directory;
 
-            if (!is_dir($targetDir)) {
-                continue;
-            }
+      if (!is_dir($targetDir)) {
+        continue;
+      }
 
-            $iterator = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($targetDir)
-            );
+      $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($targetDir)
+      );
 
-            foreach ($iterator as $file) {
-                if (!$file instanceof SplFileInfo) {
-                    continue;
-                }
-                if (!$file->isFile() || 'php' !== $file->getExtension()) {
-                    continue;
-                }
-
-                $shortName = $file->getBasename('.php');
-
-                if (!str_ends_with($shortName, $suffix)) {
-                    $violations[] = sprintf(
-                        '%s\\Domain\\%s\\%s must end with suffix "%s".',
-                        $module->namespace,
-                        $directory,
-                        $shortName,
-                        $suffix
-                    );
-                }
-            }
+      foreach ($iterator as $file) {
+        if (!$file instanceof SplFileInfo) {
+          continue;
+        }
+        if (!$file->isFile() || 'php' !== $file->getExtension()) {
+          continue;
         }
 
-        self::assertSame(
-            expected: [],
-            actual: $violations,
-            message: sprintf('Every class in Domain/%s/ must end with suffix "%s".', $directory, $suffix)
-        );
+        $shortName = $file->getBasename('.php');
+
+        if (!str_ends_with($shortName, $suffix)) {
+          $violations[] = sprintf(
+            '%s\\Domain\\%s\\%s must end with suffix "%s".',
+            $module->namespace,
+            $directory,
+            $shortName,
+            $suffix
+          );
+        }
+      }
     }
-    // #endregion
+
+    self::assertSame(
+      expected: [],
+      actual: $violations,
+      message: sprintf('Every class in Domain/%s/ must end with suffix "%s".', $directory, $suffix)
+    );
+  }
+  // #endregion
 }

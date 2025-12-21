@@ -17,27 +17,27 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class MfaVerifyResult implements ResultMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param bool        $success           whether verification succeeded
-     * @param int         $attemptsRemaining remaining verification attempts
-     * @param string|null $error             error message if failed
-     * @param string|null $accessToken       the access token (if success)
-     * @param string|null $refreshToken      the refresh token (if success)
-     * @param string      $tokenType         the token type
-     * @param int         $expiresIn         token expiration in seconds
-     */
-    public function __construct(
-        public bool $success,
-        public int $attemptsRemaining = 0,
-        public ?string $error = null,
-        public ?string $accessToken = null,
-        public ?string $refreshToken = null,
-        public string $tokenType = 'Bearer',
-        public int $expiresIn = 0,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param bool        $success           whether verification succeeded
+   * @param int         $attemptsRemaining remaining verification attempts
+   * @param string|null $error             error message if failed
+   * @param string|null $accessToken       the access token (if success)
+   * @param string|null $refreshToken      the refresh token (if success)
+   * @param string      $tokenType         the token type
+   * @param int         $expiresIn         token expiration in seconds
+   */
+  public function __construct(
+    public bool $success,
+    public int $attemptsRemaining = 0,
+    public ?string $error = null,
+    public ?string $accessToken = null,
+    public ?string $refreshToken = null,
+    public string $tokenType = 'Bearer',
+    public int $expiresIn = 0,
+  ) {
+  }
+  // #endregion
 }

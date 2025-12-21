@@ -32,147 +32,147 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RemovePermissionFromRoleProcessor::class)]
 final class RemovePermissionFromRoleProcessorTest extends TestCase
 {
-    // #region Properties
-    private RoleRepositoryPort&MockObject $roleRepository;
-    private PermissionRepositoryPort&MockObject $permissionRepository;
-    private RemovePermissionFromRoleProcessor $processor;
-    // #endregion
+  // #region Properties
+  private RoleRepositoryPort&MockObject $roleRepository;
+  private PermissionRepositoryPort&MockObject $permissionRepository;
+  private RemovePermissionFromRoleProcessor $processor;
+  // #endregion
 
-    // #region Setup
-    protected function setUp(): void
-    {
-        $this->roleRepository = $this->createMock(RoleRepositoryPort::class);
-        $this->permissionRepository = $this->createMock(PermissionRepositoryPort::class);
-        $this->processor = new RemovePermissionFromRoleProcessor(
-            $this->roleRepository,
-            $this->permissionRepository
-        );
-    }
-    // #endregion
+  // #region Setup
+  protected function setUp(): void
+  {
+    $this->roleRepository = $this->createMock(RoleRepositoryPort::class);
+    $this->permissionRepository = $this->createMock(PermissionRepositoryPort::class);
+    $this->processor = new RemovePermissionFromRoleProcessor(
+      $this->roleRepository,
+      $this->permissionRepository
+    );
+  }
+  // #endregion
 
-    // #region Tests
+  // #region Tests
 
-    /**
-     * Test successfully removing a permission from a role.
-     */
-    #[Test]
-    public function testRemovePermissionFromRoleSuccessfully(): void
-    {
-        // Arrange
-        $roleId = '550e8400-e29b-41d4-a716-446655440000';
-        $permissionId = '660e8400-e29b-41d4-a716-446655440000';
+  /**
+   * Test successfully removing a permission from a role.
+   */
+  #[Test]
+  public function testRemovePermissionFromRoleSuccessfully(): void
+  {
+    // Arrange
+    $roleId = '550e8400-e29b-41d4-a716-446655440000';
+    $permissionId = '660e8400-e29b-41d4-a716-446655440000';
 
-        $permission = Permission::create(
-            id: new PermissionId($permissionId),
-            name: new PermissionName('users.create'),
-            description: 'Create users'
-        );
+    $permission = Permission::create(
+      id: new PermissionId($permissionId),
+      name: new PermissionName('users.create'),
+      description: 'Create users'
+    );
 
-        $role = Role::create(
-            id: new RoleId($roleId),
-            name: new RoleName('admin'),
-            description: 'Admin role'
-        );
-        $role->addPermission($permission);
+    $role = Role::create(
+      id: new RoleId($roleId),
+      name: new RoleName('admin'),
+      description: 'Admin role'
+    );
+    $role->addPermission($permission);
 
-        $this->roleRepository
-          ->expects($this->once())
-          ->method('findById')
-          ->with($this->callback(fn (RoleId $id) => $id->value === $roleId))
-          ->willReturn($role);
+    $this->roleRepository
+      ->expects($this->once())
+      ->method('findById')
+      ->with($this->callback(fn (RoleId $id) => $id->value === $roleId))
+      ->willReturn($role);
 
-        $this->permissionRepository
-          ->expects($this->once())
-          ->method('findById')
-          ->with($this->callback(fn (PermissionId $id) => $id->value === $permissionId))
-          ->willReturn($permission);
+    $this->permissionRepository
+      ->expects($this->once())
+      ->method('findById')
+      ->with($this->callback(fn (PermissionId $id) => $id->value === $permissionId))
+      ->willReturn($permission);
 
-        $this->roleRepository
-          ->expects($this->once())
-          ->method('save')
-          ->with($role);
+    $this->roleRepository
+      ->expects($this->once())
+      ->method('save')
+      ->with($role);
 
-        $operation = new Delete();
+    $operation = new Delete();
 
-        // Act
-        $output = $this->processor->process(
-            null,
-            $operation,
-            ['roleId' => $roleId, 'permissionId' => $permissionId]
-        );
+    // Act
+    $output = $this->processor->process(
+      null,
+      $operation,
+      ['roleId' => $roleId, 'permissionId' => $permissionId]
+    );
 
-        // Assert
-        $this->assertInstanceOf(RoleOutput::class, $output);
-        $this->assertEquals($roleId, $output->id);
-        $this->assertEmpty($output->permissions);
-    }
+    // Assert
+    $this->assertInstanceOf(RoleOutput::class, $output);
+    $this->assertEquals($roleId, $output->id);
+    $this->assertEmpty($output->permissions);
+  }
 
-    /**
-     * Test removing permission from non-existent role throws exception.
-     */
-    #[Test]
-    public function testRemovePermissionFromNonExistentRoleThrowsException(): void
-    {
-        // Arrange
-        $roleId = '550e8400-e29b-41d4-a716-446655440000';
-        $permissionId = '660e8400-e29b-41d4-a716-446655440000';
+  /**
+   * Test removing permission from non-existent role throws exception.
+   */
+  #[Test]
+  public function testRemovePermissionFromNonExistentRoleThrowsException(): void
+  {
+    // Arrange
+    $roleId = '550e8400-e29b-41d4-a716-446655440000';
+    $permissionId = '660e8400-e29b-41d4-a716-446655440000';
 
-        $this->roleRepository
-          ->expects($this->once())
-          ->method('findById')
-          ->willReturn(null);
+    $this->roleRepository
+      ->expects($this->once())
+      ->method('findById')
+      ->willReturn(null);
 
-        $operation = new Delete();
+    $operation = new Delete();
 
-        // Assert
-        $this->expectException(\Authorization\Domain\Exception\RoleNotFoundException::class);
+    // Assert
+    $this->expectException(\Authorization\Domain\Exception\RoleNotFoundException::class);
 
-        // Act
-        $this->processor->process(
-            null,
-            $operation,
-            ['roleId' => $roleId, 'permissionId' => $permissionId]
-        );
-    }
+    // Act
+    $this->processor->process(
+      null,
+      $operation,
+      ['roleId' => $roleId, 'permissionId' => $permissionId]
+    );
+  }
 
-    /**
-     * Test removing non-existent permission throws exception.
-     */
-    #[Test]
-    public function testRemoveNonExistentPermissionThrowsException(): void
-    {
-        // Arrange
-        $roleId = '550e8400-e29b-41d4-a716-446655440000';
-        $permissionId = '660e8400-e29b-41d4-a716-446655440000';
+  /**
+   * Test removing non-existent permission throws exception.
+   */
+  #[Test]
+  public function testRemoveNonExistentPermissionThrowsException(): void
+  {
+    // Arrange
+    $roleId = '550e8400-e29b-41d4-a716-446655440000';
+    $permissionId = '660e8400-e29b-41d4-a716-446655440000';
 
-        $role = Role::create(
-            id: new RoleId($roleId),
-            name: new RoleName('admin'),
-            description: 'Admin role'
-        );
+    $role = Role::create(
+      id: new RoleId($roleId),
+      name: new RoleName('admin'),
+      description: 'Admin role'
+    );
 
-        $this->roleRepository
-          ->expects($this->once())
-          ->method('findById')
-          ->willReturn($role);
+    $this->roleRepository
+      ->expects($this->once())
+      ->method('findById')
+      ->willReturn($role);
 
-        $this->permissionRepository
-          ->expects($this->once())
-          ->method('findById')
-          ->willReturn(null);
+    $this->permissionRepository
+      ->expects($this->once())
+      ->method('findById')
+      ->willReturn(null);
 
-        $operation = new Delete();
+    $operation = new Delete();
 
-        // Assert
-        $this->expectException(\Authorization\Domain\Exception\PermissionNotFoundException::class);
+    // Assert
+    $this->expectException(\Authorization\Domain\Exception\PermissionNotFoundException::class);
 
-        // Act
-        $this->processor->process(
-            null,
-            $operation,
-            ['roleId' => $roleId, 'permissionId' => $permissionId]
-        );
-    }
+    // Act
+    $this->processor->process(
+      null,
+      $operation,
+      ['roleId' => $roleId, 'permissionId' => $permissionId]
+    );
+  }
 
-    // #endregion
+  // #endregion
 }

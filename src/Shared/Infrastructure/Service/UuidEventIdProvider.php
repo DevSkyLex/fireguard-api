@@ -19,24 +19,24 @@ use Shared\Domain\ValueObject\Uuid;
  */
 final readonly class UuidEventIdProvider implements EventIdProvider
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param UuidGeneratorPort $uuidGenerator the UUID generator
-     */
-    public function __construct(
-        private UuidGeneratorPort $uuidGenerator,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param UuidGeneratorPort $uuidGenerator the UUID generator
+   */
+  public function __construct(
+    private UuidGeneratorPort $uuidGenerator,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    public function nextEventId(): Uuid
-    {
-        return new Uuid($this->uuidGenerator->generate());
-    }
-    // #endregion
+  // #region Methods
+  public function nextEventId(): Uuid
+  {
+    return new Uuid($this->uuidGenerator->generate());
+  }
+  // #endregion
 }

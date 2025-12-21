@@ -17,42 +17,42 @@ namespace Shared\Domain\ValueObject;
  */
 enum IpAddressType: string
 {
-    // #region Constants
-    /**
-     * Case IPV4.
-     *
-     * IPv4 address type.
-     *
-     * @since 1.0.0
-     */
-    case IPV4 = 'ipv4';
+  // #region Constants
+  /**
+   * Case IPV4.
+   *
+   * IPv4 address type.
+   *
+   * @since 1.0.0
+   */
+  case IPV4 = 'ipv4';
 
-    /**
-     * Case IPV6.
-     *
-     * IPv6 address type.
-     *
-     * @since 1.0.0
-     */
-    case IPV6 = 'ipv6';
-    // #endregion
+  /**
+   * Case IPV6.
+   *
+   * IPv6 address type.
+   *
+   * @since 1.0.0
+   */
+  case IPV6 = 'ipv6';
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method label.
-     *
-     * Returns a human-readable label for the IP address type.
-     *
-     * @since 1.0.0
-     *
-     * @return string the human-readable label
-     */
-    public function label(): string
-    {
-        return match ($this) {
-            self::IPV4 => 'IPv4',
-            self::IPV6 => 'IPv6',
-        };
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method label.
+   *
+   * Returns a human-readable label for the IP address type.
+   *
+   * @since 1.0.0
+   *
+   * @return string the human-readable label
+   */
+  public function label(): string
+  {
+    return match ($this) {
+      self::IPV4 => 'IPv4',
+      self::IPV6 => 'IPv6',
+    };
+  }
+  // #endregion
 }

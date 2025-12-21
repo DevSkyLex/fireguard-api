@@ -29,56 +29,56 @@ use function is_string;
  */
 final readonly class GetTenantProvider implements ProviderInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param GetTenantHandler $handler  the query handler
-     * @param Security         $security the security service
-     */
-    public function __construct(
-        private GetTenantHandler $handler,
-        private Security $security,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param GetTenantHandler $handler  the query handler
+   * @param Security         $security the security service
+   */
+  public function __construct(
+    private GetTenantHandler $handler,
+    private Security $security,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method provide
+   * {@inheritDoc}
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): TenantOutput
+  {
+    if (null === $this->security->getUser()) {
+      throw new AccessDeniedHttpException('Authentication required');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method provide
-     * {@inheritDoc}
-     */
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): TenantOutput
-    {
-        if (null === $this->security->getUser()) {
-            throw new AccessDeniedHttpException('Authentication required');
-        }
+    $tenantId = $uriVariables['id'] ?? null;
 
-        $tenantId = $uriVariables['id'] ?? null;
-
-        if (!is_string($tenantId)) {
-            throw new NotFoundHttpException('Tenant ID is required.');
-        }
-
-        try {
-            $query = new GetTenantQuery(tenantId: $tenantId);
-            $result = ($this->handler)($query);
-
-            $output = new TenantOutput();
-            $output->id = $result->tenantId;
-            $output->name = $result->name;
-            $output->isActive = $result->isActive;
-            $output->accessTokenTtl = $result->settings->accessTokenTtl;
-            $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
-            $output->requirePkce = $result->settings->requirePkce;
-            $output->createdAt = $result->createdAt->format('c');
-
-            return $output;
-        } catch (TenantNotFoundException $e) {
-            throw new NotFoundHttpException($e->getMessage(), $e);
-        }
+    if (!is_string($tenantId)) {
+      throw new NotFoundHttpException('Tenant ID is required.');
     }
-    // #endregion
+
+    try {
+      $query = new GetTenantQuery(tenantId: $tenantId);
+      $result = ($this->handler)($query);
+
+      $output = new TenantOutput();
+      $output->id = $result->tenantId;
+      $output->name = $result->name;
+      $output->isActive = $result->isActive;
+      $output->accessTokenTtl = $result->settings->accessTokenTtl;
+      $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
+      $output->requirePkce = $result->settings->requirePkce;
+      $output->createdAt = $result->createdAt->format('c');
+
+      return $output;
+    } catch (TenantNotFoundException $e) {
+      throw new NotFoundHttpException($e->getMessage(), $e);
+    }
+  }
+  // #endregion
 }

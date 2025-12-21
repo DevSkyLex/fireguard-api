@@ -20,18 +20,18 @@ use Shared\Application\Message\ResultMessage;
  */
 interface EventListenerPort
 {
-    // #region Methods
-    /**
-     * Method handle.
-     *
-     * Handle an incoming event.
-     *
-     * @since 1.0.0
-     *
-     * @param object $event the event to handle
-     *
-     * @return ?ResultMessage the result of the event
-     */
-    public function handle(object $event): ?ResultMessage;
-    // #endregion
+  // #region Methods
+  /**
+   * Method handle.
+   *
+   * Handle an incoming event.
+   *
+   * @since 1.0.0
+   *
+   * @param object $event the event to handle
+   *
+   * @return ?ResultMessage the result of the event
+   */
+  public function handle(object $event): ?ResultMessage;
+  // #endregion
 }

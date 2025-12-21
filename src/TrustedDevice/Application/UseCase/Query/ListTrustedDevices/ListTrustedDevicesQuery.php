@@ -9,8 +9,8 @@ namespace TrustedDevice\Application\UseCase\Query\ListTrustedDevices;
  */
 final readonly class ListTrustedDevicesQuery
 {
-    public function __construct(
-        public string $userId,
-    ) {
-    }
+  public function __construct(
+    public string $userId,
+  ) {
+  }
 }

@@ -18,44 +18,44 @@ use Shared\Application\Message\CommandHandler;
  */
 final readonly class SetupTotpHandler implements CommandHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param TotpServicePort $totpService the TOTP service
-     */
-    public function __construct(
-        private TotpServicePort $totpService,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param TotpServicePort $totpService the TOTP service
+   */
+  public function __construct(
+    private TotpServicePort $totpService,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the SetupTotpCommand.
-     *
-     * @param SetupTotpCommand $command the command
-     *
-     * @return SetupTotpResult the result
-     */
-    public function __invoke(SetupTotpCommand $command): SetupTotpResult
-    {
-        // Generate new TOTP secret
-        $secret = $this->totpService->generateSecret();
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the SetupTotpCommand.
+   *
+   * @param SetupTotpCommand $command the command
+   *
+   * @return SetupTotpResult the result
+   */
+  public function __invoke(SetupTotpCommand $command): SetupTotpResult
+  {
+    // Generate new TOTP secret
+    $secret = $this->totpService->generateSecret();
 
-        // Generate provisioning URI for QR code
-        $qrCodeUri = $this->totpService->getProvisioningUri(
-            secret: $secret,
-            accountName: $command->accountName,
-            issuer: 'FireGuard Auth',
-        );
+    // Generate provisioning URI for QR code
+    $qrCodeUri = $this->totpService->getProvisioningUri(
+      secret: $secret,
+      accountName: $command->accountName,
+      issuer: 'FireGuard Auth',
+    );
 
-        return new SetupTotpResult(
-            secret: $secret->secret,
-            qrCodeUri: $qrCodeUri,
-        );
-    }
-    // #endregion
+    return new SetupTotpResult(
+      secret: $secret->secret,
+      qrCodeUri: $qrCodeUri,
+    );
+  }
+  // #endregion
 }

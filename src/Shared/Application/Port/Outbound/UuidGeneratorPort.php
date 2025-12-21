@@ -18,16 +18,16 @@ namespace Shared\Application\Port\Outbound;
  */
 interface UuidGeneratorPort
 {
-    // #region Methods
-    /**
-     * Method generate.
-     *
-     * Generate and return a UUID identifier.
-     *
-     * @since 1.0.0
-     *
-     * @return string the generated UUID
-     */
-    public function generate(): string;
-    // #endregion
+  // #region Methods
+  /**
+   * Method generate.
+   *
+   * Generate and return a UUID identifier.
+   *
+   * @since 1.0.0
+   *
+   * @return string the generated UUID
+   */
+  public function generate(): string;
+  // #endregion
 }

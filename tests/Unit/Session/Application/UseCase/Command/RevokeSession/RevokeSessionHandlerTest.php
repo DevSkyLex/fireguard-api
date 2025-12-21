@@ -26,60 +26,60 @@ use Shared\Domain\ValueObject\UserAgent;
 #[CoversClass(className: RevokeSessionHandler::class)]
 final class RevokeSessionHandlerTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testInvokeRevokesExistingSession.
-     *
-     * Test that __invoke revokes an existing session successfully.
-     */
-    #[Test]
-    public function testInvokeRevokesExistingSession(): void
-    {
-        $sessionId = '123e4567-e89b-12d3-a456-426614174000';
+  // #region Methods
+  /**
+   * Method testInvokeRevokesExistingSession.
+   *
+   * Test that __invoke revokes an existing session successfully.
+   */
+  #[Test]
+  public function testInvokeRevokesExistingSession(): void
+  {
+    $sessionId = '123e4567-e89b-12d3-a456-426614174000';
 
-        $session = Session::create(
-            id: new SessionId($sessionId),
-            userId: 'user-123',
-            ipAddress: new IpAddress('192.168.1.1'),
-            userAgent: new UserAgent('Mozilla/5.0'),
-        );
+    $session = Session::create(
+      id: new SessionId($sessionId),
+      userId: 'user-123',
+      ipAddress: new IpAddress('192.168.1.1'),
+      userAgent: new UserAgent('Mozilla/5.0'),
+    );
 
-        $repository = $this->createMock(SessionRepositoryPort::class);
-        $repository->expects(self::once())
-          ->method('findById')
-          ->willReturn($session);
-        $repository->expects(self::once())
-          ->method('save');
+    $repository = $this->createMock(SessionRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($session);
+    $repository->expects(self::once())
+      ->method('save');
 
-        $command = new RevokeSessionCommand(sessionId: $sessionId);
+    $command = new RevokeSessionCommand(sessionId: $sessionId);
 
-        $handler = new RevokeSessionHandler(sessionRepository: $repository);
-        $handler->__invoke(command: $command);
+    $handler = new RevokeSessionHandler(sessionRepository: $repository);
+    $handler->__invoke(command: $command);
 
-        self::assertTrue($session->isRevoked());
-    }
+    self::assertTrue($session->isRevoked());
+  }
 
-    /**
-     * Method testInvokeThrowsExceptionWhenSessionNotFound.
-     *
-     * Test that __invoke throws exception when session not found.
-     */
-    #[Test]
-    public function testInvokeThrowsExceptionWhenSessionNotFound(): void
-    {
-        $sessionId = '123e4567-e89b-12d3-a456-426614174000';
+  /**
+   * Method testInvokeThrowsExceptionWhenSessionNotFound.
+   *
+   * Test that __invoke throws exception when session not found.
+   */
+  #[Test]
+  public function testInvokeThrowsExceptionWhenSessionNotFound(): void
+  {
+    $sessionId = '123e4567-e89b-12d3-a456-426614174000';
 
-        $repository = $this->createMock(SessionRepositoryPort::class);
-        $repository->expects(self::once())
-          ->method('findById')
-          ->willReturn(null);
+    $repository = $this->createMock(SessionRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn(null);
 
-        $command = new RevokeSessionCommand(sessionId: $sessionId);
+    $command = new RevokeSessionCommand(sessionId: $sessionId);
 
-        $handler = new RevokeSessionHandler(sessionRepository: $repository);
+    $handler = new RevokeSessionHandler(sessionRepository: $repository);
 
-        $this->expectException(SessionNotFoundException::class);
-        $handler->__invoke(command: $command);
-    }
-    // #endregion
+    $this->expectException(SessionNotFoundException::class);
+    $handler->__invoke(command: $command);
+  }
+  // #endregion
 }

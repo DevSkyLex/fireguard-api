@@ -27,75 +27,75 @@ use function random_bytes;
  */
 final readonly class RegenerateClientSecretHandler implements CommandHandler
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the RegenerateClientSecretHandler class.
-     *
-     * @since 1.0.0
-     *
-     * @param ClientRepositoryPort $clientRepository the client repository
-     * @param HashingPort          $hashing          the hashing service
-     * @param EventBusPort         $eventBus         the event bus
-     */
-    public function __construct(
-        private readonly ClientRepositoryPort $clientRepository,
-        private readonly HashingPort $hashing,
-        private readonly EventBusPort $eventBus,
-        private readonly EventIdProvider $eventIdProvider,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the RegenerateClientSecretHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param ClientRepositoryPort $clientRepository the client repository
+   * @param HashingPort          $hashing          the hashing service
+   * @param EventBusPort         $eventBus         the event bus
+   */
+  public function __construct(
+    private readonly ClientRepositoryPort $clientRepository,
+    private readonly HashingPort $hashing,
+    private readonly EventBusPort $eventBus,
+    private readonly EventIdProvider $eventIdProvider,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the RegenerateClientSecretCommand.
+   *
+   * @since 1.0.0
+   *
+   * @param RegenerateClientSecretCommand $command the command to handle
+   *
+   * @return RegenerateClientSecretResult the result message with the new plain secret
+   *
+   * @throws InvalidClientException if the client is not found
+   */
+  public function __invoke(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
+  {
+    // Find the client
+    $clientId = new ClientId(value: $command->clientId);
+    $client = $this->clientRepository->findById(id: $clientId);
+
+    if (null === $client) {
+      throw new InvalidClientException(message: 'Client not found');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method __invoke.
-     *
-     * Handles the RegenerateClientSecretCommand.
-     *
-     * @since 1.0.0
-     *
-     * @param RegenerateClientSecretCommand $command the command to handle
-     *
-     * @return RegenerateClientSecretResult the result message with the new plain secret
-     *
-     * @throws InvalidClientException if the client is not found
-     */
-    public function __invoke(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
-    {
-        // Find the client
-        $clientId = new ClientId(value: $command->clientId);
-        $client = $this->clientRepository->findById(id: $clientId);
+    // Generate new plain secret (32 random bytes = 64 hex chars)
+    $plainSecret = bin2hex(random_bytes(32));
 
-        if (null === $client) {
-            throw new InvalidClientException(message: 'Client not found');
-        }
+    // Hash the secret
+    $hashedSecret = new ClientSecret(
+      value: $this->hashing->hash(value: $plainSecret)->value
+    );
 
-        // Generate new plain secret (32 random bytes = 64 hex chars)
-        $plainSecret = bin2hex(random_bytes(32));
+    // Regenerate the client secret
+    $client->regenerateSecret(newSecret: $hashedSecret, eventIdProvider: $this->eventIdProvider);
 
-        // Hash the secret
-        $hashedSecret = new ClientSecret(
-            value: $this->hashing->hash(value: $plainSecret)->value
-        );
+    // Save the client
+    $this->clientRepository->save(client: $client);
 
-        // Regenerate the client secret
-        $client->regenerateSecret(newSecret: $hashedSecret, eventIdProvider: $this->eventIdProvider);
-
-        // Save the client
-        $this->clientRepository->save(client: $client);
-
-        // Publish domain events
-        foreach ($client->releaseEvents() as $event) {
-            $this->eventBus->publish(event: $event);
-        }
-
-        // Return the result with plain secret (shown only once)
-        return new RegenerateClientSecretResult(
-            clientId: $clientId->value,
-            clientSecret: $plainSecret
-        );
+    // Publish domain events
+    foreach ($client->releaseEvents() as $event) {
+      $this->eventBus->publish(event: $event);
     }
-    // #endregion
+
+    // Return the result with plain secret (shown only once)
+    return new RegenerateClientSecretResult(
+      clientId: $clientId->value,
+      clientSecret: $plainSecret
+    );
+  }
+  // #endregion
 }

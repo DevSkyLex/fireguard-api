@@ -27,169 +27,169 @@ use function array_map;
  */
 final readonly class RoleRepository implements RoleRepositoryPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes the repository with
-     * the entity manager and mapper.
-     *
-     * @since 1.0.0
-     *
-     * @param EntityManagerInterface $entityManager the entity manager
-     * @param RoleMapper             $mapper        the role mapper
-     */
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-        private readonly RoleMapper $mapper,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes the repository with
+   * the entity manager and mapper.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   * @param RoleMapper             $mapper        the role mapper
+   */
+  public function __construct(
+    private readonly EntityManagerInterface $entityManager,
+    private readonly RoleMapper $mapper,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method findById
-     * {@inheritDoc}
-     *
-     * Finds a role by its ID.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleId $id the role ID
-     *
-     * @return Role|null the role or null if not found
-     */
-    public function findById(RoleId $id): ?Role
-    {
-        $record = $this->entityManager->find(
-            className: RoleRecord::class,
-            id: $id->value
-        );
+  // #region Methods
+  /**
+   * Method findById
+   * {@inheritDoc}
+   *
+   * Finds a role by its ID.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleId $id the role ID
+   *
+   * @return Role|null the role or null if not found
+   */
+  public function findById(RoleId $id): ?Role
+  {
+    $record = $this->entityManager->find(
+      className: RoleRecord::class,
+      id: $id->value
+    );
 
-        if (null === $record) {
-            return null;
-        }
-
-        return $this->mapper->toDomain(record: $record);
+    if (null === $record) {
+      return null;
     }
 
-    /**
-     * Method findByName
-     * {@inheritDoc}
-     *
-     * Finds a role by its name.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleName $name the role name
-     *
-     * @return Role|null the role or null if not found
-     */
-    public function findByName(RoleName $name): ?Role
-    {
-        $record = $this->entityManager
-          ->getRepository(className: RoleRecord::class)
-          ->findOneBy(criteria: ['name' => $name->value]);
+    return $this->mapper->toDomain(record: $record);
+  }
 
-        if (null === $record) {
-            return null;
-        }
+  /**
+   * Method findByName
+   * {@inheritDoc}
+   *
+   * Finds a role by its name.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleName $name the role name
+   *
+   * @return Role|null the role or null if not found
+   */
+  public function findByName(RoleName $name): ?Role
+  {
+    $record = $this->entityManager
+      ->getRepository(className: RoleRecord::class)
+      ->findOneBy(criteria: ['name' => $name->value]);
 
-        return $this->mapper->toDomain(record: $record);
+    if (null === $record) {
+      return null;
     }
 
-    /**
-     * Method findAll
-     * {@inheritDoc}
-     *
-     * Finds all roles.
-     *
-     * @since 1.0.0
-     *
-     * @param ?TenantId $tenantId the tenant ID
-     *
-     * @return array<Role> the roles
-     */
-    public function findAll(?TenantId $tenantId = null): array
-    {
-        $criteria = [];
-        if (null !== $tenantId) {
-            $criteria['tenantId'] = (string) $tenantId;
-        }
+    return $this->mapper->toDomain(record: $record);
+  }
 
-        $records = $this->entityManager
-          ->getRepository(className: RoleRecord::class)
-          ->findBy(criteria: $criteria);
-
-        return array_map(
-            fn (RoleRecord $record) => $this->mapper->toDomain(record: $record),
-            $records
-        );
+  /**
+   * Method findAll
+   * {@inheritDoc}
+   *
+   * Finds all roles.
+   *
+   * @since 1.0.0
+   *
+   * @param ?TenantId $tenantId the tenant ID
+   *
+   * @return array<Role> the roles
+   */
+  public function findAll(?TenantId $tenantId = null): array
+  {
+    $criteria = [];
+    if (null !== $tenantId) {
+      $criteria['tenantId'] = (string) $tenantId;
     }
 
-    /**
-     * Method save
-     * {@inheritDoc}
-     *
-     * Persists a role.
-     *
-     * @since 1.0.0
-     *
-     * @param Role $role the role to save
-     *
-     * @return void none
-     */
-    public function save(Role $role): void
-    {
-        $existingRecord = $this->entityManager->find(
-            className: RoleRecord::class,
-            id: $role->id()->value
-        );
+    $records = $this->entityManager
+      ->getRepository(className: RoleRecord::class)
+      ->findBy(criteria: $criteria);
 
-        $record = $this->mapper->toRecord(
-            role: $role,
-            record: $existingRecord
-        );
+    return array_map(
+      fn (RoleRecord $record) => $this->mapper->toDomain(record: $record),
+      $records
+    );
+  }
 
-        // Handle permissions collection
-        $record->permissions->clear();
-        foreach ($role->permissions() as $permission) {
-            $permissionRecord = $this->entityManager->getReference(
-                entityName: PermissionRecord::class,
-                id: $permission->id()->value
-            );
-            if (null !== $permissionRecord) {
-                $record->permissions->add($permissionRecord);
-            }
-        }
+  /**
+   * Method save
+   * {@inheritDoc}
+   *
+   * Persists a role.
+   *
+   * @since 1.0.0
+   *
+   * @param Role $role the role to save
+   *
+   * @return void none
+   */
+  public function save(Role $role): void
+  {
+    $existingRecord = $this->entityManager->find(
+      className: RoleRecord::class,
+      id: $role->id()->value
+    );
 
-        $this->entityManager->persist($record);
-        $this->entityManager->flush();
+    $record = $this->mapper->toRecord(
+      role: $role,
+      record: $existingRecord
+    );
+
+    // Handle permissions collection
+    $record->permissions->clear();
+    foreach ($role->permissions() as $permission) {
+      $permissionRecord = $this->entityManager->getReference(
+        entityName: PermissionRecord::class,
+        id: $permission->id()->value
+      );
+      if (null !== $permissionRecord) {
+        $record->permissions->add($permissionRecord);
+      }
     }
 
-    /**
-     * Method delete
-     * {@inheritDoc}
-     *
-     * Deletes a role.
-     *
-     * @since 1.0.0
-     *
-     * @param Role $role the role to delete
-     *
-     * @return void none
-     */
-    public function delete(Role $role): void
-    {
-        $record = $this->entityManager->find(
-            className: RoleRecord::class,
-            id: $role->id()->value
-        );
+    $this->entityManager->persist($record);
+    $this->entityManager->flush();
+  }
 
-        if (null !== $record) {
-            $this->entityManager->remove($record);
-            $this->entityManager->flush();
-        }
+  /**
+   * Method delete
+   * {@inheritDoc}
+   *
+   * Deletes a role.
+   *
+   * @since 1.0.0
+   *
+   * @param Role $role the role to delete
+   *
+   * @return void none
+   */
+  public function delete(Role $role): void
+  {
+    $record = $this->entityManager->find(
+      className: RoleRecord::class,
+      id: $role->id()->value
+    );
+
+    if (null !== $record) {
+      $this->entityManager->remove($record);
+      $this->entityManager->flush();
     }
-    // #endregion
+  }
+  // #endregion
 }

@@ -33,228 +33,228 @@ use function is_array;
  */
 final readonly class RoleAssignmentRepository implements RoleAssignmentRepositoryPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes the repository with the entity manager,
-     * role assignment mapper, and role mapper.
-     *
-     * @since 1.0.0
-     *
-     * @param EntityManagerInterface $entityManager the entity manager
-     * @param RoleAssignmentMapper   $mapper        the role assignment mapper
-     * @param RoleMapper             $roleMapper    the role mapper
-     */
-    public function __construct(
-        private EntityManagerInterface $entityManager,
-        private RoleAssignmentMapper $mapper,
-        private RoleMapper $roleMapper,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes the repository with the entity manager,
+   * role assignment mapper, and role mapper.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   * @param RoleAssignmentMapper   $mapper        the role assignment mapper
+   * @param RoleMapper             $roleMapper    the role mapper
+   */
+  public function __construct(
+    private EntityManagerInterface $entityManager,
+    private RoleAssignmentMapper $mapper,
+    private RoleMapper $roleMapper,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method findById
-     * {@inheritDoc}
-     *
-     * Finds a role assignment by its ID.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleAssignmentId $id the assignment ID
-     *
-     * @return RoleAssignment|null the assignment or null if not found
-     */
-    public function findById(RoleAssignmentId $id): ?RoleAssignment
-    {
-        $record = $this->entityManager->find(
-            className: RoleAssignmentRecord::class,
-            id: $id->value
-        );
+  // #region Methods
+  /**
+   * Method findById
+   * {@inheritDoc}
+   *
+   * Finds a role assignment by its ID.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleAssignmentId $id the assignment ID
+   *
+   * @return RoleAssignment|null the assignment or null if not found
+   */
+  public function findById(RoleAssignmentId $id): ?RoleAssignment
+  {
+    $record = $this->entityManager->find(
+      className: RoleAssignmentRecord::class,
+      id: $id->value
+    );
 
-        if (null === $record) {
-            return null;
-        }
-
-        return $this->mapper->toDomain(record: $record);
+    if (null === $record) {
+      return null;
     }
 
-    /**
-     * Method findBySubject
-     * {@inheritDoc}
-     *
-     * Finds all role assignments for a subject.
-     *
-     * @since 1.0.0
-     *
-     * @param SubjectType $subjectType the subject type
-     * @param string      $subjectId   the subject ID
-     *
-     * @return array<RoleAssignment> the assignments
-     */
-    public function findBySubject(SubjectType $subjectType, string $subjectId): array
-    {
-        $qb = $this->entityManager->createQueryBuilder();
-        $qb->select('ra')
-          ->from(RoleAssignmentRecord::class, 'ra')
-          ->where('ra.subjectType = :subjectType')
-          ->andWhere('ra.subjectId = :subjectId')
-          ->setParameter('subjectType', $subjectType->value)
-          ->setParameter('subjectId', $subjectId);
+    return $this->mapper->toDomain(record: $record);
+  }
 
-        // Filter out expired assignments
-        $qb->andWhere('ra.expiresAt IS NULL OR ra.expiresAt > :now')
-          ->setParameter('now', new DateTimeImmutable());
+  /**
+   * Method findBySubject
+   * {@inheritDoc}
+   *
+   * Finds all role assignments for a subject.
+   *
+   * @since 1.0.0
+   *
+   * @param SubjectType $subjectType the subject type
+   * @param string      $subjectId   the subject ID
+   *
+   * @return array<RoleAssignment> the assignments
+   */
+  public function findBySubject(SubjectType $subjectType, string $subjectId): array
+  {
+    $qb = $this->entityManager->createQueryBuilder();
+    $qb->select('ra')
+      ->from(RoleAssignmentRecord::class, 'ra')
+      ->where('ra.subjectType = :subjectType')
+      ->andWhere('ra.subjectId = :subjectId')
+      ->setParameter('subjectType', $subjectType->value)
+      ->setParameter('subjectId', $subjectId);
 
-        $records = $qb->getQuery()->getResult();
+    // Filter out expired assignments
+    $qb->andWhere('ra.expiresAt IS NULL OR ra.expiresAt > :now')
+      ->setParameter('now', new DateTimeImmutable());
 
-        if (!is_array($records)) {
-            return [];
-        }
+    $records = $qb->getQuery()->getResult();
 
-        /** @var list<RoleAssignmentRecord> $filteredRecords */
-        $filteredRecords = array_values(array_filter(
-            $records,
-            static fn ($r): bool => $r instanceof RoleAssignmentRecord
-        ));
-
-        return array_map(
-            fn (RoleAssignmentRecord $record): RoleAssignment => $this->mapper->toDomain(record: $record),
-            $filteredRecords
-        );
+    if (!is_array($records)) {
+      return [];
     }
 
-    /**
-     * Method findRolesForSubject
-     * {@inheritDoc}
-     *
-     * Finds all roles assigned to a subject
-     * (including permissions).
-     *
-     * @since 1.0.0
-     *
-     * @param SubjectType $subjectType the subject type
-     * @param string      $subjectId   the subject ID
-     *
-     * @return array<Role> the roles with their permissions
-     */
-    public function findRolesForSubject(SubjectType $subjectType, string $subjectId): array
-    {
-        $assignments = $this->findBySubject(subjectType: $subjectType, subjectId: $subjectId);
+    /** @var list<RoleAssignmentRecord> $filteredRecords */
+    $filteredRecords = array_values(array_filter(
+      $records,
+      static fn ($r): bool => $r instanceof RoleAssignmentRecord
+    ));
 
-        $roles = [];
-        foreach ($assignments as $assignment) {
-            $roleRecord = $this->entityManager->find(RoleRecord::class, $assignment->roleId()->value);
-            if (null !== $roleRecord) {
-                $roles[] = $this->roleMapper->toDomain(record: $roleRecord);
-            }
-        }
+    return array_map(
+      fn (RoleAssignmentRecord $record): RoleAssignment => $this->mapper->toDomain(record: $record),
+      $filteredRecords
+    );
+  }
 
-        return $roles;
+  /**
+   * Method findRolesForSubject
+   * {@inheritDoc}
+   *
+   * Finds all roles assigned to a subject
+   * (including permissions).
+   *
+   * @since 1.0.0
+   *
+   * @param SubjectType $subjectType the subject type
+   * @param string      $subjectId   the subject ID
+   *
+   * @return array<Role> the roles with their permissions
+   */
+  public function findRolesForSubject(SubjectType $subjectType, string $subjectId): array
+  {
+    $assignments = $this->findBySubject(subjectType: $subjectType, subjectId: $subjectId);
+
+    $roles = [];
+    foreach ($assignments as $assignment) {
+      $roleRecord = $this->entityManager->find(RoleRecord::class, $assignment->roleId()->value);
+      if (null !== $roleRecord) {
+        $roles[] = $this->roleMapper->toDomain(record: $roleRecord);
+      }
     }
 
-    /**
-     * Method findByRole
-     * {@inheritDoc}
-     *
-     * Finds all role assignments for a role.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleId $roleId the role ID
-     *
-     * @return array<RoleAssignment> the assignments
-     */
-    public function findByRole(RoleId $roleId): array
-    {
-        $records = $this->entityManager
-          ->getRepository(RoleAssignmentRecord::class)
-          ->findBy(['roleId' => $roleId->value]);
+    return $roles;
+  }
 
-        return array_map(
-            fn (RoleAssignmentRecord $record) => $this->mapper->toDomain(record: $record),
-            $records
-        );
+  /**
+   * Method findByRole
+   * {@inheritDoc}
+   *
+   * Finds all role assignments for a role.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleId $roleId the role ID
+   *
+   * @return array<RoleAssignment> the assignments
+   */
+  public function findByRole(RoleId $roleId): array
+  {
+    $records = $this->entityManager
+      ->getRepository(RoleAssignmentRecord::class)
+      ->findBy(['roleId' => $roleId->value]);
+
+    return array_map(
+      fn (RoleAssignmentRecord $record) => $this->mapper->toDomain(record: $record),
+      $records
+    );
+  }
+
+  /**
+   * Method save
+   * {@inheritDoc}
+   *
+   * Persists a role assignment.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleAssignment $assignment the assignment to save
+   *
+   * @return void none
+   */
+  public function save(RoleAssignment $assignment): void
+  {
+    $existingRecord = $this->entityManager->find(
+      className: RoleAssignmentRecord::class,
+      id: $assignment->id()->value
+    );
+
+    $record = $this->mapper->toRecord(
+      assignment: $assignment,
+      record: $existingRecord
+    );
+
+    $this->entityManager->persist($record);
+    $this->entityManager->flush();
+  }
+
+  /**
+   * Method delete
+   * {@inheritDoc}
+   *
+   * Deletes a role assignment.
+   *
+   * @since 1.0.0
+   *
+   * @param RoleAssignment $assignment the assignment to delete
+   *
+   * @return void none
+   */
+  public function delete(RoleAssignment $assignment): void
+  {
+    $record = $this->entityManager->find(
+      className: RoleAssignmentRecord::class,
+      id: $assignment->id()->value
+    );
+
+    if (null !== $record) {
+      $this->entityManager->remove($record);
+      $this->entityManager->flush();
     }
+  }
 
-    /**
-     * Method save
-     * {@inheritDoc}
-     *
-     * Persists a role assignment.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleAssignment $assignment the assignment to save
-     *
-     * @return void none
-     */
-    public function save(RoleAssignment $assignment): void
-    {
-        $existingRecord = $this->entityManager->find(
-            className: RoleAssignmentRecord::class,
-            id: $assignment->id()->value
-        );
+  /**
+   * Method deleteBySubject
+   * {@inheritDoc}
+   *
+   * Deletes all role assignments for a subject.
+   *
+   * @since 1.0.0
+   *
+   * @param SubjectType $subjectType the subject type
+   * @param string      $subjectId   the subject ID
+   *
+   * @return void none
+   */
+  public function deleteBySubject(SubjectType $subjectType, string $subjectId): void
+  {
+    $qb = $this->entityManager->createQueryBuilder();
+    $qb->delete(RoleAssignmentRecord::class, 'ra')
+      ->where('ra.subjectType = :subjectType')
+      ->andWhere('ra.subjectId = :subjectId')
+      ->setParameter('subjectType', $subjectType->value)
+      ->setParameter('subjectId', $subjectId);
 
-        $record = $this->mapper->toRecord(
-            assignment: $assignment,
-            record: $existingRecord
-        );
-
-        $this->entityManager->persist($record);
-        $this->entityManager->flush();
-    }
-
-    /**
-     * Method delete
-     * {@inheritDoc}
-     *
-     * Deletes a role assignment.
-     *
-     * @since 1.0.0
-     *
-     * @param RoleAssignment $assignment the assignment to delete
-     *
-     * @return void none
-     */
-    public function delete(RoleAssignment $assignment): void
-    {
-        $record = $this->entityManager->find(
-            className: RoleAssignmentRecord::class,
-            id: $assignment->id()->value
-        );
-
-        if (null !== $record) {
-            $this->entityManager->remove($record);
-            $this->entityManager->flush();
-        }
-    }
-
-    /**
-     * Method deleteBySubject
-     * {@inheritDoc}
-     *
-     * Deletes all role assignments for a subject.
-     *
-     * @since 1.0.0
-     *
-     * @param SubjectType $subjectType the subject type
-     * @param string      $subjectId   the subject ID
-     *
-     * @return void none
-     */
-    public function deleteBySubject(SubjectType $subjectType, string $subjectId): void
-    {
-        $qb = $this->entityManager->createQueryBuilder();
-        $qb->delete(RoleAssignmentRecord::class, 'ra')
-          ->where('ra.subjectType = :subjectType')
-          ->andWhere('ra.subjectId = :subjectId')
-          ->setParameter('subjectType', $subjectType->value)
-          ->setParameter('subjectId', $subjectId);
-
-        $qb->getQuery()->execute();
-    }
-    // #endregion
+    $qb->getQuery()->execute();
+  }
+  // #endregion
 }

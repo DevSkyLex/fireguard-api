@@ -19,28 +19,28 @@ use Shared\Domain\ValueObject\RateLimitResult;
  */
 interface RateLimiterPort
 {
-    /**
-     * Method consume.
-     *
-     * Attempts to consume a token from the rate limiter.
-     *
-     * @since 1.0.0
-     *
-     * @param string $key    the rate limiter key
-     * @param int    $tokens number of tokens to consume
-     *
-     * @return RateLimitResult the result
-     */
-    public function consume(string $key, int $tokens = 1): RateLimitResult;
+  /**
+   * Method consume.
+   *
+   * Attempts to consume a token from the rate limiter.
+   *
+   * @since 1.0.0
+   *
+   * @param string $key    the rate limiter key
+   * @param int    $tokens number of tokens to consume
+   *
+   * @return RateLimitResult the result
+   */
+  public function consume(string $key, int $tokens = 1): RateLimitResult;
 
-    /**
-     * Method reset.
-     *
-     * Resets the rate limiter for a key.
-     *
-     * @since 1.0.0
-     *
-     * @param string $key the rate limiter key
-     */
-    public function reset(string $key): void;
+  /**
+   * Method reset.
+   *
+   * Resets the rate limiter for a key.
+   *
+   * @since 1.0.0
+   *
+   * @param string $key the rate limiter key
+   */
+  public function reset(string $key): void;
 }

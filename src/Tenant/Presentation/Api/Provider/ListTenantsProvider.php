@@ -27,52 +27,52 @@ use function array_map;
  */
 final readonly class ListTenantsProvider implements ProviderInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param TenantRepositoryPort $tenantRepository the tenant repository
-     * @param Security             $security         the security service
-     */
-    public function __construct(
-        private TenantRepositoryPort $tenantRepository,
-        private Security $security,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param TenantRepositoryPort $tenantRepository the tenant repository
+   * @param Security             $security         the security service
+   */
+  public function __construct(
+    private TenantRepositoryPort $tenantRepository,
+    private Security $security,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method provide
+   * {@inheritDoc}
+   *
+   * @return list<TenantOutput>
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  {
+    if (null === $this->security->getUser()) {
+      throw new AccessDeniedHttpException('Authentication required');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method provide
-     * {@inheritDoc}
-     *
-     * @return list<TenantOutput>
-     */
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
-    {
-        if (null === $this->security->getUser()) {
-            throw new AccessDeniedHttpException('Authentication required');
-        }
+    $tenants = $this->tenantRepository->findAll();
 
-        $tenants = $this->tenantRepository->findAll();
+    return array_map(
+      callback: function (Tenant $tenant): TenantOutput {
+        $output = new TenantOutput();
+        $output->id = (string) $tenant->id();
+        $output->name = (string) $tenant->name();
+        $output->isActive = $tenant->isActive();
+        $output->accessTokenTtl = $tenant->settings()->accessTokenTtl;
+        $output->refreshTokenTtl = $tenant->settings()->refreshTokenTtl;
+        $output->requirePkce = $tenant->settings()->requirePkce;
+        $output->createdAt = $tenant->createdAt()->format('c');
 
-        return array_map(
-            callback: function (Tenant $tenant): TenantOutput {
-                $output = new TenantOutput();
-                $output->id = (string) $tenant->id();
-                $output->name = (string) $tenant->name();
-                $output->isActive = $tenant->isActive();
-                $output->accessTokenTtl = $tenant->settings()->accessTokenTtl;
-                $output->refreshTokenTtl = $tenant->settings()->refreshTokenTtl;
-                $output->requirePkce = $tenant->settings()->requirePkce;
-                $output->createdAt = $tenant->createdAt()->format('c');
-
-                return $output;
-            },
-            array: $tenants,
-        );
-    }
-    // #endregion
+        return $output;
+      },
+      array: $tenants,
+    );
+  }
+  // #endregion
 }

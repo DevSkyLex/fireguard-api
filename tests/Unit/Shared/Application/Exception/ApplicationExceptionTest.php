@@ -19,23 +19,23 @@ use Shared\Application\Exception\ApplicationException;
 #[CoversClass(className: ApplicationException::class)]
 final class ApplicationExceptionTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testContextReturnsEmptyArray.
-     *
-     * Test context returns empty array
-     *
-     * @return void No return value
-     */
-    #[Test]
-    public function testContextReturnsEmptyArray(): void
-    {
-        $exception = new class () extends ApplicationException {};
+  // #region Methods
+  /**
+   * Method testContextReturnsEmptyArray.
+   *
+   * Test context returns empty array
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testContextReturnsEmptyArray(): void
+  {
+    $exception = new class () extends ApplicationException {};
 
-        self::assertSame(
-            expected: [],
-            actual: $exception->context()
-        );
-    }
-    // #endregion
+    self::assertSame(
+      expected: [],
+      actual: $exception->context()
+    );
+  }
+  // #endregion
 }

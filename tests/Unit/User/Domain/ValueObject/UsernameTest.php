@@ -22,40 +22,40 @@ use User\Domain\ValueObject\Username;
 #[CoversClass(Username::class)]
 final class UsernameTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testValidatesFormat.
-     *
-     * Tests that a username validates
-     * format correctly.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testValidatesFormat(): void
-    {
-        $username = new Username('valid_user');
-        $this->assertEquals('valid_user', $username->value);
-        $this->assertEquals('valid_user', (string) $username);
-    }
+  // #region Methods
+  /**
+   * Method testValidatesFormat.
+   *
+   * Tests that a username validates
+   * format correctly.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testValidatesFormat(): void
+  {
+    $username = new Username('valid_user');
+    $this->assertEquals('valid_user', $username->value);
+    $this->assertEquals('valid_user', (string) $username);
+  }
 
-    /**
-     * Method testThrowsOnInvalidFormat.
-     *
-     * Tests that username throws exception
-     * on invalid format.
-     *
-     * @since 1.0.0
-     *
-     * @return void no return value
-     */
-    #[Test]
-    public function testThrowsOnInvalidFormat(): void
-    {
-        $this->expectException(InvalidValueException::class);
-        new Username('ab'); // Too short
-    }
-    // #endregion
+  /**
+   * Method testThrowsOnInvalidFormat.
+   *
+   * Tests that username throws exception
+   * on invalid format.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testThrowsOnInvalidFormat(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    new Username('ab'); // Too short
+  }
+  // #endregion
 }

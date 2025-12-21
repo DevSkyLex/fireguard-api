@@ -27,42 +27,42 @@ use function is_string;
  */
 final readonly class GetOtpStatusProvider implements ProviderInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param GetOtpStatusHandler $handler the handler
-     */
-    public function __construct(
-        private GetOtpStatusHandler $handler,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param GetOtpStatusHandler $handler the handler
+   */
+  public function __construct(
+    private GetOtpStatusHandler $handler,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): OtpOutput
+  {
+    $otpId = $uriVariables['id'] ?? null;
+
+    if (!is_string($otpId)) {
+      throw new NotFoundHttpException('OTP ID is required.');
     }
-    // #endregion
 
-    // #region Methods
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): OtpOutput
-    {
-        $otpId = $uriVariables['id'] ?? null;
+    try {
+      $query = new GetOtpStatusQuery(otpId: $otpId);
+      $result = $this->handler->__invoke($query);
 
-        if (!is_string($otpId)) {
-            throw new NotFoundHttpException('OTP ID is required.');
-        }
+      $output = new OtpOutput();
+      $output->id = $otpId;
+      $output->status = $result->status;
+      $output->maskedRecipient = $result->maskedRecipient;
+      $output->expiresAt = $result->expiresAt;
+      $output->attemptsRemaining = $result->attemptsRemaining;
 
-        try {
-            $query = new GetOtpStatusQuery(otpId: $otpId);
-            $result = $this->handler->__invoke($query);
-
-            $output = new OtpOutput();
-            $output->id = $otpId;
-            $output->status = $result->status;
-            $output->maskedRecipient = $result->maskedRecipient;
-            $output->expiresAt = $result->expiresAt;
-            $output->attemptsRemaining = $result->attemptsRemaining;
-
-            return $output;
-        } catch (OtpNotFoundException) {
-            throw new NotFoundHttpException('OTP not found.');
-        }
+      return $output;
+    } catch (OtpNotFoundException) {
+      throw new NotFoundHttpException('OTP not found.');
     }
-    // #endregion
+  }
+  // #endregion
 }

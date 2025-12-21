@@ -21,83 +21,83 @@ use OAuth\Domain\ValueObject\OAuthClientIdentifier;
  */
 final readonly class RefreshTokenRepository implements RefreshTokenRepositoryPort
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * RefreshTokenRepository class.
-     *
-     * @since 1.0.0
-     *
-     * @param EntityManagerInterface $entityManager the entity manager
-     */
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * RefreshTokenRepository class.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager
+   */
+  public function __construct(
+    private readonly EntityManagerInterface $entityManager,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method save
-     * {@inheritDoc}
-     *
-     * Saves a refresh token to the database.
-     *
-     * @since 1.0.0
-     *
-     * @param RefreshToken $refreshToken the refresh token to save
-     */
-    public function save(RefreshToken $refreshToken): void
-    {
-        $record = $this->entityManager->find(
-            className: RefreshTokenRecord::class,
-            id: $refreshToken->identifier()
-        );
+  // #region Methods
+  /**
+   * Method save
+   * {@inheritDoc}
+   *
+   * Saves a refresh token to the database.
+   *
+   * @since 1.0.0
+   *
+   * @param RefreshToken $refreshToken the refresh token to save
+   */
+  public function save(RefreshToken $refreshToken): void
+  {
+    $record = $this->entityManager->find(
+      className: RefreshTokenRecord::class,
+      id: $refreshToken->identifier()
+    );
 
-        if (!$record) {
-            $record = new RefreshTokenRecord();
-            $record->identifier = $refreshToken->identifier();
-        }
-
-        $record->accessTokenIdentifier = $refreshToken->accessTokenIdentifier();
-        $record->clientIdentifier = (string) $refreshToken->clientIdentifier();
-        $record->expiry = $refreshToken->expiryDateTime();
-        $record->isRevoked = $refreshToken->isRevoked();
-
-        $this->entityManager->persist($record);
-        $this->entityManager->flush();
+    if (!$record) {
+      $record = new RefreshTokenRecord();
+      $record->identifier = $refreshToken->identifier();
     }
 
-    /**
-     * Method find
-     * {@inheritDoc}
-     *
-     * Finds a refresh token by its identifier.
-     *
-     * @since 1.0.0
-     *
-     * @param string $identifier the identifier of the refresh token to find
-     */
-    public function find(string $identifier): ?RefreshToken
-    {
-        $record = $this->entityManager->find(
-            className: RefreshTokenRecord::class,
-            id: $identifier
-        );
+    $record->accessTokenIdentifier = $refreshToken->accessTokenIdentifier();
+    $record->clientIdentifier = (string) $refreshToken->clientIdentifier();
+    $record->expiry = $refreshToken->expiryDateTime();
+    $record->isRevoked = $refreshToken->isRevoked();
 
-        if (!$record) {
-            return null;
-        }
+    $this->entityManager->persist($record);
+    $this->entityManager->flush();
+  }
 
-        return new RefreshToken(
-            identifier: $record->identifier,
-            expiryDateTime: $record->expiry,
-            accessTokenIdentifier: $record->accessTokenIdentifier,
-            clientIdentifier: new OAuthClientIdentifier($record->clientIdentifier),
-            isRevoked: $record->isRevoked
-        );
+  /**
+   * Method find
+   * {@inheritDoc}
+   *
+   * Finds a refresh token by its identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param string $identifier the identifier of the refresh token to find
+   */
+  public function find(string $identifier): ?RefreshToken
+  {
+    $record = $this->entityManager->find(
+      className: RefreshTokenRecord::class,
+      id: $identifier
+    );
+
+    if (!$record) {
+      return null;
     }
-    // #endregion
+
+    return new RefreshToken(
+      identifier: $record->identifier,
+      expiryDateTime: $record->expiry,
+      accessTokenIdentifier: $record->accessTokenIdentifier,
+      clientIdentifier: new OAuthClientIdentifier($record->clientIdentifier),
+      isRevoked: $record->isRevoked
+    );
+  }
+  // #endregion
 }

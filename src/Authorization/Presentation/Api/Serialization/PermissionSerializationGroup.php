@@ -15,38 +15,38 @@ namespace Authorization\Presentation\Api\Serialization;
  */
 final class PermissionSerializationGroup
 {
-    // #region Constants
-    /**
-     * Constant READ.
-     *
-     * Group for reading permission data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string READ = 'permission:read';
+  // #region Constants
+  /**
+   * Constant READ.
+   *
+   * Group for reading permission data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string READ = 'permission:read';
 
-    /**
-     * Constant WRITE.
-     *
-     * Group for writing permission data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string WRITE = 'permission:write';
+  /**
+   * Constant WRITE.
+   *
+   * Group for writing permission data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string WRITE = 'permission:write';
 
-    /**
-     * Constant UPDATE.
-     *
-     * Group for updating permission data.
-     *
-     * @since 1.0.0
-     *
-     * @var string
-     */
-    public const string UPDATE = 'permission:update';
-    // #endregion
+  /**
+   * Constant UPDATE.
+   *
+   * Group for updating permission data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string UPDATE = 'permission:update';
+  // #endregion
 }

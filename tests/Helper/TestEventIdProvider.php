@@ -21,19 +21,19 @@ use function str_pad;
  */
 final class TestEventIdProvider implements EventIdProvider
 {
-    private int $counter = 0;
+  private int $counter = 0;
 
-    public function nextEventId(): Uuid
-    {
-        ++$this->counter;
-        // Generate predictable UUID based on counter
-        $hex = str_pad(dechex($this->counter), 12, '0', STR_PAD_LEFT);
+  public function nextEventId(): Uuid
+  {
+    ++$this->counter;
+    // Generate predictable UUID based on counter
+    $hex = str_pad(dechex($this->counter), 12, '0', STR_PAD_LEFT);
 
-        return new Uuid(sprintf('00000000-0000-4000-a000-%s', $hex));
-    }
+    return new Uuid(sprintf('00000000-0000-4000-a000-%s', $hex));
+  }
 
-    public function reset(): void
-    {
-        $this->counter = 0;
-    }
+  public function reset(): void
+  {
+    $this->counter = 0;
+  }
 }

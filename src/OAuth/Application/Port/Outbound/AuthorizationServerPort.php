@@ -22,37 +22,37 @@ use OAuth\Application\UseCase\Command\IssueToken\IssueTokenResult;
  */
 interface AuthorizationServerPort
 {
-    // #region Methods
-    /**
-     * Method issueAccessToken.
-     *
-     * Issues an access token for the given
-     * credentials.
-     *
-     * @since 1.0.0
-     *
-     * @param string      $grantType    the grant type
-     * @param string      $clientId     the client ID
-     * @param string      $clientSecret the client secret
-     * @param string|null $scope        the requested scope
-     * @param string|null $refreshToken the refresh token (for refresh_token grant)
-     * @param string|null $code         the authorization code (for authorization_code grant)
-     * @param string|null $redirectUri  the redirect URI (for authorization_code grant)
-     * @param string|null $codeVerifier the PKCE code verifier
-     *
-     * @return IssueTokenResult the token result
-     *
-     * @throws AuthorizationException if token issuance fails
-     */
-    public function issueAccessToken(
-        string $grantType,
-        string $clientId,
-        string $clientSecret,
-        ?string $scope = null,
-        ?string $refreshToken = null,
-        ?string $code = null,
-        ?string $redirectUri = null,
-        ?string $codeVerifier = null,
-    ): IssueTokenResult;
-    // #endregion
+  // #region Methods
+  /**
+   * Method issueAccessToken.
+   *
+   * Issues an access token for the given
+   * credentials.
+   *
+   * @since 1.0.0
+   *
+   * @param string      $grantType    the grant type
+   * @param string      $clientId     the client ID
+   * @param string      $clientSecret the client secret
+   * @param string|null $scope        the requested scope
+   * @param string|null $refreshToken the refresh token (for refresh_token grant)
+   * @param string|null $code         the authorization code (for authorization_code grant)
+   * @param string|null $redirectUri  the redirect URI (for authorization_code grant)
+   * @param string|null $codeVerifier the PKCE code verifier
+   *
+   * @return IssueTokenResult the token result
+   *
+   * @throws AuthorizationException if token issuance fails
+   */
+  public function issueAccessToken(
+    string $grantType,
+    string $clientId,
+    string $clientSecret,
+    ?string $scope = null,
+    ?string $refreshToken = null,
+    ?string $code = null,
+    ?string $redirectUri = null,
+    ?string $codeVerifier = null,
+  ): IssueTokenResult;
+  // #endregion
 }

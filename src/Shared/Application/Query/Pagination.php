@@ -15,21 +15,21 @@ namespace Shared\Application\Query;
  */
 final readonly class Pagination
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the Pagination class.
-     *
-     * @since 1.0.0
-     *
-     * @param int $offset the offset (default: 0)
-     * @param int $limit  the limit (default: 20)
-     */
-    public function __construct(
-        public int $offset = 0,
-        public int $limit = 20,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the Pagination class.
+   *
+   * @since 1.0.0
+   *
+   * @param int $offset the offset (default: 0)
+   * @param int $limit  the limit (default: 20)
+   */
+  public function __construct(
+    public int $offset = 0,
+    public int $limit = 20,
+  ) {
+  }
+  // #endregion
 }

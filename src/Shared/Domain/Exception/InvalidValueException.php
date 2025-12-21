@@ -17,22 +17,22 @@ namespace Shared\Domain\Exception;
  */
 class InvalidValueException extends DomainException
 {
-    // #region Methods
-    /**
-     * Method because.
-     *
-     * Creates a new InvalidValueException
-     * with the specified message.
-     *
-     * @since 1.0.0
-     *
-     * @param string $message the message to be displayed
-     *
-     * @return self the created InvalidValueException
-     */
-    public static function because(string $message): self
-    {
-        return new self($message);
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method because.
+   *
+   * Creates a new InvalidValueException
+   * with the specified message.
+   *
+   * @since 1.0.0
+   *
+   * @param string $message the message to be displayed
+   *
+   * @return self the created InvalidValueException
+   */
+  public static function because(string $message): self
+  {
+    return new self($message);
+  }
+  // #endregion
 }

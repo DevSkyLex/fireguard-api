@@ -28,47 +28,47 @@ use function is_string;
  */
 final readonly class VerifyOtpProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @param VerifyOtpHandler $handler the handler
-     */
-    public function __construct(
-        private VerifyOtpHandler $handler,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param VerifyOtpHandler $handler the handler
+   */
+  public function __construct(
+    private VerifyOtpHandler $handler,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * @param VerifyOtpInput $data
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): VerifyOtpOutput
+  {
+    $otpId = $uriVariables['id'] ?? null;
+
+    if (!is_string($otpId)) {
+      throw new NotFoundHttpException('OTP ID is required.');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * @param VerifyOtpInput $data
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): VerifyOtpOutput
-    {
-        $otpId = $uriVariables['id'] ?? null;
+    try {
+      $command = new VerifyOtpCommand(
+        otpId: $otpId,
+        code: $data->code,
+      );
 
-        if (!is_string($otpId)) {
-            throw new NotFoundHttpException('OTP ID is required.');
-        }
+      $result = $this->handler->__invoke($command);
 
-        try {
-            $command = new VerifyOtpCommand(
-                otpId: $otpId,
-                code: $data->code,
-            );
+      $output = new VerifyOtpOutput();
+      $output->success = $result->success;
+      $output->attemptsRemaining = $result->attemptsRemaining;
+      $output->error = $result->error;
 
-            $result = $this->handler->__invoke($command);
-
-            $output = new VerifyOtpOutput();
-            $output->success = $result->success;
-            $output->attemptsRemaining = $result->attemptsRemaining;
-            $output->error = $result->error;
-
-            return $output;
-        } catch (OtpNotFoundException) {
-            throw new NotFoundHttpException('OTP not found.');
-        }
+      return $output;
+    } catch (OtpNotFoundException) {
+      throw new NotFoundHttpException('OTP not found.');
     }
-    // #endregion
+  }
+  // #endregion
 }

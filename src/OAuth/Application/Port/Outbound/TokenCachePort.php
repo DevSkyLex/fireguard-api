@@ -17,42 +17,42 @@ namespace OAuth\Application\Port\Outbound;
  */
 interface TokenCachePort
 {
-    // #region Methods
-    /**
-     * Method get.
-     *
-     * Gets cached introspection result.
-     *
-     * @since 1.0.0
-     *
-     * @param string $tokenId the token identifier
-     *
-     * @return array<string, mixed>|null the cached result or null
-     */
-    public function get(string $tokenId): ?array;
+  // #region Methods
+  /**
+   * Method get.
+   *
+   * Gets cached introspection result.
+   *
+   * @since 1.0.0
+   *
+   * @param string $tokenId the token identifier
+   *
+   * @return array<string, mixed>|null the cached result or null
+   */
+  public function get(string $tokenId): ?array;
 
-    /**
-     * Method set.
-     *
-     * Caches introspection result.
-     *
-     * @since 1.0.0
-     *
-     * @param string               $tokenId the token identifier
-     * @param array<string, mixed> $data    the data to cache
-     * @param int|null             $ttl     custom TTL in seconds
-     */
-    public function set(string $tokenId, array $data, ?int $ttl = null): void;
+  /**
+   * Method set.
+   *
+   * Caches introspection result.
+   *
+   * @since 1.0.0
+   *
+   * @param string               $tokenId the token identifier
+   * @param array<string, mixed> $data    the data to cache
+   * @param int|null             $ttl     custom TTL in seconds
+   */
+  public function set(string $tokenId, array $data, ?int $ttl = null): void;
 
-    /**
-     * Method invalidate.
-     *
-     * Invalidates cached token data.
-     *
-     * @since 1.0.0
-     *
-     * @param string $tokenId the token identifier
-     */
-    public function invalidate(string $tokenId): void;
-    // #endregion
+  /**
+   * Method invalidate.
+   *
+   * Invalidates cached token data.
+   *
+   * @since 1.0.0
+   *
+   * @param string $tokenId the token identifier
+   */
+  public function invalidate(string $tokenId): void;
+  // #endregion
 }

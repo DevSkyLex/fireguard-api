@@ -19,26 +19,26 @@ use function sprintf;
  */
 final class UuidGenerationException extends InfrastructureException
 {
-    // #region Methods
-    /**
-     * Method dueToRandomFailure.
-     *
-     * @static
-     *
-     * Create an exception when the random source fails.
-     *
-     * @since 1.0.0
-     *
-     * @param Throwable $previous the underlying exception triggered by the generator
-     *
-     * @return self the created exception instance
-     */
-    public static function dueToRandomFailure(Throwable $previous): self
-    {
-        return new self(
-            message: sprintf('Unable to generate a UUID: %s', $previous->getMessage()),
-            previous: $previous
-        );
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method dueToRandomFailure.
+   *
+   * @static
+   *
+   * Create an exception when the random source fails.
+   *
+   * @since 1.0.0
+   *
+   * @param Throwable $previous the underlying exception triggered by the generator
+   *
+   * @return self the created exception instance
+   */
+  public static function dueToRandomFailure(Throwable $previous): self
+  {
+    return new self(
+      message: sprintf('Unable to generate a UUID: %s', $previous->getMessage()),
+      previous: $previous
+    );
+  }
+  // #endregion
 }

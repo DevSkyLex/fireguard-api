@@ -27,59 +27,59 @@ use function is_string;
  */
 final readonly class GetPermissionProvider implements ProviderInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * GetPermissionProvider class.
-     *
-     * @since 1.0.0
-     *
-     * @param PermissionRepositoryPort $permissionRepository the permission repository
-     */
-    public function __construct(
-        private readonly PermissionRepositoryPort $permissionRepository,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * GetPermissionProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param PermissionRepositoryPort $permissionRepository the permission repository
+   */
+  public function __construct(
+    private readonly PermissionRepositoryPort $permissionRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method provide
+   * {@inheritDoc}
+   *
+   * Provides the permission output.
+   *
+   * @since 1.0.0
+   *
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return PermissionOutput|null the permission output or null if not found
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?PermissionOutput
+  {
+    $id = $uriVariables['id'] ?? null;
+
+    if (!is_string($id)) {
+      return null;
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method provide
-     * {@inheritDoc}
-     *
-     * Provides the permission output.
-     *
-     * @since 1.0.0
-     *
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return PermissionOutput|null the permission output or null if not found
-     */
-    public function provide(Operation $operation, array $uriVariables = [], array $context = []): ?PermissionOutput
-    {
-        $id = $uriVariables['id'] ?? null;
+    $permission = $this->permissionRepository->findById(id: new PermissionId(value: $id));
 
-        if (!is_string($id)) {
-            return null;
-        }
-
-        $permission = $this->permissionRepository->findById(id: new PermissionId(value: $id));
-
-        if (null === $permission) {
-            return null;
-        }
-
-        $output = new PermissionOutput();
-        $output->id = $permission->id()->value;
-        $output->name = $permission->name()->value;
-        $output->description = $permission->description();
-        $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
-
-        return $output;
+    if (null === $permission) {
+      return null;
     }
-    // #endregion
+
+    $output = new PermissionOutput();
+    $output->id = $permission->id()->value;
+    $output->name = $permission->name()->value;
+    $output->description = $permission->description();
+    $output->createdAt = $permission->createdAt()->format('Y-m-d H:i:s');
+
+    return $output;
+  }
+  // #endregion
 }

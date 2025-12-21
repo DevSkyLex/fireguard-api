@@ -15,19 +15,19 @@ namespace Session\Application\UseCase\Command\RevokeSession;
  */
 final readonly class RevokeSessionCommand
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string $sessionId the session ID to revoke
-     * @param string $reason    the reason for revocation
-     */
-    public function __construct(
-        public string $sessionId,
-        public string $reason = 'User logout',
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $sessionId the session ID to revoke
+   * @param string $reason    the reason for revocation
+   */
+  public function __construct(
+    public string $sessionId,
+    public string $reason = 'User logout',
+  ) {
+  }
+  // #endregion
 }

@@ -17,21 +17,21 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class MfaVerifyCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the MfaVerifyCommand class.
-     *
-     * @since 1.0.0
-     *
-     * @param string $preAuthToken the pre-auth JWT token from initial login
-     * @param string $code         the verification code entered by the user
-     */
-    public function __construct(
-        public readonly string $preAuthToken,
-        public readonly string $code,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the MfaVerifyCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $preAuthToken the pre-auth JWT token from initial login
+   * @param string $code         the verification code entered by the user
+   */
+  public function __construct(
+    public readonly string $preAuthToken,
+    public readonly string $code,
+  ) {
+  }
+  // #endregion
 }

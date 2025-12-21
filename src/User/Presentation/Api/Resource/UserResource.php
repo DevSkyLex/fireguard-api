@@ -30,59 +30,59 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-    shortName: 'User',
-    operations: [
-        new Post(
-            name: 'create',
-            uriTemplate: '/users',
-            input: UserInput::class,
-            output: UserOutput::class,
-            processor: CreateUserProcessor::class,
-            normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-            denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
-        ),
-        new Get(
-            name: 'get',
-            uriTemplate: '/users/{id}',
-            input: false,
-            output: UserOutput::class,
-            provider: UserProvider::class,
-            normalizationContext: ['groups' => [UserSerializationGroup::READ]]
-        ),
-        new GetCollection(
-            name: 'list',
-            uriTemplate: '/users',
-            input: false,
-            output: UserOutput::class,
-            provider: ListUsersProvider::class,
-            normalizationContext: ['groups' => [UserSerializationGroup::READ]]
-        ),
-        new Patch(
-            name: 'update',
-            uriTemplate: '/users/{id}',
-            input: UserInput::class,
-            output: UserOutput::class,
-            processor: UpdateUserProcessor::class,
-            normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-            denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
-        ),
-        new Put(
-            name: 'replace',
-            uriTemplate: '/users/{id}',
-            input: UserInput::class,
-            output: UserOutput::class,
-            processor: UpdateUserProcessor::class,
-            normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-            denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
-        ),
-        new Delete(
-            name: 'delete',
-            uriTemplate: '/users/{id}',
-            input: false,
-            output: false,
-            processor: DeleteUserProcessor::class
-        ),
-    ]
+  shortName: 'User',
+  operations: [
+    new Post(
+      name: 'create',
+      uriTemplate: '/users',
+      input: UserInput::class,
+      output: UserOutput::class,
+      processor: CreateUserProcessor::class,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
+      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
+    ),
+    new Get(
+      name: 'get',
+      uriTemplate: '/users/{id}',
+      input: false,
+      output: UserOutput::class,
+      provider: UserProvider::class,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]]
+    ),
+    new GetCollection(
+      name: 'list',
+      uriTemplate: '/users',
+      input: false,
+      output: UserOutput::class,
+      provider: ListUsersProvider::class,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]]
+    ),
+    new Patch(
+      name: 'update',
+      uriTemplate: '/users/{id}',
+      input: UserInput::class,
+      output: UserOutput::class,
+      processor: UpdateUserProcessor::class,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
+      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
+    ),
+    new Put(
+      name: 'replace',
+      uriTemplate: '/users/{id}',
+      input: UserInput::class,
+      output: UserOutput::class,
+      processor: UpdateUserProcessor::class,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
+      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
+    ),
+    new Delete(
+      name: 'delete',
+      uriTemplate: '/users/{id}',
+      input: false,
+      output: false,
+      processor: DeleteUserProcessor::class
+    ),
+  ]
 )]
 final class UserResource
 {

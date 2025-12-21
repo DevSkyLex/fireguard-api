@@ -17,14 +17,14 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class VerifyOtpInput
 {
-    // #region Properties
-    /**
-     * Property code.
-     *
-     * The verification code.
-     */
-    #[Assert\NotBlank]
-    #[Assert\Regex(pattern: '/^\d{6}$/', message: 'Code must be 6 digits.')]
-    public string $code;
-    // #endregion
+  // #region Properties
+  /**
+   * Property code.
+   *
+   * The verification code.
+   */
+  #[Assert\NotBlank]
+  #[Assert\Regex(pattern: '/^\d{6}$/', message: 'Code must be 6 digits.')]
+  public string $code;
+  // #endregion
 }

@@ -31,8 +31,15 @@ return (new PhpCsFixer\Config())
 		],
 		'single_line_throw' => false,
 		'phpdoc_to_comment' => false,
+		'phpdoc_align' => ['align' => 'left'],
+		'phpdoc_separation' => true,
+		'phpdoc_trim' => true,
+		'phpdoc_order' => true,
 		'concat_space' => ['spacing' => 'one'],
 	])
+	->setIndent('  ')
+	->setLineEnding("\n")
+	->setUsingCache(true)
 	->setFinder($finder)
 	->setRiskyAllowed(true)
 ;

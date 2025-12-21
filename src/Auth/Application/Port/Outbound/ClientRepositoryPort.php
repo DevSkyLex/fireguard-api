@@ -20,18 +20,18 @@ use OAuth\Domain\ValueObject\OAuthClientIdentifier;
  */
 interface ClientRepositoryPort
 {
-    // #region Methods
-    /**
-     * Method find.
-     *
-     * Finds a client by its OAuth identifier.
-     *
-     * @since 1.0.0
-     *
-     * @param OAuthClientIdentifier $identifier the client identifier
-     *
-     * @return Client|null the client or null if not found
-     */
-    public function find(OAuthClientIdentifier $identifier): ?Client;
-    // #endregion
+  // #region Methods
+  /**
+   * Method find.
+   *
+   * Finds a client by its OAuth identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param OAuthClientIdentifier $identifier the client identifier
+   *
+   * @return Client|null the client or null if not found
+   */
+  public function find(OAuthClientIdentifier $identifier): ?Client;
+  // #endregion
 }

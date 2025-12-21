@@ -15,19 +15,19 @@ namespace Session\Application\UseCase\Query\ListUserSessions;
  */
 final readonly class ListUserSessionsQuery
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string $userId     the user ID
-     * @param bool   $activeOnly whether to return only active sessions
-     */
-    public function __construct(
-        public readonly string $userId,
-        public readonly bool $activeOnly = true,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId     the user ID
+   * @param bool   $activeOnly whether to return only active sessions
+   */
+  public function __construct(
+    public readonly string $userId,
+    public readonly bool $activeOnly = true,
+  ) {
+  }
+  // #endregion
 }

@@ -30,68 +30,68 @@ use function date;
  */
 final readonly class RegisterClientProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * RegisterClientProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param CommandBusPort $commandBus the command bus
-     */
-    public function __construct(
-        private readonly CommandBusPort $commandBus,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * RegisterClientProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   */
+  public function __construct(
+    private readonly CommandBusPort $commandBus,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes the client registration.
-     *
-     * @since 1.0.0
-     *
-     * @param ClientInput          $data         the input data
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return ClientOutput the processed output
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
-    {
-        /** @var ClientInput $data */
-        $name = $data->name ?? '';
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes the client registration.
+   *
+   * @since 1.0.0
+   *
+   * @param ClientInput          $data         the input data
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return ClientOutput the processed output
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
+  {
+    /** @var ClientInput $data */
+    $name = $data->name ?? '';
 
-        // Convert DTO to Command
-        $command = new RegisterClientCommand(
-            name: $name,
-            redirectUris: array_map(fn (string $uri) => new RedirectUri($uri), $data->redirectUris),
-            grantTypes: GrantTypes::fromArray($data->grantTypes),
-            scopes: Scopes::fromArray($data->scopes)
-        );
+    // Convert DTO to Command
+    $command = new RegisterClientCommand(
+      name: $name,
+      redirectUris: array_map(fn (string $uri) => new RedirectUri($uri), $data->redirectUris),
+      grantTypes: GrantTypes::fromArray($data->grantTypes),
+      scopes: Scopes::fromArray($data->scopes)
+    );
 
-        // Dispatch command
-        /** @var RegisterClientResult $result */
-        $result = $this->commandBus->dispatch($command);
+    // Dispatch command
+    /** @var RegisterClientResult $result */
+    $result = $this->commandBus->dispatch($command);
 
-        // Create output DTO
-        $output = new ClientOutput();
-        $output->id = $result->clientId;
-        $output->name = $data->name;
-        $output->secret = $result->clientSecret;
-        $output->redirectUris = $data->redirectUris;
-        $output->grantTypes = $data->grantTypes;
-        $output->scopes = $data->scopes;
-        $output->isActive = true;
-        $output->createdAt = date(format: 'Y-m-d H:i:s');
+    // Create output DTO
+    $output = new ClientOutput();
+    $output->id = $result->clientId;
+    $output->name = $data->name;
+    $output->secret = $result->clientSecret;
+    $output->redirectUris = $data->redirectUris;
+    $output->grantTypes = $data->grantTypes;
+    $output->scopes = $data->scopes;
+    $output->isActive = true;
+    $output->createdAt = date(format: 'Y-m-d H:i:s');
 
-        return $output;
-    }
-    // #endregion
+    return $output;
+  }
+  // #endregion
 }

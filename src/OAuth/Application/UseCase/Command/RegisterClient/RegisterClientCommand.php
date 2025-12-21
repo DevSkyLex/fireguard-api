@@ -20,26 +20,26 @@ use Shared\Application\Message\CommandMessage;
  */
 final readonly class RegisterClientCommand implements CommandMessage
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * RegisterClientCommand class.
-     *
-     * @since 1.0.0
-     *
-     * @param string             $name         the client name
-     * @param array<RedirectUri> $redirectUris the allowed redirect URIs
-     * @param GrantTypes         $grantTypes   the allowed grant types
-     * @param Scopes             $scopes       the allowed scopes
-     */
-    public function __construct(
-        public readonly string $name,
-        public readonly array $redirectUris,
-        public readonly GrantTypes $grantTypes,
-        public readonly Scopes $scopes,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * RegisterClientCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string             $name         the client name
+   * @param array<RedirectUri> $redirectUris the allowed redirect URIs
+   * @param GrantTypes         $grantTypes   the allowed grant types
+   * @param Scopes             $scopes       the allowed scopes
+   */
+  public function __construct(
+    public readonly string $name,
+    public readonly array $redirectUris,
+    public readonly GrantTypes $grantTypes,
+    public readonly Scopes $scopes,
+  ) {
+  }
+  // #endregion
 }

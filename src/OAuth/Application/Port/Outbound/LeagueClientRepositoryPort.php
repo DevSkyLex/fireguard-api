@@ -22,18 +22,18 @@ use OAuth\Domain\ValueObject\OAuthClientIdentifier;
  */
 interface LeagueClientRepositoryPort
 {
-    // #region Methods
-    /**
-     * Method find.
-     *
-     * Finds a client by its OAuth identifier.
-     *
-     * @since 1.0.0
-     *
-     * @param OAuthClientIdentifier $identifier the client identifier
-     *
-     * @return LeagueClient|null the client or null if not found
-     */
-    public function find(OAuthClientIdentifier $identifier): ?LeagueClient;
-    // #endregion
+  // #region Methods
+  /**
+   * Method find.
+   *
+   * Finds a client by its OAuth identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param OAuthClientIdentifier $identifier the client identifier
+   *
+   * @return LeagueClient|null the client or null if not found
+   */
+  public function find(OAuthClientIdentifier $identifier): ?LeagueClient;
+  // #endregion
 }

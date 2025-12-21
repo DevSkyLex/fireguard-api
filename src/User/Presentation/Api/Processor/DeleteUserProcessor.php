@@ -24,47 +24,47 @@ use function is_string;
  */
 final readonly class DeleteUserProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the
-     * DeleteUserProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param CommandBusPort $commandBus the command bus
-     */
-    public function __construct(
-        private readonly CommandBusPort $commandBus,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteUserProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   */
+  public function __construct(
+    private readonly CommandBusPort $commandBus,
+  ) {
+  }
+  // #endregion
 
-    // #region Methods
-    /**
-     * Method process.
-     *
-     * Processes the delete user request.
-     *
-     * @since 1.0.0
-     *
-     * @param mixed                $data         the input data
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return void no return value
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
-    {
-        $id = $uriVariables['id'] ?? null;
-        if (!is_string($id)) {
-            return;
-        }
-
-        $command = new DeleteUserCommand(id: $id);
-        $this->commandBus->dispatch(command: $command);
+  // #region Methods
+  /**
+   * Method process.
+   *
+   * Processes the delete user request.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed                $data         the input data
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return void no return value
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): void
+  {
+    $id = $uriVariables['id'] ?? null;
+    if (!is_string($id)) {
+      return;
     }
-    // #endregion
+
+    $command = new DeleteUserCommand(id: $id);
+    $this->commandBus->dispatch(command: $command);
+  }
+  // #endregion
 }

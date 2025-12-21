@@ -29,70 +29,70 @@ use function is_string;
  */
 final readonly class RegenerateSecretProcessor implements ProcessorInterface
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * Initializes a new instance of the RegenerateSecretProcessor class.
-     *
-     * @since 1.0.0
-     *
-     * @param CommandBusPort $commandBus the command bus
-     * @param QueryBusPort   $queryBus   the query bus
-     */
-    public function __construct(
-        private readonly CommandBusPort $commandBus,
-        private readonly QueryBusPort $queryBus,
-    ) {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the RegenerateSecretProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param QueryBusPort   $queryBus   the query bus
+   */
+  public function __construct(
+    private readonly CommandBusPort $commandBus,
+    private readonly QueryBusPort $queryBus,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process
+   * {@inheritDoc}
+   *
+   * Processes the secret regeneration.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed                $data         the input data (not used)
+   * @param Operation            $operation    the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context      the context
+   *
+   * @return ClientOutput the processed output with new secret
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
+  {
+    $id = $uriVariables['id'] ?? null;
+
+    if (!is_string($id)) {
+      throw new InvalidArgumentException('Client ID must be a string');
     }
-    // #endregion
 
-    // #region Methods
-    /**
-     * Method process
-     * {@inheritDoc}
-     *
-     * Processes the secret regeneration.
-     *
-     * @since 1.0.0
-     *
-     * @param mixed                $data         the input data (not used)
-     * @param Operation            $operation    the operation
-     * @param array<string, mixed> $uriVariables the URI variables
-     * @param array<string, mixed> $context      the context
-     *
-     * @return ClientOutput the processed output with new secret
-     */
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ClientOutput
-    {
-        $id = $uriVariables['id'] ?? null;
+    // Dispatch command
+    $command = new RegenerateClientSecretCommand(clientId: $id);
+    /** @var RegenerateClientSecretResult $result */
+    $result = $this->commandBus->dispatch($command);
 
-        if (!is_string($id)) {
-            throw new InvalidArgumentException('Client ID must be a string');
-        }
+    // Fetch updated client
+    $query = new GetClientQuery(clientId: $id);
+    /** @var GetClientResult $clientResult */
+    $clientResult = $this->queryBus->ask(query: $query);
 
-        // Dispatch command
-        $command = new RegenerateClientSecretCommand(clientId: $id);
-        /** @var RegenerateClientSecretResult $result */
-        $result = $this->commandBus->dispatch($command);
+    // Create output DTO
+    $output = new ClientOutput();
+    $output->id = $clientResult->id;
+    $output->name = $clientResult->name;
+    $output->secret = $result->clientSecret; // Include new secret
+    $output->redirectUris = $clientResult->redirectUris;
+    $output->grantTypes = $clientResult->grantTypes;
+    $output->scopes = $clientResult->scopes;
+    $output->isActive = $clientResult->isActive;
+    $output->createdAt = $clientResult->createdAt;
 
-        // Fetch updated client
-        $query = new GetClientQuery(clientId: $id);
-        /** @var GetClientResult $clientResult */
-        $clientResult = $this->queryBus->ask(query: $query);
-
-        // Create output DTO
-        $output = new ClientOutput();
-        $output->id = $clientResult->id;
-        $output->name = $clientResult->name;
-        $output->secret = $result->clientSecret; // Include new secret
-        $output->redirectUris = $clientResult->redirectUris;
-        $output->grantTypes = $clientResult->grantTypes;
-        $output->scopes = $clientResult->scopes;
-        $output->isActive = $clientResult->isActive;
-        $output->createdAt = $clientResult->createdAt;
-
-        return $output;
-    }
-    // #endregion
+    return $output;
+  }
+  // #endregion
 }

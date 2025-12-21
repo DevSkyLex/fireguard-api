@@ -24,16 +24,16 @@ use Shared\Infrastructure\Exception\MessengerRuntimeException;
 #[CoversClass(className: MessengerRuntimeException::class)]
 final class MessengerRuntimeExceptionTest extends TestCase
 {
-    /**
-     * Test the wrap factory method.
-     */
-    #[Test]
-    public function testWrap(): void
-    {
-        $previous = new Exception('Original error');
-        $exception = MessengerRuntimeException::wrap($previous);
+  /**
+   * Test the wrap factory method.
+   */
+  #[Test]
+  public function testWrap(): void
+  {
+    $previous = new Exception('Original error');
+    $exception = MessengerRuntimeException::wrap($previous);
 
-        $this->assertSame('Original error', $exception->getMessage());
-        $this->assertSame($previous, $exception->getPrevious());
-    }
+    $this->assertSame('Original error', $exception->getMessage());
+    $this->assertSame($previous, $exception->getPrevious());
+  }
 }

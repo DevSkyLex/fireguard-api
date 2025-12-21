@@ -24,16 +24,16 @@ use Shared\Infrastructure\Exception\TranslationException;
 #[CoversClass(className: TranslationException::class)]
 final class TranslationExceptionTest extends TestCase
 {
-    /**
-     * Test the translateFailed factory method.
-     */
-    #[Test]
-    public function testTranslateFailed(): void
-    {
-        $previous = new Exception('Translation error');
-        $exception = TranslationException::translateFailed('message.id', $previous);
+  /**
+   * Test the translateFailed factory method.
+   */
+  #[Test]
+  public function testTranslateFailed(): void
+  {
+    $previous = new Exception('Translation error');
+    $exception = TranslationException::translateFailed('message.id', $previous);
 
-        $this->assertSame('Failed to translate message "message.id".', $exception->getMessage());
-        $this->assertSame($previous, $exception->getPrevious());
-    }
+    $this->assertSame('Failed to translate message "message.id".', $exception->getMessage());
+    $this->assertSame($previous, $exception->getPrevious());
+  }
 }

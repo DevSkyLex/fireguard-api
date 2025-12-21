@@ -21,34 +21,34 @@ use Tenant\Presentation\Api\Provider\ListTenantsProvider;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-    shortName: 'Tenant',
-    description: 'Multi-tenant configuration management. Tenants define OAuth2 settings for different organizations.',
-    operations: [
-        new Post(
-            name: 'tenant_create',
-            description: 'Create a new tenant with custom OAuth2 settings.',
-            uriTemplate: '/tenants',
-            input: TenantInput::class,
-            output: TenantOutput::class,
-            processor: CreateTenantProcessor::class
-        ),
-        new Get(
-            name: 'tenant_get',
-            description: 'Get details of a specific tenant.',
-            uriTemplate: '/tenants/{id}',
-            input: false,
-            output: TenantOutput::class,
-            provider: GetTenantProvider::class
-        ),
-        new GetCollection(
-            name: 'tenant_list',
-            description: 'Returns a list of all tenants. Requires ROLE_ADMIN.',
-            uriTemplate: '/tenants',
-            input: false,
-            output: TenantOutput::class,
-            provider: ListTenantsProvider::class
-        ),
-    ]
+  shortName: 'Tenant',
+  description: 'Multi-tenant configuration management. Tenants define OAuth2 settings for different organizations.',
+  operations: [
+    new Post(
+      name: 'tenant_create',
+      description: 'Create a new tenant with custom OAuth2 settings.',
+      uriTemplate: '/tenants',
+      input: TenantInput::class,
+      output: TenantOutput::class,
+      processor: CreateTenantProcessor::class
+    ),
+    new Get(
+      name: 'tenant_get',
+      description: 'Get details of a specific tenant.',
+      uriTemplate: '/tenants/{id}',
+      input: false,
+      output: TenantOutput::class,
+      provider: GetTenantProvider::class
+    ),
+    new GetCollection(
+      name: 'tenant_list',
+      description: 'Returns a list of all tenants. Requires ROLE_ADMIN.',
+      uriTemplate: '/tenants',
+      input: false,
+      output: TenantOutput::class,
+      provider: ListTenantsProvider::class
+    ),
+  ]
 )]
 final class TenantResource
 {

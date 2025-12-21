@@ -19,25 +19,25 @@ use function sprintf;
  */
 final class SessionAlreadyRevokedException extends DomainException
 {
-    // #region Methods
-    /**
-     * Method withId.
-     *
-     * @static
-     *
-     * Creates an exception for an already revoked session.
-     *
-     * @since 1.0.0
-     *
-     * @param string $id the session ID
-     *
-     * @return self the exception
-     */
-    public static function withId(string $id): self
-    {
-        return new self(
-            message: sprintf('Session with ID "%s" has already been revoked.', $id)
-        );
-    }
-    // #endregion
+  // #region Methods
+  /**
+   * Method withId.
+   *
+   * @static
+   *
+   * Creates an exception for an already revoked session.
+   *
+   * @since 1.0.0
+   *
+   * @param string $id the session ID
+   *
+   * @return self the exception
+   */
+  public static function withId(string $id): self
+  {
+    return new self(
+      message: sprintf('Session with ID "%s" has already been revoked.', $id)
+    );
+  }
+  // #endregion
 }

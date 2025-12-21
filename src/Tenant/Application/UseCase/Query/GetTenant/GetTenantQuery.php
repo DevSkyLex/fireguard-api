@@ -15,17 +15,17 @@ namespace Tenant\Application\UseCase\Query\GetTenant;
  */
 final readonly class GetTenantQuery
 {
-    // #region Constructor
-    /**
-     * Constructor.
-     *
-     * @since 1.0.0
-     *
-     * @param string $tenantId the tenant ID
-     */
-    public function __construct(
-        public string $tenantId,
-    ) {
-    }
-    // #endregion
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $tenantId the tenant ID
+   */
+  public function __construct(
+    public string $tenantId,
+  ) {
+  }
+  // #endregion
 }

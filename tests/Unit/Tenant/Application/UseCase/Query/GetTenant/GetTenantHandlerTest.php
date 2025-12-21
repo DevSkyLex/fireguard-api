@@ -27,61 +27,61 @@ use Tenant\Domain\ValueObject\TenantSettings;
 #[CoversClass(className: GetTenantHandler::class)]
 final class GetTenantHandlerTest extends TestCase
 {
-    // #region Methods
-    /**
-     * Method testInvokeReturnsTenant.
-     *
-     * Test that __invoke returns tenant details successfully.
-     */
-    #[Test]
-    public function testInvokeReturnsTenant(): void
-    {
-        $tenantId = '123e4567-e89b-12d3-a456-426614174000';
+  // #region Methods
+  /**
+   * Method testInvokeReturnsTenant.
+   *
+   * Test that __invoke returns tenant details successfully.
+   */
+  #[Test]
+  public function testInvokeReturnsTenant(): void
+  {
+    $tenantId = '123e4567-e89b-12d3-a456-426614174000';
 
-        $tenant = Tenant::create(
-            id: new TenantId($tenantId),
-            name: new TenantName('Test Tenant'),
-            settings: new TenantSettings(accessTokenTtl: 7200),
-        );
+    $tenant = Tenant::create(
+      id: new TenantId($tenantId),
+      name: new TenantName('Test Tenant'),
+      settings: new TenantSettings(accessTokenTtl: 7200),
+    );
 
-        $repository = $this->createMock(TenantRepositoryPort::class);
-        $repository->expects(self::once())
-          ->method('findById')
-          ->willReturn($tenant);
+    $repository = $this->createMock(TenantRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($tenant);
 
-        $query = new GetTenantQuery(tenantId: $tenantId);
+    $query = new GetTenantQuery(tenantId: $tenantId);
 
-        $handler = new GetTenantHandler(tenantRepository: $repository);
-        $result = $handler->__invoke(query: $query);
+    $handler = new GetTenantHandler(tenantRepository: $repository);
+    $result = $handler->__invoke(query: $query);
 
-        self::assertInstanceOf(GetTenantResult::class, $result);
-        self::assertEquals($tenantId, $result->tenantId);
-        self::assertEquals('Test Tenant', $result->name);
-        self::assertEquals(7200, $result->settings->accessTokenTtl);
-        self::assertTrue($result->isActive);
-    }
+    self::assertInstanceOf(GetTenantResult::class, $result);
+    self::assertEquals($tenantId, $result->tenantId);
+    self::assertEquals('Test Tenant', $result->name);
+    self::assertEquals(7200, $result->settings->accessTokenTtl);
+    self::assertTrue($result->isActive);
+  }
 
-    /**
-     * Method testInvokeThrowsExceptionWhenNotFound.
-     *
-     * Test that __invoke throws exception when tenant not found.
-     */
-    #[Test]
-    public function testInvokeThrowsExceptionWhenNotFound(): void
-    {
-        $tenantId = '123e4567-e89b-12d3-a456-426614174000';
+  /**
+   * Method testInvokeThrowsExceptionWhenNotFound.
+   *
+   * Test that __invoke throws exception when tenant not found.
+   */
+  #[Test]
+  public function testInvokeThrowsExceptionWhenNotFound(): void
+  {
+    $tenantId = '123e4567-e89b-12d3-a456-426614174000';
 
-        $repository = $this->createMock(TenantRepositoryPort::class);
-        $repository->expects(self::once())
-          ->method('findById')
-          ->willReturn(null);
+    $repository = $this->createMock(TenantRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn(null);
 
-        $query = new GetTenantQuery(tenantId: $tenantId);
+    $query = new GetTenantQuery(tenantId: $tenantId);
 
-        $handler = new GetTenantHandler(tenantRepository: $repository);
+    $handler = new GetTenantHandler(tenantRepository: $repository);
 
-        $this->expectException(TenantNotFoundException::class);
-        $handler->__invoke(query: $query);
-    }
-    // #endregion
+    $this->expectException(TenantNotFoundException::class);
+    $handler->__invoke(query: $query);
+  }
+  // #endregion
 }
