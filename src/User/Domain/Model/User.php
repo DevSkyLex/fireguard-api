@@ -191,6 +191,7 @@ final class User
 
     if (!$this->password->verify(plain: $plainPassword)) {
       $this->recordFailedLogin();
+
       throw InvalidPasswordException::incorrect();
     }
 

@@ -23,6 +23,9 @@ final readonly class CreateSessionCommand
   /**
    * Constructor.
    *
+   * Initialize the command with the user ID, IP address, user agent,
+   * and optional session metadata.
+   *
    * @since 1.0.0
    *
    * @param string $userId the user ID

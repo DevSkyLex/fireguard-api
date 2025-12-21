@@ -28,7 +28,9 @@ final class TrustedDevice
   // #endregion
 
   // #region Properties
-  /** @var list<DomainEvent> */
+  /**
+   * @var list<DomainEvent>
+   */
   private array $events = [];
 
   private bool $revoked = false;

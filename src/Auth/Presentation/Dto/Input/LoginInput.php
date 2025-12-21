@@ -45,14 +45,14 @@ final class LoginInput
     default: null,
     example: 'john.doe@example.com',
     openapiContext: [
-      'type'      => 'string',
-      'format'    => 'email',
+      'type' => 'string',
+      'format' => 'email',
       'minLength' => 5,
       'maxLength' => 255,
-      'pattern'   => '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+      'pattern' => '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     ],
     jsonSchemaContext: [
-      'type'   => 'string',
+      'type' => 'string',
       'format' => 'email',
     ],
   )]
@@ -87,15 +87,15 @@ final class LoginInput
     default: null,
     example: 'SecureP@ssw0rd!',
     openapiContext: [
-      'type'      => 'string',
-      'format'    => 'password',
+      'type' => 'string',
+      'format' => 'password',
       'minLength' => 8,
       'maxLength' => 128,
       'writeOnly' => true,
     ],
     jsonSchemaContext: [
-      'type'      => 'string',
-      'format'    => 'password',
+      'type' => 'string',
+      'format' => 'password',
       'writeOnly' => true,
     ],
   )]
@@ -123,12 +123,12 @@ final class LoginInput
     default: false,
     example: false,
     openapiContext: [
-      'type'      => 'boolean',
-      'default'   => false,
-      'nullable'  => false,
+      'type' => 'boolean',
+      'default' => false,
+      'nullable' => false,
     ],
     jsonSchemaContext: [
-      'type'    => 'boolean',
+      'type' => 'boolean',
       'default' => false,
     ],
   )]

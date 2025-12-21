@@ -256,6 +256,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     foreach ($cookies as $cookie) {
       if ('refresh_token' === $cookie->getName()) {
         $refreshTokenCookie = $cookie;
+
         break;
       }
     }
@@ -320,6 +321,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     foreach ($cookies as $cookie) {
       if ('refresh_token' === $cookie->getName()) {
         $refreshTokenCookie = $cookie;
+
         break;
       }
     }
@@ -592,6 +594,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     foreach ($cookies as $cookie) {
       if ('refresh_token' === $cookie->getName()) {
         $refreshTokenCookie = $cookie;
+
         break;
       }
     }

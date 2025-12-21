@@ -75,6 +75,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
         if (is_string($cookieValue) && '' !== $cookieValue) {
           $refreshToken = $cookieValue;
         }
+
         break;
       }
     }

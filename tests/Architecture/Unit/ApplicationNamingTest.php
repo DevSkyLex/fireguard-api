@@ -179,6 +179,7 @@ final class ApplicationNamingTest extends TestCase
           foreach ($allowedOtherSuffixes as $otherSuffix) {
             if (str_ends_with($shortName, $otherSuffix)) {
               $hasValidSuffix = true;
+
               break;
             }
           }

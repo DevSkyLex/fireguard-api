@@ -645,6 +645,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
           /** @var array<string, mixed> $firstPerm */
           $permissionId = $this->getStringValue($firstPerm, 'id');
         }
+
         break;
       }
     }

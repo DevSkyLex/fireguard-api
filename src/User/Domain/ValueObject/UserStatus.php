@@ -119,9 +119,9 @@ enum UserStatus: string
   public function label(): string
   {
     return match ($this) {
-      self::ACTIVE               => 'Active',
-      self::INACTIVE             => 'Inactive',
-      self::LOCKED               => 'Locked',
+      self::ACTIVE => 'Active',
+      self::INACTIVE => 'Inactive',
+      self::LOCKED => 'Locked',
       self::PENDING_VERIFICATION => 'Pending Verification',
     };
   }

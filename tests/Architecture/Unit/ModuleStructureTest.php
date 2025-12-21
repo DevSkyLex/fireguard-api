@@ -26,7 +26,9 @@ final class ModuleStructureTest extends TestCase
    *
    * @var array<string> LAYERS
    */
-  /** @var list<ArchitectureLayer> */
+  /**
+   * @var list<ArchitectureLayer>
+   */
   public const array LAYERS = [
     ArchitectureLayer::DOMAIN,
     ArchitectureLayer::APPLICATION,

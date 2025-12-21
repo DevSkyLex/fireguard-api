@@ -162,7 +162,7 @@ enum GrantType: string
     return match ($this) {
       self::AUTHORIZATION_CODE => 'Authorization Code',
       self::CLIENT_CREDENTIALS => 'Client Credentials',
-      self::REFRESH_TOKEN      => 'Refresh Token',
+      self::REFRESH_TOKEN => 'Refresh Token',
     };
   }
   // #endregion
