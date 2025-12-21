@@ -28,32 +28,6 @@ use function strtr;
  */
 class AuthorizationCodeFlowTest extends OAuth2WebTestCase
 {
-  // #region PKCE Helper Methods
-
-  /**
-   * Method generateCodeVerifier.
-   *
-   * Generate a code verifier for PKCE.
-   *
-   * @since 1.0.0
-   *
-   * @return string the code verifier
-   */
-  private function generateCodeVerifier(): string
-  {
-    return bin2hex(random_bytes(32));
-  }
-
-  /**
-   * Generate code challenge from verifier (S256 method).
-   */
-  private function generateCodeChallenge(string $verifier): string
-  {
-    $hash = hash('sha256', $verifier, true);
-
-    return rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
-  }
-
   // #endregion
 
   // #region Authorization Code Grant Tests
@@ -211,6 +185,31 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
       $actualChallenge,
       'PKCE S256 challenge should match RFC 7636 test vector',
     );
+  }
+  // #region PKCE Helper Methods
+
+  /**
+   * Method generateCodeVerifier.
+   *
+   * Generate a code verifier for PKCE.
+   *
+   * @since 1.0.0
+   *
+   * @return string the code verifier
+   */
+  private function generateCodeVerifier(): string
+  {
+    return bin2hex(random_bytes(32));
+  }
+
+  /**
+   * Generate code challenge from verifier (S256 method).
+   */
+  private function generateCodeChallenge(string $verifier): string
+  {
+    $hash = hash('sha256', $verifier, true);
+
+    return rtrim(strtr(base64_encode($hash), '+/', '-_'), '=');
   }
 
   // #endregion

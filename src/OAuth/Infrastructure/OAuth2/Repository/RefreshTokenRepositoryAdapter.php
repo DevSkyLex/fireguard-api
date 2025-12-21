@@ -48,10 +48,7 @@ final readonly class RefreshTokenRepositoryAdapter implements RefreshTokenReposi
     $this->refreshTokenRepository->save($token);
   }
 
-  /**
-   * @param string $tokenId
-   */
-  public function revokeRefreshToken($tokenId): void
+  public function revokeRefreshToken(string $tokenId): void
   {
     $token = $this->refreshTokenRepository->find($tokenId);
 
@@ -61,10 +58,7 @@ final readonly class RefreshTokenRepositoryAdapter implements RefreshTokenReposi
     }
   }
 
-  /**
-   * @param string $tokenId
-   */
-  public function isRefreshTokenRevoked($tokenId): bool
+  public function isRefreshTokenRevoked(string $tokenId): bool
   {
     $token = $this->refreshTokenRepository->find($tokenId);
 

@@ -43,17 +43,12 @@ final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
     }
   }
 
-  /**
-   * @param string $grantType
-   * @param string|int|null $userIdentifier
-   * @param string|null $authCodeId
-   */
   public function finalizeScopes(
     array $scopes,
-    $grantType,
+    string $grantType,
     ClientEntityInterface $clientEntity,
-    $userIdentifier = null,
-    $authCodeId = null,
+    string|int|null $userIdentifier = null,
+    ?string $authCodeId = null,
   ): array {
     return $scopes;
   }

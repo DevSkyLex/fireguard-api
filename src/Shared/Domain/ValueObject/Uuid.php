@@ -55,6 +55,21 @@ readonly class Uuid implements Stringable
       throw InvalidValueException::because(message: 'Invalid UUID provided.');
     }
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation
+   * of the Uuid object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the Uuid object
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Methods
@@ -72,21 +87,6 @@ readonly class Uuid implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation
-   * of the Uuid object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the Uuid object
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

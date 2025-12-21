@@ -9,6 +9,8 @@ use Shared\Domain\ValueObject\HashedSecret;
 use function password_hash;
 use function password_verify;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * ValueObject HashedPassword.
  *

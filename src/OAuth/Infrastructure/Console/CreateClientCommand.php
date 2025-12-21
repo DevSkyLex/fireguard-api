@@ -34,6 +34,8 @@ use function password_hash;
 use function sprintf;
 use function strtoupper;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Command CreateClientCommand.
  *

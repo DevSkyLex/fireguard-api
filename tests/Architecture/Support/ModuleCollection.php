@@ -12,6 +12,8 @@ use function scandir;
 use function sprintf;
 use function usort;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Class ModuleCollection.
  *

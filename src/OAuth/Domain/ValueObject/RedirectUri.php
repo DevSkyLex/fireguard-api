@@ -75,6 +75,21 @@ final readonly class RedirectUri implements Stringable
       );
     }
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation
+   * of the RedirectUri object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the RedirectUri object
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Methods
@@ -93,21 +108,6 @@ final readonly class RedirectUri implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation
-   * of the RedirectUri object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the RedirectUri object
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

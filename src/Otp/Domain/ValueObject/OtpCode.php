@@ -13,6 +13,8 @@ use function str_repeat;
 use function strlen;
 use function substr;
 
+use const PASSWORD_ARGON2ID;
+
 /**
  * ValueObject OtpCode.
  *

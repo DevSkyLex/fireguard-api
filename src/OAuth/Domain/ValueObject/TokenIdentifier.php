@@ -42,6 +42,20 @@ final readonly class TokenIdentifier
       );
     }
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation.
+   *
+   * @since 1.0.0
+   *
+   * @return string the token identifier
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Methods
@@ -60,20 +74,6 @@ final readonly class TokenIdentifier
   public static function generate(int $length = 20): self
   {
     return new self(bin2hex(random_bytes($length)));
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation.
-   *
-   * @since 1.0.0
-   *
-   * @return string the token identifier
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
 
   /**

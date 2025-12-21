@@ -23,6 +23,8 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use function array_map;
 use function password_hash;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Fixtures ClientFixtures.
  *

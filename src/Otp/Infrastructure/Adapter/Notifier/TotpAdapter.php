@@ -24,6 +24,8 @@ use function strpos;
 use function strtoupper;
 use function time;
 
+use const STR_PAD_LEFT;
+
 /**
  * Adapter TotpAdapter.
  *

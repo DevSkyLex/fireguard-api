@@ -136,7 +136,7 @@ final class TokenExpiry
   public static function fromTimestamp(int $timestamp): self
   {
     return new self(
-      (new DateTimeImmutable())->setTimestamp($timestamp),
+      new DateTimeImmutable()->setTimestamp($timestamp),
     );
   }
 

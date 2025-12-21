@@ -93,7 +93,7 @@ final readonly class DPoPProof
       jti: $jti,
       htm: $htm,
       htu: $htu,
-      iat: (new DateTimeImmutable())->setTimestamp($iat),
+      iat: new DateTimeImmutable()->setTimestamp($iat),
       thumbprint: $thumbprint,
       ath: is_string($ath) ? $ath : null,
       nonce: is_string($nonce) ? $nonce : null,
@@ -127,11 +127,8 @@ final readonly class DPoPProof
 
     // Check age
     $age = time() - $this->iat->getTimestamp();
-    if ($age < 0 || $age > $maxAge) {
-      return false;
-    }
 
-    return true;
+    return ! ($age < 0 || $age > $maxAge);
   }
 
   /**

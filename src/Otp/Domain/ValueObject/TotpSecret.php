@@ -16,6 +16,9 @@ use function sprintf;
 use function str_pad;
 use function str_split;
 
+use const STR_PAD_LEFT;
+use const STR_PAD_RIGHT;
+
 /**
  * ValueObject TotpSecret.
  *
@@ -73,6 +76,20 @@ final readonly class TotpSecret
       );
     }
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the secret string.
+   *
+   * @since 1.0.0
+   *
+   * @return string the secret
+   */
+  public function __toString(): string
+  {
+    return $this->secret;
+  }
   // #endregion
 
   // #region Methods
@@ -116,20 +133,6 @@ final readonly class TotpSecret
       $this->secret,
       rawurlencode($issuer),
     );
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the secret string.
-   *
-   * @since 1.0.0
-   *
-   * @return string the secret
-   */
-  public function __toString(): string
-  {
-    return $this->secret;
   }
 
   /**

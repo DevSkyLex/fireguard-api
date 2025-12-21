@@ -9,6 +9,8 @@ use function hash_equals;
 use function json_encode;
 use function str_contains;
 
+use const JSON_THROW_ON_ERROR;
+
 /**
  * ValueObject DeviceFingerprint.
  *

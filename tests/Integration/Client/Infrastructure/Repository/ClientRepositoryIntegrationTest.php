@@ -26,6 +26,8 @@ use Throwable;
 use function password_hash;
 use function sprintf;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Test ClientRepositoryIntegrationTest.
  *

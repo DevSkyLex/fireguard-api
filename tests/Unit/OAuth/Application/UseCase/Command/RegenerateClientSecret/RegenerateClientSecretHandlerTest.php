@@ -33,6 +33,8 @@ use Tests\Helper\TestEventIdProvider;
 use function password_hash;
 use function strlen;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Test RegenerateClientSecretHandlerTest.
  *

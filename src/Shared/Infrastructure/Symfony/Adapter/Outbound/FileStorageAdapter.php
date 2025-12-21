@@ -18,6 +18,8 @@ use function ltrim;
 use function mkdir;
 use function unlink;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Adapter FileStorageAdapter.
  *

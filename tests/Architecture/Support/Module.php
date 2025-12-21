@@ -7,6 +7,8 @@ namespace App\Tests\Architecture\Support;
 use function is_dir;
 use function sprintf;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Class Module.
  *

@@ -16,6 +16,8 @@ use function is_dir;
 use function sprintf;
 use function str_ends_with;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Test ApplicationNamingTest.
  *

@@ -62,6 +62,21 @@ final readonly class OAuthClientIdentifier implements Stringable
   }
 
   /**
+   * Method __toString.
+   *
+   * Returns the string representation of the
+   * OAuthClientIdentifier object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the OAuthClientIdentifier object
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
+
+  /**
    * Method equals.
    *
    * Compares two OAuthClientIdentifier
@@ -76,21 +91,6 @@ final readonly class OAuthClientIdentifier implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation of the
-   * OAuthClientIdentifier object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the OAuthClientIdentifier object
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

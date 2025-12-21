@@ -55,7 +55,7 @@ final readonly class AuthorizationServerAdapter implements AuthorizationServerPo
       'code_verifier' => $codeVerifier,
     ], fn ($value) => null !== $value);
 
-    $request = (new ServerRequest(method: 'POST', uri: '/token'))
+    $request = new ServerRequest(method: 'POST', uri: '/token')
       ->withParsedBody(data: $parsedBody);
 
     $response = new Response();

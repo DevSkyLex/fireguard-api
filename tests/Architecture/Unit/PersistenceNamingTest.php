@@ -17,6 +17,8 @@ use function scandir;
 use function sprintf;
 use function str_ends_with;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Test PersistenceNamingTest.
  *

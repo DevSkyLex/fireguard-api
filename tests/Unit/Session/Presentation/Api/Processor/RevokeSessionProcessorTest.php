@@ -30,20 +30,6 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[CoversClass(className: RevokeSessionProcessor::class)]
 final class RevokeSessionProcessorTest extends TestCase
 {
-  // #region Methods
-
-  /**
-   * Creates a Security mock with an authenticated user.
-   */
-  private function createSecurityMock(): Security
-  {
-    $user = $this->createMock(UserInterface::class);
-    $security = $this->createMock(Security::class);
-    $security->method('getUser')->willReturn($user);
-
-    return $security;
-  }
-
   /**
    * Method testProcessRevokesSession.
    *
@@ -139,6 +125,19 @@ final class RevokeSessionProcessorTest extends TestCase
       uriVariables: [],
       context: [],
     );
+  }
+  // #region Methods
+
+  /**
+   * Creates a Security mock with an authenticated user.
+   */
+  private function createSecurityMock(): Security
+  {
+    $user = $this->createMock(UserInterface::class);
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    return $security;
   }
   // #endregion
 }

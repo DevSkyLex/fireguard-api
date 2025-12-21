@@ -17,6 +17,8 @@ use function str_replace;
 use function strlen;
 use function substr;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Test PortNamingTest.
  *

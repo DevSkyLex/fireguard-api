@@ -14,6 +14,8 @@ use User\Domain\ValueObject\UserProfile;
 
 use function password_hash;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Class UserTestFactory.
  *

@@ -41,6 +41,18 @@ readonly class HashedSecret implements Stringable
       throw InvalidValueException::because(message: 'Invalid hashed secret.');
     }
   }
+
+  /**
+   * Method __toString.
+   *
+   * @since 1.0.0
+   *
+   * @return string the hashed secret as a string
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Methods
@@ -56,18 +68,6 @@ readonly class HashedSecret implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * @since 1.0.0
-   *
-   * @return string the hashed secret as a string
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

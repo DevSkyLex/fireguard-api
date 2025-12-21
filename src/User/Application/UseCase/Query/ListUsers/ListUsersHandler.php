@@ -10,6 +10,8 @@ use User\Domain\Model\User;
 
 use function count;
 
+use const COUNT_NORMAL;
+
 /**
  * Handler ListUsersHandler.
  *

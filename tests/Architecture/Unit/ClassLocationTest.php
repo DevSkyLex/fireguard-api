@@ -17,6 +17,8 @@ use function str_ends_with;
 use function str_replace;
 use function str_starts_with;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Test ClassLocationTest.
  *

@@ -30,6 +30,20 @@ final readonly class TenantId implements Stringable
   public function __construct(private Uuid $uuid)
   {
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation of the TenantId object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the TenantId object
+   */
+  public function __toString(): string
+  {
+    return (string) $this->uuid;
+  }
   // #endregion
 
   // #region Methods
@@ -79,20 +93,6 @@ final readonly class TenantId implements Stringable
   public function toUuid(): Uuid
   {
     return $this->uuid;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation of the TenantId object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the TenantId object
-   */
-  public function __toString(): string
-  {
-    return (string) $this->uuid;
   }
   // #endregion
 }

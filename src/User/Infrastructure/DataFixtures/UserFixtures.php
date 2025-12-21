@@ -21,6 +21,8 @@ use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 use function password_hash;
 use function sprintf;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Fixtures UserFixtures.
  *

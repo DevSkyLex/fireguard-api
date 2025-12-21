@@ -13,6 +13,8 @@ use User\Domain\ValueObject\Username;
 
 use function filter_var;
 
+use const FILTER_VALIDATE_EMAIL;
+
 /**
  * Handler AuthenticateUserHandler.
  *

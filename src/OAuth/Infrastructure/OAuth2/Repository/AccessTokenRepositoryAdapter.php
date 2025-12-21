@@ -58,7 +58,7 @@ final readonly class AccessTokenRepositoryAdapter implements AccessTokenReposito
    *
    * @return AccessTokenEntityInterface the access token entity
    */
-  public function getNewToken(ClientEntityInterface $clientEntity, array $scopes, $userIdentifier = null): AccessTokenEntityInterface
+  public function getNewToken(ClientEntityInterface $clientEntity, array $scopes, string|int|null $userIdentifier = null): AccessTokenEntityInterface
   {
     $token = new LeagueAccessToken();
     $token->setClient(client: $clientEntity);

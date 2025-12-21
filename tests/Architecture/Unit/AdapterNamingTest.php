@@ -18,6 +18,8 @@ use function sprintf;
 use function str_ends_with;
 use function str_replace;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Test AdapterNamingTest.
  *

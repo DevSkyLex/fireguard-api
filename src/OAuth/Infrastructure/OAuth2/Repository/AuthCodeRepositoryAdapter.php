@@ -53,10 +53,7 @@ final readonly class AuthCodeRepositoryAdapter implements AuthCodeRepositoryInte
     $this->authCodeRepository->save($code);
   }
 
-  /**
-   * @param string $codeId
-   */
-  public function revokeAuthCode($codeId): void
+  public function revokeAuthCode(string $codeId): void
   {
     $code = $this->authCodeRepository->find($codeId);
 
@@ -66,10 +63,7 @@ final readonly class AuthCodeRepositoryAdapter implements AuthCodeRepositoryInte
     }
   }
 
-  /**
-   * @param string $codeId
-   */
-  public function isAuthCodeRevoked($codeId): bool
+  public function isAuthCodeRevoked(string $codeId): bool
   {
     $code = $this->authCodeRepository->find($codeId);
 

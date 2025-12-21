@@ -31,24 +31,6 @@ trait RecordsDomainEvents
    * @var array<DomainEvent>
    */
   private array $domainEvents = [];
-  // #endregion
-
-  // #region Methods
-  /**
-   * Method recordEvent.
-   *
-   * Records a domain event.
-   *
-   * @since 1.0.0
-   *
-   * @param DomainEvent $event the event to record
-   *
-   * @return void no return value
-   */
-  protected function recordEvent(DomainEvent $event): void
-  {
-    $this->domainEvents[] = $event;
-  }
 
   /**
    * Method releaseEvents.
@@ -93,6 +75,24 @@ trait RecordsDomainEvents
   public function clearRecordedEvents(): void
   {
     $this->domainEvents = [];
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method recordEvent.
+   *
+   * Records a domain event.
+   *
+   * @since 1.0.0
+   *
+   * @param DomainEvent $event the event to record
+   *
+   * @return void no return value
+   */
+  protected function recordEvent(DomainEvent $event): void
+  {
+    $this->domainEvents[] = $event;
   }
   // #endregion
 }

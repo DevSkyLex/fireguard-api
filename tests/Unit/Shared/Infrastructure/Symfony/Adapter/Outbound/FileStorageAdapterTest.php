@@ -56,23 +56,6 @@ final class FileStorageAdapterTest extends TestCase
   }
 
   /**
-   * Recursively remove a directory and its contents.
-   *
-   * @param string $dir the directory to remove
-   */
-  private function recursiveRemove(string $dir): void
-  {
-    if (!is_dir($dir)) {
-      return;
-    }
-    $files = array_diff(scandir($dir), ['.', '..']);
-    foreach ($files as $file) {
-      (is_dir("$dir/$file")) ? $this->recursiveRemove("$dir/$file") : unlink("$dir/$file");
-    }
-    rmdir($dir);
-  }
-
-  /**
    * Test that a file can be written and read.
    */
   #[Test]
@@ -132,5 +115,22 @@ final class FileStorageAdapterTest extends TestCase
   {
     $this->expectNotToPerformAssertions();
     $this->adapter->delete('non_existent.txt');
+  }
+
+  /**
+   * Recursively remove a directory and its contents.
+   *
+   * @param string $dir the directory to remove
+   */
+  private function recursiveRemove(string $dir): void
+  {
+    if (!is_dir($dir)) {
+      return;
+    }
+    $files = array_diff(scandir($dir), ['.', '..']);
+    foreach ($files as $file) {
+      (is_dir("$dir/$file")) ? $this->recursiveRemove("$dir/$file") : unlink("$dir/$file");
+    }
+    rmdir($dir);
   }
 }

@@ -66,6 +66,21 @@ final readonly class PermissionName implements Stringable
       );
     }
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation of the
+   * PermissionName object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the PermissionName object
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Methods
@@ -113,11 +128,7 @@ final readonly class PermissionName implements Stringable
     }
 
     // Action wildcard for all resources (e.g., *.read matches users.read)
-    if ('*' === $thisParts[0] && $thisParts[1] === $requiredParts[1]) {
-      return true;
-    }
-
-    return false;
+    return (bool) ('*' === $thisParts[0] && $thisParts[1] === $requiredParts[1]);
   }
 
   /**
@@ -167,21 +178,6 @@ final readonly class PermissionName implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation of the
-   * PermissionName object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the PermissionName object
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

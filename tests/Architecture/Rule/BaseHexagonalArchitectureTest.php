@@ -17,6 +17,8 @@ use function is_dir;
 use function ksort;
 use function sprintf;
 
+use const DIRECTORY_SEPARATOR;
+
 /**
  * Test BaseHexagonalArchitectureTest.
  *

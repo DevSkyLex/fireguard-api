@@ -24,6 +24,8 @@ use Tests\Helper\TestEventIdProvider;
 
 use function password_hash;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Test ClientMapperTest.
  *

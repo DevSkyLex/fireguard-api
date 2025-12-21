@@ -24,6 +24,9 @@ use function random_bytes;
 use function rtrim;
 use function strtr;
 
+use const ARRAY_FILTER_USE_KEY;
+use const JSON_UNESCAPED_SLASHES;
+
 /**
  * Service DPoPValidator.
  *

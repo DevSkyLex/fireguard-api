@@ -29,16 +29,6 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_status', columns: ['status'])]
 class UserRecord
 {
-  // #region Constructor
-  /**
-   * Constructor.
-   *
-   * Initializes collections.
-   */
-  public function __construct()
-  {
-    $this->roles = new ArrayCollection();
-  }
   // #endregion
 
   // #region Properties
@@ -187,5 +177,16 @@ class UserRecord
   #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id')]
   #[ORM\InverseJoinColumn(name: 'role_id', referencedColumnName: 'id')]
   public Collection $roles;
+
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes collections.
+   */
+  public function __construct()
+  {
+    $this->roles = new ArrayCollection();
+  }
   // #endregion
 }

@@ -31,10 +31,7 @@ final readonly class ClientRepositoryAdapter implements ClientRepositoryInterfac
   // #endregion
 
   // #region Methods
-  /**
-   * @param string $clientIdentifier
-   */
-  public function getClientEntity($clientIdentifier): ?Client
+  public function getClientEntity(string $clientIdentifier): ?Client
   {
     try {
       $identifier = new OAuthClientIdentifier(value: $clientIdentifier);
@@ -55,12 +52,7 @@ final readonly class ClientRepositoryAdapter implements ClientRepositoryInterfac
     }
   }
 
-  /**
-   * @param string $clientIdentifier
-   * @param string|null $clientSecret
-   * @param string|null $grantType
-   */
-  public function validateClient($clientIdentifier, $clientSecret, $grantType): bool
+  public function validateClient(string $clientIdentifier, ?string $clientSecret, ?string $grantType): bool
   {
     return $this->clientValidation->validateCredentials(
       clientId: $clientIdentifier,

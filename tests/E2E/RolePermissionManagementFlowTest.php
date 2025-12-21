@@ -48,157 +48,6 @@ class RolePermissionManagementFlowTest extends WebTestCase
   protected ?string $accessToken = null;
   // #endregion
 
-  // #region Setup
-  /**
-   * Create client and ensure fixtures are loaded.
-   */
-  protected static function createClientWithFixtures(): KernelBrowser
-  {
-    $client = static::createClient();
-    static::loadTestFixtures($client);
-
-    return $client;
-  }
-
-  /**
-   * Load fixtures for testing.
-   */
-  protected static function loadTestFixtures(KernelBrowser $client): void
-  {
-    $container = $client->getContainer();
-
-    /** @var EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.entity_manager');
-
-    // Create schema
-    $schemaTool = new SchemaTool($entityManager);
-    $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
-
-    try {
-      $schemaTool->dropSchema($metadata);
-    } catch (Throwable) {
-      // Schema might not exist yet
-    }
-
-    $schemaTool->createSchema($metadata);
-
-    // Load fixtures
-    $loader = new Loader();
-
-    /** @var ClientFixtures $clientFixtures */
-    $clientFixtures = $container->get(ClientFixtures::class);
-    /** @var UserFixtures $userFixtures */
-    $userFixtures = $container->get(UserFixtures::class);
-    /** @var AuthorizationFixtures $authFixtures */
-    $authFixtures = $container->get(AuthorizationFixtures::class);
-
-    $loader->addFixture($clientFixtures);
-    $loader->addFixture($userFixtures);
-    $loader->addFixture($authFixtures);
-
-    $purger = new ORMPurger($entityManager);
-    $executor = new ORMExecutor($entityManager, $purger);
-    $executor->execute($loader->getFixtures());
-
-    $entityManager->clear();
-  }
-
-  /**
-   * Get a valid access token for testing.
-   */
-  protected function getAccessToken(KernelBrowser $client): ?string
-  {
-    if (null !== $this->accessToken) {
-      return $this->accessToken;
-    }
-
-    $client->request(
-      method: 'POST',
-      uri: '/api/oauth2/token',
-      server: [
-        'CONTENT_TYPE' => 'application/ld+json',
-        'HTTP_ACCEPT' => 'application/ld+json',
-      ],
-      content: json_encode([
-        'grant_type' => 'client_credentials',
-        'client_id' => self::DEV_CLIENT_ID,
-        'client_secret' => self::DEV_CLIENT_SECRET,
-        'scope' => 'OPENID PROFILE EMAIL READ WRITE',
-      ]) ?: '',
-    );
-
-    $response = $client->getResponse();
-
-    if (Response::HTTP_OK !== $response->getStatusCode() && Response::HTTP_CREATED !== $response->getStatusCode()) {
-      return null;
-    }
-
-    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
-    $accessToken = $data['access_token'] ?? null;
-    $this->accessToken = is_string($accessToken) ? $accessToken : null;
-
-    return $this->accessToken;
-  }
-
-  /**
-   * Decode JSON response content to array.
-   *
-   * @param string $content Response content
-   *
-   * @return array<string, mixed>
-   */
-  protected function decodeJsonResponse(string $content): array
-  {
-    $data = json_decode($content, true);
-    if (!is_array($data)) {
-      return [];
-    }
-    // Filter to ensure string keys for PHPStan
-    $result = [];
-    foreach ($data as $key => $value) {
-      if (is_string($key)) {
-        $result[$key] = $value;
-      }
-    }
-
-    return $result;
-  }
-
-  /**
-   * Extract collection members from API response.
-   *
-   * Supports JSON-LD collection format with 'member' key.
-   *
-   * @param array<string, mixed> $data
-   *
-   * @return list<array<string, mixed>>
-   */
-  protected function getCollectionMembers(array $data): array
-  {
-    // Check for 'member' key (JSON-LD collection format)
-    if (isset($data['member']) && is_array($data['member'])) {
-      /** @var list<array<string, mixed>> $members */
-      $members = $data['member'];
-
-      return $members;
-    }
-
-    return [];
-  }
-
-  /**
-   * Get string value from array at key.
-   *
-   * @param array<string, mixed> $arr
-   */
-  protected function getStringValue(array $arr, string $key): ?string
-  {
-    $value = $arr[$key] ?? null;
-
-    return is_string($value) ? $value : null;
-  }
-  // #endregion
-
   // #region Permission List Tests
 
   /**
@@ -875,6 +724,157 @@ class RolePermissionManagementFlowTest extends WebTestCase
       [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
       'Non-existent role should return 404 or auth error',
     );
+  }
+  // #endregion
+
+  // #region Setup
+  /**
+   * Create client and ensure fixtures are loaded.
+   */
+  protected static function createClientWithFixtures(): KernelBrowser
+  {
+    $client = static::createClient();
+    static::loadTestFixtures($client);
+
+    return $client;
+  }
+
+  /**
+   * Load fixtures for testing.
+   */
+  protected static function loadTestFixtures(KernelBrowser $client): void
+  {
+    $container = $client->getContainer();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = $container->get('doctrine.orm.entity_manager');
+
+    // Create schema
+    $schemaTool = new SchemaTool($entityManager);
+    $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
+
+    try {
+      $schemaTool->dropSchema($metadata);
+    } catch (Throwable) {
+      // Schema might not exist yet
+    }
+
+    $schemaTool->createSchema($metadata);
+
+    // Load fixtures
+    $loader = new Loader();
+
+    /** @var ClientFixtures $clientFixtures */
+    $clientFixtures = $container->get(ClientFixtures::class);
+    /** @var UserFixtures $userFixtures */
+    $userFixtures = $container->get(UserFixtures::class);
+    /** @var AuthorizationFixtures $authFixtures */
+    $authFixtures = $container->get(AuthorizationFixtures::class);
+
+    $loader->addFixture($clientFixtures);
+    $loader->addFixture($userFixtures);
+    $loader->addFixture($authFixtures);
+
+    $purger = new ORMPurger($entityManager);
+    $executor = new ORMExecutor($entityManager, $purger);
+    $executor->execute($loader->getFixtures());
+
+    $entityManager->clear();
+  }
+
+  /**
+   * Get a valid access token for testing.
+   */
+  protected function getAccessToken(KernelBrowser $client): ?string
+  {
+    if (null !== $this->accessToken) {
+      return $this->accessToken;
+    }
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/oauth2/token',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'grant_type' => 'client_credentials',
+        'client_id' => self::DEV_CLIENT_ID,
+        'client_secret' => self::DEV_CLIENT_SECRET,
+        'scope' => 'OPENID PROFILE EMAIL READ WRITE',
+      ]) ?: '',
+    );
+
+    $response = $client->getResponse();
+
+    if (Response::HTTP_OK !== $response->getStatusCode() && Response::HTTP_CREATED !== $response->getStatusCode()) {
+      return null;
+    }
+
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $accessToken = $data['access_token'] ?? null;
+    $this->accessToken = is_string($accessToken) ? $accessToken : null;
+
+    return $this->accessToken;
+  }
+
+  /**
+   * Decode JSON response content to array.
+   *
+   * @param string $content Response content
+   *
+   * @return array<string, mixed>
+   */
+  protected function decodeJsonResponse(string $content): array
+  {
+    $data = json_decode($content, true);
+    if (!is_array($data)) {
+      return [];
+    }
+    // Filter to ensure string keys for PHPStan
+    $result = [];
+    foreach ($data as $key => $value) {
+      if (is_string($key)) {
+        $result[$key] = $value;
+      }
+    }
+
+    return $result;
+  }
+
+  /**
+   * Extract collection members from API response.
+   *
+   * Supports JSON-LD collection format with 'member' key.
+   *
+   * @param array<string, mixed> $data
+   *
+   * @return list<array<string, mixed>>
+   */
+  protected function getCollectionMembers(array $data): array
+  {
+    // Check for 'member' key (JSON-LD collection format)
+    if (isset($data['member']) && is_array($data['member'])) {
+      /** @var list<array<string, mixed>> $members */
+      $members = $data['member'];
+
+      return $members;
+    }
+
+    return [];
+  }
+
+  /**
+   * Get string value from array at key.
+   *
+   * @param array<string, mixed> $arr
+   */
+  protected function getStringValue(array $arr, string $key): ?string
+  {
+    $value = $arr[$key] ?? null;
+
+    return is_string($value) ? $value : null;
   }
 
   // #endregion

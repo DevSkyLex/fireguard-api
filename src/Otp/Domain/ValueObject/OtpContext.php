@@ -90,25 +90,6 @@ final readonly class OtpContext
   }
 
   /**
-   * Filter array to ensure string keys.
-   *
-   * @param array<mixed, mixed> $arr
-   *
-   * @return array<string, mixed>
-   */
-  private static function filterStringKeys(array $arr): array
-  {
-    $result = [];
-    foreach ($arr as $key => $value) {
-      if (is_string($key)) {
-        $result[$key] = $value;
-      }
-    }
-
-    return $result;
-  }
-
-  /**
    * Method toArray.
    *
    * Converts to an array.
@@ -138,6 +119,25 @@ final readonly class OtpContext
     return null === $this->transactionId
       && null === $this->description
       && null === $this->data;
+  }
+
+  /**
+   * Filter array to ensure string keys.
+   *
+   * @param array<mixed, mixed> $arr
+   *
+   * @return array<string, mixed>
+   */
+  private static function filterStringKeys(array $arr): array
+  {
+    $result = [];
+    foreach ($arr as $key => $value) {
+      if (is_string($key)) {
+        $result[$key] = $value;
+      }
+    }
+
+    return $result;
   }
   // #endregion
 }

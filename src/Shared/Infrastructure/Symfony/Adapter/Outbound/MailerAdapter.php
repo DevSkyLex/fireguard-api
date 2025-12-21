@@ -64,7 +64,7 @@ final readonly class MailerAdapter implements MailerPort
     array $bcc = [],
     array $attachments = [],
   ): void {
-    $email = (new Email())
+    $email = new Email()
       ->subject(subject: $subject)
       ->html(body: $body);
 

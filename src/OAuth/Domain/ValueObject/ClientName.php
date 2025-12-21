@@ -75,6 +75,20 @@ final readonly class ClientName implements Stringable
 
     // Note: Cannot reassign readonly property, validation only
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation of the ClientName object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the ClientName object
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Methods
@@ -92,20 +106,6 @@ final readonly class ClientName implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation of the ClientName object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the ClientName object
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

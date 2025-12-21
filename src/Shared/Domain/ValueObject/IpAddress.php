@@ -10,6 +10,11 @@ use Stringable;
 use function filter_var;
 use function str_starts_with;
 
+use const FILTER_FLAG_IPV6;
+use const FILTER_FLAG_NO_PRIV_RANGE;
+use const FILTER_FLAG_NO_RES_RANGE;
+use const FILTER_VALIDATE_IP;
+
 /**
  * ValueObject IpAddress.
  *
@@ -55,6 +60,20 @@ final readonly class IpAddress implements Stringable
     $this->type = filter_var(value: $value, filter: FILTER_VALIDATE_IP, options: FILTER_FLAG_IPV6)
       ? IpAddressType::IPV6
       : IpAddressType::IPV4;
+  }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the string representation of the IpAddress object.
+   *
+   * @since 1.0.0
+   *
+   * @return string the string representation of the IpAddress object
+   */
+  public function __toString(): string
+  {
+    return $this->value;
   }
   // #endregion
 
@@ -156,20 +175,6 @@ final readonly class IpAddress implements Stringable
   public function equals(self $other): bool
   {
     return $this->value === $other->value;
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the string representation of the IpAddress object.
-   *
-   * @since 1.0.0
-   *
-   * @return string the string representation of the IpAddress object
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

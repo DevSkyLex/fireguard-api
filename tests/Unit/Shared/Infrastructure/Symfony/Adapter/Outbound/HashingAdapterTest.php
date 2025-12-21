@@ -13,6 +13,8 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter;
 use function password_hash;
 use function password_verify;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Test HashingAdapterTest.
  *

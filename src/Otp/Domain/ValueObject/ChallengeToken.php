@@ -42,6 +42,18 @@ final readonly class ChallengeToken
   {
     $this->value = $value;
   }
+
+  /**
+   * Method __toString.
+   *
+   * Returns the token as string.
+   *
+   * @since 1.0.0
+   */
+  public function __toString(): string
+  {
+    return $this->value;
+  }
   // #endregion
 
   // #region Factory Methods
@@ -93,18 +105,6 @@ final readonly class ChallengeToken
   public function equals(self $other): bool
   {
     return hash_equals($this->value, $other->value);
-  }
-
-  /**
-   * Method __toString.
-   *
-   * Returns the token as string.
-   *
-   * @since 1.0.0
-   */
-  public function __toString(): string
-  {
-    return $this->value;
   }
   // #endregion
 }

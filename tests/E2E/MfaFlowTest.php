@@ -13,6 +13,8 @@ use function password_hash;
 use function putenv;
 use function uniqid;
 
+use const PASSWORD_ARGON2ID;
+
 /**
  * Test MfaFlowTest.
  *
@@ -22,6 +24,18 @@ use function uniqid;
  */
 class MfaFlowTest extends OAuth2WebTestCase
 {
+  /**
+   * Tear down after each test.
+   */
+  protected function tearDown(): void
+  {
+    putenv('MFA_ENABLED=false');
+    unset($_ENV['MFA_ENABLED'], $_SERVER['MFA_ENABLED']);
+
+
+    parent::tearDown();
+  }
+
   /**
    * Test MFA login flow - Single Kernel Boot.
    */
@@ -150,17 +164,5 @@ class MfaFlowTest extends OAuth2WebTestCase
     );
 
     $this->assertEquals(Response::HTTP_OK, $client->getResponse()->getStatusCode());
-  }
-
-  /**
-   * Tear down after each test.
-   */
-  protected function tearDown(): void
-  {
-    putenv('MFA_ENABLED=false');
-    unset($_ENV['MFA_ENABLED']);
-    unset($_SERVER['MFA_ENABLED']);
-
-    parent::tearDown();
   }
 }

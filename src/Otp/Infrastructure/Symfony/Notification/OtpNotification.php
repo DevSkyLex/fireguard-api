@@ -119,6 +119,20 @@ final class OtpNotification extends Notification implements SmsNotificationInter
   }
 
   /**
+   * Method getOtp.
+   *
+   * Returns the OTP.
+   *
+   * @since 1.0.0
+   *
+   * @return Otp the OTP
+   */
+  public function getOtp(): Otp
+  {
+    return $this->otp;
+  }
+
+  /**
    * Method getSmsContent.
    *
    * Returns the SMS content.
@@ -140,20 +154,6 @@ final class OtpNotification extends Notification implements SmsNotificationInter
       $code,
       (int) ceil(($this->otp->expiresAt()->getTimestamp() - time()) / 60),
     );
-  }
-
-  /**
-   * Method getOtp.
-   *
-   * Returns the OTP.
-   *
-   * @since 1.0.0
-   *
-   * @return Otp the OTP
-   */
-  public function getOtp(): Otp
-  {
-    return $this->otp;
   }
   // #endregion
 }

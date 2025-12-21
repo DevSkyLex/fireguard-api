@@ -25,6 +25,8 @@ use User\Infrastructure\Persistence\Doctrine\Repository\UserRepository;
 use function password_hash;
 use function sprintf;
 
+use const PASSWORD_BCRYPT;
+
 /**
  * Test UserRepositoryIntegrationTest.
  *

@@ -11,6 +11,8 @@ use function dechex;
 use function sprintf;
 use function str_pad;
 
+use const STR_PAD_LEFT;
+
 /**
  * Class TestEventIdProvider.
  *

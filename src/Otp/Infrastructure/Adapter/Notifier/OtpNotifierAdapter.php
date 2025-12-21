@@ -96,7 +96,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
       return;
     }
 
-    $email = (new Email())
+    $email = new Email()
       ->from($this->senderEmail)
       ->to($otp->recipient())
       ->subject($this->getEmailSubject($otp))

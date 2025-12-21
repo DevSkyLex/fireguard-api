@@ -494,54 +494,6 @@ final class Otp
   }
 
   /**
-   * Method maskEmail.
-   *
-   * Masks an email address.
-   *
-   * @since 1.0.0
-   *
-   * @param string $email the email address to mask
-   *
-   * @return string the masked email address
-   */
-  private function maskEmail(string $email): string
-  {
-    $parts = explode('@', $email);
-    if (2 !== count($parts)) {
-      return '***@***';
-    }
-    $local = $parts[0];
-    $domain = $parts[1];
-    $maskedLocal = strlen($local) <= 2
-      ? str_repeat('*', strlen($local))
-      : substr($local, 0, 2) . str_repeat('*', strlen($local) - 2);
-
-    return $maskedLocal . '@' . $domain;
-  }
-
-  /**
-   * Method maskPhone.
-   *
-   * Masks a phone number.
-   *
-   * @since 1.0.0
-   *
-   * @param string $phone the phone number to mask
-   *
-   * @return string the masked phone number
-   */
-  private function maskPhone(string $phone): string
-  {
-    $digits = preg_replace('/[^0-9]/', '', $phone);
-    $digits = is_string($digits) ? $digits : '';
-    if (strlen($digits) < 4) {
-      return '****';
-    }
-
-    return str_repeat('*', strlen($digits) - 4) . substr($digits, -4);
-  }
-
-  /**
    * Method reconstitute.
    *
    * Reconstitutes an OTP from its components.
@@ -591,6 +543,54 @@ final class Otp
       verifiedAt: $verifiedAt,
       createdAt: $createdAt,
     );
+  }
+
+  /**
+   * Method maskEmail.
+   *
+   * Masks an email address.
+   *
+   * @since 1.0.0
+   *
+   * @param string $email the email address to mask
+   *
+   * @return string the masked email address
+   */
+  private function maskEmail(string $email): string
+  {
+    $parts = explode('@', $email);
+    if (2 !== count($parts)) {
+      return '***@***';
+    }
+    $local = $parts[0];
+    $domain = $parts[1];
+    $maskedLocal = strlen($local) <= 2
+      ? str_repeat('*', strlen($local))
+      : substr($local, 0, 2) . str_repeat('*', strlen($local) - 2);
+
+    return $maskedLocal . '@' . $domain;
+  }
+
+  /**
+   * Method maskPhone.
+   *
+   * Masks a phone number.
+   *
+   * @since 1.0.0
+   *
+   * @param string $phone the phone number to mask
+   *
+   * @return string the masked phone number
+   */
+  private function maskPhone(string $phone): string
+  {
+    $digits = preg_replace('/[^0-9]/', '', $phone);
+    $digits = is_string($digits) ? $digits : '';
+    if (strlen($digits) < 4) {
+      return '****';
+    }
+
+    return str_repeat('*', strlen($digits) - 4) . substr($digits, -4);
   }
   // #endregion
 }
