@@ -372,7 +372,9 @@ final class JwtTokenServiceTest extends TestCase
     $parts = explode('.', $tokens['access_token']);
     $this->assertCount(3, $parts, 'JWT should have 3 parts');
 
-    $payload = json_decode(base64_decode($parts[1], true), true);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertArrayHasKey('iss', $payload, 'JWT should have issuer');
@@ -482,7 +484,9 @@ final class JwtTokenServiceTest extends TestCase
 
     // Parse the JWT to check expiration
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1], true), true);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $expectedExp = time() + $this->service->getAccessTokenTtl();
@@ -533,7 +537,9 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1], true), true);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertEquals('https://test.example.com', $payload['iss']);
@@ -558,7 +564,9 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1], true), true);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertEquals($userId, $payload['sub']);
@@ -583,7 +591,9 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1], true), true);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertEquals($scopes, $payload['scopes']);
