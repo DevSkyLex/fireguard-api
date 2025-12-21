@@ -38,9 +38,9 @@ interface TokenCachePort
    *
    * @since 1.0.0
    *
-   * @param string               $tokenId the token identifier
-   * @param array<string, mixed> $data    the data to cache
-   * @param int|null             $ttl     custom TTL in seconds
+   * @param string $tokenId the token identifier
+   * @param array<string, mixed> $data the data to cache
+   * @param int|null $ttl custom TTL in seconds
    */
   public function set(string $tokenId, array $data, ?int $ttl = null): void;
 

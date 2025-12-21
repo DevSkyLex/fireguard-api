@@ -47,7 +47,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ WRITE',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -56,7 +56,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -80,14 +80,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Introspection should succeed'
+      'Introspection should succeed',
     );
 
     $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -100,7 +100,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $accessToken,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -108,7 +108,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Protected resource should respond appropriately'
+      'Protected resource should respond appropriately',
     );
 
     // Step 4: Revoke token
@@ -121,14 +121,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_NO_CONTENT],
-      'Revocation should succeed'
+      'Revocation should succeed',
     );
 
     // Step 5: Verify token is no longer active
@@ -141,7 +141,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -167,14 +167,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
         'grant_type' => 'client_credentials',
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => 'wrong_secret',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-      'Invalid credentials should be rejected'
+      'Invalid credentials should be rejected',
     );
   }
 
@@ -196,14 +196,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
         'grant_type' => 'client_credentials',
         'client_id' => '00000000-0000-4000-8000-000000000000',
         'client_secret' => 'any_secret',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-      'Non-existent client should be rejected'
+      'Non-existent client should be rejected',
     );
   }
 
@@ -221,7 +221,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/.well-known/openid-configuration',
-      server: ['HTTP_ACCEPT' => 'application/json']
+      server: ['HTTP_ACCEPT' => 'application/json'],
     );
 
     $response = $client->getResponse();
@@ -248,7 +248,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/.well-known/jwks.json',
-      server: ['HTTP_ACCEPT' => 'application/json']
+      server: ['HTTP_ACCEPT' => 'application/json'],
     );
 
     $response = $client->getResponse();
@@ -282,14 +282,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/users',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Protected resource should require authentication'
+      'Protected resource should require authentication',
     );
   }
 
@@ -306,14 +306,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer invalid_token_here',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Invalid token should be rejected'
+      'Invalid token should be rejected',
     );
   }
 
@@ -337,7 +337,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
         'client_id' => self::DEV_CLIENT_ID,
         'client_secret' => self::DEV_CLIENT_SECRET,
         'scope' => 'OPENID PROFILE EMAIL',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -345,7 +345,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -359,7 +359,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $accessToken,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -367,7 +367,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN],
-      'UserInfo should respond appropriately'
+      'UserInfo should respond appropriately',
     );
   }
 
@@ -391,14 +391,14 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => 'invalid_token_string',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Introspection should always return 200'
+      'Introspection should always return 200',
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -421,7 +421,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => 'invalid_token_string',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -429,7 +429,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_NO_CONTENT],
-      'Revocation should succeed even for invalid tokens'
+      'Revocation should succeed even for invalid tokens',
     );
   }
 
@@ -460,7 +460,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
           'client_id' => self::API_CLIENT_ID,
           'client_secret' => self::API_CLIENT_SECRET,
           'scope' => 'READ WRITE',
-        ]) ?: ''
+        ]) ?: '',
       );
 
       $response = $client->getResponse();
@@ -486,7 +486,7 @@ class OAuth2FlowTest extends OAuth2WebTestCase
           'CONTENT_TYPE' => 'application/ld+json',
           'HTTP_ACCEPT' => 'application/ld+json',
         ],
-        content: json_encode(['token' => $token]) ?: ''
+        content: json_encode(['token' => $token]) ?: '',
       );
 
       $response = $client->getResponse();

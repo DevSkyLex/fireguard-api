@@ -56,7 +56,7 @@ final readonly class OAuthClientIdentifier implements Stringable
 
     if (!preg_match(pattern: self::PATTERN, subject: $value)) {
       throw InvalidOAuthClientIdentifierException::invalidPattern(
-        value: $value
+        value: $value,
       );
     }
   }

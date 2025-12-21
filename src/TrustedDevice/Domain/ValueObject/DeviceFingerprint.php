@@ -24,8 +24,8 @@ final readonly class DeviceFingerprint
   /**
    * Constructor.
    *
-   * @param string      $value     the fingerprint hash
-   * @param string      $userAgent the user agent string
+   * @param string $value the fingerprint hash
+   * @param string $userAgent the user agent string
    * @param string|null $ipAddress the IP address (optional)
    */
   public function __construct(
@@ -44,8 +44,8 @@ final readonly class DeviceFingerprint
    *
    * Creates a fingerprint from request data.
    *
-   * @param string      $userAgent      the user agent
-   * @param string|null $ipAddress      the IP address (optional)
+   * @param string $userAgent the user agent
+   * @param string|null $ipAddress the IP address (optional)
    * @param string|null $acceptLanguage the accept-language header
    */
   public static function create(
@@ -80,8 +80,8 @@ final readonly class DeviceFingerprint
    *
    * Creates a fingerprint from stored hash.
    *
-   * @param string      $hash      the stored hash
-   * @param string      $userAgent the user agent
+   * @param string $hash the stored hash
+   * @param string $userAgent the user agent
    * @param string|null $ipAddress the IP address
    */
   public static function fromHash(

@@ -46,14 +46,14 @@ final readonly class TranslatorAdapter implements TranslationPort
    *
    * @since 1.0.0
    *
-   * @param string                           $id         the message identifier
+   * @param string $id the message identifier
    * @param array<string, scalar|Stringable> $parameters the parameters to replace in the message
-   * @param ?string                          $domain     the translation domain
-   * @param ?string                          $locale     the locale to use for translation
-   *
-   * @return string the translated message
+   * @param ?string $domain the translation domain
+   * @param ?string $locale the locale to use for translation
    *
    * @throws TranslationException if the translation fails
+   *
+   * @return string the translated message
    */
   public function translate(
     string $id,
@@ -66,12 +66,12 @@ final readonly class TranslatorAdapter implements TranslationPort
         id: $id,
         parameters: $parameters,
         domain: $domain,
-        locale: $locale
+        locale: $locale,
       );
     } catch (Throwable $exception) {
       throw TranslationException::translateFailed(
         id: $id,
-        previous: $exception
+        previous: $exception,
       );
     }
   }

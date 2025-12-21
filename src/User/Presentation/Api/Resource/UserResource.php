@@ -39,7 +39,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: CreateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
+      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
     ),
     new Get(
       name: 'get',
@@ -47,7 +47,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       input: false,
       output: UserOutput::class,
       provider: UserProvider::class,
-      normalizationContext: ['groups' => [UserSerializationGroup::READ]]
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
     ),
     new GetCollection(
       name: 'list',
@@ -55,7 +55,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       input: false,
       output: UserOutput::class,
       provider: ListUsersProvider::class,
-      normalizationContext: ['groups' => [UserSerializationGroup::READ]]
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
     ),
     new Patch(
       name: 'update',
@@ -64,7 +64,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: UpdateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
+      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
     ),
     new Put(
       name: 'replace',
@@ -73,16 +73,16 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       output: UserOutput::class,
       processor: UpdateUserProcessor::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
-      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]]
+      denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
     ),
     new Delete(
       name: 'delete',
       uriTemplate: '/users/{id}',
       input: false,
       output: false,
-      processor: DeleteUserProcessor::class
+      processor: DeleteUserProcessor::class,
     ),
-  ]
+  ],
 )]
 final class UserResource
 {

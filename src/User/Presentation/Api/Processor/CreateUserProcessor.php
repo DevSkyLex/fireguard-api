@@ -50,10 +50,10 @@ final readonly class CreateUserProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return UserOutput the created user output
    */
@@ -69,7 +69,7 @@ final readonly class CreateUserProcessor implements ProcessorInterface
       firstName: $input->firstName ?? '',
       lastName: $input->lastName ?? '',
       avatarUrl: $input->avatarUrl,
-      tenantId: $input->tenantId
+      tenantId: $input->tenantId,
     );
 
     /** @var CreateUserResult $result */

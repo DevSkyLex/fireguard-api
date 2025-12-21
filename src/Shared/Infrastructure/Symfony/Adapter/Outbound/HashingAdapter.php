@@ -38,7 +38,7 @@ final readonly class HashingAdapter implements HashingPort
   {
     $hashed = password_hash(
       password: $value,
-      algo: PASSWORD_BCRYPT
+      algo: PASSWORD_BCRYPT,
     );
 
     return new HashedSecret(value: $hashed);
@@ -52,7 +52,7 @@ final readonly class HashingAdapter implements HashingPort
    *
    * @since 1.0.0
    *
-   * @param string       $value  the plain value to verify
+   * @param string $value the plain value to verify
    * @param HashedSecret $hashed the hashed value to verify
    *
    * @return bool true if the values match, false otherwise
@@ -61,7 +61,7 @@ final readonly class HashingAdapter implements HashingPort
   {
     return password_verify(
       password: $value,
-      hash: $hashed->value
+      hash: $hashed->value,
     );
   }
   // #endregion

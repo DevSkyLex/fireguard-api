@@ -38,10 +38,10 @@ final readonly class AuthenticateUserResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool        $authenticated whether authentication was successful
-   * @param string|null $userId        the user ID if authenticated
-   * @param string|null $email         the user email if authenticated
-   * @param string|null $fullName      the user's full name if authenticated
+   * @param bool $authenticated whether authentication was successful
+   * @param string|null $userId the user ID if authenticated
+   * @param string|null $email the user email if authenticated
+   * @param string|null $fullName the user's full name if authenticated
    */
   public function __construct(
     public readonly bool $authenticated,

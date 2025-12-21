@@ -97,10 +97,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - missing or invalid parameters'
+            description: 'Invalid request - missing or invalid parameters',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Invalid client credentials or unauthorized grant type'
+            description: 'Invalid client credentials or unauthorized grant type',
           ),
         ],
       ),
@@ -126,10 +126,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - missing token parameter'
+            description: 'Invalid request - missing token parameter',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Invalid client credentials'
+            description: 'Invalid client credentials',
           ),
         ],
       ),
@@ -161,7 +161,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Invalid client credentials'
+            description: 'Invalid client credentials',
           ),
         ],
       ),
@@ -189,10 +189,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Missing or invalid access token'
+            description: 'Missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Access token lacks required scopes'
+            description: 'Access token lacks required scopes',
           ),
         ],
       ),
@@ -236,15 +236,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Missing required client_id parameter'
+            description: 'Missing required client_id parameter',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Missing or invalid access token'
+            description: 'Missing or invalid access token',
           ),
         ],
       ),
     ),
-  ]
+  ],
 )]
 final class OAuth2Resource
 {

@@ -26,7 +26,7 @@ interface FileStoragePort
    *
    * @since 1.0.0
    *
-   * @param string $path     the path to the file
+   * @param string $path the path to the file
    * @param string $contents the contents of the file
    *
    * @return void no return value

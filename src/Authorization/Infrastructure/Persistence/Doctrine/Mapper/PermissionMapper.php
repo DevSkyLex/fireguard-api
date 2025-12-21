@@ -51,8 +51,8 @@ final readonly class PermissionMapper
    *
    * @since 1.0.0
    *
-   * @param Permission            $permission the domain model to convert
-   * @param PermissionRecord|null $record     existing record to update, or null to create new
+   * @param Permission $permission the domain model to convert
+   * @param PermissionRecord|null $record existing record to update, or null to create new
    *
    * @return PermissionRecord the Doctrine record
    */

@@ -27,7 +27,7 @@ final readonly class LogoutCommand implements CommandMessage
    * @since 1.0.0
    *
    * @param string|null $refreshToken the encrypted refresh token from cookie
-   * @param string|null $accessToken  the JWT access token from header
+   * @param string|null $accessToken the JWT access token from header
    */
   public function __construct(
     public readonly ?string $refreshToken = null,

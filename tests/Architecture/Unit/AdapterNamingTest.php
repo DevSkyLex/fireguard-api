@@ -74,7 +74,7 @@ final class AdapterNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($adapterDir)
+        new RecursiveDirectoryIterator($adapterDir),
       );
 
       foreach ($iterator as $file) {
@@ -92,7 +92,7 @@ final class AdapterNamingTest extends TestCase
           $relativePath = str_replace(
             $module->path . DIRECTORY_SEPARATOR,
             '',
-            $pathName
+            $pathName,
           );
 
           $classPath = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
@@ -102,7 +102,7 @@ final class AdapterNamingTest extends TestCase
             '%s\\%s must end with suffix "%s".',
             $module->namespace,
             $classPath,
-            self::ADAPTER_SUFFIX
+            self::ADAPTER_SUFFIX,
           );
         }
       }
@@ -111,7 +111,7 @@ final class AdapterNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: 'Every adapter class must end with suffix "Adapter".'
+      message: 'Every adapter class must end with suffix "Adapter".',
     );
   }
 
@@ -149,7 +149,7 @@ final class AdapterNamingTest extends TestCase
         $violations[] = sprintf(
           '%s\\Infrastructure\\Adapter\\%s should be in a subdirectory (e.g., Symfony/, League/, Doctrine/).',
           $module->namespace,
-          $shortName
+          $shortName,
         );
       }
     }
@@ -157,7 +157,7 @@ final class AdapterNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: 'Adapters should be organized in subdirectories based on the framework/library they use.'
+      message: 'Adapters should be organized in subdirectories based on the framework/library they use.',
     );
   }
   // #endregion

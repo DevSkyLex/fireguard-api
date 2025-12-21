@@ -27,10 +27,10 @@ final readonly class PaginatedResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param array<T> $items  the items in the current page
-   * @param int      $total  the total number of items
-   * @param int      $limit  the limit per page
-   * @param int      $offset the current offset
+   * @param array<T> $items the items in the current page
+   * @param int $total the total number of items
+   * @param int $limit the limit per page
+   * @param int $offset the current offset
    */
   public function __construct(
     public readonly array $items,

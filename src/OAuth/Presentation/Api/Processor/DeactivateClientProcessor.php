@@ -38,7 +38,7 @@ final readonly class DeactivateClientProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param QueryBusPort   $queryBus   the query bus
+   * @param QueryBusPort $queryBus the query bus
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
@@ -56,10 +56,10 @@ final readonly class DeactivateClientProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data (not used)
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data (not used)
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return ClientOutput the processed output
    */

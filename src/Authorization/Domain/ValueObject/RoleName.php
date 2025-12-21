@@ -50,7 +50,7 @@ final readonly class RoleName implements Stringable
   {
     if ('' === $value) {
       throw InvalidValueException::because(
-        message: 'Role name cannot be empty.'
+        message: 'Role name cannot be empty.',
       );
     }
 
@@ -58,8 +58,8 @@ final readonly class RoleName implements Stringable
       throw InvalidValueException::because(
         message: sprintf(
           'Invalid role name "%s". Must be 3-50 characters, lowercase alphanumeric with underscores allowed.',
-          $value
-        )
+          $value,
+        ),
       );
     }
   }

@@ -20,16 +20,27 @@ final readonly class AuditEvent implements DomainEvent
 {
   // #region Constants
   public const string ACTION_LOGIN_SUCCESS = 'login_success';
+
   public const string ACTION_LOGIN_FAILED = 'login_failed';
+
   public const string ACTION_LOGOUT = 'logout';
+
   public const string ACTION_TOKEN_ISSUED = 'token_issued';
+
   public const string ACTION_TOKEN_REVOKED = 'token_revoked';
+
   public const string ACTION_TOKEN_REFRESHED = 'token_refreshed';
+
   public const string ACTION_PASSWORD_CHANGED = 'password_changed';
+
   public const string ACTION_PASSWORD_RESET_REQUESTED = 'password_reset_requested';
+
   public const string ACTION_CLIENT_CREATED = 'client_created';
+
   public const string ACTION_CLIENT_DELETED = 'client_deleted';
+
   public const string ACTION_USER_CREATED = 'user_created';
+
   public const string ACTION_PERMISSION_DENIED = 'permission_denied';
   // #endregion
 
@@ -39,14 +50,14 @@ final readonly class AuditEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid                 $eventId    the event ID
-   * @param string               $action     the action performed
-   * @param string|null          $userId     the user ID (if applicable)
-   * @param string|null          $clientId   the client ID (if applicable)
-   * @param string               $ipAddress  the IP address
-   * @param string               $userAgent  the user agent
-   * @param array<string, mixed> $metadata   additional metadata
-   * @param DateTimeImmutable    $occurredAt when the event occurred
+   * @param Uuid $eventId the event ID
+   * @param string $action the action performed
+   * @param string|null $userId the user ID (if applicable)
+   * @param string|null $clientId the client ID (if applicable)
+   * @param string $ipAddress the IP address
+   * @param string $userAgent the user agent
+   * @param array<string, mixed> $metadata additional metadata
+   * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(
     private Uuid $eventId,
@@ -71,8 +82,8 @@ final readonly class AuditEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid   $eventId   the event ID
-   * @param string $userId    the user ID
+   * @param Uuid $eventId the event ID
+   * @param string $userId the user ID
    * @param string $ipAddress the IP address
    * @param string $userAgent the user agent
    *
@@ -105,11 +116,11 @@ final readonly class AuditEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid   $eventId           the event ID
+   * @param Uuid $eventId the event ID
    * @param string $attemptedUsername the attempted username
-   * @param string $ipAddress         the IP address
-   * @param string $userAgent         the user agent
-   * @param string $reason            the failure reason
+   * @param string $ipAddress the IP address
+   * @param string $userAgent the user agent
+   * @param string $reason the failure reason
    *
    * @return self the audit event
    */
@@ -144,11 +155,11 @@ final readonly class AuditEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid        $eventId   the event ID
-   * @param string      $clientId  the client ID
-   * @param string|null $userId    the user ID (if applicable)
-   * @param string      $grantType the grant type used
-   * @param string      $ipAddress the IP address
+   * @param Uuid $eventId the event ID
+   * @param string $clientId the client ID
+   * @param string|null $userId the user ID (if applicable)
+   * @param string $grantType the grant type used
+   * @param string $ipAddress the IP address
    *
    * @return self the audit event
    */

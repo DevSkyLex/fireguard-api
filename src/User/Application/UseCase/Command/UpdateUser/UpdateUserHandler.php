@@ -47,9 +47,9 @@ final readonly class UpdateUserHandler implements \Shared\Application\Message\Co
    *
    * @param UpdateUserCommand $command the command
    *
-   * @return UpdateUserResult the result
-   *
    * @throws UserNotFoundException if the user is not found
+   *
+   * @return UpdateUserResult the result
    */
   public function __invoke(UpdateUserCommand $command): UpdateUserResult
   {
@@ -66,7 +66,7 @@ final readonly class UpdateUserHandler implements \Shared\Application\Message\Co
     $newProfile = new UserProfile(
       firstName: $command->firstName ?? $currentProfile->firstName,
       lastName: $command->lastName ?? $currentProfile->lastName,
-      avatarUrl: $command->avatarUrl ?? $currentProfile->avatarUrl
+      avatarUrl: $command->avatarUrl ?? $currentProfile->avatarUrl,
     );
 
     $user->updateProfile(profile: $newProfile);

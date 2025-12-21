@@ -37,7 +37,7 @@ final class OtpExpiredException extends DomainException
   public static function create(OtpId $id): self
   {
     return new self(
-      message: sprintf('OTP "%s" has expired.', $id->value)
+      message: sprintf('OTP "%s" has expired.', $id->value),
     );
   }
   // #endregion

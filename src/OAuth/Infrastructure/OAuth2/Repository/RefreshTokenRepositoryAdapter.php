@@ -42,7 +42,7 @@ final readonly class RefreshTokenRepositoryAdapter implements RefreshTokenReposi
       identifier: $refreshTokenEntity->getIdentifier(),
       expiryDateTime: DateTimeImmutable::createFromInterface($refreshTokenEntity->getExpiryDateTime()),
       accessTokenIdentifier: $refreshTokenEntity->getAccessToken()->getIdentifier(),
-      clientIdentifier: new OAuthClientIdentifier((string) $refreshTokenEntity->getAccessToken()->getClient()->getIdentifier())
+      clientIdentifier: new OAuthClientIdentifier((string) $refreshTokenEntity->getAccessToken()->getClient()->getIdentifier()),
     );
 
     $this->refreshTokenRepository->save($token);

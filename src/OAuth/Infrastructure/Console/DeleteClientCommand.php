@@ -30,7 +30,7 @@ use function sprintf;
 #[AsCommand(
   name: 'app:client:delete',
   description: 'Delete an OAuth2 client',
-  aliases: ['client:delete']
+  aliases: ['client:delete'],
 )]
 final class DeleteClientCommand extends Command
 {
@@ -67,13 +67,13 @@ final class DeleteClientCommand extends Command
       ->addArgument(
         name: 'client-id',
         mode: InputArgument::REQUIRED,
-        description: 'The client ID to delete'
+        description: 'The client ID to delete',
       )
       ->addOption(
         name: 'force',
         shortcut: 'f',
         mode: InputOption::VALUE_NONE,
-        description: 'Force deletion without confirmation'
+        description: 'Force deletion without confirmation',
       );
   }
 
@@ -84,7 +84,7 @@ final class DeleteClientCommand extends Command
    *
    * @since 1.0.0
    *
-   * @param InputInterface  $input  The input
+   * @param InputInterface $input The input
    * @param OutputInterface $output The output
    *
    * @return int The exit code
@@ -110,7 +110,7 @@ final class DeleteClientCommand extends Command
       if (!$force) {
         $confirm = $io->confirm(
           sprintf('Are you sure you want to delete client "%s" (%s)?', $client->name()->value, $clientIdString),
-          false
+          false,
         );
 
         if (!$confirm) {

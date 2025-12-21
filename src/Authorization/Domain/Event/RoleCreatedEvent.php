@@ -28,11 +28,11 @@ final readonly class RoleCreatedEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId    the event ID
-   * @param string            $roleId     the role ID
-   * @param string            $roleName   the role name
-   * @param bool              $isSystem   whether this is a system role
-   * @param string|null       $tenantId   the tenant ID
+   * @param Uuid $eventId the event ID
+   * @param string $roleId the role ID
+   * @param string $roleName the role name
+   * @param bool $isSystem whether this is a system role
+   * @param string|null $tenantId the tenant ID
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

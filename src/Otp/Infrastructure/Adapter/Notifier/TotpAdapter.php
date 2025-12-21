@@ -117,8 +117,8 @@ final readonly class TotpAdapter implements TotpServicePort
    *
    * Generates a TOTP code for a given timestamp.
    *
-   * @param string $secret    the decoded secret bytes
-   * @param int    $timestamp the timestamp
+   * @param string $secret the decoded secret bytes
+   * @param int $timestamp the timestamp
    *
    * @return string the TOTP code
    */

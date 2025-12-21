@@ -35,7 +35,9 @@ final class AddPermissionToRoleProcessorTest extends TestCase
 {
   // #region Properties
   private RoleRepositoryPort&MockObject $roleRepository;
+
   private PermissionRepositoryPort&MockObject $permissionRepository;
+
   private AddPermissionToRoleProcessor $processor;
   // #endregion
 
@@ -46,7 +48,7 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $this->permissionRepository = $this->createMock(PermissionRepositoryPort::class);
     $this->processor = new AddPermissionToRoleProcessor(
       $this->roleRepository,
-      $this->permissionRepository
+      $this->permissionRepository,
     );
   }
   // #endregion
@@ -66,13 +68,13 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $role = Role::create(
       id: new RoleId($roleId),
       name: new RoleName('admin'),
-      description: 'Admin role'
+      description: 'Admin role',
     );
 
     $permission = Permission::create(
       id: new PermissionId($permissionId),
       name: new PermissionName('users.create'),
-      description: 'Create users'
+      description: 'Create users',
     );
 
     $input = new AddPermissionInput();
@@ -101,7 +103,7 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $output = $this->processor->process(
       $input,
       $operation,
-      ['roleId' => $roleId]
+      ['roleId' => $roleId],
     );
 
     // Assert
@@ -137,7 +139,7 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $this->processor->process(
       $input,
       $operation,
-      ['roleId' => $roleId]
+      ['roleId' => $roleId],
     );
   }
 
@@ -154,7 +156,7 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $role = Role::create(
       id: new RoleId($roleId),
       name: new RoleName('admin'),
-      description: 'Admin role'
+      description: 'Admin role',
     );
 
     $input = new AddPermissionInput();
@@ -179,7 +181,7 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $this->processor->process(
       $input,
       $operation,
-      ['roleId' => $roleId]
+      ['roleId' => $roleId],
     );
   }
 

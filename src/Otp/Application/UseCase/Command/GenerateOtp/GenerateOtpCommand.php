@@ -30,12 +30,12 @@ final readonly class GenerateOtpCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string     $userId      the user ID
-   * @param OtpPurpose $purpose     the OTP purpose
-   * @param OtpChannel $channel     the delivery channel
-   * @param string     $recipient   the recipient (email/phone)
-   * @param int|null   $ttlSeconds  custom TTL in seconds
-   * @param int|null   $maxAttempts custom max attempts
+   * @param string $userId the user ID
+   * @param OtpPurpose $purpose the OTP purpose
+   * @param OtpChannel $channel the delivery channel
+   * @param string $recipient the recipient (email/phone)
+   * @param int|null $ttlSeconds custom TTL in seconds
+   * @param int|null $maxAttempts custom max attempts
    */
   public function __construct(
     public readonly string $userId,

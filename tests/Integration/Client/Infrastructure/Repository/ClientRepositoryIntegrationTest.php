@@ -40,6 +40,7 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
 {
   // #region Properties
   private EntityManagerInterface $entityManager;
+
   private ClientRepository $repository;
   // #endregion
 
@@ -155,7 +156,7 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
     for ($i = 1; $i <= 5; ++$i) {
       $client = $this->createTestClient(
         sprintf('123e4567-e89b-12d3-a456-42661417400%d', $i),
-        "Client $i"
+        "Client $i",
       );
       $this->repository->save($client);
     }
@@ -179,7 +180,7 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
     for ($i = 1; $i <= 3; ++$i) {
       $client = $this->createTestClient(
         sprintf('123e4567-e89b-12d3-a456-52661417400%d', $i),
-        "Count Client $i"
+        "Count Client $i",
       );
       $this->repository->save($client);
     }

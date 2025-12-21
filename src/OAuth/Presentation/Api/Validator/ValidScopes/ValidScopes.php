@@ -60,11 +60,11 @@ final class ValidScopes extends Constraint
    *
    * @since 1.0.0
    *
-   * @param list<string>|null         $allowedScopes the allowed scopes
-   * @param string|null               $message       the error message
-   * @param array<string, mixed>|null $options       additional options
-   * @param list<string>|null         $groups        validation groups
-   * @param mixed                     $payload       the payload
+   * @param list<string>|null $allowedScopes the allowed scopes
+   * @param string|null $message the error message
+   * @param array<string, mixed>|null $options additional options
+   * @param list<string>|null $groups validation groups
+   * @param mixed $payload the payload
    */
   public function __construct(
     ?array $allowedScopes = null,
@@ -76,7 +76,7 @@ final class ValidScopes extends Constraint
     parent::__construct(
       options: $options ?? [],
       groups: $groups,
-      payload: $payload
+      payload: $payload,
     );
 
     $this->allowedScopes = $allowedScopes ?? $this->allowedScopes;

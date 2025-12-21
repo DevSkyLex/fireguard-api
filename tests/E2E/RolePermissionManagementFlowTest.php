@@ -40,6 +40,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
 {
   // #region Constants
   protected const string DEV_CLIENT_ID = 'a7b8c9d0-e1f2-4456-8123-789012345678';
+
   protected const string DEV_CLIENT_SECRET = 'dev_secret_test';
   // #endregion
 
@@ -123,7 +124,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
         'client_id' => self::DEV_CLIENT_ID,
         'client_secret' => self::DEV_CLIENT_SECRET,
         'scope' => 'OPENID PROFILE EMAIL READ WRITE',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -216,7 +217,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -224,7 +225,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Should return permissions list or appropriate auth response. Response: ' . $response->getContent()
+      'Should return permissions list or appropriate auth response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -244,14 +245,14 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/permissions',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Should require authentication'
+      'Should require authentication',
     );
   }
 
@@ -272,7 +273,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $uniqueId = str_replace(
       ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
       ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
-      uniqid()
+      uniqid(),
     );
 
     $client->request(
@@ -286,7 +287,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       content: json_encode([
         'name' => 'test.permission' . $uniqueId,
         'description' => 'Test permission created via E2E test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -294,7 +295,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_CREATED, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Permission creation should require ROLE_SUPER_ADMIN. Response: ' . $response->getContent()
+      'Permission creation should require ROLE_SUPER_ADMIN. Response: ' . $response->getContent(),
     );
   }
 
@@ -319,7 +320,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       content: json_encode([
         'name' => 'invalid_format_without_dot',
         'description' => 'This should fail validation',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -327,7 +328,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Invalid permission name format should be rejected'
+      'Invalid permission name format should be rejected',
     );
   }
 
@@ -348,7 +349,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $listResponse = $client->getResponse();
@@ -376,7 +377,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -384,7 +385,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'Should return permission or appropriate error'
+      'Should return permission or appropriate error',
     );
   }
 
@@ -408,7 +409,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -416,7 +417,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Should return roles list or appropriate auth response. Response: ' . $response->getContent()
+      'Should return roles list or appropriate auth response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -436,14 +437,14 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/roles',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Should require authentication'
+      'Should require authentication',
     );
   }
 
@@ -475,7 +476,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
         'name' => 'testrole' . $uniqueId,
         'description' => 'Test role created via E2E test',
         'is_system' => false,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -483,7 +484,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_CREATED, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Role creation should require ROLE_ADMIN. Response: ' . $response->getContent()
+      'Role creation should require ROLE_ADMIN. Response: ' . $response->getContent(),
     );
   }
 
@@ -508,7 +509,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       content: json_encode([
         'name' => 'INVALID_UPPERCASE',
         'description' => 'This should fail validation',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -516,7 +517,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Invalid role name should be rejected'
+      'Invalid role name should be rejected',
     );
   }
 
@@ -537,7 +538,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $listResponse = $client->getResponse();
@@ -565,7 +566,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -573,7 +574,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'Should return role or appropriate error'
+      'Should return role or appropriate error',
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -599,7 +600,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $listResponse = $client->getResponse();
@@ -630,7 +631,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       ],
       content: json_encode([
         'description' => 'Updated description via E2E test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -638,7 +639,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'PATCH role should respond appropriately. Response: ' . $response->getContent()
+      'PATCH role should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -663,7 +664,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $rolesResponse = $client->getResponse();
@@ -688,7 +689,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $permissionsResponse = $client->getResponse();
@@ -717,7 +718,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       ],
       content: json_encode([
         'permission_id' => $permissionId,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -725,7 +726,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'Add permission to role should respond appropriately. Response: ' . $response->getContent()
+      'Add permission to role should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -746,7 +747,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $rolesResponse = $client->getResponse();
@@ -777,7 +778,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
         server: [
           'HTTP_ACCEPT' => 'application/ld+json',
           'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-        ]
+        ],
       );
 
       $roleDetailResponse = $client->getResponse();
@@ -810,7 +811,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -818,7 +819,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'Remove permission from role should respond appropriately. Response: ' . $response->getContent()
+      'Remove permission from role should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -836,7 +837,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $client->request(
       method: 'DELETE',
       uri: '/api/roles/00000000-0000-4000-8000-000000000000',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -844,7 +845,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'DELETE role without auth should return 401'
+      'DELETE role without auth should return 401',
     );
   }
 
@@ -864,7 +865,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -872,7 +873,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Non-existent role should return 404 or auth error'
+      'Non-existent role should return 404 or auth error',
     );
   }
 

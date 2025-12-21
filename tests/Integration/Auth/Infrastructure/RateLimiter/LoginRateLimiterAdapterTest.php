@@ -29,6 +29,7 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
 {
   // #region Properties
   private LoginRateLimiterAdapter $adapter;
+
   private string $testKey;
   // #endregion
 

@@ -46,7 +46,7 @@ final class RoleTest extends TestCase
       id: $id,
       name: $name,
       description: $description,
-      isSystem: false
+      isSystem: false,
     );
 
     $this->assertEquals($id->value, $role->id()->value);
@@ -71,7 +71,7 @@ final class RoleTest extends TestCase
       id: $id,
       name: $name,
       description: 'Super administrator',
-      isSystem: true
+      isSystem: true,
     );
 
     $this->assertTrue($role->isSystem());
@@ -212,13 +212,13 @@ final class RoleTest extends TestCase
     $role1 = Role::create(
       id: $id,
       name: new RoleName('admin'),
-      description: 'Admin 1'
+      description: 'Admin 1',
     );
 
     $role2 = Role::create(
       id: $id,
       name: new RoleName('admin'),
-      description: 'Admin 2'
+      description: 'Admin 2',
     );
 
     $this->assertTrue($role1->equals($role2));
@@ -252,7 +252,7 @@ final class RoleTest extends TestCase
     return Role::create(
       id: new RoleId('550e8400-e29b-41d4-a716-446655440000'),
       name: new RoleName('testrole'),
-      description: 'Test role'
+      description: 'Test role',
     );
   }
 
@@ -261,7 +261,7 @@ final class RoleTest extends TestCase
     return Permission::create(
       id: new PermissionId('660e8400-e29b-41d4-a716-' . substr(md5($name), 0, 12)),
       name: new PermissionName($name),
-      description: 'Test permission'
+      description: 'Test permission',
     );
   }
 

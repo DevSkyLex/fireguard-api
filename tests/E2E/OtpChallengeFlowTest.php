@@ -45,7 +45,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
         'channel' => 'email',
         'purpose' => 'verification',
         'identifier' => 'test@example.com',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -53,7 +53,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_CREATED, Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Create challenge should respond appropriately. Response: ' . $response->getContent()
+      'Create challenge should respond appropriately. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_CREATED === $response->getStatusCode() || Response::HTTP_OK === $response->getStatusCode()) {
@@ -84,7 +84,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
         'channel' => 'invalid_channel',
         'purpose' => 'verification',
         'identifier' => 'test@example.com',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -92,7 +92,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Invalid channel should be rejected. Response: ' . $response->getContent()
+      'Invalid channel should be rejected. Response: ' . $response->getContent(),
     );
   }
 
@@ -114,7 +114,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
         'channel' => 'email',
         'purpose' => 'verification',
         'identifier' => 'test@example.com',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -123,7 +123,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_CREATED, Response::HTTP_OK, Response::HTTP_UNAUTHORIZED, Response::HTTP_BAD_REQUEST],
-      'Create challenge should handle auth appropriately. Response: ' . $response->getContent()
+      'Create challenge should handle auth appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -141,7 +141,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/otp/challenges/non-existent-token-12345',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -149,7 +149,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_UNAUTHORIZED],
-      'Non-existent challenge should return 404. Response: ' . $response->getContent()
+      'Non-existent challenge should return 404. Response: ' . $response->getContent(),
     );
   }
 
@@ -173,7 +173,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'code' => '123456',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -181,7 +181,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-      'Verify non-existent challenge should return 404. Response: ' . $response->getContent()
+      'Verify non-existent challenge should return 404. Response: ' . $response->getContent(),
     );
   }
 
@@ -199,7 +199,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
-      content: json_encode([]) ?: ''
+      content: json_encode([]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -207,7 +207,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_NOT_FOUND, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR, Response::HTTP_UNSUPPORTED_MEDIA_TYPE],
-      'Verify without code should fail. Response: ' . $response->getContent()
+      'Verify without code should fail. Response: ' . $response->getContent(),
     );
   }
 
@@ -225,7 +225,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/otp/challenges/non-existent-token-12345/resend',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -233,7 +233,7 @@ class OtpChallengeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_UNAUTHORIZED],
-      'Resend non-existent challenge should return 404. Response: ' . $response->getContent()
+      'Resend non-existent challenge should return 404. Response: ' . $response->getContent(),
     );
   }
 

@@ -26,13 +26,13 @@ final readonly class CreateUserCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string      $username  the username
-   * @param string      $email     the email
-   * @param string      $password  the plain text password
-   * @param string      $firstName the first name
-   * @param string      $lastName  the last name
+   * @param string $username the username
+   * @param string $email the email
+   * @param string $password the plain text password
+   * @param string $firstName the first name
+   * @param string $lastName the last name
    * @param string|null $avatarUrl the avatar URL
-   * @param string|null $tenantId  the tenant ID (for multi-tenant)
+   * @param string|null $tenantId the tenant ID (for multi-tenant)
    */
   public function __construct(
     public readonly string $username,

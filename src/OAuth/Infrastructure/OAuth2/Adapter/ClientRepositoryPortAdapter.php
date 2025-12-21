@@ -76,14 +76,14 @@ final readonly class ClientRepositoryPortAdapter implements ClientRepositoryPort
       redirectUris: $result->redirectUris,
       grantTypes: array_map(
         fn (string $grantType) => GrantType::from($grantType),
-        $result->grantTypes
+        $result->grantTypes,
       ),
       scopes: array_map(
         fn (string $scope) => Scope::from($scope),
-        $result->scopes
+        $result->scopes,
       ),
       secret: null,
-      isConfidential: true
+      isConfidential: true,
     );
   }
   // #endregion

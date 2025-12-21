@@ -27,14 +27,14 @@ final readonly class GetOtpStatusResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string                 $status            the OTP status (pending, verified, expired, failed)
-   * @param DateTimeImmutable      $expiresAt         expiration time
-   * @param int                    $attemptsRemaining remaining attempts
-   * @param string                 $maskedRecipient   the masked recipient
-   * @param string                 $purpose           the OTP purpose
-   * @param string                 $channel           the delivery channel
-   * @param string|null            $recipient         the raw recipient (for resend)
-   * @param DateTimeImmutable|null $createdAt         creation time
+   * @param string $status the OTP status (pending, verified, expired, failed)
+   * @param DateTimeImmutable $expiresAt expiration time
+   * @param int $attemptsRemaining remaining attempts
+   * @param string $maskedRecipient the masked recipient
+   * @param string $purpose the OTP purpose
+   * @param string $channel the delivery channel
+   * @param string|null $recipient the raw recipient (for resend)
+   * @param DateTimeImmutable|null $createdAt creation time
    */
   public function __construct(
     public readonly DateTimeImmutable $expiresAt,

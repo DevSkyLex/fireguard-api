@@ -38,7 +38,7 @@ final readonly class TokenIdentifier
   ) {
     if ('' === $value) {
       throw new InvalidArgumentException(
-        message: 'Token identifier cannot be empty'
+        message: 'Token identifier cannot be empty',
       );
     }
   }

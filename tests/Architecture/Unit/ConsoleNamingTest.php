@@ -70,7 +70,7 @@ final class ConsoleNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($consoleDir)
+        new RecursiveDirectoryIterator($consoleDir),
       );
 
       foreach ($iterator as $file) {
@@ -88,7 +88,7 @@ final class ConsoleNamingTest extends TestCase
             '%s\\Infrastructure\\Console\\%s must end with suffix "%s".',
             $module->namespace,
             $shortName,
-            self::COMMAND_SUFFIX
+            self::COMMAND_SUFFIX,
           );
         }
       }
@@ -97,7 +97,7 @@ final class ConsoleNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: 'Every class in Infrastructure/Console/ must end with suffix "Command".'
+      message: 'Every class in Infrastructure/Console/ must end with suffix "Command".',
     );
   }
   // #endregion

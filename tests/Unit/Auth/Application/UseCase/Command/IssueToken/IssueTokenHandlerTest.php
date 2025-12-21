@@ -75,13 +75,13 @@ final class IssueTokenHandlerTest extends TestCase
       grantType: GrantType::CLIENT_CREDENTIALS->value,
       clientId: 'client_id',
       clientSecret: 'client_secret',
-      scope: Scope::READ->value
+      scope: Scope::READ->value,
     );
 
     $expectedResult = new IssueTokenResult(
       accessToken: 'access_token_value',
       tokenType: 'Bearer',
-      expiresIn: 3600
+      expiresIn: 3600,
     );
 
     $this->authorizationServer
@@ -95,7 +95,7 @@ final class IssueTokenHandlerTest extends TestCase
         null,
         null,
         null,
-        null
+        null,
       )
       ->willReturn($expectedResult);
 
@@ -121,7 +121,7 @@ final class IssueTokenHandlerTest extends TestCase
     $command = new IssueTokenCommand(
       grantType: 'invalid_grant',
       clientId: 'client_id',
-      clientSecret: 'client_secret'
+      clientSecret: 'client_secret',
     );
 
     $this->authorizationServer

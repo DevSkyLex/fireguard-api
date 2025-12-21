@@ -26,18 +26,18 @@ final readonly class IntrospectTokenResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool        $active    whether the token is active
-   * @param string|null $scope     space-separated scopes
-   * @param string|null $clientId  the client identifier
-   * @param string|null $username  the resource owner username
+   * @param bool $active whether the token is active
+   * @param string|null $scope space-separated scopes
+   * @param string|null $clientId the client identifier
+   * @param string|null $username the resource owner username
    * @param string|null $tokenType the token type
-   * @param int|null    $exp       expiration timestamp
-   * @param int|null    $iat       issued at timestamp
-   * @param int|null    $nbf       not before timestamp
-   * @param string|null $sub       subject (user ID)
-   * @param string|null $aud       audience
-   * @param string|null $iss       issuer
-   * @param string|null $jti       token identifier
+   * @param int|null $exp expiration timestamp
+   * @param int|null $iat issued at timestamp
+   * @param int|null $nbf not before timestamp
+   * @param string|null $sub subject (user ID)
+   * @param string|null $aud audience
+   * @param string|null $iss issuer
+   * @param string|null $jti token identifier
    */
   public function __construct(
     public bool $active,

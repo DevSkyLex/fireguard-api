@@ -28,8 +28,8 @@ interface CachePort
    *
    * @since 1.0.0
    *
-   * @param string $key     the key of the cache entry to retrieve
-   * @param mixed  $default the default value to return if the cache entry does not exist
+   * @param string $key the key of the cache entry to retrieve
+   * @param mixed $default the default value to return if the cache entry does not exist
    *
    * @return mixed the value of the cache entry
    */
@@ -42,9 +42,9 @@ interface CachePort
    *
    * @since 1.0.0
    *
-   * @param string                $key   the key of the cache entry to store
-   * @param mixed                 $value the value to store in the cache
-   * @param DateInterval|int|null $ttl   the time-to-live for the cache entry
+   * @param string $key the key of the cache entry to store
+   * @param mixed $value the value to store in the cache
+   * @param DateInterval|int|null $ttl the time-to-live for the cache entry
    *
    * @return void no return value
    */

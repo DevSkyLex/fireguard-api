@@ -31,6 +31,7 @@ use function count;
 final class MailerAdapterTest extends TestCase
 {
   private MailerInterface&MockObject $mailer;
+
   private MailerAdapter $adapter;
 
   /**

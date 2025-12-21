@@ -39,7 +39,7 @@ final class PermissionTest extends TestCase
     $permission = Permission::create(
       id: $id,
       name: $name,
-      description: $description
+      description: $description,
     );
 
     $this->assertEquals($id->value, $permission->id()->value);
@@ -56,7 +56,7 @@ final class PermissionTest extends TestCase
   {
     $permission = Permission::create(
       id: new PermissionId('550e8400-e29b-41d4-a716-446655440001'),
-      name: new PermissionName('users.read')
+      name: new PermissionName('users.read'),
     );
 
     $this->assertEquals('', $permission->description());
@@ -141,13 +141,13 @@ final class PermissionTest extends TestCase
     $permission1 = Permission::create(
       id: $id,
       name: new PermissionName('users.create'),
-      description: 'Create'
+      description: 'Create',
     );
 
     $permission2 = Permission::create(
       id: $id,
       name: new PermissionName('users.create'),
-      description: 'Create users'
+      description: 'Create users',
     );
 
     $this->assertTrue($permission1->equals($permission2));
@@ -181,7 +181,7 @@ final class PermissionTest extends TestCase
     return Permission::create(
       id: new PermissionId('550e8400-e29b-41d4-a716-446655440000'),
       name: new PermissionName($name),
-      description: 'Test permission'
+      description: 'Test permission',
     );
   }
 

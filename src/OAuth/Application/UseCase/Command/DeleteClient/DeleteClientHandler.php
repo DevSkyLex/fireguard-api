@@ -31,7 +31,7 @@ final readonly class DeleteClientHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository the client repository
-   * @param EventBusPort         $eventBus         the event bus
+   * @param EventBusPort $eventBus the event bus
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
@@ -51,9 +51,9 @@ final readonly class DeleteClientHandler implements CommandHandler
    *
    * @param DeleteClientCommand $command the command to handle
    *
-   * @return void none
-   *
    * @throws InvalidClientException if the client is not found
+   *
+   * @return void none
    */
   public function __invoke(DeleteClientCommand $command): void
   {

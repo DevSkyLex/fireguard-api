@@ -30,7 +30,7 @@ final readonly class ValidateClientCredentialsHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository the client repository
-   * @param HashingPort          $hashing          the hashing service
+   * @param HashingPort $hashing the hashing service
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
@@ -74,7 +74,7 @@ final readonly class ValidateClientCredentialsHandler implements QueryHandler
     // Verify the secret
     $isSecretValid = $this->hashing->verify(
       value: $query->clientSecret,
-      hashed: $client->secret()
+      hashed: $client->secret(),
     );
 
     if (!$isSecretValid) {
@@ -86,7 +86,7 @@ final readonly class ValidateClientCredentialsHandler implements QueryHandler
       isValid: true,
       clientId: $client->id()->value,
       allowedScopes: $client->scopes()->toArray(),
-      allowedGrantTypes: $client->grantTypes()->toArray()
+      allowedGrantTypes: $client->grantTypes()->toArray(),
     );
   }
   // #endregion

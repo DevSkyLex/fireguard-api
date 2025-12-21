@@ -29,12 +29,12 @@ final readonly class TenantSettings
    *
    * @since 1.0.0
    *
-   * @param int          $accessTokenTtl     access token TTL in seconds
-   * @param int          $refreshTokenTtl    refresh token TTL in seconds
-   * @param bool         $requirePkce        whether PKCE is required
-   * @param bool         $allowPublicClients whether public clients are allowed
-   * @param list<string> $allowedScopes      the allowed OAuth2 scopes
-   * @param string|null  $customIssuer       custom issuer URL for this tenant
+   * @param int $accessTokenTtl access token TTL in seconds
+   * @param int $refreshTokenTtl refresh token TTL in seconds
+   * @param bool $requirePkce whether PKCE is required
+   * @param bool $allowPublicClients whether public clients are allowed
+   * @param list<string> $allowedScopes the allowed OAuth2 scopes
+   * @param string|null $customIssuer custom issuer URL for this tenant
    */
   public function __construct(
     public int $accessTokenTtl = 3600,

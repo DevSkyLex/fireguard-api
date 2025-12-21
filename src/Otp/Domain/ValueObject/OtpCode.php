@@ -46,7 +46,7 @@ final readonly class OtpCode
    *
    * @since 1.0.0
    *
-   * @param string $plainCode  the plain text code
+   * @param string $plainCode the plain text code
    * @param string $hashedCode the hashed code for storage
    */
   private function __construct(
@@ -122,7 +122,7 @@ final readonly class OtpCode
   {
     return password_verify(
       password: $inputCode,
-      hash: $this->hashedCode
+      hash: $this->hashedCode,
     );
   }
 
@@ -133,15 +133,15 @@ final readonly class OtpCode
    *
    * @since 1.0.0
    *
-   * @return string the plain code
-   *
    * @throws InvalidValueException if plain code is not available
+   *
+   * @return string the plain code
    */
   public function plain(): string
   {
     if ('' === $this->plainCode) {
       throw InvalidValueException::because(
-        message: 'Plain code is only available immediately after generation.'
+        message: 'Plain code is only available immediately after generation.',
       );
     }
 

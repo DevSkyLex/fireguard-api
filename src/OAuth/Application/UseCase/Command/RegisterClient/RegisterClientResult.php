@@ -26,7 +26,7 @@ final readonly class RegisterClientResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string $clientId     the client ID (UUID)
+   * @param string $clientId the client ID (UUID)
    * @param string $clientSecret the plain client secret (shown only once)
    */
   public function __construct(

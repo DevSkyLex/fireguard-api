@@ -61,27 +61,27 @@ final class ClientMapperTest extends TestCase
 
     self::assertInstanceOf(
       expected: Client::class,
-      actual: $client
+      actual: $client,
     );
 
     self::assertSame(
       expected: '123e4567-e89b-12d3-a456-426614174000',
-      actual: $client->id()->value
+      actual: $client->id()->value,
     );
 
     self::assertSame(
       expected: 'Test Client',
-      actual: $client->name()->value
+      actual: $client->name()->value,
     );
 
     self::assertSame(
       expected: '$2y$10$hashedsecret',
-      actual: $client->secret()->value
+      actual: $client->secret()->value,
     );
 
     self::assertSame(
       expected: ['https://example.com/callback'],
-      actual: $client->redirectUris()
+      actual: $client->redirectUris(),
     );
 
     self::assertTrue(condition: $client->isActive());

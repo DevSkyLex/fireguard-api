@@ -27,16 +27,16 @@ final class Session
    *
    * @since 1.0.0
    *
-   * @param SessionId              $id             the session ID
-   * @param string                 $userId         the user ID
-   * @param string|null            $accessTokenId  the current access token ID
-   * @param string|null            $refreshTokenId the current refresh token ID
-   * @param IpAddress              $ipAddress      the client IP address
-   * @param UserAgent              $userAgent      the client user agent
-   * @param SessionMetadata        $metadata       additional session metadata
-   * @param DateTimeImmutable      $createdAt      the creation timestamp
-   * @param DateTimeImmutable      $lastActivityAt the last activity timestamp
-   * @param DateTimeImmutable|null $revokedAt      the revocation timestamp
+   * @param SessionId $id the session ID
+   * @param string $userId the user ID
+   * @param string|null $accessTokenId the current access token ID
+   * @param string|null $refreshTokenId the current refresh token ID
+   * @param IpAddress $ipAddress the client IP address
+   * @param UserAgent $userAgent the client user agent
+   * @param SessionMetadata $metadata additional session metadata
+   * @param DateTimeImmutable $createdAt the creation timestamp
+   * @param DateTimeImmutable $lastActivityAt the last activity timestamp
+   * @param DateTimeImmutable|null $revokedAt the revocation timestamp
    */
   private function __construct(
     private SessionId $id,
@@ -63,8 +63,8 @@ final class Session
    *
    * @since 1.0.0
    *
-   * @param SessionId $id        the session ID
-   * @param string    $userId    the user ID
+   * @param SessionId $id the session ID
+   * @param string $userId the user ID
    * @param IpAddress $ipAddress the client IP address
    * @param UserAgent $userAgent the client user agent
    *
@@ -252,7 +252,7 @@ final class Session
    *
    * @since 1.0.0
    *
-   * @param string $accessTokenId  the new access token ID
+   * @param string $accessTokenId the new access token ID
    * @param string $refreshTokenId the new refresh token ID
    */
   public function updateTokens(string $accessTokenId, string $refreshTokenId): void

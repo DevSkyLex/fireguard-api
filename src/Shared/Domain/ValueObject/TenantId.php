@@ -47,7 +47,7 @@ final readonly class TenantId implements Stringable
   public static function fromString(string $value): self
   {
     return new self(uuid: new Uuid(
-      value: $value
+      value: $value,
     ));
   }
 

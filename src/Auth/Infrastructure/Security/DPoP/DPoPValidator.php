@@ -83,11 +83,11 @@ final readonly class DPoPValidator implements DPoPValidatorPort
    *
    * @since 1.0.0
    *
-   * @param string      $dpopHeader    the DPoP header
-   * @param string      $httpMethod    the HTTP method
-   * @param string      $httpUri       the HTTP URI
+   * @param string $dpopHeader the DPoP header
+   * @param string $httpMethod the HTTP method
+   * @param string $httpUri the HTTP URI
    * @param string|null $expectedNonce the expected nonce
-   * @param string|null $accessToken   the access token
+   * @param string|null $accessToken the access token
    *
    * @return DPoPProof|null the DPoP proof or null if invalid
    */

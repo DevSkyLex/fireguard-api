@@ -34,8 +34,8 @@ final readonly class RevokeSessionProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RevokeSessionHandler $handler  the command handler
-   * @param Security             $security the security service
+   * @param RevokeSessionHandler $handler the command handler
+   * @param Security $security the security service
    */
   public function __construct(
     private RevokeSessionHandler $handler,
@@ -64,7 +64,7 @@ final readonly class RevokeSessionProcessor implements ProcessorInterface
     try {
       $command = new RevokeSessionCommand(
         sessionId: $sessionId,
-        reason: 'User revoked session via API'
+        reason: 'User revoked session via API',
       );
       ($this->handler)($command);
     } catch (SessionNotFoundException $e) {

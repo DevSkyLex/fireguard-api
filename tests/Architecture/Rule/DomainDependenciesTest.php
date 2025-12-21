@@ -108,7 +108,7 @@ final class DomainDependenciesTest extends BaseHexagonalArchitectureTest
     foreach ($this->modulesHavingLayer(self::LAYER) as $module) {
       $moduleSelectors = $this->selectorsForModuleLayer(
         module: $module,
-        layer: self::LAYER
+        layer: self::LAYER,
       );
 
       if ([] === $moduleSelectors) {

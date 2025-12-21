@@ -68,7 +68,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
    * @since 1.0.0
    *
    * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
-   * @param SecurityUserProvider      $userProvider          the security user provider
+   * @param SecurityUserProvider $userProvider the security user provider
    */
   public function __construct(
     private readonly AccessTokenRepositoryPort $accessTokenRepository,
@@ -83,7 +83,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
     $this->jwtConfig = Configuration::forAsymmetricSigner(
       signer: new Sha256(),
       signingKey: InMemory::plainText('dummy-key-not-used-for-verification'),
-      verificationKey: InMemory::file($publicKeyPath)
+      verificationKey: InMemory::file($publicKeyPath),
     );
   }
   // #endregion
@@ -107,7 +107,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
     return $request->headers->has(key: 'Authorization')
       && str_starts_with(
         haystack: $request->headers->get(key: 'Authorization', default: ''),
-        needle: 'Bearer '
+        needle: 'Bearer ',
       );
   }
 
@@ -130,7 +130,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
 
     if ('' === $token) {
       throw new CustomUserMessageAuthenticationException(
-        message: 'No access token provided'
+        message: 'No access token provided',
       );
     }
 
@@ -140,7 +140,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
 
       if (!$parsedToken instanceof UnencryptedToken) {
         throw new CustomUserMessageAuthenticationException(
-          message: 'Invalid token format'
+          message: 'Invalid token format',
         );
       }
 
@@ -150,7 +150,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
 
       if (!is_string($tokenId) || !is_string($userId)) {
         throw new CustomUserMessageAuthenticationException(
-          message: 'Invalid token: missing required claims'
+          message: 'Invalid token: missing required claims',
         );
       }
 
@@ -161,13 +161,13 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         // OAuth2 flow: validate from database
         if ($accessToken->isRevoked()) {
           throw new CustomUserMessageAuthenticationException(
-            message: 'Token has been revoked'
+            message: 'Token has been revoked',
           );
         }
 
         if ($accessToken->isExpired()) {
           throw new CustomUserMessageAuthenticationException(
-            message: 'Token has expired'
+            message: 'Token has expired',
           );
         }
 
@@ -179,18 +179,18 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         if (
           !$validator->validate($parsedToken, new SignedWith(
             $this->jwtConfig->signer(),
-            $this->jwtConfig->verificationKey()
+            $this->jwtConfig->verificationKey(),
           ))
         ) {
           throw new CustomUserMessageAuthenticationException(
-            message: 'Invalid token signature'
+            message: 'Invalid token signature',
           );
         }
 
         // Check expiry
         if ($parsedToken->isExpired(new DateTimeImmutable())) {
           throw new CustomUserMessageAuthenticationException(
-            message: 'Token has expired'
+            message: 'Token has expired',
           );
         }
 
@@ -203,8 +203,8 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         userIdentifier: $userId,
         userLoader: fn (string $id) => $this->userProvider->loadUserById(
           userId: $id,
-          scopes: $scopes
-        )
+          scopes: $scopes,
+        ),
       );
 
       return new SelfValidatingPassport(userBadge: $userBadge);
@@ -212,7 +212,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       throw $exception;
     } catch (Throwable $exception) {
       throw new CustomUserMessageAuthenticationException(
-        message: 'Invalid access token: ' . $exception->getMessage()
+        message: 'Invalid access token: ' . $exception->getMessage(),
       );
     }
   }
@@ -225,9 +225,9 @@ final class OAuth2Authenticator extends AbstractAuthenticator
    *
    * @since 1.0.0
    *
-   * @param Request        $request      the request
-   * @param TokenInterface $token        the token
-   * @param string         $firewallName the firewall name
+   * @param Request $request the request
+   * @param TokenInterface $token the token
+   * @param string $firewallName the firewall name
    *
    * @return ?Response the response
    */
@@ -244,7 +244,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
    *
    * @since 1.0.0
    *
-   * @param Request                 $request   the request
+   * @param Request $request the request
    * @param AuthenticationException $exception the exception
    *
    * @return Response the response
@@ -257,7 +257,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         'error_description' => $exception->getMessageKey(),
       ],
       status: Response::HTTP_UNAUTHORIZED,
-      headers: ['WWW-Authenticate' => 'Bearer error="invalid_token"']
+      headers: ['WWW-Authenticate' => 'Bearer error="invalid_token"'],
     );
   }
   // #endregion

@@ -47,7 +47,7 @@ final class UserApiTest extends WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
-      content: json_encode([]) ?: ''
+      content: json_encode([]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -66,7 +66,7 @@ final class UserApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/users',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $this->client?->getResponse();
@@ -95,7 +95,7 @@ final class UserApiTest extends WebTestCase
         'password' => 'TestPassword123!',
         'firstName' => 'Test',
         'lastName' => 'User',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();

@@ -62,10 +62,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'List of permissions retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -104,13 +104,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Permission not found'
+            description: 'Permission not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -147,16 +147,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed (name format or length)'
+            description: 'Invalid request - validation failed (name format or length)',
           ),
           HttpResponse::HTTP_CONFLICT => new Response(
-            description: 'Permission name already exists'
+            description: 'Permission name already exists',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required'
+            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required',
           ),
         ],
       ),
@@ -189,16 +189,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed'
+            description: 'Invalid request - validation failed',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Permission not found'
+            description: 'Permission not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required'
+            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required',
           ),
         ],
       ),
@@ -220,18 +220,18 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Permission not found'
+            description: 'Permission not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required'
+            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required',
           ),
         ],
       ),
     ),
-  ]
+  ],
 )]
 final class PermissionResource
 {

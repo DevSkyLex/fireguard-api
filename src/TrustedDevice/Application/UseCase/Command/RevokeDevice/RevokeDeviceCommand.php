@@ -27,7 +27,7 @@ final readonly class RevokeDeviceCommand implements CommandMessage
    * @since 1.0.0
    *
    * @param string $deviceId the device ID
-   * @param string $userId   the user ID
+   * @param string $userId the user ID
    */
   public function __construct(
     public readonly string $deviceId,

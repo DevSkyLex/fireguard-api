@@ -23,13 +23,13 @@ final readonly class GetSessionResult
    *
    * @since 1.0.0
    *
-   * @param string            $sessionId      the session ID
-   * @param string            $userId         the user ID
-   * @param string            $ipAddress      the IP address
-   * @param string            $userAgent      the user agent
-   * @param DateTimeImmutable $createdAt      the creation timestamp
+   * @param string $sessionId the session ID
+   * @param string $userId the user ID
+   * @param string $ipAddress the IP address
+   * @param string $userAgent the user agent
+   * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $lastActivityAt the last activity timestamp
-   * @param bool              $isRevoked      whether the session is revoked
+   * @param bool $isRevoked whether the session is revoked
    */
   public function __construct(
     public string $sessionId,

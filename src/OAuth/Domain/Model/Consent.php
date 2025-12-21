@@ -30,11 +30,11 @@ final class Consent
    *
    * @since 1.0.0
    *
-   * @param ConsentId              $id        the consent ID
-   * @param string                 $userId    the user ID
-   * @param string                 $clientId  the client ID
-   * @param Scopes                 $scopes    the granted scopes
-   * @param DateTimeImmutable      $grantedAt when consent was granted
+   * @param ConsentId $id the consent ID
+   * @param string $userId the user ID
+   * @param string $clientId the client ID
+   * @param Scopes $scopes the granted scopes
+   * @param DateTimeImmutable $grantedAt when consent was granted
    * @param DateTimeImmutable|null $revokedAt when consent was revoked
    */
   private function __construct(
@@ -58,10 +58,10 @@ final class Consent
    *
    * @since 1.0.0
    *
-   * @param ConsentId $id       the consent ID
-   * @param string    $userId   the user ID
-   * @param string    $clientId the client ID
-   * @param Scopes    $scopes   the scopes to grant
+   * @param ConsentId $id the consent ID
+   * @param string $userId the user ID
+   * @param string $clientId the client ID
+   * @param Scopes $scopes the scopes to grant
    *
    * @return self the new Consent instance
    */

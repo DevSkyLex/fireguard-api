@@ -52,7 +52,7 @@ final readonly class PhoneNumber implements Stringable
   {
     if (!preg_match(pattern: self::PATTERN, subject: $value)) {
       throw InvalidValueException::because(
-        message: 'Invalid phone number format. Expected E.164 format (e.g., +33612345678).'
+        message: 'Invalid phone number format. Expected E.164 format (e.g., +33612345678).',
       );
     }
   }

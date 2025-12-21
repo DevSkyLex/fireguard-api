@@ -30,11 +30,11 @@ interface DPoPValidatorPort
    *
    * @since 1.0.0
    *
-   * @param string      $dpopHeader    the DPoP header value (JWT)
-   * @param string      $httpMethod    the HTTP method of the request
-   * @param string      $httpUri       the HTTP URI of the request
+   * @param string $dpopHeader the DPoP header value (JWT)
+   * @param string $httpMethod the HTTP method of the request
+   * @param string $httpUri the HTTP URI of the request
    * @param string|null $expectedNonce expected server nonce (optional)
-   * @param string|null $accessToken   access token for binding verification (optional)
+   * @param string|null $accessToken access token for binding verification (optional)
    *
    * @return DPoPProof|null the validated proof or null if invalid
    */

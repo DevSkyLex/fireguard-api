@@ -32,12 +32,12 @@ final readonly class SecurityUser implements UserInterface, PasswordAuthenticate
    *
    * @since 1.0.0
    *
-   * @param string       $id       the user ID
-   * @param string       $email    the user email
-   * @param string       $password the hashed password
-   * @param list<string> $roles    the user roles
-   * @param list<string> $scopes   the OAuth2 scopes
-   * @param bool         $isActive whether the user is active
+   * @param string $id the user ID
+   * @param string $email the user email
+   * @param string $password the hashed password
+   * @param list<string> $roles the user roles
+   * @param list<string> $scopes the OAuth2 scopes
+   * @param bool $isActive whether the user is active
    */
   public function __construct(
     private string $id,

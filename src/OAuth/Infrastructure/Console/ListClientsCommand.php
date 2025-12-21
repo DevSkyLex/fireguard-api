@@ -27,7 +27,7 @@ use function sprintf;
 #[AsCommand(
   name: 'app:client:list',
   description: 'List all OAuth2 clients',
-  aliases: ['client:list']
+  aliases: ['client:list'],
 )]
 final class ListClientsCommand extends Command
 {
@@ -56,7 +56,7 @@ final class ListClientsCommand extends Command
    *
    * @since 1.0.0
    *
-   * @param InputInterface  $input  The input
+   * @param InputInterface $input The input
    * @param OutputInterface $output The output
    *
    * @return int The exit code
@@ -87,7 +87,7 @@ final class ListClientsCommand extends Command
 
     $io->table(
       ['ID', 'Name', 'Active', 'Grant Types', 'Scopes', 'Created'],
-      $rows
+      $rows,
     );
 
     $io->success(sprintf('Found %d client(s).', count($clients)));

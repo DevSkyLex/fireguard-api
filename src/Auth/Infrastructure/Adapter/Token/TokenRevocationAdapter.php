@@ -38,10 +38,10 @@ final class TokenRevocationAdapter implements TokenRevocationPort
   /**
    * Constructor.
    *
-   * @param AccessTokenRepositoryPort  $accessTokenRepository  the access token repository
+   * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
    * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
-   * @param LoggerInterface            $logger                 the logger
-   * @param string                     $encryptionKey          the encryption key
+   * @param LoggerInterface $logger the logger
+   * @param string $encryptionKey the encryption key
    */
   public function __construct(
     private readonly AccessTokenRepositoryPort $accessTokenRepository,

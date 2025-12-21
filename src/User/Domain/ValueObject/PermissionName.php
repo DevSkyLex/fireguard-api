@@ -52,7 +52,7 @@ final readonly class PermissionName implements Stringable
   {
     if ('' === $value) {
       throw InvalidValueException::because(
-        message: 'Permission name cannot be empty.'
+        message: 'Permission name cannot be empty.',
       );
     }
 
@@ -60,8 +60,8 @@ final readonly class PermissionName implements Stringable
       throw InvalidValueException::because(
         message: sprintf(
           'Invalid permission name "%s". Must be in format "resource.action" (e.g., users.create, clients.*, *.*)',
-          $value
-        )
+          $value,
+        ),
       );
     }
   }

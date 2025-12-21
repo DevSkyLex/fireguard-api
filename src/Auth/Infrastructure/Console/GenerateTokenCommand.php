@@ -34,7 +34,7 @@ use function substr;
 #[AsCommand(
   name: 'app:token:generate',
   description: 'Generate an OAuth2 access token for a client',
-  aliases: ['token:generate']
+  aliases: ['token:generate'],
 )]
 final class GenerateTokenCommand extends Command
 {
@@ -47,7 +47,7 @@ final class GenerateTokenCommand extends Command
    *
    * @since 1.0.0
    *
-   * @param CommandBusPort       $commandBus       the command bus
+   * @param CommandBusPort $commandBus the command bus
    * @param ClientRepositoryPort $clientRepository the client repository
    */
   public function __construct(
@@ -73,19 +73,19 @@ final class GenerateTokenCommand extends Command
       ->addArgument(
         name: 'client-id',
         mode: InputArgument::REQUIRED,
-        description: 'The client ID'
+        description: 'The client ID',
       )
       ->addArgument(
         name: 'client-secret',
         mode: InputArgument::REQUIRED,
-        description: 'The client secret (plain text)'
+        description: 'The client secret (plain text)',
       )
       ->addOption(
         name: 'scope',
         shortcut: 's',
         mode: InputOption::VALUE_REQUIRED,
         description: 'Scopes (space-separated)',
-        default: 'openid profile email read'
+        default: 'openid profile email read',
       )
       ->setHelp(
         <<<'HELP'
@@ -109,7 +109,7 @@ HELP
    *
    * @since 1.0.0
    *
-   * @param InputInterface  $input  the input interface
+   * @param InputInterface $input the input interface
    * @param OutputInterface $output the output interface
    *
    * @return int the command exit code
@@ -138,7 +138,7 @@ HELP
         grantType: 'client_credentials',
         clientId: $clientId,
         clientSecret: $clientSecret,
-        scope: $scope
+        scope: $scope,
       );
 
       /** @var IssueTokenResult $result */
@@ -152,7 +152,7 @@ HELP
           ['Token Type', $result->tokenType],
           ['Expires In', $result->expiresIn . ' seconds'],
           ['Scope', $result->scope ?? $scope],
-        ]
+        ],
       );
 
       $io->section('Access Token');

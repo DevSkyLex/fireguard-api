@@ -26,7 +26,7 @@ final readonly class ListUsersQuery implements QueryMessage
    *
    * @since 1.0.0
    *
-   * @param int $page  the page number
+   * @param int $page the page number
    * @param int $limit the limit per page
    */
   public function __construct(

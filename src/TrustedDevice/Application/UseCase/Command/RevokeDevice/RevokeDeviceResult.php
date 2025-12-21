@@ -26,7 +26,7 @@ final readonly class RevokeDeviceResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool   $success  whether the revocation was successful
+   * @param bool $success whether the revocation was successful
    * @param string $deviceId the revoked device ID
    */
   public function __construct(

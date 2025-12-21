@@ -30,6 +30,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 final class MessengerEventBusAdapterTest extends TestCase
 {
   private MessageBusInterface&MockObject $messageBus;
+
   private MessengerEventBusAdapter $adapter;
 
   /**

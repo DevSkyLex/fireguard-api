@@ -55,7 +55,7 @@ interface OtpRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param string     $userId  the user ID
+   * @param string $userId the user ID
    * @param OtpPurpose $purpose the purpose
    *
    * @return Otp|null the OTP or null
@@ -82,7 +82,7 @@ interface OtpRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param string     $userId  the user ID
+   * @param string $userId the user ID
    * @param OtpPurpose $purpose the purpose
    *
    * @return int number of OTPs revoked

@@ -35,7 +35,7 @@ final class MessengerRuntimeException extends InfrastructureException
   {
     return new self(
       message: $exception->getMessage(),
-      previous: $exception
+      previous: $exception,
     );
   }
   // #endregion

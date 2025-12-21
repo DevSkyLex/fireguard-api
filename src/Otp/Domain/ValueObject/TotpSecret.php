@@ -69,7 +69,7 @@ final readonly class TotpSecret
   ) {
     if (!preg_match('/^[A-Z2-7]+=*$/', $secret)) {
       throw InvalidValueException::because(
-        message: 'Invalid TOTP secret format.'
+        message: 'Invalid TOTP secret format.',
       );
     }
   }
@@ -103,7 +103,7 @@ final readonly class TotpSecret
    * @since 1.0.0
    *
    * @param string $accountName the account name/email
-   * @param string $issuer      The issuer name (e.g., "FireGuard Auth").
+   * @param string $issuer The issuer name (e.g., "FireGuard Auth").
    *
    * @return string the otpauth:// URI
    */
@@ -114,7 +114,7 @@ final readonly class TotpSecret
       rawurlencode($issuer),
       rawurlencode($accountName),
       $this->secret,
-      rawurlencode($issuer)
+      rawurlencode($issuer),
     );
   }
 

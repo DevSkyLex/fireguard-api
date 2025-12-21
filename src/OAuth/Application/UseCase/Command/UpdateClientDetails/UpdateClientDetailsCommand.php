@@ -28,10 +28,10 @@ final readonly class UpdateClientDetailsCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string             $clientId     the client ID
-   * @param string             $name         the new client name
+   * @param string $clientId the client ID
+   * @param string $name the new client name
    * @param array<RedirectUri> $redirectUris the new redirect URIs
-   * @param Scopes             $scopes       the new scopes
+   * @param Scopes $scopes the new scopes
    */
   public function __construct(
     public readonly string $clientId,

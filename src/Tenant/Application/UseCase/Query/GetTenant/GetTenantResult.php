@@ -24,10 +24,10 @@ final readonly class GetTenantResult
    *
    * @since 1.0.0
    *
-   * @param string            $tenantId  the tenant ID
-   * @param string            $name      the tenant name
-   * @param TenantSettings    $settings  the tenant settings
-   * @param bool              $isActive  whether the tenant is active
+   * @param string $tenantId the tenant ID
+   * @param string $name the tenant name
+   * @param TenantSettings $settings the tenant settings
+   * @param bool $isActive whether the tenant is active
    * @param DateTimeImmutable $createdAt the creation timestamp
    */
   public function __construct(

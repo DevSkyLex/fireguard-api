@@ -37,7 +37,7 @@ final readonly class Email implements Stringable
   {
     if (!filter_var(
       value: $value,
-      filter: FILTER_VALIDATE_EMAIL
+      filter: FILTER_VALIDATE_EMAIL,
     )) {
       throw InvalidValueException::because(message: 'Invalid email address.');
     }

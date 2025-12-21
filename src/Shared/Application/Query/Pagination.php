@@ -24,7 +24,7 @@ final readonly class Pagination
    * @since 1.0.0
    *
    * @param int $offset the offset (default: 0)
-   * @param int $limit  the limit (default: 20)
+   * @param int $limit the limit (default: 20)
    */
   public function __construct(
     public int $offset = 0,

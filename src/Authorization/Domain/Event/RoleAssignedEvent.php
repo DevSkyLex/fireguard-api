@@ -28,12 +28,12 @@ final readonly class RoleAssignedEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId      the event ID
-   * @param string            $assignmentId the assignment ID
-   * @param string            $roleId       the role ID
-   * @param string            $subjectType  the subject type (user)
-   * @param string            $subjectId    the subject ID
-   * @param DateTimeImmutable $occurredAt   when the event occurred
+   * @param Uuid $eventId the event ID
+   * @param string $assignmentId the assignment ID
+   * @param string $roleId the role ID
+   * @param string $subjectType the subject type (user)
+   * @param string $subjectId the subject ID
+   * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(
     private readonly Uuid $eventId,

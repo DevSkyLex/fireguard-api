@@ -36,7 +36,7 @@ final class SessionNotFoundException extends EntityNotFoundException
   public static function withId(string $id): self
   {
     return new self(
-      message: sprintf('Session with ID "%s" not found.', $id)
+      message: sprintf('Session with ID "%s" not found.', $id),
     );
   }
   // #endregion

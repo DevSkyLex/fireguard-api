@@ -30,7 +30,7 @@ use Session\Presentation\Api\Provider\ListUserSessionsProvider;
       uriTemplate: '/sessions',
       input: false,
       output: SessionOutput::class,
-      provider: ListUserSessionsProvider::class
+      provider: ListUserSessionsProvider::class,
     ),
     new Get(
       name: 'session_get',
@@ -38,7 +38,7 @@ use Session\Presentation\Api\Provider\ListUserSessionsProvider;
       uriTemplate: '/sessions/{id}',
       input: false,
       output: SessionOutput::class,
-      provider: GetSessionProvider::class
+      provider: GetSessionProvider::class,
     ),
     new Delete(
       name: 'session_revoke',
@@ -46,7 +46,7 @@ use Session\Presentation\Api\Provider\ListUserSessionsProvider;
       uriTemplate: '/sessions/{id}',
       input: false,
       output: false,
-      processor: RevokeSessionProcessor::class
+      processor: RevokeSessionProcessor::class,
     ),
     new Post(
       name: 'session_revoke_all',
@@ -54,9 +54,9 @@ use Session\Presentation\Api\Provider\ListUserSessionsProvider;
       uriTemplate: '/sessions/revoke-all',
       input: false,
       output: SessionOutput::class,
-      processor: RevokeAllSessionsProcessor::class
+      processor: RevokeAllSessionsProcessor::class,
     ),
-  ]
+  ],
 )]
 final class SessionResource
 {

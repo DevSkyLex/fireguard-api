@@ -59,7 +59,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -67,7 +67,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return tenants list or appropriate auth response. Response: ' . $response->getContent()
+      'Should return tenants list or appropriate auth response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -95,7 +95,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/tenants',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -103,7 +103,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'Should require authentication. Response: ' . $response->getContent()
+      'Should require authentication. Response: ' . $response->getContent(),
     );
   }
 
@@ -137,7 +137,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -145,7 +145,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Non-existent tenant should return 404 or auth error. Response: ' . $response->getContent()
+      'Non-existent tenant should return 404 or auth error. Response: ' . $response->getContent(),
     );
   }
 
@@ -167,7 +167,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/tenants/00000000-0000-4000-8000-000000000000',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -175,7 +175,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'Should require authentication'
+      'Should require authentication',
     );
   }
 
@@ -223,7 +223,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
         'settings' => [
           'allowPasswordLogin' => true,
         ],
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -231,7 +231,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_CREATED, Response::HTTP_OK, Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Create tenant should respond appropriately. Response: ' . $response->getContent()
+      'Create tenant should respond appropriately. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_CREATED === $response->getStatusCode() || Response::HTTP_OK === $response->getStatusCode()) {
@@ -264,7 +264,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'name' => 'Unauthorized Tenant',
         'slug' => 'unauthorized-tenant',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -272,7 +272,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN],
-      'Should require authentication. Response: ' . $response->getContent()
+      'Should require authentication. Response: ' . $response->getContent(),
     );
   }
 
@@ -304,7 +304,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
       ],
-      content: json_encode([]) ?: ''
+      content: json_encode([]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -312,7 +312,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Invalid data should be rejected. Response: ' . $response->getContent()
+      'Invalid data should be rejected. Response: ' . $response->getContent(),
     );
   }
 

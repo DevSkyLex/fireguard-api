@@ -38,7 +38,7 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
 
       $infrastructureSelectors = $this->selectorsForModuleLayer(
         module: $module,
-        layer: ArchitectureLayer::INFRASTRUCTURE
+        layer: ArchitectureLayer::INFRASTRUCTURE,
       );
 
       if ([] === $infrastructureSelectors) {
@@ -46,7 +46,7 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
       }
 
       $forbiddenSelectors = $this->selectorsForNamespaces(
-        namespaces: $this->foreignModuleNamespaces(module: $module)
+        namespaces: $this->foreignModuleNamespaces(module: $module),
       );
 
       if ([] === $forbiddenSelectors) {
@@ -82,7 +82,7 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
 
       $infrastructureSelectors = $this->selectorsForModuleLayer(
         module: $module,
-        layer: ArchitectureLayer::INFRASTRUCTURE
+        layer: ArchitectureLayer::INFRASTRUCTURE,
       );
 
       if ([] === $infrastructureSelectors) {
@@ -93,11 +93,11 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
         ...$infrastructureSelectors,
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: ArchitectureLayer::APPLICATION
+          layer: ArchitectureLayer::APPLICATION,
         ),
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: ArchitectureLayer::DOMAIN
+          layer: ArchitectureLayer::DOMAIN,
         ),
         ...$sharedDomainSelectors,
         ...$sharedApplicationSelectors,
@@ -127,7 +127,7 @@ final class InfrastructureDependenciesTest extends BaseHexagonalArchitectureTest
       $this->moduleNamespaces(),
       static fn (string $namespace): bool => $namespace !== $module->namespace
         && '' !== $namespace
-        && $namespace !== ArchitectureNamespace::SHARED->value
+        && $namespace !== ArchitectureNamespace::SHARED->value,
     ));
   }
   // #endregion

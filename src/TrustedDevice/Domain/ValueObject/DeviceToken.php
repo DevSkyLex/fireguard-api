@@ -34,7 +34,7 @@ final readonly class DeviceToken
   /**
    * Constructor.
    *
-   * @param string      $hash  the token hash
+   * @param string $hash the token hash
    * @param string|null $plain the plain token (only available at generation)
    */
   private function __construct(
@@ -88,7 +88,7 @@ final readonly class DeviceToken
   {
     if (null === $this->plainToken) {
       throw InvalidValueException::because(
-        message: 'Plain token is only available at generation time.'
+        message: 'Plain token is only available at generation time.',
       );
     }
 

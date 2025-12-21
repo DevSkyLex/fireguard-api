@@ -27,7 +27,7 @@ final readonly class VerifyOtpCommand implements CommandMessage
    * @since 1.0.0
    *
    * @param string $otpId the OTP ID
-   * @param string $code  the verification code
+   * @param string $code the verification code
    */
   public function __construct(
     public readonly string $code,

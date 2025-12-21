@@ -37,7 +37,7 @@ final class UserAlreadyExistsException extends DomainException
   {
     return new self(message: sprintf(
       'User with username "%s" already exists.',
-      $username
+      $username,
     ));
   }
 
@@ -58,7 +58,7 @@ final class UserAlreadyExistsException extends DomainException
   {
     return new self(message: sprintf(
       'User with email "%s" already exists.',
-      $email
+      $email,
     ));
   }
   // #endregion

@@ -26,11 +26,11 @@ final class RefreshToken
    *
    * @since 1.0.0
    *
-   * @param string                $identifier            the refresh token identifier
-   * @param DateTimeImmutable     $expiryDateTime        the expiry date time
-   * @param string                $accessTokenIdentifier the access token identifier
-   * @param OAuthClientIdentifier $clientIdentifier      the client identifier
-   * @param bool                  $isRevoked             whether the token is revoked
+   * @param string $identifier the refresh token identifier
+   * @param DateTimeImmutable $expiryDateTime the expiry date time
+   * @param string $accessTokenIdentifier the access token identifier
+   * @param OAuthClientIdentifier $clientIdentifier the client identifier
+   * @param bool $isRevoked whether the token is revoked
    */
   public function __construct(
     private readonly string $identifier,

@@ -32,7 +32,7 @@ use function sprintf;
 #[AsCommand(
   name: 'app:user:list',
   description: 'List all users',
-  aliases: ['user:list']
+  aliases: ['user:list'],
 )]
 final class ListUsersCommand extends Command
 {
@@ -53,14 +53,14 @@ final class ListUsersCommand extends Command
         shortcut: 'l',
         mode: InputOption::VALUE_REQUIRED,
         description: 'Maximum number of users to display',
-        default: 50
+        default: 50,
       )
       ->addOption(
         name: 'page',
         shortcut: 'p',
         mode: InputOption::VALUE_REQUIRED,
         description: 'Page number',
-        default: 1
+        default: 1,
       );
   }
 
@@ -76,7 +76,7 @@ final class ListUsersCommand extends Command
 
     $query = new ListUsersQuery(
       page: $page,
-      limit: $limit
+      limit: $limit,
     );
 
     /** @var PaginatedResult<User> $result */
@@ -104,7 +104,7 @@ final class ListUsersCommand extends Command
 
     $io->table(
       ['ID', 'Username', 'Email', 'Status', 'Verified', 'Created'],
-      $rows
+      $rows,
     );
 
     $io->success(sprintf(
@@ -112,7 +112,7 @@ final class ListUsersCommand extends Command
       count($users),
       $page,
       (int) ceil($result->total / $limit),
-      $result->total
+      $result->total,
     ));
 
     return Command::SUCCESS;

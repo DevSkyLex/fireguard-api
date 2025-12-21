@@ -54,7 +54,7 @@ final readonly class AccessTokenRepository implements AccessTokenRepositoryPort
   {
     $record = $this->entityManager->find(
       className: AccessTokenRecord::class,
-      id: $accessToken->identifier()
+      id: $accessToken->identifier(),
     );
 
     if (!$record) {
@@ -86,7 +86,7 @@ final readonly class AccessTokenRepository implements AccessTokenRepositoryPort
   {
     $record = $this->entityManager->find(
       className: AccessTokenRecord::class,
-      id: $identifier
+      id: $identifier,
     );
 
     if (!$record) {
@@ -99,7 +99,7 @@ final readonly class AccessTokenRepository implements AccessTokenRepositoryPort
       expiry: $record->expiry,
       scopes: Scopes::fromArray($record->scopes),
       userIdentifier: $record->userIdentifier,
-      isRevoked: $record->isRevoked
+      isRevoked: $record->isRevoked,
     );
   }
   // #endregion

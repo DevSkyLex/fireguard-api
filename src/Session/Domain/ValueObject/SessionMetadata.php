@@ -23,12 +23,12 @@ final readonly class SessionMetadata
    *
    * @since 1.0.0
    *
-   * @param string|null $deviceType      the device type (mobile, desktop, tablet)
-   * @param string|null $browser         the browser name
+   * @param string|null $deviceType the device type (mobile, desktop, tablet)
+   * @param string|null $browser the browser name
    * @param string|null $operatingSystem the operating system
-   * @param string|null $country         the country code
-   * @param string|null $city            the city name
-   * @param bool        $rememberMe      whether the session is persistent
+   * @param string|null $country the country code
+   * @param string|null $city the city name
+   * @param bool $rememberMe whether the session is persistent
    */
   public function __construct(
     public ?string $deviceType = null,

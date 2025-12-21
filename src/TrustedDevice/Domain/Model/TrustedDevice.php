@@ -30,6 +30,7 @@ final class TrustedDevice
   // #region Properties
   /** @var list<DomainEvent> */
   private array $events = [];
+
   private bool $revoked = false;
   // #endregion
 
@@ -55,10 +56,10 @@ final class TrustedDevice
    *
    * Creates a new trusted device.
    *
-   * @param TrustedDeviceId   $id          the device ID
-   * @param string            $userId      the user ID
+   * @param TrustedDeviceId $id the device ID
+   * @param string $userId the user ID
    * @param DeviceFingerprint $fingerprint the device fingerprint
-   * @param int               $ttlDays     days until expiration
+   * @param int $ttlDays days until expiration
    */
   public static function trust(
     TrustedDeviceId $id,

@@ -35,7 +35,7 @@ final readonly class PermissionRepository implements PermissionRepositoryPort
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager
-   * @param PermissionMapper       $mapper        the permission mapper
+   * @param PermissionMapper $mapper the permission mapper
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
@@ -111,7 +111,7 @@ final readonly class PermissionRepository implements PermissionRepositoryPort
 
     return array_map(
       fn (PermissionRecord $record) => $this->mapper->toDomain(record: $record),
-      $records
+      $records,
     );
   }
 
@@ -131,12 +131,12 @@ final readonly class PermissionRepository implements PermissionRepositoryPort
   {
     $existingRecord = $this->entityManager->find(
       className: PermissionRecord::class,
-      id: $permission->id()->value
+      id: $permission->id()->value,
     );
 
     $record = $this->mapper->toRecord(
       permission: $permission,
-      record: $existingRecord
+      record: $existingRecord,
     );
 
     $this->entityManager->persist($record);
@@ -159,7 +159,7 @@ final readonly class PermissionRepository implements PermissionRepositoryPort
   {
     $record = $this->entityManager->find(
       className: PermissionRecord::class,
-      id: $permission->id()->value
+      id: $permission->id()->value,
     );
 
     if (null !== $record) {

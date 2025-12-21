@@ -27,9 +27,9 @@ final readonly class OtpContext
    *
    * @since 1.0.0
    *
-   * @param string|null               $transactionId the transaction ID
-   * @param string|null               $description   human-readable description
-   * @param array<string, mixed>|null $data          additional custom data
+   * @param string|null $transactionId the transaction ID
+   * @param string|null $description human-readable description
+   * @param array<string, mixed>|null $data additional custom data
    */
   public function __construct(
     public ?string $transactionId = null,
@@ -49,9 +49,9 @@ final readonly class OtpContext
    *
    * @since 1.0.0
    *
-   * @param string|null               $transactionId the transaction ID
-   * @param string|null               $description   human-readable description
-   * @param array<string, mixed>|null $data          additional custom data
+   * @param string|null $transactionId the transaction ID
+   * @param string|null $description human-readable description
+   * @param array<string, mixed>|null $data additional custom data
    */
   public static function create(
     ?string $transactionId = null,

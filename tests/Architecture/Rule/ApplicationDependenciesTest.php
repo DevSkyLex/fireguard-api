@@ -84,7 +84,7 @@ final class ApplicationDependenciesTest extends BaseHexagonalArchitectureTest
         ...$applicationSelectors,
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: ArchitectureLayer::DOMAIN
+          layer: ArchitectureLayer::DOMAIN,
         ),
         ...$sharedDomainSelectors,
         ...$sharedPortSelectors,

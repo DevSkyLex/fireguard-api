@@ -101,7 +101,7 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
     // Create roles with permissions
     $this->createRoles(
       manager: $manager,
-      permissions: $permissionRecords
+      permissions: $permissionRecords,
     );
 
     $manager->flush();
@@ -203,7 +203,7 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
    *
    * @since 1.0.0
    *
-   * @param ObjectManager                   $manager     the object manager
+   * @param ObjectManager $manager the object manager
    * @param array<string, PermissionRecord> $permissions the permissions
    *
    * @return void none

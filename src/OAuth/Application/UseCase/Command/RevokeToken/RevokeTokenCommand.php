@@ -21,6 +21,7 @@ final readonly class RevokeTokenCommand implements CommandMessage
    * Token type hint constants.
    */
   public const string HINT_ACCESS_TOKEN = 'access_token';
+
   public const string HINT_REFRESH_TOKEN = 'refresh_token';
 
   /**
@@ -31,7 +32,7 @@ final readonly class RevokeTokenCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string      $token         the token to revoke
+   * @param string $token the token to revoke
    * @param string|null $tokenTypeHint optional hint about the token type
    */
   public function __construct(

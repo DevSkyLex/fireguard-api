@@ -28,7 +28,7 @@ final readonly class OtpMetadata
    *
    * @param string|null $ipAddress the client IP address
    * @param string|null $userAgent the client user agent
-   * @param string|null $deviceId  the device identifier
+   * @param string|null $deviceId the device identifier
    */
   public function __construct(
     public ?string $ipAddress = null,
@@ -50,7 +50,7 @@ final readonly class OtpMetadata
    *
    * @param string|null $ipAddress the client IP address
    * @param string|null $userAgent the client user agent
-   * @param string|null $deviceId  the device identifier
+   * @param string|null $deviceId the device identifier
    */
   public static function create(
     ?string $ipAddress = null,

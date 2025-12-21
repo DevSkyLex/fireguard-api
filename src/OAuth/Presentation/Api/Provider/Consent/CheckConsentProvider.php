@@ -40,8 +40,8 @@ final readonly class CheckConsentProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Security     $security     the security service
-   * @param QueryBusPort $queryBus     the query bus
+   * @param Security $security the security service
+   * @param QueryBusPort $queryBus the query bus
    * @param RequestStack $requestStack the request stack
    */
   public function __construct(
@@ -61,9 +61,9 @@ final readonly class CheckConsentProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return CheckConsentOutput the consent check result
    */

@@ -59,14 +59,14 @@ final class Client
    *
    * @since 1.0.0
    *
-   * @param ClientId          $id           the client ID
-   * @param ClientName        $name         the client name
-   * @param ClientSecret      $secret       the hashed client secret
-   * @param list<string>      $redirectUris the allowed redirect URIs
-   * @param GrantTypes        $grantTypes   the allowed grant types
-   * @param Scopes            $scopes       the allowed scopes
-   * @param bool              $isActive     whether the client is active
-   * @param DateTimeImmutable $createdAt    the creation timestamp
+   * @param ClientId $id the client ID
+   * @param ClientName $name the client name
+   * @param ClientSecret $secret the hashed client secret
+   * @param list<string> $redirectUris the allowed redirect URIs
+   * @param GrantTypes $grantTypes the allowed grant types
+   * @param Scopes $scopes the allowed scopes
+   * @param bool $isActive whether the client is active
+   * @param DateTimeImmutable $createdAt the creation timestamp
    */
   private function __construct(
     private ClientId $id,
@@ -92,13 +92,13 @@ final class Client
    *
    * @since 1.0.0
    *
-   * @param ClientId           $id              the client ID
-   * @param ClientName         $name            the client name
-   * @param ClientSecret       $secret          the hashed client secret
-   * @param array<RedirectUri> $redirectUris    the allowed redirect URIs
-   * @param GrantTypes         $grantTypes      the allowed grant types
-   * @param Scopes             $scopes          the allowed scopes
-   * @param EventIdProvider    $eventIdProvider the event ID provider
+   * @param ClientId $id the client ID
+   * @param ClientName $name the client name
+   * @param ClientSecret $secret the hashed client secret
+   * @param array<RedirectUri> $redirectUris the allowed redirect URIs
+   * @param GrantTypes $grantTypes the allowed grant types
+   * @param Scopes $scopes the allowed scopes
+   * @param EventIdProvider $eventIdProvider the event ID provider
    *
    * @return self the new Client instance
    */
@@ -119,7 +119,7 @@ final class Client
       grantTypes: $grantTypes,
       scopes: $scopes,
       isActive: true,
-      createdAt: new DateTimeImmutable()
+      createdAt: new DateTimeImmutable(),
     );
 
     $client->recordEvent(new ClientRegisteredEvent(
@@ -379,7 +379,7 @@ final class Client
    *
    * @since 1.0.0
    *
-   * @param ClientSecret    $newSecret       the new hashed secret
+   * @param ClientSecret $newSecret the new hashed secret
    * @param EventIdProvider $eventIdProvider the event ID provider
    *
    * @return void no return value
@@ -402,10 +402,10 @@ final class Client
    *
    * @since 1.0.0
    *
-   * @param ClientName         $name            the new client name
-   * @param array<RedirectUri> $redirectUris    the new redirect URIs
-   * @param Scopes             $scopes          the new scopes
-   * @param EventIdProvider    $eventIdProvider the event ID provider
+   * @param ClientName $name the new client name
+   * @param array<RedirectUri> $redirectUris the new redirect URIs
+   * @param Scopes $scopes the new scopes
+   * @param EventIdProvider $eventIdProvider the event ID provider
    *
    * @return void no return value
    */

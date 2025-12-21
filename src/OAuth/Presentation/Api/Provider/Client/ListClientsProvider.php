@@ -58,9 +58,9 @@ final readonly class ListClientsProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return TraversablePaginator<ClientOutput> the collection of outputs
    */
@@ -83,8 +83,8 @@ final readonly class ListClientsProvider implements ProviderInterface
     $query = new ListClientsQuery(
       pagination: new Pagination(
         offset: $offset,
-        limit: $itemsPerPage
-      )
+        limit: $itemsPerPage,
+      ),
     );
 
     /** @var PaginatedResult<GetClientResult> $result */
@@ -92,14 +92,14 @@ final readonly class ListClientsProvider implements ProviderInterface
 
     $outputs = array_map(
       fn (GetClientResult $item): ClientOutput => $this->mapToOutput(result: $item),
-      $result->items
+      $result->items,
     );
 
     return new TraversablePaginator(
       traversable: new ArrayIterator(array: $outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $result->total
+      totalItems: (float) $result->total,
     );
   }
 

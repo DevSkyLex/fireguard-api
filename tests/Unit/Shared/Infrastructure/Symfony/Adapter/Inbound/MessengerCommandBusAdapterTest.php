@@ -22,6 +22,7 @@ use Symfony\Component\Messenger\Stamp\HandledStamp;
 final class MessengerCommandBusAdapterTest extends TestCase
 {
   private MessageBusInterface&MockObject $messageBus;
+
   private MessengerCommandBusAdapter $adapter;
 
   protected function setUp(): void

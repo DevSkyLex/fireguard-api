@@ -101,12 +101,12 @@ final class SessionRepository implements SessionRepositoryPort
   {
     $records = $this->repository->findBy(
       criteria: ['userId' => $userId],
-      orderBy: ['lastActivityAt' => 'DESC']
+      orderBy: ['lastActivityAt' => 'DESC'],
     );
 
     return array_map(
       callback: fn (SessionRecord $record): Session => SessionMapper::toDomain(record: $record),
-      array: $records
+      array: $records,
     );
   }
 
@@ -118,12 +118,12 @@ final class SessionRepository implements SessionRepositoryPort
   {
     $records = $this->repository->findBy(
       criteria: ['userId' => $userId, 'revokedAt' => null],
-      orderBy: ['lastActivityAt' => 'DESC']
+      orderBy: ['lastActivityAt' => 'DESC'],
     );
 
     return array_map(
       callback: fn (SessionRecord $record): Session => SessionMapper::toDomain(record: $record),
-      array: $records
+      array: $records,
     );
   }
 

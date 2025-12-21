@@ -31,7 +31,7 @@ final class GrantTypeRequirementsValidator extends ConstraintValidator
    *
    * @since 1.0.0
    *
-   * @param mixed      $value      the value to validate
+   * @param mixed $value the value to validate
    * @param Constraint $constraint the constraint to validate against
    *
    * @return void no return value
@@ -41,7 +41,7 @@ final class GrantTypeRequirementsValidator extends ConstraintValidator
     if (!$constraint instanceof GrantTypeRequirements) {
       throw new UnexpectedTypeException(
         value: $constraint,
-        expectedType: GrantTypeRequirements::class
+        expectedType: GrantTypeRequirements::class,
       );
     }
 
@@ -52,7 +52,7 @@ final class GrantTypeRequirementsValidator extends ConstraintValidator
     if (!$value instanceof TokenInput) {
       throw new UnexpectedValueException(
         value: $value,
-        expectedType: TokenInput::class
+        expectedType: TokenInput::class,
       );
     }
 
@@ -76,7 +76,7 @@ final class GrantTypeRequirementsValidator extends ConstraintValidator
    *
    * @since 1.0.0
    *
-   * @param TokenInput            $input      the input to validate
+   * @param TokenInput $input the input to validate
    * @param GrantTypeRequirements $constraint the constraint to validate against
    *
    * @return void no return value
@@ -98,7 +98,7 @@ final class GrantTypeRequirementsValidator extends ConstraintValidator
    *
    * @since 1.0.0
    *
-   * @param TokenInput            $input      the input to validate
+   * @param TokenInput $input the input to validate
    * @param GrantTypeRequirements $constraint the constraint to validate against
    *
    * @return void no return value

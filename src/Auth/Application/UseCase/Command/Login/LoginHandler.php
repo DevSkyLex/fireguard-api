@@ -42,10 +42,10 @@ final readonly class LoginHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort        $queryBus        the query bus
-   * @param JwtTokenServicePort $tokenService    the JWT token service
+   * @param QueryBusPort $queryBus the query bus
+   * @param JwtTokenServicePort $tokenService the JWT token service
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
-   * @param RateLimiterPort     $rateLimiter     the rate limiter
+   * @param RateLimiterPort $rateLimiter the rate limiter
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
@@ -82,7 +82,7 @@ final readonly class LoginHandler implements CommandHandler
       ));
 
       return LoginResult::failed(
-        sprintf('Too many login attempts. Please try again in %d seconds.', $rateLimit->retryAfter)
+        sprintf('Too many login attempts. Please try again in %d seconds.', $rateLimit->retryAfter),
       );
     }
 
@@ -91,8 +91,8 @@ final readonly class LoginHandler implements CommandHandler
       $authResult = $this->queryBus->ask(
         query: new AuthenticateUserQuery(
           username: $command->email,
-          password: $command->password
-        )
+          password: $command->password,
+        ),
       );
 
       if (!$authResult->authenticated || null === $authResult->userId) {
@@ -113,7 +113,7 @@ final readonly class LoginHandler implements CommandHandler
       $tokens = $this->tokenService->generateTokens(
         userId: $userId,
         email: $authResult->email ?? $command->email,
-        scopes: $scopes
+        scopes: $scopes,
       );
 
       // Dispatch domain events

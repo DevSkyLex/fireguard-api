@@ -43,7 +43,7 @@ final readonly class UpdateRoleProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RoleRepositoryPort       $roleRepository       the role repository
+   * @param RoleRepositoryPort $roleRepository the role repository
    * @param PermissionRepositoryPort $permissionRepository the permission repository
    */
   public function __construct(
@@ -62,10 +62,10 @@ final readonly class UpdateRoleProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RoleInput            $data         the input data
-   * @param Operation            $operation    the operation
+   * @param RoleInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return RoleOutput the processed output
    */
@@ -87,7 +87,7 @@ final readonly class UpdateRoleProcessor implements ProcessorInterface
     // Update name and description using the update method
     $role->update(
       name: new RoleName(value: '' !== $data->name ? $data->name : $role->name()->value),
-      description: $data->description ?? $role->description()
+      description: $data->description ?? $role->description(),
     );
 
     // Update permissions if provided
@@ -134,7 +134,7 @@ final readonly class UpdateRoleProcessor implements ProcessorInterface
     $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
     $output->permissions = array_map(
       fn (Permission $permission) => $this->mapPermissionToOutput($permission),
-      $role->permissions()
+      $role->permissions(),
     );
 
     return $output;

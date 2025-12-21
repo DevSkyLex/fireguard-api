@@ -62,7 +62,7 @@ final readonly class UuidGeneratorAdapter implements UuidGeneratorPort
       return $uuid->toRfc4122();
     } catch (Throwable $exception) {
       throw UuidGenerationException::dueToRandomFailure(
-        previous: $exception
+        previous: $exception,
       );
     }
   }

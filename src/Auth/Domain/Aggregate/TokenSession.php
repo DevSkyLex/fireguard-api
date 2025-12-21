@@ -46,14 +46,14 @@ final class TokenSession
    *
    * @since 1.0.0
    *
-   * @param TokenIdentifier      $accessTokenId      the access token identifier
-   * @param TokenIdentifier|null $refreshTokenId     the refresh token identifier
-   * @param string               $userId             the user identifier
-   * @param string               $clientId           the client identifier
-   * @param list<string>         $scopes             the granted scopes
-   * @param TokenExpiry          $accessTokenExpiry  the access token expiry
-   * @param TokenExpiry|null     $refreshTokenExpiry the refresh token expiry
-   * @param DateTimeImmutable    $createdAt          the creation timestamp
+   * @param TokenIdentifier $accessTokenId the access token identifier
+   * @param TokenIdentifier|null $refreshTokenId the refresh token identifier
+   * @param string $userId the user identifier
+   * @param string $clientId the client identifier
+   * @param list<string> $scopes the granted scopes
+   * @param TokenExpiry $accessTokenExpiry the access token expiry
+   * @param TokenExpiry|null $refreshTokenExpiry the refresh token expiry
+   * @param DateTimeImmutable $createdAt the creation timestamp
    */
   private function __construct(
     private readonly TokenIdentifier $accessTokenId,
@@ -76,12 +76,12 @@ final class TokenSession
    *
    * @since 1.0.0
    *
-   * @param string       $userId          the user identifier
-   * @param string       $email           the user email
-   * @param list<string> $scopes          the granted scopes
-   * @param int          $accessTokenTtl  access token TTL in seconds
-   * @param int          $refreshTokenTtl refresh token TTL in seconds
-   * @param string|null  $ipAddress       the client IP address
+   * @param string $userId the user identifier
+   * @param string $email the user email
+   * @param list<string> $scopes the granted scopes
+   * @param int $accessTokenTtl access token TTL in seconds
+   * @param int $refreshTokenTtl refresh token TTL in seconds
+   * @param string|null $ipAddress the client IP address
    *
    * @return self the token session
    */
@@ -129,9 +129,9 @@ final class TokenSession
    *
    * @since 1.0.0
    *
-   * @param string       $clientId       the client identifier
-   * @param list<string> $scopes         the granted scopes
-   * @param int          $accessTokenTtl access token TTL in seconds
+   * @param string $clientId the client identifier
+   * @param list<string> $scopes the granted scopes
+   * @param int $accessTokenTtl access token TTL in seconds
    *
    * @return self the token session
    */
@@ -171,7 +171,7 @@ final class TokenSession
    *
    * @since 1.0.0
    *
-   * @param string|null $reason    the revocation reason
+   * @param string|null $reason the revocation reason
    * @param string|null $ipAddress the client IP address
    */
   public function revoke(?string $reason = null, ?string $ipAddress = null): void

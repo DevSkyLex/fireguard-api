@@ -33,10 +33,10 @@ final readonly class UserLoggedOutEvent
    *
    * @since 1.0.0
    *
-   * @param string|null $userId              the user ID (if known)
-   * @param string|null $ipAddress           the client IP address
-   * @param bool        $refreshTokenRevoked whether refresh token was revoked
-   * @param bool        $accessTokenRevoked  whether access token was revoked
+   * @param string|null $userId the user ID (if known)
+   * @param string|null $ipAddress the client IP address
+   * @param bool $refreshTokenRevoked whether refresh token was revoked
+   * @param bool $accessTokenRevoked whether access token was revoked
    */
   public function __construct(
     public ?string $userId = null,

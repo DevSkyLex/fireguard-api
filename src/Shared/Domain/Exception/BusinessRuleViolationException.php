@@ -32,7 +32,7 @@ final class BusinessRuleViolationException extends DomainException
   public static function because(string $rule): self
   {
     return new self(
-      message: sprintf('Business rule violated: %s', $rule)
+      message: sprintf('Business rule violated: %s', $rule),
     );
   }
   // #endregion

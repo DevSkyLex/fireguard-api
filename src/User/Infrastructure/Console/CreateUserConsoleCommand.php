@@ -35,7 +35,7 @@ use function trim;
 #[AsCommand(
   name: 'app:user:create',
   description: 'Create a new user',
-  aliases: ['user:create']
+  aliases: ['user:create'],
 )]
 final class CreateUserConsoleCommand extends Command
 {
@@ -71,44 +71,44 @@ final class CreateUserConsoleCommand extends Command
       ->addArgument(
         name: 'email',
         mode: InputArgument::REQUIRED,
-        description: 'The email address of the user'
+        description: 'The email address of the user',
       )
       ->addArgument(
         name: 'password',
         mode: InputArgument::OPTIONAL,
-        description: 'The password (will be prompted if not provided)'
+        description: 'The password (will be prompted if not provided)',
       )
       ->addOption(
         name: 'username',
         shortcut: 'u',
         mode: InputOption::VALUE_REQUIRED,
-        description: 'The username (defaults to email)'
+        description: 'The username (defaults to email)',
       )
       ->addOption(
         name: 'first-name',
         shortcut: 'f',
         mode: InputOption::VALUE_REQUIRED,
         description: 'The first name',
-        default: ''
+        default: '',
       )
       ->addOption(
         name: 'last-name',
         shortcut: 'l',
         mode: InputOption::VALUE_REQUIRED,
         description: 'The last name',
-        default: ''
+        default: '',
       )
       ->addOption(
         name: 'avatar',
         shortcut: 'a',
         mode: InputOption::VALUE_REQUIRED,
-        description: 'The avatar URL'
+        description: 'The avatar URL',
       )
       ->addOption(
         name: 'tenant',
         shortcut: 't',
         mode: InputOption::VALUE_REQUIRED,
-        description: 'The tenant ID (for multi-tenant)'
+        description: 'The tenant ID (for multi-tenant)',
       )
       ->setHelp(
         <<<'HELP'
@@ -136,7 +136,7 @@ HELP
    *
    * @since 1.0.0
    *
-   * @param InputInterface  $input  the input
+   * @param InputInterface $input the input
    * @param OutputInterface $output the output
    *
    * @return int the exit code
@@ -216,7 +216,7 @@ HELP
         firstName: $firstName,
         lastName: $lastName,
         avatarUrl: $avatarUrl,
-        tenantId: $tenantId
+        tenantId: $tenantId,
       );
 
       $this->commandBus->dispatch($command);

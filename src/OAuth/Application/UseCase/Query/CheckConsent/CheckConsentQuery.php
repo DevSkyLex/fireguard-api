@@ -26,8 +26,8 @@ final readonly class CheckConsentQuery implements QueryMessage
    *
    * @since 1.0.0
    *
-   * @param string       $userId          the user ID
-   * @param string       $clientId        the client ID
+   * @param string $userId the user ID
+   * @param string $clientId the client ID
    * @param list<string> $requestedScopes the requested scopes
    */
   public function __construct(

@@ -39,11 +39,11 @@ final readonly class IntrospectTokenHandler implements QueryHandler
    *
    * @since 1.0.0
    *
-   * @param JwtParserPort              $jwtParser              the JWT parser
-   * @param AccessTokenRepositoryPort  $accessTokenRepository  the access token repository
+   * @param JwtParserPort $jwtParser the JWT parser
+   * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
    * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
-   * @param TokenCachePort             $tokenCache             the token cache
-   * @param string                     $issuer                 the token issuer
+   * @param TokenCachePort $tokenCache the token cache
+   * @param string $issuer the token issuer
    */
   public function __construct(
     private readonly JwtParserPort $jwtParser,

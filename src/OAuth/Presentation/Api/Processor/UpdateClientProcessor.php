@@ -42,7 +42,7 @@ final readonly class UpdateClientProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param QueryBusPort   $queryBus   the query bus
+   * @param QueryBusPort $queryBus the query bus
    */
   public function __construct(
     private readonly CommandBusPort $commandBus,
@@ -60,10 +60,10 @@ final readonly class UpdateClientProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param ClientInput          $data         the input data
-   * @param Operation            $operation    the operation
+   * @param ClientInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return ClientOutput the processed output
    */
@@ -83,7 +83,7 @@ final readonly class UpdateClientProcessor implements ProcessorInterface
       clientId: $id,
       name: $name,
       redirectUris: array_map(fn (string $uri) => new RedirectUri($uri), $data->redirectUris),
-      scopes: Scopes::fromArray($data->scopes)
+      scopes: Scopes::fromArray($data->scopes),
     );
 
     // Dispatch command

@@ -36,8 +36,8 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository the client repository
-   * @param HashingPort          $hashing          the hashing service
-   * @param EventBusPort         $eventBus         the event bus
+   * @param HashingPort $hashing the hashing service
+   * @param EventBusPort $eventBus the event bus
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
@@ -58,9 +58,9 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
    *
    * @param RegenerateClientSecretCommand $command the command to handle
    *
-   * @return RegenerateClientSecretResult the result message with the new plain secret
-   *
    * @throws InvalidClientException if the client is not found
+   *
+   * @return RegenerateClientSecretResult the result message with the new plain secret
    */
   public function __invoke(RegenerateClientSecretCommand $command): RegenerateClientSecretResult
   {
@@ -77,7 +77,7 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
 
     // Hash the secret
     $hashedSecret = new ClientSecret(
-      value: $this->hashing->hash(value: $plainSecret)->value
+      value: $this->hashing->hash(value: $plainSecret)->value,
     );
 
     // Regenerate the client secret
@@ -94,7 +94,7 @@ final readonly class RegenerateClientSecretHandler implements CommandHandler
     // Return the result with plain secret (shown only once)
     return new RegenerateClientSecretResult(
       clientId: $clientId->value,
-      clientSecret: $plainSecret
+      clientSecret: $plainSecret,
     );
   }
   // #endregion

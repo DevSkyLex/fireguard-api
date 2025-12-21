@@ -37,7 +37,7 @@ final readonly class TokenRefreshedEvent
    *
    * @since 1.0.0
    *
-   * @param string      $userId    the user ID
+   * @param string $userId the user ID
    * @param string|null $ipAddress the IP address
    */
   public function __construct(

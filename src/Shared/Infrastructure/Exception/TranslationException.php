@@ -30,7 +30,7 @@ final class TranslationException extends InfrastructureException
    *
    * @since 1.0.0
    *
-   * @param string     $id       the translation identifier that failed
+   * @param string $id the translation identifier that failed
    * @param ?Throwable $previous the underlying exception if any
    *
    * @return self the created exception instance
@@ -39,7 +39,7 @@ final class TranslationException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to translate message "%s".', $id),
-      previous: $previous
+      previous: $previous,
     );
   }
   // #endregion

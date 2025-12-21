@@ -30,9 +30,9 @@ final readonly class ClientRegisteredEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId    the unique event identifier
-   * @param ClientId          $clientId   the client ID
-   * @param ClientName        $name       the client name
+   * @param Uuid $eventId the unique event identifier
+   * @param ClientId $clientId the client ID
+   * @param ClientName $name the client name
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

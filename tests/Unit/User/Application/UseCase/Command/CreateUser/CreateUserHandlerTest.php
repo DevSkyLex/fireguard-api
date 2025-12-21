@@ -121,7 +121,7 @@ final class CreateUserHandlerTest extends TestCase
       email: 'jdoe@example.com',
       password: 'password123',
       firstName: 'John',
-      lastName: 'Doe'
+      lastName: 'Doe',
     );
 
     $userId = '123e4567-e89b-12d3-a456-426614174000';

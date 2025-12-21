@@ -22,10 +22,10 @@ final readonly class UserCreatedEvent implements DomainEvent
   /**
    * Constructor.
    *
-   * @param Uuid              $eventId    the unique event identifier
-   * @param string            $userId     the user ID
-   * @param string            $username   the username
-   * @param string            $email      the user email
+   * @param Uuid $eventId the unique event identifier
+   * @param string $userId the user ID
+   * @param string $username the username
+   * @param string $email the user email
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

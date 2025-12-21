@@ -45,10 +45,10 @@ readonly class RefreshTokenCookieService
    *
    * @since 1.0.0
    *
-   * @param string $environment    the application environment
+   * @param string $environment the application environment
    * @param string $cookieBaseName the base name for the cookie
-   * @param int    $lifetimeShort  the short lifetime in seconds
-   * @param int    $lifetimeLong   the long lifetime in seconds
+   * @param int $lifetimeShort the short lifetime in seconds
+   * @param int $lifetimeLong the long lifetime in seconds
    */
   public function __construct(
     #[Autowire(value: '%kernel.environment%')]
@@ -91,7 +91,7 @@ readonly class RefreshTokenCookieService
    * @since 1.0.0
    *
    * @param string $refreshToken the refresh token value
-   * @param bool   $rememberMe   if true, use longer lifetime
+   * @param bool $rememberMe if true, use longer lifetime
    *
    * @return Cookie the configured cookie
    */
@@ -109,7 +109,7 @@ readonly class RefreshTokenCookieService
       secure: $this->isSecureEnvironment(),
       httpOnly: true,
       raw: false,
-      sameSite: Cookie::SAMESITE_STRICT
+      sameSite: Cookie::SAMESITE_STRICT,
     );
   }
 
@@ -133,7 +133,7 @@ readonly class RefreshTokenCookieService
       secure: $this->isSecureEnvironment(),
       httpOnly: true,
       raw: false,
-      sameSite: Cookie::SAMESITE_STRICT
+      sameSite: Cookie::SAMESITE_STRICT,
     );
   }
 

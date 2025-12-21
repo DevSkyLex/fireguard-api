@@ -56,9 +56,9 @@ final readonly class GetRoleProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return RoleOutput|null the role output or null if not found
    */
@@ -84,7 +84,7 @@ final readonly class GetRoleProvider implements ProviderInterface
     $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
     $output->permissions = array_map(
       fn (Permission $permission) => $this->mapPermissionToOutput($permission),
-      $role->permissions()
+      $role->permissions(),
     );
 
     return $output;

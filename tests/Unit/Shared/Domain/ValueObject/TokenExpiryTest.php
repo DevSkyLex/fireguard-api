@@ -197,7 +197,7 @@ final class TokenExpiryTest extends TestCase
     // Original should be unchanged
     $this->assertLessThan(
       $extended->expiresAt->getTimestamp(),
-      $original->expiresAt->getTimestamp()
+      $original->expiresAt->getTimestamp(),
     );
 
     // Extended should be 30 minutes later

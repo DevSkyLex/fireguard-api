@@ -45,7 +45,7 @@ interface RoleAssignmentRepositoryPort
    * @since 1.0.0
    *
    * @param SubjectType $subjectType the subject type
-   * @param string      $subjectId   the subject ID
+   * @param string $subjectId the subject ID
    *
    * @return array<RoleAssignment> the assignments
    */
@@ -60,7 +60,7 @@ interface RoleAssignmentRepositoryPort
    * @since 1.0.0
    *
    * @param SubjectType $subjectType the subject type
-   * @param string      $subjectId   the subject ID
+   * @param string $subjectId the subject ID
    *
    * @return array<Role> the roles with their permissions
    */
@@ -114,7 +114,7 @@ interface RoleAssignmentRepositoryPort
    * @since 1.0.0
    *
    * @param SubjectType $subjectType the subject type
-   * @param string      $subjectId   the subject ID
+   * @param string $subjectId the subject ID
    *
    * @return void none
    */

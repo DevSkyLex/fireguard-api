@@ -51,7 +51,7 @@ final readonly class UserEmailVerifiedEventHandler
       context: [
         'user_id' => $event->userId,
         'email' => $event->email,
-      ]
+      ],
     );
   }
   // #endregion

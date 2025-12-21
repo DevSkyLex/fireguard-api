@@ -47,8 +47,8 @@ final readonly class CacheAdapter implements CachePort
    *
    * @since 1.0.0
    *
-   * @param string $key     the cache key
-   * @param mixed  $default the default value if the key is not found
+   * @param string $key the cache key
+   * @param mixed $default the default value if the key is not found
    *
    * @return mixed the cached value or the default value
    */
@@ -59,7 +59,7 @@ final readonly class CacheAdapter implements CachePort
     } catch (InvalidArgumentException|CacheException $exception) {
       throw CacheOperationException::readFailed(
         key: $key,
-        previous: $exception
+        previous: $exception,
       );
     }
 
@@ -78,9 +78,9 @@ final readonly class CacheAdapter implements CachePort
    *
    * @since 1.0.0
    *
-   * @param string                $key   the cache key
-   * @param mixed                 $value the value to store
-   * @param DateInterval|int|null $ttl   The time-to-live for the cache item
+   * @param string $key the cache key
+   * @param mixed $value the value to store
+   * @param DateInterval|int|null $ttl The time-to-live for the cache item
    *
    * @return void no return value
    */
@@ -91,7 +91,7 @@ final readonly class CacheAdapter implements CachePort
     } catch (InvalidArgumentException|CacheException $exception) {
       throw CacheOperationException::writeFailed(
         key: $key,
-        previous: $exception
+        previous: $exception,
       );
     }
 
@@ -99,7 +99,7 @@ final readonly class CacheAdapter implements CachePort
 
     if (null !== $ttl) {
       $item->expiresAfter(
-        time: $ttl
+        time: $ttl,
       );
     }
 
@@ -108,7 +108,7 @@ final readonly class CacheAdapter implements CachePort
     } catch (InvalidArgumentException|CacheException $exception) {
       throw CacheOperationException::writeFailed(
         key: $key,
-        previous: $exception
+        previous: $exception,
       );
     }
 
@@ -136,13 +136,13 @@ final readonly class CacheAdapter implements CachePort
     } catch (InvalidArgumentException|CacheException $exception) {
       throw CacheOperationException::deleteFailed(
         key: $key,
-        previous: $exception
+        previous: $exception,
       );
     }
 
     if (!$deleted) {
       throw CacheOperationException::deleteFailed(
-        key: $key
+        key: $key,
       );
     }
   }

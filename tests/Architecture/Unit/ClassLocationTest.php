@@ -46,7 +46,7 @@ final class ClassLocationTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($module->path)
+        new RecursiveDirectoryIterator($module->path),
       );
 
       foreach ($iterator as $file) {
@@ -67,7 +67,7 @@ final class ClassLocationTest extends TestCase
         $relativePath = str_replace(
           $module->path . DIRECTORY_SEPARATOR,
           '',
-          $pathname
+          $pathname,
         );
 
         // Must be in Infrastructure/
@@ -78,7 +78,7 @@ final class ClassLocationTest extends TestCase
           $violations[] = sprintf(
             '%s\\%s must be in Infrastructure/, found outside.',
             $module->namespace,
-            $classPath
+            $classPath,
           );
         }
       }
@@ -87,7 +87,7 @@ final class ClassLocationTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: 'Classes ending with "Adapter" must be in Infrastructure/.'
+      message: 'Classes ending with "Adapter" must be in Infrastructure/.',
     );
   }
 
@@ -104,7 +104,7 @@ final class ClassLocationTest extends TestCase
   {
     $this->assertSuffixOnlyInDirectory(
       suffix: 'Port',
-      allowedPath: 'Application' . DIRECTORY_SEPARATOR . 'Port'
+      allowedPath: 'Application' . DIRECTORY_SEPARATOR . 'Port',
     );
   }
 
@@ -121,7 +121,7 @@ final class ClassLocationTest extends TestCase
   {
     $this->assertSuffixOnlyInDirectory(
       suffix: 'Record',
-      allowedPath: 'Infrastructure' . DIRECTORY_SEPARATOR . 'Persistence'
+      allowedPath: 'Infrastructure' . DIRECTORY_SEPARATOR . 'Persistence',
     );
   }
 
@@ -138,7 +138,7 @@ final class ClassLocationTest extends TestCase
   {
     $this->assertSuffixOnlyInDirectory(
       suffix: 'Repository',
-      allowedPath: 'Infrastructure' . DIRECTORY_SEPARATOR . 'Persistence'
+      allowedPath: 'Infrastructure' . DIRECTORY_SEPARATOR . 'Persistence',
     );
   }
 
@@ -155,7 +155,7 @@ final class ClassLocationTest extends TestCase
   {
     $this->assertSuffixOnlyInDirectory(
       suffix: 'Mapper',
-      allowedPath: 'Infrastructure' . DIRECTORY_SEPARATOR . 'Persistence'
+      allowedPath: 'Infrastructure' . DIRECTORY_SEPARATOR . 'Persistence',
     );
   }
 
@@ -165,7 +165,7 @@ final class ClassLocationTest extends TestCase
    * Asserts that all classes with a given suffix
    * are located in the allowed path.
    *
-   * @param string $suffix      the class suffix to check
+   * @param string $suffix the class suffix to check
    * @param string $allowedPath the path (relative to module) where classes with this suffix should be
    *
    * @return void no return value
@@ -176,7 +176,7 @@ final class ClassLocationTest extends TestCase
 
     foreach (ModuleCollection::all() as $module) {
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($module->path)
+        new RecursiveDirectoryIterator($module->path),
       );
 
       foreach ($iterator as $file) {
@@ -197,7 +197,7 @@ final class ClassLocationTest extends TestCase
         $relativePath = str_replace(
           $module->path . DIRECTORY_SEPARATOR,
           '',
-          $pathname
+          $pathname,
         );
 
         if (!str_starts_with($relativePath, $allowedPath)) {
@@ -212,7 +212,7 @@ final class ClassLocationTest extends TestCase
             $classPath,
             $suffix,
             $allowedPathFormatted,
-            dirname($relativePathFormatted)
+            dirname($relativePathFormatted),
           );
         }
       }
@@ -221,7 +221,7 @@ final class ClassLocationTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: sprintf('Classes ending with "%s" must only be in their designated directory.', $suffix)
+      message: sprintf('Classes ending with "%s" must only be in their designated directory.', $suffix),
     );
   }
   // #endregion

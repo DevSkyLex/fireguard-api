@@ -50,7 +50,7 @@ final readonly class MessengerEventListenerAdapter implements EventListenerPort
     }
 
     $handledStamp = $this->extractHandledStamp(
-      envelope: $envelope
+      envelope: $envelope,
     );
 
     if (null === $handledStamp) {

@@ -43,14 +43,14 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'client_id' => 'f6a7b8c9-d0e1-4345-8012-678901234567',
         'client_secret' => 'api_secret_789',
         'scope' => 'READ WRITE',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_BAD_REQUEST],
-      'Client credentials should work for API client or return validation error. Response: ' . $response->getContent()
+      'Client credentials should work for API client or return validation error. Response: ' . $response->getContent(),
     );
   }
 
@@ -74,7 +74,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'client_id' => self::DEV_CLIENT_ID,
         'client_secret' => self::DEV_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -82,7 +82,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_BAD_REQUEST],
-      'Token request should succeed or return validation error'
+      'Token request should succeed or return validation error',
     );
 
     if (Response::HTTP_OK === $response->getStatusCode() || Response::HTTP_CREATED === $response->getStatusCode()) {
@@ -111,14 +111,14 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $fakeExpiredToken,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Expired/invalid token should be rejected'
+      'Expired/invalid token should be rejected',
     );
   }
 
@@ -140,7 +140,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'grant_type' => 'client_credentials',
         'client_id' => "'; DROP TABLE clients; --",
         'client_secret' => 'test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -148,7 +148,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'SQL injection attempt should be handled safely'
+      'SQL injection attempt should be handled safely',
     );
   }
 
@@ -176,7 +176,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -185,7 +185,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'Regenerate secret should respond appropriately. Response: ' . $response->getContent()
+      'Regenerate secret should respond appropriately. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -207,7 +207,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -215,7 +215,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Regenerate secret without auth should return 401'
+      'Regenerate secret without auth should return 401',
     );
   }
 
@@ -236,7 +236,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -245,7 +245,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'Activate client should respond appropriately. Response: ' . $response->getContent()
+      'Activate client should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -262,7 +262,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -270,7 +270,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Activate client without auth should return 401'
+      'Activate client without auth should return 401',
     );
   }
 
@@ -292,7 +292,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -301,7 +301,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'Deactivate client should respond appropriately. Response: ' . $response->getContent()
+      'Deactivate client should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -318,7 +318,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -326,7 +326,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Deactivate client without auth should return 401'
+      'Deactivate client without auth should return 401',
     );
   }
 
@@ -347,7 +347,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -355,7 +355,7 @@ class ClientManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Non-existent client should return 404 or auth error'
+      'Non-existent client should return 404 or auth error',
     );
   }
 

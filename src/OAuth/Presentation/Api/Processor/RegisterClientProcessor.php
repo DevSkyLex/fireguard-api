@@ -56,10 +56,10 @@ final readonly class RegisterClientProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param ClientInput          $data         the input data
-   * @param Operation            $operation    the operation
+   * @param ClientInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return ClientOutput the processed output
    */
@@ -73,7 +73,7 @@ final readonly class RegisterClientProcessor implements ProcessorInterface
       name: $name,
       redirectUris: array_map(fn (string $uri) => new RedirectUri($uri), $data->redirectUris),
       grantTypes: GrantTypes::fromArray($data->grantTypes),
-      scopes: Scopes::fromArray($data->scopes)
+      scopes: Scopes::fromArray($data->scopes),
     );
 
     // Dispatch command

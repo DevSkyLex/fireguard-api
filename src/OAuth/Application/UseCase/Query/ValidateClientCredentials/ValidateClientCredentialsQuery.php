@@ -25,7 +25,7 @@ final readonly class ValidateClientCredentialsQuery implements QueryMessage
    *
    * @since 1.0.0
    *
-   * @param string $clientId     the client ID
+   * @param string $clientId the client ID
    * @param string $clientSecret the plain client secret
    */
   public function __construct(

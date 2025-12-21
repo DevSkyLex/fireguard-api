@@ -26,7 +26,7 @@ final readonly class IntrospectTokenQuery implements QueryMessage
    *
    * @since 1.0.0
    *
-   * @param string $token         the token to introspect
+   * @param string $token the token to introspect
    * @param string $tokenTypeHint the token type hint (access_token, refresh_token)
    */
   public function __construct(

@@ -31,8 +31,8 @@ final readonly class GenerateOtpHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param OtpRepositoryPort $otpRepository the OTP repository
-   * @param OtpNotifierPort   $otpNotifier   the OTP notifier
-   * @param UuidFactory       $uuidFactory   the UUID factory
+   * @param OtpNotifierPort $otpNotifier the OTP notifier
+   * @param UuidFactory $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly OtpRepositoryPort $otpRepository,

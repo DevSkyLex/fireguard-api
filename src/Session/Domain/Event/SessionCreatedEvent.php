@@ -25,11 +25,11 @@ final readonly class SessionCreatedEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId    the event ID
-   * @param string            $sessionId  the session ID
-   * @param string            $userId     the user ID
-   * @param string            $ipAddress  the client IP address
-   * @param string            $userAgent  the client user agent
+   * @param Uuid $eventId the event ID
+   * @param string $sessionId the session ID
+   * @param string $userId the user ID
+   * @param string $ipAddress the client IP address
+   * @param string $userAgent the client user agent
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

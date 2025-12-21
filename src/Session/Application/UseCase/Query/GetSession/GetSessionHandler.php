@@ -43,9 +43,9 @@ final readonly class GetSessionHandler implements \Shared\Application\Message\Qu
    *
    * @param GetSessionQuery $query the query to handle
    *
-   * @return GetSessionResult the result
-   *
    * @throws SessionNotFoundException if session is not found
+   *
+   * @return GetSessionResult the result
    */
   public function __invoke(GetSessionQuery $query): GetSessionResult
   {

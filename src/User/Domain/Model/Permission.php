@@ -27,9 +27,9 @@ final readonly class Permission
    *
    * @since 1.0.0
    *
-   * @param PermissionId   $id          the permission ID
-   * @param PermissionName $name        the permission name
-   * @param string         $description the permission description
+   * @param PermissionId $id the permission ID
+   * @param PermissionName $name the permission name
+   * @param string $description the permission description
    */
   public function __construct(
     private readonly PermissionId $id,

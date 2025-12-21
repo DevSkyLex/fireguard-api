@@ -26,10 +26,10 @@ final readonly class LoginCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string      $email      the user's email
-   * @param string      $password   the user's password
-   * @param bool        $rememberMe whether to extend token lifetime
-   * @param string|null $ipAddress  the client IP address
+   * @param string $email the user's email
+   * @param string $password the user's password
+   * @param bool $rememberMe whether to extend token lifetime
+   * @param string|null $ipAddress the client IP address
    */
   public function __construct(
     public readonly string $email,

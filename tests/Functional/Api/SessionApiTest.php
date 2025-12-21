@@ -34,7 +34,7 @@ final class SessionApiTest extends WebTestCase
     self::assertContains(
       needle: $statusCode,
       haystack: [401, 403],
-      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode
+      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode,
     );
   }
 
@@ -56,13 +56,13 @@ final class SessionApiTest extends WebTestCase
     self::assertNotEquals(
       expected: 404,
       actual: $statusCode,
-      message: 'Revoke all sessions endpoint should exist (got 404)'
+      message: 'Revoke all sessions endpoint should exist (got 404)',
     );
 
     self::assertContains(
       needle: $statusCode,
       haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated request, got ' . $statusCode
+      message: 'Expected 401 or 403 for unauthenticated request, got ' . $statusCode,
     );
   }
   // #endregion

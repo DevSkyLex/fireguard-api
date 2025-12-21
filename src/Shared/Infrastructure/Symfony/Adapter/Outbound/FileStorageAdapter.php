@@ -54,12 +54,12 @@ final readonly class FileStorageAdapter implements FileStoragePort
    *
    * @since 1.0.0
    *
-   * @param string $path     the path to the file
+   * @param string $path the path to the file
    * @param string $contents the data to write to the file
    *
-   * @return void no return value
-   *
    * @throws FileStorageException if the file write fails
+   *
+   * @return void no return value
    */
   public function write(string $path, string $contents): void
   {
@@ -70,13 +70,13 @@ final readonly class FileStorageAdapter implements FileStoragePort
       try {
         if (!@mkdir(directory: $directory, recursive: true, permissions: 0775)) {
           throw FileStorageException::directoryCreationFailed(
-            path: $directory
+            path: $directory,
           );
         }
       } catch (Throwable $exception) {
         throw FileStorageException::directoryCreationFailed(
           path: $directory,
-          previous: $exception
+          previous: $exception,
         );
       }
     }
@@ -84,13 +84,13 @@ final readonly class FileStorageAdapter implements FileStoragePort
     try {
       if (false === file_put_contents($fullPath, $contents)) {
         throw FileStorageException::writeFailed(
-          path: $fullPath
+          path: $fullPath,
         );
       }
     } catch (Throwable $exception) {
       throw FileStorageException::writeFailed(
         path: $fullPath,
-        previous: $exception
+        previous: $exception,
       );
     }
   }
@@ -105,9 +105,9 @@ final readonly class FileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @return string the file contents
-   *
    * @throws FileStorageException if the file read fails
+   *
+   * @return string the file contents
    */
   public function read(string $path): string
   {
@@ -115,7 +115,7 @@ final readonly class FileStorageAdapter implements FileStoragePort
 
     if (!is_file($fullPath)) {
       throw FileStorageException::readFailed(
-        path: $fullPath
+        path: $fullPath,
       );
     }
 
@@ -123,7 +123,7 @@ final readonly class FileStorageAdapter implements FileStoragePort
 
     if (false === $data) {
       throw FileStorageException::readFailed(
-        path: $fullPath
+        path: $fullPath,
       );
     }
 
@@ -140,9 +140,9 @@ final readonly class FileStorageAdapter implements FileStoragePort
    *
    * @param string $path the path to the file
    *
-   * @return void no return value
-   *
    * @throws FileStorageException if the file deletion fails
+   *
+   * @return void no return value
    */
   public function delete(string $path): void
   {
@@ -155,13 +155,13 @@ final readonly class FileStorageAdapter implements FileStoragePort
     try {
       if (!unlink($fullPath)) {
         throw FileStorageException::deleteFailed(
-          path: $fullPath
+          path: $fullPath,
         );
       }
     } catch (Throwable $exception) {
       throw FileStorageException::deleteFailed(
         path: $fullPath,
-        previous: $exception
+        previous: $exception,
       );
     }
   }

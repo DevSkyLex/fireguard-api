@@ -41,7 +41,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -49,7 +49,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Should return users list or appropriate auth response. Response: ' . $response->getContent()
+      'Should return users list or appropriate auth response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -69,14 +69,14 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/users',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Should require authentication'
+      'Should require authentication',
     );
   }
 
@@ -114,7 +114,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
         'password' => 'TestPassword123!',
         'firstName' => 'E2E',
         'lastName' => 'Test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -124,7 +124,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_CREATED],
-      'User creation should require proper authorization. Response: ' . $response->getContent()
+      'User creation should require proper authorization. Response: ' . $response->getContent(),
     );
   }
 
@@ -154,14 +154,14 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'username' => 'test',
         // Missing email, password, etc.
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Invalid data should be rejected or return auth error'
+      'Invalid data should be rejected or return auth error',
     );
   }
 
@@ -189,14 +189,14 @@ class UserManagementFlowTest extends OAuth2WebTestCase
         'password' => 'TestPassword123!',
         'firstName' => 'Test',
         'lastName' => 'User',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Invalid email should be rejected or return auth error'
+      'Invalid email should be rejected or return auth error',
     );
   }
 
@@ -224,14 +224,14 @@ class UserManagementFlowTest extends OAuth2WebTestCase
         'password' => '123', // Too weak
         'firstName' => 'Test',
         'lastName' => 'User',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Weak password should be rejected or return auth error'
+      'Weak password should be rejected or return auth error',
     );
   }
 
@@ -258,7 +258,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -266,7 +266,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND, Response::HTTP_UNAUTHORIZED],
-      'Should return user or appropriate error'
+      'Should return user or appropriate error',
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -291,14 +291,14 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_UNAUTHORIZED],
-      'Non-existent user should return 404 or auth error'
+      'Non-existent user should return 404 or auth error',
     );
   }
 
@@ -330,7 +330,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'firstName' => 'UpdatedFirst',
         'lastName' => 'UpdatedLast',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -338,7 +338,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND],
-      'PATCH user should respond appropriately. Response: ' . $response->getContent()
+      'PATCH user should respond appropriately. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -365,7 +365,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'firstName' => 'Hacker',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -373,7 +373,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'PATCH user without auth should return 401'
+      'PATCH user without auth should return 401',
     );
   }
 
@@ -402,7 +402,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
         'email' => 'admin@example.com',
         'firstName' => 'Admin',
         'lastName' => 'User',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -410,7 +410,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_NOT_FOUND, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'PUT user should respond appropriately. Response: ' . $response->getContent()
+      'PUT user should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -435,7 +435,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
         'email' => 'hacker@example.com',
         'firstName' => 'Hacker',
         'lastName' => 'User',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -443,7 +443,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'PUT user without auth should return 401'
+      'PUT user without auth should return 401',
     );
   }
 
@@ -467,7 +467,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'firstName' => 'Test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -475,7 +475,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Non-existent user should return 404 or auth error'
+      'Non-existent user should return 404 or auth error',
     );
   }
 
@@ -503,7 +503,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -511,7 +511,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NO_CONTENT, Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'DELETE user should respond appropriately. Response: ' . $response->getContent()
+      'DELETE user should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -527,7 +527,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       uri: '/api/users/a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -535,7 +535,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'DELETE user without auth should return 401'
+      'DELETE user without auth should return 401',
     );
   }
 
@@ -555,7 +555,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -563,7 +563,7 @@ class UserManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Non-existent user should return 404 or auth error'
+      'Non-existent user should return 404 or auth error',
     );
   }
 

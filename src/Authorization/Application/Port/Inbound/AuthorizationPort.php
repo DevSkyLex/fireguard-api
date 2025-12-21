@@ -26,7 +26,7 @@ interface AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string $userId     the user ID
+   * @param string $userId the user ID
    * @param string $permission The permission to check (e.g., "users.create").
    *
    * @return bool true if the user has the permission
@@ -40,7 +40,7 @@ interface AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string $userId   the user ID
+   * @param string $userId the user ID
    * @param string $roleName The role name to check (e.g., "admin").
    *
    * @return bool true if the user has the role
@@ -54,7 +54,7 @@ interface AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string        $userId    the user ID
+   * @param string $userId the user ID
    * @param array<string> $roleNames the role names to check
    *
    * @return bool true if the user has any of the roles
@@ -68,7 +68,7 @@ interface AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string        $userId    the user ID
+   * @param string $userId the user ID
    * @param array<string> $roleNames the role names to check
    *
    * @return bool true if the user has all of the roles

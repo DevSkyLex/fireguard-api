@@ -59,7 +59,7 @@ final class JwtParserAdapter implements JwtParserPort, OAuthJwtParserPort
     $this->jwtConfig = Configuration::forAsymmetricSigner(
       signer: new Sha256(),
       signingKey: InMemory::plainText('dummy-key-not-used-for-parsing'),
-      verificationKey: InMemory::file(path: $publicPath)
+      verificationKey: InMemory::file(path: $publicPath),
     );
   }
   // #endregion

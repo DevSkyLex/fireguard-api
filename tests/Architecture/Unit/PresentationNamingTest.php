@@ -58,7 +58,7 @@ final class PresentationNamingTest extends TestCase
   {
     $this->assertPresentationNaming(
       directory: 'Processor',
-      suffix: 'Processor'
+      suffix: 'Processor',
     );
   }
 
@@ -75,7 +75,7 @@ final class PresentationNamingTest extends TestCase
   {
     $this->assertPresentationNaming(
       directory: 'Provider',
-      suffix: 'Provider'
+      suffix: 'Provider',
     );
   }
   // #endregion
@@ -88,7 +88,7 @@ final class PresentationNamingTest extends TestCase
    * follow the naming convention.
    *
    * @param string $directory the subdirectory name under Presentation/Api/
-   * @param string $suffix    the required suffix
+   * @param string $suffix the required suffix
    */
   private function assertPresentationNaming(string $directory, string $suffix): void
   {
@@ -111,7 +111,7 @@ final class PresentationNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($targetDir)
+        new RecursiveDirectoryIterator($targetDir),
       );
 
       foreach ($iterator as $file) {
@@ -130,7 +130,7 @@ final class PresentationNamingTest extends TestCase
             $module->namespace,
             $directory,
             $shortName,
-            $suffix
+            $suffix,
           );
         }
       }
@@ -139,7 +139,7 @@ final class PresentationNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: sprintf('Every class in Presentation/Api/%s/ must end with suffix "%s".', $directory, $suffix)
+      message: sprintf('Every class in Presentation/Api/%s/ must end with suffix "%s".', $directory, $suffix),
     );
   }
   // #endregion

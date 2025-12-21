@@ -26,13 +26,13 @@ final readonly class IssueTokenCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string      $grantType    the grant type
-   * @param string      $clientId     the client ID
-   * @param string      $clientSecret the client secret
-   * @param string|null $scope        the requested scope(s)
+   * @param string $grantType the grant type
+   * @param string $clientId the client ID
+   * @param string $clientSecret the client secret
+   * @param string|null $scope the requested scope(s)
    * @param string|null $refreshToken the refresh token (for refresh_token grant)
-   * @param string|null $code         the authorization code (for authorization_code grant)
-   * @param string|null $redirectUri  the redirect URI (for authorization_code grant)
+   * @param string|null $code the authorization code (for authorization_code grant)
+   * @param string|null $redirectUri the redirect URI (for authorization_code grant)
    * @param string|null $codeVerifier the PKCE code verifier
    */
   public function __construct(

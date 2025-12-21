@@ -74,7 +74,7 @@ final class LoginInput
     min: 8,
     max: 128,
     minMessage: 'Password must be at least {{ limit }} characters long.',
-    maxMessage: 'Password cannot exceed {{ limit }} characters.'
+    maxMessage: 'Password cannot exceed {{ limit }} characters.',
   )]
   #[Groups(groups: [OAuthSerializationGroup::TOKEN_WRITE])]
   #[SerializedName(serializedName: 'password')]

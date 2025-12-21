@@ -27,7 +27,7 @@ final readonly class DateRange
    * @since 1.0.0
    *
    * @param DateTimeImmutable $start the start date
-   * @param DateTimeImmutable $end   the end date
+   * @param DateTimeImmutable $end the end date
    *
    * @throws InvalidValueException if the start date is after the end date
    */
@@ -37,7 +37,7 @@ final readonly class DateRange
   ) {
     if ($start > $end) {
       throw InvalidValueException::because(
-        message: 'Start date must be before or equal to end date.'
+        message: 'Start date must be before or equal to end date.',
       );
     }
   }
@@ -117,7 +117,7 @@ final readonly class DateRange
    */
   public function equals(self $other): bool
   {
-    return $this->start == $other->start && $this->end == $other->end;
+    return $this->start === $other->start && $this->end === $other->end;
   }
   // #endregion
 }

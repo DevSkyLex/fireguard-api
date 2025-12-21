@@ -37,7 +37,7 @@ final readonly class UserInfoProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Security     $security the Symfony Security service
+   * @param Security $security the Symfony Security service
    * @param QueryBusPort $queryBus the query bus
    */
   public function __construct(
@@ -56,9 +56,9 @@ final readonly class UserInfoProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return UserInfoOutput the user info
    */

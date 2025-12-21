@@ -41,11 +41,11 @@ final class PhoneNumberTest extends TestCase
 
     $this->assertEquals(
       expected: $value,
-      actual: $phone->value
+      actual: $phone->value,
     );
     $this->assertEquals(
       expected: $value,
-      actual: (string) $phone
+      actual: (string) $phone,
     );
   }
 
@@ -78,13 +78,13 @@ final class PhoneNumberTest extends TestCase
     $phone = new PhoneNumber(value: '+33612345678');
     $this->assertEquals(
       expected: '336',
-      actual: $phone->getCountryCode()
+      actual: $phone->getCountryCode(),
     );
 
     $phoneUS = new PhoneNumber(value: '+15551234567');
     $this->assertEquals(
       expected: '155',
-      actual: $phoneUS->getCountryCode()
+      actual: $phoneUS->getCountryCode(),
     );
   }
 

@@ -35,7 +35,7 @@ final class TransactionExecutionException extends InfrastructureException
   {
     return new self(
       message: 'Failed to execute transactional operation.',
-      previous: $previous
+      previous: $previous,
     );
   }
   // #endregion

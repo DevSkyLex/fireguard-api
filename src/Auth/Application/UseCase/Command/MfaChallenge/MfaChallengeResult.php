@@ -26,10 +26,10 @@ final readonly class MfaChallengeResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string            $challengeToken  the challenge token for verification
-   * @param string            $maskedRecipient the masked recipient for display
-   * @param DateTimeImmutable $expiresAt       when the challenge expires
-   * @param int               $maxAttempts     maximum verification attempts allowed
+   * @param string $challengeToken the challenge token for verification
+   * @param string $maskedRecipient the masked recipient for display
+   * @param DateTimeImmutable $expiresAt when the challenge expires
+   * @param int $maxAttempts maximum verification attempts allowed
    */
   public function __construct(
     public readonly string $challengeToken,

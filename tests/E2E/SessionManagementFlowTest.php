@@ -37,7 +37,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -45,7 +45,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return sessions list or appropriate auth response. Response: ' . $response->getContent()
+      'Should return sessions list or appropriate auth response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -65,7 +65,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/sessions',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -74,7 +74,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'Should require authentication or not be found without user context'
+      'Should require authentication or not be found without user context',
     );
   }
 
@@ -105,7 +105,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -114,7 +114,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return session or appropriate error. Response: ' . $response->getContent()
+      'Should return session or appropriate error. Response: ' . $response->getContent(),
     );
   }
 
@@ -134,7 +134,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -142,7 +142,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Non-existent session should return 404 or auth error. Response: ' . $response->getContent()
+      'Non-existent session should return 404 or auth error. Response: ' . $response->getContent(),
     );
   }
 
@@ -160,7 +160,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'DELETE',
       uri: '/api/sessions/00000000-0000-4000-8000-000000000000',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -169,7 +169,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'DELETE session without auth should require authentication'
+      'DELETE session without auth should require authentication',
     );
   }
 
@@ -189,7 +189,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -197,7 +197,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_NOT_FOUND, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Non-existent session should return 404 or auth error. Response: ' . $response->getContent()
+      'Non-existent session should return 404 or auth error. Response: ' . $response->getContent(),
     );
   }
 
@@ -221,7 +221,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -229,7 +229,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_NO_CONTENT, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Revoke all sessions should respond appropriately. Response: ' . $response->getContent()
+      'Revoke all sessions should respond appropriately. Response: ' . $response->getContent(),
     );
   }
 
@@ -243,7 +243,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/sessions/revoke-all',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -252,7 +252,7 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
-      'POST revoke-all without auth should require authentication'
+      'POST revoke-all without auth should require authentication',
     );
   }
 

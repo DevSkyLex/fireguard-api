@@ -63,7 +63,7 @@ final readonly class AuthorizationServerAdapter implements AuthorizationServerPo
     try {
       $response = $this->authorizationServer->respondToAccessTokenRequest(
         request: $request,
-        response: $response
+        response: $response,
       );
 
       /** @var array{access_token?: string, token_type?: string, expires_in?: int, refresh_token?: string, scope?: string} $body */
@@ -74,7 +74,7 @@ final readonly class AuthorizationServerAdapter implements AuthorizationServerPo
         tokenType: $body['token_type'] ?? 'Bearer',
         expiresIn: $body['expires_in'] ?? 0,
         refreshToken: $body['refresh_token'] ?? null,
-        scope: $body['scope'] ?? null
+        scope: $body['scope'] ?? null,
       );
     } catch (OAuthServerException $exception) {
       throw match ($exception->getErrorType()) {

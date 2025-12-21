@@ -36,7 +36,7 @@ final class InvalidClientException extends DomainException
   public static function forId(ClientId $clientId): self
   {
     return new self(
-      message: sprintf('Client with ID "%s" is invalid or not found.', $clientId->value)
+      message: sprintf('Client with ID "%s" is invalid or not found.', $clientId->value),
     );
   }
 
@@ -56,7 +56,7 @@ final class InvalidClientException extends DomainException
   public static function inactive(ClientId $clientId): self
   {
     return new self(
-      message: sprintf('Client "%s" is inactive.', $clientId->value)
+      message: sprintf('Client "%s" is inactive.', $clientId->value),
     );
   }
 }

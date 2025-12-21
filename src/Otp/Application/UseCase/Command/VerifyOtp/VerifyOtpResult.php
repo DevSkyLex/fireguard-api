@@ -26,9 +26,9 @@ final readonly class VerifyOtpResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool        $success           whether verification was successful
-   * @param int         $attemptsRemaining remaining verification attempts
-   * @param string|null $error             error message if failed
+   * @param bool $success whether verification was successful
+   * @param int $attemptsRemaining remaining verification attempts
+   * @param string|null $error error message if failed
    */
   public function __construct(
     public readonly bool $success,
@@ -63,8 +63,8 @@ final readonly class VerifyOtpResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param int    $attemptsRemaining remaining attempts
-   * @param string $error             error message
+   * @param int $attemptsRemaining remaining attempts
+   * @param string $error error message
    */
   public static function failed(int $attemptsRemaining, string $error): self
   {

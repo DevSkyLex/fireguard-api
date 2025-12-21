@@ -28,9 +28,9 @@ final readonly class LoginFailedEvent
   /**
    * Constructor.
    *
-   * @param string      $email     the email used in the attempt
+   * @param string $email the email used in the attempt
    * @param string|null $ipAddress the IP address
-   * @param string      $reason    the failure reason
+   * @param string $reason the failure reason
    */
   public function __construct(
     public string $email,

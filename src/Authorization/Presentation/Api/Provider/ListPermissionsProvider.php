@@ -55,9 +55,9 @@ final readonly class ListPermissionsProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return ArrayPaginator<int, PermissionOutput> the paginated list of permissions
    */
@@ -67,13 +67,13 @@ final readonly class ListPermissionsProvider implements ProviderInterface
 
     $output = array_map(
       fn (Permission $permission): PermissionOutput => $this->mapPermissionToOutput($permission),
-      $permissions
+      $permissions,
     );
 
     return new ArrayPaginator(
       results: $output,
       firstResult: 0,
-      maxResults: count($output)
+      maxResults: count($output),
     );
   }
 

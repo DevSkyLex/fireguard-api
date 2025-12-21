@@ -28,14 +28,14 @@ class EntityNotFoundException extends DomainException
    * @since 1.0.0
    *
    * @param string $entityType the type of entity
-   * @param string $id         the entity ID
+   * @param string $id the entity ID
    *
    * @return self the exception instance
    */
   public static function forId(string $entityType, string $id): self
   {
     return new self(
-      message: sprintf('%s with ID "%s" not found.', $entityType, $id)
+      message: sprintf('%s with ID "%s" not found.', $entityType, $id),
     );
   }
 
@@ -47,14 +47,14 @@ class EntityNotFoundException extends DomainException
    * @since 1.0.0
    *
    * @param string $entityType the type of entity
-   * @param string $criteria   the search criteria description
+   * @param string $criteria the search criteria description
    *
    * @return self the exception instance
    */
   public static function forCriteria(string $entityType, string $criteria): self
   {
     return new self(
-      message: sprintf('%s not found for criteria: %s', $entityType, $criteria)
+      message: sprintf('%s not found for criteria: %s', $entityType, $criteria),
     );
   }
   // #endregion

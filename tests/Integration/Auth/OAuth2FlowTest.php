@@ -57,7 +57,7 @@ final class OAuth2FlowTest extends WebTestCase
       content: json_encode([
         'client_id' => 'test-client',
         'client_secret' => 'test-secret',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -82,7 +82,7 @@ final class OAuth2FlowTest extends WebTestCase
         'client_secret' => 'test-secret',
         'username' => 'user',
         'password' => 'pass',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -107,7 +107,7 @@ final class OAuth2FlowTest extends WebTestCase
         'grant_type' => 'client_credentials',
         'client_id' => 'non-existent-client',
         'client_secret' => 'invalid-secret',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -128,7 +128,7 @@ final class OAuth2FlowTest extends WebTestCase
       method: 'POST',
       uri: '/api/oauth2/token/introspect',
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
-      content: json_encode([]) ?: ''
+      content: json_encode([]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -149,7 +149,7 @@ final class OAuth2FlowTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: json_encode([
         'token' => 'invalid-token-that-does-not-exist',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -176,7 +176,7 @@ final class OAuth2FlowTest extends WebTestCase
       server: ['CONTENT_TYPE' => 'application/ld+json', 'HTTP_ACCEPT' => 'application/ld+json'],
       content: json_encode([
         'token' => 'some-token-to-revoke',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -201,7 +201,7 @@ final class OAuth2FlowTest extends WebTestCase
         'client_id' => 'test-client',
         'client_secret' => 'test-secret',
         // Missing refresh_token field
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -225,7 +225,7 @@ final class OAuth2FlowTest extends WebTestCase
         'client_id' => 'test-client',
         'client_secret' => 'test-secret',
         // Missing code and redirect_uri fields
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();

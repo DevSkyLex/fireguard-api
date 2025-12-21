@@ -37,8 +37,8 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param MfaVerifyHandler          $handler       the MFA verify handler
-   * @param RequestStack              $requestStack  the request stack
+   * @param MfaVerifyHandler $handler the MFA verify handler
+   * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the cookie service
    */
   public function __construct(
@@ -58,10 +58,10 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param MfaVerifyInput       $data         the input data
-   * @param Operation            $operation    the operation
+   * @param MfaVerifyInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return LoginOutput the output
    */
@@ -80,13 +80,13 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     } catch (AuthorizationException $exception) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
-        message: $exception->getMessage()
+        message: $exception->getMessage(),
       );
     }
 
     if (!$result->success) {
       throw new BadRequestHttpException(
-        message: $result->error ?? 'Invalid code'
+        message: $result->error ?? 'Invalid code',
       );
     }
 
@@ -101,12 +101,12 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     if (null !== $result->refreshToken) {
       $cookie = $this->cookieService->createCookie(
         refreshToken: $result->refreshToken,
-        rememberMe: true
+        rememberMe: true,
       );
 
       $request?->attributes->set(
         key: '_refresh_token_cookie',
-        value: $cookie
+        value: $cookie,
       );
     }
 

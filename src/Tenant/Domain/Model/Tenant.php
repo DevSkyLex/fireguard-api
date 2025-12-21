@@ -26,10 +26,10 @@ final class Tenant
    *
    * @since 1.0.0
    *
-   * @param TenantId          $id        the tenant ID
-   * @param TenantName        $name      the tenant name
-   * @param TenantSettings    $settings  the tenant settings
-   * @param bool              $isActive  whether the tenant is active
+   * @param TenantId $id the tenant ID
+   * @param TenantName $name the tenant name
+   * @param TenantSettings $settings the tenant settings
+   * @param bool $isActive whether the tenant is active
    * @param DateTimeImmutable $createdAt the creation timestamp
    */
   private function __construct(
@@ -52,8 +52,8 @@ final class Tenant
    *
    * @since 1.0.0
    *
-   * @param TenantId       $id       the tenant ID
-   * @param TenantName     $name     the tenant name
+   * @param TenantId $id the tenant ID
+   * @param TenantName $name the tenant name
    * @param TenantSettings $settings the tenant settings
    *
    * @return self the new Tenant instance

@@ -32,7 +32,7 @@ final class ValidScopesValidator extends ConstraintValidator
    *
    * @since 1.0.0
    *
-   * @param mixed      $value      the value to validate
+   * @param mixed $value the value to validate
    * @param Constraint $constraint the constraint to validate against
    *
    * @return void no return value
@@ -42,7 +42,7 @@ final class ValidScopesValidator extends ConstraintValidator
     if (!$constraint instanceof ValidScopes) {
       throw new UnexpectedTypeException(
         value: $constraint,
-        expectedType: ValidScopes::class
+        expectedType: ValidScopes::class,
       );
     }
 

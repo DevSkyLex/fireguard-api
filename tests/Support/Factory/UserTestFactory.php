@@ -30,10 +30,15 @@ final class UserTestFactory
 {
   // #region Constants
   private const string DEFAULT_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
   private const string DEFAULT_USERNAME = 'testuser';
+
   private const string DEFAULT_EMAIL = 'test@example.com';
+
   private const string DEFAULT_PASSWORD = 'password123';
+
   private const string DEFAULT_FIRST_NAME = 'Test';
+
   private const string DEFAULT_LAST_NAME = 'User';
   // #endregion
 
@@ -41,8 +46,8 @@ final class UserTestFactory
   /**
    * Create a pending verification user.
    *
-   * @param string|null $id       user ID (UUID format)
-   * @param string|null $email    user email
+   * @param string|null $id user ID (UUID format)
+   * @param string|null $email user email
    * @param string|null $username username
    *
    * @return User the created user
@@ -67,8 +72,8 @@ final class UserTestFactory
   /**
    * Create an active (verified) user.
    *
-   * @param string|null $id       user ID (UUID format)
-   * @param string|null $email    user email
+   * @param string|null $id user ID (UUID format)
+   * @param string|null $email user email
    * @param string|null $username username
    *
    * @return User the created and activated user

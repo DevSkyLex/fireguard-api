@@ -27,11 +27,11 @@ final readonly class TrustDeviceCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string  $userId         the user ID
-   * @param string  $userAgent      the user agent
-   * @param ?string $ipAddress      the IP address
+   * @param string $userId the user ID
+   * @param string $userAgent the user agent
+   * @param ?string $ipAddress the IP address
    * @param ?string $acceptLanguage the accept language
-   * @param int     $ttlDays        the TTL days
+   * @param int $ttlDays the TTL days
    */
   public function __construct(
     public readonly string $userId,

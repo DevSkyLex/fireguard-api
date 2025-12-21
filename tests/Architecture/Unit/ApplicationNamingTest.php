@@ -88,7 +88,7 @@ final class ApplicationNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($useCaseDir)
+        new RecursiveDirectoryIterator($useCaseDir),
       );
 
       foreach ($iterator as $file) {
@@ -111,7 +111,7 @@ final class ApplicationNamingTest extends TestCase
           $violations[] = sprintf(
             '%s\\Application\\UseCase\\...\\%s should end with "Command", "Query", "Handler", or "Result".',
             $module->namespace,
-            $shortName
+            $shortName,
           );
         }
       }
@@ -120,7 +120,7 @@ final class ApplicationNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: 'Every class in Application/UseCase/ must end with "Command", "Query", "Handler", or "Result".'
+      message: 'Every class in Application/UseCase/ must end with "Command", "Query", "Handler", or "Result".',
     );
   }
   // #endregion
@@ -131,8 +131,8 @@ final class ApplicationNamingTest extends TestCase
    *
    * Asserts that files in a UseCase subdirectory follow the naming convention.
    *
-   * @param string        $directory            the subdirectory name (Command or Query)
-   * @param string        $suffix               the required suffix for the main class
+   * @param string $directory the subdirectory name (Command or Query)
+   * @param string $suffix the required suffix for the main class
    * @param array<string> $allowedOtherSuffixes other allowed suffixes in that directory
    *
    * @return void no return value
@@ -157,7 +157,7 @@ final class ApplicationNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($targetDir)
+        new RecursiveDirectoryIterator($targetDir),
       );
 
       foreach ($iterator as $file) {
@@ -193,7 +193,7 @@ final class ApplicationNamingTest extends TestCase
             $module->namespace,
             $directory,
             $shortName,
-            $suffix
+            $suffix,
           );
         }
       }
@@ -202,7 +202,7 @@ final class ApplicationNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: sprintf('Every class in UseCase/%s/ must end with "%s", "Handler", or "Result".', $directory, $suffix)
+      message: sprintf('Every class in UseCase/%s/ must end with "%s", "Handler", or "Result".', $directory, $suffix),
     );
   }
   // #endregion

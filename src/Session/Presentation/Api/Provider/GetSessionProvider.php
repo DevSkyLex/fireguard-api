@@ -35,8 +35,8 @@ final readonly class GetSessionProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param GetSessionHandler $handler  the query handler
-   * @param Security          $security the security service
+   * @param GetSessionHandler $handler the query handler
+   * @param Security $security the security service
    */
   public function __construct(
     private GetSessionHandler $handler,

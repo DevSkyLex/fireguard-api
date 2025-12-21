@@ -56,7 +56,7 @@ final class ClientIdTest extends TestCase
 
     self::assertSame(
       expected: self::VALID_UUID,
-      actual: $clientId->value
+      actual: $clientId->value,
     );
   }
 
@@ -124,7 +124,7 @@ final class ClientIdTest extends TestCase
 
     self::assertSame(
       expected: self::VALID_UUID,
-      actual: (string) $clientId
+      actual: (string) $clientId,
     );
   }
   // #endregion

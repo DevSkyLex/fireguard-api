@@ -33,7 +33,7 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param RequestStack $requestStack the request stack
-   * @param string       $issuer       the issuer URL
+   * @param string $issuer the issuer URL
    */
   public function __construct(
     private readonly RequestStack $requestStack,
@@ -52,9 +52,9 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return OpenIdConfigurationOutput the configuration
    */

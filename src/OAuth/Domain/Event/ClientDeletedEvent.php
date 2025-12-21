@@ -29,8 +29,8 @@ final readonly class ClientDeletedEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId    the unique event identifier
-   * @param ClientId          $clientId   the client ID
+   * @param Uuid $eventId the unique event identifier
+   * @param ClientId $clientId the client ID
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

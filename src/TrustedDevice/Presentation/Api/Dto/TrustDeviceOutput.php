@@ -12,7 +12,10 @@ use DateTimeImmutable;
 final class TrustDeviceOutput
 {
   public string $deviceId;
+
   public string $token;
+
   public string $deviceName;
+
   public DateTimeImmutable $expiresAt;
 }

@@ -46,9 +46,9 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
    *
    * @param DeleteUserCommand $command the command
    *
-   * @return DeleteUserResult the result
-   *
    * @throws UserNotFoundException if the user is not found
+   *
+   * @return DeleteUserResult the result
    */
   public function __invoke(DeleteUserCommand $command): DeleteUserResult
   {

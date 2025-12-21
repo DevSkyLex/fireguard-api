@@ -50,7 +50,7 @@ abstract class BaseHexagonalArchitectureTest
   {
     return array_values(array_filter(
       $this->modules(),
-      static fn (Module $module): bool => $module->hasLayer(layer: $layer)
+      static fn (Module $module): bool => $module->hasLayer(layer: $layer),
     ));
   }
 
@@ -115,8 +115,8 @@ abstract class BaseHexagonalArchitectureTest
   /**
    * Method selectorsForModuleLayer.
    *
-   * @param Module            $module Module to inspect
-   * @param ArchitectureLayer $layer  Layer to get selectors
+   * @param Module $module Module to inspect
+   * @param ArchitectureLayer $layer Layer to get selectors
    *
    * @return list<SelectorInterface> List of selectors for the specified module layer
    */
@@ -146,7 +146,7 @@ abstract class BaseHexagonalArchitectureTest
   {
     return array_map(
       static fn (Module $module): string => $module->namespace,
-      $this->modules()
+      $this->modules(),
     );
   }
 
@@ -194,13 +194,13 @@ abstract class BaseHexagonalArchitectureTest
     $sharedModule = $this->sharedModule();
 
     if (null === $sharedModule || !$sharedModule->hasLayer(
-      layer: ArchitectureLayer::APPLICATION
+      layer: ArchitectureLayer::APPLICATION,
     )) {
       return [];
     }
 
     $portPath = $sharedModule->layerPath(
-      layer: ArchitectureLayer::APPLICATION
+      layer: ArchitectureLayer::APPLICATION,
     ) . DIRECTORY_SEPARATOR . ArchitectureNamespace::PORT->value;
 
     if (!is_dir($portPath)) {
@@ -212,8 +212,8 @@ abstract class BaseHexagonalArchitectureTest
         namespace: sprintf(
           '%s\\%s',
           $sharedModule->layerNamespace(ArchitectureLayer::APPLICATION),
-          ArchitectureNamespace::PORT->value
-        )
+          ArchitectureNamespace::PORT->value,
+        ),
       ),
     ];
   }

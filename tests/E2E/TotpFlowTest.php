@@ -68,7 +68,7 @@ class TotpFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -76,7 +76,7 @@ class TotpFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_CREATED, Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_BAD_REQUEST, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Setup TOTP should respond appropriately. Response: ' . $response->getContent()
+      'Setup TOTP should respond appropriately. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_CREATED === $response->getStatusCode() || Response::HTTP_OK === $response->getStatusCode()) {
@@ -84,7 +84,7 @@ class TotpFlowTest extends OAuth2WebTestCase
       // Should contain secret and/or QR code URI for authenticator app setup
       $this->assertTrue(
         isset($data['secret']) || isset($data['qrCodeUri']) || isset($data['uri']),
-        'TOTP setup response should contain secret or QR code URI'
+        'TOTP setup response should contain secret or QR code URI',
       );
     }
   }
@@ -110,7 +110,7 @@ class TotpFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'POST',
       uri: '/api/otp/totp/setup',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -118,7 +118,7 @@ class TotpFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN],
-      'Should require authentication. Response: ' . $response->getContent()
+      'Should require authentication. Response: ' . $response->getContent(),
     );
   }
 

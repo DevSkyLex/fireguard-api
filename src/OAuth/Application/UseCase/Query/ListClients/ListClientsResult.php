@@ -27,9 +27,9 @@ final readonly class ListClientsResult implements ResultMessage
    * @since 1.0.0
    *
    * @param list<GetClientResult> $clients the list of clients
-   * @param int                   $total   the total count of clients
-   * @param int                   $offset  the offset used for pagination
-   * @param int                   $limit   the limit used for pagination
+   * @param int $total the total count of clients
+   * @param int $offset the offset used for pagination
+   * @param int $limit the limit used for pagination
    */
   public function __construct(
     public readonly array $clients,

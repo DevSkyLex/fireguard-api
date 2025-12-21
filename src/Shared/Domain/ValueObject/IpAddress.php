@@ -48,7 +48,7 @@ final readonly class IpAddress implements Stringable
   {
     if (!filter_var(value: $value, filter: FILTER_VALIDATE_IP)) {
       throw InvalidValueException::because(
-        message: 'Invalid IP address.'
+        message: 'Invalid IP address.',
       );
     }
 
@@ -102,7 +102,7 @@ final readonly class IpAddress implements Stringable
     return !filter_var(
       value: $this->value,
       filter: FILTER_VALIDATE_IP,
-      options: FILTER_FLAG_NO_PRIV_RANGE
+      options: FILTER_FLAG_NO_PRIV_RANGE,
     );
   }
 
@@ -121,7 +121,7 @@ final readonly class IpAddress implements Stringable
     return !filter_var(
       value: $this->value,
       filter: FILTER_VALIDATE_IP,
-      options: FILTER_FLAG_NO_RES_RANGE
+      options: FILTER_FLAG_NO_RES_RANGE,
     );
   }
 

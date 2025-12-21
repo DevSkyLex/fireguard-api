@@ -24,7 +24,7 @@ final readonly class GrantConsentResult implements ResultMessage
    * @since 1.0.0
    *
    * @param string $consentId the consent ID
-   * @param bool   $isNew     whether this is a new consent
+   * @param bool $isNew whether this is a new consent
    */
   public function __construct(
     public string $consentId,

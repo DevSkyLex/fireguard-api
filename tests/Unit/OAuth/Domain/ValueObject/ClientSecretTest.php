@@ -39,7 +39,7 @@ final class ClientSecretTest extends TestCase
 
     self::assertSame(
       expected: $hashedValue,
-      actual: $clientSecret->value
+      actual: $clientSecret->value,
     );
   }
 
@@ -57,7 +57,7 @@ final class ClientSecretTest extends TestCase
 
     self::assertGreaterThanOrEqual(
       32,
-      strlen(string: $plainSecret)
+      strlen(string: $plainSecret),
     );
   }
 
@@ -77,7 +77,7 @@ final class ClientSecretTest extends TestCase
 
     self::assertNotEquals(
       expected: $plainSecret1,
-      actual: $plainSecret2
+      actual: $plainSecret2,
     );
   }
 
@@ -96,7 +96,7 @@ final class ClientSecretTest extends TestCase
 
     self::assertGreaterThanOrEqual(
       64,
-      strlen(string: $plainSecret)
+      strlen(string: $plainSecret),
     );
   }
 
@@ -147,7 +147,7 @@ final class ClientSecretTest extends TestCase
 
     self::assertSame(
       expected: $hashedValue,
-      actual: (string) $clientSecret
+      actual: (string) $clientSecret,
     );
   }
 

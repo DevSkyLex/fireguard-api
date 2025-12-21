@@ -81,7 +81,7 @@ final class OtpNotification extends Notification implements SmsNotificationInter
    * @since 1.0.0
    *
    * @param SmsRecipientInterface $recipient the recipient
-   * @param string|null           $transport the transport
+   * @param string|null $transport the transport
    *
    * @return SmsMessage|null the SMS message
    */
@@ -138,7 +138,7 @@ final class OtpNotification extends Notification implements SmsNotificationInter
     return sprintf(
       '[FireGuard] Your verification code is: %s. Valid for %d minutes.',
       $code,
-      (int) ceil(($this->otp->expiresAt()->getTimestamp() - time()) / 60)
+      (int) ceil(($this->otp->expiresAt()->getTimestamp() - time()) / 60),
     );
   }
 

@@ -26,8 +26,8 @@ final readonly class ListUserSessionsResult
    *
    * @since 1.0.0
    *
-   * @param list<GetSessionResult> $sessions   the sessions
-   * @param int                    $totalCount the total count
+   * @param list<GetSessionResult> $sessions the sessions
+   * @param int $totalCount the total count
    */
   public function __construct(
     public readonly array $sessions,

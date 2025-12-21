@@ -39,8 +39,8 @@ final class PermissionNotFoundException extends DomainException
     return new self(
       message: sprintf(
         'Permission with ID "%s" not found.',
-        $permissionId
-      )
+        $permissionId,
+      ),
     );
   }
 
@@ -63,8 +63,8 @@ final class PermissionNotFoundException extends DomainException
     return new self(
       message: sprintf(
         'Permission with name "%s" not found.',
-        $permissionName
-      )
+        $permissionName,
+      ),
     );
   }
   // #endregion

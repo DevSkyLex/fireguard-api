@@ -36,7 +36,7 @@ final class TenantNotFoundException extends EntityNotFoundException
   public static function withId(string $id): self
   {
     return new self(
-      message: sprintf('Tenant with ID "%s" not found.', $id)
+      message: sprintf('Tenant with ID "%s" not found.', $id),
     );
   }
   // #endregion

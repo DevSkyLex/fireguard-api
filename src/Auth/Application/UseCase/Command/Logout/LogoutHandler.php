@@ -54,13 +54,13 @@ final readonly class LogoutHandler implements CommandHandler
 
     if (null !== $command->refreshToken && '' !== $command->refreshToken) {
       $refreshRevoked = $this->tokenRevocation->revokeRefreshToken(
-        encryptedToken: $command->refreshToken
+        encryptedToken: $command->refreshToken,
       );
     }
 
     if (null !== $command->accessToken && '' !== $command->accessToken) {
       $accessRevoked = $this->tokenRevocation->revokeAccessToken(
-        jwtToken: $command->accessToken
+        jwtToken: $command->accessToken,
       );
     }
 

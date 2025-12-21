@@ -23,7 +23,7 @@ final readonly class CreateTenantCommand
    *
    * @since 1.0.0
    *
-   * @param string              $name     the tenant name
+   * @param string $name the tenant name
    * @param TenantSettings|null $settings the tenant settings
    */
   public function __construct(

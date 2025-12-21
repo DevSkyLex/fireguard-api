@@ -28,10 +28,10 @@ final readonly class Permission
    *
    * @since 1.0.0
    *
-   * @param PermissionId      $id          the permission ID
-   * @param PermissionName    $name        the permission name
-   * @param string            $description the permission description
-   * @param DateTimeImmutable $createdAt   when the permission was created
+   * @param PermissionId $id the permission ID
+   * @param PermissionName $name the permission name
+   * @param string $description the permission description
+   * @param DateTimeImmutable $createdAt when the permission was created
    */
   public function __construct(
     private PermissionId $id,
@@ -52,9 +52,9 @@ final readonly class Permission
    *
    * @since 1.0.0
    *
-   * @param PermissionId   $id          the permission ID
-   * @param PermissionName $name        the permission name
-   * @param string         $description the permission description
+   * @param PermissionId $id the permission ID
+   * @param PermissionName $name the permission name
+   * @param string $description the permission description
    *
    * @return self the new permission instance
    */

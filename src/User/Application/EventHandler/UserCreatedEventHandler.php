@@ -52,7 +52,7 @@ final readonly class UserCreatedEventHandler
         'user_id' => $event->userId,
         'username' => $event->username,
         'email' => $event->email,
-      ]
+      ],
     );
   }
   // #endregion

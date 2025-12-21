@@ -31,8 +31,8 @@ final readonly class TrustDeviceHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param TrustedDeviceRepositoryPort $repository  the device repository
-   * @param UuidFactory                 $uuidFactory the UUID factory
+   * @param TrustedDeviceRepositoryPort $repository the device repository
+   * @param UuidFactory $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly TrustedDeviceRepositoryPort $repository,

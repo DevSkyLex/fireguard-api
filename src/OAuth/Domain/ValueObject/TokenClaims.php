@@ -37,14 +37,14 @@ final readonly class TokenClaims implements JsonSerializable
   {
     if ([] === $claims) {
       throw InvalidValueException::because(
-        message: 'Token claims cannot be empty.'
+        message: 'Token claims cannot be empty.',
       );
     }
 
     foreach ($claims as $key => $value) {
       if ('' === $key) {
         throw InvalidValueException::because(
-          message: 'Token claim keys must be non-empty strings.'
+          message: 'Token claim keys must be non-empty strings.',
         );
       }
     }
@@ -89,8 +89,8 @@ final readonly class TokenClaims implements JsonSerializable
    *
    * @since 1.0.0
    *
-   * @param string $key     the key to get
-   * @param mixed  $default the default value to return if the key does not exist
+   * @param string $key the key to get
+   * @param mixed $default the default value to return if the key does not exist
    *
    * @return mixed the value of the key, or the default value if the key does not exist
    */

@@ -27,7 +27,7 @@ final readonly class CreateSessionHandler implements \Shared\Application\Message
    * @since 1.0.0
    *
    * @param SessionRepositoryPort $sessionRepository the session repository
-   * @param UuidFactory           $uuidFactory       the UUID factory
+   * @param UuidFactory $uuidFactory the UUID factory
    */
   public function __construct(
     private SessionRepositoryPort $sessionRepository,

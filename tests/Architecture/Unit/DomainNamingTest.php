@@ -58,7 +58,7 @@ final class DomainNamingTest extends TestCase
    * Asserts that all files in a domain subdirectory follow the naming convention.
    *
    * @param string $directory the subdirectory name under Domain/
-   * @param string $suffix    the required suffix
+   * @param string $suffix the required suffix
    *
    * @return void no return value
    */
@@ -79,7 +79,7 @@ final class DomainNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($targetDir)
+        new RecursiveDirectoryIterator($targetDir),
       );
 
       foreach ($iterator as $file) {
@@ -98,7 +98,7 @@ final class DomainNamingTest extends TestCase
             $module->namespace,
             $directory,
             $shortName,
-            $suffix
+            $suffix,
           );
         }
       }
@@ -107,7 +107,7 @@ final class DomainNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: sprintf('Every class in Domain/%s/ must end with suffix "%s".', $directory, $suffix)
+      message: sprintf('Every class in Domain/%s/ must end with suffix "%s".', $directory, $suffix),
     );
   }
   // #endregion

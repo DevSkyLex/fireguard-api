@@ -33,8 +33,8 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param ListUserSessionsHandler $handler  the query handler
-   * @param Security                $security the security service
+   * @param ListUserSessionsHandler $handler the query handler
+   * @param Security $security the security service
    */
   public function __construct(
     private ListUserSessionsHandler $handler,

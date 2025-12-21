@@ -38,11 +38,11 @@ final class PermissionInput
     min: 3,
     max: 100,
     minMessage: 'Permission name must be at least {{ limit }} characters.',
-    maxMessage: 'Permission name cannot exceed {{ limit }} characters.'
+    maxMessage: 'Permission name cannot exceed {{ limit }} characters.',
   )]
   #[Assert\Regex(
     pattern: '/^[a-z_*]+\.[a-z_*]+$/',
-    message: 'Permission name must be in format "resource.action" (e.g., "users.create").'
+    message: 'Permission name must be in format "resource.action" (e.g., "users.create").',
   )]
   #[ApiProperty(
     description: 'Permission name in format "resource.action" (e.g., users.create, posts.delete)',
@@ -79,7 +79,7 @@ final class PermissionInput
   #[Groups([PermissionSerializationGroup::WRITE, PermissionSerializationGroup::UPDATE])]
   #[Assert\Length(
     max: 255,
-    maxMessage: 'Description cannot exceed {{ limit }} characters.'
+    maxMessage: 'Description cannot exceed {{ limit }} characters.',
   )]
   #[ApiProperty(
     description: 'Human-readable description of the permission',

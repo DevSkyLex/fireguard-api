@@ -47,7 +47,7 @@ final readonly class ClientValidationAdapter implements ClientValidationPort
    *
    * @since 1.0.0
    *
-   * @param string $clientId     the client identifier
+   * @param string $clientId the client identifier
    * @param string $clientSecret the client secret
    *
    * @return bool true if credentials are valid, false otherwise
@@ -58,7 +58,7 @@ final readonly class ClientValidationAdapter implements ClientValidationPort
       /** @var ValidateClientCredentialsResult $result */
       $result = $this->queryBus->ask(new ValidateClientCredentialsQuery(
         clientId: $clientId,
-        clientSecret: $clientSecret
+        clientSecret: $clientSecret,
       ));
 
       return $result->isValid;

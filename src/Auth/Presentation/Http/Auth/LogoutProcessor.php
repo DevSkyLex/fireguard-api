@@ -64,10 +64,10 @@ final readonly class LogoutProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RequestStack              $requestStack  the request stack
+   * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the cookie service
-   * @param CommandBusPort            $commandBus    the command bus
-   * @param LoggerInterface           $logger        the logger
+   * @param CommandBusPort $commandBus the command bus
+   * @param LoggerInterface $logger the logger
    */
   public function __construct(
     private RequestStack $requestStack,
@@ -88,10 +88,10 @@ final readonly class LogoutProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return LogoutOutput the output
    */
@@ -106,7 +106,7 @@ final readonly class LogoutProcessor implements ProcessorInterface
 
       $authHeader = $request->headers->get(
         key: 'Authorization',
-        default: ''
+        default: '',
       );
 
       if (str_starts_with($authHeader, self::BEARER_PREFIX)) {
@@ -115,7 +115,7 @@ final readonly class LogoutProcessor implements ProcessorInterface
 
       $request->attributes->set(
         key: self::COOKIE_ATTRIBUTE,
-        value: $this->cookieService->createClearCookie()
+        value: $this->cookieService->createClearCookie(),
       );
     }
 
@@ -123,12 +123,12 @@ final readonly class LogoutProcessor implements ProcessorInterface
       command: new LogoutCommand(
         refreshToken: $refreshToken,
         accessToken: $accessToken,
-      )
+      ),
     );
 
     $this->logger->info(
       message: 'User logged out',
-      context: ['ip' => $request?->getClientIp()]
+      context: ['ip' => $request?->getClientIp()],
     );
 
     return new LogoutOutput();

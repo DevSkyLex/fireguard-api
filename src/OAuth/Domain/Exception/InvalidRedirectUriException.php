@@ -36,7 +36,7 @@ final class InvalidRedirectUriException extends DomainException
   public static function forUri(RedirectUri $uri): self
   {
     return new self(
-      message: sprintf('Redirect URI "%s" is not allowed for this client.', $uri->value)
+      message: sprintf('Redirect URI "%s" is not allowed for this client.', $uri->value),
     );
   }
 }

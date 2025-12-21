@@ -34,7 +34,9 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
 {
   // #region Properties
   private RoleRepositoryPort&MockObject $roleRepository;
+
   private PermissionRepositoryPort&MockObject $permissionRepository;
+
   private RemovePermissionFromRoleProcessor $processor;
   // #endregion
 
@@ -45,7 +47,7 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $this->permissionRepository = $this->createMock(PermissionRepositoryPort::class);
     $this->processor = new RemovePermissionFromRoleProcessor(
       $this->roleRepository,
-      $this->permissionRepository
+      $this->permissionRepository,
     );
   }
   // #endregion
@@ -65,13 +67,13 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $permission = Permission::create(
       id: new PermissionId($permissionId),
       name: new PermissionName('users.create'),
-      description: 'Create users'
+      description: 'Create users',
     );
 
     $role = Role::create(
       id: new RoleId($roleId),
       name: new RoleName('admin'),
-      description: 'Admin role'
+      description: 'Admin role',
     );
     $role->addPermission($permission);
 
@@ -98,7 +100,7 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $output = $this->processor->process(
       null,
       $operation,
-      ['roleId' => $roleId, 'permissionId' => $permissionId]
+      ['roleId' => $roleId, 'permissionId' => $permissionId],
     );
 
     // Assert
@@ -131,7 +133,7 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $this->processor->process(
       null,
       $operation,
-      ['roleId' => $roleId, 'permissionId' => $permissionId]
+      ['roleId' => $roleId, 'permissionId' => $permissionId],
     );
   }
 
@@ -148,7 +150,7 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $role = Role::create(
       id: new RoleId($roleId),
       name: new RoleName('admin'),
-      description: 'Admin role'
+      description: 'Admin role',
     );
 
     $this->roleRepository
@@ -170,7 +172,7 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $this->processor->process(
       null,
       $operation,
-      ['roleId' => $roleId, 'permissionId' => $permissionId]
+      ['roleId' => $roleId, 'permissionId' => $permissionId],
     );
   }
 

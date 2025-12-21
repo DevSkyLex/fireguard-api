@@ -35,7 +35,7 @@ final readonly class SymfonyEventDispatcherAdapter implements EventDispatcherPor
    * @since 1.0.0
    *
    * @param EventDispatcherInterface $eventDispatcher the Symfony event dispatcher
-   * @param LoggerInterface          $logger          the logger
+   * @param LoggerInterface $logger the logger
    */
   public function __construct(
     private EventDispatcherInterface $eventDispatcher,

@@ -43,9 +43,9 @@ final readonly class GetTenantHandler implements \Shared\Application\Message\Que
    *
    * @param GetTenantQuery $query the query to handle
    *
-   * @return GetTenantResult the result
-   *
    * @throws TenantNotFoundException if tenant is not found
+   *
+   * @return GetTenantResult the result
    */
   public function __invoke(GetTenantQuery $query): GetTenantResult
   {

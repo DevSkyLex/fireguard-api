@@ -34,7 +34,7 @@ final readonly class UserRepository implements UserRepositoryPort
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager
-   * @param UserMapper             $mapper        the user mapper
+   * @param UserMapper $mapper the user mapper
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -119,7 +119,7 @@ final readonly class UserRepository implements UserRepositoryPort
 
     return array_map(
       fn (UserRecord $record) => $this->mapper->toDomain($record),
-      $records
+      $records,
     );
   }
 }

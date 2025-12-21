@@ -43,7 +43,7 @@ final class ClientRegisteredEventTest extends TestCase
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440001'),
       clientId: $clientId,
       name: $clientName,
-      occurredAt: $occurredAt
+      occurredAt: $occurredAt,
     );
 
     self::assertSame(expected: $clientId, actual: $event->clientId);
@@ -67,7 +67,7 @@ final class ClientRegisteredEventTest extends TestCase
       eventId: $eventId,
       clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
       name: new ClientName(value: 'My OAuth Client'),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     self::assertSame(expected: $eventId, actual: $event->eventId());
@@ -89,7 +89,7 @@ final class ClientRegisteredEventTest extends TestCase
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440003'),
       clientId: new ClientId(value: $clientId),
       name: new ClientName(value: 'My OAuth Client'),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     self::assertSame(expected: $clientId, actual: $event->aggregateId());
@@ -110,7 +110,7 @@ final class ClientRegisteredEventTest extends TestCase
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440004'),
       clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
       name: new ClientName(value: 'My OAuth Client'),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     self::assertSame(expected: 'client', actual: $event->aggregateType());
@@ -134,7 +134,7 @@ final class ClientRegisteredEventTest extends TestCase
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440005'),
       clientId: new ClientId(value: $clientId),
       name: new ClientName(value: $clientName),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     $payload = $event->payload();

@@ -35,7 +35,7 @@ final class InvalidOAuthClientIdentifierException extends InvalidValueException
   public static function invalidPattern(string $value): self
   {
     return new self(
-      message: "Invalid OAuth client identifier: '{$value}'. Must be 3-128 characters long and contain only alphanumeric characters, dots, hyphens, and underscores. Must start with an alphanumeric character."
+      message: "Invalid OAuth client identifier: '{$value}'. Must be 3-128 characters long and contain only alphanumeric characters, dots, hyphens, and underscores. Must start with an alphanumeric character.",
     );
   }
 

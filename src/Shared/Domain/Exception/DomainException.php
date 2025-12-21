@@ -42,7 +42,7 @@ abstract class DomainException extends RuntimeException
     $result = preg_replace(
       pattern: '/(?<!^)[A-Z]/',
       replacement: '_$0',
-      subject: $className
+      subject: $className,
     );
 
     return strtoupper($result ?? '');

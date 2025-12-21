@@ -67,7 +67,7 @@ final class RoleVoter extends Voter
    * @since 1.0.0
    *
    * @param string $attribute the attribute
-   * @param mixed  $subject   the subject
+   * @param mixed $subject the subject
    *
    * @return bool true if the attribute is supported, false otherwise
    */
@@ -76,7 +76,7 @@ final class RoleVoter extends Voter
     // Support ROLE_* format (e.g., ROLE_ADMIN, ROLE_USER)
     return str_starts_with(
       haystack: $attribute,
-      needle: self::ROLE_PREFIX
+      needle: self::ROLE_PREFIX,
     );
   }
 
@@ -86,9 +86,9 @@ final class RoleVoter extends Voter
    *
    * @since 1.0.0
    *
-   * @param string         $attribute the attribute
-   * @param mixed          $subject   the subject
-   * @param TokenInterface $token     the token
+   * @param string $attribute the attribute
+   * @param mixed $subject the subject
+   * @param TokenInterface $token the token
    *
    * @return bool true if the attribute is supported, false otherwise
    */
@@ -105,7 +105,7 @@ final class RoleVoter extends Voter
 
     return $this->authorizationService->hasRole(
       userId: $user->getId(),
-      roleName: $roleName
+      roleName: $roleName,
     );
   }
   // #endregion

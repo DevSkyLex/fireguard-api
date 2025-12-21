@@ -39,6 +39,7 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
 {
   // #region Properties
   private EntityManagerInterface $entityManager;
+
   private UserRepository $repository;
   // #endregion
 
@@ -209,7 +210,7 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
       $user = $this->createTestUser(
         sprintf('550e8400-e29b-41d4-a716-44665544000%d', $i),
         "alluser$i",
-        "all$i@example.com"
+        "all$i@example.com",
       );
       $this->repository->save($user);
     }

@@ -56,10 +56,10 @@ final readonly class UpdateUserProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return UserOutput|null the output data
    */
@@ -78,7 +78,7 @@ final readonly class UpdateUserProcessor implements ProcessorInterface
       id: $id,
       firstName: $data->firstName,
       lastName: $data->lastName,
-      avatarUrl: $data->avatarUrl
+      avatarUrl: $data->avatarUrl,
     );
 
     $this->commandBus->dispatch(command: $command);

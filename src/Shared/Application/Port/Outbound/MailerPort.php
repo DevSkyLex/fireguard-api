@@ -28,11 +28,11 @@ interface MailerPort
    *
    * @since 1.0.0
    *
-   * @param string[]                                          $to          the recipients of the email
-   * @param string                                            $subject     the subject of the email
-   * @param string                                            $body        the body of the email
-   * @param string[]                                          $cc          the cc of the email
-   * @param string[]                                          $bcc         the bcc of the email
+   * @param string[] $to the recipients of the email
+   * @param string $subject the subject of the email
+   * @param string $body the body of the email
+   * @param string[] $cc the cc of the email
+   * @param string[] $bcc the bcc of the email
    * @param array<int|string, string|Stringable|list<string>> $attachments the attachments of the email
    *
    * @return void no return value

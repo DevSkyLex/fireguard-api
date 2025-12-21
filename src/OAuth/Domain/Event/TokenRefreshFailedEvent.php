@@ -37,9 +37,9 @@ final readonly class TokenRefreshFailedEvent
    *
    * @since 1.0.0
    *
-   * @param string|null $userId    the user ID if known
+   * @param string|null $userId the user ID if known
    * @param string|null $ipAddress the IP address
-   * @param string      $reason    the failure reason
+   * @param string $reason the failure reason
    */
   public function __construct(
     public readonly ?string $userId,

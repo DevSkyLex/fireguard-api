@@ -52,7 +52,7 @@ interface ConsentRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param string $userId   the user ID
+   * @param string $userId the user ID
    * @param string $clientId the client ID
    *
    * @return Consent|null the consent or null

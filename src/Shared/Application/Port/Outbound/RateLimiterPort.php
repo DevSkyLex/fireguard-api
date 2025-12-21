@@ -26,8 +26,8 @@ interface RateLimiterPort
    *
    * @since 1.0.0
    *
-   * @param string $key    the rate limiter key
-   * @param int    $tokens number of tokens to consume
+   * @param string $key the rate limiter key
+   * @param int $tokens number of tokens to consume
    *
    * @return RateLimitResult the result
    */

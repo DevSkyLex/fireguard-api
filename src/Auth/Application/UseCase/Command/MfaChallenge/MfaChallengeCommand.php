@@ -26,10 +26,10 @@ final readonly class MfaChallengeCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string   $userId     the user identifier
-   * @param string   $purpose    The challenge purpose (e.g., 'login').
-   * @param string   $channel    the delivery channel ('email', 'sms', 'totp')
-   * @param string   $recipient  the recipient address (email or phone)
+   * @param string $userId the user identifier
+   * @param string $purpose The challenge purpose (e.g., 'login').
+   * @param string $channel the delivery channel ('email', 'sms', 'totp')
+   * @param string $recipient the recipient address (email or phone)
    * @param int|null $ttlSeconds optional custom TTL in seconds
    */
   public function __construct(

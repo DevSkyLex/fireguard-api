@@ -48,9 +48,9 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
    *
    * @param DomainEvent ...$events The events to publish.
    *
-   * @return void no return value
-   *
    * @throws MessengerRuntimeException if the messenger fails to dispatch the event
+   *
+   * @return void no return value
    */
   public function publish(DomainEvent ...$events): void
   {
@@ -59,7 +59,7 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
         $this->eventBus->dispatch(message: $event);
       } catch (Throwable $exception) {
         throw MessengerRuntimeException::wrap(
-          exception: $exception
+          exception: $exception,
         );
       }
     }

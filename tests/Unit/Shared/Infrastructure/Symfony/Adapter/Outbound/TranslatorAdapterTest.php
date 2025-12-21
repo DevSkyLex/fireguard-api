@@ -28,6 +28,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final class TranslatorAdapterTest extends TestCase
 {
   private TranslatorInterface&MockObject $translator;
+
   private TranslatorAdapter $adapter;
 
   /**

@@ -86,7 +86,7 @@ final class RegisterClientHandlerTest extends TestCase
       name: 'Test Client',
       redirectUris: [new RedirectUri(value: 'https://example.com/callback')],
       grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
     );
 
     // Handler

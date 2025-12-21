@@ -32,7 +32,7 @@ use function sprintf;
 #[AsCommand(
   name: 'app:user:assign-role',
   description: 'Assign a role to a user',
-  aliases: ['user:assign-role']
+  aliases: ['user:assign-role'],
 )]
 final class AssignRoleCommand extends Command
 {
@@ -71,18 +71,18 @@ final class AssignRoleCommand extends Command
       ->addArgument(
         name: 'email',
         mode: InputArgument::REQUIRED,
-        description: 'The email address of the user'
+        description: 'The email address of the user',
       )
       ->addArgument(
         name: 'role',
         mode: InputArgument::REQUIRED,
-        description: 'The role name to assign (e.g., admin, user, super_admin)'
+        description: 'The role name to assign (e.g., admin, user, super_admin)',
       )
       ->addOption(
         name: 'remove',
         shortcut: 'r',
         mode: InputOption::VALUE_NONE,
-        description: 'Remove the role instead of adding it'
+        description: 'Remove the role instead of adding it',
       )
       ->setHelp(
         <<<'HELP'
@@ -108,7 +108,7 @@ HELP
    *
    * @since 1.0.0
    *
-   * @param InputInterface  $input  the input
+   * @param InputInterface $input the input
    * @param OutputInterface $output the output
    *
    * @return int the exit code

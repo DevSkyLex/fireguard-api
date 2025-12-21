@@ -58,7 +58,7 @@ final readonly class IssueTokenHandler implements CommandHandler
       refreshToken: $command->refreshToken,
       code: $command->code,
       redirectUri: $command->redirectUri,
-      codeVerifier: $command->codeVerifier
+      codeVerifier: $command->codeVerifier,
     );
   }
 

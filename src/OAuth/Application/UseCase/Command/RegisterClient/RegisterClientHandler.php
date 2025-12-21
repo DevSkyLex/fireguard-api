@@ -39,10 +39,10 @@ final readonly class RegisterClientHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository the client repository
-   * @param UuidFactory          $uuidFactory      the UUID factory
-   * @param HashingPort          $hashing          the hashing service
-   * @param EventBusPort         $eventBus         the event bus
-   * @param EventIdProvider      $eventIdProvider  the event ID provider
+   * @param UuidFactory $uuidFactory the UUID factory
+   * @param HashingPort $hashing the hashing service
+   * @param EventBusPort $eventBus the event bus
+   * @param EventIdProvider $eventIdProvider the event ID provider
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,
@@ -76,7 +76,7 @@ final readonly class RegisterClientHandler implements CommandHandler
 
     // Hash the secret
     $hashedSecret = new ClientSecret(
-      value: $this->hashing->hash(value: $plainSecret)->value
+      value: $this->hashing->hash(value: $plainSecret)->value,
     );
 
     // Create the client with event ID provider
@@ -101,7 +101,7 @@ final readonly class RegisterClientHandler implements CommandHandler
     // Return the result with plain secret (shown only once)
     return new RegisterClientResult(
       clientId: $clientId->value,
-      clientSecret: $plainSecret
+      clientSecret: $plainSecret,
     );
   }
   // #endregion

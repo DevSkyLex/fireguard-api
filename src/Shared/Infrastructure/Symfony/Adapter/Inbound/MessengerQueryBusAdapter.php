@@ -51,10 +51,10 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
    *
    * @param QueryMessage $query the query to ask
    *
-   * @return ResultMessage the result of the query
-   *
    * @throws MessengerRuntimeException if the query bus fails to dispatch the query
-   * @throws NoHandlerResultException  if the query has no handler result
+   * @throws NoHandlerResultException if the query has no handler result
+   *
+   * @return ResultMessage the result of the query
    */
   public function ask(QueryMessage $query): ResultMessage
   {
@@ -66,14 +66,14 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
 
     $handledStamp = $this->extractHandledStamp(
       envelope: $envelope,
-      query: $query
+      query: $query,
     );
 
     $result = $handledStamp->getResult();
 
     if (!$result instanceof ResultMessage) {
       throw NoHandlerResultException::forMessage(
-        message: $query
+        message: $query,
       );
     }
 
@@ -87,12 +87,12 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
    *
    * @since 1.0.0
    *
-   * @param Envelope     $envelope the envelope to extract the handled stamp from
-   * @param QueryMessage $query    the query to extract the handled stamp from
-   *
-   * @return HandledStamp the handled stamp
+   * @param Envelope $envelope the envelope to extract the handled stamp from
+   * @param QueryMessage $query the query to extract the handled stamp from
    *
    * @throws NoHandlerResultException if the query has no handler result
+   *
+   * @return HandledStamp the handled stamp
    */
   private function extractHandledStamp(Envelope $envelope, QueryMessage $query): HandledStamp
   {
@@ -100,7 +100,7 @@ final readonly class MessengerQueryBusAdapter implements QueryBusPort
 
     if (!$handledStamp instanceof HandledStamp) {
       throw NoHandlerResultException::forMessage(
-        message: $query
+        message: $query,
       );
     }
 

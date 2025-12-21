@@ -55,7 +55,7 @@ final readonly class TokenCacheAdapter implements TokenCachePort
    * @since 1.0.0
    *
    * @param CacheItemPoolInterface $cache the cache pool
-   * @param int                    $ttl   the cache TTL in seconds
+   * @param int $ttl the cache TTL in seconds
    */
   public function __construct(
     #[Autowire(service: 'cache.app')]
@@ -99,9 +99,9 @@ final readonly class TokenCacheAdapter implements TokenCachePort
    *
    * @since 1.0.0
    *
-   * @param string               $tokenId the token identifier
-   * @param array<string, mixed> $data    the data to cache
-   * @param int|null             $ttl     custom TTL (uses token expiry if provided)
+   * @param string $tokenId the token identifier
+   * @param array<string, mixed> $data the data to cache
+   * @param int|null $ttl custom TTL (uses token expiry if provided)
    */
   public function set(string $tokenId, array $data, ?int $ttl = null): void
   {

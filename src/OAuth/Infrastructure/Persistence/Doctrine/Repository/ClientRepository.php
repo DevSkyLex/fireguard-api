@@ -169,7 +169,7 @@ final class ClientRepository implements ClientRepositoryPort, LeagueClientReposi
    * @since 1.0.0
    *
    * @param int $offset the offset
-   * @param int $limit  the limit
+   * @param int $limit the limit
    *
    * @return array<Client> the clients
    */
@@ -179,12 +179,12 @@ final class ClientRepository implements ClientRepositoryPort, LeagueClientReposi
       criteria: [],
       orderBy: ['createdAt' => 'DESC'],
       limit: $limit,
-      offset: $offset
+      offset: $offset,
     );
 
     return array_map(
       callback: fn (ClientRecord $record): Client => ClientMapper::toDomain(record: $record),
-      array: $records
+      array: $records,
     );
   }
 

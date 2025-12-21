@@ -35,7 +35,7 @@ final class ValidationException extends Exception
   {
     return new self(
       message: sprintf('Unsupported grant type: %s', $grantType),
-      code: 400
+      code: 400,
     );
   }
 
@@ -54,7 +54,7 @@ final class ValidationException extends Exception
   {
     return new self(
       message: sprintf('The %s field is required', $fieldName),
-      code: 400
+      code: 400,
     );
   }
 
@@ -66,7 +66,7 @@ final class ValidationException extends Exception
    * @since 1.0.0
    *
    * @param string $fieldName the field name
-   * @param string $reason    the reason
+   * @param string $reason the reason
    *
    * @return self the exception
    */
@@ -74,7 +74,7 @@ final class ValidationException extends Exception
   {
     return new self(
       message: sprintf('Invalid %s: %s', $fieldName, $reason),
-      code: 400
+      code: 400,
     );
   }
   // #endregion

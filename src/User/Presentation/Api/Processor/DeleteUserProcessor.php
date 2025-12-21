@@ -49,10 +49,10 @@ final readonly class DeleteUserProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return void no return value
    */

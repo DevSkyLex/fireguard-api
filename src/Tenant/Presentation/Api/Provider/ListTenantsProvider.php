@@ -34,7 +34,7 @@ final readonly class ListTenantsProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param TenantRepositoryPort $tenantRepository the tenant repository
-   * @param Security             $security         the security service
+   * @param Security $security the security service
    */
   public function __construct(
     private TenantRepositoryPort $tenantRepository,

@@ -33,7 +33,7 @@ final readonly class CreateTenantHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param TenantRepositoryPort $tenantRepository the tenant repository
-   * @param UuidFactory          $uuidFactory      the UUID factory
+   * @param UuidFactory $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly TenantRepositoryPort $tenantRepository,

@@ -26,13 +26,13 @@ final readonly class RefreshTokenResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool         $success      whether the refresh succeeded
-   * @param string|null  $accessToken  the new access token
-   * @param string|null  $refreshToken the new refresh token
-   * @param string       $tokenType    the token type
-   * @param int          $expiresIn    the token expiration time in seconds
-   * @param list<string> $scopes       the granted scopes
-   * @param string|null  $errorMessage error message if failed
+   * @param bool $success whether the refresh succeeded
+   * @param string|null $accessToken the new access token
+   * @param string|null $refreshToken the new refresh token
+   * @param string $tokenType the token type
+   * @param int $expiresIn the token expiration time in seconds
+   * @param list<string> $scopes the granted scopes
+   * @param string|null $errorMessage error message if failed
    */
   public function __construct(
     public bool $success,

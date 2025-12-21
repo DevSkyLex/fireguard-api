@@ -46,7 +46,7 @@ final readonly class RevokeAllUserSessionsHandler implements \Shared\Application
   public function __invoke(RevokeAllUserSessionsCommand $command): RevokeAllUserSessionsResult
   {
     $revokedCount = $this->sessionRepository->revokeAllForUser(
-      userId: $command->userId
+      userId: $command->userId,
     );
 
     return new RevokeAllUserSessionsResult(

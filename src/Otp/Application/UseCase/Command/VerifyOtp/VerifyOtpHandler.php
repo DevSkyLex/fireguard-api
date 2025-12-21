@@ -49,16 +49,16 @@ final readonly class VerifyOtpHandler implements CommandHandler
    *
    * @param VerifyOtpCommand $command the command
    *
-   * @return VerifyOtpResult the result
-   *
    * @throws OtpNotFoundException if OTP not found
+   *
+   * @return VerifyOtpResult the result
    */
   public function __invoke(VerifyOtpCommand $command): VerifyOtpResult
   {
     $otp = match (true) {
       null !== $command->otpId => $this->otpRepository->findById(new OtpId($command->otpId)),
       null !== $command->challengeToken => $this->otpRepository->findByChallengeToken(
-        ChallengeToken::fromString($command->challengeToken)
+        ChallengeToken::fromString($command->challengeToken),
       ),
       default => throw new InvalidArgumentException('Either OTP ID or Challenge Token must be provided.'),
     };

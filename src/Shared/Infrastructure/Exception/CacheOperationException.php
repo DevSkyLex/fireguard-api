@@ -37,7 +37,7 @@ final class CacheOperationException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to read cache entry "%s".', $key),
-      previous: $previous
+      previous: $previous,
     );
   }
 
@@ -58,7 +58,7 @@ final class CacheOperationException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to write cache entry "%s".', $key),
-      previous: $previous
+      previous: $previous,
     );
   }
 
@@ -80,7 +80,7 @@ final class CacheOperationException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to delete cache entry "%s".', $key),
-      previous: $previous
+      previous: $previous,
     );
   }
 
@@ -100,7 +100,7 @@ final class CacheOperationException extends InfrastructureException
   {
     return new self(
       message: 'Failed to clear cache storage.',
-      previous: $previous
+      previous: $previous,
     );
   }
   // #endregion

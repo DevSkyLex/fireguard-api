@@ -37,7 +37,7 @@ final class UuidGenerationException extends InfrastructureException
   {
     return new self(
       message: sprintf('Unable to generate a UUID: %s', $previous->getMessage()),
-      previous: $previous
+      previous: $previous,
     );
   }
   // #endregion

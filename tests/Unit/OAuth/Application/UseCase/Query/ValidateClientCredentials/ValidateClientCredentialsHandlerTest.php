@@ -85,7 +85,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
     // Handler
     $handler = new ValidateClientCredentialsHandler(
       clientRepository: $repository,
-      hashing: $hashing
+      hashing: $hashing,
     );
 
     // Execute
@@ -123,7 +123,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
 
     $handler = new ValidateClientCredentialsHandler(
       clientRepository: $repository,
-      hashing: $hashing
+      hashing: $hashing,
     );
 
     $result = $handler->__invoke($query);
@@ -170,7 +170,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
 
     $handler = new ValidateClientCredentialsHandler(
       clientRepository: $repository,
-      hashing: $hashing
+      hashing: $hashing,
     );
 
     $result = $handler->__invoke($query);

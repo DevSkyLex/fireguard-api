@@ -33,8 +33,8 @@ final readonly class UserLoggedInEvent
    *
    * @since 1.0.0
    *
-   * @param string      $userId    the user ID
-   * @param string      $email     the user email
+   * @param string $userId the user ID
+   * @param string $email the user email
    * @param string|null $ipAddress the client IP address
    */
   public function __construct(

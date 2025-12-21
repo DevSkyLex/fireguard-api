@@ -155,10 +155,10 @@ final class CheckConsentOutput
    *
    * @since 1.0.0
    *
-   * @param bool         $hasConsent            Whether consent is granted
-   * @param list<string> $grantedScopes         List of granted scopes
-   * @param list<string> $missingScopes         List of missing scopes
-   * @param bool         $requiresConsentScreen Whether consent screen is needed
+   * @param bool $hasConsent Whether consent is granted
+   * @param list<string> $grantedScopes List of granted scopes
+   * @param list<string> $missingScopes List of missing scopes
+   * @param bool $requiresConsentScreen Whether consent screen is needed
    */
   public function __construct(
     bool $hasConsent,

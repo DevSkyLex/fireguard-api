@@ -32,8 +32,8 @@ final readonly class SetupTotpProcessor implements ProcessorInterface
   /**
    * Constructor.
    *
-   * @param SetupTotpHandler $handler  the handler
-   * @param Security         $security the security service
+   * @param SetupTotpHandler $handler the handler
+   * @param Security $security the security service
    */
   public function __construct(
     private SetupTotpHandler $handler,

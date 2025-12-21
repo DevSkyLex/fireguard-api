@@ -26,9 +26,9 @@ final readonly class ValidateClientCredentialsResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool              $isValid           whether the credentials are valid
-   * @param string|null       $clientId          the client ID if valid, null otherwise
-   * @param list<string>|null $allowedScopes     the allowed scopes if valid, null otherwise
+   * @param bool $isValid whether the credentials are valid
+   * @param string|null $clientId the client ID if valid, null otherwise
+   * @param list<string>|null $allowedScopes the allowed scopes if valid, null otherwise
    * @param list<string>|null $allowedGrantTypes the allowed grant types if valid, null otherwise
    */
   public function __construct(

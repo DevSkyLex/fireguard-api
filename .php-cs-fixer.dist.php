@@ -9,7 +9,13 @@ return (new PhpCsFixer\Config())
 	->setRules([
 		'@Symfony' => true,
 		'@PSR12' => true,
+		'declare_strict_types' => true,
 		'array_syntax' => ['syntax' => 'short'],
+		'trailing_comma_in_multiline' => ['elements' => ['arrays', 'arguments', 'parameters']],
+		'method_argument_space' => ['on_multiline' => 'ensure_fully_multiline', 'keep_multiple_spaces_after_comma' => false],
+		'class_attributes_separation' => ['elements' => ['method' => 'one', 'property' => 'one', 'const' => 'one']],
+		'single_quote' => true,
+		'no_trailing_comma_in_singleline_array' => true,
 		'ordered_imports' => [
 			'imports_order' => ['class', 'function', 'const'],
 			'sort_algorithm' => 'alpha',
@@ -35,6 +41,12 @@ return (new PhpCsFixer\Config())
 		'phpdoc_separation' => true,
 		'phpdoc_trim' => true,
 		'phpdoc_order' => true,
+		'no_superfluous_phpdoc_tags' => true,
+		'phpdoc_add_missing_param_annotation' => true,
+		'phpdoc_return_self_reference' => true,
+		'strict_param' => true,
+		'strict_comparison' => true,
+		'phpdoc_order_by_value' => true,
 		'concat_space' => ['spacing' => 'one'],
 	])
 	->setIndent('  ')

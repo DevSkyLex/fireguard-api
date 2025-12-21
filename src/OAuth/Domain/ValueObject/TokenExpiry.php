@@ -98,7 +98,7 @@ final class TokenExpiry
     }
 
     return new self(
-      new DateTimeImmutable(sprintf('+%d seconds', $ttlSeconds))
+      new DateTimeImmutable(sprintf('+%d seconds', $ttlSeconds)),
     );
   }
 
@@ -136,7 +136,7 @@ final class TokenExpiry
   public static function fromTimestamp(int $timestamp): self
   {
     return new self(
-      (new DateTimeImmutable())->setTimestamp($timestamp)
+      (new DateTimeImmutable())->setTimestamp($timestamp),
     );
   }
 
@@ -170,7 +170,7 @@ final class TokenExpiry
   public function extend(int $seconds): self
   {
     return new self(
-      $this->expiresAt->modify(sprintf('+%d seconds', $seconds))
+      $this->expiresAt->modify(sprintf('+%d seconds', $seconds)),
     );
   }
 

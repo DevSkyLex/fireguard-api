@@ -38,8 +38,8 @@ final class RoleNotFoundException extends DomainException
     return new self(
       message: sprintf(
         'Role with ID "%s" not found.',
-        $roleId
-      )
+        $roleId,
+      ),
     );
   }
 
@@ -61,8 +61,8 @@ final class RoleNotFoundException extends DomainException
     return new self(
       message: sprintf(
         'Role with name "%s" not found.',
-        $roleName
-      )
+        $roleName,
+      ),
     );
   }
   // #endregion

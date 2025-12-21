@@ -27,13 +27,13 @@ final class AuthCode
    *
    * @since 1.0.0
    *
-   * @param string                $identifier       the auth code identifier
-   * @param DateTimeImmutable     $expiryDateTime   the expiry date time
+   * @param string $identifier the auth code identifier
+   * @param DateTimeImmutable $expiryDateTime the expiry date time
    * @param OAuthClientIdentifier $clientIdentifier the client identifier
-   * @param string|null           $userIdentifier   the user identifier
-   * @param Scopes                $scopes           the scopes
-   * @param string|null           $redirectUri      the redirect URI
-   * @param bool                  $isRevoked        whether the code is revoked
+   * @param string|null $userIdentifier the user identifier
+   * @param Scopes $scopes the scopes
+   * @param string|null $redirectUri the redirect URI
+   * @param bool $isRevoked whether the code is revoked
    */
   public function __construct(
     private readonly string $identifier,

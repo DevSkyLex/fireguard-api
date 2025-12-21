@@ -62,7 +62,7 @@ final class PortNamingTest extends TestCase
       }
 
       $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator(directory: $portDir)
+        new RecursiveDirectoryIterator(directory: $portDir),
       );
 
       foreach ($iterator as $file) {
@@ -80,7 +80,7 @@ final class PortNamingTest extends TestCase
           $violations[] = sprintf(
             '%s must end with suffix %s.',
             $module->namespace . '\\' . ArchitectureLayer::APPLICATION->value . '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', substr($pathname, strlen($applicationPath) + 1, -4)),
-            self::PORT_SUFFIX
+            self::PORT_SUFFIX,
           );
         }
       }
@@ -89,7 +89,7 @@ final class PortNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: 'Every port class must end with suffix "Port".'
+      message: 'Every port class must end with suffix "Port".',
     );
   }
 }

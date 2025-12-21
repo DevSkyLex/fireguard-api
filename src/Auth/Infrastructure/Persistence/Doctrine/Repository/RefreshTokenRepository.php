@@ -53,7 +53,7 @@ final readonly class RefreshTokenRepository implements RefreshTokenRepositoryPor
   {
     $record = $this->entityManager->find(
       className: RefreshTokenRecord::class,
-      id: $refreshToken->identifier()
+      id: $refreshToken->identifier(),
     );
 
     if (!$record) {
@@ -84,7 +84,7 @@ final readonly class RefreshTokenRepository implements RefreshTokenRepositoryPor
   {
     $record = $this->entityManager->find(
       className: RefreshTokenRecord::class,
-      id: $identifier
+      id: $identifier,
     );
 
     if (!$record) {
@@ -96,7 +96,7 @@ final readonly class RefreshTokenRepository implements RefreshTokenRepositoryPor
       expiryDateTime: $record->expiry,
       accessTokenIdentifier: $record->accessTokenIdentifier,
       clientIdentifier: new OAuthClientIdentifier($record->clientIdentifier),
-      isRevoked: $record->isRevoked
+      isRevoked: $record->isRevoked,
     );
   }
   // #endregion

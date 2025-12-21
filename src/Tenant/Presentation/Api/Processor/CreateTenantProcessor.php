@@ -35,8 +35,8 @@ final readonly class CreateTenantProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param CreateTenantHandler $handler  the command handler
-   * @param Security            $security the security service
+   * @param CreateTenantHandler $handler the command handler
+   * @param Security $security the security service
    */
   public function __construct(
     private CreateTenantHandler $handler,

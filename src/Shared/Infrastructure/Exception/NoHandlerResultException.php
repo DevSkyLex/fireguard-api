@@ -34,7 +34,7 @@ final class NoHandlerResultException extends InfrastructureException
   public static function forMessage(object $message): self
   {
     return new self(
-      message: sprintf('No handler result returned for message "%s".', $message::class)
+      message: sprintf('No handler result returned for message "%s".', $message::class),
     );
   }
   // #endregion

@@ -26,13 +26,13 @@ final readonly class GetClientResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string       $id           the client ID
-   * @param string       $name         the client name
+   * @param string $id the client ID
+   * @param string $name the client name
    * @param list<string> $redirectUris the allowed redirect URIs
-   * @param list<string> $grantTypes   the allowed grant types
-   * @param list<string> $scopes       the allowed scopes
-   * @param bool         $isActive     whether the client is active
-   * @param string       $createdAt    the creation timestamp
+   * @param list<string> $grantTypes the allowed grant types
+   * @param list<string> $scopes the allowed scopes
+   * @param bool $isActive whether the client is active
+   * @param string $createdAt the creation timestamp
    */
   public function __construct(
     public readonly string $id,

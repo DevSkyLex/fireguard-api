@@ -36,7 +36,7 @@ final class SessionAlreadyRevokedException extends DomainException
   public static function withId(string $id): self
   {
     return new self(
-      message: sprintf('Session with ID "%s" has already been revoked.', $id)
+      message: sprintf('Session with ID "%s" has already been revoked.', $id),
     );
   }
   // #endregion

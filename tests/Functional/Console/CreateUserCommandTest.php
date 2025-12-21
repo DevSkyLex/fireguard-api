@@ -48,7 +48,7 @@ final class CreateUserCommandTest extends KernelTestCase
   {
     $kernel = self::bootKernel();
     $this->application = new Application(
-      kernel: $kernel
+      kernel: $kernel,
     );
   }
 
@@ -62,7 +62,7 @@ final class CreateUserCommandTest extends KernelTestCase
   public function testCommandExists(): void
   {
     $this->assertTrue(condition: $this->application?->has(
-      name: 'app:user:create'
+      name: 'app:user:create',
     ));
   }
 
@@ -76,7 +76,7 @@ final class CreateUserCommandTest extends KernelTestCase
   public function testCommandHasAlias(): void
   {
     $this->assertTrue(condition: $this->application?->has(
-      name: 'user:create'
+      name: 'user:create',
     ));
   }
 

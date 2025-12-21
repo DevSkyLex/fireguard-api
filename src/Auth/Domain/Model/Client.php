@@ -33,13 +33,13 @@ final class Client
    *
    * @since 1.0.0
    *
-   * @param OAuthClientIdentifier $identifier     the client identifier
-   * @param string                $name           the client name
-   * @param HashedSecret          $secret         the hashed client secret
-   * @param list<string>          $redirectUris   the allowed redirect URIs
-   * @param list<GrantType>       $grantTypes     the allowed grant types
-   * @param list<Scope>           $scopes         the allowed scopes
-   * @param bool                  $isConfidential whether the client is confidential (requires secret)
+   * @param OAuthClientIdentifier $identifier the client identifier
+   * @param string $name the client name
+   * @param HashedSecret $secret the hashed client secret
+   * @param list<string> $redirectUris the allowed redirect URIs
+   * @param list<GrantType> $grantTypes the allowed grant types
+   * @param list<Scope> $scopes the allowed scopes
+   * @param bool $isConfidential whether the client is confidential (requires secret)
    */
   public function __construct(
     private readonly OAuthClientIdentifier $identifier,
@@ -170,7 +170,7 @@ final class Client
     return in_array(
       needle: $uri,
       haystack: $this->redirectUris,
-      strict: true
+      strict: true,
     );
   }
 
@@ -191,7 +191,7 @@ final class Client
     return in_array(
       needle: $grantType,
       haystack: $this->grantTypes,
-      strict: true
+      strict: true,
     );
   }
 
@@ -211,7 +211,7 @@ final class Client
     return in_array(
       needle: $scope,
       haystack: $this->scopes,
-      strict: true
+      strict: true,
     );
   }
   // #endregion

@@ -27,7 +27,7 @@ interface ClientValidationPort
    *
    * @since 1.0.0
    *
-   * @param string $clientId     the client ID
+   * @param string $clientId the client ID
    * @param string $clientSecret the client secret
    *
    * @return bool true if credentials are valid, false otherwise

@@ -52,9 +52,9 @@ final readonly class AccessTokenRepositoryAdapter implements AccessTokenReposito
    *
    * @since 1.0.0
    *
-   * @param ClientEntityInterface       $clientEntity   the client entity
-   * @param array<ScopeEntityInterface> $scopes         the scopes
-   * @param string|int|null             $userIdentifier the user identifier
+   * @param ClientEntityInterface $clientEntity the client entity
+   * @param array<ScopeEntityInterface> $scopes the scopes
+   * @param string|int|null $userIdentifier the user identifier
    *
    * @return AccessTokenEntityInterface the access token entity
    */
@@ -98,7 +98,7 @@ final readonly class AccessTokenRepositoryAdapter implements AccessTokenReposito
       expiry: DateTimeImmutable::createFromInterface($accessTokenEntity->getExpiryDateTime()),
       scopes: Scopes::fromArray($scopes),
       userIdentifier: $accessTokenEntity->getUserIdentifier(),
-      isRevoked: false
+      isRevoked: false,
     );
 
     $this->accessTokenRepository->save(accessToken: $token);

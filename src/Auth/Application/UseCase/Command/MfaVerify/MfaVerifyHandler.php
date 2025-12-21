@@ -31,7 +31,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
    *
    * @since 1.0.0
    *
-   * @param JwtTokenServicePort   $jwtService        the JWT service
+   * @param JwtTokenServicePort $jwtService the JWT service
    * @param ChallengeVerifierPort $challengeVerifier the challenge verifier
    */
   public function __construct(
@@ -51,9 +51,9 @@ final readonly class MfaVerifyHandler implements CommandHandler
    *
    * @param MfaVerifyCommand $command the command
    *
-   * @return MfaVerifyResult the result
-   *
    * @throws AuthorizationException if verification fails
+   *
+   * @return MfaVerifyResult the result
    */
   public function __invoke(MfaVerifyCommand $command): MfaVerifyResult
   {

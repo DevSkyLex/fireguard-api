@@ -41,7 +41,7 @@ final class ClientActivatedEventTest extends TestCase
     $event = new ClientActivatedEvent(
       eventId: $eventId,
       clientId: $clientId,
-      occurredAt: $occurredAt
+      occurredAt: $occurredAt,
     );
 
     self::assertSame(expected: $clientId, actual: $event->clientId);
@@ -63,7 +63,7 @@ final class ClientActivatedEventTest extends TestCase
     $event = new ClientActivatedEvent(
       eventId: $eventId,
       clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     self::assertSame(expected: $eventId, actual: $event->eventId());
@@ -84,7 +84,7 @@ final class ClientActivatedEventTest extends TestCase
     $event = new ClientActivatedEvent(
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440003'),
       clientId: new ClientId(value: $clientId),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     self::assertSame(expected: $clientId, actual: $event->aggregateId());
@@ -104,7 +104,7 @@ final class ClientActivatedEventTest extends TestCase
     $event = new ClientActivatedEvent(
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440004'),
       clientId: new ClientId(value: '123e4567-e89b-12d3-a456-426614174000'),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     self::assertSame(expected: 'client', actual: $event->aggregateType());
@@ -126,7 +126,7 @@ final class ClientActivatedEventTest extends TestCase
     $event = new ClientActivatedEvent(
       eventId: new Uuid('550e8400-e29b-41d4-a716-446655440005'),
       clientId: new ClientId(value: $clientId),
-      occurredAt: new DateTimeImmutable()
+      occurredAt: new DateTimeImmutable(),
     );
 
     $payload = $event->payload();

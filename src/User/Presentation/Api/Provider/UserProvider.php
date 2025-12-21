@@ -54,9 +54,9 @@ final readonly class UserProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param Operation            $operation    the operation being performed
+   * @param Operation $operation the operation being performed
    * @param array<string, mixed> $uriVariables The URI variables (e.g., ['id' => '...']).
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return UserOutput|null the user output or null if not found
    */

@@ -48,7 +48,7 @@ final readonly class ClientRepositoryAdapter implements ClientRepositoryInterfac
         identifier: (string) $client->identifier(),
         name: $client->name(),
         redirectUri: $client->redirectUris(),
-        isConfidential: $client->isConfidential()
+        isConfidential: $client->isConfidential(),
       );
     } catch (Throwable $exception) {
       return null;
@@ -56,7 +56,7 @@ final readonly class ClientRepositoryAdapter implements ClientRepositoryInterfac
   }
 
   /**
-   * @param string      $clientIdentifier
+   * @param string $clientIdentifier
    * @param string|null $clientSecret
    * @param string|null $grantType
    */
@@ -64,7 +64,7 @@ final readonly class ClientRepositoryAdapter implements ClientRepositoryInterfac
   {
     return $this->clientValidation->validateCredentials(
       clientId: $clientIdentifier,
-      clientSecret: $clientSecret ?? ''
+      clientSecret: $clientSecret ?? '',
     );
   }
   // #endregion

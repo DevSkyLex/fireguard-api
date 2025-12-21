@@ -50,12 +50,12 @@ final readonly class SecurityUserProvider implements UserProviderInterface
   }
 
   /**
-   * @param string       $userId the user ID
+   * @param string $userId the user ID
    * @param list<string> $scopes optional OAuth2 scopes
    *
-   * @return SecurityUser the security user
-   *
    * @throws UserNotFoundException if the user is not found
+   *
+   * @return SecurityUser the security user
    */
   public function loadUserById(string $userId, array $scopes = []): SecurityUser
   {
@@ -65,7 +65,7 @@ final readonly class SecurityUserProvider implements UserProviderInterface
 
       if (null === $result->user) {
         throw new UserNotFoundException(
-          message: sprintf('User "%s" not found.', $userId)
+          message: sprintf('User "%s" not found.', $userId),
         );
       }
 
@@ -77,13 +77,13 @@ final readonly class SecurityUserProvider implements UserProviderInterface
       // Normalize RBAC roles (e.g. "admin" -> "ROLE_ADMIN")
       $normalizedRbacRoles = array_map(
         fn (string $role) => 'ROLE_' . strtoupper($role),
-        $rbacRoles
+        $rbacRoles,
       );
 
       // Merge with status-based roles
       $roles = array_values(array_unique(array_merge(
         $this->mapStatusToRoles($user->status()),
-        $normalizedRbacRoles
+        $normalizedRbacRoles,
       )));
 
       return new SecurityUser(
@@ -92,13 +92,13 @@ final readonly class SecurityUserProvider implements UserProviderInterface
         password: '',
         roles: $roles,
         scopes: $scopes,
-        isActive: $user->status()->canLogin()
+        isActive: $user->status()->canLogin(),
       );
     } catch (UserNotFoundException $exception) {
       throw $exception;
     } catch (Throwable $exception) {
       throw new UserNotFoundException(
-        message: sprintf('User "%s" not found: %s', $userId, $exception->getMessage())
+        message: sprintf('User "%s" not found: %s', $userId, $exception->getMessage()),
       );
     }
   }

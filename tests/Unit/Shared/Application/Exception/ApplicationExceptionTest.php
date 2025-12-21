@@ -34,7 +34,7 @@ final class ApplicationExceptionTest extends TestCase
 
     self::assertSame(
       expected: [],
-      actual: $exception->context()
+      actual: $exception->context(),
     );
   }
   // #endregion

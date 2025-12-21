@@ -82,7 +82,7 @@ interface ClientRepositoryPort
    * @since 1.0.0
    *
    * @param int $offset the offset
-   * @param int $limit  the limit
+   * @param int $limit the limit
    *
    * @return array<Client> the clients
    */

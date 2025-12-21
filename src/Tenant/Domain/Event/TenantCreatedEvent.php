@@ -25,9 +25,9 @@ final readonly class TenantCreatedEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId    the event ID
-   * @param string            $tenantId   the tenant ID
-   * @param string            $tenantName the tenant name
+   * @param Uuid $eventId the event ID
+   * @param string $tenantId the tenant ID
+   * @param string $tenantName the tenant name
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

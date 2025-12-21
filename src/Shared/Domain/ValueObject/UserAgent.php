@@ -51,13 +51,13 @@ final readonly class UserAgent implements Stringable
   {
     if (empty($value)) {
       throw InvalidValueException::because(
-        message: 'User-Agent cannot be empty.'
+        message: 'User-Agent cannot be empty.',
       );
     }
 
     if (strlen(string: $value) > self::MAX_LENGTH) {
       throw InvalidValueException::because(
-        message: sprintf('User-Agent cannot exceed %d characters.', self::MAX_LENGTH)
+        message: sprintf('User-Agent cannot exceed %d characters.', self::MAX_LENGTH),
       );
     }
   }
@@ -77,7 +77,7 @@ final readonly class UserAgent implements Stringable
   {
     return 1 === preg_match(
       pattern: '/(Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini)/i',
-      subject: $this->value
+      subject: $this->value,
     );
   }
 
@@ -94,7 +94,7 @@ final readonly class UserAgent implements Stringable
   {
     return 1 === preg_match(
       pattern: '/(bot|crawler|spider|scraper|slurp|wget|curl)/i',
-      subject: $this->value
+      subject: $this->value,
     );
   }
 

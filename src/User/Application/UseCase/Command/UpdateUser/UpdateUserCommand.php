@@ -26,9 +26,9 @@ final readonly class UpdateUserCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string      $id        the user ID
+   * @param string $id the user ID
    * @param string|null $firstName the first name
-   * @param string|null $lastName  the last name
+   * @param string|null $lastName the last name
    * @param string|null $avatarUrl the avatar URL
    */
   public function __construct(

@@ -24,8 +24,8 @@ final readonly class CheckDeviceTrustedResult
    *
    * @since 1.0.0
    *
-   * @param bool    $trusted    the trusted status
-   * @param ?string $deviceId   the device ID
+   * @param bool $trusted the trusted status
+   * @param ?string $deviceId the device ID
    * @param ?string $deviceName the device name
    */
   public function __construct(
@@ -44,7 +44,7 @@ final readonly class CheckDeviceTrustedResult
    *
    * @since 1.0.0
    *
-   * @param string $deviceId   the device ID
+   * @param string $deviceId the device ID
    * @param string $deviceName the device name
    *
    * @return CheckDeviceTrustedResult the result

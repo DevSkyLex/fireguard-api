@@ -38,8 +38,11 @@ use function uniqid;
 abstract class OAuth2WebTestCase extends WebTestCase
 {
   protected const string DEV_CLIENT_ID = 'a7b8c9d0-e1f2-4456-8123-789012345678';
+
   protected const string DEV_CLIENT_SECRET = 'dev_secret_test';
+
   protected const string API_CLIENT_ID = 'f6a7b8c9-d0e1-4345-8012-678901234567';
+
   protected const string API_CLIENT_SECRET = 'api_secret_789';
 
   protected ?string $accessToken = null;
@@ -116,7 +119,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
         'client_id' => self::DEV_CLIENT_ID,
         'client_secret' => self::DEV_CLIENT_SECRET,
         'scope' => 'OPENID PROFILE EMAIL READ WRITE',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -166,13 +169,13 @@ abstract class OAuth2WebTestCase extends WebTestCase
 
     $em->getConnection()->executeStatement(
       "UPDATE users SET status = 'active' WHERE email = ?",
-      [$email]
+      [$email],
     );
 
     // Verify user exists and password is correct
     $row = $em->getConnection()->fetchAssociative(
       'SELECT id, email, password, status FROM users WHERE email = ?',
-      [$email]
+      [$email],
     );
 
     if (!$row) {

@@ -68,10 +68,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'List of roles retrieved successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -117,13 +117,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found'
+            description: 'Role not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -163,16 +163,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed'
+            description: 'Invalid request - validation failed',
           ),
           HttpResponse::HTTP_CONFLICT => new Response(
-            description: 'Role name already exists'
+            description: 'Role name already exists',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -205,16 +205,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - validation failed'
+            description: 'Invalid request - validation failed',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found'
+            description: 'Role not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -236,16 +236,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role not found'
+            description: 'Role not found',
           ),
           HttpResponse::HTTP_CONFLICT => new Response(
-            description: 'Cannot delete system role'
+            description: 'Cannot delete system role',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required'
+            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required',
           ),
         ],
       ),
@@ -256,7 +256,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       uriVariables: [
         'roleId' => new Link(
           fromClass: RoleRecord::class,
-          identifiers: ['id']
+          identifiers: ['id'],
         ),
       ],
       input: AddPermissionInput::class,
@@ -290,16 +290,16 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - permission ID invalid'
+            description: 'Invalid request - permission ID invalid',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role or permission not found'
+            description: 'Role or permission not found',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
@@ -310,11 +310,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       uriVariables: [
         'roleId' => new Link(
           fromClass: RoleRecord::class,
-          identifiers: ['id']
+          identifiers: ['id'],
         ),
         'permissionId' => new Link(
           fromClass: PermissionRecord::class,
-          identifiers: ['id']
+          identifiers: ['id'],
         ),
       ],
       input: false,
@@ -348,18 +348,18 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Role or permission not found, or permission not assigned to role'
+            description: 'Role or permission not found, or permission not assigned to role',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Authentication required - missing or invalid access token'
+            description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required'
+            description: 'Insufficient permissions - ROLE_ADMIN required',
           ),
         ],
       ),
     ),
-  ]
+  ],
 )]
 final class RoleResource
 {

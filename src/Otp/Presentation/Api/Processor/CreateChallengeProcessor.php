@@ -46,9 +46,9 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
   /**
    * Constructor.
    *
-   * @param GenerateOtpHandler $handler      the handler
-   * @param Security           $security     the security service
-   * @param RequestStack       $requestStack the request stack
+   * @param GenerateOtpHandler $handler the handler
+   * @param Security $security the security service
+   * @param RequestStack $requestStack the request stack
    */
   public function __construct(
     private GenerateOtpHandler $handler,
@@ -124,7 +124,7 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
    * Gets the default recipient from user.
    *
    * @param string $channel the channel
-   * @param object $user    the user
+   * @param object $user the user
    *
    * @return string|null the recipient
    */

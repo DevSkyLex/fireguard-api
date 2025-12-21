@@ -30,7 +30,7 @@ final class InvalidGrantTypeException extends InvalidValueException
    *
    * @since 1.0.0
    *
-   * @param string        $value   the invalid grant type value
+   * @param string $value the invalid grant type value
    * @param array<string> $allowed the list of allowed grant types
    *
    * @return self the created InvalidGrantTypeException
@@ -40,7 +40,7 @@ final class InvalidGrantTypeException extends InvalidValueException
     $allowedList = implode(', ', $allowed);
 
     return new self(
-      message: "Invalid grant type: '{$value}'. Allowed grant types are: {$allowedList}."
+      message: "Invalid grant type: '{$value}'. Allowed grant types are: {$allowedList}.",
     );
   }
 

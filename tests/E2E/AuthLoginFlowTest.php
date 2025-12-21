@@ -42,7 +42,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     // Now test login
@@ -56,7 +56,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -65,26 +65,26 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      "Login should succeed. Response: {$content}"
+      "Login should succeed. Response: {$content}",
     );
 
     $data = $this->decodeJsonResponse($content);
     $this->assertArrayHasKey(
       key: 'access_token',
       array: $data,
-      message: 'Response should contain access_token'
+      message: 'Response should contain access_token',
     );
 
     $this->assertArrayHasKey(
       key: 'token_type',
       array: $data,
-      message: 'Response should contain token_type'
+      message: 'Response should contain token_type',
     );
 
     $this->assertEquals(
       expected: 'Bearer',
       actual: $data['token_type'],
-      message: 'Response should contain token_type'
+      message: 'Response should contain token_type',
     );
   }
 
@@ -105,7 +105,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     // Try login with wrong password
@@ -119,7 +119,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => 'WrongPassword!',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -127,7 +127,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_UNAUTHORIZED,
       actual: $response->getStatusCode(),
-      message: 'Login with wrong password should return 401'
+      message: 'Login with wrong password should return 401',
     );
   }
 
@@ -152,7 +152,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => 'nonexistent-' . uniqid() . '@example.com',
         'password' => 'AnyPassword123!',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -160,7 +160,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_UNAUTHORIZED,
       actual: $response->getStatusCode(),
-      message: 'Login with non-existent user should return 401'
+      message: 'Login with non-existent user should return 401',
     );
   }
 
@@ -182,7 +182,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     $client->request(
@@ -195,7 +195,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -203,7 +203,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_UNAUTHORIZED,
       actual: $response->getStatusCode(),
-      message: 'Login with inactive user should return 401'
+      message: 'Login with inactive user should return 401',
     );
   }
 
@@ -224,7 +224,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     $client->request(
@@ -238,7 +238,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
         'email' => $email,
         'password' => $password,
         'rememberMe' => true,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -246,7 +246,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $response->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Login should succeed. Response: ' . $response->getContent()
+      message: 'Login should succeed. Response: ' . $response->getContent(),
     );
 
     // Check for refresh token cookie
@@ -262,12 +262,12 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $this->assertNotNull(
       actual: $refreshTokenCookie,
-      message: 'Response should set refresh_token cookie'
+      message: 'Response should set refresh_token cookie',
     );
 
     $this->assertTrue(
       condition: $refreshTokenCookie->isHttpOnly(),
-      message: 'Cookie should be HttpOnly'
+      message: 'Cookie should be HttpOnly',
     );
   }
 
@@ -288,7 +288,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     // Step 1: Login to get tokens
@@ -302,7 +302,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -310,7 +310,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $response->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Login should succeed. Response: ' . $response->getContent()
+      message: 'Login should succeed. Response: ' . $response->getContent(),
     );
 
     // Get the refresh token cookie
@@ -326,7 +326,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $this->assertNotNull(
       actual: $refreshTokenCookie,
-      message: 'Refresh token cookie should be set'
+      message: 'Refresh token cookie should be set',
     );
 
     // Step 2: Use refresh token to get new access token
@@ -337,7 +337,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_COOKIE' => 'refresh_token=' . $refreshTokenCookie->getValue(),
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -345,26 +345,26 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $response->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Refresh should succeed. Response: ' . $response->getContent()
+      message: 'Refresh should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertArrayHasKey(
       key: 'access_token',
       array: $data,
-      message: 'Response should contain new access_token'
+      message: 'Response should contain new access_token',
     );
 
     $this->assertArrayHasKey(
       key: 'token_type',
       array: $data,
-      message: 'Response should contain token_type'
+      message: 'Response should contain token_type',
     );
 
     $this->assertEquals(
       expected: 'Bearer',
       actual: $data['token_type'],
-      message: 'Response should contain token_type'
+      message: 'Response should contain token_type',
     );
   }
 
@@ -386,7 +386,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -394,7 +394,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_UNAUTHORIZED,
       actual: $response->getStatusCode(),
-      message: 'Refresh without cookie should return 401'
+      message: 'Refresh without cookie should return 401',
     );
   }
 
@@ -417,7 +417,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_COOKIE' => 'refresh_token=invalid_token_value',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -425,7 +425,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_UNAUTHORIZED,
       actual: $response->getStatusCode(),
-      message: 'Refresh with invalid token should return 401'
+      message: 'Refresh with invalid token should return 401',
     );
   }
 
@@ -446,7 +446,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     // Step 1: Login
@@ -460,7 +460,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $loginResponse = $client->getResponse();
@@ -468,7 +468,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $loginResponse->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Login should succeed. Response: ' . $loginResponse->getContent()
+      message: 'Login should succeed. Response: ' . $loginResponse->getContent(),
     );
 
     $loginData = $this->decodeJsonResponse($loginResponse->getContent() ?: '{}');
@@ -483,7 +483,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $accessToken,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -491,20 +491,20 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_OK,
       actual: $response->getStatusCode(),
-      message: 'Logout should succeed'
+      message: 'Logout should succeed',
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
     $this->assertArrayHasKey(
       key: 'message',
       array: $data,
-      message: 'Logout should succeed'
+      message: 'Logout should succeed',
     );
 
     $this->assertEquals(
       expected: 'Logged out successfully',
       actual: $data['message'],
-      message: 'Logout should succeed'
+      message: 'Logout should succeed',
     );
   }
 
@@ -526,7 +526,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -534,7 +534,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_OK,
       actual: $response->getStatusCode(),
-      message: 'Logout without auth should still succeed'
+      message: 'Logout without auth should still succeed',
     );
   }
 
@@ -565,7 +565,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $loginResponse = $client->getResponse();
@@ -573,7 +573,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $loginResponse->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Login should succeed. Response: ' . $loginResponse->getContent()
+      message: 'Login should succeed. Response: ' . $loginResponse->getContent(),
     );
 
     $loginData = $this->decodeJsonResponse($loginResponse->getContent() ?: '{}');
@@ -583,7 +583,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $this->assertNotEmpty(
       actual: $accessToken,
-      message: 'Should have access token after login'
+      message: 'Should have access token after login',
     );
 
     // Get refresh token cookie
@@ -598,7 +598,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $this->assertNotNull(
       actual: $refreshTokenCookie,
-      message: 'Refresh token cookie should be set'
+      message: 'Refresh token cookie should be set',
     );
 
     // Step 2: Refresh token
@@ -609,7 +609,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_COOKIE' => 'refresh_token=' . $refreshTokenCookie->getValue(),
-      ]
+      ],
     );
 
     $refreshResponse = $client->getResponse();
@@ -617,7 +617,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $refreshResponse->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Refresh should succeed'
+      message: 'Refresh should succeed',
     );
 
     $refreshData = $this->decodeJsonResponse($refreshResponse->getContent() ?: '{}');
@@ -627,13 +627,13 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
 
     $this->assertNotEmpty(
       actual: $newAccessToken,
-      message: 'Should have new access token after refresh'
+      message: 'Should have new access token after refresh',
     );
 
     $this->assertNotEquals(
       expected: $accessToken,
       actual: $newAccessToken,
-      message: 'New access token should be different'
+      message: 'New access token should be different',
     );
 
     // Step 3: Logout
@@ -644,7 +644,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $newAccessToken,
-      ]
+      ],
     );
 
     $logoutResponse = $client->getResponse();
@@ -652,7 +652,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       expected: Response::HTTP_OK,
       actual: $logoutResponse->getStatusCode(),
-      message: 'Logout should succeed'
+      message: 'Logout should succeed',
     );
   }
 
@@ -677,7 +677,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => '',
         'password' => 'SomePassword123!',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -685,7 +685,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $response->getStatusCode(),
       haystack: [Response::HTTP_UNAUTHORIZED, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_BAD_REQUEST],
-      message: 'Login with empty email should fail'
+      message: 'Login with empty email should fail',
     );
   }
 
@@ -710,7 +710,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => 'test@example.com',
         'password' => '',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -718,7 +718,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $response->getStatusCode(),
       haystack: [Response::HTTP_UNAUTHORIZED, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_BAD_REQUEST],
-      message: 'Login with empty password should fail'
+      message: 'Login with empty password should fail',
     );
   }
 
@@ -739,7 +739,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser(
       client: $client,
       email: $email,
-      password: $password
+      password: $password,
     );
 
     $client->request(
@@ -752,7 +752,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -760,7 +760,7 @@ class AuthLoginFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       needle: $response->getStatusCode(),
       haystack: [Response::HTTP_OK, Response::HTTP_CREATED],
-      message: 'Login should succeed. Response: ' . $response->getContent()
+      message: 'Login should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');

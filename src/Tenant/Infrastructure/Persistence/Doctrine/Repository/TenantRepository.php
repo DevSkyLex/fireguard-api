@@ -97,12 +97,12 @@ final class TenantRepository implements TenantRepositoryPort
   {
     $records = $this->repository->findBy(
       criteria: ['isActive' => true],
-      orderBy: ['name' => 'ASC']
+      orderBy: ['name' => 'ASC'],
     );
 
     return array_map(
       callback: fn (TenantRecord $record): Tenant => TenantMapper::toDomain(record: $record),
-      array: $records
+      array: $records,
     );
   }
 

@@ -21,8 +21,8 @@ final readonly class ListUserSessionsQuery
    *
    * @since 1.0.0
    *
-   * @param string $userId     the user ID
-   * @param bool   $activeOnly whether to return only active sessions
+   * @param string $userId the user ID
+   * @param bool $activeOnly whether to return only active sessions
    */
   public function __construct(
     public readonly string $userId,

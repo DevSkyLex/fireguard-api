@@ -24,9 +24,9 @@ final readonly class RateLimitResult
    *
    * @since 1.0.0
    *
-   * @param bool $accepted        whether the request is accepted
-   * @param int  $remainingTokens remaining tokens
-   * @param int  $retryAfter      seconds to wait before retry (if rejected)
+   * @param bool $accepted whether the request is accepted
+   * @param int $remainingTokens remaining tokens
+   * @param int $retryAfter seconds to wait before retry (if rejected)
    */
   public function __construct(
     public bool $accepted,

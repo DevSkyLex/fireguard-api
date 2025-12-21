@@ -19,7 +19,7 @@ interface ChallengeVerifierPort
    * Verifies an OTP code for a given challenge token.
    *
    * @param string $challengeToken the challenge token
-   * @param string $code           the verification code
+   * @param string $code the verification code
    *
    * @return MfaVerifyResult the verification result
    */

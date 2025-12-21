@@ -25,11 +25,11 @@ final readonly class ApplicationEvent
    *
    * Initialize the application event
    *
-   * @param Uuid                 $eventId       The event id
-   * @param string               $aggregateId   The aggregate id
-   * @param string               $aggregateType The aggregate type
-   * @param array<string, mixed> $payload       The payload
-   * @param DateTimeImmutable    $occurredAt    The occurred at
+   * @param Uuid $eventId The event id
+   * @param string $aggregateId The aggregate id
+   * @param string $aggregateType The aggregate type
+   * @param array<string, mixed> $payload The payload
+   * @param DateTimeImmutable $occurredAt The occurred at
    */
   public function __construct(
     public Uuid $eventId,

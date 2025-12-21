@@ -26,12 +26,12 @@ final readonly class RoleRevokedEvent implements DomainEvent
    * Initialize a new instance of the
    * RoleRevokedEvent class.
    *
-   * @param Uuid              $eventId      the event ID
-   * @param string            $assignmentId the assignment ID
-   * @param string            $roleId       the role ID
-   * @param string            $subjectType  the subject type
-   * @param string            $subjectId    the subject ID
-   * @param DateTimeImmutable $occurredAt   when the event occurred
+   * @param Uuid $eventId the event ID
+   * @param string $assignmentId the assignment ID
+   * @param string $roleId the role ID
+   * @param string $subjectType the subject type
+   * @param string $subjectId the subject ID
+   * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(
     private readonly Uuid $eventId,

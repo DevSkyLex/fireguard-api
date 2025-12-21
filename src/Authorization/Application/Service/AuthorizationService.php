@@ -55,7 +55,7 @@ final readonly class AuthorizationService implements AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string $userId     the user ID
+   * @param string $userId the user ID
    * @param string $permission the permission name
    *
    * @return bool true if the user has the permission, false otherwise
@@ -67,7 +67,7 @@ final readonly class AuthorizationService implements AuthorizationPort
     // Get user's roles
     $userRoles = $this->roleAssignmentRepository->findRolesForSubject(
       subjectType: SubjectType::USER,
-      subjectId: $userId
+      subjectId: $userId,
     );
 
     // Check permissions
@@ -90,7 +90,7 @@ final readonly class AuthorizationService implements AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string $userId   the user ID
+   * @param string $userId the user ID
    * @param string $roleName the role name
    *
    * @return bool true if the user has the role, false otherwise
@@ -110,7 +110,7 @@ final readonly class AuthorizationService implements AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string        $userId    the user ID
+   * @param string $userId the user ID
    * @param array<string> $roleNames the role names
    *
    * @return bool true if the user has any of the roles, false otherwise
@@ -136,7 +136,7 @@ final readonly class AuthorizationService implements AuthorizationPort
    *
    * @since 1.0.0
    *
-   * @param string        $userId    the user ID
+   * @param string $userId the user ID
    * @param array<string> $roleNames the role names
    *
    * @return bool true if the user has all roles, false otherwise
@@ -169,7 +169,7 @@ final readonly class AuthorizationService implements AuthorizationPort
   {
     return $this->roleAssignmentRepository->findRolesForSubject(
       subjectType: SubjectType::USER,
-      subjectId: $userId
+      subjectId: $userId,
     );
   }
 

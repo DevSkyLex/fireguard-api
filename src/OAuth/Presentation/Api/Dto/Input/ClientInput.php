@@ -47,7 +47,7 @@ final class ClientInput
       'type' => 'string',
       'minLength' => 3,
       'maxLength' => 100,
-    ]
+    ],
   )]
   public ?string $name = null;
 
@@ -80,7 +80,7 @@ final class ClientInput
     jsonSchemaContext: [
       'type' => 'array',
       'items' => ['type' => 'string', 'format' => 'uri'],
-    ]
+    ],
   )]
   public array $redirectUris = [];
 
@@ -113,7 +113,7 @@ final class ClientInput
     jsonSchemaContext: [
       'type' => 'array',
       'items' => ['type' => 'string', 'enum' => ['authorization_code', 'client_credentials', 'refresh_token']],
-    ]
+    ],
   )]
   public array $grantTypes = [];
 
@@ -146,7 +146,7 @@ final class ClientInput
     jsonSchemaContext: [
       'type' => 'array',
       'items' => ['type' => 'string'],
-    ]
+    ],
   )]
   public array $scopes = [];
   // #endregion

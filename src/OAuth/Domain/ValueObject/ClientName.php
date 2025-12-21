@@ -68,8 +68,8 @@ final readonly class ClientName implements Stringable
         message: sprintf(
           'Client name must be between %d and %d characters.',
           self::MIN_LENGTH,
-          self::MAX_LENGTH
-        )
+          self::MAX_LENGTH,
+        ),
       );
     }
 

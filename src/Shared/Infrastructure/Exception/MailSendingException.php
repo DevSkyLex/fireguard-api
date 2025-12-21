@@ -30,7 +30,7 @@ final class MailSendingException extends InfrastructureException
    *
    * @since 1.0.0
    *
-   * @param string     $subject  the subject of the email that failed to send
+   * @param string $subject the subject of the email that failed to send
    * @param ?Throwable $previous the underlying exception if any
    *
    * @return self the created exception instance
@@ -39,7 +39,7 @@ final class MailSendingException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to send email with subject "%s".', $subject),
-      previous: $previous
+      previous: $previous,
     );
   }
   // #endregion

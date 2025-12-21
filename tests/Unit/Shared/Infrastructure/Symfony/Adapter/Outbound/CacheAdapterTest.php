@@ -19,6 +19,7 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
 final class CacheAdapterTest extends TestCase
 {
   private CacheItemPoolInterface&MockObject $cachePool;
+
   private CacheAdapter $adapter;
 
   protected function setUp(): void

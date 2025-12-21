@@ -58,7 +58,7 @@ final readonly class Scopes implements Countable, IteratorAggregate
   {
     if (empty($scopes)) {
       throw InvalidValueException::because(
-        message: 'At least one scope is required.'
+        message: 'At least one scope is required.',
       );
     }
 
@@ -89,7 +89,7 @@ final readonly class Scopes implements Countable, IteratorAggregate
   {
     if (empty($scopes)) {
       throw InvalidValueException::because(
-        message: 'At least one scope is required.'
+        message: 'At least one scope is required.',
       );
     }
 
@@ -98,7 +98,7 @@ final readonly class Scopes implements Countable, IteratorAggregate
       $scope = Scope::tryFrom($value);
       if (null === $scope) {
         throw InvalidValueException::because(
-          message: "Invalid scope: $value"
+          message: "Invalid scope: $value",
         );
       }
       $scopeObjects[] = $scope;
@@ -129,7 +129,7 @@ final readonly class Scopes implements Countable, IteratorAggregate
 
     if (empty($scopeValues)) {
       throw InvalidValueException::because(
-        message: 'Scopes string cannot be empty.'
+        message: 'Scopes string cannot be empty.',
       );
     }
 
@@ -138,7 +138,7 @@ final readonly class Scopes implements Countable, IteratorAggregate
       $scope = Scope::tryFrom($value);
       if (null === $scope) {
         throw InvalidValueException::because(
-          message: "Invalid scope: $value"
+          message: "Invalid scope: $value",
         );
       }
       $scopes[] = $scope;

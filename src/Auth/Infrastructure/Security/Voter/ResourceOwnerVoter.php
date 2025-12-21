@@ -32,8 +32,11 @@ final class ResourceOwnerVoter extends Voter
 {
   // #region Constants
   public const string OWNER = 'OWNER';
+
   public const string VIEW_OWN = 'VIEW_OWN';
+
   public const string EDIT_OWN = 'EDIT_OWN';
+
   public const string DELETE_OWN = 'DELETE_OWN';
   // #endregion
 

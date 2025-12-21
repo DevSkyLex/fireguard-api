@@ -55,7 +55,7 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
   {
     if (empty($grantTypes)) {
       throw InvalidValueException::because(
-        message: 'At least one grant type is required.'
+        message: 'At least one grant type is required.',
       );
     }
 
@@ -79,15 +79,15 @@ final readonly class GrantTypes implements Countable, IteratorAggregate
    *
    * @param array<string> $grantTypes the grant types as strings
    *
-   * @return self the GrantTypes collection
-   *
    * @throws ValueError if any string is not a valid grant type
+   *
+   * @return self the GrantTypes collection
    */
   public static function fromArray(array $grantTypes): self
   {
     if (empty($grantTypes)) {
       throw InvalidValueException::because(
-        message: 'At least one grant type is required.'
+        message: 'At least one grant type is required.',
       );
     }
 

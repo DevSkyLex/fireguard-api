@@ -26,15 +26,15 @@ final readonly class LoginResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool         $authenticated whether authentication succeeded
-   * @param string|null  $userId        the authenticated user ID
-   * @param string|null  $email         the authenticated user email
-   * @param string|null  $accessToken   the access token
-   * @param string|null  $refreshToken  the refresh token
-   * @param string       $tokenType     the token type
-   * @param int          $expiresIn     the token expiration time in seconds
-   * @param list<string> $scopes        the granted scopes
-   * @param string|null  $errorMessage  error message if authentication failed
+   * @param bool $authenticated whether authentication succeeded
+   * @param string|null $userId the authenticated user ID
+   * @param string|null $email the authenticated user email
+   * @param string|null $accessToken the access token
+   * @param string|null $refreshToken the refresh token
+   * @param string $tokenType the token type
+   * @param int $expiresIn the token expiration time in seconds
+   * @param list<string> $scopes the granted scopes
+   * @param string|null $errorMessage error message if authentication failed
    */
   public function __construct(
     public bool $authenticated,

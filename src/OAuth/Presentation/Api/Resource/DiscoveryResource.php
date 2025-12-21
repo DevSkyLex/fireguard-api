@@ -123,7 +123,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ],
       ),
     ),
-  ]
+  ],
 )]
 final class DiscoveryResource
 {

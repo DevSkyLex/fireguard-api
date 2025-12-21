@@ -22,9 +22,9 @@ final readonly class UserEmailVerifiedEvent implements DomainEvent
   /**
    * Constructor.
    *
-   * @param Uuid              $eventId    the unique event identifier
-   * @param string            $userId     the user ID
-   * @param string            $email      the verified email
+   * @param Uuid $eventId the unique event identifier
+   * @param string $userId the user ID
+   * @param string $email the verified email
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

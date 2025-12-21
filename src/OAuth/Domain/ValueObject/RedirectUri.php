@@ -58,20 +58,20 @@ final readonly class RedirectUri implements Stringable
     // Validate the redirect URI.
     if (!filter_var($value, FILTER_VALIDATE_URL)) {
       throw InvalidValueException::because(
-        message: 'Invalid redirect URI.'
+        message: 'Invalid redirect URI.',
       );
     }
 
     // Validate the redirect URI scheme.
     $scheme = parse_url(
       url: $value,
-      component: PHP_URL_SCHEME
+      component: PHP_URL_SCHEME,
     );
 
     // Check if the redirect URI scheme is supported.
     if (null === $scheme || !in_array(strtolower((string) $scheme), self::ALLOWED_SCHEMES, true)) {
       throw InvalidValueException::because(
-        message: 'Unsupported redirect URI scheme.'
+        message: 'Unsupported redirect URI scheme.',
       );
     }
   }

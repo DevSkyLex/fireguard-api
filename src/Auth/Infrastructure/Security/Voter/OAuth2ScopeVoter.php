@@ -37,7 +37,7 @@ final class OAuth2ScopeVoter extends Voter
   {
     return str_starts_with(
       haystack: $attribute,
-      needle: self::SCOPE_PREFIX
+      needle: self::SCOPE_PREFIX,
     );
   }
 

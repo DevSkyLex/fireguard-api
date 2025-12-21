@@ -61,10 +61,10 @@ final readonly class ListUsersHandler implements \Shared\Application\Message\Que
       items: $users,
       total: count(
         value: $users,
-        mode: COUNT_NORMAL
+        mode: COUNT_NORMAL,
       ),
       limit: $query->limit,
-      offset: ($query->page - 1) * $query->limit
+      offset: ($query->page - 1) * $query->limit,
     );
   }
 }

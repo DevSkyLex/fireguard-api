@@ -28,7 +28,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -49,7 +49,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -69,7 +69,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -90,7 +90,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -111,7 +111,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -132,7 +132,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -153,7 +153,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance
@@ -174,7 +174,7 @@ final class AuthorizationException extends DomainException
    *
    * @since 1.0.0
    *
-   * @param string         $message  the error message
+   * @param string $message the error message
    * @param Throwable|null $previous the previous exception
    *
    * @return self the exception instance

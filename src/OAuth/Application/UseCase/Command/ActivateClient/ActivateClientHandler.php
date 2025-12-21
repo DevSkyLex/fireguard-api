@@ -29,8 +29,8 @@ final readonly class ActivateClientHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param ClientRepositoryPort $clientRepository the client repository
-   * @param EventBusPort         $eventBus         the event bus
-   * @param EventIdProvider      $eventIdProvider  the event ID provider
+   * @param EventBusPort $eventBus the event bus
+   * @param EventIdProvider $eventIdProvider the event ID provider
    */
   public function __construct(
     private readonly ClientRepositoryPort $clientRepository,

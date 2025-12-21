@@ -38,8 +38,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param QueryBusPort              $queryBus      the query bus
-   * @param RequestStack              $requestStack  the request stack
+   * @param QueryBusPort $queryBus the query bus
+   * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the cookie service
    */
   public function __construct(
@@ -59,10 +59,10 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return LoginOutput|null the output
    */
@@ -78,7 +78,7 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     if (null === $refreshToken || '' === $refreshToken) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
-        message: 'No refresh token provided'
+        message: 'No refresh token provided',
       );
     }
 
@@ -91,13 +91,13 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
       query: new RefreshTokenQuery(
         refreshToken: $refreshToken,
         ipAddress: $request->getClientIp(),
-      )
+      ),
     );
 
     if (!$result->success) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
-        message: $result->errorMessage ?? 'Invalid refresh token'
+        message: $result->errorMessage ?? 'Invalid refresh token',
       );
     }
 
@@ -109,12 +109,12 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
 
     if (null !== $result->refreshToken) {
       $cookie = $this->cookieService->createCookie(
-        refreshToken: $result->refreshToken
+        refreshToken: $result->refreshToken,
       );
 
       $request->attributes->set(
         key: '_refresh_token_cookie',
-        value: $cookie
+        value: $cookie,
       );
     }
 

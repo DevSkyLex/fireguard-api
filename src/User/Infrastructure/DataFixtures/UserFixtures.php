@@ -36,6 +36,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
 {
   // #region Constants
   public const string ADMIN_USER_REFERENCE = 'admin-user';
+
   public const string TEST_USER_REFERENCE = 'test-user';
   // #endregion
 
@@ -61,7 +62,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
       email: 'admin@fireguard.local',
       firstName: 'Admin',
       lastName: 'User',
-      password: password_hash('Admin123!', PASSWORD_BCRYPT)
+      password: password_hash('Admin123!', PASSWORD_BCRYPT),
     );
     $adminRecord = $this->userMapper->toRecord($adminUser);
     $manager->persist($adminRecord);
@@ -74,7 +75,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
       email: 'test@fireguard.local',
       firstName: 'Test',
       lastName: 'User',
-      password: password_hash('Test123!', PASSWORD_BCRYPT)
+      password: password_hash('Test123!', PASSWORD_BCRYPT),
     );
     $testRecord = $this->userMapper->toRecord($testUser);
     $manager->persist($testRecord);
@@ -94,7 +95,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
         email: $userData[1],
         firstName: $userData[2],
         lastName: $userData[3],
-        password: password_hash('Demo123!', PASSWORD_BCRYPT)
+        password: password_hash('Demo123!', PASSWORD_BCRYPT),
       );
       $record = $this->userMapper->toRecord($user);
       $manager->persist($record);
@@ -107,7 +108,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
       email: 'dev.client@fireguard.local',
       firstName: 'Dev',
       lastName: 'Client',
-      password: password_hash('DevClient123!', PASSWORD_BCRYPT)
+      password: password_hash('DevClient123!', PASSWORD_BCRYPT),
     );
     $clientUserRecord = $this->userMapper->toRecord($clientUser);
     $manager->persist($clientUserRecord);
@@ -130,7 +131,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
       password: new HashedPassword($password),
       profile: new UserProfile(
         firstName: $firstName,
-        lastName: $lastName
+        lastName: $lastName,
       ),
       tenantId: TenantId::fromString('00000000-0000-4000-8000-000000000001'),
       eventIdProvider: new UuidEventIdProvider(new UuidGeneratorAdapter()),

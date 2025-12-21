@@ -79,10 +79,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid request - missing or invalid parameters'
+            description: 'Invalid request - missing or invalid parameters',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Invalid credentials - email or password incorrect'
+            description: 'Invalid credentials - email or password incorrect',
           ),
         ],
       ),
@@ -121,7 +121,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Invalid or expired refresh token'
+            description: 'Invalid or expired refresh token',
           ),
         ],
       ),
@@ -190,15 +190,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
-            description: 'Invalid or expired pre-auth token'
+            description: 'Invalid or expired pre-auth token',
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid OTP code'
+            description: 'Invalid OTP code',
           ),
         ],
       ),
     ),
-  ]
+  ],
 )]
 final class AuthResource
 {

@@ -56,7 +56,7 @@ interface TrustedDeviceRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param string $userId      the user ID of the device to find
+   * @param string $userId the user ID of the device to find
    * @param string $fingerprint the fingerprint of the device to find
    *
    * @return ?TrustedDevice the found device, or null if not found

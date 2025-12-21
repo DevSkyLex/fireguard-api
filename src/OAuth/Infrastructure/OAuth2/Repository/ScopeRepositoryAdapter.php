@@ -44,9 +44,9 @@ final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
   }
 
   /**
-   * @param string          $grantType
+   * @param string $grantType
    * @param string|int|null $userIdentifier
-   * @param string|null     $authCodeId
+   * @param string|null $authCodeId
    */
   public function finalizeScopes(
     array $scopes,

@@ -26,7 +26,7 @@ final readonly class SetupTotpCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string $userId      the user ID
+   * @param string $userId the user ID
    * @param string $accountName the account name/email for display
    */
   public function __construct(

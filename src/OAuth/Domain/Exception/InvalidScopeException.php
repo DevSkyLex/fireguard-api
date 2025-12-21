@@ -34,7 +34,7 @@ final class InvalidScopeException extends InvalidValueException
   public static function invalidFormat(string $value): self
   {
     return new self(
-      message: "Invalid scope format: '{$value}'. Scopes must contain only alphanumeric characters, dots, hyphens, underscores, and colons."
+      message: "Invalid scope format: '{$value}'. Scopes must contain only alphanumeric characters, dots, hyphens, underscores, and colons.",
     );
   }
 

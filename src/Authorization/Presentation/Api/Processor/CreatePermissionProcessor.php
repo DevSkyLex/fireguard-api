@@ -53,10 +53,10 @@ final readonly class CreatePermissionProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param PermissionInput      $data         the input data
-   * @param Operation            $operation    the operation
+   * @param PermissionInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return PermissionOutput the processed output
    */
@@ -68,7 +68,7 @@ final readonly class CreatePermissionProcessor implements ProcessorInterface
     $permission = Permission::create(
       id: new PermissionId(value: Uuid::v7()->toRfc4122()),
       name: new PermissionName(value: $data->name),
-      description: $data->description ?? ''
+      description: $data->description ?? '',
     );
 
     // Save

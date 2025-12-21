@@ -59,17 +59,17 @@ final class User
    *
    * @since 1.0.0
    *
-   * @param UserId                 $id                  the user ID
-   * @param Username               $username            the username
-   * @param Email                  $email               the user email
-   * @param HashedPassword         $password            the hashed password
-   * @param UserProfile            $profile             the user profile
-   * @param UserStatus             $status              the user status
-   * @param bool                   $emailVerified       whether the email is verified
-   * @param TenantId|null          $tenantId            the tenant ID (for multi-tenant)
-   * @param DateTimeImmutable      $createdAt           when the user was created
-   * @param DateTimeImmutable|null $lastLoginAt         when the user last logged in
-   * @param int                    $failedLoginAttempts number of failed login attempts
+   * @param UserId $id the user ID
+   * @param Username $username the username
+   * @param Email $email the user email
+   * @param HashedPassword $password the hashed password
+   * @param UserProfile $profile the user profile
+   * @param UserStatus $status the user status
+   * @param bool $emailVerified whether the email is verified
+   * @param TenantId|null $tenantId the tenant ID (for multi-tenant)
+   * @param DateTimeImmutable $createdAt when the user was created
+   * @param DateTimeImmutable|null $lastLoginAt when the user last logged in
+   * @param int $failedLoginAttempts number of failed login attempts
    */
   private function __construct(
     private UserId $id,
@@ -97,13 +97,13 @@ final class User
    *
    * @since 1.0.0
    *
-   * @param UserId          $id              the user ID
-   * @param Username        $username        the username
-   * @param Email           $email           the user email
-   * @param HashedPassword  $password        the hashed password
-   * @param UserProfile     $profile         the user profile
+   * @param UserId $id the user ID
+   * @param Username $username the username
+   * @param Email $email the user email
+   * @param HashedPassword $password the hashed password
+   * @param UserProfile $profile the user profile
    * @param EventIdProvider $eventIdProvider the event ID provider
-   * @param TenantId|null   $tenantId        the tenant ID
+   * @param TenantId|null $tenantId the tenant ID
    *
    * @return self the new user instance
    */
@@ -176,16 +176,16 @@ final class User
    *
    * @param string $plainPassword the plain text password
    *
-   * @return bool true if authentication successful
-   *
-   * @throws InvalidUserException     if the user cannot login
+   * @throws InvalidUserException if the user cannot login
    * @throws InvalidPasswordException if the password is incorrect
+   *
+   * @return bool true if authentication successful
    */
   public function authenticate(string $plainPassword): bool
   {
     if (!$this->canLogin()) {
       throw InvalidUserException::cannotLogin(
-        reason: $this->status->label()
+        reason: $this->status->label(),
       );
     }
 

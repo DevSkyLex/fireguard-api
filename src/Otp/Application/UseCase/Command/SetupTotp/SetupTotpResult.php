@@ -26,7 +26,7 @@ final readonly class SetupTotpResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string $secret    the TOTP secret (base32 encoded)
+   * @param string $secret the TOTP secret (base32 encoded)
    * @param string $qrCodeUri the otpauth:// URI for QR code generation
    */
   public function __construct(

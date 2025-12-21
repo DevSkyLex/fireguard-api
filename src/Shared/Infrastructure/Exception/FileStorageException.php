@@ -29,7 +29,7 @@ final class FileStorageException extends InfrastructureException
    *
    * @since 1.0.0
    *
-   * @param string     $path     the path that failed to read
+   * @param string $path the path that failed to read
    * @param ?Throwable $previous the underlying exception if any
    *
    * @return self the created exception instance
@@ -38,7 +38,7 @@ final class FileStorageException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to read file "%s".', $path),
-      previous: $previous
+      previous: $previous,
     );
   }
 
@@ -51,7 +51,7 @@ final class FileStorageException extends InfrastructureException
    *
    * @since 1.0.0
    *
-   * @param string     $path     the path that failed to write
+   * @param string $path the path that failed to write
    * @param ?Throwable $previous the underlying exception if any
    *
    * @return self the created exception instance
@@ -60,7 +60,7 @@ final class FileStorageException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to write file "%s".', $path),
-      previous: $previous
+      previous: $previous,
     );
   }
 
@@ -73,7 +73,7 @@ final class FileStorageException extends InfrastructureException
    *
    * @since 1.0.0
    *
-   * @param string     $path     the path that failed to delete
+   * @param string $path the path that failed to delete
    * @param ?Throwable $previous the underlying exception if any
    *
    * @return self the created exception instance
@@ -82,7 +82,7 @@ final class FileStorageException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to delete file "%s".', $path),
-      previous: $previous
+      previous: $previous,
     );
   }
 
@@ -95,7 +95,7 @@ final class FileStorageException extends InfrastructureException
    *
    * @since 1.0.0
    *
-   * @param string     $path     the directory path that failed to create
+   * @param string $path the directory path that failed to create
    * @param ?Throwable $previous the underlying exception if any
    *
    * @return self the created exception instance
@@ -104,7 +104,7 @@ final class FileStorageException extends InfrastructureException
   {
     return new self(
       message: sprintf('Failed to create directory "%s".', $path),
-      previous: $previous
+      previous: $previous,
     );
   }
   // #endregion

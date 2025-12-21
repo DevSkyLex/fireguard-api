@@ -32,8 +32,8 @@ final readonly class DomainExceptionNormalizer implements NormalizerInterface
    * Method normalize
    * {@inheritDoc}
    *
-   * @param mixed                $object  the exception to normalize
-   * @param string|null          $format  the format
+   * @param mixed $object the exception to normalize
+   * @param string|null $format the format
    * @param array<string, mixed> $context the context
    *
    * @return array<string, mixed> the normalized data
@@ -62,8 +62,8 @@ final readonly class DomainExceptionNormalizer implements NormalizerInterface
    * Method supportsNormalization
    * {@inheritDoc}
    *
-   * @param mixed                $data    the data
-   * @param string|null          $format  the format
+   * @param mixed $data the data
+   * @param string|null $format the format
    * @param array<string, mixed> $context the context
    *
    * @return bool whether normalization is supported

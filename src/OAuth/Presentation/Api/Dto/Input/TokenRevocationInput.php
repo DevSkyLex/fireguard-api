@@ -65,7 +65,7 @@ final class TokenRevocationInput
    */
   #[Assert\Choice(
     choices: ['access_token', 'refresh_token'],
-    message: 'Invalid token_type_hint. Allowed values: access_token, refresh_token.'
+    message: 'Invalid token_type_hint. Allowed values: access_token, refresh_token.',
   )]
   #[SerializedName(serializedName: 'token_type_hint')]
   #[ApiProperty(

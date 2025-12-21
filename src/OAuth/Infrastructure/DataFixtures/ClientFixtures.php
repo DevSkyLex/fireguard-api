@@ -143,7 +143,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
         Scope::EMAIL,
         Scope::READ,
         Scope::WRITE,
-      ]
+      ],
     );
     $webRecord = $this->clientMapper->toRecord($webClient);
     $manager->persist($webRecord);
@@ -166,7 +166,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
         Scope::PROFILE,
         Scope::EMAIL,
         Scope::READ,
-      ]
+      ],
     );
     $mobileRecord = $this->clientMapper->toRecord($mobileClient);
     $manager->persist($mobileRecord);
@@ -184,7 +184,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
       scopes: [
         Scope::READ,
         Scope::WRITE,
-      ]
+      ],
     );
     $apiRecord = $this->clientMapper->toRecord($apiClient);
     $manager->persist($apiRecord);
@@ -211,7 +211,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
         Scope::EMAIL,
         Scope::READ,
         Scope::WRITE,
-      ]
+      ],
     );
     $devRecord = $this->clientMapper->toRecord($devClient);
     $manager->persist($devRecord);
@@ -227,12 +227,12 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
    *
    * @since 1.0.0
    *
-   * @param string           $id           The client id
-   * @param string           $name         The client name
-   * @param string           $secret       The client secret
-   * @param array<string>    $redirectUris The redirect uris
-   * @param array<GrantType> $grantTypes   The grant types
-   * @param array<Scope>     $scopes       The scopes
+   * @param string $id The client id
+   * @param string $name The client name
+   * @param string $secret The client secret
+   * @param array<string> $redirectUris The redirect uris
+   * @param array<GrantType> $grantTypes The grant types
+   * @param array<Scope> $scopes The scopes
    *
    * @return Client The client
    */
@@ -246,7 +246,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
   ): Client {
     $redirectUriObjects = array_map(
       fn (string $uri) => new RedirectUri($uri),
-      $redirectUris
+      $redirectUris,
     );
 
     $client = Client::register(

@@ -58,7 +58,7 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
         ...$allowedSelectors,
         ...$this->selectorsForModuleLayer(
           module: $module,
-          layer: ArchitectureLayer::DOMAIN
+          layer: ArchitectureLayer::DOMAIN,
         ),
       ];
     }
@@ -89,8 +89,8 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
             '%s\\%s\\%s',
             ArchitectureNamespace::SHARED->value,
             ArchitectureLayer::APPLICATION->value,
-            'Port'
-          )
+            'Port',
+          ),
         ),
       ];
     }
@@ -100,7 +100,7 @@ final class SharedContractsDependenciesTest extends BaseHexagonalArchitectureTes
       Selector::inNamespace(namespace: sprintf(
         '%s\\%s',
         ArchitectureNamespace::SHARED->value,
-        ArchitectureLayer::INFRASTRUCTURE->value
+        ArchitectureLayer::INFRASTRUCTURE->value,
       )),
       Selector::inNamespace(namespace: 'Symfony'),
     ];

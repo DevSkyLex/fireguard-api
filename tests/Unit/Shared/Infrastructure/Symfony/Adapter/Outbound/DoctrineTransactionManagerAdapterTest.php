@@ -17,6 +17,7 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAda
 final class DoctrineTransactionManagerAdapterTest extends TestCase
 {
   private EntityManagerInterface&MockObject $entityManager;
+
   private DoctrineTransactionManagerAdapter $adapter;
 
   protected function setUp(): void

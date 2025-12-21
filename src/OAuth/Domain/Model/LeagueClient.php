@@ -30,13 +30,13 @@ final readonly class LeagueClient
    *
    * @since 1.0.0
    *
-   * @param OAuthClientIdentifier $identifier     the OAuth client identifier
-   * @param string                $name           the client name
-   * @param list<string>          $redirectUris   the redirect URIs
-   * @param list<GrantType>       $grantTypes     the grant types
-   * @param list<Scope>           $scopes         the scopes
-   * @param string|null           $secret         the hashed secret (null for public clients)
-   * @param bool                  $isConfidential whether the client is confidential
+   * @param OAuthClientIdentifier $identifier the OAuth client identifier
+   * @param string $name the client name
+   * @param list<string> $redirectUris the redirect URIs
+   * @param list<GrantType> $grantTypes the grant types
+   * @param list<Scope> $scopes the scopes
+   * @param string|null $secret the hashed secret (null for public clients)
+   * @param bool $isConfidential whether the client is confidential
    */
   public function __construct(
     private OAuthClientIdentifier $identifier,

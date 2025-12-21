@@ -115,12 +115,12 @@ final class ConsentRepository implements ConsentRepositoryPort
   {
     $records = $this->repository->findBy(
       criteria: ['userId' => $userId],
-      orderBy: ['grantedAt' => 'DESC']
+      orderBy: ['grantedAt' => 'DESC'],
     );
 
     return array_map(
       callback: fn (ConsentRecord $record): Consent => ConsentMapper::toDomain(record: $record),
-      array: $records
+      array: $records,
     );
   }
 

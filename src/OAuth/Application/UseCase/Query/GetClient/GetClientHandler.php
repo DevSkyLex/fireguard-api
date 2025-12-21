@@ -47,9 +47,9 @@ final readonly class GetClientHandler implements QueryHandler
    *
    * @param GetClientQuery $query the query to handle
    *
-   * @return GetClientResult the result message
-   *
    * @throws EntityNotFoundException if the client is not found
+   *
+   * @return GetClientResult the result message
    */
   public function __invoke(GetClientQuery $query): GetClientResult
   {
@@ -60,7 +60,7 @@ final readonly class GetClientHandler implements QueryHandler
     if (!$client) {
       throw EntityNotFoundException::forId(
         entityType: 'Client',
-        id: $clientId->value
+        id: $clientId->value,
       );
     }
 
@@ -71,7 +71,7 @@ final readonly class GetClientHandler implements QueryHandler
       grantTypes: $client->grantTypes()->toArray(),
       scopes: $client->scopes()->toArray(),
       isActive: $client->isActive(),
-      createdAt: $client->createdAt()->format('c')
+      createdAt: $client->createdAt()->format('c'),
     );
   }
   // #endregion

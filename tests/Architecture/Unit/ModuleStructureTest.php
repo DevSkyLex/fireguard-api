@@ -59,7 +59,7 @@ final class ModuleStructureTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $missingLayers,
-      message: 'Every module must expose Domain, Application and Infrastructure directories.'
+      message: 'Every module must expose Domain, Application and Infrastructure directories.',
     );
   }
   // #endregion

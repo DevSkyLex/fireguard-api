@@ -22,7 +22,7 @@ final readonly class RevokeSessionCommand
    * @since 1.0.0
    *
    * @param string $sessionId the session ID to revoke
-   * @param string $reason    the reason for revocation
+   * @param string $reason the reason for revocation
    */
   public function __construct(
     public string $sessionId,

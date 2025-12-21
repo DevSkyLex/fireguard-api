@@ -33,7 +33,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
    *
    * @since 1.0.0
    *
-   * @param mixed      $value      the value to validate
+   * @param mixed $value the value to validate
    * @param Constraint $constraint the constraint to validate against
    *
    * @return void no return value
@@ -43,7 +43,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
     if (!$constraint instanceof ValidRedirectUri) {
       throw new UnexpectedTypeException(
         value: $constraint,
-        expectedType: ValidRedirectUri::class
+        expectedType: ValidRedirectUri::class,
       );
     }
 
@@ -60,7 +60,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
 
       $this->validateUri(
         uri: $uri,
-        constraint: $constraint
+        constraint: $constraint,
       );
     }
   }
@@ -72,7 +72,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
    *
    * @since 1.0.0
    *
-   * @param string           $uri        the URI
+   * @param string $uri the URI
    * @param ValidRedirectUri $constraint the constraint
    *
    * @return void no return value
@@ -93,7 +93,7 @@ final class ValidRedirectUriValidator extends ConstraintValidator
     // Check for fragment
     if (isset($parsed['fragment'])) {
       $this->context->buildViolation(
-        message: $constraint->messageFragment
+        message: $constraint->messageFragment,
       )
         ->setParameter('{{ uri }}', $uri)
         ->addViolation();

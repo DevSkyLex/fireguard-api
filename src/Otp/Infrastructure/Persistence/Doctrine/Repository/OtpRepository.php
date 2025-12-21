@@ -31,7 +31,7 @@ final readonly class OtpRepository implements OtpRepositoryPort
    * Constructor.
    *
    * @param EntityManagerInterface $entityManager the entity manager
-   * @param OtpMapper              $mapper        the mapper
+   * @param OtpMapper $mapper the mapper
    */
   public function __construct(
     private EntityManagerInterface $entityManager,

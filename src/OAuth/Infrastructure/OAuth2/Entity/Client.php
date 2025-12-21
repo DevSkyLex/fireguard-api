@@ -27,10 +27,10 @@ final class Client implements ClientEntityInterface
   /**
    * Constructor.
    *
-   * @param string               $identifier     the client identifier
-   * @param string               $name           the client name
-   * @param string|array<string> $redirectUri    the redirect URI(s)
-   * @param bool                 $isConfidential whether the client is confidential
+   * @param string $identifier the client identifier
+   * @param string $name the client name
+   * @param string|array<string> $redirectUri the redirect URI(s)
+   * @param bool $isConfidential whether the client is confidential
    */
   public function __construct(
     string $identifier,

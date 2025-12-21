@@ -77,7 +77,7 @@ final readonly class RoleMapper
    *
    * @since 1.0.0
    *
-   * @param Role            $role   the domain model to convert
+   * @param Role $role the domain model to convert
    * @param RoleRecord|null $record existing record to update, or null to create new
    *
    * @return RoleRecord the Doctrine record

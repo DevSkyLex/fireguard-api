@@ -28,10 +28,10 @@ final readonly class TrustDeviceResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string            $deviceId   the device ID
-   * @param string            $token      the token
-   * @param string            $deviceName the device name
-   * @param DateTimeImmutable $expiresAt  the expiration date
+   * @param string $deviceId the device ID
+   * @param string $token the token
+   * @param string $deviceName the device name
+   * @param DateTimeImmutable $expiresAt the expiration date
    */
   public function __construct(
     public readonly string $deviceId,

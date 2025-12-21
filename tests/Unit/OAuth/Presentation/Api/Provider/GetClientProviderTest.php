@@ -44,7 +44,7 @@ final class GetClientProviderTest extends TestCase
       grantTypes: ['authorization_code'],
       scopes: ['read'],
       isActive: true,
-      createdAt: '2023-01-01T00:00:00+00:00'
+      createdAt: '2023-01-01T00:00:00+00:00',
     );
 
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -59,7 +59,7 @@ final class GetClientProviderTest extends TestCase
 
     $output = $provider->provide(
       operation: $operation,
-      uriVariables: ['id' => $clientId]
+      uriVariables: ['id' => $clientId],
     );
 
     self::assertInstanceOf(expected: ClientOutput::class, actual: $output);
@@ -90,7 +90,7 @@ final class GetClientProviderTest extends TestCase
 
     $output = $provider->provide(
       operation: $operation,
-      uriVariables: ['id' => $clientId]
+      uriVariables: ['id' => $clientId],
     );
 
     self::assertNull(actual: $output);

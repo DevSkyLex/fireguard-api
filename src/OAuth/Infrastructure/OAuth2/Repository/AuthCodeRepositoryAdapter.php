@@ -47,7 +47,7 @@ final readonly class AuthCodeRepositoryAdapter implements AuthCodeRepositoryInte
       clientIdentifier: new OAuthClientIdentifier((string) $authCodeEntity->getClient()->getIdentifier()),
       userIdentifier: (string) $authCodeEntity->getUserIdentifier(),
       scopes: Scopes::fromArray(array_map(fn ($scope) => $scope->getIdentifier(), $authCodeEntity->getScopes())),
-      redirectUri: $authCodeEntity->getRedirectUri()
+      redirectUri: $authCodeEntity->getRedirectUri(),
     );
 
     $this->authCodeRepository->save($code);

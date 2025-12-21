@@ -66,8 +66,8 @@ final readonly class TokenValidationService
    *
    * @since 1.0.0
    *
-   * @param AccessToken|null $token          the access token
-   * @param list<string>     $requiredScopes required scopes (optional)
+   * @param AccessToken|null $token the access token
+   * @param list<string> $requiredScopes required scopes (optional)
    *
    * @return TokenValidationResult the validation result
    */
@@ -93,7 +93,7 @@ final readonly class TokenValidationService
         if (!in_array($requiredScope, $tokenScopes, true)) {
           return TokenValidationResult::failed(
             self::VALIDATION_INVALID_SCOPE,
-            sprintf('Missing required scope: %s', $requiredScope)
+            sprintf('Missing required scope: %s', $requiredScope),
           );
         }
       }

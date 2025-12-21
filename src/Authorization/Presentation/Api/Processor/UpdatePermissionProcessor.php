@@ -55,10 +55,10 @@ final readonly class UpdatePermissionProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param PermissionInput      $data         the input data
-   * @param Operation            $operation    the operation
+   * @param PermissionInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return PermissionOutput the processed output
    */

@@ -35,13 +35,13 @@ final readonly class DPoPProof
    *
    * @since 1.0.0
    *
-   * @param string            $jti        unique identifier for the DPoP proof JWT
-   * @param string            $htm        HTTP method of the request
-   * @param string            $htu        HTTP URI of the request
-   * @param DateTimeImmutable $iat        issued at time
-   * @param string            $thumbprint JWK thumbprint of the public key
-   * @param string|null       $ath        access token hash (optional, for token requests)
-   * @param string|null       $nonce      server-provided nonce (optional)
+   * @param string $jti unique identifier for the DPoP proof JWT
+   * @param string $htm HTTP method of the request
+   * @param string $htu HTTP URI of the request
+   * @param DateTimeImmutable $iat issued at time
+   * @param string $thumbprint JWK thumbprint of the public key
+   * @param string|null $ath access token hash (optional, for token requests)
+   * @param string|null $nonce server-provided nonce (optional)
    */
   public function __construct(
     public string $jti,
@@ -65,12 +65,12 @@ final readonly class DPoPProof
    *
    * @since 1.0.0
    *
-   * @param array<string, mixed> $payload    the decoded JWT payload
-   * @param string               $thumbprint the JWK thumbprint
-   *
-   * @return self the DPoP proof
+   * @param array<string, mixed> $payload the decoded JWT payload
+   * @param string $thumbprint the JWK thumbprint
    *
    * @throws InvalidValueException if the payload is invalid
+   *
+   * @return self the DPoP proof
    */
   public static function fromJwt(array $payload, string $thumbprint): self
   {
@@ -108,8 +108,8 @@ final readonly class DPoPProof
    * @since 1.0.0
    *
    * @param string $method the expected HTTP method
-   * @param string $uri    the expected HTTP URI
-   * @param int    $maxAge maximum age of the proof in seconds
+   * @param string $uri the expected HTTP URI
+   * @param int $maxAge maximum age of the proof in seconds
    *
    * @return bool true if valid, false otherwise
    */

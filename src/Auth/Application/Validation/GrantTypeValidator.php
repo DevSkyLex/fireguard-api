@@ -61,10 +61,10 @@ final readonly class GrantTypeValidator
    *
    * @since 1.0.0
    *
-   * @param string      $grantType    the grant type
+   * @param string $grantType the grant type
    * @param string|null $refreshToken the refresh token
-   * @param string|null $code         the authorization code
-   * @param string|null $redirectUri  the redirect URI
+   * @param string|null $code the authorization code
+   * @param string|null $redirectUri the redirect URI
    * @param string|null $codeVerifier the PKCE code verifier
    *
    * @throws ValidationException if validation fails
@@ -112,8 +112,8 @@ final readonly class GrantTypeValidator
    *
    * @since 1.0.0
    *
-   * @param string|null $code         the authorization code
-   * @param string|null $redirectUri  the redirect URI
+   * @param string|null $code the authorization code
+   * @param string|null $redirectUri the redirect URI
    * @param string|null $codeVerifier the PKCE code verifier
    *
    * @throws ValidationException if validation fails

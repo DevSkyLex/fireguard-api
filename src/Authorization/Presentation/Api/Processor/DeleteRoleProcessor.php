@@ -52,10 +52,10 @@ final readonly class DeleteRoleProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the input data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return void no return value
    */
@@ -76,7 +76,7 @@ final readonly class DeleteRoleProcessor implements ProcessorInterface
     // Prevent deletion of system roles
     if ($role->isSystem()) {
       throw new BadRequestHttpException(
-        message: 'System roles cannot be deleted.'
+        message: 'System roles cannot be deleted.',
       );
     }
 

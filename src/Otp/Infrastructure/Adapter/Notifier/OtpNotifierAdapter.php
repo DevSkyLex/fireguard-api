@@ -39,9 +39,9 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
    *
    * @since 1.0.0
    *
-   * @param NotifierInterface $notifier    the Symfony Notifier
-   * @param MailerInterface   $mailer      the Symfony Mailer for email fallback
-   * @param string            $senderEmail the sender email address
+   * @param NotifierInterface $notifier the Symfony Notifier
+   * @param MailerInterface $mailer the Symfony Mailer for email fallback
+   * @param string $senderEmail the sender email address
    */
   public function __construct(
     private readonly NotifierInterface $notifier,
@@ -123,7 +123,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
 
     $this->notifier->send(
       notification: $notification,
-      recipient: $recipient
+      recipient: $recipient,
     );
   }
 
@@ -157,7 +157,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
    *
    * @since 1.0.0
    *
-   * @param Otp    $otp  the OTP
+   * @param Otp $otp the OTP
    * @param string $code the code
    *
    * @return string the HTML content

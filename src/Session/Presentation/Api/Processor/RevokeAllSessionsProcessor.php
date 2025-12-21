@@ -30,8 +30,8 @@ final readonly class RevokeAllSessionsProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RevokeAllUserSessionsHandler $handler  the command handler
-   * @param Security                     $security the security service
+   * @param RevokeAllUserSessionsHandler $handler the command handler
+   * @param Security $security the security service
    */
   public function __construct(
     private RevokeAllUserSessionsHandler $handler,
@@ -54,7 +54,7 @@ final readonly class RevokeAllSessionsProcessor implements ProcessorInterface
 
     $command = new RevokeAllUserSessionsCommand(
       userId: $user->getUserIdentifier(),
-      reason: 'User requested logout from all devices'
+      reason: 'User requested logout from all devices',
     );
 
     ($this->handler)($command);

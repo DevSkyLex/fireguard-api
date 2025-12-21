@@ -38,7 +38,7 @@ final class ClientNameTest extends TestCase
 
     self::assertSame(
       expected: 'My OAuth Client',
-      actual: $clientName->value
+      actual: $clientName->value,
     );
   }
 
@@ -122,7 +122,7 @@ final class ClientNameTest extends TestCase
 
     self::assertSame(
       expected: 'My OAuth Client',
-      actual: (string) $clientName
+      actual: (string) $clientName,
     );
   }
   // #endregion

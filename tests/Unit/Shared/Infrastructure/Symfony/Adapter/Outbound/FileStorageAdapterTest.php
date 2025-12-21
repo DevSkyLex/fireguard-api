@@ -34,6 +34,7 @@ use function unlink;
 final class FileStorageAdapterTest extends TestCase
 {
   private string $tempDir;
+
   private FileStorageAdapter $adapter;
 
   /**

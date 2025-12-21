@@ -55,7 +55,7 @@ final readonly class ListClientsHandler implements QueryHandler
   {
     $clients = $this->clientRepository->findAll(
       offset: $query->pagination->offset,
-      limit: $query->pagination->limit
+      limit: $query->pagination->limit,
     );
 
     $total = $this->clientRepository->count();
@@ -68,16 +68,16 @@ final readonly class ListClientsHandler implements QueryHandler
         grantTypes: $client->grantTypes()->toArray(),
         scopes: $client->scopes()->toArray(),
         isActive: $client->isActive(),
-        createdAt: $client->createdAt()->format(format: 'Y-m-d H:i:s')
+        createdAt: $client->createdAt()->format(format: 'Y-m-d H:i:s'),
       ),
-      $clients
+      $clients,
     );
 
     return new PaginatedResult(
       items: $items,
       total: $total,
       limit: $query->pagination->limit,
-      offset: $query->pagination->offset
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

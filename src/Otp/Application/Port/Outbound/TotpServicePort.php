@@ -38,7 +38,7 @@ interface TotpServicePort
    *
    * @since 1.0.0
    *
-   * @param string     $code   the input code
+   * @param string $code the input code
    * @param TotpSecret $secret the secret
    *
    * @return bool true if valid
@@ -52,9 +52,9 @@ interface TotpServicePort
    *
    * @since 1.0.0
    *
-   * @param TotpSecret $secret      the secret
-   * @param string     $accountName the account name/email
-   * @param string     $issuer      the issuer name
+   * @param TotpSecret $secret the secret
+   * @param string $accountName the account name/email
+   * @param string $issuer the issuer name
    *
    * @return string the otpauth:// URI
    */

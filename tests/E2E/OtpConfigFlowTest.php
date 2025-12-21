@@ -53,7 +53,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/otp/purposes',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -61,7 +61,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return purposes list or appropriate response. Response: ' . $response->getContent()
+      'Should return purposes list or appropriate response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -93,7 +93,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -101,7 +101,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return purposes list. Response: ' . $response->getContent()
+      'Should return purposes list. Response: ' . $response->getContent(),
     );
   }
 
@@ -131,7 +131,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
     $client->request(
       method: 'GET',
       uri: '/api/otp/channels',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $client->getResponse();
@@ -139,7 +139,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return channels list or appropriate response. Response: ' . $response->getContent()
+      'Should return channels list or appropriate response. Response: ' . $response->getContent(),
     );
 
     if (Response::HTTP_OK === $response->getStatusCode()) {
@@ -171,7 +171,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -179,7 +179,7 @@ class OtpConfigFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Should return channels list. Response: ' . $response->getContent()
+      'Should return channels list. Response: ' . $response->getContent(),
     );
   }
 

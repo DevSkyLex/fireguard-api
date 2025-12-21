@@ -21,8 +21,8 @@ interface JwtTokenServicePort
    * Generate tokens for a user.
    *
    * @param non-empty-string $userId the user ID
-   * @param string           $email  the user email
-   * @param array<string>    $scopes the granted scopes
+   * @param string $email the user email
+   * @param array<string> $scopes the granted scopes
    *
    * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int}
    */
@@ -31,9 +31,9 @@ interface JwtTokenServicePort
   /**
    * Generates a Pre-Auth Token for MFA workflows.
    *
-   * @param string $userId         the user ID
+   * @param string $userId the user ID
    * @param string $challengeToken the OTP challenge token associated with this flow
-   * @param int    $ttl            lifetime in seconds (default 300)
+   * @param int $ttl lifetime in seconds (default 300)
    *
    * @return string the valid JWT token
    */

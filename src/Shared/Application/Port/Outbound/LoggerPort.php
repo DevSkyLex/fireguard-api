@@ -28,8 +28,8 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param LogLevel             $level   the level of the log
-   * @param string               $message the message of the log
+   * @param LogLevel $level the level of the log
+   * @param string $message the message of the log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value
@@ -43,7 +43,7 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the message to log
+   * @param string $message the message to log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value
@@ -57,7 +57,7 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the message to log
+   * @param string $message the message to log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value
@@ -71,7 +71,7 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the message to log
+   * @param string $message the message to log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value
@@ -85,7 +85,7 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the message to log
+   * @param string $message the message to log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value
@@ -99,7 +99,7 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the message to log
+   * @param string $message the message to log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value
@@ -113,7 +113,7 @@ interface LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the message to log
+   * @param string $message the message to log
    * @param array<string, mixed> $context the context of the log
    *
    * @return void no return value

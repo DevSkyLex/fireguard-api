@@ -84,7 +84,7 @@ final class InvalidUserException extends DomainException
   {
     return new self(message: sprintf(
       'User cannot login: %s',
-      $reason
+      $reason,
     ));
   }
 }

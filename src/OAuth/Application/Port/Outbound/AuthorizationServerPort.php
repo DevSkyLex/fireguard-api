@@ -31,18 +31,18 @@ interface AuthorizationServerPort
    *
    * @since 1.0.0
    *
-   * @param string      $grantType    the grant type
-   * @param string      $clientId     the client ID
-   * @param string      $clientSecret the client secret
-   * @param string|null $scope        the requested scope
+   * @param string $grantType the grant type
+   * @param string $clientId the client ID
+   * @param string $clientSecret the client secret
+   * @param string|null $scope the requested scope
    * @param string|null $refreshToken the refresh token (for refresh_token grant)
-   * @param string|null $code         the authorization code (for authorization_code grant)
-   * @param string|null $redirectUri  the redirect URI (for authorization_code grant)
+   * @param string|null $code the authorization code (for authorization_code grant)
+   * @param string|null $redirectUri the redirect URI (for authorization_code grant)
    * @param string|null $codeVerifier the PKCE code verifier
    *
-   * @return IssueTokenResult the token result
-   *
    * @throws AuthorizationException if token issuance fails
+   *
+   * @return IssueTokenResult the token result
    */
   public function issueAccessToken(
     string $grantType,

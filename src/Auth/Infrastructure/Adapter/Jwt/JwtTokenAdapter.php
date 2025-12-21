@@ -69,12 +69,12 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    *
    * @since 1.0.0
    *
-   * @param non-empty-string          $privateKeyPath
-   * @param non-empty-string          $publicKeyPath
-   * @param non-empty-string          $encryptionKey
-   * @param non-empty-string          $issuer
-   * @param int                       $accessTokenTtl       access token TTL in seconds
-   * @param int                       $refreshTokenTtl      refresh token TTL in seconds
+   * @param non-empty-string $privateKeyPath
+   * @param non-empty-string $publicKeyPath
+   * @param non-empty-string $encryptionKey
+   * @param non-empty-string $issuer
+   * @param int $accessTokenTtl access token TTL in seconds
+   * @param int $refreshTokenTtl refresh token TTL in seconds
    * @param AuthorizationService|null $authorizationService authorization service for roles/permissions
    */
   public function __construct(
@@ -102,7 +102,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     $this->jwtConfig = Configuration::forAsymmetricSigner(
       signer: new Sha256(),
       signingKey: InMemory::file(path: $privatePath),
-      verificationKey: InMemory::file(path: $publicPath)
+      verificationKey: InMemory::file(path: $publicPath),
     );
   }
   // #endregion
@@ -231,7 +231,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
           $payload['access_token_id'],
           $payload['user_id'],
           $payload['scopes'],
-          $payload['expires_at']
+          $payload['expires_at'],
         )
         || !is_string($payload['refresh_token_id'])
         || !is_string($payload['access_token_id'])

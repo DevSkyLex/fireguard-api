@@ -24,6 +24,7 @@ final readonly class DeviceTrustedEvent implements DomainEvent
 {
   // #region Properties
   private Uuid $eventId;
+
   private DateTimeImmutable $occurredAt;
   // #endregion
 
@@ -42,7 +43,7 @@ final readonly class DeviceTrustedEvent implements DomainEvent
       random_int(0, 0x3FFF) | 0x8000,
       random_int(0, 0xFFFF),
       random_int(0, 0xFFFF),
-      random_int(0, 0xFFFF)
+      random_int(0, 0xFFFF),
     );
     $this->eventId = new Uuid($uuid);
     $this->occurredAt = new DateTimeImmutable();

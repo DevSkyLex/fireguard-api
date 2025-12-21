@@ -31,6 +31,7 @@ final readonly class TenantName
    * @var int
    */
   private const int MIN_LENGTH = 2;
+
   /**
    * Constant MAX_LENGTH.
    *
@@ -63,8 +64,8 @@ final readonly class TenantName
         sprintf(
           'Tenant name must be between %d and %d characters.',
           self::MIN_LENGTH,
-          self::MAX_LENGTH
-        )
+          self::MAX_LENGTH,
+        ),
       );
     }
   }

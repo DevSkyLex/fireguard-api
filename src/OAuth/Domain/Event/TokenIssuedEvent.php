@@ -37,12 +37,12 @@ final readonly class TokenIssuedEvent
    *
    * @since 1.0.0
    *
-   * @param string       $tokenId   the token identifier
-   * @param string       $grantType the grant type used
-   * @param string       $clientId  the client identifier
-   * @param string|null  $userId    the user ID (if applicable)
-   * @param list<string> $scopes    the granted scopes
-   * @param int          $expiresIn the token lifetime in seconds
+   * @param string $tokenId the token identifier
+   * @param string $grantType the grant type used
+   * @param string $clientId the client identifier
+   * @param string|null $userId the user ID (if applicable)
+   * @param list<string> $scopes the granted scopes
+   * @param int $expiresIn the token lifetime in seconds
    */
   public function __construct(
     public readonly string $tokenId,

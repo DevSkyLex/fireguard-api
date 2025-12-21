@@ -24,7 +24,7 @@ final readonly class Module
    * namespace and path
    *
    * @param string $namespace The module namespace
-   * @param string $path      The module path
+   * @param string $path The module path
    */
   public function __construct(
     public string $namespace,

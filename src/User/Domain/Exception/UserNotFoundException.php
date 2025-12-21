@@ -38,7 +38,7 @@ final class UserNotFoundException extends EntityNotFoundException
   {
     return new self(message: sprintf(
       'User with ID "%s" not found.',
-      $id
+      $id,
     ));
   }
 
@@ -60,7 +60,7 @@ final class UserNotFoundException extends EntityNotFoundException
   {
     return new self(message: sprintf(
       'User with username "%s" not found.',
-      $username
+      $username,
     ));
   }
 
@@ -82,7 +82,7 @@ final class UserNotFoundException extends EntityNotFoundException
   {
     return new self(message: sprintf(
       'User with email "%s" not found.',
-      $email
+      $email,
     ));
   }
   // #endregion

@@ -16,6 +16,7 @@ use Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter;
 final class LoggerAdapterTest extends TestCase
 {
   private LoggerInterface&MockObject $psrLogger;
+
   private LoggerAdapter $adapter;
 
   protected function setUp(): void

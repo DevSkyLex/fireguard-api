@@ -86,7 +86,7 @@ final class UpdateClientDetailsHandlerTest extends TestCase
       clientId: $clientId,
       name: 'Updated Client',
       redirectUris: [new RedirectUri('https://new.example.com')],
-      scopes: new Scopes(Scope::WRITE)
+      scopes: new Scopes(Scope::WRITE),
     );
 
     // Handler
@@ -127,7 +127,7 @@ final class UpdateClientDetailsHandlerTest extends TestCase
       clientId: $clientId,
       name: 'Updated Client',
       redirectUris: [],
-      scopes: new Scopes(Scope::READ)
+      scopes: new Scopes(Scope::READ),
     );
 
     $handler = new UpdateClientDetailsHandler(

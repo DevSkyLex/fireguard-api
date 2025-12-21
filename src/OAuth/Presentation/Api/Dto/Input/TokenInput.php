@@ -37,7 +37,7 @@ final class TokenInput
   #[Assert\NotBlank(message: 'The grant_type field is required.')]
   #[Assert\Choice(
     choices: ['client_credentials', 'refresh_token', 'authorization_code'],
-    message: 'Invalid grant_type. Allowed values: client_credentials, refresh_token, authorization_code.'
+    message: 'Invalid grant_type. Allowed values: client_credentials, refresh_token, authorization_code.',
   )]
   #[Groups(groups: [OAuthSerializationGroup::TOKEN_WRITE])]
   #[SerializedName(serializedName: 'grant_type')]

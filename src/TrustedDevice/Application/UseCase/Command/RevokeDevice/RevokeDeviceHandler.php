@@ -47,14 +47,14 @@ final readonly class RevokeDeviceHandler implements CommandHandler
    *
    * @param RevokeDeviceCommand $command the command
    *
-   * @return RevokeDeviceResult the result
-   *
    * @throws TrustedDeviceNotFoundException if device not found or not owned by user
+   *
+   * @return RevokeDeviceResult the result
    */
   public function __invoke(RevokeDeviceCommand $command): RevokeDeviceResult
   {
     $device = $this->repository->findById(id: new TrustedDeviceId(
-      value: $command->deviceId
+      value: $command->deviceId,
     ));
 
     if (null === $device || $device->userId() !== $command->userId) {

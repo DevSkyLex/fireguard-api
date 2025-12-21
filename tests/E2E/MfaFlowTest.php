@@ -50,7 +50,7 @@ class MfaFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -104,7 +104,7 @@ class MfaFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'preAuthToken' => $preAuthToken,
         'code' => $knownCode,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $verifyResponse = $client->getResponse();
@@ -126,7 +126,7 @@ class MfaFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $verifyResponse->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'MFA verify should succeed. Response: ' . $verifyResponse->getContent()
+      'MFA verify should succeed. Response: ' . $verifyResponse->getContent(),
     );
 
     $verifyData = $this->decodeJsonResponse($verifyResponse->getContent() ?: '{}');
@@ -146,7 +146,7 @@ class MfaFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $accessToken,
-      ]
+      ],
     );
 
     $this->assertEquals(Response::HTTP_OK, $client->getResponse()->getStatusCode());

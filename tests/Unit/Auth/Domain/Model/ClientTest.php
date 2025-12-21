@@ -70,37 +70,37 @@ final class ClientTest extends TestCase
       grantTypes: [GrantType::AUTHORIZATION_CODE],
       scopes: [Scope::READ, Scope::WRITE],
       secret: $secret,
-      isConfidential: true
+      isConfidential: true,
     );
 
     $this->assertEquals(
       expected: $identifier,
-      actual: $client->identifier()
+      actual: $client->identifier(),
     );
 
     $this->assertEquals(
       expected: $name,
-      actual: $client->name()
+      actual: $client->name(),
     );
 
     $this->assertEquals(
       expected: $redirectUris,
-      actual: $client->redirectUris()
+      actual: $client->redirectUris(),
     );
 
     $this->assertEquals(
       expected: $grantTypes,
-      actual: $client->grantTypes()
+      actual: $client->grantTypes(),
     );
 
     $this->assertEquals(
       expected: $scopes,
-      actual: $client->scopes()
+      actual: $client->scopes(),
     );
 
     $this->assertEquals(
       expected: $secret,
-      actual: $client->secret()
+      actual: $client->secret(),
     );
 
     $this->assertTrue(condition: $client->isConfidential());
@@ -122,15 +122,15 @@ final class ClientTest extends TestCase
       name: 'Test Client',
       redirectUris: ['https://example.com/callback'],
       grantTypes: [GrantType::AUTHORIZATION_CODE],
-      scopes: [Scope::READ]
+      scopes: [Scope::READ],
     );
 
     $this->assertTrue(condition: $client->validateRedirectUri(
-      uri: 'https://example.com/callback'
+      uri: 'https://example.com/callback',
     ));
 
     $this->assertFalse(condition: $client->validateRedirectUri(
-      uri: 'https://attacker.com/callback'
+      uri: 'https://attacker.com/callback',
     ));
   }
 
@@ -150,15 +150,15 @@ final class ClientTest extends TestCase
       name: 'Test Client',
       redirectUris: ['https://example.com/callback'],
       grantTypes: [GrantType::AUTHORIZATION_CODE],
-      scopes: [Scope::READ]
+      scopes: [Scope::READ],
     );
 
     $this->assertTrue(condition: $client->supportsGrantType(
-      grantType: GrantType::AUTHORIZATION_CODE
+      grantType: GrantType::AUTHORIZATION_CODE,
     ));
 
     $this->assertFalse(condition: $client->supportsGrantType(
-      grantType: GrantType::CLIENT_CREDENTIALS
+      grantType: GrantType::CLIENT_CREDENTIALS,
     ));
   }
 
@@ -178,19 +178,19 @@ final class ClientTest extends TestCase
       name: 'Test Client',
       redirectUris: ['https://example.com/callback'],
       grantTypes: [GrantType::AUTHORIZATION_CODE],
-      scopes: [Scope::READ, Scope::WRITE]
+      scopes: [Scope::READ, Scope::WRITE],
     );
 
     $this->assertTrue(condition: $client->hasScope(
-      scope: Scope::READ
+      scope: Scope::READ,
     ));
 
     $this->assertTrue(condition: $client->hasScope(
-      scope: Scope::WRITE
+      scope: Scope::WRITE,
     ));
 
     $this->assertFalse(condition: $client->hasScope(
-      scope: Scope::DELETE
+      scope: Scope::DELETE,
     ));
   }
   // #endregion

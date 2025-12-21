@@ -71,7 +71,7 @@ final readonly class AuthenticateUserHandler implements \Shared\Application\Mess
 
       if (null === $user) {
         throw UserNotFoundException::withUsername(
-          username: $query->username
+          username: $query->username,
         );
       }
 

@@ -24,7 +24,7 @@ final readonly class CheckDeviceTrustedQuery
    *
    * @since 1.0.0
    *
-   * @param string $token  the token
+   * @param string $token the token
    * @param string $userId the user ID
    */
   public function __construct(

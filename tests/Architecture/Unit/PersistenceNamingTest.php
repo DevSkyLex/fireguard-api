@@ -87,7 +87,7 @@ final class PersistenceNamingTest extends TestCase
    * Scans Persistence/{any}/$directory/ (e.g., Persistence/Doctrine/Record/).
    *
    * @param string $directory the subdirectory name (Record, Mapper, Repository)
-   * @param string $suffix    the required suffix
+   * @param string $suffix the required suffix
    */
   private function assertNamingConvention(string $directory, string $suffix): void
   {
@@ -109,7 +109,7 @@ final class PersistenceNamingTest extends TestCase
       $persistenceSubdirs = array_filter(
         scandir($persistenceDir) ?: [],
         fn ($entry) => '.' !== $entry && '..' !== $entry
-        && is_dir($persistenceDir . DIRECTORY_SEPARATOR . $entry)
+        && is_dir($persistenceDir . DIRECTORY_SEPARATOR . $entry),
       );
 
       foreach ($persistenceSubdirs as $provider) {
@@ -122,7 +122,7 @@ final class PersistenceNamingTest extends TestCase
         }
 
         $iterator = new RecursiveIteratorIterator(
-          new RecursiveDirectoryIterator($targetDir)
+          new RecursiveDirectoryIterator($targetDir),
         );
 
         foreach ($iterator as $file) {
@@ -142,7 +142,7 @@ final class PersistenceNamingTest extends TestCase
               $provider,
               $directory,
               $shortName,
-              $suffix
+              $suffix,
             );
           }
         }
@@ -152,7 +152,7 @@ final class PersistenceNamingTest extends TestCase
     self::assertSame(
       expected: [],
       actual: $violations,
-      message: sprintf('Every class in Persistence/*/%s/ must end with suffix "%s".', $directory, $suffix)
+      message: sprintf('Every class in Persistence/*/%s/ must end with suffix "%s".', $directory, $suffix),
     );
   }
   // #endregion

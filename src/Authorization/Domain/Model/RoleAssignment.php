@@ -29,13 +29,13 @@ final readonly class RoleAssignment
    *
    * @since 1.0.0
    *
-   * @param RoleAssignmentId       $id          the assignment ID
-   * @param RoleId                 $roleId      the role ID being assigned
-   * @param SubjectType            $subjectType the type of subject (user)
-   * @param string                 $subjectId   the ID of the subject
-   * @param TenantId|null          $tenantId    the tenant ID for multi-tenant support
-   * @param DateTimeImmutable      $assignedAt  when the role was assigned
-   * @param DateTimeImmutable|null $expiresAt   when the assignment expires (optional)
+   * @param RoleAssignmentId $id the assignment ID
+   * @param RoleId $roleId the role ID being assigned
+   * @param SubjectType $subjectType the type of subject (user)
+   * @param string $subjectId the ID of the subject
+   * @param TenantId|null $tenantId the tenant ID for multi-tenant support
+   * @param DateTimeImmutable $assignedAt when the role was assigned
+   * @param DateTimeImmutable|null $expiresAt when the assignment expires (optional)
    */
   private function __construct(
     private RoleAssignmentId $id,
@@ -59,10 +59,10 @@ final readonly class RoleAssignment
    *
    * @since 1.0.0
    *
-   * @param RoleAssignmentId       $id        the assignment ID
-   * @param RoleId                 $roleId    the role ID
-   * @param string                 $userId    the user ID
-   * @param TenantId|null          $tenantId  the tenant ID
+   * @param RoleAssignmentId $id the assignment ID
+   * @param RoleId $roleId the role ID
+   * @param string $userId the user ID
+   * @param TenantId|null $tenantId the tenant ID
    * @param DateTimeImmutable|null $expiresAt when the assignment expires
    *
    * @return self the new role assignment
@@ -94,13 +94,13 @@ final readonly class RoleAssignment
    *
    * @since 1.0.0
    *
-   * @param RoleAssignmentId       $id          the assignment ID
-   * @param RoleId                 $roleId      the role ID
-   * @param SubjectType            $subjectType the subject type
-   * @param string                 $subjectId   the subject ID
-   * @param TenantId|null          $tenantId    the tenant ID
-   * @param DateTimeImmutable      $assignedAt  when assigned
-   * @param DateTimeImmutable|null $expiresAt   when expires
+   * @param RoleAssignmentId $id the assignment ID
+   * @param RoleId $roleId the role ID
+   * @param SubjectType $subjectType the subject type
+   * @param string $subjectId the subject ID
+   * @param TenantId|null $tenantId the tenant ID
+   * @param DateTimeImmutable $assignedAt when assigned
+   * @param DateTimeImmutable|null $expiresAt when expires
    *
    * @return self the reconstituted role assignment
    */

@@ -130,14 +130,14 @@ final class ClientMapper
       redirectUris: array_values($record->redirectUris),
       grantTypes: array_values(array_map(
         fn (string $grantType) => \OAuth\Domain\ValueObject\GrantType::from($grantType),
-        $record->grantTypes
+        $record->grantTypes,
       )),
       scopes: array_values(array_map(
         fn (string $scope) => \OAuth\Domain\ValueObject\Scope::from($scope),
-        $record->scopes
+        $record->scopes,
       )),
       secret: $record->secret,
-      isConfidential: true // Assuming all valid clients in DB are confidential for now
+      isConfidential: true, // Assuming all valid clients in DB are confidential for now
     );
   }
   // #endregion

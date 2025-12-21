@@ -79,7 +79,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
         'redirect_uri' => 'https://example.com/callback',
         'code_verifier' => $this->generateCodeVerifier(),
         // Missing 'code' parameter
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -87,7 +87,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'Missing code should be rejected'
+      'Missing code should be rejected',
     );
   }
 
@@ -112,7 +112,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
         'code' => 'fake_authorization_code',
         'code_verifier' => $this->generateCodeVerifier(),
         // Missing 'redirect_uri' parameter
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -120,7 +120,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'Missing redirect_uri should be rejected'
+      'Missing redirect_uri should be rejected',
     );
   }
 
@@ -145,7 +145,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
         'code' => 'fake_authorization_code',
         'redirect_uri' => 'https://example.com/callback',
         // Missing 'code_verifier' parameter - PKCE is mandatory
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -153,7 +153,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'Missing code_verifier should be rejected (PKCE mandatory)'
+      'Missing code_verifier should be rejected (PKCE mandatory)',
     );
   }
 
@@ -180,7 +180,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
         'code' => 'invalid_authorization_code',
         'redirect_uri' => 'https://example.com/callback',
         'code_verifier' => $codeVerifier,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -188,7 +188,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-      'Invalid authorization code should be rejected'
+      'Invalid authorization code should be rejected',
     );
   }
 
@@ -209,7 +209,7 @@ class AuthorizationCodeFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       $expectedChallenge,
       $actualChallenge,
-      'PKCE S256 challenge should match RFC 7636 test vector'
+      'PKCE S256 challenge should match RFC 7636 test vector',
     );
   }
 

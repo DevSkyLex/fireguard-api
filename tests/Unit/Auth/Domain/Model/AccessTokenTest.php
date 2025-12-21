@@ -50,32 +50,32 @@ final class AccessTokenTest extends TestCase
       clientIdentifier: $clientIdentifier,
       expiry: $expiry,
       scopes: $scopes,
-      userIdentifier: $userIdentifier
+      userIdentifier: $userIdentifier,
     );
 
     $this->assertEquals(
       expected: $identifier,
-      actual: $accessToken->identifier()
+      actual: $accessToken->identifier(),
     );
 
     $this->assertEquals(
       expected: $clientIdentifier,
-      actual: $accessToken->clientIdentifier()
+      actual: $accessToken->clientIdentifier(),
     );
 
     $this->assertEquals(
       expected: $expiry,
-      actual: $accessToken->expiry()
+      actual: $accessToken->expiry(),
     );
 
     $this->assertEquals(
       expected: $scopes,
-      actual: $accessToken->scopes()
+      actual: $accessToken->scopes(),
     );
 
     $this->assertEquals(
       expected: $userIdentifier,
-      actual: $accessToken->userIdentifier()
+      actual: $accessToken->userIdentifier(),
     );
 
     $this->assertFalse(condition: $accessToken->isRevoked());
@@ -96,7 +96,7 @@ final class AccessTokenTest extends TestCase
       identifier: 'test_token_id',
       clientIdentifier: new OAuthClientIdentifier(value: 'client_id'),
       expiry: new DateTimeImmutable(datetime: '+1 hour'),
-      scopes: new Scopes(scopes: Scope::READ)
+      scopes: new Scopes(scopes: Scope::READ),
     );
 
     $accessToken->revoke();
@@ -119,7 +119,7 @@ final class AccessTokenTest extends TestCase
       identifier: 'test_token_id',
       clientIdentifier: new OAuthClientIdentifier(value: 'client_id'),
       expiry: new DateTimeImmutable(datetime: '-1 hour'),
-      scopes: new Scopes(scopes: Scope::READ)
+      scopes: new Scopes(scopes: Scope::READ),
     );
 
     $this->assertTrue(condition: $accessToken->isExpired());

@@ -47,11 +47,11 @@ final readonly class MailerAdapter implements MailerPort
    *
    * @since 1.0.0
    *
-   * @param list<string>                                      $to          the list of recipients
-   * @param string                                            $subject     the subject of the email
-   * @param string                                            $body        the body of the email
-   * @param list<string>                                      $cc          the list of CC recipients
-   * @param list<string>                                      $bcc         the list of BCC recipients
+   * @param list<string> $to the list of recipients
+   * @param string $subject the subject of the email
+   * @param string $body the body of the email
+   * @param list<string> $cc the list of CC recipients
+   * @param list<string> $bcc the list of BCC recipients
    * @param array<int|string, string|Stringable|list<string>> $attachments the list of attachments
    *
    * @return void No return value
@@ -94,7 +94,7 @@ final readonly class MailerAdapter implements MailerPort
     } catch (Throwable $exception) {
       throw MailSendingException::dispatchFailed(
         subject: $subject,
-        previous: $exception
+        previous: $exception,
       );
     }
   }

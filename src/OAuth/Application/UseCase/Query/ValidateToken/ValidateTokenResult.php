@@ -26,13 +26,13 @@ final readonly class ValidateTokenResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool         $valid        whether the token is valid
-   * @param string|null  $tokenId      the token identifier
-   * @param string|null  $userId       the user identifier
-   * @param string|null  $clientId     the client identifier
-   * @param list<string> $scopes       the token scopes
-   * @param int|null     $expiresAt    the expiration timestamp
-   * @param string|null  $errorMessage error message if invalid
+   * @param bool $valid whether the token is valid
+   * @param string|null $tokenId the token identifier
+   * @param string|null $userId the user identifier
+   * @param string|null $clientId the client identifier
+   * @param list<string> $scopes the token scopes
+   * @param int|null $expiresAt the expiration timestamp
+   * @param string|null $errorMessage error message if invalid
    */
   public function __construct(
     public bool $valid,

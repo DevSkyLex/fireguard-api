@@ -28,12 +28,12 @@ final class AccessToken
    *
    * @since 1.0.0
    *
-   * @param string                $identifier       the unique identifier of the token
+   * @param string $identifier the unique identifier of the token
    * @param OAuthClientIdentifier $clientIdentifier the client identifier
-   * @param DateTimeImmutable     $expiry           the expiry date and time
-   * @param Scopes                $scopes           the scopes associated with the token
-   * @param string|null           $userIdentifier   the user identifier (if applicable)
-   * @param bool                  $isRevoked        whether the token is revoked
+   * @param DateTimeImmutable $expiry the expiry date and time
+   * @param Scopes $scopes the scopes associated with the token
+   * @param string|null $userIdentifier the user identifier (if applicable)
+   * @param bool $isRevoked whether the token is revoked
    */
   public function __construct(
     private readonly string $identifier,

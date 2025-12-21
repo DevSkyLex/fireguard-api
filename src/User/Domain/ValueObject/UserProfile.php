@@ -29,8 +29,8 @@ final readonly class UserProfile
    *
    * @since 1.0.0
    *
-   * @param string      $firstName the user's first name
-   * @param string      $lastName  the user's last name
+   * @param string $firstName the user's first name
+   * @param string $lastName the user's last name
    * @param string|null $avatarUrl optional URL to the user's avatar image
    *
    * @throws InvalidValueException if the profile data is invalid
@@ -42,19 +42,19 @@ final readonly class UserProfile
   ) {
     if ('' === $firstName || '' === $lastName) {
       throw InvalidValueException::because(
-        message: 'First name and last name cannot be empty.'
+        message: 'First name and last name cannot be empty.',
       );
     }
 
     if (mb_strlen($firstName) > 100 || mb_strlen($lastName) > 100) {
       throw InvalidValueException::because(
-        message: 'First name and last name must be 100 characters or less.'
+        message: 'First name and last name must be 100 characters or less.',
       );
     }
 
     if (null !== $avatarUrl && !filter_var($avatarUrl, FILTER_VALIDATE_URL)) {
       throw InvalidValueException::because(
-        message: 'Avatar URL must be a valid URL.'
+        message: 'Avatar URL must be a valid URL.',
       );
     }
   }

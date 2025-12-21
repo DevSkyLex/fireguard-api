@@ -49,9 +49,9 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
    *
    * @param callable $operation the operation to execute within a transaction
    *
-   * @return mixed the result of the operation
-   *
    * @throws TransactionExecutionException if an exception occurs during the transaction
+   *
+   * @return mixed the result of the operation
    */
   public function transactional(callable $operation): mixed
   {
@@ -59,7 +59,7 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
       return $this->entityManager->wrapInTransaction(
         static function (EntityManagerInterface $entityManager) use ($operation) {
           return $operation();
-        }
+        },
       );
     } catch (Throwable $exception) {
       if ($exception instanceof DoctrineDBALException) {

@@ -43,12 +43,12 @@ final readonly class LoginProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param CommandBusPort            $commandBus         the command bus
-   * @param bool                      $mfaEnabled         whether MFA is enabled globally
-   * @param JwtTokenServicePort       $jwtService         the JWT token service
-   * @param ChallengeGeneratorPort    $challengeGenerator the MFA challenge generator
-   * @param RequestStack              $requestStack       the request stack
-   * @param RefreshTokenCookieService $cookieService      the refresh token cookie service
+   * @param CommandBusPort $commandBus the command bus
+   * @param bool $mfaEnabled whether MFA is enabled globally
+   * @param JwtTokenServicePort $jwtService the JWT token service
+   * @param ChallengeGeneratorPort $challengeGenerator the MFA challenge generator
+   * @param RequestStack $requestStack the request stack
+   * @param RefreshTokenCookieService $cookieService the refresh token cookie service
    */
   public function __construct(
     private CommandBusPort $commandBus,
@@ -88,7 +88,7 @@ final readonly class LoginProcessor implements ProcessorInterface
     if (!$result->authenticated) {
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
-        message: $result->errorMessage ?? 'Invalid credentials'
+        message: $result->errorMessage ?? 'Invalid credentials',
       );
     }
 
@@ -107,7 +107,7 @@ final readonly class LoginProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param LoginResult $result the authentication result
-   * @param LoginInput  $data   the login input data
+   * @param LoginInput $data the login input data
    *
    * @return LoginOutput the MFA required response
    */
@@ -126,7 +126,7 @@ final readonly class LoginProcessor implements ProcessorInterface
 
     $preAuthToken = $this->jwtService->generatePreAuthToken(
       userId: $userId,
-      challengeToken: $challenge->challengeToken
+      challengeToken: $challenge->challengeToken,
     );
 
     $output = new LoginOutput();
@@ -145,7 +145,7 @@ final readonly class LoginProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param LoginResult $result the authentication result
-   * @param LoginInput  $data   the login input data
+   * @param LoginInput $data the login input data
    *
    * @return LoginOutput the successful login response
    */
@@ -163,12 +163,12 @@ final readonly class LoginProcessor implements ProcessorInterface
       if (null !== $request) {
         $cookie = $this->cookieService->createCookie(
           refreshToken: $result->refreshToken,
-          rememberMe: $data->rememberMe ?? false
+          rememberMe: $data->rememberMe ?? false,
         );
 
         $request->attributes->set(
           key: '_refresh_token_cookie',
-          value: $cookie
+          value: $cookie,
         );
       }
     }

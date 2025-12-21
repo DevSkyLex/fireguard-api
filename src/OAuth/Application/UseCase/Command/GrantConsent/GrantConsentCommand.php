@@ -23,9 +23,9 @@ final readonly class GrantConsentCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string       $userId   the user ID
-   * @param string       $clientId the client ID
-   * @param list<string> $scopes   the scopes to grant
+   * @param string $userId the user ID
+   * @param string $clientId the client ID
+   * @param list<string> $scopes the scopes to grant
    */
   public function __construct(
     public readonly string $userId,

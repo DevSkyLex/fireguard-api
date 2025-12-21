@@ -81,7 +81,7 @@ final class UserMapper
    * @since 1.0.0
    *
    * @param UserRecord $record the existing persistence model
-   * @param User       $user   the domain model
+   * @param User $user the domain model
    */
   public function updateRecord(UserRecord $record, User $user): void
   {
@@ -155,9 +155,9 @@ final class UserMapper
    *
    * @since 1.0.0
    *
-   * @param object $object       the object
+   * @param object $object the object
    * @param string $propertyName the property name
-   * @param mixed  $value        the value to set
+   * @param mixed $value the value to set
    */
   private function setProperty(object $object, string $propertyName, mixed $value): void
   {

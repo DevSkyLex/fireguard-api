@@ -37,7 +37,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager
-   * @param RoleMapper             $mapper        the role mapper
+   * @param RoleMapper $mapper the role mapper
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
@@ -63,7 +63,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
   {
     $record = $this->entityManager->find(
       className: RoleRecord::class,
-      id: $id->value
+      id: $id->value,
     );
 
     if (null === $record) {
@@ -123,7 +123,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
 
     return array_map(
       fn (RoleRecord $record) => $this->mapper->toDomain(record: $record),
-      $records
+      $records,
     );
   }
 
@@ -143,12 +143,12 @@ final readonly class RoleRepository implements RoleRepositoryPort
   {
     $existingRecord = $this->entityManager->find(
       className: RoleRecord::class,
-      id: $role->id()->value
+      id: $role->id()->value,
     );
 
     $record = $this->mapper->toRecord(
       role: $role,
-      record: $existingRecord
+      record: $existingRecord,
     );
 
     // Handle permissions collection
@@ -156,7 +156,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
     foreach ($role->permissions() as $permission) {
       $permissionRecord = $this->entityManager->getReference(
         entityName: PermissionRecord::class,
-        id: $permission->id()->value
+        id: $permission->id()->value,
       );
       if (null !== $permissionRecord) {
         $record->permissions->add($permissionRecord);
@@ -183,7 +183,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
   {
     $record = $this->entityManager->find(
       className: RoleRecord::class,
-      id: $role->id()->value
+      id: $role->id()->value,
     );
 
     if (null !== $record) {

@@ -52,7 +52,7 @@ final class PermissionVoter extends Voter
    * @since 1.0.0
    *
    * @param string $attribute the attribute
-   * @param mixed  $subject   the subject
+   * @param mixed $subject the subject
    *
    * @return bool true if the attribute is supported, false otherwise
    */
@@ -71,9 +71,9 @@ final class PermissionVoter extends Voter
    *
    * @since 1.0.0
    *
-   * @param string         $attribute the attribute
-   * @param mixed          $subject   the subject
-   * @param TokenInterface $token     the token
+   * @param string $attribute the attribute
+   * @param mixed $subject the subject
+   * @param TokenInterface $token the token
    *
    * @return bool true if the attribute is supported, false otherwise
    */
@@ -87,7 +87,7 @@ final class PermissionVoter extends Voter
 
     return $this->authorizationService->hasPermission(
       userId: $user->getId(),
-      permission: $attribute
+      permission: $attribute,
     );
   }
   // #endregion

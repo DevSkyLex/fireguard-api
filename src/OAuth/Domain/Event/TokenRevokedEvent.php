@@ -37,9 +37,9 @@ final readonly class TokenRevokedEvent
    *
    * @since 1.0.0
    *
-   * @param string      $tokenId   the token identifier
-   * @param string      $tokenType the token type (access_token, refresh_token)
-   * @param string|null $reason    the revocation reason
+   * @param string $tokenId the token identifier
+   * @param string $tokenType the token type (access_token, refresh_token)
+   * @param string|null $reason the revocation reason
    */
   public function __construct(
     public string $tokenId,

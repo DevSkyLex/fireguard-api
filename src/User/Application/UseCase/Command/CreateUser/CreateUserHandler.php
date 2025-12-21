@@ -33,11 +33,11 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
    *
    * @since 1.0.0
    *
-   * @param UserRepositoryPort $userRepository  the user repository
-   * @param UuidFactory        $uuidFactory     the UUID factory
-   * @param HashingPort        $hashing         the hashing service
-   * @param EventBusPort       $eventBus        the event bus
-   * @param EventIdProvider    $eventIdProvider the event ID provider
+   * @param UserRepositoryPort $userRepository the user repository
+   * @param UuidFactory $uuidFactory the UUID factory
+   * @param HashingPort $hashing the hashing service
+   * @param EventBusPort $eventBus the event bus
+   * @param EventIdProvider $eventIdProvider the event ID provider
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
@@ -66,7 +66,7 @@ final readonly class CreateUserHandler implements \Shared\Application\Message\Co
 
     // Hash the password
     $hashedPassword = new HashedPassword(
-      value: $this->hashing->hash(value: $command->password)->value
+      value: $this->hashing->hash(value: $command->password)->value,
     );
 
     // Create the user with event ID provider

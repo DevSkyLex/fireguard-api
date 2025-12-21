@@ -29,10 +29,10 @@ final readonly class RegisterClientCommand implements CommandMessage
    *
    * @since 1.0.0
    *
-   * @param string             $name         the client name
+   * @param string $name the client name
    * @param array<RedirectUri> $redirectUris the allowed redirect URIs
-   * @param GrantTypes         $grantTypes   the allowed grant types
-   * @param Scopes             $scopes       the allowed scopes
+   * @param GrantTypes $grantTypes the allowed grant types
+   * @param Scopes $scopes the allowed scopes
    */
   public function __construct(
     public readonly string $name,

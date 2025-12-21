@@ -44,13 +44,13 @@ final class Role
    *
    * @since 1.0.0
    *
-   * @param RoleId                 $id          the role ID
-   * @param RoleName               $name        the role name
-   * @param string                 $description the role description
-   * @param bool                   $isSystem    whether this is a system role (cannot be deleted)
-   * @param TenantId|null          $tenantId    the tenant ID for multi-tenant support
-   * @param DateTimeImmutable      $createdAt   when the role was created
-   * @param DateTimeImmutable|null $updatedAt   when the role was last updated
+   * @param RoleId $id the role ID
+   * @param RoleName $name the role name
+   * @param string $description the role description
+   * @param bool $isSystem whether this is a system role (cannot be deleted)
+   * @param TenantId|null $tenantId the tenant ID for multi-tenant support
+   * @param DateTimeImmutable $createdAt when the role was created
+   * @param DateTimeImmutable|null $updatedAt when the role was last updated
    */
   private function __construct(
     private readonly RoleId $id,
@@ -74,11 +74,11 @@ final class Role
    *
    * @since 1.0.0
    *
-   * @param RoleId        $id          the role ID
-   * @param RoleName      $name        the role name
-   * @param string        $description the role description
-   * @param bool          $isSystem    whether this is a system role
-   * @param TenantId|null $tenantId    the tenant ID
+   * @param RoleId $id the role ID
+   * @param RoleName $name the role name
+   * @param string $description the role description
+   * @param bool $isSystem whether this is a system role
+   * @param TenantId|null $tenantId the tenant ID
    *
    * @return self the new role instance
    */
@@ -108,14 +108,14 @@ final class Role
    *
    * @since 1.0.0
    *
-   * @param RoleId                 $id          the role ID
-   * @param RoleName               $name        the role name
-   * @param string                 $description the role description
-   * @param bool                   $isSystem    whether this is a system role
-   * @param TenantId|null          $tenantId    the tenant ID
-   * @param DateTimeImmutable      $createdAt   when the role was created
-   * @param DateTimeImmutable|null $updatedAt   when the role was last updated
-   * @param array<Permission>      $permissions the role's permissions
+   * @param RoleId $id the role ID
+   * @param RoleName $name the role name
+   * @param string $description the role description
+   * @param bool $isSystem whether this is a system role
+   * @param TenantId|null $tenantId the tenant ID
+   * @param DateTimeImmutable $createdAt when the role was created
+   * @param DateTimeImmutable|null $updatedAt when the role was last updated
+   * @param array<Permission> $permissions the role's permissions
    *
    * @return self the reconstituted role
    */
@@ -264,8 +264,8 @@ final class Role
    *
    * @since 1.0.0
    *
-   * @param RoleName $name        the new name
-   * @param string   $description the new description
+   * @param RoleName $name the new name
+   * @param string $description the new description
    */
   public function update(RoleName $name, string $description): void
   {
@@ -307,7 +307,7 @@ final class Role
   {
     $this->permissions = array_values(array_filter(
       $this->permissions,
-      fn (Permission $existing) => !$existing->equals($permission)
+      fn (Permission $existing) => !$existing->equals($permission),
     ));
     $this->updatedAt = new DateTimeImmutable();
   }

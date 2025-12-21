@@ -115,7 +115,7 @@ final class JwtTokenServiceTest extends TestCase
       encryptionKey: base64_encode(random_bytes(32)),
       issuer: 'https://test.example.com',
       accessTokenTtl: 3600,
-      refreshTokenTtl: 86400
+      refreshTokenTtl: 86400,
     );
   }
 
@@ -150,7 +150,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-123',
       email: 'test@example.com',
-      scopes: ['READ', 'WRITE']
+      scopes: ['READ', 'WRITE'],
     );
 
     $this->assertArrayHasKey('access_token', $tokens);
@@ -177,7 +177,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-456',
       email: 'empty-scopes@example.com',
-      scopes: []
+      scopes: [],
     );
 
     $this->assertArrayHasKey('access_token', $tokens);
@@ -197,7 +197,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-789',
       email: 'decode@example.com',
-      scopes: ['OPENID', 'PROFILE']
+      scopes: ['OPENID', 'PROFILE'],
     );
 
     $payload = $this->service->decodeRefreshToken($tokens['refresh_token']);
@@ -282,13 +282,13 @@ final class JwtTokenServiceTest extends TestCase
     $tokens1 = $this->service->generateTokens(
       userId: 'user-unique',
       email: 'unique@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     $tokens2 = $this->service->generateTokens(
       userId: 'user-unique',
       email: 'unique@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     $this->assertNotEquals($tokens1['access_token'], $tokens2['access_token']);
@@ -317,13 +317,13 @@ final class JwtTokenServiceTest extends TestCase
       encryptionKey: base64_encode(random_bytes(32)),
       issuer: 'https://test.example.com',
       accessTokenTtl: 1,
-      refreshTokenTtl: 1
+      refreshTokenTtl: 1,
     );
 
     $tokens = $shortTtlService->generateTokens(
       userId: 'user-expired',
       email: 'expired@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     // Wait for token to expire
@@ -365,14 +365,14 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-claims',
       email: 'claims@example.com',
-      scopes: ['OPENID', 'EMAIL']
+      scopes: ['OPENID', 'EMAIL'],
     );
 
     // Parse the JWT to verify claims
     $parts = explode('.', $tokens['access_token']);
     $this->assertCount(3, $parts, 'JWT should have 3 parts');
 
-    $payload = json_decode(base64_decode($parts[1]), true);
+    $payload = json_decode(base64_decode($parts[1], true), true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertArrayHasKey('iss', $payload, 'JWT should have issuer');
@@ -403,7 +403,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-fields',
       email: 'fields@example.com',
-      scopes: ['READ', 'WRITE', 'DELETE']
+      scopes: ['READ', 'WRITE', 'DELETE'],
     );
 
     $payload = $this->service->decodeRefreshToken($tokens['refresh_token']);
@@ -449,7 +449,7 @@ final class JwtTokenServiceTest extends TestCase
       encryptionKey: base64_encode(random_bytes(32)),
       issuer: 'https://test.example.com',
       accessTokenTtl: $customAccessTtl,
-      refreshTokenTtl: $customRefreshTtl
+      refreshTokenTtl: $customRefreshTtl,
     );
 
     $this->assertEquals($customAccessTtl, $service->getAccessTokenTtl());
@@ -458,7 +458,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $service->generateTokens(
       userId: 'user-ttl',
       email: 'ttl@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     $this->assertEquals($customAccessTtl, $tokens['expires_in']);
@@ -477,12 +477,12 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-exp',
       email: 'exp@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     // Parse the JWT to check expiration
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1]), true);
+    $payload = json_decode(base64_decode($parts[1], true), true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $expectedExp = time() + $this->service->getAccessTokenTtl();
@@ -504,7 +504,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-refresh-exp',
       email: 'refresh-exp@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     $payload = $this->service->decodeRefreshToken($tokens['refresh_token']);
@@ -529,11 +529,11 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-issuer',
       email: 'issuer@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1]), true);
+    $payload = json_decode(base64_decode($parts[1], true), true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertEquals('https://test.example.com', $payload['iss']);
@@ -554,11 +554,11 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: $userId,
       email: 'subject@example.com',
-      scopes: ['READ']
+      scopes: ['READ'],
     );
 
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1]), true);
+    $payload = json_decode(base64_decode($parts[1], true), true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertEquals($userId, $payload['sub']);
@@ -579,11 +579,11 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-scopes',
       email: 'scopes@example.com',
-      scopes: $scopes
+      scopes: $scopes,
     );
 
     $parts = explode('.', $tokens['access_token']);
-    $payload = json_decode(base64_decode($parts[1]), true);
+    $payload = json_decode(base64_decode($parts[1], true), true);
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $this->assertEquals($scopes, $payload['scopes']);
@@ -607,7 +607,7 @@ final class JwtTokenServiceTest extends TestCase
     $tokens = $this->service->generateTokens(
       userId: 'user-type',
       email: 'type@example.com',
-      scopes: []
+      scopes: [],
     );
 
     $this->assertEquals('Bearer', $tokens['token_type']);

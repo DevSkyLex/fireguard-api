@@ -53,7 +53,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_NOT_FOUND,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
   }
 
@@ -69,7 +69,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_REVOKED,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
     $this->assertTrue(condition: $result->isRevoked());
   }
@@ -86,7 +86,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_EXPIRED,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
     $this->assertTrue(condition: $result->isExpired());
   }
@@ -124,7 +124,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_INVALID_SCOPE,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
   }
   // #endregion
@@ -141,7 +141,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_NOT_FOUND,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
   }
 
@@ -157,7 +157,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_REVOKED,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
   }
 
@@ -173,7 +173,7 @@ final class TokenValidationServiceTest extends TestCase
     $this->assertFalse(condition: $result->valid);
     $this->assertEquals(
       expected: TokenValidationService::VALIDATION_EXPIRED,
-      actual: $result->errorCode
+      actual: $result->errorCode,
     );
   }
 

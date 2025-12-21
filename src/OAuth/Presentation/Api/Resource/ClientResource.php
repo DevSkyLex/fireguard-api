@@ -80,7 +80,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid input data'
+            description: 'Invalid input data',
           ),
         ],
       ),
@@ -125,7 +125,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found'
+            description: 'Client not found',
           ),
         ],
       ),
@@ -148,22 +148,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             in: 'query',
             required: false,
             description: 'Filter clients by name (partial match)',
-            schema: ['type' => 'string']
+            schema: ['type' => 'string'],
           ),
           new Parameter(
             name: 'isActive',
             in: 'query',
             required: false,
             description: 'Filter clients by active status',
-            schema: ['type' => 'boolean']
+            schema: ['type' => 'boolean'],
           ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(
-            description: 'List of clients retrieved successfully'
+            description: 'List of clients retrieved successfully',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions (requires ROLE_ADMIN)'
+            description: 'Insufficient permissions (requires ROLE_ADMIN)',
           ),
         ],
       ),
@@ -195,10 +195,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             ]),
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found'
+            description: 'Client not found',
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
-            description: 'Invalid input data'
+            description: 'Invalid input data',
           ),
         ],
       ),
@@ -220,7 +220,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Secret regenerated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found'
+            description: 'Client not found',
           ),
         ],
       ),
@@ -242,7 +242,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Client activated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found'
+            description: 'Client not found',
           ),
         ],
       ),
@@ -264,7 +264,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Client deactivated successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found'
+            description: 'Client not found',
           ),
         ],
       ),
@@ -282,15 +282,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         description: 'Permanently remove a client application and all its associated tokens/consents.',
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(
-            description: 'Client deleted successfully'
+            description: 'Client deleted successfully',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
-            description: 'Client not found'
+            description: 'Client not found',
           ),
         ],
       ),
     ),
-  ]
+  ],
 )]
 final class ClientResource
 {

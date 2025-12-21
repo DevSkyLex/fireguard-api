@@ -34,8 +34,8 @@ final readonly class GenerateOtpProcessor implements ProcessorInterface
   /**
    * Constructor.
    *
-   * @param GenerateOtpHandler $handler  the handler
-   * @param Security           $security the security service
+   * @param GenerateOtpHandler $handler the handler
+   * @param Security $security the security service
    */
   public function __construct(
     private GenerateOtpHandler $handler,
@@ -90,7 +90,7 @@ final readonly class GenerateOtpProcessor implements ProcessorInterface
    * Gets the default recipient from user.
    *
    * @param string $channel the channel
-   * @param object $user    the user
+   * @param object $user the user
    *
    * @return string|null the recipient
    */

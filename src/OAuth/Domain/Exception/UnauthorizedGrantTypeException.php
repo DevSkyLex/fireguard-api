@@ -37,7 +37,7 @@ final class UnauthorizedGrantTypeException extends DomainException
   public static function forGrantType(GrantType $grantType): self
   {
     return new self(
-      message: sprintf('Grant type "%s" is not authorized for this client.', $grantType->value)
+      message: sprintf('Grant type "%s" is not authorized for this client.', $grantType->value),
     );
   }
   // #endregion

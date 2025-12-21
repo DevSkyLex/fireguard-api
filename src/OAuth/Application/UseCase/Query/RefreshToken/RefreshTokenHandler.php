@@ -29,8 +29,8 @@ final readonly class RefreshTokenHandler implements QueryHandler
   /**
    * Constructor.
    *
-   * @param JwtTokenServicePort $tokenService    the JWT token service
-   * @param QueryBusPort        $queryBus        the query bus
+   * @param JwtTokenServicePort $tokenService the JWT token service
+   * @param QueryBusPort $queryBus the query bus
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
@@ -89,7 +89,7 @@ final readonly class RefreshTokenHandler implements QueryHandler
     $tokens = $this->tokenService->generateTokens(
       userId: $userId,
       email: '',
-      scopes: $scopes
+      scopes: $scopes,
     );
 
     $this->eventDispatcher->dispatch(new TokenRefreshedEvent(
@@ -113,7 +113,7 @@ final readonly class RefreshTokenHandler implements QueryHandler
    *
    * Verifies that the user is still active.
    *
-   * @param string      $userId    the user ID
+   * @param string $userId the user ID
    * @param string|null $ipAddress the IP address
    *
    * @return RefreshTokenResult|null error result if user is not active, null otherwise

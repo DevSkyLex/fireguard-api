@@ -51,7 +51,7 @@ final class OAuth2ApiTest extends WebTestCase
         'grant_type' => 'client_credentials',
         'client_id' => 'test',
         'client_secret' => 'test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -69,7 +69,7 @@ final class OAuth2ApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/oauth2/token',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $this->client?->getResponse();
@@ -95,7 +95,7 @@ final class OAuth2ApiTest extends WebTestCase
         'grant_type' => 'client_credentials',
         'client_id' => 'invalid-client',
         'client_secret' => 'invalid-secret',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -124,7 +124,7 @@ final class OAuth2ApiTest extends WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
-      content: json_encode(['token' => 'test']) ?: ''
+      content: json_encode(['token' => 'test']) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -148,7 +148,7 @@ final class OAuth2ApiTest extends WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
       ],
-      content: json_encode(['token' => 'test']) ?: ''
+      content: json_encode(['token' => 'test']) ?: '',
     );
 
     $response = $this->client?->getResponse();
@@ -168,7 +168,7 @@ final class OAuth2ApiTest extends WebTestCase
     $this->client?->request(
       method: 'GET',
       uri: '/api/oauth2/userinfo',
-      server: ['HTTP_ACCEPT' => 'application/ld+json']
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
     );
 
     $response = $this->client?->getResponse();
@@ -189,7 +189,7 @@ final class OAuth2ApiTest extends WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer invalid-token',
-      ]
+      ],
     );
 
     $response = $this->client?->getResponse();

@@ -37,7 +37,7 @@ final class OtpMaxAttemptsException extends DomainException
   public static function create(OtpId $id): self
   {
     return new self(
-      message: sprintf('Maximum verification attempts exceeded for OTP "%s".', $id->value)
+      message: sprintf('Maximum verification attempts exceeded for OTP "%s".', $id->value),
     );
   }
   // #endregion

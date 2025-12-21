@@ -28,21 +28,21 @@ use TrustedDevice\Presentation\Api\Provider\ListTrustedDevicesProvider;
       uriTemplate: '/trusted-devices',
       input: false,
       output: TrustDeviceOutput::class,
-      processor: TrustDeviceProcessor::class
+      processor: TrustDeviceProcessor::class,
     ),
     new GetCollection(
       name: 'list',
       description: 'List all trusted devices for the current user.',
       uriTemplate: '/trusted-devices',
       output: TrustedDeviceOutput::class,
-      provider: ListTrustedDevicesProvider::class
+      provider: ListTrustedDevicesProvider::class,
     ),
     new Delete(
       name: 'revoke',
       description: 'Revoke trust for a specific device.',
       uriTemplate: '/trusted-devices/{id}',
       output: false,
-      processor: RevokeDeviceProcessor::class
+      processor: RevokeDeviceProcessor::class,
     ),
     new Post(
       name: 'revoke-all',
@@ -50,9 +50,9 @@ use TrustedDevice\Presentation\Api\Provider\ListTrustedDevicesProvider;
       uriTemplate: '/trusted-devices/revoke-all',
       input: false,
       output: false,
-      processor: RevokeAllDevicesProcessor::class
+      processor: RevokeAllDevicesProcessor::class,
     ),
-  ]
+  ],
 )]
 final class TrustedDeviceResource
 {

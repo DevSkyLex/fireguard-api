@@ -62,18 +62,18 @@ final class Otp
    *
    * @since 1.0.0
    *
-   * @param OtpId                  $id             the OTP ID
-   * @param ChallengeToken         $challengeToken the public challenge token
-   * @param string                 $userId         the user ID
-   * @param OtpPurpose             $purpose        the OTP purpose
-   * @param OtpChannel             $channel        the delivery channel
-   * @param OtpCode                $code           the OTP code
-   * @param string                 $recipient      the recipient (email/phone)
-   * @param DateTimeImmutable      $expiresAt      expiration time
-   * @param int                    $maxAttempts    maximum verification attempts
-   * @param int                    $attempts       current attempt count
-   * @param DateTimeImmutable|null $verifiedAt     when verified
-   * @param DateTimeImmutable      $createdAt      creation time
+   * @param OtpId $id the OTP ID
+   * @param ChallengeToken $challengeToken the public challenge token
+   * @param string $userId the user ID
+   * @param OtpPurpose $purpose the OTP purpose
+   * @param OtpChannel $channel the delivery channel
+   * @param OtpCode $code the OTP code
+   * @param string $recipient the recipient (email/phone)
+   * @param DateTimeImmutable $expiresAt expiration time
+   * @param int $maxAttempts maximum verification attempts
+   * @param int $attempts current attempt count
+   * @param DateTimeImmutable|null $verifiedAt when verified
+   * @param DateTimeImmutable $createdAt creation time
    */
   private function __construct(
     private OtpId $id,
@@ -102,13 +102,13 @@ final class Otp
    *
    * @since 1.0.0
    *
-   * @param OtpId      $id          the OTP ID
-   * @param string     $userId      the user ID
-   * @param OtpPurpose $purpose     the purpose
-   * @param OtpChannel $channel     the channel
-   * @param string     $recipient   the recipient
-   * @param int|null   $ttlSeconds  custom TTL (null for default)
-   * @param int|null   $maxAttempts custom max attempts (null for default)
+   * @param OtpId $id the OTP ID
+   * @param string $userId the user ID
+   * @param OtpPurpose $purpose the purpose
+   * @param OtpChannel $channel the channel
+   * @param string $recipient the recipient
+   * @param int|null $ttlSeconds custom TTL (null for default)
+   * @param int|null $maxAttempts custom max attempts (null for default)
    *
    * @return self the new OTP
    */
@@ -415,22 +415,22 @@ final class Otp
    *
    * @param string $inputCode the code to verify
    *
-   * @return bool true if verification succeeded
-   *
-   * @throws OtpExpiredException     if OTP is expired
+   * @throws OtpExpiredException if OTP is expired
    * @throws OtpMaxAttemptsException if max attempts exceeded
+   *
+   * @return bool true if verification succeeded
    */
   public function verify(string $inputCode): bool
   {
     if ($this->isExpired()) {
       throw OtpExpiredException::create(
-        id: $this->id
+        id: $this->id,
       );
     }
 
     if (!$this->hasAttemptsRemaining()) {
       throw OtpMaxAttemptsException::create(
-        id: $this->id
+        id: $this->id,
       );
     }
 
@@ -548,18 +548,18 @@ final class Otp
    *
    * @since 1.0.0
    *
-   * @param OtpId              $id             the OTP ID
-   * @param ChallengeToken     $challengeToken the challenge token
-   * @param string             $userId         the user ID
-   * @param OtpPurpose         $purpose        the purpose
-   * @param OtpChannel         $channel        the channel
-   * @param string             $codeHash       the code hash
-   * @param string             $recipient      the recipient
-   * @param DateTimeImmutable  $expiresAt      the expiration time
-   * @param int                $maxAttempts    the maximum attempt count
-   * @param int                $attempts       the attempt count
-   * @param ?DateTimeImmutable $verifiedAt     the verification time
-   * @param DateTimeImmutable  $createdAt      the creation time
+   * @param OtpId $id the OTP ID
+   * @param ChallengeToken $challengeToken the challenge token
+   * @param string $userId the user ID
+   * @param OtpPurpose $purpose the purpose
+   * @param OtpChannel $channel the channel
+   * @param string $codeHash the code hash
+   * @param string $recipient the recipient
+   * @param DateTimeImmutable $expiresAt the expiration time
+   * @param int $maxAttempts the maximum attempt count
+   * @param int $attempts the attempt count
+   * @param ?DateTimeImmutable $verifiedAt the verification time
+   * @param DateTimeImmutable $createdAt the creation time
    *
    * @return self the reconstituted OTP
    */

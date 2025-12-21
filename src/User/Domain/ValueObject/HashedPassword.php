@@ -39,7 +39,7 @@ final readonly class HashedPassword extends HashedSecret
   {
     $hashed = password_hash(
       password: $plain,
-      algo: PASSWORD_BCRYPT
+      algo: PASSWORD_BCRYPT,
     );
 
     return new self(value: $hashed);
@@ -60,7 +60,7 @@ final readonly class HashedPassword extends HashedSecret
   {
     return password_verify(
       password: $plain,
-      hash: $this->value
+      hash: $this->value,
     );
   }
   // #endregion

@@ -46,7 +46,7 @@ use function strtoupper;
 #[AsCommand(
   name: 'app:client:create',
   description: 'Create a new OAuth2 client',
-  aliases: ['client:create']
+  aliases: ['client:create'],
 )]
 final class CreateClientCommand extends Command
 {
@@ -85,39 +85,39 @@ final class CreateClientCommand extends Command
       ->addArgument(
         name: 'name',
         mode: InputArgument::REQUIRED,
-        description: 'The client name'
+        description: 'The client name',
       )
       ->addOption(
         name: 'id',
         shortcut: 'i',
         mode: InputOption::VALUE_REQUIRED,
-        description: 'Custom client ID (UUID generated if not provided)'
+        description: 'Custom client ID (UUID generated if not provided)',
       )
       ->addOption(
         name: 'secret',
         mode: InputOption::VALUE_REQUIRED,
-        description: 'Custom client secret (random generated if not provided)'
+        description: 'Custom client secret (random generated if not provided)',
       )
       ->addOption(
         name: 'redirect-uri',
         shortcut: 'r',
         mode: InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
         description: 'Redirect URIs (can be specified multiple times)',
-        default: []
+        default: [],
       )
       ->addOption(
         name: 'grant-type',
         shortcut: 'g',
         mode: InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
         description: 'Grant types: client_credentials, authorization_code, refresh_token',
-        default: ['client_credentials', 'authorization_code', 'refresh_token']
+        default: ['client_credentials', 'authorization_code', 'refresh_token'],
       )
       ->addOption(
         name: 'scope',
         shortcut: 's',
         mode: InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
         description: 'Scopes: openid, profile, email, read, write',
-        default: ['openid', 'profile', 'email', 'read', 'write']
+        default: ['openid', 'profile', 'email', 'read', 'write'],
       )
       ->setHelp(
         <<<'HELP'
@@ -149,7 +149,7 @@ HELP
    *
    * @since 1.0.0
    *
-   * @param InputInterface  $input  the input interface
+   * @param InputInterface $input the input interface
    * @param OutputInterface $output the output interface
    *
    * @return int the exit code
@@ -179,7 +179,7 @@ HELP
           $io->warning(sprintf(
             'Provided ID "%s" is not a valid UUID. Generated: %s',
             $customId,
-            $clientId->value
+            $clientId->value,
           ));
         }
       } else {
@@ -204,13 +204,13 @@ HELP
       // Parse grant types
       $grantTypes = array_map(
         fn (string $gt) => GrantType::from($gt),
-        $grantTypeStrings
+        $grantTypeStrings,
       );
 
       // Parse scopes
       $scopes = array_map(
         fn (string $s) => Scope::from(strtoupper($s)),
-        $scopeStrings
+        $scopeStrings,
       );
 
       // Create client
@@ -241,7 +241,7 @@ HELP
           ['Redirect URIs', implode(', ', $redirectUris)],
           ['Grant Types', implode(', ', $grantTypeStrings)],
           ['Scopes', implode(', ', $scopeStrings)],
-        ]
+        ],
       );
 
       $io->warning('Save the Client Secret now! It cannot be retrieved later.');

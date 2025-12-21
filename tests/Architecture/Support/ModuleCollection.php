@@ -77,7 +77,7 @@ final class ModuleCollection
       static fn (
         Module $first,
         Module $second,
-      ): int => $first->namespace <=> $second->namespace
+      ): int => $first->namespace <=> $second->namespace,
     );
 
     if ([] === $modules) {

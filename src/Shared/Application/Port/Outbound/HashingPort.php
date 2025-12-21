@@ -44,7 +44,7 @@ interface HashingPort
    *
    * @since 1.0.0
    *
-   * @param string       $value  the plain value to verify
+   * @param string $value the plain value to verify
    * @param HashedSecret $hashed the hashed value to verify
    *
    * @return bool true if the values match, false otherwise

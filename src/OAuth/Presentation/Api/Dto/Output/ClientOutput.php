@@ -38,7 +38,7 @@ final class ClientOutput
     identifier: true,
     example: '01234567-89ab-cdef-0123-456789abcdef',
     openapiContext: ['type' => 'string', 'format' => 'uuid', 'readOnly' => true],
-    jsonSchemaContext: ['type' => 'string', 'format' => 'uuid']
+    jsonSchemaContext: ['type' => 'string', 'format' => 'uuid'],
   )]
   public ?string $id = null;
 
@@ -59,7 +59,7 @@ final class ClientOutput
     identifier: false,
     example: 'My Awesome App',
     openapiContext: ['type' => 'string', 'readOnly' => true],
-    jsonSchemaContext: ['type' => 'string']
+    jsonSchemaContext: ['type' => 'string'],
   )]
   public ?string $name = null;
 
@@ -81,7 +81,7 @@ final class ClientOutput
     identifier: false,
     example: 'your-client-secret',
     openapiContext: ['type' => 'string', 'readOnly' => true],
-    jsonSchemaContext: ['type' => 'string']
+    jsonSchemaContext: ['type' => 'string'],
   )]
   public ?string $secret = null;
 
@@ -111,7 +111,7 @@ final class ClientOutput
     jsonSchemaContext: [
       'type' => 'array',
       'items' => ['type' => 'string', 'format' => 'uri'],
-    ]
+    ],
   )]
   public array $redirectUris = [];
 
@@ -141,7 +141,7 @@ final class ClientOutput
     jsonSchemaContext: [
       'type' => 'array',
       'items' => ['type' => 'string'],
-    ]
+    ],
   )]
   public array $grantTypes = [];
 
@@ -171,7 +171,7 @@ final class ClientOutput
     jsonSchemaContext: [
       'type' => 'array',
       'items' => ['type' => 'string'],
-    ]
+    ],
   )]
   public array $scopes = [];
 
@@ -192,7 +192,7 @@ final class ClientOutput
     identifier: false,
     example: true,
     openapiContext: ['type' => 'boolean', 'readOnly' => true],
-    jsonSchemaContext: ['type' => 'boolean']
+    jsonSchemaContext: ['type' => 'boolean'],
   )]
   public bool $isActive = true;
 
@@ -213,7 +213,7 @@ final class ClientOutput
     identifier: false,
     example: '2025-01-01T12:00:00+00:00',
     openapiContext: ['type' => 'string', 'format' => 'date-time', 'readOnly' => true],
-    jsonSchemaContext: ['type' => 'string', 'format' => 'date-time']
+    jsonSchemaContext: ['type' => 'string', 'format' => 'date-time'],
   )]
   public ?string $createdAt = null;
 }

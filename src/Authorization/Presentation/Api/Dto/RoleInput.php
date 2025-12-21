@@ -38,11 +38,11 @@ final class RoleInput
     min: 2,
     max: 50,
     minMessage: 'Role name must be at least {{ limit }} characters.',
-    maxMessage: 'Role name cannot exceed {{ limit }} characters.'
+    maxMessage: 'Role name cannot exceed {{ limit }} characters.',
   )]
   #[Assert\Regex(
     pattern: '/^[a-z][a-z0-9_]*$/',
-    message: 'Role name must start with a letter and contain only lowercase letters, numbers, and underscores.'
+    message: 'Role name must start with a letter and contain only lowercase letters, numbers, and underscores.',
   )]
   #[ApiProperty(
     description: 'Role name (lowercase, starts with letter, may contain numbers and underscores)',
@@ -79,7 +79,7 @@ final class RoleInput
   #[Groups(groups: [RoleSerializationGroup::WRITE, RoleSerializationGroup::UPDATE])]
   #[Assert\Length(
     max: 255,
-    maxMessage: 'Description cannot exceed {{ limit }} characters.'
+    maxMessage: 'Description cannot exceed {{ limit }} characters.',
   )]
   #[ApiProperty(
     description: 'Human-readable description of the role',

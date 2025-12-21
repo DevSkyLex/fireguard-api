@@ -43,8 +43,8 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager
-   * @param RoleAssignmentMapper   $mapper        the role assignment mapper
-   * @param RoleMapper             $roleMapper    the role mapper
+   * @param RoleAssignmentMapper $mapper the role assignment mapper
+   * @param RoleMapper $roleMapper the role mapper
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -71,7 +71,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
   {
     $record = $this->entityManager->find(
       className: RoleAssignmentRecord::class,
-      id: $id->value
+      id: $id->value,
     );
 
     if (null === $record) {
@@ -90,7 +90,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
    * @since 1.0.0
    *
    * @param SubjectType $subjectType the subject type
-   * @param string      $subjectId   the subject ID
+   * @param string $subjectId the subject ID
    *
    * @return array<RoleAssignment> the assignments
    */
@@ -117,12 +117,12 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
     /** @var list<RoleAssignmentRecord> $filteredRecords */
     $filteredRecords = array_values(array_filter(
       $records,
-      static fn ($r): bool => $r instanceof RoleAssignmentRecord
+      static fn ($r): bool => $r instanceof RoleAssignmentRecord,
     ));
 
     return array_map(
       fn (RoleAssignmentRecord $record): RoleAssignment => $this->mapper->toDomain(record: $record),
-      $filteredRecords
+      $filteredRecords,
     );
   }
 
@@ -136,7 +136,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
    * @since 1.0.0
    *
    * @param SubjectType $subjectType the subject type
-   * @param string      $subjectId   the subject ID
+   * @param string $subjectId the subject ID
    *
    * @return array<Role> the roles with their permissions
    */
@@ -175,7 +175,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
 
     return array_map(
       fn (RoleAssignmentRecord $record) => $this->mapper->toDomain(record: $record),
-      $records
+      $records,
     );
   }
 
@@ -195,12 +195,12 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
   {
     $existingRecord = $this->entityManager->find(
       className: RoleAssignmentRecord::class,
-      id: $assignment->id()->value
+      id: $assignment->id()->value,
     );
 
     $record = $this->mapper->toRecord(
       assignment: $assignment,
-      record: $existingRecord
+      record: $existingRecord,
     );
 
     $this->entityManager->persist($record);
@@ -223,7 +223,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
   {
     $record = $this->entityManager->find(
       className: RoleAssignmentRecord::class,
-      id: $assignment->id()->value
+      id: $assignment->id()->value,
     );
 
     if (null !== $record) {
@@ -241,7 +241,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
    * @since 1.0.0
    *
    * @param SubjectType $subjectType the subject type
-   * @param string      $subjectId   the subject ID
+   * @param string $subjectId the subject ID
    *
    * @return void none
    */

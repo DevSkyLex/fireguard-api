@@ -26,11 +26,11 @@ final readonly class IssueTokenResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param string      $accessToken  the access token
-   * @param string      $tokenType    the token type (Bearer)
-   * @param int         $expiresIn    the expiration time in seconds
+   * @param string $accessToken the access token
+   * @param string $tokenType the token type (Bearer)
+   * @param int $expiresIn the expiration time in seconds
    * @param string|null $refreshToken the refresh token (optional)
-   * @param string|null $scope        the granted scope (optional)
+   * @param string|null $scope the granted scope (optional)
    */
   public function __construct(
     public readonly string $accessToken,

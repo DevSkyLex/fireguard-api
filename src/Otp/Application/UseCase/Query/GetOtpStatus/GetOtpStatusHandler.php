@@ -47,19 +47,19 @@ final readonly class GetOtpStatusHandler implements QueryHandler
    *
    * @param GetOtpStatusQuery $query the query
    *
-   * @return GetOtpStatusResult the result
-   *
    * @throws OtpNotFoundException if OTP not found
+   *
+   * @return GetOtpStatusResult the result
    */
   public function __invoke(GetOtpStatusQuery $query): GetOtpStatusResult
   {
     $otp = $this->otpRepository->findById(
-      id: new OtpId(value: $query->otpId)
+      id: new OtpId(value: $query->otpId),
     );
 
     if (null === $otp) {
       throw OtpNotFoundException::create(
-        id: $query->otpId
+        id: $query->otpId,
       );
     }
 

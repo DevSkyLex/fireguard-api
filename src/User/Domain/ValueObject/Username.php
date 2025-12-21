@@ -51,7 +51,7 @@ final readonly class Username implements Stringable
   {
     if ('' === $value) {
       throw InvalidValueException::because(
-        message: 'Username cannot be empty.'
+        message: 'Username cannot be empty.',
       );
     }
 
@@ -59,8 +59,8 @@ final readonly class Username implements Stringable
       throw InvalidValueException::because(
         message: sprintf(
           'Invalid username "%s". Must be 3-50 characters, alphanumeric with underscores and dashes allowed.',
-          $value
-        )
+          $value,
+        ),
       );
     }
   }

@@ -36,7 +36,7 @@ final class TenantApiTest extends WebTestCase
     self::assertContains(
       needle: $statusCode,
       haystack: [401, 403],
-      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode
+      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode,
     );
   }
 
@@ -54,7 +54,7 @@ final class TenantApiTest extends WebTestCase
       method: 'POST',
       uri: '/api/tenants',
       server: ['CONTENT_TYPE' => 'application/json'],
-      content: (string) json_encode(['name' => 'Test Tenant'])
+      content: (string) json_encode(['name' => 'Test Tenant']),
     );
 
     $statusCode = $client->getResponse()->getStatusCode();
@@ -62,7 +62,7 @@ final class TenantApiTest extends WebTestCase
     self::assertContains(
       needle: $statusCode,
       haystack: [401, 403],
-      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode
+      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode,
     );
   }
   // #endregion

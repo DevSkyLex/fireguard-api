@@ -27,7 +27,7 @@ final readonly class OtpMapper
    *
    * Maps domain model to Doctrine record.
    *
-   * @param Otp            $otp    the domain model
+   * @param Otp $otp the domain model
    * @param OtpRecord|null $record existing record to update
    *
    * @return OtpRecord the Doctrine record

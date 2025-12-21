@@ -44,8 +44,8 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param LogLevel             $level   the log level
-   * @param string               $message the log message
+   * @param LogLevel $level the log level
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -55,7 +55,7 @@ final readonly class LoggerAdapter implements LoggerPort
     $this->logger->log(
       level: $level->value,
       message: $message,
-      context: $context
+      context: $context,
     );
   }
 
@@ -67,7 +67,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the log message
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -76,7 +76,7 @@ final readonly class LoggerAdapter implements LoggerPort
   {
     $this->logger->critical(
       message: $message,
-      context: $context
+      context: $context,
     );
   }
 
@@ -88,7 +88,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the log message
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -97,7 +97,7 @@ final readonly class LoggerAdapter implements LoggerPort
   {
     $this->logger->error(
       message: $message,
-      context: $context
+      context: $context,
     );
   }
 
@@ -109,7 +109,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the log message
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -118,7 +118,7 @@ final readonly class LoggerAdapter implements LoggerPort
   {
     $this->logger->warning(
       message: $message,
-      context: $context
+      context: $context,
     );
   }
 
@@ -130,7 +130,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the log message
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -139,7 +139,7 @@ final readonly class LoggerAdapter implements LoggerPort
   {
     $this->logger->notice(
       message: $message,
-      context: $context
+      context: $context,
     );
   }
 
@@ -151,7 +151,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the log message
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -160,7 +160,7 @@ final readonly class LoggerAdapter implements LoggerPort
   {
     $this->logger->info(
       message: $message,
-      context: $context
+      context: $context,
     );
   }
 
@@ -172,7 +172,7 @@ final readonly class LoggerAdapter implements LoggerPort
    *
    * @since 1.0.0
    *
-   * @param string               $message the log message
+   * @param string $message the log message
    * @param array<string, mixed> $context the log context
    *
    * @return void no return value
@@ -181,7 +181,7 @@ final readonly class LoggerAdapter implements LoggerPort
   {
     $this->logger->debug(
       message: $message,
-      context: $context
+      context: $context,
     );
   }
   // #endregion

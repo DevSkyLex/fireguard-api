@@ -54,7 +54,7 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
   {
     $record = $this->entityManager->find(
       className: AuthCodeRecord::class,
-      id: $authCode->identifier()
+      id: $authCode->identifier(),
     );
 
     if (!$record) {
@@ -87,7 +87,7 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
   {
     $record = $this->entityManager->find(
       className: AuthCodeRecord::class,
-      id: $identifier
+      id: $identifier,
     );
 
     if (!$record) {
@@ -101,7 +101,7 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
       userIdentifier: $record->userIdentifier,
       scopes: Scopes::fromArray($record->scopes),
       redirectUri: $record->redirectUri,
-      isRevoked: $record->isRevoked
+      isRevoked: $record->isRevoked,
     );
   }
   // #endregion

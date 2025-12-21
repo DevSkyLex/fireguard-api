@@ -36,7 +36,7 @@ final class TrustedDeviceNotFoundException extends EntityNotFoundException
   public static function create(string $id): self
   {
     return new self(
-      message: sprintf('TrustedDevice with ID "%s" not found.', $id)
+      message: sprintf('TrustedDevice with ID "%s" not found.', $id),
     );
   }
   // #endregion

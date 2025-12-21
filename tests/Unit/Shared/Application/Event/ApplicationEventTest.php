@@ -50,23 +50,23 @@ final class ApplicationEventTest extends TestCase
 
     self::assertSame(
       expected: '123e4567-e89b-12d3-a456-426614174000',
-      actual: (string) $applicationEvent->eventId
+      actual: (string) $applicationEvent->eventId,
     );
     self::assertSame(
       expected: 'aggregate-1',
-      actual: $applicationEvent->aggregateId
+      actual: $applicationEvent->aggregateId,
     );
     self::assertSame(
       expected: 'dummy',
-      actual: $applicationEvent->aggregateType
+      actual: $applicationEvent->aggregateType,
     );
     self::assertSame(
       expected: ['foo' => 'bar'],
-      actual: $applicationEvent->payload
+      actual: $applicationEvent->payload,
     );
     self::assertSame(
       expected: $occurredAt,
-      actual: $applicationEvent->occurredAt
+      actual: $applicationEvent->occurredAt,
     );
   }
   // #endregion
@@ -90,11 +90,11 @@ final class DummyDomainEvent implements DomainEvent
    *
    * Initialize the domain event.
    *
-   * @param Uuid                 $eventId       the event id
-   * @param string               $aggregateId   the aggregate id
-   * @param string               $aggregateType the aggregate type
-   * @param array<string, mixed> $payload       the payload
-   * @param DateTimeImmutable    $occurredAt    the occurred at
+   * @param Uuid $eventId the event id
+   * @param string $aggregateId the aggregate id
+   * @param string $aggregateType the aggregate type
+   * @param array<string, mixed> $payload the payload
+   * @param DateTimeImmutable $occurredAt the occurred at
    */
   public function __construct(
     private readonly Uuid $eventId,

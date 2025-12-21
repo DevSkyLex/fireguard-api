@@ -27,9 +27,9 @@ final class ListChannelsProvider implements ProviderInterface
    * Method provide
    * {@inheritDoc}
    *
-   * @param Operation            $operation    the operation
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return list<ChannelOutput>
    */

@@ -52,10 +52,10 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
    *
    * @param CommandMessage $command the command to dispatch
    *
-   * @return ResultMessage the result of the command
-   *
    * @throws MessengerRuntimeException if the command bus fails to dispatch the command
-   * @throws NoHandlerResultException  if the command has no handler result
+   * @throws NoHandlerResultException if the command has no handler result
+   *
+   * @return ResultMessage the result of the command
    */
   public function dispatch(CommandMessage $command): ResultMessage
   {
@@ -67,14 +67,14 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
 
     $handledStamp = $this->extractHandledStamp(
       envelope: $envelope,
-      command: $command
+      command: $command,
     );
 
     $result = $handledStamp->getResult();
 
     if (!$result instanceof ResultMessage) {
       throw NoHandlerResultException::forMessage(
-        message: $command
+        message: $command,
       );
     }
 
@@ -88,12 +88,12 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
    *
    * @since 1.0.0
    *
-   * @param Envelope       $envelope the envelope to extract the handled stamp from
-   * @param CommandMessage $command  the command to extract the handled stamp from
-   *
-   * @return HandledStamp the handled stamp
+   * @param Envelope $envelope the envelope to extract the handled stamp from
+   * @param CommandMessage $command the command to extract the handled stamp from
    *
    * @throws NoHandlerResultException if the command has no handler result
+   *
+   * @return HandledStamp the handled stamp
    */
   private function extractHandledStamp(Envelope $envelope, CommandMessage $command): HandledStamp
   {
@@ -101,7 +101,7 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
 
     if (!$handledStamp instanceof HandledStamp) {
       throw NoHandlerResultException::forMessage(
-        message: $command
+        message: $command,
       );
     }
 

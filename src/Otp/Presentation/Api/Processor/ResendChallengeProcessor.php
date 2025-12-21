@@ -47,8 +47,8 @@ final readonly class ResendChallengeProcessor implements ProcessorInterface
    * Constructor.
    *
    * @param GetOtpStatusHandler $getStatusHandler the status handler
-   * @param GenerateOtpHandler  $generateHandler  the generate handler
-   * @param Security            $security         the security service
+   * @param GenerateOtpHandler $generateHandler the generate handler
+   * @param Security $security the security service
    */
   public function __construct(
     private GetOtpStatusHandler $getStatusHandler,

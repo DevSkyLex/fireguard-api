@@ -47,8 +47,8 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param AuthorizationServer $authorizationServer the authorization server
-   * @param RequestStack        $requestStack        the request stack
-   * @param LoggerInterface     $logger              the logger
+   * @param RequestStack $requestStack the request stack
+   * @param LoggerInterface $logger the logger
    */
   public function __construct(
     private readonly AuthorizationServer $authorizationServer,
@@ -68,10 +68,10 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param mixed                $data         the data
-   * @param Operation            $operation    the operation
+   * @param mixed $data the data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return ?TokenOutput the token output
    */
@@ -91,7 +91,7 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
       serverRequestFactory: $psr17Factory,
       streamFactory: $psr17Factory,
       uploadedFileFactory: $psr17Factory,
-      responseFactory: $psr17Factory
+      responseFactory: $psr17Factory,
     );
 
     $psrRequest = $psrHttpFactory->createRequest($request);
@@ -112,12 +112,12 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
     try {
       $response = $this->authorizationServer->respondToAccessTokenRequest(
         request: $psrRequest,
-        response: new Psr7Response()
+        response: new Psr7Response(),
       );
 
       $body = json_decode(
         json: (string) $response->getBody(),
-        associative: true
+        associative: true,
       );
 
       if (!is_array($body)) {
@@ -156,7 +156,7 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
 
       throw new BadRequestHttpException(
         message: $exception->getMessage(),
-        previous: $exception
+        previous: $exception,
       );
     }
   }

@@ -54,7 +54,7 @@ final class ClientApiTest extends WebTestCase
         'redirectUris' => ['https://example.com/callback'],
         'grantTypes' => ['client_credentials'],
         'scopes' => ['read'],
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $this->client?->getResponse();

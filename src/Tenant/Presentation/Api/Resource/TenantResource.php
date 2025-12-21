@@ -30,7 +30,7 @@ use Tenant\Presentation\Api\Provider\ListTenantsProvider;
       uriTemplate: '/tenants',
       input: TenantInput::class,
       output: TenantOutput::class,
-      processor: CreateTenantProcessor::class
+      processor: CreateTenantProcessor::class,
     ),
     new Get(
       name: 'tenant_get',
@@ -38,7 +38,7 @@ use Tenant\Presentation\Api\Provider\ListTenantsProvider;
       uriTemplate: '/tenants/{id}',
       input: false,
       output: TenantOutput::class,
-      provider: GetTenantProvider::class
+      provider: GetTenantProvider::class,
     ),
     new GetCollection(
       name: 'tenant_list',
@@ -46,9 +46,9 @@ use Tenant\Presentation\Api\Provider\ListTenantsProvider;
       uriTemplate: '/tenants',
       input: false,
       output: TenantOutput::class,
-      provider: ListTenantsProvider::class
+      provider: ListTenantsProvider::class,
     ),
-  ]
+  ],
 )]
 final class TenantResource
 {

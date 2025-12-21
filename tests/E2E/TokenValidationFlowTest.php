@@ -48,7 +48,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -56,7 +56,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed'
+      'Token request should succeed',
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -89,7 +89,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::DEV_CLIENT_ID,
         'client_secret' => self::DEV_CLIENT_SECRET,
         'scope' => 'READ WRITE OPENID',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -97,7 +97,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed'
+      'Token request should succeed',
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -127,7 +127,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -137,10 +137,10 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_BAD_REQUEST, Response::HTTP_INTERNAL_SERVER_ERROR],
-      'Token request without scope should be handled'
+      'Token request without scope should be handled',
     );
 
-    if (in_array($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED])) {
+    if (in_array($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED], true)) {
       $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('access_token', $data);
     }
@@ -165,7 +165,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'INVALID_SCOPE_XYZ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -174,7 +174,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_BAD_REQUEST],
-      'Invalid scope should be handled appropriately'
+      'Invalid scope should be handled appropriately',
     );
   }
 
@@ -202,7 +202,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ WRITE',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -210,7 +210,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -227,7 +227,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -235,7 +235,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Introspection should succeed'
+      'Introspection should succeed',
     );
 
     $introspectData = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -267,7 +267,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -275,7 +275,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -292,7 +292,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     // Now introspect - should be inactive
@@ -305,7 +305,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -337,7 +337,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -345,7 +345,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -375,7 +375,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -383,7 +383,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -400,7 +400,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'token' => $accessToken,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -436,7 +436,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -444,7 +444,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -473,7 +473,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
         'scope' => 'READ',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -481,7 +481,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Token request should succeed. Response: ' . $response->getContent()
+      'Token request should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -495,7 +495,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $accessToken,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -504,7 +504,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED],
-      'Valid Bearer token should be processed'
+      'Valid Bearer token should be processed',
     );
 
     // Test with wrong format (no Bearer prefix)
@@ -514,7 +514,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => $accessToken, // Missing "Bearer " prefix
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -522,7 +522,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Token without Bearer prefix should be rejected'
+      'Token without Bearer prefix should be rejected',
     );
   }
 
@@ -550,7 +550,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
         'client_secret' => self::API_CLIENT_SECRET,
         'username' => 'test',
         'password' => 'test',
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -558,7 +558,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'Unsupported grant type should be rejected'
+      'Unsupported grant type should be rejected',
     );
   }
 
@@ -579,7 +579,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -587,7 +587,7 @@ class TokenValidationFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'Missing grant_type should be rejected'
+      'Missing grant_type should be rejected',
     );
   }
 

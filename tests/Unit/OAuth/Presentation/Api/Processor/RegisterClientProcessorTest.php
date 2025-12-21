@@ -49,7 +49,7 @@ final class RegisterClientProcessorTest extends TestCase
 
     $result = new RegisterClientResult(
       clientId: $clientId,
-      clientSecret: $clientSecret
+      clientSecret: $clientSecret,
     );
 
     // Mocks
@@ -67,7 +67,7 @@ final class RegisterClientProcessorTest extends TestCase
     // Execute
     $output = $processor->process(
       data: $input,
-      operation: $operation
+      operation: $operation,
     );
 
     // Assert

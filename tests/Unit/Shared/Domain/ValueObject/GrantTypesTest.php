@@ -100,7 +100,7 @@ final class GrantTypesTest extends TestCase
     $grantTypes = new GrantTypes(
       GrantType::AUTHORIZATION_CODE,
       GrantType::AUTHORIZATION_CODE,
-      GrantType::CLIENT_CREDENTIALS
+      GrantType::CLIENT_CREDENTIALS,
     );
 
     $this->assertCount(2, $grantTypes);
@@ -120,7 +120,7 @@ final class GrantTypesTest extends TestCase
   {
     $grantTypes = new GrantTypes(
       GrantType::AUTHORIZATION_CODE,
-      GrantType::CLIENT_CREDENTIALS
+      GrantType::CLIENT_CREDENTIALS,
     );
 
     $array = $grantTypes->toArray();

@@ -56,8 +56,8 @@ final readonly class RoleAssignmentMapper
    *
    * @since 1.0.0
    *
-   * @param RoleAssignment            $assignment the domain model to convert
-   * @param RoleAssignmentRecord|null $record     existing record to update, or null to create new
+   * @param RoleAssignment $assignment the domain model to convert
+   * @param RoleAssignmentRecord|null $record existing record to update, or null to create new
    *
    * @return RoleAssignmentRecord the Doctrine record
    */

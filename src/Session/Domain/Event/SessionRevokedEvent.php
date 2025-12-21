@@ -25,10 +25,10 @@ final readonly class SessionRevokedEvent implements DomainEvent
    *
    * @since 1.0.0
    *
-   * @param Uuid              $eventId    the event ID
-   * @param string            $sessionId  the session ID
-   * @param string            $userId     the user ID
-   * @param string            $reason     the revocation reason
+   * @param Uuid $eventId the event ID
+   * @param string $sessionId the session ID
+   * @param string $userId the user ID
+   * @param string $reason the revocation reason
    * @param DateTimeImmutable $occurredAt when the event occurred
    */
   public function __construct(

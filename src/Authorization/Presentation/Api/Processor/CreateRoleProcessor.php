@@ -42,7 +42,7 @@ final readonly class CreateRoleProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RoleRepositoryPort       $roleRepository       the role repository
+   * @param RoleRepositoryPort $roleRepository the role repository
    * @param PermissionRepositoryPort $permissionRepository the permission repository
    */
   public function __construct(
@@ -61,10 +61,10 @@ final readonly class CreateRoleProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param RoleInput            $data         the input data
-   * @param Operation            $operation    the operation
+   * @param RoleInput $data the input data
+   * @param Operation $operation the operation
    * @param array<string, mixed> $uriVariables the URI variables
-   * @param array<string, mixed> $context      the context
+   * @param array<string, mixed> $context the context
    *
    * @return RoleOutput the processed output
    */
@@ -87,7 +87,7 @@ final readonly class CreateRoleProcessor implements ProcessorInterface
       name: new RoleName(value: $data->name),
       description: $data->description ?? '',
       isSystem: $data->isSystem,
-      tenantId: null
+      tenantId: null,
     );
 
     // Add permissions
@@ -123,7 +123,7 @@ final readonly class CreateRoleProcessor implements ProcessorInterface
     $output->createdAt = $role->createdAt()->format('Y-m-d H:i:s');
     $output->permissions = array_map(
       fn (Permission $permission) => $this->mapPermissionToOutput($permission),
-      $role->permissions()
+      $role->permissions(),
     );
 
     return $output;

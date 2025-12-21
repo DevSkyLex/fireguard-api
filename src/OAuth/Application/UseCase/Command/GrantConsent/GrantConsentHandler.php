@@ -31,7 +31,7 @@ final readonly class GrantConsentHandler implements \Shared\Application\Message\
    * @since 1.0.0
    *
    * @param ConsentRepositoryPort $consentRepository the consent repository
-   * @param UuidFactory           $uuidFactory       the UUID factory
+   * @param UuidFactory $uuidFactory the UUID factory
    */
   public function __construct(
     private readonly ConsentRepositoryPort $consentRepository,

@@ -36,7 +36,7 @@ final class OtpNotFoundException extends EntityNotFoundException
   public static function create(string $id): self
   {
     return new self(
-      message: sprintf('Otp with ID "%s" not found.', $id)
+      message: sprintf('Otp with ID "%s" not found.', $id),
     );
   }
   // #endregion

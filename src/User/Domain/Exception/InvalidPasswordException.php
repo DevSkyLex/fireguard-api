@@ -32,7 +32,7 @@ final class InvalidPasswordException extends DomainException
   public static function tooWeak(): self
   {
     return new self(
-      message: 'Password is too weak. Must be at least 8 characters with uppercase, lowercase, number, and special character.'
+      message: 'Password is too weak. Must be at least 8 characters with uppercase, lowercase, number, and special character.',
     );
   }
 

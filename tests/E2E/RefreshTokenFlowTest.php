@@ -49,7 +49,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -57,7 +57,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Login should succeed. Response: ' . $response->getContent()
+      'Login should succeed. Response: ' . $response->getContent(),
     );
 
     $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -90,7 +90,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_COOKIE' => 'refresh_token=' . $refreshToken,
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -98,7 +98,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Refresh token should succeed. Response: ' . $response->getContent()
+      'Refresh token should succeed. Response: ' . $response->getContent(),
     );
 
     $newData = $this->decodeJsonResponse($response->getContent() ?: '{}');
@@ -107,7 +107,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertNotEquals(
       $originalAccessToken,
       $newData['access_token'],
-      'New access token should be different from original'
+      'New access token should be different from original',
     );
   }
 
@@ -130,7 +130,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
         'refresh_token' => 'invalid_refresh_token_here',
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -138,7 +138,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-      'Invalid refresh token should be rejected'
+      'Invalid refresh token should be rejected',
     );
   }
 
@@ -160,7 +160,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
         'grant_type' => 'refresh_token',
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -168,7 +168,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY],
-      'Missing refresh_token should be rejected'
+      'Missing refresh_token should be rejected',
     );
   }
 
@@ -194,7 +194,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
         'refresh_token' => $expiredToken,
         'client_id' => self::API_CLIENT_ID,
         'client_secret' => self::API_CLIENT_SECRET,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -202,7 +202,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_BAD_REQUEST, Response::HTTP_UNAUTHORIZED],
-      'Expired refresh token should be rejected'
+      'Expired refresh token should be rejected',
     );
   }
 
@@ -233,7 +233,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
       content: json_encode([
         'email' => $email,
         'password' => $password,
-      ]) ?: ''
+      ]) ?: '',
     );
 
     $response = $client->getResponse();
@@ -241,7 +241,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Login should succeed. Response: ' . $response->getContent()
+      'Login should succeed. Response: ' . $response->getContent(),
     );
 
     // Step 2: Call refresh endpoint (should use cookie automatically)
@@ -251,7 +251,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -259,10 +259,10 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertContains(
       $response->getStatusCode(),
       [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_UNAUTHORIZED],
-      'Refresh endpoint should respond appropriately'
+      'Refresh endpoint should respond appropriately',
     );
 
-    if (in_array($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED])) {
+    if (in_array($response->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED], true)) {
       $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
       $this->assertArrayHasKey('access_token', $data, 'Response should contain new access_token');
     }
@@ -281,7 +281,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
-      ]
+      ],
     );
 
     $response = $client->getResponse();
@@ -289,7 +289,7 @@ class RefreshTokenFlowTest extends OAuth2WebTestCase
     $this->assertEquals(
       Response::HTTP_UNAUTHORIZED,
       $response->getStatusCode(),
-      'Refresh without cookie should return 401'
+      'Refresh without cookie should return 401',
     );
   }
 

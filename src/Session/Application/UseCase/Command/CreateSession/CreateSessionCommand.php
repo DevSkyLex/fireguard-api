@@ -25,10 +25,10 @@ final readonly class CreateSessionCommand
    *
    * @since 1.0.0
    *
-   * @param string               $userId    the user ID
-   * @param IpAddress            $ipAddress the client IP address
-   * @param UserAgent            $userAgent the client user agent
-   * @param SessionMetadata|null $metadata  optional session metadata
+   * @param string $userId the user ID
+   * @param IpAddress $ipAddress the client IP address
+   * @param UserAgent $userAgent the client user agent
+   * @param SessionMetadata|null $metadata optional session metadata
    */
   public function __construct(
     public string $userId,

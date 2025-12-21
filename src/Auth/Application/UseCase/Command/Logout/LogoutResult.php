@@ -26,9 +26,9 @@ final readonly class LogoutResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param bool $success             whether the logout was successful
+   * @param bool $success whether the logout was successful
    * @param bool $refreshTokenRevoked whether the refresh token was revoked
-   * @param bool $accessTokenRevoked  whether the access token was revoked
+   * @param bool $accessTokenRevoked whether the access token was revoked
    */
   public function __construct(
     public readonly bool $success,

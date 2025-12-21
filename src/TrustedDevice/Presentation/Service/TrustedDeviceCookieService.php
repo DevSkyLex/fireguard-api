@@ -46,9 +46,9 @@ readonly class TrustedDeviceCookieService
    *
    * @since 1.0.0
    *
-   * @param string $environment    the application environment
+   * @param string $environment the application environment
    * @param string $cookieBaseName the base name for the cookie
-   * @param int    $lifetime       the cookie lifetime in seconds (default: 30 days)
+   * @param int $lifetime the cookie lifetime in seconds (default: 30 days)
    */
   public function __construct(
     #[Autowire(value: '%kernel.environment%')]
@@ -88,7 +88,7 @@ readonly class TrustedDeviceCookieService
    *
    * @since 1.0.0
    *
-   * @param string                 $token     the device token value
+   * @param string $token the device token value
    * @param DateTimeImmutable|null $expiresAt custom expiration date
    *
    * @return Cookie the configured cookie
@@ -108,7 +108,7 @@ readonly class TrustedDeviceCookieService
       secure: $this->isSecureEnvironment(),
       httpOnly: true,
       raw: false,
-      sameSite: Cookie::SAMESITE_STRICT
+      sameSite: Cookie::SAMESITE_STRICT,
     );
   }
 
@@ -132,7 +132,7 @@ readonly class TrustedDeviceCookieService
       secure: $this->isSecureEnvironment(),
       httpOnly: true,
       raw: false,
-      sameSite: Cookie::SAMESITE_STRICT
+      sameSite: Cookie::SAMESITE_STRICT,
     );
   }
 

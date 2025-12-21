@@ -50,8 +50,8 @@ final readonly class LoginRateLimiterAdapter implements RateLimiterPort
    *
    * @since 1.0.0
    *
-   * @param string $key    the key to rate limit
-   * @param int    $tokens the number of tokens to consume
+   * @param string $key the key to rate limit
+   * @param int $tokens the number of tokens to consume
    *
    * @return RateLimitResult the rate limit result
    */

@@ -35,8 +35,8 @@ final readonly class GetTenantProvider implements ProviderInterface
    *
    * @since 1.0.0
    *
-   * @param GetTenantHandler $handler  the query handler
-   * @param Security         $security the security service
+   * @param GetTenantHandler $handler the query handler
+   * @param Security $security the security service
    */
   public function __construct(
     private GetTenantHandler $handler,

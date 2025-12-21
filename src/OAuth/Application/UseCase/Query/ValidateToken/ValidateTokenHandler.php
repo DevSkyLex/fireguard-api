@@ -31,7 +31,7 @@ final readonly class ValidateTokenHandler implements QueryHandler
    *
    * @since 1.0.0
    *
-   * @param JwtParserPort             $jwtParser             the JWT parser
+   * @param JwtParserPort $jwtParser the JWT parser
    * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
    */
   public function __construct(
