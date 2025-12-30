@@ -15,7 +15,7 @@ use Lcobucci\JWT\Token\Parser;
 use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Validator;
-use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

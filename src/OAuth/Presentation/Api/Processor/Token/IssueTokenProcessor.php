@@ -6,23 +6,22 @@ namespace OAuth\Presentation\Api\Processor\Token;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Response as Psr7Response;
-use OAuth\Presentation\Api\Dto\Input\TokenInput;
-use OAuth\Presentation\Api\Dto\Output\TokenOutput;
-use Psr\Log\LoggerInterface;
-use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
+use OAuth\Application\UseCase\Command\Token\IssueToken\{IssueTokenCommand, IssueTokenResult};
+use OAuth\Domain\Exception\Token\AuthorizationException;
+use OAuth\Presentation\Api\Dto\Input\Token\TokenInput;
+use OAuth\Presentation\Api\Dto\Output\Token\TokenOutput;
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Throwable;
 
-use function array_filter;
-use function is_array;
-use function is_int;
-use function is_string;
-use function json_decode;
+use function max;
+use function time;
 
 /**
  * Processor IssueTokenProcessor.
@@ -46,15 +45,15 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
    *
    * @since 1.0.0
    *
-   * @param AuthorizationServer $authorizationServer the authorization server
+   * @param CommandBusPort $commandBus the command bus
    * @param RequestStack $requestStack the request stack
-   * @param LoggerInterface $logger the logger
+   * @param RateLimiterFactory $rateLimiter the token rate limiter
    */
   public function __construct(
-    private readonly AuthorizationServer $authorizationServer,
+    private readonly CommandBusPort $commandBus,
     private readonly RequestStack $requestStack,
-    #[Autowire(service: 'monolog.logger.security')]
-    private readonly LoggerInterface $logger,
+    #[Autowire(service: 'limiter.oauth_token')]
+    private readonly RateLimiterFactory $rateLimiter,
   ) {
   }
   // #endregion
@@ -73,92 +72,111 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
    * @param array<string, mixed> $uriVariables the URI variables
    * @param array<string, mixed> $context the context
    *
-   * @return ?TokenOutput the token output
+   * @return TokenOutput the token output
    */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?TokenOutput
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): TokenOutput
   {
     if (!$data instanceof TokenInput) {
-      return null;
+      throw AuthorizationException::invalidRequest(
+        message: 'Invalid request body.',
+        previous: null,
+      );
     }
 
     $request = $this->requestStack->getCurrentRequest();
     if (!$request) {
-      return null;
+      throw AuthorizationException::invalidRequest(
+        message: 'Invalid request context.',
+        previous: null,
+      );
     }
 
-    $psr17Factory = new Psr17Factory();
-    $psrHttpFactory = new PsrHttpFactory(
-      serverRequestFactory: $psr17Factory,
-      streamFactory: $psr17Factory,
-      uploadedFileFactory: $psr17Factory,
-      responseFactory: $psr17Factory,
+    $this->enforceRateLimit(
+      ipAddress: $request->getClientIp(),
+      clientId: $data->clientId,
     );
 
-    $psrRequest = $psrHttpFactory->createRequest($request);
-
-    $parsedBody = array_filter([
-      'grant_type' => $data->grantType,
-      'client_id' => $data->clientId,
-      'client_secret' => $data->clientSecret,
-      'scope' => $data->scope,
-      'refresh_token' => $data->refreshToken,
-      'code' => $data->code,
-      'redirect_uri' => $data->redirectUri,
-      'code_verifier' => $data->codeVerifier,
-    ], fn ($value) => null !== $value);
-
-    $psrRequest = $psrRequest->withParsedBody(data: $parsedBody);
+    $command = new IssueTokenCommand(
+      grantType: (string) $data->grantType,
+      clientId: (string) $data->clientId,
+      clientSecret: (string) $data->clientSecret,
+      scope: $data->scope,
+      refreshToken: $data->refreshToken,
+      code: $data->code,
+      redirectUri: $data->redirectUri,
+      codeVerifier: $data->codeVerifier,
+      ipAddress: $request->getClientIp(),
+    );
 
     try {
-      $response = $this->authorizationServer->respondToAccessTokenRequest(
-        request: $psrRequest,
-        response: new Psr7Response(),
-      );
-
-      $body = json_decode(
-        json: (string) $response->getBody(),
-        associative: true,
-      );
-
-      if (!is_array($body)) {
-        $body = [];
-      }
-
-      /** @var array<string, mixed> $body */
-      $this->logger->info('OAuth2 token issued', [
-        'grant_type' => $data->grantType,
-        'client_id' => $data->clientId,
-        'ip' => $request->getClientIp(),
-      ]);
-
-      $accessToken = $body['access_token'] ?? null;
-      $tokenType = $body['token_type'] ?? null;
-      $expiresIn = $body['expires_in'] ?? null;
-      $refreshToken = $body['refresh_token'] ?? null;
-      $scope = $body['scope'] ?? null;
+      /** @var IssueTokenResult $result */
+      $result = $this->commandBus->dispatch(command: $command);
 
       $tokenResponse = new TokenOutput();
-      $tokenResponse->accessToken = is_string($accessToken) ? $accessToken : null;
-      $tokenResponse->tokenType = is_string($tokenType) ? $tokenType : null;
-      $tokenResponse->expiresIn = is_int($expiresIn) ? $expiresIn : null;
-      $tokenResponse->refreshToken = is_string($refreshToken) ? $refreshToken : null;
-      $tokenResponse->scope = is_string($scope) ? $scope : null;
+      $tokenResponse->accessToken = $result->accessToken;
+      $tokenResponse->tokenType = $result->tokenType;
+      $tokenResponse->expiresIn = $result->expiresIn;
+      $tokenResponse->refreshToken = $result->refreshToken;
+      $tokenResponse->scope = $result->scope;
 
       return $tokenResponse;
 
+    } catch (AuthorizationException $exception) {
+      throw $exception;
     } catch (OAuthServerException $exception) {
-      $this->logger->warning('OAuth2 token issuance failed', [
-        'grant_type' => $data->grantType,
-        'client_id' => $data->clientId,
-        'error' => $exception->getMessage(),
-        'ip' => $request->getClientIp(),
-      ]);
+      throw $exception;
+    } catch (MessengerRuntimeException $exception) {
+      $previous = $exception->getPrevious();
+      if ($previous instanceof HandlerFailedException) {
+        foreach ($previous->getWrappedExceptions() as $nestedException) {
+          if ($nestedException instanceof AuthorizationException || $nestedException instanceof OAuthServerException) {
+            throw $nestedException;
+          }
+        }
+      }
 
-      throw new BadRequestHttpException(
-        message: $exception->getMessage(),
+      while ($previous) {
+        if ($previous instanceof AuthorizationException || $previous instanceof OAuthServerException) {
+          throw $previous;
+        }
+
+        $previous = $previous->getPrevious();
+      }
+
+      throw $exception;
+    } catch (Throwable $exception) {
+      $previous = $exception->getPrevious();
+      while ($previous) {
+        if ($previous instanceof AuthorizationException || $previous instanceof OAuthServerException) {
+          throw $previous;
+        }
+
+        $previous = $previous->getPrevious();
+      }
+
+      throw AuthorizationException::serverError(
+        message: 'Authorization server error.',
         previous: $exception,
       );
     }
+  }
+
+  private function enforceRateLimit(?string $ipAddress, ?string $clientId): void
+  {
+    $key = $ipAddress ?? 'unknown';
+    if (null !== $clientId && '' !== $clientId) {
+      $key = $clientId . '|' . $key;
+    }
+
+    $limit = $this->rateLimiter->create($key)->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException($seconds, 'Too many token requests.');
   }
   // #endregion
 }

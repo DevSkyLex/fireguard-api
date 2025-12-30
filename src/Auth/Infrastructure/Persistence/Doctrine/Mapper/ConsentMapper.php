@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Auth\Infrastructure\Persistence\Doctrine\Record\ConsentRecord;
-use OAuth\Domain\Model\Consent;
-use OAuth\Domain\ValueObject\ConsentId;
-use OAuth\Domain\ValueObject\Scopes;
+use OAuth\Domain\Model\Consent\Consent;
+use OAuth\Domain\ValueObject\Consent\ConsentId;
+use OAuth\Domain\ValueObject\Scope\Scopes;
 use ReflectionClass;
 use Symfony\Component\Uid\Uuid;
 

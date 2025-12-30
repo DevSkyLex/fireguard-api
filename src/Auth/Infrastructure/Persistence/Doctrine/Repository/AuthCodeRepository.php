@@ -6,10 +6,10 @@ namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Auth\Infrastructure\Persistence\Doctrine\Record\AuthCodeRecord;
 use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Application\Port\Outbound\AuthCodeRepositoryPort;
-use OAuth\Domain\Model\AuthCode;
-use OAuth\Domain\ValueObject\OAuthClientIdentifier;
-use OAuth\Domain\ValueObject\Scopes;
+use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
+use OAuth\Domain\Model\Token\AuthCode;
+use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scope\Scopes;
 
 /**
  * Repository AuthCodeRepository.

@@ -1,0 +1,116 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\OAuth\Application\UseCase\Query\Client\GetClient;
+
+use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\UseCase\Query\Client\GetClient\{
+  GetClientHandler,
+  GetClientQuery,
+  GetClientResult
+};
+use OAuth\Domain\Model\Client\Client;
+use OAuth\Domain\ValueObject\Client\ClientId;
+use OAuth\Domain\ValueObject\Client\ClientName;
+use OAuth\Domain\ValueObject\Client\ClientSecret;
+use OAuth\Domain\ValueObject\Client\RedirectUri;
+use OAuth\Domain\ValueObject\Scope\Scope;
+use OAuth\Domain\ValueObject\Scope\Scopes;
+use OAuth\Domain\ValueObject\Security\GrantType;
+use OAuth\Domain\ValueObject\Security\GrantTypes;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\EntityNotFoundException;
+use Tests\Helper\TestEventIdProvider;
+
+use function password_hash;
+
+use const PASSWORD_BCRYPT;
+
+/**
+ * Test GetClientHandlerTest.
+ *
+ * @category Handler Tests
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+#[CoversClass(className: GetClientHandler::class)]
+final class GetClientHandlerTest extends TestCase
+{
+  // #region Methods
+  /**
+   * Method testInvokeReturnsClientResult.
+   *
+   * Test that __invoke returns client result
+   * when client is found
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testInvokeReturnsClientResult(): void
+  {
+    $clientId = '123e4567-e89b-12d3-a456-426614174000';
+
+    // Create real client
+    $client = Client::register(
+      id: new ClientId($clientId),
+      name: new ClientName('Test Client'),
+      secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
+      redirectUris: [new RedirectUri('https://example.com')],
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+
+    // Mocks
+    $repository = $this->createMock(ClientRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->with(self::equalTo(new ClientId($clientId)))
+      ->willReturn($client);
+
+    // Query
+    $query = new GetClientQuery(clientId: $clientId);
+
+    // Handler
+    $handler = new GetClientHandler(clientRepository: $repository);
+
+    // Execute
+    $result = $handler->__invoke($query);
+
+    // Assert
+    self::assertInstanceOf(expected: GetClientResult::class, actual: $result);
+    self::assertSame(expected: $clientId, actual: $result->id);
+    self::assertSame(expected: 'Test Client', actual: $result->name);
+    self::assertTrue(condition: $result->isActive);
+  }
+
+  /**
+   * Method testInvokeThrowsExceptionWhenClientNotFound.
+   *
+   * Test that __invoke throws exception
+   * when client is not found
+   *
+   * @return void No return value
+   */
+  #[Test]
+  public function testInvokeThrowsExceptionWhenClientNotFound(): void
+  {
+    $clientId = '123e4567-e89b-12d3-a456-426614174000';
+
+    $repository = $this->createMock(ClientRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn(null);
+
+    $query = new GetClientQuery(clientId: $clientId);
+
+    $handler = new GetClientHandler(clientRepository: $repository);
+
+    $this->expectException(EntityNotFoundException::class);
+    $handler->__invoke($query);
+  }
+  // #endregion
+}

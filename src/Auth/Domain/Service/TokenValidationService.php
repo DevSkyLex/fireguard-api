@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Domain\Service;
 
-use OAuth\Domain\Model\AccessToken;
-use OAuth\Domain\Model\RefreshToken;
+use OAuth\Domain\Model\Token\AccessToken;
+use OAuth\Domain\Model\Token\RefreshToken;
 
 use function in_array;
 use function sprintf;

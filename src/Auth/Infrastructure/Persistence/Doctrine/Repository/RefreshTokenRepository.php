@@ -6,9 +6,9 @@ namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Auth\Infrastructure\Persistence\Doctrine\Record\RefreshTokenRecord;
 use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Application\Port\Outbound\RefreshTokenRepositoryPort;
-use OAuth\Domain\Model\RefreshToken;
-use OAuth\Domain\ValueObject\OAuthClientIdentifier;
+use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Domain\Model\Token\RefreshToken;
+use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 
 /**
  * Repository RefreshTokenRepository.

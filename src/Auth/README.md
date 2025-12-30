@@ -164,7 +164,6 @@ Issues an access token based on the provided grant type.
 
 | Grant Type | Description |
 |------------|-------------|
-| `password` | Resource Owner Password Credentials |
 | `client_credentials` | Machine-to-machine authentication |
 | `refresh_token` | Token renewal |
 | `authorization_code` | Authorization Code Flow for web apps |
@@ -236,12 +235,19 @@ Authorization: Bearer <access_token>
 
 ### Discovery
 
-OpenID Connect Discovery endpoints.
+OAuth2 Authorization Server Metadata (RFC 8414) with optional OpenID Connect extensions.
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /.well-known/openid-configuration` | OpenID Provider Configuration Information |
 | `GET /.well-known/jwks.json` | JSON Web Key Set (Public Keys for JWT verification) |
+
+Notes:
+- `authorization_endpoint` and `end_session_endpoint` are only published when `OAUTH_AUTHORIZE_PATH` and `OAUTH_LOGOUT_PATH` are configured (path, route name, or absolute URL).
+- When not configured, metadata reflects the supported non-interactive grants (e.g. `client_credentials`, `refresh_token`).
+
+Rate limiting:
+- Token, introspection, and revocation endpoints are rate-limited via `limiter.oauth_token`, `limiter.oauth_introspection`, and `limiter.oauth_revocation` in `config/packages/rate_limiter.yaml`.
 
 ---
 
@@ -363,7 +369,7 @@ curl -X POST https://auth.example.com/api/auth/logout \
 |-------|-------------|
 | Cookies | Use `credentials: 'include'` (fetch) or `withCredentials: true` (XHR/Axios) |
 | Authorization | Send header `Authorization: Bearer <token>` for authenticated requests |
-| Content-Type | Use `application/json` for all POST requests |
+| Content-Type | Use `application/json` for Auth endpoints; OAuth2 token endpoints also accept `application/x-www-form-urlencoded` (preferred) |
 | CORS | Ensure correct CORS configuration on the server side (Allow-Origin, Allow-Credentials) |
 
 ---

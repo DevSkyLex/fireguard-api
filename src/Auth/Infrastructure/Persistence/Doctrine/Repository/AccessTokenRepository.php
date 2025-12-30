@@ -6,10 +6,10 @@ namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Auth\Infrastructure\Persistence\Doctrine\Record\AccessTokenRecord;
 use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
-use OAuth\Domain\Model\AccessToken;
-use OAuth\Domain\ValueObject\OAuthClientIdentifier;
-use OAuth\Domain\ValueObject\Scopes;
+use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Domain\Model\Token\AccessToken;
+use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scope\Scopes;
 
 /**
  * Repository AccessTokenRepository.

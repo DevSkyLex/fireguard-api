@@ -6,24 +6,18 @@ namespace OAuth\Presentation\Api\Processor\Token;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use DateTimeImmutable;
-use DateTimeInterface;
-use Lcobucci\JWT\Encoding\JoseEncoder;
-use Lcobucci\JWT\Token\Parser;
-use Lcobucci\JWT\UnencryptedToken;
-use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\RefreshTokenRepositoryPort;
-use OAuth\Presentation\Api\Dto\Input\TokenIntrospectionInput;
-use OAuth\Presentation\Api\Dto\Output\TokenIntrospectionOutput;
+use OAuth\Application\UseCase\Query\Token\IntrospectToken\{IntrospectTokenQuery, IntrospectTokenResult};
+use OAuth\Domain\Exception\Token\AuthorizationException;
+use OAuth\Presentation\Api\Dto\Input\Token\TokenIntrospectionInput;
+use OAuth\Presentation\Api\Dto\Output\Token\TokenIntrospectionOutput;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Throwable;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
-use function array_map;
-use function implode;
-use function is_array;
-use function is_int;
-use function is_scalar;
-use function is_string;
+use function max;
+use function time;
 
 /**
  * Processor IntrospectTokenProcessor.
@@ -39,121 +33,91 @@ use function is_string;
 final readonly class IntrospectTokenProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * IntrospectTokenProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryBusPort $queryBus the query bus
+   * @param RequestStack $requestStack the request stack
+   * @param RateLimiterFactory $rateLimiter the introspection rate limiter
+   */
   public function __construct(
-    private AccessTokenRepositoryPort $accessTokenRepository,
-    private RefreshTokenRepositoryPort $refreshTokenRepository,
-    #[Autowire('%env(OAUTH_ISSUER)%')]
-    private string $issuer = '',
+    private QueryBusPort $queryBus,
+    private RequestStack $requestStack,
+    #[Autowire(service: 'limiter.oauth_introspection')]
+    private RateLimiterFactory $rateLimiter,
   ) {
   }
   // #endregion
 
   // #region Methods
+  /**
+   * Method process.
+   * {@inheritdoc}
+   *
+   * Processes the token introspection.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context the context
+   *
+   * @return TokenIntrospectionOutput the token introspection output
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): TokenIntrospectionOutput
   {
+    if (!$data instanceof TokenIntrospectionInput) {
+      throw AuthorizationException::invalidRequest('Invalid request body.');
+    }
+
+    $this->enforceRateLimit($this->requestStack->getCurrentRequest()?->getClientIp());
+
+    if (null === $data->token) {
+      throw AuthorizationException::invalidRequest('Invalid token.');
+    }
+
+    /** @var IntrospectTokenResult $result */
+    $result = $this->queryBus->ask(new IntrospectTokenQuery(
+      token: $data->token,
+      tokenTypeHint: $data->tokenTypeHint ?? 'access_token',
+    ));
+
     $output = new TokenIntrospectionOutput();
-
-    if (!$data instanceof TokenIntrospectionInput || empty($data->token)) {
-      return $output;
-    }
-
-    $tokenTypeHint = $data->tokenTypeHint ?? 'access_token';
-
-    try {
-      if ('refresh_token' === $tokenTypeHint) {
-        return $this->introspectRefreshToken($data->token, $output);
-      }
-
-      return $this->introspectAccessToken($data->token, $output);
-    } catch (Throwable) {
-      return $output;
-    }
-  }
-
-  private function introspectAccessToken(string $token, TokenIntrospectionOutput $output): TokenIntrospectionOutput
-  {
-    if ('' === $token) {
-      return $output;
-    }
-
-    $parser = new Parser(new JoseEncoder());
-    $parsedToken = $parser->parse($token);
-
-    if (!$parsedToken instanceof UnencryptedToken) {
-      return $output;
-    }
-
-    $claims = $parsedToken->claims();
-    $tokenId = $claims->get('jti');
-
-    if (!is_string($tokenId)) {
-      return $output;
-    }
-
-    $accessToken = $this->accessTokenRepository->find($tokenId);
-
-    if (null === $accessToken || $accessToken->isRevoked() || $accessToken->isExpired()) {
-      return $output;
-    }
-
-    $output->active = true;
-    $output->tokenType = 'Bearer';
-    $output->jti = $tokenId;
-    $output->clientId = (string) $accessToken->clientIdentifier();
-    $output->scope = implode(' ', $accessToken->scopes()->toArray());
-    $output->exp = $accessToken->expiry()->getTimestamp();
-    $output->sub = $accessToken->userIdentifier();
-    $output->iss = $this->issuer;
-
-    if ($claims->has('iat')) {
-      $iat = $claims->get('iat');
-      if ($iat instanceof DateTimeInterface) {
-        $output->iat = $iat->getTimestamp();
-      } elseif (is_int($iat)) {
-        $output->iat = $iat;
-      }
-    }
-
-    if ($claims->has('nbf')) {
-      $nbf = $claims->get('nbf');
-      if ($nbf instanceof DateTimeInterface) {
-        $output->nbf = $nbf->getTimestamp();
-      } elseif (is_int($nbf)) {
-        $output->nbf = $nbf;
-      }
-    }
-
-    if ($claims->has('aud')) {
-      $aud = $claims->get('aud');
-      if (is_array($aud)) {
-        $output->aud = implode(' ', array_map(static fn ($v): string => is_scalar($v) ? (string) $v : '', $aud));
-      } elseif (is_string($aud)) {
-        $output->aud = $aud;
-      }
-    }
+    $output->active = $result->active;
+    $output->scope = $result->scope;
+    $output->clientId = $result->clientId;
+    $output->username = $result->username;
+    $output->tokenType = $result->tokenType;
+    $output->exp = $result->exp;
+    $output->iat = $result->iat;
+    $output->nbf = $result->nbf;
+    $output->sub = $result->sub;
+    $output->aud = $result->aud;
+    $output->iss = $result->iss;
+    $output->jti = $result->jti;
 
     return $output;
   }
 
-  private function introspectRefreshToken(string $token, TokenIntrospectionOutput $output): TokenIntrospectionOutput
+  private function enforceRateLimit(?string $ipAddress): void
   {
-    $refreshToken = $this->refreshTokenRepository->find($token);
+    $key = $ipAddress ?? 'unknown';
 
-    if (null === $refreshToken || $refreshToken->isRevoked()) {
-      return $output;
+    $limit = $this->rateLimiter->create($key)->consume();
+    if ($limit->isAccepted()) {
+      return;
     }
 
-    if ($refreshToken->expiryDateTime() < new DateTimeImmutable()) {
-      return $output;
-    }
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
 
-    $output->active = true;
-    $output->tokenType = 'refresh_token';
-    $output->jti = $refreshToken->identifier();
-    $output->exp = $refreshToken->expiryDateTime()->getTimestamp();
-    $output->iss = $this->issuer;
-
-    return $output;
+    throw new TooManyRequestsHttpException($seconds, 'Too many token introspection requests.');
   }
   // #endregion
 }

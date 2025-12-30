@@ -7,10 +7,10 @@ namespace Auth\Domain\Aggregate;
 use Auth\Domain\Event\UserLoggedInEvent;
 use Auth\Domain\Event\UserLoggedOutEvent;
 use DateTimeImmutable;
-use OAuth\Domain\Event\TokenIssuedEvent;
-use OAuth\Domain\Event\TokenRevokedEvent;
-use OAuth\Domain\ValueObject\TokenExpiry;
-use OAuth\Domain\ValueObject\TokenIdentifier;
+use OAuth\Domain\Event\Token\TokenIssuedEvent;
+use OAuth\Domain\Event\Token\TokenRevokedEvent;
+use OAuth\Domain\ValueObject\Token\TokenExpiry;
+use OAuth\Domain\ValueObject\Token\TokenIdentifier;
 
 /**
  * Aggregate TokenSession.

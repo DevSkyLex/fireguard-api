@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Console;
 
-use OAuth\Application\Port\Outbound\ClientRepositoryPort;
-use OAuth\Application\UseCase\Command\IssueToken\IssueTokenCommand;
-use OAuth\Application\UseCase\Command\IssueToken\IssueTokenResult;
-use OAuth\Domain\ValueObject\ClientId;
+use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
+use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenCommand;
+use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
+use OAuth\Domain\ValueObject\Client\ClientId;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;

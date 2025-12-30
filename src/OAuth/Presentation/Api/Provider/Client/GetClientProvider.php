@@ -6,9 +6,9 @@ namespace OAuth\Presentation\Api\Provider\Client;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use OAuth\Application\UseCase\Query\GetClient\GetClientQuery;
-use OAuth\Application\UseCase\Query\GetClient\GetClientResult;
-use OAuth\Presentation\Api\Dto\Output\ClientOutput;
+use OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery;
+use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
+use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\EntityNotFoundException;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Adapter\Cache;
 
-use OAuth\Application\Port\Outbound\TokenCachePort;
+use OAuth\Application\Port\Outbound\Token\TokenCachePort;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 

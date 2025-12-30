@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Domain\Model;
 
 use Auth\Domain\Model\Client;
-use OAuth\Domain\ValueObject\{
-  GrantType,
-  OAuthClientIdentifier,
-  Scope
-};
+use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scope\Scope;
+use OAuth\Domain\ValueObject\Security\GrantType;
 use PHPUnit\Framework\Attributes\{
   CoversClass,
   Test

@@ -6,22 +6,19 @@ namespace OAuth\Presentation\Api\Processor\Token;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Lcobucci\JWT\Encoding\JoseEncoder;
-use Lcobucci\JWT\Token\Parser;
-use Lcobucci\JWT\Token\Plain;
-use League\OAuth2\Server\CryptTrait;
-use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface;
-use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
-use OAuth\Presentation\Api\Dto\Input\TokenRevocationInput;
-use Psr\Log\LoggerInterface;
+use OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenCommand;
+use OAuth\Domain\Exception\Token\AuthorizationException;
+use OAuth\Presentation\Api\Dto\Input\Token\TokenRevocationInput;
+use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
-use function is_array;
-use function is_string;
-use function json_decode;
+use function max;
+use function time;
 
 /**
  * Processor RevokeTokenProcessor.
@@ -34,102 +31,82 @@ use function json_decode;
  *
  * @implements ProcessorInterface<mixed, JsonResponse|null>
  */
-final class RevokeTokenProcessor implements ProcessorInterface
+final readonly class RevokeTokenProcessor implements ProcessorInterface
 {
-  use CryptTrait;
-
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * RevokeTokenProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param RequestStack $requestStack the request stack
+   * @param RateLimiterFactory $rateLimiter the revocation rate limiter
+   */
   public function __construct(
-    private readonly AccessTokenRepositoryInterface $accessTokenRepository,
-    private readonly RefreshTokenRepositoryInterface $refreshTokenRepository,
-    #[Autowire(service: 'monolog.logger.security')]
-    private readonly LoggerInterface $logger,
-    string $encryptionKey,
+    private readonly CommandBusPort $commandBus,
+    private readonly RequestStack $requestStack,
+    #[Autowire(service: 'limiter.oauth_revocation')]
+    private readonly RateLimiterFactory $rateLimiter,
   ) {
-    $this->setEncryptionKey($encryptionKey);
   }
   // #endregion
 
   // #region Methods
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?JsonResponse
+  /**
+   * Method process.
+   * {@inheritdoc}
+   *
+   * Processes the token revocation.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $data the data
+   * @param Operation $operation the operation
+   * @param array<string, mixed> $uriVariables the URI variables
+   * @param array<string, mixed> $context the context
+   *
+   * @return JsonResponse the response
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): JsonResponse
   {
     if (!$data instanceof TokenRevocationInput) {
-      return null;
+      throw AuthorizationException::invalidRequest('Invalid request body.');
     }
 
-    $token = $data->token;
-    $hint = $data->tokenTypeHint;
+    $this->enforceRateLimit($this->requestStack->getCurrentRequest()?->getClientIp());
 
-    if ('refresh_token' === $hint && null !== $token) {
-      if ($this->revokeRefreshToken($token)) {
-        return new JsonResponse(null, Response::HTTP_OK);
-      }
-    } elseif ('access_token' === $hint && null !== $token) {
-      if ($this->revokeAccessToken($token)) {
-        return new JsonResponse(null, Response::HTTP_OK);
-      }
+    if (null === $data->token) {
+      throw AuthorizationException::invalidRequest('Invalid token.');
     }
 
-    if (null !== $token && ($this->revokeRefreshToken($token) || $this->revokeAccessToken($token))) {
-      return new JsonResponse(null, Response::HTTP_OK);
-    }
+    $this->commandBus->dispatch(command: new RevokeTokenCommand(
+      token: $data->token,
+      tokenTypeHint: $data->tokenTypeHint,
+    ));
 
-    return new JsonResponse(null, Response::HTTP_OK);
+    return new JsonResponse(
+      data: null,
+      status: Response::HTTP_OK,
+    );
   }
 
-  private function revokeRefreshToken(string $token): bool
+  private function enforceRateLimit(?string $ipAddress): void
   {
-    try {
-      $decrypted = $this->decrypt($token);
-      $payload = json_decode($decrypted, true);
+    $key = $ipAddress ?? 'unknown';
 
-      if (!is_array($payload)) {
-        return false;
-      }
-
-      $refreshTokenId = $payload['refresh_token_id'] ?? null;
-      if (is_string($refreshTokenId)) {
-        $this->refreshTokenRepository->revokeRefreshToken($refreshTokenId);
-        $this->logger->info('Refresh token revoked', [
-          'token_id' => $refreshTokenId,
-        ]);
-
-        return true;
-      }
-    } catch (Throwable $e) {
+    $limit = $this->rateLimiter->create($key)->consume();
+    if ($limit->isAccepted()) {
+      return;
     }
 
-    return false;
-  }
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
 
-  private function revokeAccessToken(string $token): bool
-  {
-    try {
-      if ('' === $token) {
-        return false;
-      }
-
-      $parser = new Parser(new JoseEncoder());
-      $parsedToken = $parser->parse($token);
-
-      if ($parsedToken instanceof Plain) {
-        $claims = $parsedToken->claims();
-        if ($claims->has('jti')) {
-          $tokenId = $claims->get('jti');
-          if (is_string($tokenId)) {
-            $this->accessTokenRepository->revokeAccessToken($tokenId);
-            $this->logger->info('Access token revoked', [
-              'token_id' => $tokenId,
-            ]);
-
-            return true;
-          }
-        }
-      }
-    } catch (Throwable $e) {
-    }
-
-    return false;
+    throw new TooManyRequestsHttpException($seconds, 'Too many token revocation requests.');
   }
   // #endregion
 }

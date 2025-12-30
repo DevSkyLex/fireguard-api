@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OAuth\Domain\ValueObject\Client;
+
+use Shared\Domain\ValueObject\Uuid;
+
+/**
+ * ValueObject ClientId.
+ *
+ * @category ValueObject
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class ClientId extends Uuid
+{
+}

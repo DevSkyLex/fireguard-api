@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 use User\Infrastructure\DataFixtures\UserFixtures;
 
+use function in_array;
 use function is_array;
 use function is_string;
 use function json_decode;
@@ -581,6 +582,9 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
   /**
    * Test removing a permission from a role.
+   *
+   * This test first adds a permission to a role, then removes it.
+   * This makes it self-sufficient and not dependent on fixture state.
    */
   public function testRemovePermissionFromRole(): void
   {
@@ -589,7 +593,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
     $this->assertNotNull($token, 'Should be able to obtain access token');
 
-    // Get role list
+    // Get a role ID
     $client->request(
       method: 'GET',
       uri: '/api/roles',
@@ -606,55 +610,61 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
     $rolesData = $this->decodeJsonResponse($rolesResponse->getContent() ?: '{}');
     $roles = $this->getCollectionMembers($rolesData);
-
     if (empty($roles)) {
       $this->markTestSkipped('No roles found');
     }
-
-    // Find a role with at least one permission by fetching each role's details
-    $roleId = null;
-    $permissionId = null;
-    foreach ($roles as $role) {
-      $currentRoleId = $this->getStringValue($role, 'id');
-      if (null === $currentRoleId) {
-        continue;
-      }
-
-      // Fetch role details to get permissions
-      $client->request(
-        method: 'GET',
-        uri: '/api/roles/' . $currentRoleId,
-        server: [
-          'HTTP_ACCEPT' => 'application/ld+json',
-          'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
-        ],
-      );
-
-      $roleDetailResponse = $client->getResponse();
-      if (Response::HTTP_OK !== $roleDetailResponse->getStatusCode()) {
-        continue;
-      }
-
-      $roleDetail = $this->decodeJsonResponse($roleDetailResponse->getContent() ?: '{}');
-      $perms = $roleDetail['permissions'] ?? [];
-
-      if (is_array($perms) && !empty($perms)) {
-        $roleId = $currentRoleId;
-        $firstPerm = $perms[0] ?? [];
-        if (is_array($firstPerm)) {
-          /** @var array<string, mixed> $firstPerm */
-          $permissionId = $this->getStringValue($firstPerm, 'id');
-        }
-
-        break;
-      }
+    $roleId = $this->getStringValue($roles[0], 'id');
+    if (null === $roleId) {
+      $this->markTestSkipped('Role ID not found');
     }
 
-    if (null === $roleId || null === $permissionId) {
-      $this->markTestSkipped('No role with permissions found');
+    // Get a permission ID
+    $client->request(
+      method: 'GET',
+      uri: '/api/permissions',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $permissionsResponse = $client->getResponse();
+    if (Response::HTTP_OK !== $permissionsResponse->getStatusCode()) {
+      $this->markTestSkipped('Cannot list permissions');
     }
 
-    // Remove permission from role
+    $permissionsData = $this->decodeJsonResponse($permissionsResponse->getContent() ?: '{}');
+    $permissions = $this->getCollectionMembers($permissionsData);
+    if (empty($permissions)) {
+      $this->markTestSkipped('No permissions found');
+    }
+    $permissionId = $this->getStringValue($permissions[0], 'id');
+    if (null === $permissionId) {
+      $this->markTestSkipped('Permission ID not found');
+    }
+
+    // First, add the permission to the role to ensure we have something to remove
+    $client->request(
+      method: 'POST',
+      uri: '/api/roles/' . $roleId . '/permissions',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode([
+        'permission_id' => $permissionId,
+      ]) ?: '',
+    );
+
+    $addResponse = $client->getResponse();
+    // If we can't add the permission (due to security or it already exists), that's fine
+    // We'll still try to remove it
+    if (!in_array($addResponse->getStatusCode(), [Response::HTTP_OK, Response::HTTP_CREATED, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED], true)) {
+      // Unexpected response, but continue anyway
+    }
+
+    // Now remove the permission from the role
     $client->request(
       method: 'DELETE',
       uri: '/api/roles/' . $roleId . '/permissions/' . $permissionId,

@@ -9,9 +9,9 @@ use Auth\Infrastructure\Persistence\Doctrine\Record\ConsentRecord;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
-use OAuth\Application\Port\Outbound\ConsentRepositoryPort;
-use OAuth\Domain\Model\Consent;
-use OAuth\Domain\ValueObject\ConsentId;
+use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Domain\Model\Consent\Consent;
+use OAuth\Domain\ValueObject\Consent\ConsentId;
 
 use function array_map;
 use function is_int;

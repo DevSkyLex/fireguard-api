@@ -86,7 +86,9 @@ final readonly class GetChallengeStatusProvider implements ProviderInterface
 
       return $output;
     } catch (OtpNotFoundException) {
-      throw new NotFoundHttpException('Challenge not found.');
+      throw new NotFoundHttpException(
+        message: 'Challenge not found.',
+      );
     }
   }
   // #endregion

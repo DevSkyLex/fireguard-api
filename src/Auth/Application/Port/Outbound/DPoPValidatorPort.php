@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound;
 
-use OAuth\Domain\ValueObject\DPoPProof;
+use OAuth\Domain\ValueObject\Security\DPoPProof;
 
 /**
  * Interface DPoPValidatorPort.

@@ -18,9 +18,10 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use OAuth\Presentation\Api\Dto\Input\ClientInput;
-use OAuth\Presentation\Api\Dto\Output\ClientOutput;
-use OAuth\Presentation\Api\Processor\{
+use OAuth\Presentation\Api\Dto\Input\Client\ClientInput;
+use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
+use OAuth\Presentation\Api\Operation\ClientOperations;
+use OAuth\Presentation\Api\Processor\Client\{
   ActivateClientProcessor,
   DeactivateClientProcessor,
   DeleteClientProcessor,
@@ -47,7 +48,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'OAuth2 client application management. Clients are applications that can request access tokens.',
   operations: [
     new Post(
-      name: 'create',
+      name: ClientOperations::CREATE,
       description: 'Register a new OAuth2 client application. The client secret is shown only once.',
       uriTemplate: '/clients',
       input: ClientInput::class,
@@ -86,7 +87,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'get',
+      name: ClientOperations::GET,
       description: 'Get details of a specific OAuth2 client. Secret is not included.',
       uriTemplate: '/clients/{id}',
       input: false,
@@ -131,7 +132,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new GetCollection(
-      name: 'list',
+      name: ClientOperations::LIST,
       description: 'Returns a paginated list of all OAuth2 clients. Requires ROLE_ADMIN.',
       uriTemplate: '/clients',
       input: false,
@@ -169,7 +170,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Patch(
-      name: 'update',
+      name: ClientOperations::UPDATE,
       description: 'Updates name, redirect URIs, grant types, or scopes of an existing client.',
       uriTemplate: '/clients/{id}',
       input: ClientInput::class,
@@ -204,7 +205,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'regenerate-secret',
+      name: ClientOperations::REGENERATE_SECRET,
       description: 'Generates a new secret for the client. Store the new secret securely.',
       uriTemplate: '/clients/{id}/regenerate-secret',
       input: false,
@@ -226,7 +227,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'activate',
+      name: ClientOperations::ACTIVATE,
       description: 'Activates a previously deactivated client.',
       uriTemplate: '/clients/{id}/activate',
       input: false,
@@ -248,7 +249,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'deactivate',
+      name: ClientOperations::DEACTIVATE,
       description: 'Deactivates a client, preventing it from requesting new tokens.',
       uriTemplate: '/clients/{id}/deactivate',
       input: false,
@@ -270,7 +271,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Delete(
-      name: 'delete',
+      name: ClientOperations::DELETE,
       description: 'Permanently deletes an OAuth2 client. This action cannot be undone.',
       uriTemplate: '/clients/{id}',
       input: false,

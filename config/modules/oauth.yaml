@@ -12,38 +12,43 @@ services:
     resource: '../../src/OAuth/Application/UseCase/'
 
   # Client Query Handlers
-  OAuth\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsHandler:
+  OAuth\Application\UseCase\Query\Client\ValidateClientCredentials\ValidateClientCredentialsHandler:
     tags:
-      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\ValidateClientCredentials\ValidateClientCredentialsQuery }
+      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\Client\ValidateClientCredentials\ValidateClientCredentialsQuery }
 
-  OAuth\Application\UseCase\Query\GetClient\GetClientHandler:
+  OAuth\Application\UseCase\Query\Client\GetClient\GetClientHandler:
     tags:
-      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\GetClient\GetClientQuery }
+      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery }
 
   # Repository
-  OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository:
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository:
     arguments:
       $entityManager: '@doctrine.orm.entity_manager'
 
-  OAuth\Infrastructure\Persistence\Doctrine\Mapper\ClientMapper: ~
+  OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper: ~
 
   # Port Binding
-  OAuth\Application\Port\Outbound\JwtParserPort:
+  OAuth\Application\Port\Outbound\Token\JwtParserPort:
     alias: Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter
 
-  OAuth\Application\Port\Outbound\ClientRepositoryPort:
-    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository
+  OAuth\Application\Port\Outbound\Client\ClientRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository
 
 
 
-  OAuth\Application\Port\Outbound\LeagueClientRepositoryPort:
-    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\ClientRepository
+  OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository
 
   # Console Commands
-  OAuth\Infrastructure\Console\CreateClientCommand: ~
-  OAuth\Infrastructure\Console\ListClientsCommand: ~
-  OAuth\Infrastructure\Console\DeleteClientCommand: ~
+  OAuth\Infrastructure\Console\Command\Client\CreateClientCommand: ~
+  OAuth\Infrastructure\Console\Command\Client\ListClientsCommand: ~
+  OAuth\Infrastructure\Console\Command\Client\DeleteClientCommand: ~
 
   # DataFixtures
   OAuth\Infrastructure\DataFixtures\ClientFixtures:
     tags: ['doctrine.fixture.orm']
+
+  # Event Subscribers
+  OAuth\Infrastructure\EventSubscriber\EventLogSubscriber: ~
+  OAuth\Presentation\Api\EventSubscriber\OAuthErrorSubscriber: ~
+  OAuth\Presentation\Api\EventSubscriber\OAuthResponseSubscriber: ~

@@ -8,9 +8,10 @@ use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Token\Parser;
 use Lcobucci\JWT\Token\Plain;
 use League\OAuth2\Server\CryptTrait;
-use OAuth\Application\Port\Outbound\AccessTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\RefreshTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\TokenRevocationPort;
+use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\TokenCachePort;
+use OAuth\Application\Port\Outbound\Token\TokenRevocationPort;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
@@ -40,12 +41,14 @@ final class TokenRevocationAdapter implements TokenRevocationPort
    *
    * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
    * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
+   * @param TokenCachePort $tokenCache the token cache
    * @param LoggerInterface $logger the logger
    * @param string $encryptionKey the encryption key
    */
   public function __construct(
     private readonly AccessTokenRepositoryPort $accessTokenRepository,
     private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
+    private readonly TokenCachePort $tokenCache,
     #[Autowire(service: 'monolog.logger.security')]
     private readonly LoggerInterface $logger,
     #[Autowire('%env(OAUTH_ENCRYPTION_KEY)%')]
@@ -79,6 +82,7 @@ final class TokenRevocationAdapter implements TokenRevocationPort
       if (null !== $token) {
         $token->revoke();
         $this->refreshTokenRepository->save($token);
+        $this->tokenCache->invalidate($tokenId);
 
         $this->logger->info('Refresh token revoked', [
           'token_id' => $tokenId,
@@ -125,6 +129,7 @@ final class TokenRevocationAdapter implements TokenRevocationPort
       if (null !== $token) {
         $token->revoke();
         $this->accessTokenRepository->save($token);
+        $this->tokenCache->invalidate($tokenId);
 
         $this->logger->info('Access token revoked', [
           'token_id' => $tokenId,

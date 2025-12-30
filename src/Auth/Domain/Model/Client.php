@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Auth\Domain\Model;
 
-use OAuth\Domain\ValueObject\{
-  GrantType,
-  OAuthClientIdentifier,
-  Scope
-};
+use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
+use OAuth\Domain\ValueObject\Scope\Scope;
+use OAuth\Domain\ValueObject\Security\GrantType;
 use Shared\Domain\ValueObject\HashedSecret;
 
 use function in_array;

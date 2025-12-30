@@ -15,24 +15,21 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use OAuth\Presentation\Api\Dto\Input\{
-  TokenInput,
-  TokenIntrospectionInput,
-  TokenRevocationInput
-};
-use OAuth\Presentation\Api\Dto\Output\{
-  CheckConsentOutput,
-  TokenIntrospectionOutput,
-  TokenOutput,
-  UserInfoOutput
-};
+use OAuth\Presentation\Api\Dto\Input\Token\TokenInput;
+use OAuth\Presentation\Api\Dto\Input\Token\TokenIntrospectionInput;
+use OAuth\Presentation\Api\Dto\Input\Token\TokenRevocationInput;
+use OAuth\Presentation\Api\Dto\Output\Consent\CheckConsentOutput;
+use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
+use OAuth\Presentation\Api\Dto\Output\Token\TokenIntrospectionOutput;
+use OAuth\Presentation\Api\Dto\Output\Token\TokenOutput;
+use OAuth\Presentation\Api\Operation\OAuthOperations;
 use OAuth\Presentation\Api\Processor\Token\{
   IntrospectTokenProcessor,
   IssueTokenProcessor,
   RevokeTokenProcessor
 };
 use OAuth\Presentation\Api\Provider\Consent\CheckConsentProvider;
-use OAuth\Presentation\Api\Provider\WellKnown\UserInfoProvider;
+use OAuth\Presentation\Api\Provider\Discovery\UserInfoProvider;
 use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -51,17 +48,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'OAuth2 and OpenID Connect operations',
   operations: [
     new Post(
-      name: 'token',
+      name: OAuthOperations::TOKEN,
       uriTemplate: '/token',
       input: TokenInput::class,
       output: TokenOutput::class,
+      inputFormats: [
+        'jsonld' => ['application/ld+json'],
+        'json' => ['application/json'],
+        'form' => ['application/x-www-form-urlencoded'],
+      ],
       processor: IssueTokenProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_WRITE]],
       openapi: new Operation(
         tags: ['OAuth2'],
         summary: 'Issue Access Token',
-        description: 'Issue an access token using OAuth2 grant types (password, client_credentials, refresh_token, authorization_code) as defined in RFC 6749.',
+        description: 'Issue an access token using configured OAuth2 grant types (see discovery metadata).',
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Access token issued successfully',
@@ -106,15 +108,21 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'revoke_token',
+      name: OAuthOperations::REVOKE_TOKEN,
       uriTemplate: '/token/revoke',
       input: TokenRevocationInput::class,
       output: false,
+      inputFormats: [
+        'jsonld' => ['application/ld+json'],
+        'json' => ['application/json'],
+        'form' => ['application/x-www-form-urlencoded'],
+      ],
       processor: RevokeTokenProcessor::class,
       openapi: new Operation(
         tags: ['OAuth2'],
         summary: 'Revoke Token',
         description: 'Revoke an access token or refresh token as defined in RFC 7009.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Token revoked successfully',
@@ -135,10 +143,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'introspect_token',
+      name: OAuthOperations::INTROSPECT_TOKEN,
       uriTemplate: '/token/introspect',
       input: TokenIntrospectionInput::class,
       output: TokenIntrospectionOutput::class,
+      inputFormats: [
+        'jsonld' => ['application/ld+json'],
+        'json' => ['application/json'],
+        'form' => ['application/x-www-form-urlencoded'],
+      ],
       processor: IntrospectTokenProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_WRITE]],
@@ -146,6 +159,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['OAuth2'],
         summary: 'Introspect Token',
         description: 'Query the authorization server about the current state and metadata of a token as defined in RFC 7662.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Token introspection result',
@@ -167,7 +181,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'userinfo',
+      name: OAuthOperations::USERINFO,
       uriTemplate: '/userinfo',
       input: false,
       output: UserInfoOutput::class,
@@ -198,7 +212,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'check_consent',
+      name: OAuthOperations::CHECK_CONSENT,
       uriTemplate: '/consent/check',
       input: false,
       output: CheckConsentOutput::class,

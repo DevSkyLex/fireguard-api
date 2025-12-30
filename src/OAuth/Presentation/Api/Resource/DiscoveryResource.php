@@ -13,11 +13,10 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use OAuth\Presentation\Api\Dto\Output\{
-  JwksOutput,
-  OpenIdConfigurationOutput
-};
-use OAuth\Presentation\Api\Provider\WellKnown\{
+use OAuth\Presentation\Api\Dto\Output\Discovery\JwksOutput;
+use OAuth\Presentation\Api\Dto\Output\Discovery\OpenIdConfigurationOutput;
+use OAuth\Presentation\Api\Operation\DiscoveryOperations;
+use OAuth\Presentation\Api\Provider\Discovery\{
   JwksProvider,
   OpenIdConfigurationProvider
 };
@@ -36,10 +35,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 #[ApiResource(
   shortName: 'Discovery',
   routePrefix: '/.well-known',
-  description: 'OpenID Connect Discovery endpoints',
+  description: 'OAuth2/OIDC discovery endpoints',
   operations: [
     new Get(
-      name: 'openid_configuration',
+      name: DiscoveryOperations::OPENID_CONFIGURATION,
       uriTemplate: '/openid-configuration',
       input: false,
       output: OpenIdConfigurationOutput::class,
@@ -47,9 +46,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       outputFormats: ['json' => ['application/json']],
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       openapi: new Operation(
-        tags: ['OpenID Connect'],
-        summary: 'OpenID Connect Discovery',
-        description: 'Returns the OpenID Provider Configuration Document as defined in RFC 8414. This endpoint provides all the information needed to configure an OAuth2/OIDC client.',
+        tags: ['OAuth2'],
+        summary: 'OAuth2/OIDC Discovery',
+        description: 'Returns the OAuth2 Authorization Server Metadata document (RFC 8414) with optional OpenID Connect extensions when available.',
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'OpenID Connect configuration returned successfully',
@@ -95,7 +94,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'jwks',
+      name: DiscoveryOperations::JWKS,
       uriTemplate: '/jwks.json',
       input: false,
       output: JwksOutput::class,
@@ -103,9 +102,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       outputFormats: ['json' => ['application/json']],
       normalizationContext: ['groups' => [OAuthSerializationGroup::TOKEN_READ]],
       openapi: new Operation(
-        tags: ['OpenID Connect'],
+        tags: ['OAuth2'],
         summary: 'JSON Web Key Set',
-        description: 'Returns the public keys used to verify JWT signatures as defined in RFC 7517. Use these keys to validate access tokens and ID tokens issued by this server.',
+        description: 'Returns the public keys used to verify JWT signatures as defined in RFC 7517. Use these keys to validate access tokens issued by this server.',
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'JWKS returned successfully',

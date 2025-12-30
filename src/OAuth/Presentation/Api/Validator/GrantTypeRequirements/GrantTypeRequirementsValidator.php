@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Presentation\Api\Validator\GrantTypeRequirements;
 
-use OAuth\Presentation\Api\Dto\Input\TokenInput;
+use OAuth\Presentation\Api\Dto\Input\Token\TokenInput;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;

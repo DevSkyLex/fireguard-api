@@ -13,7 +13,7 @@ use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
-use OAuth\Application\Port\Outbound\JwtParserPort as OAuthJwtParserPort;
+use OAuth\Application\Port\Outbound\Token\JwtParserPort as OAuthJwtParserPort;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
