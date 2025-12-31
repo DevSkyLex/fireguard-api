@@ -173,6 +173,37 @@ final class UserInfoOutput
   public ?string $preferredUsername = null;
 
   /**
+   * Property picture.
+   *
+   * URL of the user's profile picture.
+   *
+   * @example https://cdn.example.com/avatars/johndoe.png
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'URL of the user profile picture',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'https://cdn.example.com/avatars/johndoe.png',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'uri',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'format' => 'uri',
+      'nullable' => true,
+    ],
+  )]
+  public ?string $picture = null;
+
+  /**
    * Property email.
    *
    * Email address of the user.

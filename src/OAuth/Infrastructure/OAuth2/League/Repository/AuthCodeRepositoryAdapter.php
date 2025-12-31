@@ -76,9 +76,10 @@ final readonly class AuthCodeRepositoryAdapter implements AuthCodeRepositoryInte
       identifier: $authCodeEntity->getIdentifier(),
       expiryDateTime: DateTimeImmutable::createFromInterface($authCodeEntity->getExpiryDateTime()),
       clientIdentifier: new OAuthClientIdentifier((string) $authCodeEntity->getClient()->getIdentifier()),
-      userIdentifier: (string) $authCodeEntity->getUserIdentifier(),
+      userIdentifier: $authCodeEntity->getUserIdentifier(),
       scopes: Scopes::fromArray(array_map(fn ($scope) => $scope->getIdentifier(), $authCodeEntity->getScopes())),
       redirectUri: $authCodeEntity->getRedirectUri(),
+      nonce: null,
     );
 
     $this->authCodeRepository->save($code);

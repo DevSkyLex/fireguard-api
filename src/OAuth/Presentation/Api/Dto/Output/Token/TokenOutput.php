@@ -177,5 +177,36 @@ final class TokenOutput
     ],
   )]
   public ?string $scope = null;
+
+  /**
+   * Property idToken.
+   *
+   * The OpenID Connect ID token.
+   * Only returned when the openid scope is granted.
+   *
+   * @example eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+   *
+   * @since 1.0.0
+   */
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[SerializedName(serializedName: 'id_token')]
+  #[ApiProperty(
+    description: 'OIDC ID token (optional)',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'nullable' => true,
+    ],
+  )]
+  public ?string $idToken = null;
   // #endregion
 }

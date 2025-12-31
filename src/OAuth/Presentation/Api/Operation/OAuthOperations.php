@@ -50,6 +50,17 @@ final class OAuthOperations
   public const string REVOKE_TOKEN = 'revoke_token';
 
   /**
+   * Constant AUTHORIZE.
+   *
+   * Authorization endpoint operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string AUTHORIZE = 'authorize';
+
+  /**
    * Constant USERINFO.
    *
    * Userinfo operation name.
@@ -72,6 +83,17 @@ final class OAuthOperations
   public const string CHECK_CONSENT = 'check_consent';
 
   /**
+   * Constant GRANT_CONSENT.
+   *
+   * Grant consent operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string GRANT_CONSENT = 'grant_consent';
+
+  /**
    * Constant ALL.
    *
    * All operation names.
@@ -84,8 +106,10 @@ final class OAuthOperations
     self::TOKEN,
     self::INTROSPECT_TOKEN,
     self::REVOKE_TOKEN,
+    self::AUTHORIZE,
     self::USERINFO,
     self::CHECK_CONSENT,
+    self::GRANT_CONSENT,
   ];
 
   /**

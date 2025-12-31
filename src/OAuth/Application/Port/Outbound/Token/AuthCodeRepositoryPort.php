@@ -45,5 +45,19 @@ interface AuthCodeRepositoryPort
    * @return AuthCode|null the auth code or null if not found
    */
   public function find(string $identifier): ?AuthCode;
+
+  /**
+   * Method updateNonce.
+   *
+   * Updates the nonce associated with an auth code.
+   *
+   * @since 1.0.0
+   *
+   * @param string $identifier the auth code identifier
+   * @param string|null $nonce the nonce value
+   *
+   * @return void no return value
+   */
+  public function updateNonce(string $identifier, ?string $nonce): void;
   // #endregion
 }

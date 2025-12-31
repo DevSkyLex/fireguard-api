@@ -53,6 +53,18 @@ final readonly class OAuthSerializationGroup
   public const string CONSENT_READ = 'consent:read';
 
   /**
+   * Constant CONSENT_WRITE.
+   *
+   * Group CONSENT_WRITE
+   * Used for writing consent data.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CONSENT_WRITE = 'consent:write';
+
+  /**
    * Constant CLIENT_READ.
    *
    * Group CLIENT_READ

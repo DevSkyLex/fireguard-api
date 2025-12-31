@@ -65,6 +65,14 @@ final class AuthCodeRecord
   public ?string $redirectUri = null;
 
   /**
+   * Property nonce.
+   *
+   * The OIDC nonce (nullable).
+   */
+  #[ORM\Column(type: 'string', length: 255, nullable: true)]
+  public ?string $nonce = null;
+
+  /**
    * Property expiry.
    *
    * The expiry date and time.

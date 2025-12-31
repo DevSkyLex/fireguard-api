@@ -4,17 +4,29 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Token\IssueToken;
 
+use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\Token\AuthorizationServerPort;
+use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
+use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Domain\Event\Token\TokenIssuedEvent;
 use OAuth\Domain\Event\Token\TokenIssueFailedEvent;
+use OAuth\Domain\Exception\Token\AuthorizationException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
+use User\Application\UseCase\Query\GetUser\GetUserQuery;
+use User\Application\UseCase\Query\GetUser\GetUserResult;
 
 use function array_filter;
+use function array_map;
 use function array_values;
 use function explode;
+use function in_array;
 use function is_string;
+use function strtolower;
 use function trim;
 
 /**
@@ -39,10 +51,22 @@ final readonly class IssueTokenHandler implements CommandHandler
    *
    * @param AuthorizationServerPort $authorizationServer the authorization server port
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
+   * @param AuthCodeRepositoryPort $authCodeRepository the auth code repository
+   * @param IdTokenIssuerPort $idTokenIssuer the ID token issuer
+   * @param QueryBusPort $queryBus the query bus
+   * @param OidcClaimsBuilderInterface $claimsBuilder the OIDC claims builder
+   * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
+   * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
    */
   public function __construct(
     private readonly AuthorizationServerPort $authorizationServer,
     private readonly EventDispatcherPort $eventDispatcher,
+    private readonly AuthCodeRepositoryPort $authCodeRepository,
+    private readonly IdTokenIssuerPort $idTokenIssuer,
+    private readonly QueryBusPort $queryBus,
+    private readonly OidcClaimsBuilderInterface $claimsBuilder,
+    private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
+    private readonly AccessTokenRepositoryPort $accessTokenRepository,
   ) {
   }
   // #endregion
@@ -74,23 +98,77 @@ final readonly class IssueTokenHandler implements CommandHandler
         codeVerifier: $command->codeVerifier,
       );
 
-      $scopes = [];
-      $scopeValue = $result->scope;
-      if (is_string($scopeValue) && '' !== trim($scopeValue)) {
-        $scopes = array_values(array_filter(explode(' ', $scopeValue), static fn (string $value): bool => '' !== $value));
+      $scopes = $this->parseScopes($result->scope);
+
+      $authCode = null;
+      $refreshToken = null;
+      $accessToken = null;
+      $userIdentifier = null;
+      $audience = $command->clientId;
+      $nonce = null;
+
+      if ('authorization_code' === $command->grantType && null !== $command->code) {
+        $authCode = $this->authCodeRepository->find($command->code);
+        if ([] === $scopes && null !== $authCode) {
+          $scopes = $authCode->scopes()->toArray();
+        }
+        if (null !== $authCode) {
+          $userIdentifier = $authCode->userIdentifier();
+          $audience = (string) $authCode->clientIdentifier();
+          $nonce = $authCode->nonce();
+        }
+      }
+
+      if ('refresh_token' === $command->grantType && null !== $command->refreshToken) {
+        $refreshToken = $this->refreshTokenRepository->find($command->refreshToken);
+        if (null !== $refreshToken) {
+          $audience = (string) $refreshToken->clientIdentifier();
+          $accessToken = $this->accessTokenRepository->find($refreshToken->accessTokenIdentifier());
+          if (null !== $accessToken) {
+            if ([] === $scopes) {
+              $scopes = $accessToken->scopes()->toArray();
+            }
+
+            if (null === $userIdentifier || '' === $userIdentifier) {
+              $userIdentifier = $accessToken->userIdentifier();
+            }
+          }
+        }
+      }
+
+      $normalizedUserId = (null !== $userIdentifier && '' !== $userIdentifier) ? $userIdentifier : null;
+
+      $idToken = null;
+      if ($this->shouldIssueIdToken($command->grantType, $scopes, $normalizedUserId)) {
+        /** @var non-empty-string $normalizedUserId */
+        /** @var non-empty-string $audience */
+        $claims = $this->buildIdTokenClaims($normalizedUserId, $scopes);
+        $idToken = $this->idTokenIssuer->issueIdToken(
+          subject: $normalizedUserId,
+          audience: $audience,
+          nonce: $nonce,
+          claims: $claims,
+        );
       }
 
       $this->eventDispatcher->dispatch(event: new TokenIssuedEvent(
         tokenId: $result->accessToken,
         grantType: $command->grantType,
         clientId: $command->clientId,
-        userId: null,
+        userId: $normalizedUserId,
         scopes: $scopes,
         expiresIn: $result->expiresIn,
         ipAddress: $command->ipAddress,
       ));
 
-      return $result;
+      return new IssueTokenResult(
+        accessToken: $result->accessToken,
+        tokenType: $result->tokenType,
+        expiresIn: $result->expiresIn,
+        refreshToken: $result->refreshToken,
+        scope: $result->scope,
+        idToken: $idToken,
+      );
     } catch (Throwable $exception) {
       $this->eventDispatcher->dispatch(new TokenIssueFailedEvent(
         grantType: $command->grantType,
@@ -101,6 +179,68 @@ final readonly class IssueTokenHandler implements CommandHandler
 
       throw $exception;
     }
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function parseScopes(?string $scopeValue): array
+  {
+    if (!is_string($scopeValue) || '' === trim($scopeValue)) {
+      return [];
+    }
+
+    return array_values(array_filter(explode(' ', $scopeValue), static fn (string $value): bool => '' !== $value));
+  }
+
+  /**
+   * @param list<string> $scopes
+   */
+  private function hasOpenIdScope(array $scopes): bool
+  {
+    $normalized = array_map(static fn (string $scope): string => strtolower($scope), $scopes);
+
+    return in_array('openid', $normalized, true);
+  }
+
+  /**
+   * @param list<string> $scopes
+   */
+  private function shouldIssueIdToken(string $grantType, array $scopes, ?string $userIdentifier): bool
+  {
+    if (null === $userIdentifier || '' === $userIdentifier) {
+      return false;
+    }
+
+    if (!$this->hasOpenIdScope($scopes)) {
+      return false;
+    }
+
+    return in_array($grantType, ['authorization_code', 'refresh_token'], true);
+  }
+
+  /**
+   * @param non-empty-string $userIdentifier
+   * @param list<string> $scopes
+   *
+   * @return array<string, mixed>
+   */
+  private function buildIdTokenClaims(string $userIdentifier, array $scopes): array
+  {
+    /** @var GetUserResult $userResult */
+    $userResult = $this->queryBus->ask(query: new GetUserQuery(id: $userIdentifier));
+
+    if (null === $userResult->user) {
+      throw AuthorizationException::serverError(
+        message: 'User not found for OpenID Connect token.',
+        previous: null,
+      );
+    }
+
+    return $this->claimsBuilder->buildIdTokenClaims(
+      user: $userResult->user,
+      scopes: $scopes,
+    );
   }
 
   // #endregion

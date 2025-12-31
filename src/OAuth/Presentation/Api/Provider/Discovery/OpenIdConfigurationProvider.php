@@ -172,9 +172,10 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
       baseUrl: $endpointBaseUrl,
     );
     if (null === $authorizationEndpoint) {
-      $authorizationEndpoint = $this->buildAbsoluteUrl(
+      $authorizationEndpoint = $this->generateEndpointUrl(
+        routeName: OAuthOperations::AUTHORIZE,
+        fallbackPath: self::DEFAULT_AUTHORIZE_PATH,
         baseUrl: $endpointBaseUrl,
-        path: self::DEFAULT_AUTHORIZE_PATH,
       );
     }
     $output->authorizationEndpoint = $authorizationEndpoint;
@@ -244,6 +245,19 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
 
     // ID token signing alg values supported
     $output->idTokenSigningAlgValuesSupported = ['RS256'];
+
+    // Claims supported
+    $output->claimsSupported = [
+      'sub',
+      'name',
+      'given_name',
+      'family_name',
+      'preferred_username',
+      'picture',
+      'email',
+      'email_verified',
+      'auth_time',
+    ];
 
     return $output;
   }

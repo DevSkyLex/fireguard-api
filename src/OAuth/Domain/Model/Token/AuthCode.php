@@ -33,6 +33,7 @@ final class AuthCode
    * @param string|null $userIdentifier the user identifier
    * @param Scopes $scopes the scopes
    * @param string|null $redirectUri the redirect URI
+   * @param string|null $nonce the OIDC nonce
    * @param bool $isRevoked whether the code is revoked
    */
   public function __construct(
@@ -42,6 +43,7 @@ final class AuthCode
     private readonly ?string $userIdentifier,
     private readonly Scopes $scopes,
     private readonly ?string $redirectUri,
+    private readonly ?string $nonce = null,
     private bool $isRevoked = false,
   ) {
   }
@@ -128,6 +130,20 @@ final class AuthCode
   public function redirectUri(): ?string
   {
     return $this->redirectUri;
+  }
+
+  /**
+   * Method nonce.
+   *
+   * Gets the OIDC nonce value.
+   *
+   * @since 1.0.0
+   *
+   * @return string|null the nonce value
+   */
+  public function nonce(): ?string
+  {
+    return $this->nonce;
   }
 
   /**

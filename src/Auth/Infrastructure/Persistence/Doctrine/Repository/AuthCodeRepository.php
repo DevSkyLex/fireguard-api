@@ -66,6 +66,7 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
     $record->userIdentifier = $authCode->userIdentifier();
     $record->scopes = $authCode->scopes()->toArray();
     $record->redirectUri = $authCode->redirectUri();
+    $record->nonce = $authCode->nonce();
     $record->expiry = $authCode->expiryDateTime();
     $record->isRevoked = $authCode->isRevoked();
 
@@ -101,8 +102,37 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
       userIdentifier: $record->userIdentifier,
       scopes: Scopes::fromArray($record->scopes),
       redirectUri: $record->redirectUri,
+      nonce: $record->nonce,
       isRevoked: $record->isRevoked,
     );
+  }
+
+  /**
+   * Method updateNonce
+   * {@inheritDoc}
+   *
+   * Updates the nonce for an auth code.
+   *
+   * @since 1.0.0
+   *
+   * @param string $identifier the auth code identifier
+   * @param string|null $nonce the nonce value
+   *
+   * @return void no return value
+   */
+  public function updateNonce(string $identifier, ?string $nonce): void
+  {
+    $record = $this->entityManager->find(
+      className: AuthCodeRecord::class,
+      id: $identifier,
+    );
+
+    if (!$record) {
+      return;
+    }
+
+    $record->nonce = $nonce;
+    $this->entityManager->flush();
   }
   // #endregion
 }

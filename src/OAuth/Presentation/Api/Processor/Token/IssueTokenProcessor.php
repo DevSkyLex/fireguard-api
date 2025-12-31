@@ -118,6 +118,7 @@ final readonly class IssueTokenProcessor implements ProcessorInterface
       $tokenResponse->expiresIn = $result->expiresIn;
       $tokenResponse->refreshToken = $result->refreshToken;
       $tokenResponse->scope = $result->scope;
+      $tokenResponse->idToken = $result->idToken;
 
       return $tokenResponse;
 

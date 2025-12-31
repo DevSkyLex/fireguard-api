@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Application\UseCase\Command\Token\IssueToken;
 
+use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\Token\AuthorizationServerPort;
+use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
+use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenCommand;
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenHandler;
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
@@ -17,6 +22,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
@@ -68,7 +74,23 @@ final class IssueTokenHandlerTest extends TestCase
   {
     $this->authorizationServer = $this->createMock(AuthorizationServerPort::class);
     $this->eventDispatcher = $this->createMock(EventDispatcherPort::class);
-    $this->handler = new IssueTokenHandler($this->authorizationServer, $this->eventDispatcher);
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $idTokenIssuer = $this->createMock(IdTokenIssuerPort::class);
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $claimsBuilder = $this->createMock(OidcClaimsBuilderInterface::class);
+    $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);
+    $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
+
+    $this->handler = new IssueTokenHandler(
+      $this->authorizationServer,
+      $this->eventDispatcher,
+      $authCodeRepository,
+      $idTokenIssuer,
+      $queryBus,
+      $claimsBuilder,
+      $refreshTokenRepository,
+      $accessTokenRepository,
+    );
   }
 
   /**

@@ -31,6 +31,7 @@ final readonly class IssueTokenResult implements ResultMessage
    * @param int $expiresIn the expiration time in seconds
    * @param string|null $refreshToken the refresh token (optional)
    * @param string|null $scope the granted scope (optional)
+   * @param string|null $idToken the OpenID Connect ID token (optional)
    */
   public function __construct(
     public readonly string $accessToken,
@@ -38,6 +39,7 @@ final readonly class IssueTokenResult implements ResultMessage
     public readonly int $expiresIn,
     public readonly ?string $refreshToken = null,
     public readonly ?string $scope = null,
+    public readonly ?string $idToken = null,
   ) {
   }
   // #endregion

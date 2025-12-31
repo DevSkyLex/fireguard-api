@@ -15,6 +15,7 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
+use OAuth\Presentation\Api\Dto\Input\Consent\GrantConsentInput;
 use OAuth\Presentation\Api\Dto\Input\Token\TokenInput;
 use OAuth\Presentation\Api\Dto\Input\Token\TokenIntrospectionInput;
 use OAuth\Presentation\Api\Dto\Input\Token\TokenRevocationInput;
@@ -23,6 +24,8 @@ use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
 use OAuth\Presentation\Api\Dto\Output\Token\TokenIntrospectionOutput;
 use OAuth\Presentation\Api\Dto\Output\Token\TokenOutput;
 use OAuth\Presentation\Api\Operation\OAuthOperations;
+use OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor;
+use OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor;
 use OAuth\Presentation\Api\Processor\Token\{
   IntrospectTokenProcessor,
   IssueTokenProcessor,
@@ -47,6 +50,91 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   routePrefix: '/oauth2',
   description: 'OAuth2 and OpenID Connect operations',
   operations: [
+    new Get(
+      name: OAuthOperations::AUTHORIZE,
+      uriTemplate: '/authorize',
+      input: false,
+      output: false,
+      provider: AuthorizeProcessor::class,
+      openapi: new Operation(
+        tags: ['OAuth2'],
+        summary: 'Authorize Client',
+        description: 'Initiate the OAuth2 authorization code flow (PKCE required).',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(
+            name: 'response_type',
+            in: 'query',
+            required: true,
+            description: 'OAuth2 response type (must be code)',
+            schema: ['type' => 'string', 'enum' => ['code']],
+          ),
+          new Parameter(
+            name: 'client_id',
+            in: 'query',
+            required: true,
+            description: 'OAuth2 client identifier (UUID)',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+          new Parameter(
+            name: 'redirect_uri',
+            in: 'query',
+            required: true,
+            description: 'Redirect URI registered for the client',
+            schema: ['type' => 'string', 'format' => 'uri'],
+          ),
+          new Parameter(
+            name: 'scope',
+            in: 'query',
+            required: false,
+            description: 'Space-separated list of requested scopes',
+            schema: ['type' => 'string', 'example' => 'openid profile email'],
+          ),
+          new Parameter(
+            name: 'state',
+            in: 'query',
+            required: false,
+            description: 'Opaque state value returned to the client',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'code_challenge',
+            in: 'query',
+            required: true,
+            description: 'PKCE code challenge',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'code_challenge_method',
+            in: 'query',
+            required: true,
+            description: 'PKCE code challenge method (S256 or plain)',
+            schema: ['type' => 'string', 'enum' => ['S256', 'plain']],
+          ),
+          new Parameter(
+            name: 'nonce',
+            in: 'query',
+            required: false,
+            description: 'OIDC nonce value (optional)',
+            schema: ['type' => 'string'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_FOUND => new Response(
+            description: 'Authorization code issued (redirect to redirect_uri).',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'User consent required.',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required.',
+          ),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(
+            description: 'Invalid authorization request.',
+          ),
+        ],
+      ),
+    ),
     new Post(
       name: OAuthOperations::TOKEN,
       uriTemplate: '/token',
@@ -254,6 +342,36 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Missing or invalid access token',
+          ),
+        ],
+      ),
+    ),
+    new Post(
+      name: OAuthOperations::GRANT_CONSENT,
+      uriTemplate: '/consent/grant',
+      input: GrantConsentInput::class,
+      output: false,
+      inputFormats: [
+        'jsonld' => ['application/ld+json'],
+        'json' => ['application/json'],
+        'form' => ['application/x-www-form-urlencoded'],
+      ],
+      processor: GrantConsentProcessor::class,
+      denormalizationContext: ['groups' => [OAuthSerializationGroup::CONSENT_WRITE]],
+      openapi: new Operation(
+        tags: ['OAuth2'],
+        summary: 'Grant User Consent',
+        description: 'Approve or deny a consent request and complete the authorization flow.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_FOUND => new Response(
+            description: 'Authorization completed (redirect to redirect_uri).',
+          ),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(
+            description: 'Invalid consent request.',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required.',
           ),
         ],
       ),

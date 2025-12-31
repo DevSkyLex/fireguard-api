@@ -312,7 +312,7 @@ final class OpenIdConfigurationOutput
    *
    * List of OAuth2 response types supported.
    *
-   * @example ["code", "token", "id_token"]
+   * @example ["code"]
    *
    * @since 1.0.0
    *
@@ -326,7 +326,7 @@ final class OpenIdConfigurationOutput
     writable: false,
     required: false,
     identifier: false,
-    example: ['code', 'token', 'id_token'],
+    example: ['code'],
     openapiContext: [
       'type' => 'array',
       'items' => ['type' => 'string'],
@@ -345,7 +345,7 @@ final class OpenIdConfigurationOutput
    *
    * List of OAuth2 grant types supported.
    *
-   * @example ["client_credentials", "refresh_token"]
+   * @example ["client_credentials", "refresh_token", "authorization_code"]
    *
    * @since 1.0.0
    *
@@ -359,7 +359,7 @@ final class OpenIdConfigurationOutput
     writable: false,
     required: false,
     identifier: false,
-    example: ['client_credentials', 'refresh_token'],
+    example: ['client_credentials', 'refresh_token', 'authorization_code'],
     openapiContext: [
       'type' => 'array',
       'items' => ['type' => 'string'],
@@ -504,5 +504,38 @@ final class OpenIdConfigurationOutput
     ],
   )]
   public ?array $idTokenSigningAlgValuesSupported = null;
+
+  /**
+   * Property claimsSupported.
+   *
+   * List of supported claims in ID tokens and UserInfo.
+   *
+   * @example ["sub", "name", "given_name", "family_name", "preferred_username", "picture", "email", "email_verified", "auth_time"]
+   *
+   * @since 1.0.0
+   *
+   * @var list<string>|null
+   */
+  #[SerializedName('claims_supported')]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'Supported OpenID Connect claims',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: ['sub', 'name', 'given_name', 'family_name', 'preferred_username', 'picture', 'email', 'email_verified', 'auth_time'],
+    openapiContext: [
+      'type' => 'array',
+      'items' => ['type' => 'string'],
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'array',
+      'items' => ['type' => 'string'],
+    ],
+  )]
+  public ?array $claimsSupported = null;
   // #endregion
 }

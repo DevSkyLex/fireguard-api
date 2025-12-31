@@ -7,6 +7,7 @@ namespace OAuth\Presentation\Api\Provider\Discovery;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use OAuth\Application\Service\OidcClaimsBuilder;
 use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -14,6 +15,11 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Throwable;
 use User\Application\UseCase\Query\GetUser\GetUserQuery;
 use User\Application\UseCase\Query\GetUser\GetUserResult;
+
+use function is_bool;
+use function is_int;
+use function is_string;
+use function trim;
 
 /**
  * Provider UserInfoProvider.
@@ -39,10 +45,12 @@ final readonly class UserInfoProvider implements ProviderInterface
    *
    * @param Security $security the Symfony Security service
    * @param QueryBusPort $queryBus the query bus
+   * @param OidcClaimsBuilder $claimsBuilder the OIDC claims builder
    */
   public function __construct(
     private readonly Security $security,
     private readonly QueryBusPort $queryBus,
+    private readonly OidcClaimsBuilder $claimsBuilder,
   ) {
   }
   // #endregion
@@ -93,15 +101,21 @@ final readonly class UserInfoProvider implements ProviderInterface
 
       $user = $userResult->user;
 
-      $output = new UserInfoOutput();
-      $output->sub = $securityUser->getId();
-      $output->email = (string) $user->email();
-      $output->emailVerified = $user->isEmailVerified();
-      $output->preferredUsername = (string) $user->email();
+      $claims = $this->claimsBuilder->buildUserInfoClaims(
+        user: $user,
+        scopes: $securityUser->getScopes(),
+      );
 
-      if ($securityUser->hasScope('profile')) {
-        $output->name = (string) $user->email();
-      }
+      $output = new UserInfoOutput();
+      $output->sub = $this->readStringClaim($claims, 'sub') ?? $securityUser->getId();
+      $output->name = $this->readStringClaim($claims, 'name');
+      $output->givenName = $this->readStringClaim($claims, 'given_name');
+      $output->familyName = $this->readStringClaim($claims, 'family_name');
+      $output->preferredUsername = $this->readStringClaim($claims, 'preferred_username');
+      $output->picture = $this->readStringClaim($claims, 'picture');
+      $output->email = $this->readStringClaim($claims, 'email');
+      $output->emailVerified = $this->readBoolClaim($claims, 'email_verified');
+      $output->updatedAt = $this->readIntClaim($claims, 'updated_at');
 
       return $output;
 
@@ -113,6 +127,50 @@ final readonly class UserInfoProvider implements ProviderInterface
         message: 'Failed to get user info: ' . $exception->getMessage(),
       );
     }
+  }
+
+  /**
+   * @param array<string, mixed> $claims
+   */
+  private function readStringClaim(array $claims, string $key): ?string
+  {
+    $value = $claims[$key] ?? null;
+    if (!is_string($value)) {
+      return null;
+    }
+
+    $trimmed = trim($value);
+    if ('' === $trimmed) {
+      return null;
+    }
+
+    return $trimmed;
+  }
+
+  /**
+   * @param array<string, mixed> $claims
+   */
+  private function readBoolClaim(array $claims, string $key): ?bool
+  {
+    $value = $claims[$key] ?? null;
+    if (!is_bool($value)) {
+      return null;
+    }
+
+    return $value;
+  }
+
+  /**
+   * @param array<string, mixed> $claims
+   */
+  private function readIntClaim(array $claims, string $key): ?int
+  {
+    $value = $claims[$key] ?? null;
+    if (!is_int($value)) {
+      return null;
+    }
+
+    return $value;
   }
   // #endregion
 }
