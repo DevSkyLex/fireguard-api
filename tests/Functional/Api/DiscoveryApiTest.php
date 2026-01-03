@@ -82,6 +82,29 @@ final class DiscoveryApiTest extends WebTestCase
   }
 
   /**
+   * Method testOpenIdConfigurationContainsEndSessionAndPromptValues.
+   */
+  public function testOpenIdConfigurationContainsEndSessionAndPromptValues(): void
+  {
+    $this->client->request(
+      method: 'GET',
+      uri: '/api/.well-known/openid-configuration',
+      server: ['HTTP_ACCEPT' => 'application/json'],
+    );
+
+    $response = $this->client->getResponse();
+    $content = $this->decodeJsonResponse($response->getContent() ?: '{}');
+
+    $this->assertArrayHasKey('end_session_endpoint', $content);
+    $this->assertNotEmpty($content['end_session_endpoint']);
+
+    $this->assertArrayHasKey('prompt_values_supported', $content);
+    $this->assertIsArray($content['prompt_values_supported']);
+    $this->assertContains('login', $content['prompt_values_supported']);
+    $this->assertContains('consent', $content['prompt_values_supported']);
+  }
+
+  /**
    * Method testJwksEndpointReturnsValidResponse.
    */
   public function testJwksEndpointReturnsValidResponse(): void

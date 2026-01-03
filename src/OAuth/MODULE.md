@@ -53,11 +53,12 @@ Request validation is handled by DTO constraints and custom validators, then map
 
 | Method | Endpoint | Description | Auth | Rate limit | Notes |
 |--------|----------|-------------|------|------------|-------|
-| GET | `/api/oauth2/authorize` | Authorize client (code + PKCE) | Bearer access token | N/A | Redirects on success |
+| GET | `/api/oauth2/authorize` | Authorize client (code + PKCE) | Bearer access token | N/A | Redirects on success; supports `prompt`/`max_age` |
 | POST | `/api/oauth2/token` | Issue access token | Client credentials | `limiter.oauth_token` | Supports multiple grants |
 | POST | `/api/oauth2/token/introspect` | Introspect access or refresh token | Client credentials | `limiter.oauth_introspection` | Returns RFC 7662 payload |
 | POST | `/api/oauth2/token/revoke` | Revoke access or refresh token | Client credentials | `limiter.oauth_revocation` | RFC 7009 semantics |
 | GET | `/api/oauth2/userinfo` | UserInfo (OpenID Connect) | Bearer access token | N/A | Requires user-bound token |
+| GET | `/api/oauth2/logout` | End session (OpenID Connect) | N/A | N/A | Supports `id_token_hint` + post-logout redirect |
 | GET | `/api/oauth2/consent/check` | Check consent status | Bearer access token | N/A | Query params: `client_id`, `scope` |
 | POST | `/api/oauth2/consent/grant` | Grant or deny consent | Bearer access token | N/A | Completes authorization |
 
@@ -117,7 +118,7 @@ Discovery metadata should reflect supported grants; update it when enabling new 
 Discovery responses are built in `src/OAuth/Presentation/Api/Provider/Discovery/OpenIdConfigurationProvider.php`.
 
 > [!NOTE]
-> If `OAUTH_AUTHORIZE_PATH` or `OAUTH_LOGOUT_PATH` is not set, those endpoints are omitted from discovery.
+> If `OAUTH_AUTHORIZE_PATH` or `OAUTH_LOGOUT_PATH` is set, it overrides the default route or fallback path used in discovery.
 
 ---
 
@@ -306,9 +307,10 @@ Ports and adapters highlights:
 |------|----------------|---------|
 | `AuthorizationServerPort` | Issue access tokens | League OAuth2 server adapter |
 | `IdTokenIssuerPort` | Issue OIDC ID tokens | OIDC JWT issuer adapter |
+| `OidcUserProviderPort` | Resolve OIDC user identity data | OIDC user provider adapter |
 | `TokenRevocationPort` | Revoke access/refresh tokens | OAuth token revocation adapter |
 | `TokenCachePort` | Cache introspection results | Cache pool adapter |
-| `JwtParserPort` | Parse JWT payloads | JWT parser adapter |
+| `JwtParserPort` | Parse and validate JWT payloads | JWT parser adapter |
 
 ---
 

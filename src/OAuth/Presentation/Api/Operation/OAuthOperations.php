@@ -72,6 +72,17 @@ final class OAuthOperations
   public const string USERINFO = 'userinfo';
 
   /**
+   * Constant END_SESSION.
+   *
+   * End session (logout) operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string END_SESSION = 'end_session';
+
+  /**
    * Constant CHECK_CONSENT.
    *
    * Check consent operation name.
@@ -108,6 +119,7 @@ final class OAuthOperations
     self::REVOKE_TOKEN,
     self::AUTHORIZE,
     self::USERINFO,
+    self::END_SESSION,
     self::CHECK_CONSENT,
     self::GRANT_CONSENT,
   ];

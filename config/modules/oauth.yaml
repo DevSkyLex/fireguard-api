@@ -47,6 +47,9 @@ services:
   OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort:
     alias: OAuth\Infrastructure\Oidc\Adapter\IdTokenIssuerAdapter
 
+  OAuth\Application\Port\Outbound\User\OidcUserProviderPort:
+    alias: OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter
+
   # Console Commands
   OAuth\Infrastructure\Console\Command\Client\CreateClientCommand: ~
   OAuth\Infrastructure\Console\Command\Client\ListClientsCommand: ~
@@ -63,7 +66,9 @@ services:
 
   # OIDC Adapter
   OAuth\Infrastructure\Oidc\Adapter\IdTokenIssuerAdapter: ~
+  OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter: ~
 
   # OAuth Processors
   OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor: ~
   OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor: ~
+  OAuth\Presentation\Api\Processor\Session\EndSessionProcessor: ~

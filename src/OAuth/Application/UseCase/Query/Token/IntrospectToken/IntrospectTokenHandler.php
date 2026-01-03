@@ -101,6 +101,10 @@ final readonly class IntrospectTokenHandler implements QueryHandler
       return IntrospectTokenResult::inactive();
     }
 
+    if (!$this->jwtParser->validate($token)) {
+      return IntrospectTokenResult::inactive();
+    }
+
     $tokenData = $this->jwtParser->parse($token);
     if (null === $tokenData) {
       return IntrospectTokenResult::inactive();
@@ -242,7 +246,10 @@ final readonly class IntrospectTokenHandler implements QueryHandler
    */
   private function introspectRefreshToken(string $token): IntrospectTokenResult
   {
-    $refreshToken = $this->refreshTokenRepository->find($token);
+    $refreshToken = $this->refreshTokenRepository->findByEncryptedToken($token);
+    if (null === $refreshToken) {
+      $refreshToken = $this->refreshTokenRepository->find($token);
+    }
 
     if (null === $refreshToken || $refreshToken->isRevoked()) {
       return IntrospectTokenResult::inactive();

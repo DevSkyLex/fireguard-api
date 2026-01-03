@@ -440,6 +440,39 @@ final class OpenIdConfigurationOutput
   public ?array $codeChallengeMethodsSupported = null;
 
   /**
+   * Property promptValuesSupported.
+   *
+   * List of supported prompt values.
+   *
+   * @example ["none", "login", "consent", "select_account"]
+   *
+   * @since 1.0.0
+   *
+   * @var list<string>|null
+   */
+  #[SerializedName('prompt_values_supported')]
+  #[Groups(groups: [OAuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'Supported prompt values',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: ['none', 'login', 'consent', 'select_account'],
+    openapiContext: [
+      'type' => 'array',
+      'items' => ['type' => 'string'],
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'array',
+      'items' => ['type' => 'string'],
+    ],
+  )]
+  public ?array $promptValuesSupported = null;
+
+  /**
    * Property subjectTypesSupported.
    *
    * List of subject identifier types supported.

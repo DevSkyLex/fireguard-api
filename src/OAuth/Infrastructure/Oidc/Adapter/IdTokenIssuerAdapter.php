@@ -145,6 +145,7 @@ final class IdTokenIssuerAdapter implements IdTokenIssuerPort
       ->relatedTo($subject)
       ->identifiedBy(bin2hex(random_bytes(20)))
       ->issuedAt($now)
+      ->canOnlyBeUsedAfter($now)
       ->expiresAt($expiry);
 
     if (null !== $this->keyId && '' !== $this->keyId) {

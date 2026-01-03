@@ -56,6 +56,10 @@ final readonly class ValidateTokenHandler implements QueryHandler
   public function __invoke(ValidateTokenQuery $query): ValidateTokenResult
   {
     try {
+      if (!$this->jwtParser->validate($query->accessToken)) {
+        return ValidateTokenResult::invalid('Token signature or claims are invalid');
+      }
+
       $tokenData = $this->jwtParser->parse($query->accessToken);
 
       if (null === $tokenData) {

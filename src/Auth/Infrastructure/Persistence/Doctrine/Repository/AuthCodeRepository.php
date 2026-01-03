@@ -6,10 +6,17 @@ namespace Auth\Infrastructure\Persistence\Doctrine\Repository;
 
 use Auth\Infrastructure\Persistence\Doctrine\Record\AuthCodeRecord;
 use Doctrine\ORM\EntityManagerInterface;
+use League\OAuth2\Server\CryptTrait;
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Domain\Model\Token\AuthCode;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Throwable;
+
+use function is_array;
+use function is_string;
+use function json_decode;
 
 /**
  * Repository AuthCodeRepository.
@@ -20,8 +27,10 @@ use OAuth\Domain\ValueObject\Scope\Scopes;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
+final class AuthCodeRepository implements AuthCodeRepositoryPort
 {
+  use CryptTrait;
+
   // #region Constructor
   /**
    * Constructor.
@@ -35,7 +44,10 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    #[Autowire('%env(OAUTH_ENCRYPTION_KEY)%')]
+    string $encryptionKey,
   ) {
+    $this->setEncryptionKey($encryptionKey);
   }
   // #endregion
 
@@ -107,6 +119,31 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
     );
   }
 
+  public function findByEncryptedCode(string $encryptedCode): ?AuthCode
+  {
+    if ('' === $encryptedCode) {
+      return null;
+    }
+
+    try {
+      $decrypted = $this->decrypt($encryptedCode);
+      $payload = json_decode($decrypted, true);
+
+      if (!is_array($payload)) {
+        return null;
+      }
+
+      $identifier = $payload['auth_code_id'] ?? null;
+      if (!is_string($identifier) || '' === $identifier) {
+        return null;
+      }
+
+      return $this->find($identifier);
+    } catch (Throwable) {
+      return null;
+    }
+  }
+
   /**
    * Method updateNonce
    * {@inheritDoc}
@@ -122,9 +159,15 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
    */
   public function updateNonce(string $identifier, ?string $nonce): void
   {
+    $resolvedIdentifier = $identifier;
+    $decryptedIdentifier = $this->resolveEncryptedIdentifier($identifier);
+    if (null !== $decryptedIdentifier) {
+      $resolvedIdentifier = $decryptedIdentifier;
+    }
+
     $record = $this->entityManager->find(
       className: AuthCodeRecord::class,
-      id: $identifier,
+      id: $resolvedIdentifier,
     );
 
     if (!$record) {
@@ -133,6 +176,31 @@ final readonly class AuthCodeRepository implements AuthCodeRepositoryPort
 
     $record->nonce = $nonce;
     $this->entityManager->flush();
+  }
+
+  private function resolveEncryptedIdentifier(string $encryptedCode): ?string
+  {
+    if ('' === $encryptedCode) {
+      return null;
+    }
+
+    try {
+      $decrypted = $this->decrypt($encryptedCode);
+      $payload = json_decode($decrypted, true);
+
+      if (!is_array($payload)) {
+        return null;
+      }
+
+      $identifier = $payload['auth_code_id'] ?? null;
+      if (!is_string($identifier) || '' === $identifier) {
+        return null;
+      }
+
+      return $identifier;
+    } catch (Throwable) {
+      return null;
+    }
   }
   // #endregion
 }

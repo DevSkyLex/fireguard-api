@@ -47,6 +47,19 @@ interface AuthCodeRepositoryPort
   public function find(string $identifier): ?AuthCode;
 
   /**
+   * Method findByEncryptedCode.
+   *
+   * Finds an auth code by its encrypted authorization code value.
+   *
+   * @since 1.0.0
+   *
+   * @param string $encryptedCode the encrypted authorization code
+   *
+   * @return AuthCode|null the auth code or null if not found
+   */
+  public function findByEncryptedCode(string $encryptedCode): ?AuthCode;
+
+  /**
    * Method updateNonce.
    *
    * Updates the nonce associated with an auth code.

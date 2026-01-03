@@ -100,6 +100,17 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
    * @var string
    */
   private const string DEFAULT_INTROSPECTION_PATH = '/api/oauth2/token/introspect';
+
+  /**
+   * Constant DEFAULT_END_SESSION_PATH.
+   *
+   * The default end-session endpoint path.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  private const string DEFAULT_END_SESSION_PATH = '/api/oauth2/logout';
   // #endregion
 
   private readonly string $issuer;
@@ -159,7 +170,7 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
     $request = $this->requestStack->getCurrentRequest();
     $requestBaseUrl = $request ? $request->getSchemeAndHttpHost() : '';
     $issuer = '' !== $this->issuer ? $this->issuer : $requestBaseUrl;
-    $endpointBaseUrl = '' !== $requestBaseUrl ? $requestBaseUrl : $issuer;
+    $endpointBaseUrl = '' !== $issuer ? $issuer : $requestBaseUrl;
 
     $output = new OpenIdConfigurationOutput();
 
@@ -220,9 +231,14 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
       configuredValue: $this->logoutPath,
       baseUrl: $endpointBaseUrl,
     );
-    if (null !== $endSessionEndpoint) {
-      $output->endSessionEndpoint = $endSessionEndpoint;
+    if (null === $endSessionEndpoint) {
+      $endSessionEndpoint = $this->generateEndpointUrl(
+        routeName: OAuthOperations::END_SESSION,
+        fallbackPath: self::DEFAULT_END_SESSION_PATH,
+        baseUrl: $endpointBaseUrl,
+      );
     }
+    $output->endSessionEndpoint = $endSessionEndpoint;
 
     // Scopes supported
     $output->scopesSupported = array_map('strtolower', DefaultScopes::USER_SCOPES);
@@ -239,6 +255,9 @@ final readonly class OpenIdConfigurationProvider implements ProviderInterface
 
     // Code challenge methods supported
     $output->codeChallengeMethodsSupported = ['S256', 'plain'];
+
+    // Prompt values supported
+    $output->promptValuesSupported = ['none', 'login', 'consent', 'select_account'];
 
     // Subject types supported
     $output->subjectTypesSupported = ['public'];

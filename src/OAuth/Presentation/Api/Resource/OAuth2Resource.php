@@ -26,6 +26,7 @@ use OAuth\Presentation\Api\Dto\Output\Token\TokenOutput;
 use OAuth\Presentation\Api\Operation\OAuthOperations;
 use OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor;
 use OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor;
+use OAuth\Presentation\Api\Processor\Session\EndSessionProcessor;
 use OAuth\Presentation\Api\Processor\Token\{
   IntrospectTokenProcessor,
   IssueTokenProcessor,
@@ -107,8 +108,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           new Parameter(
             name: 'code_challenge_method',
             in: 'query',
-            required: true,
-            description: 'PKCE code challenge method (S256 or plain)',
+            required: false,
+            description: 'PKCE code challenge method (S256 or plain, defaults to plain)',
             schema: ['type' => 'string', 'enum' => ['S256', 'plain']],
           ),
           new Parameter(
@@ -117,6 +118,20 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             required: false,
             description: 'OIDC nonce value (optional)',
             schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'prompt',
+            in: 'query',
+            required: false,
+            description: 'OIDC prompt values (space-separated)',
+            schema: ['type' => 'string', 'example' => 'login consent'],
+          ),
+          new Parameter(
+            name: 'max_age',
+            in: 'query',
+            required: false,
+            description: 'Maximum authentication age in seconds',
+            schema: ['type' => 'integer', 'example' => 3600],
           ),
         ],
         responses: [
@@ -372,6 +387,62 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Authentication required.',
+          ),
+        ],
+      ),
+    ),
+    new Get(
+      name: OAuthOperations::END_SESSION,
+      uriTemplate: '/logout',
+      input: false,
+      output: false,
+      outputFormats: [
+        'json' => ['application/json'],
+      ],
+      provider: EndSessionProcessor::class,
+      openapi: new Operation(
+        tags: ['OAuth2'],
+        summary: 'End Session',
+        description: 'Terminate the current OpenID Connect session and optionally redirect to a client post-logout URI.',
+        parameters: [
+          new Parameter(
+            name: 'id_token_hint',
+            in: 'query',
+            required: false,
+            description: 'ID token previously issued by this server (optional)',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'post_logout_redirect_uri',
+            in: 'query',
+            required: false,
+            description: 'Client post-logout redirect URI (must be registered)',
+            schema: ['type' => 'string', 'format' => 'uri'],
+          ),
+          new Parameter(
+            name: 'client_id',
+            in: 'query',
+            required: false,
+            description: 'OAuth2 client identifier (required when post_logout_redirect_uri is provided)',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+          new Parameter(
+            name: 'state',
+            in: 'query',
+            required: false,
+            description: 'Opaque state value returned to the client after logout',
+            schema: ['type' => 'string'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_FOUND => new Response(
+            description: 'Redirect to the post_logout_redirect_uri.',
+          ),
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Logout completed without redirect.',
+          ),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(
+            description: 'Invalid logout request.',
           ),
         ],
       ),

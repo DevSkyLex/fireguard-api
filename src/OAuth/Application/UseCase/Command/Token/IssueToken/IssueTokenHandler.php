@@ -9,16 +9,14 @@ use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\Token\AuthorizationServerPort;
 use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
 use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Domain\Event\Token\TokenIssuedEvent;
 use OAuth\Domain\Event\Token\TokenIssueFailedEvent;
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
-use User\Application\UseCase\Query\GetUser\GetUserQuery;
-use User\Application\UseCase\Query\GetUser\GetUserResult;
 
 use function array_filter;
 use function array_map;
@@ -53,7 +51,7 @@ final readonly class IssueTokenHandler implements CommandHandler
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    * @param AuthCodeRepositoryPort $authCodeRepository the auth code repository
    * @param IdTokenIssuerPort $idTokenIssuer the ID token issuer
-   * @param QueryBusPort $queryBus the query bus
+   * @param OidcUserProviderPort $oidcUserProvider the OIDC user provider
    * @param OidcClaimsBuilderInterface $claimsBuilder the OIDC claims builder
    * @param RefreshTokenRepositoryPort $refreshTokenRepository the refresh token repository
    * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
@@ -63,7 +61,7 @@ final readonly class IssueTokenHandler implements CommandHandler
     private readonly EventDispatcherPort $eventDispatcher,
     private readonly AuthCodeRepositoryPort $authCodeRepository,
     private readonly IdTokenIssuerPort $idTokenIssuer,
-    private readonly QueryBusPort $queryBus,
+    private readonly OidcUserProviderPort $oidcUserProvider,
     private readonly OidcClaimsBuilderInterface $claimsBuilder,
     private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
     private readonly AccessTokenRepositoryPort $accessTokenRepository,
@@ -108,7 +106,10 @@ final readonly class IssueTokenHandler implements CommandHandler
       $nonce = null;
 
       if ('authorization_code' === $command->grantType && null !== $command->code) {
-        $authCode = $this->authCodeRepository->find($command->code);
+        $authCode = $this->authCodeRepository->findByEncryptedCode($command->code);
+        if (null === $authCode) {
+          $authCode = $this->authCodeRepository->find($command->code);
+        }
         if ([] === $scopes && null !== $authCode) {
           $scopes = $authCode->scopes()->toArray();
         }
@@ -120,7 +121,10 @@ final readonly class IssueTokenHandler implements CommandHandler
       }
 
       if ('refresh_token' === $command->grantType && null !== $command->refreshToken) {
-        $refreshToken = $this->refreshTokenRepository->find($command->refreshToken);
+        $refreshToken = $this->refreshTokenRepository->findByEncryptedToken($command->refreshToken);
+        if (null === $refreshToken) {
+          $refreshToken = $this->refreshTokenRepository->find($command->refreshToken);
+        }
         if (null !== $refreshToken) {
           $audience = (string) $refreshToken->clientIdentifier();
           $accessToken = $this->accessTokenRepository->find($refreshToken->accessTokenIdentifier());
@@ -227,10 +231,9 @@ final readonly class IssueTokenHandler implements CommandHandler
    */
   private function buildIdTokenClaims(string $userIdentifier, array $scopes): array
   {
-    /** @var GetUserResult $userResult */
-    $userResult = $this->queryBus->ask(query: new GetUserQuery(id: $userIdentifier));
+    $oidcUser = $this->oidcUserProvider->findByIdentifier($userIdentifier);
 
-    if (null === $userResult->user) {
+    if (null === $oidcUser) {
       throw AuthorizationException::serverError(
         message: 'User not found for OpenID Connect token.',
         previous: null,
@@ -238,7 +241,7 @@ final readonly class IssueTokenHandler implements CommandHandler
     }
 
     return $this->claimsBuilder->buildIdTokenClaims(
-      user: $userResult->user,
+      user: $oidcUser,
       scopes: $scopes,
     );
   }

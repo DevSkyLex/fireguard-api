@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Application\Service;
 
-use User\Domain\Model\User;
+use OAuth\Domain\Model\Oidc\OidcUser;
 
 /**
  * Interface OidcClaimsBuilderInterface.
@@ -27,12 +27,12 @@ interface OidcClaimsBuilderInterface
    *
    * @since 1.0.0
    *
-   * @param User $user the user
+   * @param OidcUser $user the OIDC user
    * @param list<string> $scopes the granted scopes
    *
    * @return array<string, mixed> the user info claims
    */
-  public function buildUserInfoClaims(User $user, array $scopes): array;
+  public function buildUserInfoClaims(OidcUser $user, array $scopes): array;
 
   /**
    * Method buildIdTokenClaims.
@@ -42,10 +42,10 @@ interface OidcClaimsBuilderInterface
    *
    * @since 1.0.0
    *
-   * @param User $user the user
+   * @param OidcUser $user the OIDC user
    * @param list<string> $scopes the granted scopes
    *
    * @return array<string, mixed> the ID token claims
    */
-  public function buildIdTokenClaims(User $user, array $scopes): array;
+  public function buildIdTokenClaims(OidcUser $user, array $scopes): array;
 }

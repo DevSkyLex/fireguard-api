@@ -200,21 +200,20 @@ final class GrantConsentInput
   /**
    * Property codeChallengeMethod.
    *
-   * PKCE code challenge method.
+   * PKCE code challenge method (defaults to plain).
    *
    * @example S256
    *
    * @since 1.0.0
    */
-  #[Assert\NotBlank(message: 'The code_challenge_method field is required for PKCE.')]
   #[Assert\Choice(choices: ['S256', 'plain'], message: 'Invalid code_challenge_method. Allowed values: S256, plain.')]
   #[Groups(groups: [OAuthSerializationGroup::CONSENT_WRITE])]
   #[SerializedName(serializedName: 'code_challenge_method')]
   #[ApiProperty(
-    description: 'PKCE code challenge method (S256 or plain)',
+    description: 'PKCE code challenge method (S256 or plain, defaults to plain)',
     readable: false,
     writable: true,
-    required: true,
+    required: false,
     identifier: false,
     example: 'S256',
     openapiContext: [
@@ -264,24 +263,25 @@ final class GrantConsentInput
    *
    * @since 1.0.0
    */
+  #[Assert\NotNull(message: 'The approved field is required.')]
   #[Groups(groups: [OAuthSerializationGroup::CONSENT_WRITE])]
   #[SerializedName(serializedName: 'approved')]
   #[ApiProperty(
     description: 'Whether the user approves the consent',
     readable: false,
     writable: true,
-    required: false,
+    required: true,
     identifier: false,
     example: true,
     openapiContext: [
       'type' => 'boolean',
-      'default' => true,
+      'nullable' => false,
     ],
     jsonSchemaContext: [
       'type' => 'boolean',
-      'default' => true,
+      'nullable' => false,
     ],
   )]
-  public ?bool $approved = true;
+  public ?bool $approved = null;
   // #endregion
 }

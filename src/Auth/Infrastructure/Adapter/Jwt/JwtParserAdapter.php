@@ -10,9 +10,10 @@ use DateTimeInterface;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
+use Lcobucci\JWT\Token\RegisteredClaims;
 use Lcobucci\JWT\UnencryptedToken;
+use Lcobucci\JWT\Validation\Constraint\LooseValidAt;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use Lcobucci\JWT\Validation\Constraint\StrictValidAt;
 use OAuth\Application\Port\Outbound\Token\JwtParserPort as OAuthJwtParserPort;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -118,9 +119,17 @@ final class JwtParserAdapter implements JwtParserPort, OAuthJwtParserPort
         return false;
       }
 
+      $claims = $parsedToken->claims();
+      if (
+        !$claims->has(RegisteredClaims::ISSUED_AT)
+        || !$claims->has(RegisteredClaims::EXPIRATION_TIME)
+      ) {
+        return false;
+      }
+
       $constraints = [
         new SignedWith($this->jwtConfig->signer(), $this->jwtConfig->verificationKey()),
-        new StrictValidAt(new class () implements ClockInterface {
+        new LooseValidAt(new class () implements ClockInterface {
           public function now(): DateTimeImmutable
           {
             return new DateTimeImmutable();

@@ -7,14 +7,14 @@ namespace OAuth\Presentation\Api\Provider\Discovery;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use OAuth\Application\Service\OidcClaimsBuilder;
+use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
+use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
-use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 use Throwable;
-use User\Application\UseCase\Query\GetUser\GetUserQuery;
-use User\Application\UseCase\Query\GetUser\GetUserResult;
 
 use function is_bool;
 use function is_int;
@@ -44,13 +44,13 @@ final readonly class UserInfoProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param Security $security the Symfony Security service
-   * @param QueryBusPort $queryBus the query bus
-   * @param OidcClaimsBuilder $claimsBuilder the OIDC claims builder
+   * @param OidcUserProviderPort $oidcUserProvider the OIDC user provider
+   * @param OidcClaimsBuilderInterface $claimsBuilder the OIDC claims builder
    */
   public function __construct(
     private readonly Security $security,
-    private readonly QueryBusPort $queryBus,
-    private readonly OidcClaimsBuilder $claimsBuilder,
+    private readonly OidcUserProviderPort $oidcUserProvider,
+    private readonly OidcClaimsBuilderInterface $claimsBuilder,
   ) {
   }
   // #endregion
@@ -82,27 +82,24 @@ final readonly class UserInfoProvider implements ProviderInterface
     }
 
     if (!$securityUser->hasScope(scope: 'openid')) {
-      throw new UnauthorizedHttpException(
-        challenge: 'Bearer',
+      throw new HttpException(
+        statusCode: Response::HTTP_FORBIDDEN,
         message: 'Token does not have openid scope',
+        headers: ['WWW-Authenticate' => 'Bearer error="insufficient_scope", scope="openid"'],
       );
     }
 
     try {
-      /** @var GetUserResult $userResult */
-      $userResult = $this->queryBus->ask(query: new GetUserQuery(id: $securityUser->getId()));
-
-      if (null === $userResult->user) {
+      $oidcUser = $this->oidcUserProvider->findByIdentifier($securityUser->getId());
+      if (null === $oidcUser) {
         throw new UnauthorizedHttpException(
           challenge: 'Bearer',
           message: 'User not found',
         );
       }
 
-      $user = $userResult->user;
-
       $claims = $this->claimsBuilder->buildUserInfoClaims(
-        user: $user,
+        user: $oidcUser,
         scopes: $securityUser->getScopes(),
       );
 

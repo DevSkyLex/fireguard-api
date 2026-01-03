@@ -88,6 +88,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
                   'url' => '$response.body#/userinfo_endpoint',
                 ],
               ],
+              'EndSession' => [
+                'operationId' => 'end_session',
+                'description' => 'Terminate the OpenID Connect session',
+                'parameters' => [
+                  'url' => '$response.body#/end_session_endpoint',
+                ],
+              ],
             ]),
           ),
         ],

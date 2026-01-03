@@ -45,5 +45,18 @@ interface RefreshTokenRepositoryPort
    * @return RefreshToken|null the refresh token or null if not found
    */
   public function find(string $identifier): ?RefreshToken;
+
+  /**
+   * Method findByEncryptedToken.
+   *
+   * Finds a refresh token by its encrypted token value.
+   *
+   * @since 1.0.0
+   *
+   * @param string $encryptedToken the encrypted refresh token
+   *
+   * @return RefreshToken|null the refresh token or null if not found
+   */
+  public function findByEncryptedToken(string $encryptedToken): ?RefreshToken;
   // #endregion
 }

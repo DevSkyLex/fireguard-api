@@ -34,7 +34,9 @@ use function is_array;
 use function is_string;
 use function parse_str;
 use function parse_url;
+use function preg_match;
 use function trim;
+use function urldecode;
 
 /**
  * Processor GrantConsentProcessor.
@@ -102,7 +104,7 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
       );
     }
 
-    $approved = $data->approved ?? true;
+    $approved = true === $data->approved;
     $scopes = $this->parseScopes($data->scope);
 
     if (true === $approved) {
@@ -147,10 +149,14 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     $authorizationRequest->setUser($userEntity);
     $authorizationRequest->setAuthorizationApproved((bool) $approved);
 
-    $psrResponse = $this->authorizationServer->completeAuthorizationRequest(
-      authRequest: $authorizationRequest,
-      response: new Psr7Response(),
-    );
+    try {
+      $psrResponse = $this->authorizationServer->completeAuthorizationRequest(
+        authRequest: $authorizationRequest,
+        response: new Psr7Response(),
+      );
+    } catch (OAuthServerException $exception) {
+      return $this->convertPsrResponse($exception->generateHttpResponse(new Psr7Response()));
+    }
 
     $this->storeNonceFromResponse($data, $psrResponse);
 
@@ -217,12 +223,27 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
       return;
     }
 
-    $code = $this->extractCodeFromLocation($response->getHeaderLine('Location'));
+    $code = $this->extractCodeFromResponse($response);
     if (null === $code) {
       return;
     }
 
     $this->authCodeRepository->updateNonce($code, $nonce);
+  }
+
+  private function extractCodeFromResponse(\Psr\Http\Message\ResponseInterface $response): ?string
+  {
+    $code = $this->extractCodeFromLocation($response->getHeaderLine('Location'));
+    if (null !== $code) {
+      return $code;
+    }
+
+    $body = $this->readResponseBody($response);
+    if ('' === $body) {
+      return null;
+    }
+
+    return $this->extractCodeFromFormPostBody($body);
   }
 
   private function extractCodeFromLocation(string $location): ?string
@@ -232,19 +253,82 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     }
 
     $parts = parse_url($location);
-    if (!is_array($parts) || !isset($parts['query'])) {
+    if (!is_array($parts)) {
       return null;
     }
 
-    $query = [];
-    parse_str((string) $parts['query'], $query);
+    foreach (['query', 'fragment'] as $part) {
+      if (!isset($parts[$part])) {
+        continue;
+      }
 
-    $code = $query['code'] ?? null;
+      $params = [];
+      parse_str((string) $parts[$part], $params);
+
+      $code = $this->extractCodeFromParams($params);
+      if (null !== $code) {
+        return $code;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * @param array<int|string, mixed> $params
+   */
+  private function extractCodeFromParams(array $params): ?string
+  {
+    $code = $params['code'] ?? null;
     if (!is_string($code) || '' === $code) {
       return null;
     }
 
     return $code;
+  }
+
+  private function extractCodeFromFormPostBody(string $body): ?string
+  {
+    if ('' === $body) {
+      return null;
+    }
+
+    if (1 === preg_match('/name=["\']code["\'][^>]*value=["\']([^"\']+)["\']/i', $body, $matches)) {
+      return $matches[1];
+    }
+
+    if (1 === preg_match('/value=["\']([^"\']+)["\'][^>]*name=["\']code["\']/i', $body, $matches)) {
+      return $matches[1];
+    }
+
+    if (1 === preg_match('/(?:^|[?&])code=([^&\\s"\']+)/i', $body, $matches)) {
+      return urldecode($matches[1]);
+    }
+
+    return null;
+  }
+
+  private function readResponseBody(\Psr\Http\Message\ResponseInterface $response): string
+  {
+    try {
+      $body = $response->getBody();
+      if (!$body->isReadable()) {
+        return '';
+      }
+
+      if (!$body->isSeekable()) {
+        return $body->getContents();
+      }
+
+      $position = $body->tell();
+      $body->rewind();
+      $contents = $body->getContents();
+      $body->seek($position);
+
+      return $contents;
+    } catch (Throwable) {
+      return '';
+    }
   }
 
   private function convertPsrResponse(\Psr\Http\Message\ResponseInterface $psrResponse): Response
