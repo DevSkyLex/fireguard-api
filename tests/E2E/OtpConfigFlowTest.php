@@ -22,8 +22,8 @@ use Symfony\Component\HttpFoundation\Response;
  * @version 1.0.0
  *
  * @see \Otp\Presentation\Api\Resource\ConfigResource
- * @see \Otp\Presentation\Api\Provider\ListPurposesProvider
- * @see \Otp\Presentation\Api\Provider\ListChannelsProvider
+ * @see \Otp\Presentation\Api\Provider\Config\ListPurposesProvider
+ * @see \Otp\Presentation\Api\Provider\Config\ListChannelsProvider
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */

@@ -5,21 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Post;
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
-use Authorization\Domain\Model\Permission;
-use Authorization\Domain\Model\Role;
-use Authorization\Domain\ValueObject\PermissionId;
-use Authorization\Domain\ValueObject\PermissionName;
-use Authorization\Domain\ValueObject\RoleId;
-use Authorization\Domain\ValueObject\RoleName;
-use Authorization\Presentation\Api\Dto\AddPermissionInput;
-use Authorization\Presentation\Api\Dto\RoleOutput;
-use Authorization\Presentation\Api\Processor\AddPermissionToRoleProcessor;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use Authorization\Application\UseCase\Command\Role\AddPermissionToRole\{AddPermissionToRoleCommand, AddPermissionToRoleResult};
+use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
+use Authorization\Domain\Exception\{PermissionNotFoundException, RoleNotFoundException};
+use Authorization\Presentation\Api\Dto\Input\Role\AddPermissionInput;
+use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
+use Authorization\Presentation\Api\Processor\Role\AddPermissionToRoleProcessor;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**
  * Test AddPermissionToRoleProcessorTest.
@@ -34,9 +29,7 @@ use PHPUnit\Framework\TestCase;
 final class AddPermissionToRoleProcessorTest extends TestCase
 {
   // #region Properties
-  private RoleRepositoryPort&MockObject $roleRepository;
-
-  private PermissionRepositoryPort&MockObject $permissionRepository;
+  private CommandBusPort&MockObject $commandBus;
 
   private AddPermissionToRoleProcessor $processor;
   // #endregion
@@ -44,12 +37,8 @@ final class AddPermissionToRoleProcessorTest extends TestCase
   // #region Setup
   protected function setUp(): void
   {
-    $this->roleRepository = $this->createMock(RoleRepositoryPort::class);
-    $this->permissionRepository = $this->createMock(PermissionRepositoryPort::class);
-    $this->processor = new AddPermissionToRoleProcessor(
-      $this->roleRepository,
-      $this->permissionRepository,
-    );
+    $this->commandBus = $this->createMock(CommandBusPort::class);
+    $this->processor = new AddPermissionToRoleProcessor($this->commandBus);
   }
   // #endregion
 
@@ -64,38 +53,35 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     // Arrange
     $roleId = '550e8400-e29b-41d4-a716-446655440000';
     $permissionId = '660e8400-e29b-41d4-a716-446655440000';
+    $createdAt = '2025-01-01 12:00:00';
 
-    $role = Role::create(
-      id: new RoleId($roleId),
-      name: new RoleName('admin'),
+    $result = new AddPermissionToRoleResult(
+      id: $roleId,
+      name: 'admin',
       description: 'Admin role',
-    );
-
-    $permission = Permission::create(
-      id: new PermissionId($permissionId),
-      name: new PermissionName('users.create'),
-      description: 'Create users',
+      isSystem: false,
+      createdAt: $createdAt,
+      permissions: [
+        new GetPermissionResult(
+          id: $permissionId,
+          name: 'users.create',
+          description: 'Create users',
+          createdAt: $createdAt,
+        ),
+      ],
     );
 
     $input = new AddPermissionInput();
     $input->permissionId = $permissionId;
 
-    $this->roleRepository
+    $this->commandBus
       ->expects($this->once())
-      ->method('findById')
-      ->with($this->callback(fn (RoleId $id) => $id->value === $roleId))
-      ->willReturn($role);
-
-    $this->permissionRepository
-      ->expects($this->once())
-      ->method('findById')
-      ->with($this->callback(fn (PermissionId $id) => $id->value === $permissionId))
-      ->willReturn($permission);
-
-    $this->roleRepository
-      ->expects($this->once())
-      ->method('save')
-      ->with($role);
+      ->method('dispatch')
+      ->with($this->callback(
+        fn (AddPermissionToRoleCommand $command) => $command->roleId === $roleId
+          && $command->permissionId === $permissionId,
+      ))
+      ->willReturn($result);
 
     $operation = new Post();
 
@@ -108,8 +94,10 @@ final class AddPermissionToRoleProcessorTest extends TestCase
 
     // Assert
     $this->assertInstanceOf(RoleOutput::class, $output);
-    $this->assertEquals($roleId, $output->id);
-    $this->assertEquals('admin', $output->name);
+    $this->assertSame($roleId, $output->id);
+    $this->assertSame('admin', $output->name);
+    $this->assertCount(1, $output->permissions);
+    $this->assertSame($permissionId, $output->permissions[0]->id);
   }
 
   /**
@@ -125,15 +113,15 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $input = new AddPermissionInput();
     $input->permissionId = $permissionId;
 
-    $this->roleRepository
+    $this->commandBus
       ->expects($this->once())
-      ->method('findById')
-      ->willReturn(null);
+      ->method('dispatch')
+      ->willThrowException(RoleNotFoundException::withId(roleId: $roleId));
 
     $operation = new Post();
 
     // Assert
-    $this->expectException(\Authorization\Domain\Exception\RoleNotFoundException::class);
+    $this->expectException(RoleNotFoundException::class);
 
     // Act
     $this->processor->process(
@@ -153,29 +141,18 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440000';
     $permissionId = '660e8400-e29b-41d4-a716-446655440000';
 
-    $role = Role::create(
-      id: new RoleId($roleId),
-      name: new RoleName('admin'),
-      description: 'Admin role',
-    );
-
     $input = new AddPermissionInput();
     $input->permissionId = $permissionId;
 
-    $this->roleRepository
+    $this->commandBus
       ->expects($this->once())
-      ->method('findById')
-      ->willReturn($role);
-
-    $this->permissionRepository
-      ->expects($this->once())
-      ->method('findById')
-      ->willReturn(null);
+      ->method('dispatch')
+      ->willThrowException(PermissionNotFoundException::withId(permissionId: $permissionId));
 
     $operation = new Post();
 
     // Assert
-    $this->expectException(\Authorization\Domain\Exception\PermissionNotFoundException::class);
+    $this->expectException(PermissionNotFoundException::class);
 
     // Act
     $this->processor->process(

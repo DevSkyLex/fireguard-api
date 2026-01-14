@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace Otp\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\{ApiResource, Get};
 use ApiPlatform\OpenApi\Model\{
   Operation,
   Response
 };
 use ArrayObject;
-use Otp\Presentation\Api\Dto\ChannelOutput;
-use Otp\Presentation\Api\Dto\PurposeOutput;
-use Otp\Presentation\Api\Provider\ListChannelsProvider;
-use Otp\Presentation\Api\Provider\ListPurposesProvider;
+use Otp\Presentation\Api\Dto\Output\Config\{ChannelOutput, PurposeOutput};
+use Otp\Presentation\Api\Operation\OtpOperations;
+use Otp\Presentation\Api\Provider\Config\{ListChannelsProvider, ListPurposesProvider};
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -32,7 +30,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'OTP configuration discovery endpoints.',
   operations: [
     new Get(
-      name: 'list_purposes',
+      name: OtpOperations::LIST_PURPOSES,
       uriTemplate: '/purposes',
       input: false,
       output: PurposeOutput::class,
@@ -56,7 +54,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'list_channels',
+      name: OtpOperations::LIST_CHANNELS,
       uriTemplate: '/channels',
       input: false,
       output: ChannelOutput::class,

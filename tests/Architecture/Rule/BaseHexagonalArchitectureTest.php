@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Architecture\Rule;
 
 use App\Tests\Architecture\Support\{ArchitectureLayer, ArchitectureNamespace, Module, ModuleCollection};
-use PHPat\Selector\Selector;
-use PHPat\Selector\SelectorInterface;
+use PHPat\Selector\{Selector, SelectorInterface};
 
 use function array_filter;
 use function array_keys;

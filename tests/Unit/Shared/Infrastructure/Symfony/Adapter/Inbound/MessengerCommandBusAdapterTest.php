@@ -5,17 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Inbound;
 
 use Exception;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Message\CommandMessage;
-use Shared\Application\Message\ResultMessage;
-use Shared\Infrastructure\Exception\MessengerRuntimeException;
-use Shared\Infrastructure\Exception\NoHandlerResultException;
+use Shared\Application\Message\{CommandMessage, ResultMessage};
+use Shared\Infrastructure\Exception\{MessengerRuntimeException, NoHandlerResultException};
 use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter;
-use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 
 #[CoversClass(className: MessengerCommandBusAdapter::class)]

@@ -7,11 +7,9 @@ namespace Tests\Unit\OAuth\Presentation\Api\Provider\Discovery;
 use ApiPlatform\Metadata\Operation;
 use OAuth\Presentation\Api\Operation\OAuthOperations;
 use OAuth\Presentation\Api\Provider\Discovery\OpenIdConfigurationProvider;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 

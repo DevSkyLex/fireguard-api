@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Query\Client\ListClients;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
-use Shared\Application\Query\Pagination;
 
 /**
  * Query ListClientsQuery.

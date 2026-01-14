@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Authorization\Domain\Model;
 
-use Authorization\Domain\Model\Permission;
-use Authorization\Domain\ValueObject\PermissionId;
-use Authorization\Domain\ValueObject\PermissionName;
+use Authorization\Domain\Model\Permission\Permission;
+use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

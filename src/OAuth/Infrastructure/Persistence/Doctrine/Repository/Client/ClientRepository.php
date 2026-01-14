@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\Persistence\Doctrine\Repository\Client;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\EntityRepository;
-use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
-use OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort;
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use OAuth\Application\Port\Outbound\Client\{ClientRepositoryPort, OAuthClientRepositoryPort};
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName};
 use OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\ClientRecord;
 

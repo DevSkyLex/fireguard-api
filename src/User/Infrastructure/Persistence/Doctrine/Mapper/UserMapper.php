@@ -5,14 +5,9 @@ declare(strict_types=1);
 namespace User\Infrastructure\Persistence\Doctrine\Mapper;
 
 use ReflectionClass;
-use Shared\Domain\ValueObject\Email;
-use Shared\Domain\ValueObject\TenantId;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
-use User\Domain\ValueObject\UserStatus;
+use Shared\Domain\ValueObject\{Email, TenantId};
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 use function is_int;

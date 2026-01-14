@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace OAuth\Application\UseCase\Command\Token\IssueToken;
 
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
-use OAuth\Application\Port\Outbound\Token\AuthorizationServerPort;
-use OAuth\Application\Port\Outbound\Token\IdTokenIssuerPort;
-use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, AuthCodeRepositoryPort, AuthorizationServerPort, IdTokenIssuerPort, RefreshTokenRepositoryPort};
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Application\Service\OidcClaimsBuilderInterface;
-use OAuth\Domain\Event\Token\TokenIssuedEvent;
-use OAuth\Domain\Event\Token\TokenIssueFailedEvent;
+use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent};
 use OAuth\Domain\Exception\Token\AuthorizationException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;

@@ -6,10 +6,8 @@ namespace Tenant\Infrastructure\Persistence\Doctrine\Mapper;
 
 use ReflectionClass;
 use Symfony\Component\Uid\Uuid;
-use Tenant\Domain\Model\Tenant;
-use Tenant\Domain\ValueObject\TenantId;
-use Tenant\Domain\ValueObject\TenantName;
-use Tenant\Domain\ValueObject\TenantSettings;
+use Tenant\Domain\Model\Tenant\Tenant;
+use Tenant\Domain\ValueObject\{TenantId, TenantName, TenantSettings};
 use Tenant\Infrastructure\Persistence\Doctrine\Record\TenantRecord;
 
 /**

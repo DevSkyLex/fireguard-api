@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\OAuth2\League\Adapter;
 
 use Auth\Application\Port\Outbound\ClientRepositoryPort;
-use Auth\Domain\Model\Client;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
-use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Security\GrantType;
+use Auth\Domain\Model\Client\Client;
+use Auth\Domain\ValueObject\Client\ClientIdentifier;
+use Auth\Domain\ValueObject\Scope\Scope;
+use Auth\Domain\ValueObject\Security\GrantType;
+use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
 
@@ -53,11 +52,11 @@ final readonly class ClientRepositoryPortAdapter implements ClientRepositoryPort
    *
    * @since 1.0.0
    *
-   * @param OAuthClientIdentifier $identifier the client identifier
+   * @param ClientIdentifier $identifier the client identifier
    *
    * @return Client|null the client or null if not found
    */
-  public function find(OAuthClientIdentifier $identifier): ?Client
+  public function find(ClientIdentifier $identifier): ?Client
   {
     try {
       /** @var GetClientResult $result */

@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
-use Authorization\Domain\Model\Role;
-use Authorization\Domain\Model\RoleAssignment;
-use Authorization\Domain\ValueObject\RoleAssignmentId;
-use Authorization\Domain\ValueObject\RoleId;
-use Authorization\Domain\ValueObject\SubjectType;
-use Authorization\Infrastructure\Persistence\Doctrine\Mapper\RoleAssignmentMapper;
-use Authorization\Infrastructure\Persistence\Doctrine\Mapper\RoleMapper;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
+use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
+use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, SubjectType};
+use Authorization\Infrastructure\Persistence\Doctrine\Mapper\{RoleAssignmentMapper, RoleMapper};
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 

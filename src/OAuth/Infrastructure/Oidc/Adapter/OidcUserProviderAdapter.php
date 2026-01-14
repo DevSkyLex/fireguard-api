@@ -8,8 +8,7 @@ use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
 use OAuth\Domain\Model\Oidc\OidcUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
-use User\Application\UseCase\Query\GetUser\GetUserQuery;
-use User\Application\UseCase\Query\GetUser\GetUserResult;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function trim;
 
@@ -67,17 +66,16 @@ final readonly class OidcUserProviderAdapter implements OidcUserProviderPort
     }
 
     $user = $result->user;
-    $profile = $user->profile();
 
     return new OidcUser(
-      subject: $user->id()->value,
-      preferredUsername: (string) $user->username(),
-      email: (string) $user->email(),
-      emailVerified: $user->isEmailVerified(),
-      givenName: $profile->firstName,
-      familyName: $profile->lastName,
-      pictureUrl: $profile->avatarUrl,
-      authTime: $user->lastLoginAt(),
+      subject: $user->id,
+      preferredUsername: $user->username,
+      email: $user->email,
+      emailVerified: $user->emailVerified,
+      givenName: $user->firstName,
+      familyName: $user->lastName,
+      pictureUrl: $user->avatarUrl,
+      authTime: $user->lastLoginAt,
     );
   }
   // #endregion

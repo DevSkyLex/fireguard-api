@@ -6,19 +6,14 @@ namespace Tests\Integration\User\Infrastructure\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use Shared\Domain\ValueObject\Email;
-use Shared\Domain\ValueObject\TenantId;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Domain\ValueObject\{Email, TenantId};
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Throwable;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 use User\Infrastructure\Persistence\Doctrine\Repository\UserRepository;
 

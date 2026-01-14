@@ -6,8 +6,7 @@ namespace OAuth\Application\UseCase\Command\Client\UpdateClientDetails;
 
 use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
 use OAuth\Domain\Exception\Client\InvalidClientException;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Service\EventIdProvider;

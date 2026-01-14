@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
 
 /**

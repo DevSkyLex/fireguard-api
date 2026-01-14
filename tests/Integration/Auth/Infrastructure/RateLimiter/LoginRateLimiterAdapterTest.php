@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Auth\Infrastructure\RateLimiter;
 
 use Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Domain\ValueObject\RateLimitResult;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\RateLimiter\RateLimiterFactory;

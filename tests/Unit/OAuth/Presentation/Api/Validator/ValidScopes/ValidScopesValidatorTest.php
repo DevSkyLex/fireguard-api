@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Presentation\Api\Validator\ValidScopes;
 
-use OAuth\Presentation\Api\Validator\ValidScopes\ValidScopes;
-use OAuth\Presentation\Api\Validator\ValidScopes\ValidScopesValidator;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Presentation\Api\Validator\ValidScopes\{ValidScopes, ValidScopesValidator};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;

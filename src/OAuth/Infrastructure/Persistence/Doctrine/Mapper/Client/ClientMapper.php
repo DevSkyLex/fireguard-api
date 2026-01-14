@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client;
 
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
-use OAuth\Domain\ValueObject\Client\ClientSecret;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret};
 use OAuth\Domain\ValueObject\Scope\Scopes;
 use OAuth\Domain\ValueObject\Security\GrantTypes;
 use OAuth\Infrastructure\Persistence\Doctrine\Record\ClientRecord;

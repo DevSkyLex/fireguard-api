@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Application\Port\Outbound;
 
-use Session\Domain\Model\Session;
+use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
 
 /**
@@ -70,6 +70,32 @@ interface SessionRepositoryPort
    * @return list<Session> the user's active sessions
    */
   public function findActiveByUserId(string $userId): array;
+
+  /**
+   * Method findByAccessTokenId.
+   *
+   * Finds a session by access token ID.
+   *
+   * @since 1.0.0
+   *
+   * @param string $accessTokenId the access token ID
+   *
+   * @return Session|null the session or null if not found
+   */
+  public function findByAccessTokenId(string $accessTokenId): ?Session;
+
+  /**
+   * Method findByRefreshTokenId.
+   *
+   * Finds a session by refresh token ID.
+   *
+   * @since 1.0.0
+   *
+   * @param string $refreshTokenId the refresh token ID
+   *
+   * @return Session|null the session or null if not found
+   */
+  public function findByRefreshTokenId(string $refreshTokenId): ?Session;
 
   /**
    * Method revokeAllForUser.

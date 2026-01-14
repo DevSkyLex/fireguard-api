@@ -4,20 +4,12 @@ declare(strict_types=1);
 
 namespace User\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Delete;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Metadata\Patch;
-use ApiPlatform\Metadata\Post;
-use ApiPlatform\Metadata\Put;
-use User\Presentation\Api\Dto\UserInput;
-use User\Presentation\Api\Dto\UserOutput;
-use User\Presentation\Api\Processor\CreateUserProcessor;
-use User\Presentation\Api\Processor\DeleteUserProcessor;
-use User\Presentation\Api\Processor\UpdateUserProcessor;
-use User\Presentation\Api\Provider\ListUsersProvider;
-use User\Presentation\Api\Provider\UserProvider;
+use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post, Put};
+use User\Presentation\Api\Dto\Input\User\UserInput;
+use User\Presentation\Api\Dto\Output\User\UserOutput;
+use User\Presentation\Api\Operation\UserOperations;
+use User\Presentation\Api\Processor\User\{CreateUserProcessor, DeleteUserProcessor, UpdateUserProcessor};
+use User\Presentation\Api\Provider\User\{ListUsersProvider, UserProvider};
 use User\Presentation\Api\Serialization\UserSerializationGroup;
 
 /**
@@ -33,7 +25,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
   shortName: 'User',
   operations: [
     new Post(
-      name: 'create',
+      name: UserOperations::CREATE,
       uriTemplate: '/users',
       input: UserInput::class,
       output: UserOutput::class,
@@ -42,7 +34,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
     ),
     new Get(
-      name: 'get',
+      name: UserOperations::GET,
       uriTemplate: '/users/{id}',
       input: false,
       output: UserOutput::class,
@@ -50,7 +42,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
     ),
     new GetCollection(
-      name: 'list',
+      name: UserOperations::LIST,
       uriTemplate: '/users',
       input: false,
       output: UserOutput::class,
@@ -58,7 +50,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
     ),
     new Patch(
-      name: 'update',
+      name: UserOperations::UPDATE,
       uriTemplate: '/users/{id}',
       input: UserInput::class,
       output: UserOutput::class,
@@ -67,7 +59,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
     ),
     new Put(
-      name: 'replace',
+      name: UserOperations::REPLACE,
       uriTemplate: '/users/{id}',
       input: UserInput::class,
       output: UserOutput::class,
@@ -76,7 +68,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       denormalizationContext: ['groups' => [UserSerializationGroup::WRITE]],
     ),
     new Delete(
-      name: 'delete',
+      name: UserOperations::DELETE,
       uriTemplate: '/users/{id}',
       input: false,
       output: false,

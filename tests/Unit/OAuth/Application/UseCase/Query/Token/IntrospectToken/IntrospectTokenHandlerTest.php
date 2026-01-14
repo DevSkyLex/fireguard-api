@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Application\UseCase\Query\Token\IntrospectToken;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\Token\JwtParserPort;
-use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\Token\TokenCachePort;
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort};
 use OAuth\Application\UseCase\Query\Token\IntrospectToken\{IntrospectTokenHandler, IntrospectTokenQuery};
 use OAuth\Domain\Model\Token\RefreshToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

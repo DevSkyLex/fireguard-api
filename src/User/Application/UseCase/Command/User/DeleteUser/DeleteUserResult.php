@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace User\Application\UseCase\Command\User\DeleteUser;
+
+use Shared\Application\Message\ResultMessage;
+
+/**
+ * Result DeleteUserResult.
+ *
+ * @category Result
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class DeleteUserResult implements ResultMessage
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteUserResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the deleted user ID
+   */
+  public function __construct(
+    public readonly string $userId,
+  ) {
+  }
+  // #endregion
+}

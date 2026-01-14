@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound;
 
-use Auth\Domain\Model\Client;
-use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
+use Auth\Domain\Model\Client\Client;
+use Auth\Domain\ValueObject\Client\ClientIdentifier;
 
 /**
  * Interface ClientRepositoryPort.
@@ -24,14 +24,14 @@ interface ClientRepositoryPort
   /**
    * Method find.
    *
-   * Finds a client by its OAuth identifier.
+   * Finds a client by its identifier.
    *
    * @since 1.0.0
    *
-   * @param OAuthClientIdentifier $identifier the client identifier
+   * @param ClientIdentifier $identifier the client identifier
    *
    * @return Client|null the client or null if not found
    */
-  public function find(OAuthClientIdentifier $identifier): ?Client;
+  public function find(ClientIdentifier $identifier): ?Client;
   // #endregion
 }

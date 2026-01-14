@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\OAuth2\League\Repository;
 
-use League\OAuth2\Server\Entities\ClientEntityInterface;
-use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use League\OAuth2\Server\Entities\{ClientEntityInterface, ScopeEntityInterface};
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use OAuth\Domain\Exception\Token\InvalidScopeException;
 use OAuth\Domain\ValueObject\Scope\Scope;

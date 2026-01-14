@@ -12,21 +12,15 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use Nyholm\Psr7\Response as Psr7Response;
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
 use OAuth\Application\Port\Outbound\User\OidcUserProviderPort;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentQuery;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentResult;
+use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
 use OAuth\Domain\Model\Oidc\OidcUser;
-use OAuth\Infrastructure\OAuth2\League\Entity\Client;
-use OAuth\Infrastructure\OAuth2\League\Entity\Scope;
+use OAuth\Infrastructure\OAuth2\League\Entity\{Client, Scope};
 use OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\{JsonResponse, Request, RequestStack, Response};
 
 use function json_decode;
 

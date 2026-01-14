@@ -11,14 +11,10 @@ use OAuth\Application\UseCase\Command\Client\RegisterClient\{
   RegisterClientResult
 };
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\RedirectUri;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use OAuth\Domain\ValueObject\Security\GrantType;
-use OAuth\Domain\ValueObject\Security\GrantTypes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Client\{ClientId, RedirectUri};
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{

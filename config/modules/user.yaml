@@ -7,25 +7,25 @@ services:
   User\Application\Port\Outbound\UserRepositoryPort:
     class: User\Infrastructure\Persistence\Doctrine\Repository\UserRepository
 
-  User\Application\UseCase\Command\CreateUser\CreateUserHandler:
+  User\Application\UseCase\Command\User\CreateUser\CreateUserHandler:
     tags: ['messenger.message_handler']
 
-  User\Application\UseCase\Command\DeleteUser\DeleteUserHandler:
+  User\Application\UseCase\Command\User\DeleteUser\DeleteUserHandler:
     tags: ['messenger.message_handler']
 
-  User\Application\UseCase\Command\UpdateUser\UpdateUserHandler:
+  User\Application\UseCase\Command\User\UpdateUser\UpdateUserHandler:
     tags: ['messenger.message_handler']
 
-  User\Application\UseCase\Query\AuthenticateUser\AuthenticateUserHandler:
+  User\Application\UseCase\Query\User\AuthenticateUser\AuthenticateUserHandler:
     tags: ['messenger.message_handler']
 
-  User\Application\UseCase\Query\GetUser\GetUserHandler:
+  User\Application\UseCase\Query\User\GetUser\GetUserHandler:
     tags:
-      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\GetUser\GetUserQuery }
+      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\User\GetUser\GetUserQuery }
 
-  User\Application\UseCase\Query\ListUsers\ListUsersHandler:
+  User\Application\UseCase\Query\User\ListUsers\ListUsersHandler:
     tags:
-      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\ListUsers\ListUsersQuery }
+      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\User\ListUsers\ListUsersQuery }
 
   User\Application\EventHandler\UserCreatedEventHandler:
     tags: ['messenger.message_handler']
@@ -35,11 +35,11 @@ services:
 
   User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper: ~
 
-  User\Presentation\Api\Processor\CreateUserProcessor: ~
-  User\Presentation\Api\Processor\DeleteUserProcessor: ~
-  User\Presentation\Api\Processor\UpdateUserProcessor: ~
-  User\Presentation\Api\Provider\UserProvider: ~
-  User\Presentation\Api\Provider\ListUsersProvider: ~
+  User\Presentation\Api\Processor\User\CreateUserProcessor: ~
+  User\Presentation\Api\Processor\User\DeleteUserProcessor: ~
+  User\Presentation\Api\Processor\User\UpdateUserProcessor: ~
+  User\Presentation\Api\Provider\User\UserProvider: ~
+  User\Presentation\Api\Provider\User\ListUsersProvider: ~
 
   # Console Commands use #[AsCommand]
   User\Infrastructure\Console\CreateUserConsoleCommand: ~

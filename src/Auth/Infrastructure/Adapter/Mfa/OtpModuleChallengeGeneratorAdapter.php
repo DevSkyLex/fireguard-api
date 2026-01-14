@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Adapter\Mfa;
 
 use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
-use Auth\Application\UseCase\Command\MfaChallenge\MfaChallengeCommand;
-use Auth\Application\UseCase\Command\MfaChallenge\MfaChallengeResult;
-use Otp\Application\UseCase\Command\GenerateOtp\GenerateOtpCommand;
-use Otp\Application\UseCase\Command\GenerateOtp\GenerateOtpHandler;
-use Otp\Domain\ValueObject\OtpChannel;
-use Otp\Domain\ValueObject\OtpPurpose;
+use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeResult};
+use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose};
+use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 
 /**
  * Adapter OtpModuleChallengeGeneratorAdapter.
@@ -31,10 +28,10 @@ final readonly class OtpModuleChallengeGeneratorAdapter implements ChallengeGene
    *
    * @since 1.0.0
    *
-   * @param GenerateOtpHandler $handler the OTP generation handler
+   * @param OtpChallengePort $challengePort the OTP challenge port
    */
   public function __construct(
-    private GenerateOtpHandler $handler,
+    private OtpChallengePort $challengePort,
   ) {
   }
   // #endregion
@@ -54,18 +51,17 @@ final readonly class OtpModuleChallengeGeneratorAdapter implements ChallengeGene
    */
   public function generate(MfaChallengeCommand $command): MfaChallengeResult
   {
-    $otpCommand = new GenerateOtpCommand(
+    /** @var ChallengeInfo $result */
+    $result = $this->challengePort->generate(
       userId: $command->userId,
-      purpose: OtpPurpose::from(value: $command->purpose),
-      channel: OtpChannel::from(value: $command->channel),
+      purpose: OtpPurpose::from($command->purpose),
+      channel: OtpChannel::from($command->channel),
       recipient: $command->recipient,
       ttlSeconds: $command->ttlSeconds,
     );
 
-    $result = $this->handler->__invoke(command: $otpCommand);
-
     return new MfaChallengeResult(
-      challengeToken: $result->token,
+      challengeToken: $result->challengeToken,
       maskedRecipient: $result->maskedRecipient,
       expiresAt: $result->expiresAt,
       maxAttempts: $result->maxAttempts,

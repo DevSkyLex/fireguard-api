@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Otp\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\{ApiResource, Post};
 use ApiPlatform\OpenApi\Model\{
   Operation,
   Response
 };
 use ArrayObject;
-use Otp\Presentation\Api\Dto\SetupTotpOutput;
-use Otp\Presentation\Api\Processor\SetupTotpProcessor;
+use Otp\Presentation\Api\Dto\Output\Totp\SetupTotpOutput;
+use Otp\Presentation\Api\Operation\OtpOperations;
+use Otp\Presentation\Api\Processor\Totp\SetupTotpProcessor;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -30,7 +30,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'TOTP (Authenticator App) management.',
   operations: [
     new Post(
-      name: 'setupTotp',
+      name: OtpOperations::SETUP_TOTP,
       uriTemplate: '/setup',
       input: false,
       output: SetupTotpOutput::class,

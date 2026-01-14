@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Authorization\Application\Port\Outbound;
 
-use Authorization\Domain\Model\Permission;
-use Authorization\Domain\ValueObject\PermissionId;
-use Authorization\Domain\ValueObject\PermissionName;
+use Authorization\Domain\Model\Permission\Permission;
+use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
 
 /**
  * Interface PermissionRepositoryPort.

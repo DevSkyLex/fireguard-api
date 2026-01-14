@@ -44,7 +44,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
    * - HTTP 403: User lacks required ROLE_ADMIN permission
    * - HTTP 401: Token is invalid or expired
    *
-   * @see \Tenant\Presentation\Api\Provider\ListTenantsProvider
+   * @see \Tenant\Presentation\Api\Provider\Tenant\ListTenantsProvider
    */
   public function testListTenantsWithValidToken(): void
   {
@@ -122,7 +122,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
    * - HTTP 404: Tenant not found
    * - HTTP 403: Access denied before entity lookup
    *
-   * @see \Tenant\Presentation\Api\Provider\GetTenantProvider
+   * @see \Tenant\Presentation\Api\Provider\Tenant\GetTenantProvider
    */
   public function testGetNonExistentTenant(): void
   {
@@ -200,7 +200,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
    * - HTTP 422: Validation errors in input data
    * - HTTP 403: User lacks required permissions
    *
-   * @see \Tenant\Presentation\Api\Processor\CreateTenantProcessor
+   * @see \Tenant\Presentation\Api\Processor\Tenant\CreateTenantProcessor
    */
   public function testCreateTenantWithValidData(): void
   {
@@ -287,7 +287,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
    * - HTTP 400: Bad request due to missing fields
    * - HTTP 422: Validation constraint violations
    *
-   * @see \Tenant\Presentation\Api\Dto\TenantInput
+   * @see \Tenant\Presentation\Api\Dto\Input\Tenant\TenantInput
    */
   public function testCreateTenantWithInvalidData(): void
   {

@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace OAuth\Application\UseCase\Query\Token\RefreshToken;
 
 use Auth\Application\Port\Outbound\JwtTokenServicePort;
-use OAuth\Domain\Event\Token\TokenRefreshedEvent;
-use OAuth\Domain\Event\Token\TokenRefreshFailedEvent;
+use OAuth\Domain\Event\Token\{TokenRefreshFailedEvent, TokenRefreshedEvent};
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
-use User\Application\UseCase\Query\GetUser\GetUserQuery;
-use User\Application\UseCase\Query\GetUser\GetUserResult;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 /**
  * Handler RefreshTokenHandler.
@@ -134,7 +132,7 @@ final readonly class RefreshTokenHandler implements QueryHandler
         return RefreshTokenResult::failed('User not found');
       }
 
-      if (!$userResult->user->canLogin()) {
+      if (!$userResult->user->canLogin) {
         $this->eventDispatcher->dispatch(new TokenRefreshFailedEvent(
           userId: $userId,
           ipAddress: $ipAddress,

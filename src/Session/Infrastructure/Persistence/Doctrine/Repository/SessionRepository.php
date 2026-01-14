@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Session\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Session\Application\Port\Outbound\SessionRepositoryPort;
-use Session\Domain\Model\Session;
+use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
 use Session\Infrastructure\Persistence\Doctrine\Mapper\SessionMapper;
 use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
@@ -125,6 +124,36 @@ final class SessionRepository implements SessionRepositoryPort
       callback: fn (SessionRecord $record): Session => SessionMapper::toDomain(record: $record),
       array: $records,
     );
+  }
+
+  /**
+   * Method findByAccessTokenId
+   * {@inheritDoc}
+   */
+  public function findByAccessTokenId(string $accessTokenId): ?Session
+  {
+    $record = $this->repository->findOneBy(criteria: ['accessTokenId' => $accessTokenId]);
+
+    if (!$record) {
+      return null;
+    }
+
+    return SessionMapper::toDomain(record: $record);
+  }
+
+  /**
+   * Method findByRefreshTokenId
+   * {@inheritDoc}
+   */
+  public function findByRefreshTokenId(string $refreshTokenId): ?Session
+  {
+    $record = $this->repository->findOneBy(criteria: ['refreshTokenId' => $refreshTokenId]);
+
+    if (!$record) {
+      return null;
+    }
+
+    return SessionMapper::toDomain(record: $record);
   }
 
   /**

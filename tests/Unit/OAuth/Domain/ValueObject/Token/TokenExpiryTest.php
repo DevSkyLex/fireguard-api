@@ -6,8 +6,7 @@ namespace Tests\Unit\OAuth\Domain\ValueObject\Token;
 
 use DateTimeImmutable;
 use OAuth\Domain\ValueObject\Token\TokenExpiry;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 

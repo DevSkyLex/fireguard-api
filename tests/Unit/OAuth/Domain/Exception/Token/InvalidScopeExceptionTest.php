@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Domain\Exception\Token;
 
 use OAuth\Domain\Exception\Token\InvalidScopeException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 

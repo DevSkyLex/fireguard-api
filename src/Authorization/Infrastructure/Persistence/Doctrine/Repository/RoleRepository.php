@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Authorization\Application\Port\Outbound\RoleRepositoryPort;
-use Authorization\Domain\Model\Role;
-use Authorization\Domain\ValueObject\RoleId;
-use Authorization\Domain\ValueObject\RoleName;
+use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\ValueObject\{RoleId, RoleName};
 use Authorization\Infrastructure\Persistence\Doctrine\Mapper\RoleMapper;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Domain\ValueObject\TenantId;
 

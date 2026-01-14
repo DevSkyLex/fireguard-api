@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Exception;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter;
-use Symfony\Component\Messenger\Envelope;
-use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
 
 /**
  * Class MessengerEventBusAdapterTest.

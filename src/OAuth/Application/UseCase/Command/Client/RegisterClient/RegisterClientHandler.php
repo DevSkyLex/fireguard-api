@@ -6,13 +6,10 @@ namespace OAuth\Application\UseCase\Command\Client\RegisterClient;
 
 use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
-use OAuth\Domain\ValueObject\Client\ClientSecret;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventBusPort;
-use Shared\Application\Port\Outbound\HashingPort;
+use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
 use Shared\Domain\Service\EventIdProvider;
 
 use function bin2hex;

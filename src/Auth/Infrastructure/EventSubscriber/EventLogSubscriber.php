@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\EventSubscriber;
 
-use Auth\Domain\Event\LoginFailedEvent;
-use Auth\Domain\Event\UserLoggedInEvent;
+use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;

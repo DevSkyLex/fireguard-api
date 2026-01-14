@@ -3,9 +3,33 @@ services:
         autowire: true
         autoconfigure: true
 
-    # Handlers
+    # Use Cases - Auto-register
     Session\Application\UseCase\:
         resource: '../../src/Session/Application/UseCase/'
+
+    # Inbound Port (Session Tracking)
+    Session\Application\Port\Inbound\Tracking\SessionTrackingPort:
+        alias: Session\Application\Service\SessionTrackingService
+
+    Session\Application\Service\SessionTrackingService: ~
+
+    # Command Handlers
+    Session\Application\UseCase\Command\Session\CreateSession\CreateSessionHandler:
+        tags: ['messenger.message_handler']
+    Session\Application\UseCase\Command\Session\RevokeSession\RevokeSessionHandler:
+        tags: ['messenger.message_handler']
+    Session\Application\UseCase\Command\Session\RevokeAllUserSessions\RevokeAllUserSessionsHandler:
+        tags: ['messenger.message_handler']
+    Session\Application\UseCase\Command\Session\UpdateSessionTokens\UpdateSessionTokensHandler:
+        tags: ['messenger.message_handler']
+    Session\Application\UseCase\Command\Session\RevokeSessionByToken\RevokeSessionByTokenHandler:
+        tags: ['messenger.message_handler']
+
+    # Query Handlers
+    Session\Application\UseCase\Query\Session\GetSession\GetSessionHandler:
+        tags: ['messenger.message_handler']
+    Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsHandler:
+        tags: ['messenger.message_handler']
 
     # Repository
     Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository:
@@ -19,9 +43,9 @@ services:
         alias: Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository
 
     # Providers
-    Session\Presentation\Api\Provider\ListUserSessionsProvider: ~
-    Session\Presentation\Api\Provider\GetSessionProvider: ~
+    Session\Presentation\Api\Provider\Session\ListUserSessionsProvider: ~
+    Session\Presentation\Api\Provider\Session\GetSessionProvider: ~
 
     # Processors
-    Session\Presentation\Api\Processor\RevokeSessionProcessor: ~
-    Session\Presentation\Api\Processor\RevokeAllSessionsProcessor: ~
+    Session\Presentation\Api\Processor\Session\RevokeSessionProcessor: ~
+    Session\Presentation\Api\Processor\Session\RevokeAllSessionsProcessor: ~

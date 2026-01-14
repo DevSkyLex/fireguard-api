@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Otp\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\OtpChannel;
-use Otp\Domain\ValueObject\OtpId;
-use Otp\Domain\ValueObject\OtpPurpose;
+use Otp\Domain\ValueObject\{OtpChannel, OtpId, OtpPurpose};
 use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
 
 /**

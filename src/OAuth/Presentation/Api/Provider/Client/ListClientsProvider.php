@@ -11,9 +11,8 @@ use ArrayIterator;
 use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
 use OAuth\Application\UseCase\Query\Client\ListClients\ListClientsQuery;
 use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Query\PaginatedResult;
-use Shared\Application\Query\Pagination;
 
 use function array_map;
 use function is_numeric;

@@ -79,12 +79,13 @@ final readonly class SymfonyEventDispatcherAdapter implements EventDispatcherPor
   {
     $className = $event::class;
     $parts = explode('\\', $className);
+    $module = strtolower($parts[0]);
     $shortName = end($parts);
 
     // Convert CamelCase to snake_case
     $snakeCase = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $shortName));
 
-    return 'auth.' . $snakeCase;
+    return $module . '.' . $snakeCase;
   }
   // #endregion
 }

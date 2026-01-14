@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\EventSubscriber;
 
-use OAuth\Domain\Event\Token\TokenIssuedEvent;
-use OAuth\Domain\Event\Token\TokenIssueFailedEvent;
-use OAuth\Domain\Event\Token\TokenRefreshedEvent;
-use OAuth\Domain\Event\Token\TokenRefreshFailedEvent;
+use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent};
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -55,10 +52,10 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
   public static function getSubscribedEvents(): array
   {
     return [
-      'auth.token_issued_event' => 'onTokenIssued',
-      'auth.token_issue_failed_event' => 'onTokenIssueFailed',
-      'auth.token_refreshed_event' => 'onTokenRefreshed',
-      'auth.token_refresh_failed_event' => 'onTokenRefreshFailed',
+      'oauth.token_issued_event' => 'onTokenIssued',
+      'oauth.token_issue_failed_event' => 'onTokenIssueFailed',
+      'oauth.token_refreshed_event' => 'onTokenRefreshed',
+      'oauth.token_refresh_failed_event' => 'onTokenRefreshFailed',
     ];
   }
 

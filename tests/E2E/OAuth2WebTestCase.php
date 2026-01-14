@@ -144,7 +144,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
     /** @var MessageBusInterface $bus */
     $bus = $container->get(MessageBusInterface::class);
 
-    $command = new \User\Application\UseCase\Command\CreateUser\CreateUserCommand(
+    $command = new \User\Application\UseCase\Command\User\CreateUser\CreateUserCommand(
       username: 'user' . uniqid(),
       email: $email,
       password: $password,

@@ -16,13 +16,10 @@ use ApiPlatform\OpenApi\Model\{
 };
 use ArrayObject;
 use OAuth\Presentation\Api\Dto\Input\Consent\GrantConsentInput;
-use OAuth\Presentation\Api\Dto\Input\Token\TokenInput;
-use OAuth\Presentation\Api\Dto\Input\Token\TokenIntrospectionInput;
-use OAuth\Presentation\Api\Dto\Input\Token\TokenRevocationInput;
+use OAuth\Presentation\Api\Dto\Input\Token\{TokenInput, TokenIntrospectionInput, TokenRevocationInput};
 use OAuth\Presentation\Api\Dto\Output\Consent\CheckConsentOutput;
 use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
-use OAuth\Presentation\Api\Dto\Output\Token\TokenIntrospectionOutput;
-use OAuth\Presentation\Api\Dto\Output\Token\TokenOutput;
+use OAuth\Presentation\Api\Dto\Output\Token\{TokenIntrospectionOutput, TokenOutput};
 use OAuth\Presentation\Api\Operation\OAuthOperations;
 use OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor;
 use OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor;

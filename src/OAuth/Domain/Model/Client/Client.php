@@ -5,20 +5,10 @@ declare(strict_types=1);
 namespace OAuth\Domain\Model\Client;
 
 use DateTimeImmutable;
-use OAuth\Domain\Event\Client\ClientActivatedEvent;
-use OAuth\Domain\Event\Client\ClientDeactivatedEvent;
-use OAuth\Domain\Event\Client\ClientDeletedEvent;
-use OAuth\Domain\Event\Client\ClientRegisteredEvent;
-use OAuth\Domain\Event\Client\ClientSecretRegeneratedEvent;
-use OAuth\Domain\Event\Client\ClientUpdatedEvent;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
-use OAuth\Domain\ValueObject\Client\ClientSecret;
-use OAuth\Domain\ValueObject\Client\RedirectUri;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use OAuth\Domain\ValueObject\Security\GrantType;
-use OAuth\Domain\ValueObject\Security\GrantTypes;
+use OAuth\Domain\Event\Client\{ClientActivatedEvent, ClientDeactivatedEvent, ClientDeletedEvent, ClientRegisteredEvent, ClientSecretRegeneratedEvent, ClientUpdatedEvent};
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, RedirectUri};
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\Trait\RecordsDomainEvents;
 

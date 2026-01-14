@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Domain\ValueObject\Scope;
 
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

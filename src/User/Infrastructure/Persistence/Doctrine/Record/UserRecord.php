@@ -6,8 +6,7 @@ namespace User\Infrastructure\Persistence\Doctrine\Record;
 
 use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
 use DateTimeImmutable;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
 
 /**

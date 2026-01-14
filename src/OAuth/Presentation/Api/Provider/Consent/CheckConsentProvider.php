@@ -7,14 +7,12 @@ namespace OAuth\Presentation\Api\Provider\Consent;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentQuery;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentResult;
+use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, CheckConsentResult};
 use OAuth\Presentation\Api\Dto\Output\Consent\CheckConsentOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
 
 use function explode;
 

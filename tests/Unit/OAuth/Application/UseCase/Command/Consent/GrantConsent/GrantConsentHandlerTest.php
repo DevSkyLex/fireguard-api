@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Application\UseCase\Command\Consent\GrantConsent;
 
 use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
-use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentCommand;
-use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentHandler;
-use OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentResult;
+use OAuth\Application\UseCase\Command\Consent\GrantConsent\{GrantConsentCommand, GrantConsentHandler, GrantConsentResult};
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
 

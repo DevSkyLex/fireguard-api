@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\OAuth2\League\Entity;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
-use League\OAuth2\Server\Entities\Traits\EntityTrait;
-use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
+use League\OAuth2\Server\Entities\Traits\{EntityTrait, RefreshTokenTrait};
 
 /**
  * Entity RefreshToken.

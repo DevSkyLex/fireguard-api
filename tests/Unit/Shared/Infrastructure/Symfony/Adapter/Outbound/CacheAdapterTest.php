@@ -5,13 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use Exception;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Cache\CacheItemInterface;
-use Psr\Cache\CacheItemPoolInterface;
-use Psr\Cache\InvalidArgumentException;
+use Psr\Cache\{CacheItemInterface, CacheItemPoolInterface, InvalidArgumentException};
 use Shared\Infrastructure\Exception\CacheOperationException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
 

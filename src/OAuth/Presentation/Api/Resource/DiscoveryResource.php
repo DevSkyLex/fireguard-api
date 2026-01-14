@@ -13,8 +13,7 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use OAuth\Presentation\Api\Dto\Output\Discovery\JwksOutput;
-use OAuth\Presentation\Api\Dto\Output\Discovery\OpenIdConfigurationOutput;
+use OAuth\Presentation\Api\Dto\Output\Discovery\{JwksOutput, OpenIdConfigurationOutput};
 use OAuth\Presentation\Api\Operation\DiscoveryOperations;
 use OAuth\Presentation\Api\Provider\Discovery\{
   JwksProvider,

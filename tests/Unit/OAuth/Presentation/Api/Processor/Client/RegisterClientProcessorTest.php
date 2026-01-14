@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Presentation\Api\Processor\Client;
 
 use ApiPlatform\Metadata\Operation;
-use OAuth\Application\UseCase\Command\Client\RegisterClient\RegisterClientCommand;
-use OAuth\Application\UseCase\Command\Client\RegisterClient\RegisterClientResult;
+use OAuth\Application\UseCase\Command\Client\RegisterClient\{RegisterClientCommand, RegisterClientResult};
 use OAuth\Presentation\Api\Dto\Input\Client\ClientInput;
 use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
 use OAuth\Presentation\Api\Processor\Client\RegisterClientProcessor;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 

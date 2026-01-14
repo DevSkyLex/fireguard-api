@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\OAuth2\League\Entity;
 
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
-use League\OAuth2\Server\Entities\Traits\AuthCodeTrait;
-use League\OAuth2\Server\Entities\Traits\EntityTrait;
-use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
+use League\OAuth2\Server\Entities\Traits\{AuthCodeTrait, EntityTrait, TokenEntityTrait};
 
 /**
  * Entity AuthCode.

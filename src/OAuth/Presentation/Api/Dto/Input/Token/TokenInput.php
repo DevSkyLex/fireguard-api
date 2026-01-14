@@ -7,8 +7,7 @@ namespace OAuth\Presentation\Api\Dto\Input\Token;
 use ApiPlatform\Metadata\ApiProperty;
 use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use OAuth\Presentation\Api\Validator\GrantTypeRequirements\GrantTypeRequirements;
-use Symfony\Component\Serializer\Attribute\Groups;
-use Symfony\Component\Serializer\Attribute\SerializedName;
+use Symfony\Component\Serializer\Attribute\{Groups, SerializedName};
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**

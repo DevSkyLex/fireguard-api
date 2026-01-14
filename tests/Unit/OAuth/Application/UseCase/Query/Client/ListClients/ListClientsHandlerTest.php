@@ -11,18 +11,12 @@ use OAuth\Application\UseCase\Query\Client\ListClients\{
   ListClientsQuery
 };
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
-use OAuth\Domain\ValueObject\Client\ClientSecret;
-use OAuth\Domain\ValueObject\Client\RedirectUri;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use OAuth\Domain\ValueObject\Security\GrantType;
-use OAuth\Domain\ValueObject\Security\GrantTypes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, RedirectUri};
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Query\{
+use Shared\Application\Contract\Pagination\{
   PaginatedResult,
   Pagination
 };

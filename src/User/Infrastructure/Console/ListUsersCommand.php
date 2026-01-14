@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Console;
 
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Application\Query\PaginatedResult;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\{InputInterface, InputOption};
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use User\Application\UseCase\Query\ListUsers\ListUsersQuery;
-use User\Domain\Model\User;
+use User\Application\UseCase\Query\User\ListUsers\ListUsersQuery;
+use User\Domain\Model\User\User;
 
 use function ceil;
 use function count;

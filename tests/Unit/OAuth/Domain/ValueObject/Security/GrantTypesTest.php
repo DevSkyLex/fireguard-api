@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Domain\ValueObject\Security;
 
-use OAuth\Domain\ValueObject\Security\GrantType;
-use OAuth\Domain\ValueObject\Security\GrantTypes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

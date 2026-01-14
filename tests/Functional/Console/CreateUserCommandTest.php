@@ -11,7 +11,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use Throwable;
-use User\Application\UseCase\Command\CreateUser\CreateUserCommand;
+use User\Application\UseCase\Command\User\CreateUser\CreateUserCommand;
 
 use function get_class;
 use function uniqid;

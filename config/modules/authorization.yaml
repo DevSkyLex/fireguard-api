@@ -10,8 +10,36 @@ services:
   Authorization\Presentation\:
     resource: '../../src/Authorization/Presentation'
 
-  Authorization\Presentation\Api\Provider\ListPermissionsProvider:
+  Authorization\Presentation\Api\Provider\Permission\ListPermissionsProvider:
     tags: ['api_platform.state_provider']
+
+  # Command Handlers
+  Authorization\Application\UseCase\Command\Role\CreateRole\CreateRoleHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Role\UpdateRole\UpdateRoleHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Role\DeleteRole\DeleteRoleHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Role\AddPermissionToRole\AddPermissionToRoleHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Role\RemovePermissionFromRole\RemovePermissionFromRoleHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Permission\CreatePermission\CreatePermissionHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Permission\UpdatePermission\UpdatePermissionHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Command\Permission\DeletePermission\DeletePermissionHandler:
+    tags: ['messenger.message_handler']
+
+  # Query Handlers
+  Authorization\Application\UseCase\Query\Role\GetRole\GetRoleHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Query\Role\ListRoles\ListRolesHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionHandler:
+    tags: ['messenger.message_handler']
+  Authorization\Application\UseCase\Query\Permission\ListPermissions\ListPermissionsHandler:
+    tags: ['messenger.message_handler']
 
 
   Authorization\Application\Port\Outbound\RoleRepositoryPort:

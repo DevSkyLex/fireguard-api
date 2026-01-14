@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Persistence\Doctrine\Mapper;
 
-use Authorization\Domain\Model\RoleAssignment;
-use Authorization\Domain\ValueObject\RoleAssignmentId;
-use Authorization\Domain\ValueObject\RoleId;
-use Authorization\Domain\ValueObject\SubjectType;
+use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
+use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, SubjectType};
 use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord;
 use Shared\Domain\ValueObject\TenantId;
 

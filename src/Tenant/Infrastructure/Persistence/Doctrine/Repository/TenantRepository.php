@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Tenant\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Tenant\Application\Port\Outbound\TenantRepositoryPort;
-use Tenant\Domain\Model\Tenant;
+use Tenant\Domain\Model\Tenant\Tenant;
 use Tenant\Domain\ValueObject\TenantId;
 use Tenant\Infrastructure\Persistence\Doctrine\Mapper\TenantMapper;
 use Tenant\Infrastructure\Persistence\Doctrine\Record\TenantRecord;

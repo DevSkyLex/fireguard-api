@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace User\Application\Port\Outbound;
 
 use Shared\Domain\ValueObject\Email;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{UserId, Username};
 
 /**
  * Interface UserRepositoryPort.

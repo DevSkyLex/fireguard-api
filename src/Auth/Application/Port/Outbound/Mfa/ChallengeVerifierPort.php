@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound\Mfa;
 
-use Auth\Application\UseCase\Command\MfaVerify\MfaVerifyResult;
+use Auth\Application\UseCase\Command\Mfa\MfaVerify\MfaVerifyResult;
 
 /**
  * Interface ChallengeVerifierPort.

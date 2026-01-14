@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Presentation\Api\Validator\ValidRedirectUri;
 
-use OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUri;
-use OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUriValidator;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Presentation\Api\Validator\ValidRedirectUri\{ValidRedirectUri, ValidRedirectUriValidator};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;

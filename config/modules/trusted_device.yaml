@@ -3,6 +3,10 @@ services:
     autowire: true
     autoconfigure: true
 
+  # Use Cases - Auto-register
+  TrustedDevice\Application\UseCase\:
+    resource: '../../src/TrustedDevice/Application/UseCase/'
+
   # TrustedDevice Module - Ports
   TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort:
     alias: TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRepository
@@ -14,25 +18,30 @@ services:
 
   TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper\TrustedDeviceMapper: ~
 
-  # Event Listeners
-  TrustedDevice\Infrastructure\EventListener\TrustedDeviceCookieListener: ~
+  # Event Subscribers
+  TrustedDevice\Presentation\Api\EventSubscriber\TrustedDeviceCookieListener: ~
 
   # Presentation Services
-  TrustedDevice\Presentation\Service\TrustedDeviceCookieService: ~
+  TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService: ~
 
   # Command Handlers
-  TrustedDevice\Application\UseCase\Command\TrustDevice\TrustDeviceHandler: ~
-  TrustedDevice\Application\UseCase\Command\RevokeDevice\RevokeDeviceHandler: ~
-  TrustedDevice\Application\UseCase\Command\RevokeAllDevices\RevokeAllDevicesHandler: ~
+  TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice\TrustDeviceHandler:
+    tags: ['messenger.message_handler']
+  TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeDevice\RevokeDeviceHandler:
+    tags: ['messenger.message_handler']
+  TrustedDevice\Application\UseCase\Command\TrustedDevice\RevokeAllDevices\RevokeAllDevicesHandler:
+    tags: ['messenger.message_handler']
 
   # Query Handlers
-  TrustedDevice\Application\UseCase\Query\CheckDeviceTrusted\CheckDeviceTrustedHandler: ~
-  TrustedDevice\Application\UseCase\Query\ListTrustedDevices\ListTrustedDevicesHandler: ~
+  TrustedDevice\Application\UseCase\Query\TrustedDevice\CheckDeviceTrusted\CheckDeviceTrustedHandler:
+    tags: ['messenger.message_handler']
+  TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\ListTrustedDevicesHandler:
+    tags: ['messenger.message_handler']
 
   # API Processors
-  TrustedDevice\Presentation\Api\Processor\TrustDeviceProcessor: ~
-  TrustedDevice\Presentation\Api\Processor\RevokeDeviceProcessor: ~
-  TrustedDevice\Presentation\Api\Processor\RevokeAllDevicesProcessor: ~
+  TrustedDevice\Presentation\Api\Processor\TrustedDevice\TrustDeviceProcessor: ~
+  TrustedDevice\Presentation\Api\Processor\TrustedDevice\RevokeDeviceProcessor: ~
+  TrustedDevice\Presentation\Api\Processor\TrustedDevice\RevokeAllDevicesProcessor: ~
 
   # API Providers
-  TrustedDevice\Presentation\Api\Provider\ListTrustedDevicesProvider: ~
+  TrustedDevice\Presentation\Api\Provider\TrustedDevice\ListTrustedDevicesProvider: ~

@@ -18,22 +18,12 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
-use Authorization\Presentation\Api\Dto\AddPermissionInput;
-use Authorization\Presentation\Api\Dto\RoleInput;
-use Authorization\Presentation\Api\Dto\RoleOutput;
-use Authorization\Presentation\Api\Processor\{
-  AddPermissionToRoleProcessor,
-  CreateRoleProcessor,
-  DeleteRoleProcessor,
-  RemovePermissionFromRoleProcessor,
-  UpdateRoleProcessor
-};
-use Authorization\Presentation\Api\Provider\{
-  GetRoleProvider,
-  ListRolesProvider
-};
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
+use Authorization\Presentation\Api\Dto\Input\Role\{AddPermissionInput, RoleInput};
+use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
+use Authorization\Presentation\Api\Operation\AuthorizationOperations;
+use Authorization\Presentation\Api\Processor\Role\{AddPermissionToRoleProcessor, CreateRoleProcessor, DeleteRoleProcessor, RemovePermissionFromRoleProcessor, UpdateRoleProcessor};
+use Authorization\Presentation\Api\Provider\Role\{GetRoleProvider, ListRolesProvider};
 use Authorization\Presentation\Api\Serialization\RoleSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -51,7 +41,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'Role-Based Access Control (RBAC) role management. Roles group permissions together.',
   operations: [
     new GetCollection(
-      name: 'role_list',
+      name: AuthorizationOperations::ROLE_LIST,
       uriTemplate: '/roles',
       input: false,
       output: RoleOutput::class,
@@ -77,7 +67,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'role_get',
+      name: AuthorizationOperations::ROLE_GET,
       uriTemplate: '/roles/{id}',
       input: false,
       output: RoleOutput::class,
@@ -94,21 +84,21 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role details retrieved successfully',
             links: new ArrayObject([
               'UpdateRole' => [
-                'operationId' => 'role_update',
+                'operationId' => AuthorizationOperations::ROLE_UPDATE,
                 'description' => 'Update this role',
                 'parameters' => [
                   'id' => '$response.body#/id',
                 ],
               ],
               'DeleteRole' => [
-                'operationId' => 'role_delete',
+                'operationId' => AuthorizationOperations::ROLE_DELETE,
                 'description' => 'Delete this role (if not a system role)',
                 'parameters' => [
                   'id' => '$response.body#/id',
                 ],
               ],
               'AddPermission' => [
-                'operationId' => 'role_add_permission',
+                'operationId' => AuthorizationOperations::ROLE_ADD_PERMISSION,
                 'description' => 'Add a permission to this role',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -129,7 +119,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'role_create',
+      name: AuthorizationOperations::ROLE_CREATE,
       uriTemplate: '/roles',
       input: RoleInput::class,
       output: RoleOutput::class,
@@ -147,14 +137,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role created successfully',
             links: new ArrayObject([
               'GetRole' => [
-                'operationId' => 'role_get',
+                'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the created role details',
                 'parameters' => [
                   'id' => '$response.body#/id',
                 ],
               ],
               'AddPermission' => [
-                'operationId' => 'role_add_permission',
+                'operationId' => AuthorizationOperations::ROLE_ADD_PERMISSION,
                 'description' => 'Add a permission to this role',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -178,7 +168,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Patch(
-      name: 'role_update',
+      name: AuthorizationOperations::ROLE_UPDATE,
       uriTemplate: '/roles/{id}',
       input: RoleInput::class,
       output: RoleOutput::class,
@@ -196,7 +186,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Role updated successfully',
             links: new ArrayObject([
               'GetRole' => [
-                'operationId' => 'role_get',
+                'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the updated role details',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -220,7 +210,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Delete(
-      name: 'role_delete',
+      name: AuthorizationOperations::ROLE_DELETE,
       uriTemplate: '/roles/{id}',
       input: false,
       output: false,
@@ -251,7 +241,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'role_add_permission',
+      name: AuthorizationOperations::ROLE_ADD_PERMISSION,
       uriTemplate: '/roles/{roleId}/permissions',
       uriVariables: [
         'roleId' => new Link(
@@ -274,14 +264,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission added successfully - role returned with updated permissions',
             links: new ArrayObject([
               'GetRole' => [
-                'operationId' => 'role_get',
+                'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the role details',
                 'parameters' => [
                   'id' => '$response.body#/id',
                 ],
               ],
               'RemovePermission' => [
-                'operationId' => 'role_remove_permission',
+                'operationId' => AuthorizationOperations::ROLE_REMOVE_PERMISSION,
                 'description' => 'Remove a permission from this role',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -305,7 +295,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Delete(
-      name: 'role_remove_permission',
+      name: AuthorizationOperations::ROLE_REMOVE_PERMISSION,
       uriTemplate: '/roles/{roleId}/permissions/{permissionId}',
       uriVariables: [
         'roleId' => new Link(
@@ -332,14 +322,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission removed successfully - role returned with updated permissions',
             links: new ArrayObject([
               'GetRole' => [
-                'operationId' => 'role_get',
+                'operationId' => AuthorizationOperations::ROLE_GET,
                 'description' => 'Get the role details',
                 'parameters' => [
                   'id' => '$response.body#/id',
                 ],
               ],
               'AddPermission' => [
-                'operationId' => 'role_add_permission',
+                'operationId' => AuthorizationOperations::ROLE_ADD_PERMISSION,
                 'description' => 'Add a permission to this role',
                 'parameters' => [
                   'id' => '$response.body#/id',

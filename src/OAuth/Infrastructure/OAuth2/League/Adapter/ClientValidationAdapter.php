@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Infrastructure\OAuth2\League\Adapter;
 
 use OAuth\Application\Port\Outbound\Client\ClientValidationPort;
-use OAuth\Application\UseCase\Query\Client\ValidateClientCredentials\ValidateClientCredentialsQuery;
-use OAuth\Application\UseCase\Query\Client\ValidateClientCredentials\ValidateClientCredentialsResult;
+use OAuth\Application\UseCase\Query\Client\ValidateClientCredentials\{ValidateClientCredentialsQuery, ValidateClientCredentialsResult};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
 

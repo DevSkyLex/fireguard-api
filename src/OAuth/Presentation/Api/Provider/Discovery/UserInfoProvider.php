@@ -12,8 +12,7 @@ use OAuth\Application\Service\OidcClaimsBuilderInterface;
 use OAuth\Presentation\Api\Dto\Output\Discovery\UserInfoOutput;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\HttpException;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{HttpException, UnauthorizedHttpException};
 use Throwable;
 
 use function is_bool;

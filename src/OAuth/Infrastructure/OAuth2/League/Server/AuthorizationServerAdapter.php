@@ -6,8 +6,7 @@ namespace OAuth\Infrastructure\OAuth2\League\Server;
 
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use Nyholm\Psr7\Response;
-use Nyholm\Psr7\ServerRequest;
+use Nyholm\Psr7\{Response, ServerRequest};
 use OAuth\Application\Port\Outbound\Token\AuthorizationServerPort;
 use OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenResult;
 use OAuth\Domain\Exception\Token\AuthorizationException;

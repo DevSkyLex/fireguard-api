@@ -17,17 +17,11 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use Authorization\Presentation\Api\Dto\PermissionInput;
-use Authorization\Presentation\Api\Dto\PermissionOutput;
-use Authorization\Presentation\Api\Processor\{
-  CreatePermissionProcessor,
-  DeletePermissionProcessor,
-  UpdatePermissionProcessor
-};
-use Authorization\Presentation\Api\Provider\{
-  GetPermissionProvider,
-  ListPermissionsProvider
-};
+use Authorization\Presentation\Api\Dto\Input\Permission\PermissionInput;
+use Authorization\Presentation\Api\Dto\Output\Permission\PermissionOutput;
+use Authorization\Presentation\Api\Operation\AuthorizationOperations;
+use Authorization\Presentation\Api\Processor\Permission\{CreatePermissionProcessor, DeletePermissionProcessor, UpdatePermissionProcessor};
+use Authorization\Presentation\Api\Provider\Permission\{GetPermissionProvider, ListPermissionsProvider};
 use Authorization\Presentation\Api\Serialization\PermissionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -45,7 +39,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'Permission management. Permissions define specific access rights.',
   operations: [
     new GetCollection(
-      name: 'permission_list',
+      name: AuthorizationOperations::PERMISSION_LIST,
       uriTemplate: '/permissions',
       input: false,
       output: PermissionOutput::class,
@@ -71,7 +65,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'permission_get',
+      name: AuthorizationOperations::PERMISSION_GET,
       uriTemplate: '/permissions/{id}',
       input: false,
       output: PermissionOutput::class,
@@ -88,14 +82,14 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission details retrieved successfully',
             links: new ArrayObject([
               'UpdatePermission' => [
-                'operationId' => 'permission_update',
+                'operationId' => AuthorizationOperations::PERMISSION_UPDATE,
                 'description' => 'Update this permission',
                 'parameters' => [
                   'id' => '$response.body#/id',
                 ],
               ],
               'DeletePermission' => [
-                'operationId' => 'permission_delete',
+                'operationId' => AuthorizationOperations::PERMISSION_DELETE,
                 'description' => 'Delete this permission',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -116,7 +110,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'permission_create',
+      name: AuthorizationOperations::PERMISSION_CREATE,
       uriTemplate: '/permissions',
       input: PermissionInput::class,
       output: PermissionOutput::class,
@@ -134,7 +128,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission created successfully',
             links: new ArrayObject([
               'GetPermission' => [
-                'operationId' => 'permission_get',
+                'operationId' => AuthorizationOperations::PERMISSION_GET,
                 'description' => 'Get the created permission details',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -162,7 +156,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Patch(
-      name: 'permission_update',
+      name: AuthorizationOperations::PERMISSION_UPDATE,
       uriTemplate: '/permissions/{id}',
       input: PermissionInput::class,
       output: PermissionOutput::class,
@@ -180,7 +174,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Permission updated successfully',
             links: new ArrayObject([
               'GetPermission' => [
-                'operationId' => 'permission_get',
+                'operationId' => AuthorizationOperations::PERMISSION_GET,
                 'description' => 'Get the updated permission details',
                 'parameters' => [
                   'id' => '$response.body#/id',
@@ -204,7 +198,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Delete(
-      name: 'permission_delete',
+      name: AuthorizationOperations::PERMISSION_DELETE,
       uriTemplate: '/permissions/{id}',
       input: false,
       output: false,

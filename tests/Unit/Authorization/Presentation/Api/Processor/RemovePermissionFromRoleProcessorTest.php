@@ -5,20 +5,14 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Delete;
-use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
-use Authorization\Application\Port\Outbound\RoleRepositoryPort;
-use Authorization\Domain\Model\Permission;
-use Authorization\Domain\Model\Role;
-use Authorization\Domain\ValueObject\PermissionId;
-use Authorization\Domain\ValueObject\PermissionName;
-use Authorization\Domain\ValueObject\RoleId;
-use Authorization\Domain\ValueObject\RoleName;
-use Authorization\Presentation\Api\Dto\RoleOutput;
-use Authorization\Presentation\Api\Processor\RemovePermissionFromRoleProcessor;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use Authorization\Application\UseCase\Command\Role\RemovePermissionFromRole\{RemovePermissionFromRoleCommand, RemovePermissionFromRoleResult};
+use Authorization\Domain\Exception\{PermissionNotFoundException, RoleNotFoundException};
+use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
+use Authorization\Presentation\Api\Processor\Role\RemovePermissionFromRoleProcessor;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\CommandBusPort;
 
 /**
  * Test RemovePermissionFromRoleProcessorTest.
@@ -33,9 +27,7 @@ use PHPUnit\Framework\TestCase;
 final class RemovePermissionFromRoleProcessorTest extends TestCase
 {
   // #region Properties
-  private RoleRepositoryPort&MockObject $roleRepository;
-
-  private PermissionRepositoryPort&MockObject $permissionRepository;
+  private CommandBusPort&MockObject $commandBus;
 
   private RemovePermissionFromRoleProcessor $processor;
   // #endregion
@@ -43,12 +35,8 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
   // #region Setup
   protected function setUp(): void
   {
-    $this->roleRepository = $this->createMock(RoleRepositoryPort::class);
-    $this->permissionRepository = $this->createMock(PermissionRepositoryPort::class);
-    $this->processor = new RemovePermissionFromRoleProcessor(
-      $this->roleRepository,
-      $this->permissionRepository,
-    );
+    $this->commandBus = $this->createMock(CommandBusPort::class);
+    $this->processor = new RemovePermissionFromRoleProcessor($this->commandBus);
   }
   // #endregion
 
@@ -63,36 +51,25 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     // Arrange
     $roleId = '550e8400-e29b-41d4-a716-446655440000';
     $permissionId = '660e8400-e29b-41d4-a716-446655440000';
+    $createdAt = '2025-01-01 12:00:00';
 
-    $permission = Permission::create(
-      id: new PermissionId($permissionId),
-      name: new PermissionName('users.create'),
-      description: 'Create users',
-    );
-
-    $role = Role::create(
-      id: new RoleId($roleId),
-      name: new RoleName('admin'),
+    $result = new RemovePermissionFromRoleResult(
+      id: $roleId,
+      name: 'admin',
       description: 'Admin role',
+      isSystem: false,
+      createdAt: $createdAt,
+      permissions: [],
     );
-    $role->addPermission($permission);
 
-    $this->roleRepository
+    $this->commandBus
       ->expects($this->once())
-      ->method('findById')
-      ->with($this->callback(fn (RoleId $id) => $id->value === $roleId))
-      ->willReturn($role);
-
-    $this->permissionRepository
-      ->expects($this->once())
-      ->method('findById')
-      ->with($this->callback(fn (PermissionId $id) => $id->value === $permissionId))
-      ->willReturn($permission);
-
-    $this->roleRepository
-      ->expects($this->once())
-      ->method('save')
-      ->with($role);
+      ->method('dispatch')
+      ->with($this->callback(
+        fn (RemovePermissionFromRoleCommand $command) => $command->roleId === $roleId
+          && $command->permissionId === $permissionId,
+      ))
+      ->willReturn($result);
 
     $operation = new Delete();
 
@@ -105,7 +82,7 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
 
     // Assert
     $this->assertInstanceOf(RoleOutput::class, $output);
-    $this->assertEquals($roleId, $output->id);
+    $this->assertSame($roleId, $output->id);
     $this->assertEmpty($output->permissions);
   }
 
@@ -119,15 +96,15 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440000';
     $permissionId = '660e8400-e29b-41d4-a716-446655440000';
 
-    $this->roleRepository
+    $this->commandBus
       ->expects($this->once())
-      ->method('findById')
-      ->willReturn(null);
+      ->method('dispatch')
+      ->willThrowException(RoleNotFoundException::withId(roleId: $roleId));
 
     $operation = new Delete();
 
     // Assert
-    $this->expectException(\Authorization\Domain\Exception\RoleNotFoundException::class);
+    $this->expectException(RoleNotFoundException::class);
 
     // Act
     $this->processor->process(
@@ -147,26 +124,15 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
     $roleId = '550e8400-e29b-41d4-a716-446655440000';
     $permissionId = '660e8400-e29b-41d4-a716-446655440000';
 
-    $role = Role::create(
-      id: new RoleId($roleId),
-      name: new RoleName('admin'),
-      description: 'Admin role',
-    );
-
-    $this->roleRepository
+    $this->commandBus
       ->expects($this->once())
-      ->method('findById')
-      ->willReturn($role);
-
-    $this->permissionRepository
-      ->expects($this->once())
-      ->method('findById')
-      ->willReturn(null);
+      ->method('dispatch')
+      ->willThrowException(PermissionNotFoundException::withId(permissionId: $permissionId));
 
     $operation = new Delete();
 
     // Assert
-    $this->expectException(\Authorization\Domain\Exception\PermissionNotFoundException::class);
+    $this->expectException(PermissionNotFoundException::class);
 
     // Act
     $this->processor->process(

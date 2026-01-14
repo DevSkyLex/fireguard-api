@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
 use DateInterval;
-use Psr\Cache\CacheException;
-use Psr\Cache\CacheItemPoolInterface;
-use Psr\Cache\InvalidArgumentException;
+use Psr\Cache\{CacheException, CacheItemPoolInterface, InvalidArgumentException};
 use Shared\Application\Port\Outbound\CachePort;
 use Shared\Infrastructure\Exception\CacheOperationException;
 

@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Session\Domain\Model;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Session\Domain\Model\Session;
+use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
-use Shared\Domain\ValueObject\IpAddress;
-use Shared\Domain\ValueObject\UserAgent;
+use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 
 use function usleep;
 

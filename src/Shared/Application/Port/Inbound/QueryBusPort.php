@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Application\Port\Inbound;
 
-use Shared\Application\Message\QueryMessage;
-use Shared\Application\Message\ResultMessage;
+use Shared\Application\Message\{QueryMessage, ResultMessage};
 
 /**
  * Port QueryBusPort.

@@ -4,22 +4,17 @@ declare(strict_types=1);
 
 namespace Otp\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\Get;
-use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\{ApiResource, Get, Post};
 use ApiPlatform\OpenApi\Model\{
   Operation,
   Response
 };
 use ArrayObject;
-use Otp\Presentation\Api\Dto\ChallengeOutput;
-use Otp\Presentation\Api\Dto\CreateChallengeInput;
-use Otp\Presentation\Api\Dto\VerifyOtpInput;
-use Otp\Presentation\Api\Dto\VerifyOtpOutput;
-use Otp\Presentation\Api\Processor\CreateChallengeProcessor;
-use Otp\Presentation\Api\Processor\ResendChallengeProcessor;
-use Otp\Presentation\Api\Processor\VerifyOtpProcessor;
-use Otp\Presentation\Api\Provider\GetChallengeStatusProvider;
+use Otp\Presentation\Api\Dto\Input\Challenge\{CreateChallengeInput, VerifyOtpInput};
+use Otp\Presentation\Api\Dto\Output\Challenge\{ChallengeOutput, VerifyOtpOutput};
+use Otp\Presentation\Api\Operation\OtpOperations;
+use Otp\Presentation\Api\Processor\Challenge\{CreateChallengeProcessor, ResendChallengeProcessor, VerifyOtpProcessor};
+use Otp\Presentation\Api\Provider\Challenge\GetChallengeStatusProvider;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -37,7 +32,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'OTP challenge management for verification and 2FA.',
   operations: [
     new Post(
-      name: 'createChallenge',
+      name: OtpOperations::CREATE_CHALLENGE,
       uriTemplate: '/challenges',
       input: CreateChallengeInput::class,
       output: ChallengeOutput::class,
@@ -84,7 +79,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Get(
-      name: 'getChallengeStatus',
+      name: OtpOperations::GET_CHALLENGE_STATUS,
       uriTemplate: '/challenges/{token}',
       input: false,
       output: ChallengeOutput::class,
@@ -115,7 +110,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'verifyChallenge',
+      name: OtpOperations::VERIFY_CHALLENGE,
       uriTemplate: '/challenges/{token}/verify',
       input: VerifyOtpInput::class,
       output: VerifyOtpOutput::class,
@@ -142,7 +137,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       ),
     ),
     new Post(
-      name: 'resendChallenge',
+      name: OtpOperations::RESEND_CHALLENGE,
       uriTemplate: '/challenges/{token}/resend',
       input: false,
       output: ChallengeOutput::class,

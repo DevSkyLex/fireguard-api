@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Serializer;
 
-use Shared\Domain\Exception\DomainException;
-use Shared\Domain\Exception\EntityNotFoundException;
+use Shared\Domain\Exception\{DomainException, EntityNotFoundException};
 use Symfony\Component\ErrorHandler\Exception\FlattenException;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Throwable;

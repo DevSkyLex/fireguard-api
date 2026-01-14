@@ -6,10 +6,8 @@ namespace Authorization\Application\Service;
 
 use Authorization\Application\Port\Inbound\AuthorizationPort;
 use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
-use Authorization\Domain\Model\{
-  Permission,
-  Role,
-};
+use Authorization\Domain\Model\Permission\Permission;
+use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\ValueObject\{
   PermissionName,
   SubjectType,

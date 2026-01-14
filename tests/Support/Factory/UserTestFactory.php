@@ -6,11 +6,8 @@ namespace Tests\Support\Factory;
 
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
 use function password_hash;
 

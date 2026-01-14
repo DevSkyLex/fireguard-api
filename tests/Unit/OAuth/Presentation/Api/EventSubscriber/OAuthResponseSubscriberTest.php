@@ -6,11 +6,9 @@ namespace Tests\Unit\OAuth\Presentation\Api\EventSubscriber;
 
 use OAuth\Presentation\Api\EventSubscriber\OAuthResponseSubscriber;
 use OAuth\Presentation\Api\Operation\OAuthOperations;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 

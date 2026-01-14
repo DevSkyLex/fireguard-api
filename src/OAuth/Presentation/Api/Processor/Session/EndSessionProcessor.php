@@ -5,20 +5,13 @@ declare(strict_types=1);
 namespace OAuth\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Operation;
-use ApiPlatform\State\ProcessorInterface;
-use ApiPlatform\State\ProviderInterface;
-use Auth\Presentation\Service\RefreshTokenCookieService;
+use ApiPlatform\State\{ProcessorInterface, ProviderInterface};
+use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use OAuth\Application\Port\Outbound\Token\JwtParserPort;
 use OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenCommand;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
-use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Response;
+use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Symfony\Component\HttpFoundation\{JsonResponse, RedirectResponse, Request, RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Throwable;
 

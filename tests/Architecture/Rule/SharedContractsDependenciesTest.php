@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Architecture\Rule;
 
-use App\Tests\Architecture\Support\ArchitectureLayer;
-use App\Tests\Architecture\Support\ArchitectureNamespace;
-use PHPat\Selector\Selector;
-use PHPat\Selector\SelectorInterface;
+use App\Tests\Architecture\Support\{ArchitectureLayer, ArchitectureNamespace};
+use PHPat\Selector\{Selector, SelectorInterface};
 use PHPat\Test\Builder\Rule;
 use PHPat\Test\PHPat;
 

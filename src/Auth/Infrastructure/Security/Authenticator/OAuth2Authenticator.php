@@ -4,29 +4,25 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\Authenticator;
 
+use Auth\Application\Contract\Token\AccessTokenStatus;
+use Auth\Application\Port\Outbound\AccessTokenLookupPort;
 use Auth\Infrastructure\Security\User\SecurityUserProvider;
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\{Configuration, UnencryptedToken};
 use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\Token\Parser;
-use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Validator;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\{JsonResponse, Request, Response};
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
+use Symfony\Component\Security\Core\Exception\{AuthenticationException, CustomUserMessageAuthenticationException};
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
-use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
-use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
+use Symfony\Component\Security\Http\Authenticator\Passport\{Passport, SelfValidatingPassport};
 use Throwable;
 
 use function array_filter;
@@ -67,11 +63,11 @@ final class OAuth2Authenticator extends AbstractAuthenticator
    *
    * @since 1.0.0
    *
-   * @param AccessTokenRepositoryPort $accessTokenRepository the access token repository
+   * @param AccessTokenLookupPort $accessTokenLookup the access token lookup port
    * @param SecurityUserProvider $userProvider the security user provider
    */
   public function __construct(
-    private readonly AccessTokenRepositoryPort $accessTokenRepository,
+    private readonly AccessTokenLookupPort $accessTokenLookup,
     private readonly SecurityUserProvider $userProvider,
     #[Autowire('%kernel.project_dir%/config/jwt/public.key')]
     string $publicKeyPath,
@@ -155,23 +151,23 @@ final class OAuth2Authenticator extends AbstractAuthenticator
       }
 
       // First, try to find token in database (OAuth2 tokens)
-      $accessToken = $this->accessTokenRepository->find($tokenId);
+      $accessToken = $this->accessTokenLookup->find($tokenId);
 
-      if (null !== $accessToken) {
+      if ($accessToken instanceof AccessTokenStatus) {
         // OAuth2 flow: validate from database
-        if ($accessToken->isRevoked()) {
+        if ($accessToken->revoked) {
           throw new CustomUserMessageAuthenticationException(
             message: 'Token has been revoked',
           );
         }
 
-        if ($accessToken->isExpired()) {
+        if ($accessToken->expired) {
           throw new CustomUserMessageAuthenticationException(
             message: 'Token has expired',
           );
         }
 
-        $scopes = $accessToken->scopes()->toArray();
+        $scopes = $accessToken->scopes;
       } else {
         // Login flow: validate JWT signature directly
         $validator = new Validator();

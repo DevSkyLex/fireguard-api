@@ -4,18 +4,12 @@ declare(strict_types=1);
 
 namespace OAuth\Infrastructure\DataFixtures;
 
-use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
+use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
-use OAuth\Domain\ValueObject\Client\ClientSecret;
-use OAuth\Domain\ValueObject\Client\RedirectUri;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use OAuth\Domain\ValueObject\Security\GrantType;
-use OAuth\Domain\ValueObject\Security\GrantTypes;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, RedirectUri};
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper;
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;

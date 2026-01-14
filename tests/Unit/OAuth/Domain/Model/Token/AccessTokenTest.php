@@ -7,10 +7,8 @@ namespace Tests\Unit\OAuth\Domain\Model\Token;
 use DateTimeImmutable;
 use OAuth\Domain\Model\Token\AccessToken;
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

@@ -6,8 +6,7 @@ namespace Tests\Unit\Otp\Infrastructure\Adapter\Notifier;
 
 use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Adapter\Notifier\TotpAdapter;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

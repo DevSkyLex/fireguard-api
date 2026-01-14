@@ -7,8 +7,7 @@ namespace Tests\Unit\OAuth\Domain\Event\Client;
 use DateTimeImmutable;
 use OAuth\Domain\Event\Client\ClientDeletedEvent;
 use OAuth\Domain\ValueObject\Client\ClientId;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Uuid;
 

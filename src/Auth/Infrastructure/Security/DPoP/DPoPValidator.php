@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\Security\DPoP;
 
 use Auth\Application\Port\Outbound\DPoPValidatorPort;
-use OAuth\Domain\ValueObject\Security\DPoPProof;
+use Auth\Domain\ValueObject\Security\DPoPProof;
 use Psr\Cache\CacheItemPoolInterface;
 use Throwable;
 

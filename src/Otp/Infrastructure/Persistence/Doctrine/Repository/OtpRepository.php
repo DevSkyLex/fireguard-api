@@ -6,10 +6,9 @@ namespace Otp\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Otp\Application\Port\Outbound\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\OtpId;
-use Otp\Domain\ValueObject\OtpPurpose;
+use Otp\Domain\ValueObject\{OtpId, OtpPurpose};
 use Otp\Infrastructure\Persistence\Doctrine\Mapper\OtpMapper;
 use Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord;
 

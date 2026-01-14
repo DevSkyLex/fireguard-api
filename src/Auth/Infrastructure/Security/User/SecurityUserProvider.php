@@ -6,14 +6,10 @@ namespace Auth\Infrastructure\Security\User;
 
 use Authorization\Application\Port\Inbound\AuthorizationPort;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
-use Symfony\Component\Security\Core\Exception\UserNotFoundException;
-use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
+use Symfony\Component\Security\Core\Exception\{UnsupportedUserException, UserNotFoundException};
+use Symfony\Component\Security\Core\User\{UserInterface, UserProviderInterface};
 use Throwable;
-use User\Application\UseCase\Query\GetUser\GetUserQuery;
-use User\Application\UseCase\Query\GetUser\GetUserResult;
-use User\Domain\ValueObject\UserStatus;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_map;
 use function array_merge;
@@ -72,7 +68,7 @@ final readonly class SecurityUserProvider implements UserProviderInterface
       $user = $result->user;
 
       // Get RBAC roles
-      $rbacRoles = $this->authorizationService->getUserRoleNames(userId: $user->id()->value);
+      $rbacRoles = $this->authorizationService->getUserRoleNames(userId: $user->id);
 
       // Normalize RBAC roles (e.g. "admin" -> "ROLE_ADMIN")
       $normalizedRbacRoles = array_map(
@@ -82,17 +78,17 @@ final readonly class SecurityUserProvider implements UserProviderInterface
 
       // Merge with status-based roles
       $roles = array_values(array_unique(array_merge(
-        $this->mapStatusToRoles($user->status()),
+        $this->mapStatusToRoles($user->canLogin),
         $normalizedRbacRoles,
       )));
 
       return new SecurityUser(
-        id: $user->id()->value,
-        email: (string) $user->email(),
+        id: $user->id,
+        email: $user->email,
         password: '',
         roles: $roles,
         scopes: $scopes,
-        isActive: $user->status()->canLogin(),
+        isActive: $user->canLogin,
       );
     } catch (UserNotFoundException $exception) {
       throw $exception;
@@ -120,11 +116,11 @@ final readonly class SecurityUserProvider implements UserProviderInterface
   /**
    * @return list<string>
    */
-  private function mapStatusToRoles(UserStatus $status): array
+  private function mapStatusToRoles(bool $canLogin): array
   {
     $roles = ['ROLE_USER'];
 
-    if (UserStatus::ACTIVE === $status) {
+    if ($canLogin) {
       $roles[] = 'ROLE_VERIFIED';
     }
 

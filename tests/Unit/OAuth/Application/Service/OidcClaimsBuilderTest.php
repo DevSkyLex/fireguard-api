@@ -7,8 +7,7 @@ namespace Tests\Unit\OAuth\Application\Service;
 use DateTimeImmutable;
 use OAuth\Application\Service\OidcClaimsBuilder;
 use OAuth\Domain\Model\Oidc\OidcUser;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

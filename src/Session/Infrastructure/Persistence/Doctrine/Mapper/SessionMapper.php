@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Session\Infrastructure\Persistence\Doctrine\Mapper;
 
 use ReflectionClass;
-use Session\Domain\Model\Session;
-use Session\Domain\ValueObject\SessionId;
-use Session\Domain\ValueObject\SessionMetadata;
+use Session\Domain\Model\Session\Session;
+use Session\Domain\ValueObject\{SessionId, SessionMetadata};
 use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
-use Shared\Domain\ValueObject\IpAddress;
-use Shared\Domain\ValueObject\UserAgent;
+use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 use Symfony\Component\Uid\Uuid;
 
 /**

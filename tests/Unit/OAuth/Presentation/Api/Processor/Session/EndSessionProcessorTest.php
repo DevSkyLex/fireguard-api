@@ -5,24 +5,15 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Presentation\Api\Processor\Session;
 
 use ApiPlatform\Metadata\Operation;
-use Auth\Presentation\Service\RefreshTokenCookieService;
+use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use OAuth\Application\Port\Outbound\Token\JwtParserPort;
-use OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenCommand;
-use OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenResult;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
+use OAuth\Application\UseCase\Command\Token\RevokeToken\{RevokeTokenCommand, RevokeTokenResult};
+use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
 use OAuth\Presentation\Api\Processor\Session\EndSessionProcessor;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Application\Port\Inbound\QueryBusPort;
-use Symfony\Component\HttpFoundation\Cookie;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Response;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
+use Symfony\Component\HttpFoundation\{Cookie, JsonResponse, RedirectResponse, Request, RequestStack, Response};
 
 use function json_decode;
 

@@ -6,11 +6,9 @@ namespace OAuth\Application\UseCase\Command\Client\RegenerateClientSecret;
 
 use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
 use OAuth\Domain\Exception\Client\InvalidClientException;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientSecret;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientSecret};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventBusPort;
-use Shared\Application\Port\Outbound\HashingPort;
+use Shared\Application\Port\Outbound\{EventBusPort, HashingPort};
 use Shared\Domain\Service\EventIdProvider;
 
 use function bin2hex;

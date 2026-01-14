@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Shared\Application\Event;
 
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Event\ApplicationEvent;
 use Shared\Domain\Event\DomainEvent;

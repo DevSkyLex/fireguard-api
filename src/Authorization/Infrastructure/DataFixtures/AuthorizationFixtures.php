@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\DataFixtures;
 
 use Authorization\Domain\ValueObject\SubjectType;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleAssignmentRecord;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleAssignmentRecord, RoleRecord};
 use DateTimeImmutable;
-use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
+use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\Uid\Uuid;
 

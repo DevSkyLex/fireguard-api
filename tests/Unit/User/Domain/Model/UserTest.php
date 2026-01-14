@@ -5,19 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\User\Domain\Model;
 
 use DateTimeImmutable;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Domain\ValueObject\Email;
-use Shared\Domain\ValueObject\TenantId;
+use Shared\Domain\ValueObject\{Email, TenantId};
 use Tests\Helper\TestEventIdProvider;
 use User\Domain\Event\UserCreatedEvent;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
-use User\Domain\ValueObject\UserStatus;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
 
 /**
  * Test UserTest.

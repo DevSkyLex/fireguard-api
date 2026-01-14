@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\Response;
  * @version 1.0.0
  *
  * @see \Otp\Presentation\Api\Resource\TotpResource
- * @see \Otp\Presentation\Api\Processor\SetupTotpProcessor
+ * @see \Otp\Presentation\Api\Processor\Totp\SetupTotpProcessor
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */

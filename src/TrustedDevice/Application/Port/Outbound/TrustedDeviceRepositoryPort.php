@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace TrustedDevice\Application\Port\Outbound;
 
-use TrustedDevice\Domain\Model\TrustedDevice;
+use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\TrustedDeviceId;
 
 /**

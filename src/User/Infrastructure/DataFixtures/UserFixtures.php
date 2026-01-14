@@ -4,18 +4,13 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\DataFixtures;
 
-use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
+use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
-use Shared\Domain\ValueObject\Email;
-use Shared\Domain\ValueObject\TenantId;
+use Shared\Domain\ValueObject\{Email, TenantId};
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 
 use function password_hash;

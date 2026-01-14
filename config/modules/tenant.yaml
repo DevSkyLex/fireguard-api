@@ -3,9 +3,19 @@ services:
         autowire: true
         autoconfigure: true
 
-    # Handlers
+    # Use Cases - Auto-register
     Tenant\Application\UseCase\:
         resource: '../../src/Tenant/Application/UseCase/'
+
+    # Command Handlers
+    Tenant\Application\UseCase\Command\Tenant\CreateTenant\CreateTenantHandler:
+        tags: ['messenger.message_handler']
+
+    # Query Handlers
+    Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantHandler:
+        tags: ['messenger.message_handler']
+    Tenant\Application\UseCase\Query\Tenant\ListTenants\ListTenantsHandler:
+        tags: ['messenger.message_handler']
 
     # Repository
     Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository:
@@ -19,8 +29,8 @@ services:
         alias: Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository
 
     # Providers
-    Tenant\Presentation\Api\Provider\GetTenantProvider: ~
-    Tenant\Presentation\Api\Provider\ListTenantsProvider: ~
+    Tenant\Presentation\Api\Provider\Tenant\GetTenantProvider: ~
+    Tenant\Presentation\Api\Provider\Tenant\ListTenantsProvider: ~
 
     # Processors
-    Tenant\Presentation\Api\Processor\CreateTenantProcessor: ~
+    Tenant\Presentation\Api\Processor\Tenant\CreateTenantProcessor: ~

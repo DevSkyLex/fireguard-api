@@ -4,154 +4,55 @@ services:
     autoconfigure: true
 
   # Auth Module - Ports
-  OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort:
-    class: Auth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository
-
-  Auth\Application\Port\Outbound\ClientRepositoryPort:
-    class: OAuth\Infrastructure\OAuth2\League\Adapter\ClientRepositoryPortAdapter
-
-  OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort:
-    class: Auth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository
-
-  OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort:
-    class: Auth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository
-
-  OAuth\Application\Port\Outbound\Token\AuthorizationServerPort:
-    class: OAuth\Infrastructure\OAuth2\League\Server\AuthorizationServerAdapter
-
-  OAuth\Application\Port\Outbound\Client\ClientValidationPort:
-    class: OAuth\Infrastructure\OAuth2\League\Adapter\ClientValidationAdapter
-
   Auth\Application\Port\Outbound\JwtTokenServicePort:
     alias: Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter
-
-  OAuth\Application\Port\Outbound\Token\TokenRevocationPort:
-    alias: Auth\Infrastructure\Adapter\Token\TokenRevocationAdapter
 
   Auth\Application\Port\Outbound\JwtParserPort:
     alias: Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter
 
-  OAuth\Application\Port\Outbound\Token\TokenCachePort:
-    alias: Auth\Infrastructure\Adapter\Cache\TokenCacheAdapter
+  Auth\Application\Port\Outbound\UserAuthenticationPort:
+    alias: Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter
 
-  Auth\Infrastructure\Adapter\Token\TokenRevocationAdapter: ~
+  Auth\Application\Port\Outbound\DPoPValidatorPort:
+    alias: Auth\Infrastructure\Security\DPoP\DPoPValidator
+
+  Auth\Application\Port\Outbound\SessionTrackingPort:
+    alias: Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter
+
+  # Adapters
+  Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
   Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
-  Auth\Infrastructure\Adapter\Cache\TokenCacheAdapter: ~
+  Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter: ~
   Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter: ~
-
-  # Domain Services
-  Auth\Domain\Service\TokenValidationService: ~
-
-  # Use Case Command Handlers
-  Auth\Application\UseCase\Command\Login\LoginHandler:
-    tags: ['messenger.message_handler']
-
-  Auth\Application\UseCase\Command\Logout\LogoutHandler:
-    tags: ['messenger.message_handler']
-
-  OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenHandler:
-    tags: ['messenger.message_handler']
-
-  OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenHandler:
-    tags: ['messenger.message_handler']
-
-  # Use Case Query Handlers
-  OAuth\Application\UseCase\Query\Token\ValidateToken\ValidateTokenHandler:
-    tags: ['messenger.message_handler']
-
-  OAuth\Application\UseCase\Query\Token\IntrospectToken\IntrospectTokenHandler:
-    tags: ['messenger.message_handler']
-
-  OAuth\Application\UseCase\Query\Token\RefreshToken\RefreshTokenHandler:
-    tags: ['messenger.message_handler']
-
-  Auth\Application\UseCase\Command\MfaVerify\MfaVerifyHandler:
-    tags: ['messenger.message_handler']
-
-  # League OAuth2 Server
-  League\OAuth2\Server\Repositories\ClientRepositoryInterface:
-    class: OAuth\Infrastructure\OAuth2\League\Repository\ClientRepositoryAdapter
-
-  League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface:
-    class: OAuth\Infrastructure\OAuth2\League\Repository\AccessTokenRepositoryAdapter
-
-  League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface:
-    class: OAuth\Infrastructure\OAuth2\League\Repository\RefreshTokenRepositoryAdapter
-
-  League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface:
-    class: OAuth\Infrastructure\OAuth2\League\Repository\AuthCodeRepositoryAdapter
-
-  League\OAuth2\Server\Repositories\ScopeRepositoryInterface:
-    class: OAuth\Infrastructure\OAuth2\League\Repository\ScopeRepositoryAdapter
-
-  access_token_ttl:
-    class: DateInterval
-    arguments: ['PT1H']
-
-  League\OAuth2\Server\AuthorizationServer:
-    arguments:
-      $clientRepository: '@League\OAuth2\Server\Repositories\ClientRepositoryInterface'
-      $accessTokenRepository: '@League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface'
-      $scopeRepository: '@League\OAuth2\Server\Repositories\ScopeRepositoryInterface'
-      $privateKey: '%kernel.project_dir%/config/jwt/private.key'
-      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
-    calls:
-      - method: enableGrantType
-        arguments:
-          - '@League\OAuth2\Server\Grant\ClientCredentialsGrant'
-          - '@access_token_ttl'
-      - method: enableGrantType
-        arguments:
-          - '@League\OAuth2\Server\Grant\RefreshTokenGrant'
-          - '@access_token_ttl'
-      - method: enableGrantType
-        arguments:
-          - '@League\OAuth2\Server\Grant\AuthCodeGrant'
-          - '@access_token_ttl'
-
-  League\OAuth2\Server\Grant\ClientCredentialsGrant: ~
-
-  League\OAuth2\Server\Grant\RefreshTokenGrant:
-    arguments:
-      $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
-
-  auth_code_ttl:
-    class: DateInterval
-    arguments: ['PT10M']
-
-  League\OAuth2\Server\Grant\AuthCodeGrant:
-    arguments:
-      $authCodeRepository: '@League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface'
-      $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
-      $authCodeTTL: '@auth_code_ttl'
-
-  OAuth\Presentation\Api\Processor\Token\IssueTokenProcessor: ~
-
-  OAuth\Presentation\Api\Processor\Token\RevokeTokenProcessor: ~
-
-  OAuth\Presentation\Api\Processor\Token\IntrospectTokenProcessor: ~
-
-  # Refresh Token Cookie Service
-  Auth\Presentation\Service\RefreshTokenCookieService: ~
 
   # JWT Token Adapter (uses #[Autowire] attributes)
   Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter: ~
 
+  # Use Case Command Handlers
+  Auth\Application\UseCase\Command\Session\Login\LoginHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Session\Logout\LogoutHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Mfa\MfaVerify\MfaVerifyHandler:
+    tags: ['messenger.message_handler']
+
+  # Use Case Query Handlers
+  Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenHandler:
+    tags: ['messenger.message_handler']
+
+  # Refresh Token Cookie Service
+  Auth\Presentation\Api\Service\RefreshTokenCookieService: ~
+
   # Auth Processors
-  Auth\Presentation\Http\Auth\LoginProcessor: ~
-  Auth\Presentation\Http\Auth\RefreshTokenProcessor: ~
-  Auth\Presentation\Http\Auth\LogoutProcessor: ~
-  Auth\Presentation\Http\Auth\MfaVerifyProcessor: ~
-
-  # Discovery Providers
-  OAuth\Presentation\Api\Provider\Discovery\UserInfoProvider: ~
-  OAuth\Presentation\Api\Provider\Discovery\OpenIdConfigurationProvider: ~
-  OAuth\Presentation\Api\Provider\Discovery\JwksProvider: ~
-
-  # Event Listener
-  Auth\Infrastructure\EventListener\RefreshTokenCookieListener: ~
+  Auth\Presentation\Api\Processor\Auth\LoginProcessor: ~
+  Auth\Presentation\Api\Processor\Auth\RefreshTokenProcessor: ~
+  Auth\Presentation\Api\Processor\Auth\LogoutProcessor: ~
+  Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor: ~
 
   # Event Subscribers
+  Auth\Infrastructure\EventSubscriber\RefreshTokenCookieSubscriber: ~
   Auth\Infrastructure\EventSubscriber\EventLogSubscriber: ~
 
   # Symfony Security
@@ -162,18 +63,5 @@ services:
   Auth\Infrastructure\Security\Voter\OAuth2ScopeVoter: ~
   Auth\Infrastructure\Security\Voter\ResourceOwnerVoter: ~
 
-  # Console Commands
-  Auth\Infrastructure\Console\GenerateTokenCommand: ~
-
-  # Consent Repository
-  Auth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository:
-    arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
-
-  OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort:
-    alias: Auth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository
-
-  # Consent Handlers
-  OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentHandler: ~
-  OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentHandler: ~
-
+  # DPoP Validator
+  Auth\Infrastructure\Security\DPoP\DPoPValidator: ~

@@ -6,8 +6,7 @@ namespace OAuth\Presentation\Api\Dto\Output\Client;
 
 use ApiPlatform\Metadata\ApiProperty;
 use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
-use Symfony\Component\Serializer\Attribute\Groups;
-use Symfony\Component\Serializer\Attribute\SerializedName;
+use Symfony\Component\Serializer\Attribute\{Groups, SerializedName};
 
 /**
  * DTO ClientOutput.

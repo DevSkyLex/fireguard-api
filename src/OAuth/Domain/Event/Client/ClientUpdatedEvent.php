@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Domain\Event\Client;
 
 use DateTimeImmutable;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName};
 use Shared\Domain\Event\DomainEvent;
 use Shared\Domain\ValueObject\Uuid;
 

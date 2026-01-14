@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Tenant\Domain\Model;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Tenant\Domain\Model\Tenant;
-use Tenant\Domain\ValueObject\TenantId;
-use Tenant\Domain\ValueObject\TenantName;
-use Tenant\Domain\ValueObject\TenantSettings;
+use Tenant\Domain\Model\Tenant\Tenant;
+use Tenant\Domain\ValueObject\{TenantId, TenantName, TenantSettings};
 
 /**
  * Class TenantTest.

@@ -42,6 +42,10 @@ return (new PhpCsFixer\Config())
 			'imports_order' => ['class', 'function', 'const'],
 			'sort_algorithm' => 'alpha',
 		],
+		'single_import_per_statement' => false,
+		'group_import' => [
+			'group_types' => ['classy', 'functions', 'constants'],
+		],
 		'no_unused_imports' => true,
 		// Enforce use instead of FQN
 		'fully_qualified_strict_types' => true,

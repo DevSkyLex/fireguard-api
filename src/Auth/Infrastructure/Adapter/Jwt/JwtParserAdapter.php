@@ -7,14 +7,11 @@ namespace Auth\Infrastructure\Adapter\Jwt;
 use Auth\Application\Port\Outbound\JwtParserPort;
 use DateTimeImmutable;
 use DateTimeInterface;
-use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\{Configuration, UnencryptedToken};
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\Token\RegisteredClaims;
-use Lcobucci\JWT\UnencryptedToken;
-use Lcobucci\JWT\Validation\Constraint\LooseValidAt;
-use Lcobucci\JWT\Validation\Constraint\SignedWith;
-use OAuth\Application\Port\Outbound\Token\JwtParserPort as OAuthJwtParserPort;
+use Lcobucci\JWT\Validation\Constraint\{LooseValidAt, SignedWith};
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
@@ -30,7 +27,7 @@ use function is_string;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class JwtParserAdapter implements JwtParserPort, OAuthJwtParserPort
+final class JwtParserAdapter implements JwtParserPort
 {
   // #region Properties
   /**

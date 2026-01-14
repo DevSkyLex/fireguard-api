@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Application\UseCase\Query\Token\IntrospectToken;
 
 use DateTimeImmutable;
-use OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\Token\JwtParserPort;
-use OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort;
-use OAuth\Application\Port\Outbound\Token\TokenCachePort;
+use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, JwtParserPort, RefreshTokenRepositoryPort, TokenCachePort};
 use Shared\Application\Message\QueryHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;

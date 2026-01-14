@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Application\UseCase\Query\Consent\CheckConsent;
 
 use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentHandler;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentQuery;
-use OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentResult;
+use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentHandler, CheckConsentQuery, CheckConsentResult};
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
-use OAuth\Domain\ValueObject\Scope\Scope;
-use OAuth\Domain\ValueObject\Scope\Scopes;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

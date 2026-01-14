@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Authorization\Application\Port\Outbound;
 
-use Authorization\Domain\Model\Role;
-use Authorization\Domain\Model\RoleAssignment;
-use Authorization\Domain\ValueObject\RoleAssignmentId;
-use Authorization\Domain\ValueObject\RoleId;
-use Authorization\Domain\ValueObject\SubjectType;
+use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
+use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, SubjectType};
 
 /**
  * Interface RoleAssignmentRepositoryPort.

@@ -7,9 +7,8 @@ namespace User\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Domain\ValueObject\Email;
 use User\Application\Port\Outbound\UserRepositoryPort;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{UserId, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 

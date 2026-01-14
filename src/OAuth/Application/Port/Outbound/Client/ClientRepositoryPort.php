@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace OAuth\Application\Port\Outbound\Client;
 
 use OAuth\Domain\Model\Client\Client;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName};
 
 /**
  * Port ClientRepositoryPort.

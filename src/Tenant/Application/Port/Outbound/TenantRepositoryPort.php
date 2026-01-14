@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tenant\Application\Port\Outbound;
 
-use Tenant\Domain\Model\Tenant;
+use Tenant\Domain\Model\Tenant\Tenant;
 use Tenant\Domain\ValueObject\TenantId;
 
 /**

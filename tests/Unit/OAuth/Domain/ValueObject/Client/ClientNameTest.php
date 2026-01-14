@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Domain\ValueObject\Client;
 
 use OAuth\Domain\ValueObject\Client\ClientName;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
-use Authorization\Domain\Model\Permission;
-use Authorization\Domain\ValueObject\PermissionId;
-use Authorization\Domain\ValueObject\PermissionName;
+use Authorization\Domain\Model\Permission\Permission;
+use Authorization\Domain\ValueObject\{PermissionId, PermissionName};
 use Authorization\Infrastructure\Persistence\Doctrine\Mapper\PermissionMapper;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\PermissionRecord;
 use Doctrine\ORM\EntityManagerInterface;

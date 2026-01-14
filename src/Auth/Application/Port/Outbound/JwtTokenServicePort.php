@@ -33,11 +33,19 @@ interface JwtTokenServicePort
    *
    * @param string $userId the user ID
    * @param string $challengeToken the OTP challenge token associated with this flow
+   * @param string $email the user email
+   * @param array<string> $scopes the granted scopes
    * @param int $ttl lifetime in seconds (default 300)
    *
    * @return string the valid JWT token
    */
-  public function generatePreAuthToken(string $userId, string $challengeToken, int $ttl = 300): string;
+  public function generatePreAuthToken(
+    string $userId,
+    string $challengeToken,
+    string $email = '',
+    array $scopes = [],
+    int $ttl = 300,
+  ): string;
 
   /**
    * Decodes a Pre-Auth Token.

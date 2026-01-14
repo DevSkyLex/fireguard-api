@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Infrastructure\Security\User;
 
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\{PasswordAuthenticatedUserInterface, UserInterface};
 
 use function array_map;
 use function array_unique;

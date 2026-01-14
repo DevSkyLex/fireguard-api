@@ -6,8 +6,7 @@ namespace Tests\Unit\OAuth\Domain\Event\Token;
 
 use DateTimeImmutable;
 use OAuth\Domain\Event\Token\TokenIssuedEvent;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

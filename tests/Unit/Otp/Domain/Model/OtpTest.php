@@ -7,11 +7,8 @@ namespace Tests\Unit\Otp\Domain\Model;
 use DateTimeImmutable;
 use Otp\Domain\Exception\OtpMaxAttemptsException;
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\OtpChannel;
-use Otp\Domain\ValueObject\OtpId;
-use Otp\Domain\ValueObject\OtpPurpose;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use Otp\Domain\ValueObject\{OtpChannel, OtpId, OtpPurpose};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 /**

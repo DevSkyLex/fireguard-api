@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Otp\Infrastructure\Adapter\Notifier;
 
-use Otp\Application\Port\Outbound\OtpNotifierPort;
+use Otp\Application\Port\Outbound\Challenge\OtpNotifierPort;
 use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{
   OtpChannel,
   OtpPurpose
 };
+use Otp\Infrastructure\Notification\OtpNotification;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Notifier\NotifierInterface;
@@ -118,7 +119,7 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
    */
   private function sendSms(Otp $otp): void
   {
-    $notification = new \Otp\Infrastructure\Symfony\Notification\OtpNotification(otp: $otp);
+    $notification = new OtpNotification(otp: $otp);
     $recipient = new Recipient(phone: $otp->recipient());
 
     $this->notifier->send(

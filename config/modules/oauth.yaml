@@ -25,21 +25,82 @@ services:
     tags:
       - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery }
 
+  # Token/Consent Handlers
+  OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Token\RevokeToken\RevokeTokenHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Query\Token\ValidateToken\ValidateTokenHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Query\Token\IntrospectToken\IntrospectTokenHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Query\Token\RefreshToken\RefreshTokenHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Consent\GrantConsent\GrantConsentHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Query\Consent\CheckConsent\CheckConsentHandler:
+    tags: ['messenger.message_handler']
+
   # Repository
   OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository:
     arguments:
       $entityManager: '@doctrine.orm.entity_manager'
 
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
+  OAuth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.entity_manager'
+
   OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper: ~
+  OAuth\Infrastructure\Persistence\Doctrine\Mapper\ConsentMapper: ~
 
   # Port Binding
   OAuth\Application\Port\Outbound\Token\JwtParserPort:
-    alias: Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter
+    alias: OAuth\Infrastructure\Adapter\Jwt\JwtParserAdapter
+
+  OAuth\Application\Port\Outbound\Token\AccessTokenRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository
+
+  OAuth\Application\Port\Outbound\Token\RefreshTokenRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository
+
+  OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository
+
+  OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort:
+    alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository
+
+  OAuth\Application\Port\Outbound\Token\TokenCachePort:
+    alias: OAuth\Infrastructure\Adapter\Cache\TokenCacheAdapter
+
+  OAuth\Application\Port\Outbound\Token\TokenRevocationPort:
+    alias: OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter
+
+  OAuth\Application\Port\Outbound\Token\AuthorizationServerPort:
+    class: OAuth\Infrastructure\OAuth2\League\Server\AuthorizationServerAdapter
+
+  OAuth\Application\Port\Outbound\Client\ClientValidationPort:
+    class: OAuth\Infrastructure\OAuth2\League\Adapter\ClientValidationAdapter
 
   OAuth\Application\Port\Outbound\Client\ClientRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository
-
-
 
   OAuth\Application\Port\Outbound\Client\OAuthClientRepositoryPort:
     alias: OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository
@@ -50,10 +111,32 @@ services:
   OAuth\Application\Port\Outbound\User\OidcUserProviderPort:
     alias: OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter
 
+  # Auth Bridge Adapters
+  Auth\Application\Port\Outbound\TokenRevocationPort:
+    alias: OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter
+
+  Auth\Application\Port\Outbound\TokenRefreshPort:
+    alias: OAuth\Infrastructure\Adapter\Auth\TokenRefreshAdapter
+
+  Auth\Application\Port\Outbound\AccessTokenLookupPort:
+    alias: OAuth\Infrastructure\Adapter\Auth\AccessTokenLookupAdapter
+
+  Auth\Application\Port\Outbound\ClientRepositoryPort:
+    class: OAuth\Infrastructure\OAuth2\League\Adapter\ClientRepositoryPortAdapter
+
+  OAuth\Infrastructure\Adapter\Auth\AccessTokenLookupAdapter: ~
+  OAuth\Infrastructure\Adapter\Auth\TokenRefreshAdapter: ~
+
+  # OAuth Adapters
+  OAuth\Infrastructure\Adapter\Cache\TokenCacheAdapter: ~
+  OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter: ~
+  OAuth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
+
   # Console Commands
   OAuth\Infrastructure\Console\Command\Client\CreateClientCommand: ~
   OAuth\Infrastructure\Console\Command\Client\ListClientsCommand: ~
   OAuth\Infrastructure\Console\Command\Client\DeleteClientCommand: ~
+  OAuth\Infrastructure\Console\Command\Token\GenerateTokenCommand: ~
 
   # DataFixtures
   OAuth\Infrastructure\DataFixtures\ClientFixtures:
@@ -72,3 +155,71 @@ services:
   OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor: ~
   OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor: ~
   OAuth\Presentation\Api\Processor\Session\EndSessionProcessor: ~
+  OAuth\Presentation\Api\Processor\Token\IssueTokenProcessor: ~
+  OAuth\Presentation\Api\Processor\Token\RevokeTokenProcessor: ~
+  OAuth\Presentation\Api\Processor\Token\IntrospectTokenProcessor: ~
+
+  # Discovery Providers
+  OAuth\Presentation\Api\Provider\Discovery\UserInfoProvider: ~
+  OAuth\Presentation\Api\Provider\Discovery\OpenIdConfigurationProvider: ~
+  OAuth\Presentation\Api\Provider\Discovery\JwksProvider: ~
+
+  # Domain Services
+  OAuth\Domain\Service\TokenValidationService: ~
+
+  # League OAuth2 Server
+  League\OAuth2\Server\Repositories\ClientRepositoryInterface:
+    class: OAuth\Infrastructure\OAuth2\League\Repository\ClientRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface:
+    class: OAuth\Infrastructure\OAuth2\League\Repository\AccessTokenRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface:
+    class: OAuth\Infrastructure\OAuth2\League\Repository\RefreshTokenRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface:
+    class: OAuth\Infrastructure\OAuth2\League\Repository\AuthCodeRepositoryAdapter
+
+  League\OAuth2\Server\Repositories\ScopeRepositoryInterface:
+    class: OAuth\Infrastructure\OAuth2\League\Repository\ScopeRepositoryAdapter
+
+  access_token_ttl:
+    class: DateInterval
+    arguments: ['PT1H']
+
+  League\OAuth2\Server\AuthorizationServer:
+    arguments:
+      $clientRepository: '@League\OAuth2\Server\Repositories\ClientRepositoryInterface'
+      $accessTokenRepository: '@League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface'
+      $scopeRepository: '@League\OAuth2\Server\Repositories\ScopeRepositoryInterface'
+      $privateKey: '%kernel.project_dir%/config/jwt/private.key'
+      $encryptionKey: '%env(OAUTH_ENCRYPTION_KEY)%'
+    calls:
+      - method: enableGrantType
+        arguments:
+          - '@League\OAuth2\Server\Grant\ClientCredentialsGrant'
+          - '@access_token_ttl'
+      - method: enableGrantType
+        arguments:
+          - '@League\OAuth2\Server\Grant\RefreshTokenGrant'
+          - '@access_token_ttl'
+      - method: enableGrantType
+        arguments:
+          - '@League\OAuth2\Server\Grant\AuthCodeGrant'
+          - '@access_token_ttl'
+
+  League\OAuth2\Server\Grant\ClientCredentialsGrant: ~
+
+  League\OAuth2\Server\Grant\RefreshTokenGrant:
+    arguments:
+      $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
+
+  auth_code_ttl:
+    class: DateInterval
+    arguments: ['PT10M']
+
+  League\OAuth2\Server\Grant\AuthCodeGrant:
+    arguments:
+      $authCodeRepository: '@League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface'
+      $refreshTokenRepository: '@League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface'
+      $authCodeTTL: '@auth_code_ttl'

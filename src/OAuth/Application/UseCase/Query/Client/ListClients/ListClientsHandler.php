@@ -7,8 +7,8 @@ namespace OAuth\Application\UseCase\Query\Client\ListClients;
 use OAuth\Application\Port\Outbound\Client\ClientRepositoryPort;
 use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
 use OAuth\Domain\Model\Client\Client;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
-use Shared\Application\Query\PaginatedResult;
 
 use function array_map;
 

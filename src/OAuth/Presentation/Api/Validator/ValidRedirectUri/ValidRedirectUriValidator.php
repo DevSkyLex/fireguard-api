@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace OAuth\Presentation\Api\Validator\ValidRedirectUri;
 
-use Symfony\Component\Validator\Constraint;
-use Symfony\Component\Validator\ConstraintValidator;
+use Symfony\Component\Validator\{Constraint, ConstraintValidator};
 use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 
 use function in_array;

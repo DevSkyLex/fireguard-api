@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Application\Service;
 
 use Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
 use function base64_decode;

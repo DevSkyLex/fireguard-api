@@ -155,8 +155,13 @@ final class JwtTokenAdapter implements JwtTokenServicePort
     ];
   }
 
-  public function generatePreAuthToken(string $userId, string $challengeToken, int $ttl = 300): string
-  {
+  public function generatePreAuthToken(
+    string $userId,
+    string $challengeToken,
+    string $email = '',
+    array $scopes = [],
+    int $ttl = 300,
+  ): string {
     if ('' === $userId) {
       throw new InvalidArgumentException('User ID cannot be empty');
     }
@@ -173,6 +178,8 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       ->issuedAt($now)
       ->expiresAt($expiry)
       ->withClaim('scope', 'pre_auth')
+      ->withClaim('email', $email)
+      ->withClaim('scopes', $scopes)
       ->withClaim('challenge_token', $challengeToken)
       ->getToken($this->jwtConfig->signer(), $this->jwtConfig->signingKey());
 

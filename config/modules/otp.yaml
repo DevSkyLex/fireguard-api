@@ -4,14 +4,17 @@ services:
     autoconfigure: true
 
   # OTP Module - Ports
-  Otp\Application\Port\Outbound\OtpRepositoryPort:
+  Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort:
     alias: Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository
 
-  Otp\Application\Port\Outbound\OtpNotifierPort:
+  Otp\Application\Port\Outbound\Challenge\OtpNotifierPort:
     alias: Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter
 
-  Otp\Application\Port\Outbound\TotpServicePort:
+  Otp\Application\Port\Outbound\Totp\TotpServicePort:
     alias: Otp\Infrastructure\Adapter\Notifier\TotpAdapter
+
+  Otp\Application\Port\Inbound\Challenge\OtpChallengePort:
+    alias: Otp\Application\Service\OtpChallengeService
 
   # OTP Repository
   Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository:
@@ -27,23 +30,35 @@ services:
 
   Otp\Infrastructure\Adapter\Notifier\TotpAdapter: ~
 
+  # OTP Challenge Service
+  Otp\Application\Service\OtpChallengeService: ~
+
   # Command Handlers
-  Otp\Application\UseCase\Command\GenerateOtp\GenerateOtpHandler: ~
-  Otp\Application\UseCase\Command\VerifyOtp\VerifyOtpHandler: ~
-  Otp\Application\UseCase\Command\SetupTotp\SetupTotpHandler: ~
+  Otp\Application\UseCase\Command\Challenge\GenerateOtp\GenerateOtpHandler:
+    tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler:
+    tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Command\Totp\SetupTotp\SetupTotpHandler:
+    tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Command\Challenge\ResendChallenge\ResendChallengeHandler:
+    tags: ['messenger.message_handler']
 
   # Query Handlers
-  Otp\Application\UseCase\Query\GetOtpStatus\GetOtpStatusHandler: ~
+  Otp\Application\UseCase\Query\Challenge\GetChallengeStatus\GetChallengeStatusHandler:
+    tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Query\Config\ListPurposes\ListPurposesHandler:
+    tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Query\Config\ListChannels\ListChannelsHandler:
+    tags: ['messenger.message_handler']
 
   # API Processors
-  Otp\Presentation\Api\Processor\GenerateOtpProcessor: ~
-  Otp\Presentation\Api\Processor\VerifyOtpProcessor: ~
-  Otp\Presentation\Api\Processor\SetupTotpProcessor: ~
-  Otp\Presentation\Api\Processor\CreateChallengeProcessor: ~
-  Otp\Presentation\Api\Processor\ResendChallengeProcessor: ~
+  Otp\Presentation\Api\Processor\Challenge\VerifyOtpProcessor: ~
+  Otp\Presentation\Api\Processor\Totp\SetupTotpProcessor: ~
+  Otp\Presentation\Api\Processor\Challenge\CreateChallengeProcessor: ~
+  Otp\Presentation\Api\Processor\Challenge\ResendChallengeProcessor: ~
 
   # API Providers
-  Otp\Presentation\Api\Provider\GetOtpStatusProvider: ~
-  Otp\Presentation\Api\Provider\ListPurposesProvider: ~
-  Otp\Presentation\Api\Provider\ListChannelsProvider: ~
+  Otp\Presentation\Api\Provider\Challenge\GetChallengeStatusProvider: ~
+  Otp\Presentation\Api\Provider\Config\ListPurposesProvider: ~
+  Otp\Presentation\Api\Provider\Config\ListChannelsProvider: ~
 

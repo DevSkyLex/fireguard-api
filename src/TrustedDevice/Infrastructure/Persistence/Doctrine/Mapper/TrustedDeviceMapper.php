@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper;
 
-use TrustedDevice\Domain\Model\TrustedDevice;
-use TrustedDevice\Domain\ValueObject\DeviceFingerprint;
-use TrustedDevice\Domain\ValueObject\TrustedDeviceId;
+use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
+use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, TrustedDeviceId};
 use TrustedDevice\Infrastructure\Persistence\Doctrine\Record\TrustedDeviceRecord;
 
 /**

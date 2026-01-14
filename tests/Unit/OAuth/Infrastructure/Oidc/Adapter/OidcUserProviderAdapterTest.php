@@ -4,26 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Infrastructure\Oidc\Adapter;
 
+use DateTimeImmutable;
 use OAuth\Domain\Model\Oidc\OidcUser;
 use OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Domain\ValueObject\Email;
-use Tests\Helper\TestEventIdProvider;
-use User\Application\UseCase\Query\GetUser\GetUserQuery;
-use User\Application\UseCase\Query\GetUser\GetUserResult;
-use User\Domain\Model\User;
-use User\Domain\ValueObject\HashedPassword;
+use User\Application\Contract\User\UserView;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 use User\Domain\ValueObject\UserId;
-use User\Domain\ValueObject\Username;
-use User\Domain\ValueObject\UserProfile;
-
-use function password_hash;
-
-use const PASSWORD_BCRYPT;
 
 /**
  * Test OidcUserProviderAdapterTest.
@@ -89,35 +79,35 @@ final class OidcUserProviderAdapterTest extends TestCase
 
     $adapter = new OidcUserProviderAdapter(queryBus: $queryBus);
 
-    $oidcUser = $adapter->findByIdentifier($user->id()->value);
+    $oidcUser = $adapter->findByIdentifier($user->id);
 
     self::assertInstanceOf(OidcUser::class, $oidcUser);
-    self::assertSame($user->id()->value, $oidcUser->subject());
-    self::assertSame((string) $user->username(), $oidcUser->preferredUsername());
-    self::assertSame((string) $user->email(), $oidcUser->email());
+    self::assertSame($user->id, $oidcUser->subject());
+    self::assertSame($user->username, $oidcUser->preferredUsername());
+    self::assertSame($user->email, $oidcUser->email());
     self::assertTrue($oidcUser->emailVerified());
-    self::assertSame($user->profile()->firstName, $oidcUser->givenName());
-    self::assertSame($user->profile()->lastName, $oidcUser->familyName());
-    self::assertSame($user->profile()->avatarUrl, $oidcUser->pictureUrl());
-    self::assertNull($oidcUser->authTime());
+    self::assertSame($user->firstName, $oidcUser->givenName());
+    self::assertSame($user->lastName, $oidcUser->familyName());
+    self::assertSame($user->avatarUrl, $oidcUser->pictureUrl());
+    self::assertSame($user->lastLoginAt, $oidcUser->authTime());
   }
 
-  private function createUser(): User
+  private function createUser(): UserView
   {
-    $eventIdProvider = new TestEventIdProvider();
-
-    $user = User::register(
-      id: new UserId('550e8400-e29b-41d4-a716-446655440000'),
-      username: new Username('testuser'),
-      email: new Email('test@example.com'),
-      password: new HashedPassword(password_hash('password', PASSWORD_BCRYPT)),
-      profile: new UserProfile('Test', 'User', 'https://cdn.example.com/avatar.png'),
-      eventIdProvider: $eventIdProvider,
+    return new UserView(
+      id: new UserId('550e8400-e29b-41d4-a716-446655440000')->value,
+      username: 'testuser',
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      avatarUrl: 'https://cdn.example.com/avatar.png',
+      status: 'active',
+      emailVerified: true,
+      tenantId: null,
+      createdAt: new DateTimeImmutable('2024-01-01T00:00:00+00:00'),
+      lastLoginAt: new DateTimeImmutable('2024-01-02T00:00:00+00:00'),
+      canLogin: true,
     );
-
-    $user->verifyEmail(new TestEventIdProvider());
-
-    return $user;
   }
   // #endregion
 }

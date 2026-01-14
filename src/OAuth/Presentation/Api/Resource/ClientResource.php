@@ -29,8 +29,7 @@ use OAuth\Presentation\Api\Processor\Client\{
   RegisterClientProcessor,
   UpdateClientProcessor
 };
-use OAuth\Presentation\Api\Provider\Client\GetClientProvider;
-use OAuth\Presentation\Api\Provider\Client\ListClientsProvider;
+use OAuth\Presentation\Api\Provider\Client\{GetClientProvider, ListClientsProvider};
 use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 

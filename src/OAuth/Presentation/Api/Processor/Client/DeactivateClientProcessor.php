@@ -8,11 +8,9 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use InvalidArgumentException;
 use OAuth\Application\UseCase\Command\Client\DeactivateClient\DeactivateClientCommand;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
+use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
 use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
-use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 
 use function is_string;
 

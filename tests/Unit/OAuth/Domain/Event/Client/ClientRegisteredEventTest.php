@@ -6,10 +6,8 @@ namespace Tests\Unit\OAuth\Domain\Event\Client;
 
 use DateTimeImmutable;
 use OAuth\Domain\Event\Client\ClientRegisteredEvent;
-use OAuth\Domain\ValueObject\Client\ClientId;
-use OAuth\Domain\ValueObject\Client\ClientName;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use OAuth\Domain\ValueObject\Client\{ClientId, ClientName};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Uuid;
 

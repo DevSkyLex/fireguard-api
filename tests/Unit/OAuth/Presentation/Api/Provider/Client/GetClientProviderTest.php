@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Presentation\Api\Provider\Client;
 
 use ApiPlatform\Metadata\Operation;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery;
-use OAuth\Application\UseCase\Query\Client\GetClient\GetClientResult;
+use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientResult};
 use OAuth\Presentation\Api\Dto\Output\Client\ClientOutput;
 use OAuth\Presentation\Api\Provider\Client\GetClientProvider;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\Exception\EntityNotFoundException;

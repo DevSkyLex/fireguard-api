@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Auth\Application\Port\Outbound\Mfa;
 
-use Auth\Application\UseCase\Command\MfaChallenge\MfaChallengeCommand;
-use Auth\Application\UseCase\Command\MfaChallenge\MfaChallengeResult;
+use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeResult};
 
 /**
  * Interface ChallengeGeneratorPort.

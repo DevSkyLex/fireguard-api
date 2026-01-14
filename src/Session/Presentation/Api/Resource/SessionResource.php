@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Session\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Post};
-use Session\Presentation\Api\Dto\SessionOutput;
-use Session\Presentation\Api\Processor\RevokeAllSessionsProcessor;
-use Session\Presentation\Api\Processor\RevokeSessionProcessor;
-use Session\Presentation\Api\Provider\GetSessionProvider;
-use Session\Presentation\Api\Provider\ListUserSessionsProvider;
+use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
+use Session\Presentation\Api\Operation\SessionOperations;
+use Session\Presentation\Api\Processor\Session\{RevokeAllSessionsProcessor, RevokeSessionProcessor};
+use Session\Presentation\Api\Provider\Session\{GetSessionProvider, ListUserSessionsProvider};
+use Session\Presentation\Api\Serialization\SessionSerializationGroup;
 
 /**
  * Resource SessionResource.
@@ -25,23 +25,25 @@ use Session\Presentation\Api\Provider\ListUserSessionsProvider;
   description: 'User session management. Sessions track user authentication state across devices.',
   operations: [
     new GetCollection(
-      name: 'session_list',
+      name: SessionOperations::LIST,
       description: 'Returns all active sessions for the authenticated user.',
       uriTemplate: '/sessions',
       input: false,
       output: SessionOutput::class,
       provider: ListUserSessionsProvider::class,
+      normalizationContext: ['groups' => [SessionSerializationGroup::READ]],
     ),
     new Get(
-      name: 'session_get',
+      name: SessionOperations::GET,
       description: 'Get details of a specific session.',
       uriTemplate: '/sessions/{id}',
       input: false,
       output: SessionOutput::class,
       provider: GetSessionProvider::class,
+      normalizationContext: ['groups' => [SessionSerializationGroup::READ]],
     ),
     new Delete(
-      name: 'session_revoke',
+      name: SessionOperations::REVOKE,
       description: 'Revoke a specific session. The user will be logged out from that device.',
       uriTemplate: '/sessions/{id}',
       input: false,
@@ -49,11 +51,11 @@ use Session\Presentation\Api\Provider\ListUserSessionsProvider;
       processor: RevokeSessionProcessor::class,
     ),
     new Post(
-      name: 'session_revoke_all',
+      name: SessionOperations::REVOKE_ALL,
       description: 'Revoke all sessions for the authenticated user (logout from all devices).',
       uriTemplate: '/sessions/revoke-all',
       input: false,
-      output: SessionOutput::class,
+      output: false,
       processor: RevokeAllSessionsProcessor::class,
     ),
   ],

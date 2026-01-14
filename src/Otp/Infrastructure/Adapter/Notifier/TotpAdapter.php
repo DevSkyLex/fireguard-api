@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Otp\Infrastructure\Adapter\Notifier;
 
-use Otp\Application\Port\Outbound\TotpServicePort;
+use Otp\Application\Port\Outbound\Totp\TotpServicePort;
 use Otp\Domain\ValueObject\TotpSecret;
 
 use function bindec;

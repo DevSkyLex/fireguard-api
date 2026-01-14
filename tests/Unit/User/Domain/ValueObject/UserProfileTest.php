@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\User\Domain\ValueObject;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use User\Domain\ValueObject\UserProfile;
 
