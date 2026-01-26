@@ -7,6 +7,7 @@ namespace Tests\Unit\OAuth\Domain\ValueObject\Token;
 use OAuth\Domain\ValueObject\Token\TokenClaims;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test TokenClaimsTest.
@@ -46,6 +47,7 @@ final class TokenClaimsTest extends TestCase
     $this->assertEquals('user-1', $tokenClaims->get('sub'));
     $this->assertFalse($tokenClaims->has('iss'));
     $this->assertNull($tokenClaims->get('iss'));
+    $this->assertSame('default', $tokenClaims->get('iss', 'default'));
   }
 
   /**
@@ -64,5 +66,21 @@ final class TokenClaimsTest extends TestCase
     $tokenClaims = new TokenClaims($claims);
 
     $this->assertEquals($claims, $tokenClaims->jsonSerialize());
+  }
+
+  #[Test]
+  public function testEmptyClaimsThrowException(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new TokenClaims([]);
+  }
+
+  #[Test]
+  public function testEmptyKeyThrowsException(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new TokenClaims(['' => 'value']);
   }
 }

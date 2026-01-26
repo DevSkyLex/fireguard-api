@@ -74,5 +74,28 @@ final class GrantTypeValidatorTest extends TestCase
 
     $this->addToAssertionCount(1);
   }
+
+  #[Test]
+  public function testValidateRefreshTokenSucceedsWhenTokenProvided(): void
+  {
+    $validator = new GrantTypeValidator();
+
+    $validator->validate(
+      grantType: GrantTypeValidator::GRANT_REFRESH_TOKEN,
+      refreshToken: 'refresh-token',
+    );
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testValidateClientCredentialsSucceeds(): void
+  {
+    $validator = new GrantTypeValidator();
+
+    $validator->validate(GrantTypeValidator::GRANT_CLIENT_CREDENTIALS);
+
+    $this->addToAssertionCount(1);
+  }
   // #endregion
 }

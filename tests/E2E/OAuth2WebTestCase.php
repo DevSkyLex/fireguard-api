@@ -6,16 +6,13 @@ namespace App\Tests\E2E;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
-use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Throwable;
 use User\Infrastructure\DataFixtures\UserFixtures;
 
 use function is_array;
@@ -53,6 +50,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
   protected static function createClientWithFixtures(): KernelBrowser
   {
     $client = static::createClient();
+    $client->disableReboot();
     static::loadTestFixtures($client);
 
     return $client;
@@ -68,18 +66,6 @@ abstract class OAuth2WebTestCase extends WebTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = $container->get('doctrine.orm.entity_manager');
 
-    // Create schema
-    $schemaTool = new SchemaTool($entityManager);
-    $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
-
-    try {
-      $schemaTool->dropSchema($metadata);
-    } catch (Throwable) {
-      // Schema might not exist yet
-    }
-
-    $schemaTool->createSchema($metadata);
-
     // Load fixtures using proper executor with reference repository
     $loader = new Loader();
 
@@ -91,9 +77,9 @@ abstract class OAuth2WebTestCase extends WebTestCase
     $loader->addFixture($clientFixtures);
     $loader->addFixture($userFixtures);
 
-    $purger = new ORMPurger($entityManager);
-    $executor = new ORMExecutor($entityManager, $purger);
-    $executor->execute($loader->getFixtures());
+    $executor = new ORMExecutor($entityManager);
+    // Append mode avoids purge; each test is isolated by transaction rollback.
+    $executor->execute($loader->getFixtures(), true);
 
     $entityManager->clear();
   }

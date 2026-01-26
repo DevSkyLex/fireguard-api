@@ -101,6 +101,14 @@ final class TokenExpiryTest extends TestCase
     $this->assertEquals(expected: $timestamp, actual: $expiry->expiresAt->getTimestamp());
   }
 
+  #[Test]
+  public function testFromSecondsDelegatesToFromTtl(): void
+  {
+    $expiry = TokenExpiry::fromSeconds(120);
+
+    $this->assertGreaterThan(0, $expiry->remainingSeconds);
+  }
+
   /**
    * Method testIsExpiredPropertyHook.
    *
@@ -125,6 +133,14 @@ final class TokenExpiryTest extends TestCase
     $expiry = new TokenExpiry(new DateTimeImmutable('-1 hour'));
 
     $this->assertTrue($expiry->isExpired);
+  }
+
+  #[Test]
+  public function testIsExpiredMethodUsesHook(): void
+  {
+    $expiry = new TokenExpiry(new DateTimeImmutable('-1 hour'));
+
+    $this->assertTrue($expiry->isExpired());
   }
 
   /**
@@ -153,6 +169,14 @@ final class TokenExpiryTest extends TestCase
     $expiry = new TokenExpiry(new DateTimeImmutable('-1 hour'));
 
     $this->assertEquals(expected: 0, actual: $expiry->remainingSeconds);
+  }
+
+  #[Test]
+  public function testSecondsRemainingMethodUsesHook(): void
+  {
+    $expiry = new TokenExpiry(new DateTimeImmutable('-1 hour'));
+
+    $this->assertSame(0, $expiry->secondsRemaining());
   }
 
   /**

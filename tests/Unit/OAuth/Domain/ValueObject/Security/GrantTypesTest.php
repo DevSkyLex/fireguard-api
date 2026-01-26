@@ -7,6 +7,8 @@ namespace Tests\Unit\OAuth\Domain\ValueObject\Security;
 use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
+use ValueError;
 
 /**
  * Test GrantTypesTest.
@@ -124,5 +126,50 @@ final class GrantTypesTest extends TestCase
     $array = $grantTypes->toArray();
 
     $this->assertEquals(['AUTHORIZATION_CODE', 'CLIENT_CREDENTIALS'], $array);
+  }
+
+  /**
+   * Method testConstructorThrowsWhenEmpty.
+   *
+   * Tests that at least one grant type is required.
+   *
+   * @since 2.0.0
+   */
+  #[Test]
+  public function testConstructorThrowsWhenEmpty(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new GrantTypes();
+  }
+
+  /**
+   * Method testFromArrayThrowsWhenEmpty.
+   *
+   * Tests that an empty array is rejected.
+   *
+   * @since 2.0.0
+   */
+  #[Test]
+  public function testFromArrayThrowsWhenEmpty(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    GrantTypes::fromArray([]);
+  }
+
+  /**
+   * Method testFromArrayThrowsWhenInvalidValue.
+   *
+   * Tests that invalid grant type values throw.
+   *
+   * @since 2.0.0
+   */
+  #[Test]
+  public function testFromArrayThrowsWhenInvalidValue(): void
+  {
+    $this->expectException(ValueError::class);
+
+    GrantTypes::fromArray(['invalid']);
   }
 }

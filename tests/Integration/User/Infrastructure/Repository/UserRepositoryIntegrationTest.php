@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace Tests\Integration\User\Infrastructure\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Domain\ValueObject\{Email, TenantId};
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Throwable;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
@@ -49,18 +47,6 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = $container->get('doctrine.orm.entity_manager');
     $this->entityManager = $entityManager;
-
-    // Create schema
-    $schemaTool = new SchemaTool($this->entityManager);
-    $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
-
-    try {
-      $schemaTool->dropSchema($metadata);
-    } catch (Throwable) {
-      // Schema might not exist
-    }
-
-    $schemaTool->createSchema($metadata);
 
     /** @var UserMapper $mapper */
     $mapper = $container->get(UserMapper::class);

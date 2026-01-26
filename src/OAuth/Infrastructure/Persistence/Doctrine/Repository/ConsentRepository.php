@@ -130,12 +130,12 @@ final class ConsentRepository implements ConsentRepositoryPort
   public function revokeAllForUser(string $userId): int
   {
     $qb = $this->entityManager->createQueryBuilder();
-    $qb->update(update: ConsentRecord::class, alias: 'c')
-      ->set(key: 'c.revokedAt', value: ':now')
-      ->where(predicates: 'c.userId = :userId')
-      ->andWhere(where: 'c.revokedAt IS NULL')
-      ->setParameter(key: 'now', value: new DateTimeImmutable())
-      ->setParameter(key: 'userId', value: $userId);
+    $qb->update(ConsentRecord::class, 'c')
+      ->set('c.revokedAt', ':now')
+      ->where('c.userId = :userId')
+      ->andWhere('c.revokedAt IS NULL')
+      ->setParameter('now', new DateTimeImmutable())
+      ->setParameter('userId', $userId);
 
     $result = $qb->getQuery()->execute();
 

@@ -7,14 +7,11 @@ namespace App\Tests\E2E;
 use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
-use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
-use Throwable;
 use User\Infrastructure\DataFixtures\UserFixtures;
 
 use function in_array;
@@ -745,6 +742,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
   protected static function createClientWithFixtures(): KernelBrowser
   {
     $client = static::createClient();
+    $client->disableReboot();
     static::loadTestFixtures($client);
 
     return $client;
@@ -760,18 +758,6 @@ class RolePermissionManagementFlowTest extends WebTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = $container->get('doctrine.orm.entity_manager');
 
-    // Create schema
-    $schemaTool = new SchemaTool($entityManager);
-    $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
-
-    try {
-      $schemaTool->dropSchema($metadata);
-    } catch (Throwable) {
-      // Schema might not exist yet
-    }
-
-    $schemaTool->createSchema($metadata);
-
     // Load fixtures
     $loader = new Loader();
 
@@ -786,9 +772,9 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $loader->addFixture($userFixtures);
     $loader->addFixture($authFixtures);
 
-    $purger = new ORMPurger($entityManager);
-    $executor = new ORMExecutor($entityManager, $purger);
-    $executor->execute($loader->getFixtures());
+    $executor = new ORMExecutor($entityManager);
+    // Append mode avoids purge; each test is isolated by transaction rollback.
+    $executor->execute($loader->getFixtures(), true);
 
     $entityManager->clear();
   }

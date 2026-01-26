@@ -163,12 +163,12 @@ final class SessionRepository implements SessionRepositoryPort
   public function revokeAllForUser(string $userId): int
   {
     $qb = $this->entityManager->createQueryBuilder();
-    $qb->update(update: SessionRecord::class, alias: 's')
-      ->set(key: 's.revokedAt', value: ':now')
-      ->where(predicates: 's.userId = :userId')
-      ->andWhere(where: 's.revokedAt IS NULL')
-      ->setParameter(key: 'now', value: new DateTimeImmutable())
-      ->setParameter(key: 'userId', value: $userId);
+    $qb->update(SessionRecord::class, 's')
+      ->set('s.revokedAt', ':now')
+      ->where('s.userId = :userId')
+      ->andWhere('s.revokedAt IS NULL')
+      ->setParameter('now', new DateTimeImmutable())
+      ->setParameter('userId', $userId);
 
     $result = $qb->getQuery()->execute();
 

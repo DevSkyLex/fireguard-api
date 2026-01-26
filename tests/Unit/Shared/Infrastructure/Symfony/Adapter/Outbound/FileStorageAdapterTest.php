@@ -10,10 +10,13 @@ use Shared\Infrastructure\Exception\FileStorageException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter;
 
 use function array_diff;
+use function file_put_contents;
 use function is_dir;
 use function mkdir;
+use function restore_error_handler;
 use function rmdir;
 use function scandir;
+use function set_error_handler;
 use function sys_get_temp_dir;
 use function uniqid;
 use function unlink;
@@ -116,6 +119,44 @@ final class FileStorageAdapterTest extends TestCase
     $this->adapter->delete('non_existent.txt');
   }
 
+  #[Test]
+  public function testWriteThrowsWhenDirectoryCreationFails(): void
+  {
+    $baseFile = $this->tempDir . '/base.txt';
+    file_put_contents($baseFile, 'base');
+
+    $this->expectException(FileStorageException::class);
+
+    $adapter = new FileStorageAdapter($baseFile);
+    $adapter->write('nested/test.txt', 'content');
+  }
+
+  #[Test]
+  public function testWriteThrowsWhenFilePutFails(): void
+  {
+    $dirPath = $this->tempDir . '/test.txt';
+    mkdir($dirPath);
+
+    $this->expectException(FileStorageException::class);
+
+    $this->suppressWarnings(function (): void {
+      $this->adapter->write('test.txt', 'content');
+    });
+  }
+
+  #[Test]
+  public function testDeleteThrowsWhenUnlinkFails(): void
+  {
+    $dirPath = $this->tempDir . '/locked.txt';
+    mkdir($dirPath);
+
+    $this->expectException(FileStorageException::class);
+
+    $this->suppressWarnings(function (): void {
+      $this->adapter->delete('locked.txt');
+    });
+  }
+
   /**
    * Recursively remove a directory and its contents.
    *
@@ -131,5 +172,16 @@ final class FileStorageAdapterTest extends TestCase
       (is_dir("$dir/$file")) ? $this->recursiveRemove("$dir/$file") : unlink("$dir/$file");
     }
     rmdir($dir);
+  }
+
+  private function suppressWarnings(callable $callback): void
+  {
+    set_error_handler(static fn (): bool => true);
+
+    try {
+      $callback();
+    } finally {
+      restore_error_handler();
+    }
   }
 }

@@ -133,5 +133,81 @@ final class ResourceOwnerVoterTest extends TestCase
 
     $this->assertSame(Voter::ACCESS_GRANTED, $result);
   }
+
+  #[Test]
+  public function testVoteUsesOwnerObjectToString(): void
+  {
+    $voter = new ResourceOwnerVoter();
+
+    $subject = new class () {
+      public function getOwner(): object
+      {
+        return new class () {
+          public function __toString(): string
+          {
+            return 'user-123';
+          }
+        };
+      }
+    };
+
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hash',
+    );
+
+    $token = $this->createMock(TokenInterface::class);
+    $token->method('getUser')->willReturn($user);
+
+    $result = $voter->vote($token, $subject, [ResourceOwnerVoter::OWNER]);
+
+    $this->assertSame(Voter::ACCESS_GRANTED, $result);
+  }
+
+  #[Test]
+  public function testVoteDeniesWhenOwnerIdCannotBeResolved(): void
+  {
+    $voter = new ResourceOwnerVoter();
+
+    $subject = new class () {
+      public function getOwnerId(): object
+      {
+        return new class () {};
+      }
+    };
+
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hash',
+    );
+
+    $token = $this->createMock(TokenInterface::class);
+    $token->method('getUser')->willReturn($user);
+
+    $result = $voter->vote($token, $subject, [ResourceOwnerVoter::OWNER]);
+
+    $this->assertSame(Voter::ACCESS_DENIED, $result);
+  }
+
+  #[Test]
+  public function testVoteAbstainsWhenSubjectNotObject(): void
+  {
+    $voter = new ResourceOwnerVoter();
+
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hash',
+    );
+
+    $token = $this->createMock(TokenInterface::class);
+    $token->method('getUser')->willReturn($user);
+
+    $result = $voter->vote($token, 'not-object', [ResourceOwnerVoter::OWNER]);
+
+    $this->assertSame(Voter::ACCESS_ABSTAIN, $result);
+  }
   // #endregion
 }

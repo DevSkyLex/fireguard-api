@@ -198,6 +198,10 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
       assignment: $assignment,
       record: $existingRecord,
     );
+    $record->role ??= $this->entityManager->getReference(
+      RoleRecord::class,
+      $assignment->roleId()->value,
+    );
 
     $this->entityManager->persist($record);
     $this->entityManager->flush();

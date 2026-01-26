@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use stdClass;
 use Symfony\Component\Security\Core\Exception\{UnsupportedUserException, UserNotFoundException};
@@ -78,6 +79,35 @@ final class SecurityUserProviderTest extends TestCase
     $this->assertContains('ROLE_VERIFIED', $user->getRoles());
   }
 
+  #[Test]
+  public function testLoadUserByIdentifierDelegatesToLoadUserById(): void
+  {
+    $userView = $this->createUserView(canLogin: true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetUserQuery::class))
+      ->willReturn(new GetUserResult(user: $userView));
+
+    /** @var AuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('getUserRoleNames')
+      ->with('user-123')
+      ->willReturn([]);
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+    );
+
+    $user = $provider->loadUserByIdentifier('user-123');
+
+    $this->assertSame('user-123', $user->getId());
+  }
+
   /**
    * Method testLoadUserByIdThrowsWhenUserMissing.
    */
@@ -99,6 +129,54 @@ final class SecurityUserProviderTest extends TestCase
 
     $this->expectException(UserNotFoundException::class);
     $provider->loadUserById('missing-user');
+  }
+
+  #[Test]
+  public function testLoadUserByIdThrowsWhenQueryFails(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $authorization = $this->createMock(AuthorizationPort::class);
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+    );
+
+    $this->expectException(UserNotFoundException::class);
+    $provider->loadUserById('user-123');
+  }
+
+  #[Test]
+  public function testLoadUserByIdMapsInactiveUserRoles(): void
+  {
+    $userView = $this->createUserView(canLogin: false);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new GetUserResult(user: $userView));
+
+    /** @var AuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('getUserRoleNames')
+      ->willReturn([]);
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+    );
+
+    $user = $provider->loadUserById('user-123');
+
+    $this->assertContains('ROLE_USER', $user->getRoles());
+    $this->assertNotContains('ROLE_VERIFIED', $user->getRoles());
   }
 
   /**
@@ -129,6 +207,24 @@ final class SecurityUserProviderTest extends TestCase
 
     $this->assertTrue($provider->supportsClass(SecurityUser::class));
     $this->assertFalse($provider->supportsClass(stdClass::class));
+  }
+
+  private function createUserView(bool $canLogin): UserView
+  {
+    return new UserView(
+      id: 'user-123',
+      username: 'user',
+      email: 'user@example.com',
+      firstName: 'User',
+      lastName: 'Test',
+      avatarUrl: null,
+      status: 'active',
+      emailVerified: true,
+      tenantId: null,
+      createdAt: new DateTimeImmutable(),
+      lastLoginAt: null,
+      canLogin: $canLogin,
+    );
   }
   // #endregion
 }

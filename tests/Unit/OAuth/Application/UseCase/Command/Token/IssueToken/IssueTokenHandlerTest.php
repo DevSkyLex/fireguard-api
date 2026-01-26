@@ -505,5 +505,211 @@ final class IssueTokenHandlerTest extends TestCase
 
     self::assertNull($result->idToken);
   }
+
+  #[Test]
+  public function testHandleFallsBackToAuthCodeWhenEncryptedMissing(): void
+  {
+    $command = new IssueTokenCommand(
+      grantType: 'authorization_code',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      scope: null,
+      code: 'auth-code',
+      redirectUri: 'https://app.example.com/callback',
+      codeVerifier: 'verifier',
+    );
+
+    $expectedResult = new IssueTokenResult(
+      accessToken: 'access-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      refreshToken: 'refresh-token',
+      scope: null,
+    );
+
+    $authCode = new AuthCode(
+      identifier: 'auth-code',
+      expiryDateTime: new DateTimeImmutable('+10 minutes'),
+      clientIdentifier: new OAuthClientIdentifier('client-id'),
+      userIdentifier: 'user-id',
+      scopes: Scopes::fromArray(['OPENID']),
+      redirectUri: 'https://app.example.com/callback',
+      nonce: null,
+      isRevoked: false,
+    );
+
+    $oidcUser = new OidcUser(
+      subject: 'user-id',
+      preferredUsername: 'testuser',
+      email: 'test@example.com',
+      emailVerified: true,
+      givenName: 'Test',
+      familyName: 'User',
+      pictureUrl: null,
+      authTime: new DateTimeImmutable('@1700000000'),
+    );
+
+    $this->authorizationServer
+      ->expects(self::once())
+      ->method('issueAccessToken')
+      ->willReturn($expectedResult);
+
+    $this->authCodeRepository
+      ->expects(self::once())
+      ->method('findByEncryptedCode')
+      ->with('auth-code')
+      ->willReturn(null);
+    $this->authCodeRepository
+      ->expects(self::once())
+      ->method('find')
+      ->with('auth-code')
+      ->willReturn($authCode);
+
+    $this->oidcUserProvider
+      ->expects(self::once())
+      ->method('findByIdentifier')
+      ->with('user-id')
+      ->willReturn($oidcUser);
+
+    $this->claimsBuilder
+      ->expects(self::once())
+      ->method('buildIdTokenClaims')
+      ->with($oidcUser, Scopes::fromArray(['OPENID'])->toArray())
+      ->willReturn(['sub' => 'user-id']);
+
+    $this->idTokenIssuer
+      ->expects(self::once())
+      ->method('issueIdToken')
+      ->willReturn('id-token');
+
+    $this->eventDispatcher
+      ->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(TokenIssuedEvent::class));
+
+    $result = ($this->handler)($command);
+
+    self::assertSame('id-token', $result->idToken);
+  }
+
+  #[Test]
+  public function testHandleRefreshTokenWithoutAccessTokenSkipsIdToken(): void
+  {
+    $command = new IssueTokenCommand(
+      grantType: 'refresh_token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      refreshToken: 'refresh-token',
+      scope: null,
+    );
+
+    $expectedResult = new IssueTokenResult(
+      accessToken: 'access-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      refreshToken: 'refresh-token',
+      scope: null,
+    );
+
+    $refreshToken = new RefreshToken(
+      identifier: 'refresh-token',
+      expiryDateTime: new DateTimeImmutable('+1 hour'),
+      accessTokenIdentifier: 'access-token-id',
+      clientIdentifier: new OAuthClientIdentifier('client-id'),
+    );
+
+    $this->authorizationServer
+      ->expects(self::once())
+      ->method('issueAccessToken')
+      ->willReturn($expectedResult);
+
+    $this->refreshTokenRepository
+      ->expects(self::once())
+      ->method('findByEncryptedToken')
+      ->with('refresh-token')
+      ->willReturn(null);
+    $this->refreshTokenRepository
+      ->expects(self::once())
+      ->method('find')
+      ->with('refresh-token')
+      ->willReturn($refreshToken);
+
+    $this->accessTokenRepository
+      ->expects(self::once())
+      ->method('find')
+      ->with('access-token-id')
+      ->willReturn(null);
+
+    $this->idTokenIssuer
+      ->expects(self::never())
+      ->method('issueIdToken');
+
+    $this->eventDispatcher
+      ->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(TokenIssuedEvent::class));
+
+    $result = ($this->handler)($command);
+
+    self::assertNull($result->idToken);
+  }
+
+  #[Test]
+  public function testHandleThrowsWhenOidcUserMissing(): void
+  {
+    $command = new IssueTokenCommand(
+      grantType: 'authorization_code',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      scope: 'openid',
+      code: 'auth-code',
+      redirectUri: 'https://app.example.com/callback',
+      codeVerifier: 'verifier',
+    );
+
+    $expectedResult = new IssueTokenResult(
+      accessToken: 'access-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      refreshToken: 'refresh-token',
+      scope: 'openid',
+    );
+
+    $authCode = new AuthCode(
+      identifier: 'auth-code',
+      expiryDateTime: new DateTimeImmutable('+10 minutes'),
+      clientIdentifier: new OAuthClientIdentifier('client-id'),
+      userIdentifier: 'user-id',
+      scopes: Scopes::fromArray(['OPENID']),
+      redirectUri: 'https://app.example.com/callback',
+      nonce: null,
+      isRevoked: false,
+    );
+
+    $this->authorizationServer
+      ->expects(self::once())
+      ->method('issueAccessToken')
+      ->willReturn($expectedResult);
+
+    $this->authCodeRepository
+      ->expects(self::once())
+      ->method('findByEncryptedCode')
+      ->willReturn($authCode);
+
+    $this->oidcUserProvider
+      ->expects(self::once())
+      ->method('findByIdentifier')
+      ->with('user-id')
+      ->willReturn(null);
+
+    $this->eventDispatcher
+      ->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(TokenIssueFailedEvent::class));
+
+    $this->expectException(AuthorizationException::class);
+
+    ($this->handler)($command);
+  }
   // #endregion
 }

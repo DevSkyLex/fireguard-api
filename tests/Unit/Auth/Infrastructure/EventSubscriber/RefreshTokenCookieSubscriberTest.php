@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\{Cookie, Request, Response};
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\{HttpKernelInterface, KernelEvents};
 
 /**
  * Test RefreshTokenCookieSubscriberTest.
@@ -69,6 +69,18 @@ final class RefreshTokenCookieSubscriberTest extends TestCase
     $subscriber->onKernelResponse($event);
 
     $this->assertSame([], $response->headers->getCookies());
+  }
+
+  /**
+   * Method testGetSubscribedEventsRegistersKernelResponse.
+   */
+  #[Test]
+  public function testGetSubscribedEventsRegistersKernelResponse(): void
+  {
+    $events = RefreshTokenCookieSubscriber::getSubscribedEvents();
+
+    $this->assertArrayHasKey(KernelEvents::RESPONSE, $events);
+    $this->assertSame('onKernelResponse', $events[KernelEvents::RESPONSE]);
   }
   // #endregion
 }

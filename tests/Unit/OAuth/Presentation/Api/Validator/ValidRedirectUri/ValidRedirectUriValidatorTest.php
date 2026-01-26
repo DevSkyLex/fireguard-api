@@ -7,7 +7,9 @@ namespace Tests\Unit\OAuth\Presentation\Api\Validator\ValidRedirectUri;
 use OAuth\Presentation\Api\Validator\ValidRedirectUri\{ValidRedirectUri, ValidRedirectUriValidator};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
 
 /**
@@ -127,6 +129,38 @@ final class ValidRedirectUriValidatorTest extends TestCase
 
     $constraint = new ValidRedirectUri();
     $validator->validate(value: null, constraint: $constraint);
+  }
+
+  #[Test]
+  public function testInvalidConstraintThrows(): void
+  {
+    $validator = new ValidRedirectUriValidator();
+
+    $this->expectException(UnexpectedTypeException::class);
+
+    $validator->validate(value: 'https://example.com/callback', constraint: new NotBlank());
+  }
+
+  #[Test]
+  public function testInvalidUriWithoutSchemeFails(): void
+  {
+    $violationBuilder = $this->createMock(ConstraintViolationBuilderInterface::class);
+    $violationBuilder->expects(self::once())
+      ->method('setParameter')
+      ->willReturnSelf();
+    $violationBuilder->expects(self::once())
+      ->method('addViolation');
+
+    $context = $this->createMock(ExecutionContextInterface::class);
+    $context->expects(self::once())
+      ->method('buildViolation')
+      ->willReturn($violationBuilder);
+
+    $validator = new ValidRedirectUriValidator();
+    $validator->initialize(context: $context);
+
+    $constraint = new ValidRedirectUri();
+    $validator->validate(value: 'example.com/callback', constraint: $constraint);
   }
   // #endregion
 }

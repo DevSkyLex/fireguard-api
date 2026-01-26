@@ -28,3 +28,16 @@ phpstan.neon
 /.php-cs-fixer.php
 /.php-cs-fixer.cache
 ###< friendsofphp/php-cs-fixer ###
+
+###> code coverage ###
+/.coverage/
+###< code coverage ###
+
+###> IDE ###
+/.vscode/
+/.idea/
+###< IDE ###
+
+###> test output ###
+/test_output.txt
+###< test output ###

@@ -193,6 +193,40 @@ final class RoleTest extends TestCase
     $this->assertNotNull($role->updatedAt());
   }
 
+  #[Test]
+  public function testReconstituteRestoresPermissions(): void
+  {
+    $permission = $this->createTestPermission('users.read');
+    $createdAt = new DateTimeImmutable('2024-01-01T00:00:00+00:00');
+    $updatedAt = new DateTimeImmutable('2024-01-02T00:00:00+00:00');
+
+    $role = Role::reconstitute(
+      id: new RoleId('550e8400-e29b-41d4-a716-446655440010'),
+      name: new RoleName('reader'),
+      description: 'Reader role',
+      isSystem: false,
+      tenantId: null,
+      createdAt: $createdAt,
+      updatedAt: $updatedAt,
+      permissions: [$permission],
+    );
+
+    $this->assertSame($createdAt, $role->createdAt());
+    $this->assertSame($updatedAt, $role->updatedAt());
+    $this->assertCount(1, $role->permissions());
+  }
+
+  #[Test]
+  public function testRemovePermissionUpdatesTimestampWhenMissing(): void
+  {
+    $role = $this->createTestRole();
+    $this->assertNull($role->updatedAt());
+
+    $role->removePermission($this->createTestPermission('users.read'));
+
+    $this->assertNotNull($role->updatedAt());
+  }
+
   // #endregion
 
   // #region Equality Tests

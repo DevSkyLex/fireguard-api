@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\{Email, TenantId};
 use Tests\Helper\TestEventIdProvider;
 use User\Domain\Event\UserCreatedEvent;
+use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
 
@@ -110,6 +111,84 @@ final class UserTest extends TestCase
 
     // Assert
     $this->assertNotNull($user->lastLoginAt());
+    $this->assertEquals(0, $user->failedLoginAttempts());
+  }
+
+  #[Test]
+  public function testVerifyEmailIsIdempotent(): void
+  {
+    $eventIdProvider = new TestEventIdProvider();
+    $user = User::register(
+      id: new UserId('550e8400-e29b-41d4-a716-446655440003'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
+    );
+
+    $user->releaseEvents();
+    $user->verifyEmail($eventIdProvider);
+    $events = $user->releaseEvents();
+
+    $this->assertCount(1, $events);
+    $user->verifyEmail($eventIdProvider);
+
+    $this->assertSame(UserStatus::ACTIVE, $user->status());
+    $this->assertTrue($user->isEmailVerified());
+    $this->assertCount(0, $user->releaseEvents());
+  }
+
+  #[Test]
+  public function testAuthenticateThrowsOnInvalidPasswordAndLocksAccount(): void
+  {
+    $eventIdProvider = new TestEventIdProvider();
+    $user = User::register(
+      id: new UserId('550e8400-e29b-41d4-a716-446655440004'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
+    );
+    $user->verifyEmail($eventIdProvider);
+
+    for ($attempt = 0; $attempt < 5; ++$attempt) {
+      try {
+        $user->authenticate('wrong-password');
+        $this->fail('Expected InvalidPasswordException');
+      } catch (InvalidPasswordException) {
+        // expected
+      }
+    }
+
+    $this->assertSame(UserStatus::LOCKED, $user->status());
+    $this->expectException(InvalidUserException::class);
+
+    $user->authenticate('password123');
+  }
+
+  #[Test]
+  public function testUpdateProfileAndChangePassword(): void
+  {
+    $eventIdProvider = new TestEventIdProvider();
+    $user = User::register(
+      id: new UserId('550e8400-e29b-41d4-a716-446655440005'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
+    );
+
+    $newProfile = new UserProfile('Jane', 'Doe');
+    $user->updateProfile($newProfile);
+    $this->assertTrue($user->profile()->equals($newProfile));
+
+    $user->changePassword(HashedPassword::fromPlain('new-pass'));
+    $user->verifyEmail($eventIdProvider);
+    $user->authenticate('new-pass');
+
     $this->assertEquals(0, $user->failedLoginAttempts());
   }
   // #endregion

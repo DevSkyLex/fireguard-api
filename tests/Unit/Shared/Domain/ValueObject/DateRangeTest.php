@@ -92,6 +92,61 @@ final class DateRangeTest extends TestCase
   }
 
   /**
+   * Method testOverlapsAndDuration.
+   *
+   * Tests overlap detection and duration calculation.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testOverlapsAndDuration(): void
+  {
+    $range = new DateRange(
+      start: new DateTimeImmutable(datetime: '2023-01-01'),
+      end: new DateTimeImmutable(datetime: '2023-01-31'),
+    );
+    $overlap = new DateRange(
+      start: new DateTimeImmutable(datetime: '2023-01-15'),
+      end: new DateTimeImmutable(datetime: '2023-02-01'),
+    );
+    $nonOverlap = new DateRange(
+      start: new DateTimeImmutable(datetime: '2023-02-02'),
+      end: new DateTimeImmutable(datetime: '2023-02-05'),
+    );
+
+    $this->assertTrue(condition: $range->overlaps($overlap));
+    $this->assertFalse(condition: $range->overlaps($nonOverlap));
+
+    $durationRange = new DateRange(
+      start: new DateTimeImmutable(datetime: '2023-01-01 00:00:00'),
+      end: new DateTimeImmutable(datetime: '2023-01-01 01:00:00'),
+    );
+    $this->assertSame(expected: 3600, actual: $durationRange->duration());
+  }
+
+  /**
+   * Method testIsActive.
+   *
+   * Tests that a range around now is active.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testIsActive(): void
+  {
+    $range = new DateRange(
+      start: new DateTimeImmutable(datetime: '-1 minute'),
+      end: new DateTimeImmutable(datetime: '+1 minute'),
+    );
+
+    $this->assertTrue(condition: $range->isActive());
+  }
+
+  /**
    * Method testEquality.
    *
    * Tests equality comparison between DateRange objects.

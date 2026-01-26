@@ -12,8 +12,10 @@ use OAuth\Application\UseCase\Query\Client\GetClient\{GetClientQuery, GetClientR
 use OAuth\Presentation\Api\Processor\Session\EndSessionProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Component\HttpFoundation\{Cookie, JsonResponse, RedirectResponse, Request, RequestStack, Response};
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 use function json_decode;
 
@@ -470,6 +472,248 @@ final class EndSessionProcessorTest extends TestCase
 
     $cookie = $request->attributes->get('_refresh_token_cookie');
     self::assertInstanceOf(expected: Cookie::class, actual: $cookie);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenRequestMissing(): void
+  {
+    $processor = new EndSessionProcessor(
+      requestStack: new RequestStack(),
+      commandBus: $this->createMock(CommandBusPort::class),
+      queryBus: $this->createMock(QueryBusPort::class),
+      jwtParser: $this->createMock(JwtParserPort::class),
+      cookieService: $this->createCookieService(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: $this->createMock(Operation::class),
+    );
+  }
+
+  #[Test]
+  public function testProcessReturnsInvalidRequestWhenIdTokenHintParseFails(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/logout',
+      method: 'GET',
+      parameters: [
+        'post_logout_redirect_uri' => 'https://client.example.com/logout',
+        'id_token_hint' => 'jwt-token',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())
+      ->method('validate')
+      ->with('jwt-token')
+      ->willReturn(true);
+    $jwtParser->expects(self::once())
+      ->method('parse')
+      ->with('jwt-token')
+      ->willReturn(null);
+
+    $processor = new EndSessionProcessor(
+      requestStack: $requestStack,
+      commandBus: $this->createMock(CommandBusPort::class),
+      queryBus: $this->createMock(QueryBusPort::class),
+      jwtParser: $jwtParser,
+      cookieService: $this->createCookieService(),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsInvalidRequestWhenAudienceArrayEmpty(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/logout',
+      method: 'GET',
+      parameters: [
+        'post_logout_redirect_uri' => 'https://client.example.com/logout',
+        'id_token_hint' => 'jwt-token',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())
+      ->method('validate')
+      ->with('jwt-token')
+      ->willReturn(true);
+    $jwtParser->expects(self::once())
+      ->method('parse')
+      ->with('jwt-token')
+      ->willReturn(['aud' => [123, null]]);
+
+    $processor = new EndSessionProcessor(
+      requestStack: $requestStack,
+      commandBus: $this->createMock(CommandBusPort::class),
+      queryBus: $this->createMock(QueryBusPort::class),
+      jwtParser: $jwtParser,
+      cookieService: $this->createCookieService(),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsInvalidRequestWhenQueryBusThrows(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/logout',
+      method: 'GET',
+      parameters: [
+        'post_logout_redirect_uri' => 'https://client.example.com/logout',
+        'client_id' => 'client-123',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $processor = new EndSessionProcessor(
+      requestStack: $requestStack,
+      commandBus: $this->createMock(CommandBusPort::class),
+      queryBus: $queryBus,
+      jwtParser: $this->createMock(JwtParserPort::class),
+      cookieService: $this->createCookieService(),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsInvalidRequestWhenClientInactive(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/logout',
+      method: 'GET',
+      parameters: [
+        'post_logout_redirect_uri' => 'https://client.example.com/logout',
+        'client_id' => 'client-123',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new GetClientResult(
+        id: 'client-123',
+        name: 'Test Client',
+        redirectUris: ['https://client.example.com/logout'],
+        grantTypes: ['authorization_code'],
+        scopes: ['openid'],
+        isActive: false,
+        createdAt: '2024-01-01T00:00:00+00:00',
+      ));
+
+    $processor = new EndSessionProcessor(
+      requestStack: $requestStack,
+      commandBus: $this->createMock(CommandBusPort::class),
+      queryBus: $queryBus,
+      jwtParser: $this->createMock(JwtParserPort::class),
+      cookieService: $this->createCookieService(),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessRedirectsWithoutStateWhenStateBlank(): void
+  {
+    $postLogoutUri = 'https://client.example.com/logout';
+
+    $request = Request::create(
+      uri: '/api/oauth2/logout',
+      method: 'GET',
+      parameters: [
+        'post_logout_redirect_uri' => $postLogoutUri,
+        'client_id' => 'client-123',
+        'state' => '',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetClientQuery::class))
+      ->willReturn($this->createClientResult($postLogoutUri));
+
+    $processor = new EndSessionProcessor(
+      requestStack: $requestStack,
+      commandBus: $this->createMock(CommandBusPort::class),
+      queryBus: $queryBus,
+      jwtParser: $this->createMock(JwtParserPort::class),
+      cookieService: $this->createCookieService(),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(RedirectResponse::class, $response);
+    self::assertSame($postLogoutUri, $response->headers->get('Location'));
+  }
+
+  #[Test]
+  public function testProcessIgnoresRevocationFailures(): void
+  {
+    $cookieService = $this->createCookieService();
+
+    $request = Request::create('/api/oauth2/logout', 'GET');
+    $request->cookies->set($cookieService->getCookieName(), 'refresh-token');
+    $request->headers->set('Authorization', 'Bearer access-token');
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::exactly(2))
+      ->method('dispatch')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $processor = new EndSessionProcessor(
+      requestStack: $requestStack,
+      commandBus: $commandBus,
+      queryBus: $this->createMock(QueryBusPort::class),
+      jwtParser: $this->createMock(JwtParserPort::class),
+      cookieService: $cookieService,
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_OK, $response->getStatusCode());
   }
 
   private function createClientResult(string $postLogoutUri): GetClientResult

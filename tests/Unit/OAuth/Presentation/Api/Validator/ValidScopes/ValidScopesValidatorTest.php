@@ -8,6 +8,7 @@ use OAuth\Presentation\Api\Validator\ValidScopes\{ValidScopes, ValidScopesValida
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 use Symfony\Component\Validator\Violation\ConstraintViolationBuilderInterface;
 
 /**
@@ -100,6 +101,42 @@ final class ValidScopesValidatorTest extends TestCase
 
     $constraint = new ValidScopes();
     $validator->validate(value: null, constraint: $constraint);
+  }
+
+  #[Test]
+  public function testScalarValueIsWrapped(): void
+  {
+    $context = $this->createMock(ExecutionContextInterface::class);
+    $context->expects(self::never())->method('buildViolation');
+
+    $validator = new ValidScopesValidator();
+    $validator->initialize(context: $context);
+
+    $constraint = new ValidScopes();
+    $validator->validate(value: 'openid', constraint: $constraint);
+  }
+
+  #[Test]
+  public function testNonStringValuesAreIgnored(): void
+  {
+    $context = $this->createMock(ExecutionContextInterface::class);
+    $context->expects(self::never())->method('buildViolation');
+
+    $validator = new ValidScopesValidator();
+    $validator->initialize(context: $context);
+
+    $constraint = new ValidScopes();
+    $validator->validate(value: [123, null], constraint: $constraint);
+  }
+
+  #[Test]
+  public function testUnexpectedConstraintThrows(): void
+  {
+    $validator = new ValidScopesValidator();
+
+    $this->expectException(UnexpectedTypeException::class);
+
+    $validator->validate(value: 'openid', constraint: $this->createMock(\Symfony\Component\Validator\Constraint::class));
   }
   // #endregion
 }

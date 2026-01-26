@@ -57,6 +57,13 @@ final class RedirectUriTest extends TestCase
     new RedirectUri(value: 'invalid-url');
   }
 
+  #[Test]
+  public function testCannotBeCreatedWithUnsupportedScheme(): void
+  {
+    $this->expectException(exception: InvalidValueException::class);
+    new RedirectUri(value: 'http://example.com/callback');
+  }
+
   /**
    * Method testEquality.
    *

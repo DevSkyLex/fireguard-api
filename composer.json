@@ -106,6 +106,7 @@
         }
     },
     "require-dev": {
+        "dama/doctrine-test-bundle": "^8.6",
         "deptrac/deptrac": "^4.3",
         "doctrine/doctrine-fixtures-bundle": "*",
         "friendsofphp/php-cs-fixer": "^3.92",

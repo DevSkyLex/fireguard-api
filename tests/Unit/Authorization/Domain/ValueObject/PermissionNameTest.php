@@ -7,150 +7,91 @@ namespace Tests\Unit\Authorization\Domain\ValueObject;
 use Authorization\Domain\ValueObject\PermissionName;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test PermissionNameTest.
  *
- * @category Value Object Tests
- *
- * @version 1.0.0
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ * @category ValueObject Tests
  */
-#[CoversClass(PermissionName::class)]
+#[CoversClass(className: PermissionName::class)]
 final class PermissionNameTest extends TestCase
 {
-  // #region Valid Name Tests
-
-  /**
-   * Test creating PermissionName with resource.action format.
-   */
+  // #region Tests
   #[Test]
-  public function testCreateWithValidResourceActionFormat(): void
+  public function testMatchesWildcardAndExact(): void
   {
-    $name = 'users.create';
-    $permissionName = new PermissionName($name);
+    $exact = new PermissionName('users.create');
+    $wildcard = new PermissionName('users.*');
+    $super = new PermissionName('*.*');
 
-    $this->assertEquals($name, $permissionName->value);
+    self::assertTrue($exact->matches(new PermissionName('users.create')));
+    self::assertTrue($wildcard->matches(new PermissionName('users.create')));
+    self::assertTrue($super->matches(new PermissionName('users.delete')));
+    self::assertFalse($exact->matches(new PermissionName('users.delete')));
   }
 
-  /**
-   * Test creating PermissionName with wildcard action.
-   */
   #[Test]
-  public function testCreateWithWildcardAction(): void
+  public function testResourceAndAction(): void
   {
-    $name = 'users.*';
-    $permissionName = new PermissionName($name);
+    $permission = new PermissionName('users.create');
 
-    $this->assertEquals($name, $permissionName->value);
+    self::assertSame('users', $permission->resource());
+    self::assertSame('create', $permission->action());
   }
 
-  /**
-   * Test creating PermissionName with super wildcard.
-   */
   #[Test]
-  public function testCreateWithSuperWildcard(): void
+  public function testSinglePartPermissionMatchesResource(): void
   {
-    $name = '*.*';
-    $permissionName = new PermissionName($name);
+    $resource = new PermissionName('admin');
 
-    $this->assertEquals($name, $permissionName->value);
+    self::assertTrue($resource->matches(new PermissionName('admin.read')));
+    self::assertSame('admin', $resource->resource());
+    self::assertNull($resource->action());
   }
 
-  // #endregion
-
-  // #endregion
-
-  // #region Matching Tests
-
-  /**
-   * Test exact match.
-   */
   #[Test]
-  public function testExactMatch(): void
+  public function testActionWildcardMatchesAllResources(): void
   {
-    $permissionName = new PermissionName('users.create');
-    $required = new PermissionName('users.create');
+    $wildcard = new PermissionName('*.read');
 
-    $this->assertTrue($permissionName->matches($required));
+    self::assertTrue($wildcard->matches(new PermissionName('users.read')));
+    self::assertFalse($wildcard->matches(new PermissionName('users.write')));
   }
 
-  /**
-   * Test wildcard matches specific action.
-   */
   #[Test]
-  public function testWildcardMatchesSpecificAction(): void
+  public function testEmptyValueThrowsException(): void
   {
-    $permissionName = new PermissionName('users.*');
-    $required = new PermissionName('users.create');
+    $this->expectException(InvalidValueException::class);
 
-    $this->assertTrue($permissionName->matches($required));
+    new PermissionName('');
   }
 
-  /**
-   * Test super wildcard matches any permission.
-   */
   #[Test]
-  public function testSuperWildcardMatchesAnyPermission(): void
+  public function testToStringReturnsValue(): void
   {
-    $permissionName = new PermissionName('*.*');
-    $required = new PermissionName('clients.delete');
+    $permission = new PermissionName('users.read');
 
-    $this->assertTrue($permissionName->matches($required));
+    self::assertSame('users.read', (string) $permission);
   }
 
-  /**
-   * Test wildcard does not match different resource.
-   */
   #[Test]
-  public function testWildcardDoesNotMatchDifferentResource(): void
+  public function testEquals(): void
   {
-    $permissionName = new PermissionName('users.*');
-    $required = new PermissionName('clients.read');
+    $permission = new PermissionName('users.read');
+    $same = new PermissionName('users.read');
+    $different = new PermissionName('users.write');
 
-    $this->assertFalse($permissionName->matches($required));
+    self::assertTrue($permission->equals($same));
+    self::assertFalse($permission->equals($different));
   }
 
-  /**
-   * Test specific does not match different action.
-   */
   #[Test]
-  public function testSpecificDoesNotMatchDifferentAction(): void
+  public function testInvalidValueThrows(): void
   {
-    $permissionName = new PermissionName('users.create');
-    $required = new PermissionName('users.delete');
+    $this->expectException(InvalidValueException::class);
 
-    $this->assertFalse($permissionName->matches($required));
+    new PermissionName('invalid-permission');
   }
-
-  // #endregion
-
-  // #region Equality Tests
-
-  /**
-   * Test PermissionName equality.
-   */
-  #[Test]
-  public function testPermissionNameEquality(): void
-  {
-    $permissionName1 = new PermissionName('users.create');
-    $permissionName2 = new PermissionName('users.create');
-
-    $this->assertTrue($permissionName1->equals($permissionName2));
-  }
-
-  /**
-   * Test PermissionName inequality.
-   */
-  #[Test]
-  public function testPermissionNameInequality(): void
-  {
-    $permissionName1 = new PermissionName('users.create');
-    $permissionName2 = new PermissionName('users.delete');
-
-    $this->assertFalse($permissionName1->equals($permissionName2));
-  }
-
   // #endregion
 }

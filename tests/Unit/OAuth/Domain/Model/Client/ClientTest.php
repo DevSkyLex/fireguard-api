@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Domain\Model\Client;
 
+use DateTimeImmutable;
 use OAuth\Domain\Event\Client\{
   ClientActivatedEvent,
   ClientDeactivatedEvent,
@@ -67,6 +68,11 @@ final class ClientTest extends TestCase
     self::assertSame(expected: $clientId, actual: $client->id());
     self::assertSame(expected: $clientName, actual: $client->name());
     self::assertSame(expected: $clientSecret, actual: $client->secret());
+    self::assertSame(expected: ['https://example.com/callback'], actual: $client->redirectUris());
+    self::assertSame(expected: $grantTypes, actual: $client->grantTypes());
+    self::assertSame(expected: $scopes, actual: $client->scopes());
+    self::assertInstanceOf(DateTimeImmutable::class, $client->createdAt());
+    self::assertNull($client->deletedAt());
     self::assertTrue(condition: $client->isActive());
     self::assertFalse(condition: $client->isDeleted());
   }
@@ -171,6 +177,18 @@ final class ClientTest extends TestCase
     self::assertInstanceOf(expected: ClientActivatedEvent::class, actual: $events[0]);
   }
 
+  #[Test]
+  public function testActivateNoopsWhenAlreadyActive(): void
+  {
+    $client = $this->createTestClient();
+    $client->releaseEvents();
+
+    $client->activate(new TestEventIdProvider());
+
+    self::assertTrue($client->isActive());
+    self::assertCount(0, $client->releaseEvents());
+  }
+
   /**
    * Method testDeactivateSetsClientAsInactive.
    *
@@ -193,6 +211,19 @@ final class ClientTest extends TestCase
     self::assertInstanceOf(expected: ClientDeactivatedEvent::class, actual: $events[0]);
   }
 
+  #[Test]
+  public function testDeactivateNoopsWhenAlreadyInactive(): void
+  {
+    $client = $this->createTestClient();
+    $client->deactivate(new TestEventIdProvider());
+    $client->releaseEvents();
+
+    $client->deactivate(new TestEventIdProvider());
+
+    self::assertFalse($client->isActive());
+    self::assertCount(0, $client->releaseEvents());
+  }
+
   /**
    * Method testDeleteMarksClientAsDeleted.
    *
@@ -213,6 +244,19 @@ final class ClientTest extends TestCase
     $events = $client->releaseEvents();
     self::assertCount(expectedCount: 1, haystack: $events);
     self::assertInstanceOf(expected: ClientDeletedEvent::class, actual: $events[0]);
+  }
+
+  #[Test]
+  public function testDeleteNoopsWhenAlreadyDeleted(): void
+  {
+    $client = $this->createTestClient();
+    $client->delete(new TestEventIdProvider());
+    $client->releaseEvents();
+
+    $client->delete(new TestEventIdProvider());
+
+    self::assertTrue($client->isDeleted());
+    self::assertCount(0, $client->releaseEvents());
   }
 
   /**

@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\{HttpKernelInterface, KernelEvents};
 
 /**
  * Test OAuthResponseSubscriberTest.
@@ -85,6 +85,22 @@ final class OAuthResponseSubscriberTest extends TestCase
     // Verify that the subscriber did NOT modify the Cache-Control header
     self::assertSame(expected: $defaultCacheControl, actual: $response->headers->get('Cache-Control'));
     self::assertNull(actual: $response->headers->get('Pragma'));
+  }
+
+  /**
+   * Method testGetSubscribedEventsRegistersKernelResponse.
+   *
+   * Test that the subscriber registers the response event.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testGetSubscribedEventsRegistersKernelResponse(): void
+  {
+    $events = OAuthResponseSubscriber::getSubscribedEvents();
+
+    self::assertArrayHasKey(KernelEvents::RESPONSE, $events);
+    self::assertSame(['onKernelResponse', 0], $events[KernelEvents::RESPONSE]);
   }
   // #endregion
 }

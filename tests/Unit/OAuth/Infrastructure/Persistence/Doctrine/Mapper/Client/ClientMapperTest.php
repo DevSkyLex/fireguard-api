@@ -180,5 +180,30 @@ final class ClientMapperTest extends TestCase
     self::assertSame(expected: $originalClient->redirectUris(), actual: $mappedClient->redirectUris());
     self::assertSame(expected: $originalClient->isActive(), actual: $mappedClient->isActive());
   }
+
+  #[Test]
+  public function testToOAuthClientMapsRecord(): void
+  {
+    $record = new ClientRecord();
+    $record->id = Uuid::fromString('123e4567-e89b-12d3-a456-426614174000');
+    $record->name = 'OAuth Client';
+    $record->secret = 'secret';
+    $record->redirectUris = ['https://example.com/callback'];
+    $record->grantTypes = ['AUTHORIZATION_CODE', 'REFRESH_TOKEN'];
+    $record->scopes = ['READ', 'WRITE'];
+    $record->isActive = true;
+    $record->createdAt = new DateTimeImmutable('2024-01-01 12:00:00');
+    $record->deletedAt = null;
+
+    $oauthClient = ClientMapper::toOAuthClient($record);
+
+    self::assertSame('123e4567-e89b-12d3-a456-426614174000', $oauthClient->identifier()->value);
+    self::assertSame('OAuth Client', $oauthClient->name());
+    self::assertSame(['https://example.com/callback'], $oauthClient->redirectUris());
+    self::assertSame([GrantType::AUTHORIZATION_CODE, GrantType::REFRESH_TOKEN], $oauthClient->grantTypes());
+    self::assertSame([Scope::READ, Scope::WRITE], $oauthClient->scopes());
+    self::assertSame('secret', $oauthClient->secret());
+    self::assertTrue($oauthClient->isConfidential());
+  }
   // #endregion
 }

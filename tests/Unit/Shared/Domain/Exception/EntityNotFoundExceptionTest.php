@@ -41,4 +41,22 @@ final class EntityNotFoundExceptionTest extends TestCase
 
     $this->assertSame('User with ID "123" not found.', $exception->getMessage());
   }
+
+  /**
+   * Method testForCriteria.
+   *
+   * Tests the forCriteria factory method creates an exception
+   * with the expected message format.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testForCriteria(): void
+  {
+    $exception = EntityNotFoundException::forCriteria('Role', 'name=admin');
+
+    $this->assertSame('Role not found for criteria: name=admin', $exception->getMessage());
+  }
 }

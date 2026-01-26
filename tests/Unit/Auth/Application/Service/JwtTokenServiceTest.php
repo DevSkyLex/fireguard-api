@@ -5,6 +5,17 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Application\Service;
 
 use Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter;
+use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
+use Authorization\Application\Service\AuthorizationService;
+use Authorization\Domain\Model\Permission\Permission;
+use Authorization\Domain\Model\Role\Role;
+use Authorization\Domain\ValueObject\{PermissionId, PermissionName, RoleId, RoleName, SubjectType};
+use DateTimeImmutable;
+use Defuse\Crypto\Crypto;
+use InvalidArgumentException;
+use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Signer\Key\InMemory;
+use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -13,8 +24,10 @@ use function base64_encode;
 use function explode;
 use function file_exists;
 use function file_put_contents;
+use function is_array;
 use function is_dir;
 use function json_decode;
+use function json_encode;
 use function mkdir;
 use function openssl_pkey_export;
 use function openssl_pkey_get_details;
@@ -53,6 +66,8 @@ final class JwtTokenServiceTest extends TestCase
    * Property privateKeyPath.
    *
    * Path to the test private key.
+   *
+   * @var non-empty-string
    */
   private string $privateKeyPath;
 
@@ -60,8 +75,19 @@ final class JwtTokenServiceTest extends TestCase
    * Property publicKeyPath.
    *
    * Path to the test public key.
+   *
+   * @var non-empty-string
    */
   private string $publicKeyPath;
+
+  /**
+   * Property encryptionKey.
+   *
+   * Encryption key used for token encryption.
+   *
+   * @var non-empty-string
+   */
+  private string $encryptionKey;
   // #endregion
 
   // #region Methods
@@ -108,10 +134,12 @@ final class JwtTokenServiceTest extends TestCase
     /** @var non-empty-string $publicKeyPath */
     $publicKeyPath = $this->publicKeyPath;
 
+    $this->encryptionKey = base64_encode(random_bytes(32));
+
     $this->service = new JwtTokenAdapter(
       privateKeyPath: $privateKeyPath,
       publicKeyPath: $publicKeyPath,
-      encryptionKey: base64_encode(random_bytes(32)),
+      encryptionKey: $this->encryptionKey,
       issuer: 'https://test.example.com',
       accessTokenTtl: 3600,
       refreshTokenTtl: 86400,
@@ -620,6 +648,193 @@ final class JwtTokenServiceTest extends TestCase
     );
 
     $this->assertEquals('Bearer', $tokens['token_type']);
+  }
+
+  #[Test]
+  public function testGenerateTokensIncludesRolesAndPermissionsWhenAuthorizationServiceProvided(): void
+  {
+    $role = Role::create(
+      id: new RoleId('123e4567-e89b-12d3-a456-426614174000'),
+      name: new RoleName('role_admin'),
+    );
+    $role->addPermission(Permission::create(
+      id: new PermissionId('223e4567-e89b-12d3-a456-426614174000'),
+      name: new PermissionName('user.read'),
+    ));
+
+    $roleAssignmentRepository = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $roleAssignmentRepository->method('findRolesForSubject')
+      ->with(SubjectType::USER, 'user-roles')
+      ->willReturn([$role]);
+
+    $authorizationService = new AuthorizationService($roleAssignmentRepository);
+
+    /** @var non-empty-string $privateKeyPath */
+    $privateKeyPath = $this->privateKeyPath;
+    /** @var non-empty-string $publicKeyPath */
+    $publicKeyPath = $this->publicKeyPath;
+
+    $service = new JwtTokenAdapter(
+      privateKeyPath: $privateKeyPath,
+      publicKeyPath: $publicKeyPath,
+      encryptionKey: $this->encryptionKey,
+      issuer: 'https://test.example.com',
+      accessTokenTtl: 3600,
+      refreshTokenTtl: 86400,
+      authorizationService: $authorizationService,
+    );
+
+    $tokens = $service->generateTokens(
+      userId: 'user-roles',
+      email: 'roles@example.com',
+      scopes: ['READ'],
+    );
+
+    $parts = explode('.', $tokens['access_token']);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
+    $this->assertSame(['role_admin'], $payload['roles'] ?? null);
+    $this->assertSame(['user.read'], $payload['permissions'] ?? null);
+  }
+
+  #[Test]
+  public function testGeneratePreAuthTokenThrowsOnEmptyUserId(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+
+    $this->service->generatePreAuthToken(
+      userId: '',
+      challengeToken: 'challenge',
+    );
+  }
+
+  #[Test]
+  public function testDecodePreAuthTokenReturnsClaims(): void
+  {
+    $token = $this->service->generatePreAuthToken(
+      userId: 'user-preauth',
+      challengeToken: 'challenge-token',
+      email: 'preauth@example.com',
+      scopes: ['SCOPE'],
+      ttl: 300,
+    );
+
+    $claims = $this->service->decodePreAuthToken($token);
+
+    $this->assertIsArray($claims);
+    $this->assertSame('user-preauth', $claims['sub'] ?? null);
+    $this->assertSame('challenge-token', $claims['challenge_token'] ?? null);
+  }
+
+  #[Test]
+  public function testDecodePreAuthTokenReturnsNullForEmptyToken(): void
+  {
+    $this->assertNull($this->service->decodePreAuthToken(''));
+  }
+
+  #[Test]
+  public function testDecodePreAuthTokenReturnsNullForInvalidSignature(): void
+  {
+    $token = $this->service->generatePreAuthToken(
+      userId: 'user-preauth',
+      challengeToken: 'challenge-token',
+    );
+
+    $parts = explode('.', $token);
+    $this->assertCount(3, $parts);
+    $signature = $parts[2];
+    $signature[0] = 'A' === $signature[0] ? 'B' : 'A';
+    $tampered = $parts[0] . '.' . $parts[1] . '.' . $signature;
+
+    $this->assertNull($this->service->decodePreAuthToken($tampered));
+  }
+
+  #[Test]
+  public function testDecodePreAuthTokenReturnsNullForExpiredToken(): void
+  {
+    $expiredToken = $this->createPreAuthToken(expiresAt: new DateTimeImmutable('-1 minute'));
+
+    $this->assertNull($this->service->decodePreAuthToken($expiredToken));
+  }
+
+  #[Test]
+  public function testDecodePreAuthTokenReturnsNullForInvalidToken(): void
+  {
+    $this->assertNull($this->service->decodePreAuthToken('not-a-jwt'));
+  }
+
+  #[Test]
+  public function testDecodeRefreshTokenReturnsNullForNonArrayPayload(): void
+  {
+    $encrypted = $this->encryptPayload('not-json');
+
+    $this->assertNull($this->service->decodeRefreshToken($encrypted));
+  }
+
+  #[Test]
+  public function testDecodeRefreshTokenReturnsNullForMissingFields(): void
+  {
+    $encrypted = $this->encryptPayload([
+      'auth_code_id' => 'missing-fields',
+    ]);
+
+    $this->assertNull($this->service->decodeRefreshToken($encrypted));
+  }
+
+  #[Test]
+  public function testDecodeRefreshTokenReturnsNullForInvalidFieldTypes(): void
+  {
+    $encrypted = $this->encryptPayload([
+      'refresh_token_id' => 123,
+      'access_token_id' => 'access',
+      'user_id' => 'user',
+      'scopes' => 'read',
+      'expires_at' => 'not-int',
+    ]);
+
+    $this->assertNull($this->service->decodeRefreshToken($encrypted));
+  }
+
+  private function createPreAuthToken(DateTimeImmutable $expiresAt): string
+  {
+    $config = Configuration::forAsymmetricSigner(
+      signer: new Sha256(),
+      signingKey: InMemory::file($this->privateKeyPath),
+      verificationKey: InMemory::file($this->publicKeyPath),
+    );
+
+    $now = new DateTimeImmutable('-2 hours');
+
+    $token = $config->builder()
+      ->issuedBy('https://test.example.com')
+      ->permittedFor('https://test.example.com')
+      ->identifiedBy('preauth-id')
+      ->relatedTo('user-preauth')
+      ->issuedAt($now)
+      ->expiresAt($expiresAt)
+      ->withClaim('scope', 'pre_auth')
+      ->getToken($config->signer(), $config->signingKey());
+
+    return $token->toString();
+  }
+
+  /**
+   * @param array<string, mixed>|string $payload
+   */
+  private function encryptPayload(array|string $payload): string
+  {
+    if (is_array($payload)) {
+      $json = json_encode($payload);
+      $this->assertIsString($json);
+      $stringData = $json;
+    } else {
+      $stringData = $payload;
+    }
+
+    return Crypto::encryptWithPassword($stringData, $this->encryptionKey);
   }
   // #endregion
 }

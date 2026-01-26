@@ -15,6 +15,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, RateLimiterPort};
 use Shared\Domain\ValueObject\RateLimitResult;
 
@@ -251,6 +252,105 @@ final class LoginHandlerTest extends TestCase
     $this->assertTrue($result->authenticated);
     $this->assertSame('access', $result->accessToken);
     $this->assertSame('refresh', $result->refreshToken);
+  }
+
+  #[Test]
+  public function testInvokeReturnsFailedWhenAuthenticationThrows(): void
+  {
+    $command = new LoginCommand(email: 'user@example.com', password: 'secret', ipAddress: '127.0.0.1');
+
+    /** @var RateLimiterPort&MockObject $rateLimiter */
+    $rateLimiter = $this->createMock(RateLimiterPort::class);
+    $rateLimiter->expects(self::once())
+      ->method('consume')
+      ->willReturn(RateLimitResult::accepted());
+
+    /** @var UserAuthenticationPort&MockObject $auth */
+    $auth = $this->createMock(UserAuthenticationPort::class);
+    $auth->expects(self::once())
+      ->method('authenticate')
+      ->willThrowException(new RuntimeException('boom'));
+
+    /** @var EventDispatcherPort&MockObject $dispatcher */
+    $dispatcher = $this->createMock(EventDispatcherPort::class);
+    $dispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(LoginFailedEvent::class));
+
+    $handler = new LoginHandler(
+      userAuthentication: $auth,
+      tokenService: $this->createMock(JwtTokenServicePort::class),
+      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
+      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      eventDispatcher: $dispatcher,
+      rateLimiter: $rateLimiter,
+      mfaEnabled: false,
+    );
+
+    $result = $handler->__invoke($command);
+
+    $this->assertFalse($result->authenticated);
+  }
+
+  #[Test]
+  public function testInvokeSucceedsWhenSessionTrackingFails(): void
+  {
+    $command = new LoginCommand(
+      email: 'user@example.com',
+      password: 'secret',
+      ipAddress: '127.0.0.1',
+      userAgent: 'Agent',
+    );
+
+    /** @var RateLimiterPort&MockObject $rateLimiter */
+    $rateLimiter = $this->createMock(RateLimiterPort::class);
+    $rateLimiter->expects(self::once())
+      ->method('consume')
+      ->willReturn(RateLimitResult::accepted());
+
+    /** @var UserAuthenticationPort&MockObject $auth */
+    $auth = $this->createMock(UserAuthenticationPort::class);
+    $auth->expects(self::once())
+      ->method('authenticate')
+      ->willReturn(UserAuthenticationResult::success('user-123', 'user@example.com'));
+
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())
+      ->method('generateTokens')
+      ->willReturn([
+        'access_token' => 'access',
+        'refresh_token' => 'refresh',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600,
+      ]);
+    $jwt->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->willReturn([
+        'access_token_id' => 'access-id',
+        'refresh_token_id' => 'refresh-id',
+      ]);
+
+    /** @var SessionTrackingPort&MockObject $sessionTracking */
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::once())
+      ->method('recordSession')
+      ->willThrowException(new RuntimeException('tracking failed'));
+
+    $handler = new LoginHandler(
+      userAuthentication: $auth,
+      tokenService: $jwt,
+      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
+      sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      rateLimiter: $rateLimiter,
+      mfaEnabled: false,
+    );
+
+    $result = $handler->__invoke($command);
+
+    $this->assertTrue($result->authenticated);
+    $this->assertSame('access', $result->accessToken);
   }
   // #endregion
 }

@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use League\OAuth2\Server\AuthorizationServer;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest;
 use Nyholm\Psr7\Response as Psr7Response;
 use OAuth\Application\Port\Outbound\Token\AuthCodeRepositoryPort;
@@ -18,11 +19,20 @@ use OAuth\Infrastructure\OAuth2\League\Entity\{Client, Scope};
 use OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\StreamInterface;
+use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request, RequestStack, Response};
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 use function json_decode;
+use function strlen;
+use function substr;
+
+use const SEEK_CUR;
+use const SEEK_END;
+use const SEEK_SET;
 
 /**
  * Test AuthorizeProcessorTest.
@@ -319,6 +329,335 @@ final class AuthorizeProcessorTest extends TestCase
     self::assertSame(expected: 'invalid_request', actual: $body['error'] ?? null);
   }
 
+  #[Test]
+  public function testProvideThrowsWhenRequestMissing(): void
+  {
+    $requestStack = new RequestStack();
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $this->createMock(AuthorizationServer::class),
+      security: $this->createSecurityMock(null),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessReturnsInvalidRequestWhenCodeChallengeMissing(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::never())->method('validateAuthorizationRequest');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock(null),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsInvalidRequestWhenCodeChallengeMethodInvalid(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'code_challenge_method' => 'invalid',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::never())->method('validateAuthorizationRequest');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock(null),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsLoginRequiredWhenUserMissing(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createAuthorizationServerMock(
+      authRequest: $this->createAuthorizationRequest(),
+    );
+    $authorizationServer->expects(self::never())->method('completeAuthorizationRequest');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock(null),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsLoginRequiredWhenSelectAccountPrompt(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'prompt' => 'select_account',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createAuthorizationServerMock(
+      authRequest: $this->createAuthorizationRequest(),
+    );
+    $authorizationServer->expects(self::never())->method('completeAuthorizationRequest');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUserIdEmpty(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createAuthorizationServerMock(
+      authRequest: $this->createAuthorizationRequest(),
+    );
+
+    $securityUser = new SecurityUser(
+      id: '',
+      email: 'user@example.com',
+      password: 'hashed',
+      roles: ['ROLE_USER'],
+      scopes: ['openid'],
+      isActive: true,
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($securityUser),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessReturnsErrorWhenAuthorizationRequestThrowsOAuthException(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willThrowException(OAuthServerException::invalidRequest('client_id'));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnUnexpectedAuthorizationException(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessStoresNonceFromQueryResponse(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(302, ['Location' => 'https://client.example.com/callback?code=query-code']));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::once())
+      ->method('updateNonce')
+      ->with('query-code', 'nonce-value');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
   /**
    * Method testProcessReturnsLoginRequiredWhenPromptLogin.
    *
@@ -564,6 +903,618 @@ final class AuthorizeProcessorTest extends TestCase
     self::assertInstanceOf(expected: Response::class, actual: $response);
   }
 
+  #[Test]
+  public function testProcessUsesPostRequestAndNormalizesParams(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'POST',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'code_challenge_method' => 'S256',
+        'state' => '',
+        'extra' => ['not-string'],
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(302, ['Location' => 'https://client.example.com/callback?code=auth-code']));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->process(
+      data: null,
+      operation: $this->createMock(Operation::class),
+    );
+
+    self::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessAllowsNonCodeResponseType(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'token',
+        'client_id' => 'client-123',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(302, ['Location' => 'https://client.example.com/callback?code=auth-code']));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsLoginRequiredWhenMaxAgeZero(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'max_age' => '0',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createAuthorizationServerMock(
+      authRequest: $this->createAuthorizationRequest(),
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $oidcUserProvider = $this->createMock(OidcUserProviderPort::class);
+    $oidcUserProvider->expects(self::once())
+      ->method('findByIdentifier')
+      ->with('user-123')
+      ->willReturn(new OidcUser(
+        subject: 'user-123',
+        preferredUsername: 'user',
+        email: 'user@example.com',
+        emailVerified: true,
+        givenName: null,
+        familyName: null,
+        pictureUrl: null,
+        authTime: new DateTimeImmutable(),
+      ));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $oidcUserProvider,
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsLoginRequiredWhenAuthTimeMissing(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'max_age' => '10',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createAuthorizationServerMock(
+      authRequest: $this->createAuthorizationRequest(),
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $oidcUserProvider = $this->createMock(OidcUserProviderPort::class);
+    $oidcUserProvider->expects(self::once())
+      ->method('findByIdentifier')
+      ->with('user-123')
+      ->willReturn(new OidcUser(
+        subject: 'user-123',
+        preferredUsername: 'user',
+        email: 'user@example.com',
+        emailVerified: true,
+        givenName: null,
+        familyName: null,
+        pictureUrl: null,
+        authTime: null,
+      ));
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $oidcUserProvider,
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessReturnsLoginRequiredWhenUserIdEmptyWithMaxAge(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'max_age' => '10',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createAuthorizationServerMock(
+      authRequest: $this->createAuthorizationRequest(),
+    );
+
+    $securityUser = new SecurityUser(
+      id: '',
+      email: 'user@example.com',
+      password: 'hashed',
+      roles: ['ROLE_USER'],
+      scopes: ['openid'],
+      isActive: true,
+    );
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($securityUser),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createMock(Operation::class));
+
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProcessDoesNotStoreNonceWhenCodeMissing(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, ['Location' => 'https://client.example.com/callback?state=abc']));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::never())->method('updateNonce');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessSkipsInvalidLocation(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, ['Location' => 'http://']));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::never())->method('updateNonce');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessSkipsEmptyCodeFromLocation(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, ['Location' => 'https://client.example.com/callback?code=']));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::never())->method('updateNonce');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessStoresNonceFromFormPostValueBeforeName(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, [], $this->createStream('<input value="form-code" name="code" />', seekable: false)));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::once())
+      ->method('updateNonce')
+      ->with('form-code', 'nonce-value');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessStoresNonceFromBodyQueryParam(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, [], 'code=body-code%2Bvalue'));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::once())
+      ->method('updateNonce')
+      ->with('body-code+value', 'nonce-value');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessSkipsUnreadableBody(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, [], $this->createStream('ignored', readable: false)));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::never())->method('updateNonce');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
+  #[Test]
+  public function testProcessSkipsBodyReadException(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authRequest = $this->createAuthorizationRequest();
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($authRequest);
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(200, [], $this->createStream('ignored', throwOnRead: true)));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::never())->method('updateNonce');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+    );
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
   /**
    * @return AuthorizationServer&\PHPUnit\Framework\MockObject\MockObject
    */
@@ -615,6 +1566,121 @@ final class AuthorizeProcessorTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     return $security;
+  }
+
+  private function createStream(
+    string $contents,
+    bool $readable = true,
+    bool $seekable = true,
+    bool $throwOnRead = false,
+  ): StreamInterface {
+    return new class ($contents, $readable, $seekable, $throwOnRead) implements StreamInterface {
+      private int $position = 0;
+
+      public function __construct(
+        private string $contents,
+        private bool $readable,
+        private bool $seekable,
+        private bool $throwOnRead,
+      ) {
+      }
+
+      public function __toString(): string
+      {
+        return $this->contents;
+      }
+
+      public function close(): void
+      {
+      }
+
+      public function detach()
+      {
+        $resource = null;
+
+        return $resource;
+      }
+
+      public function getSize(): int
+      {
+        return strlen($this->contents);
+      }
+
+      public function tell(): int
+      {
+        return $this->position;
+      }
+
+      public function eof(): bool
+      {
+        return $this->position >= strlen($this->contents);
+      }
+
+      public function isSeekable(): bool
+      {
+        return $this->seekable;
+      }
+
+      public function seek($offset, $whence = SEEK_SET): void
+      {
+        if (!$this->seekable) {
+          throw new RuntimeException('Stream is not seekable');
+        }
+
+        if (SEEK_SET === $whence) {
+          $this->position = (int) $offset;
+        } elseif (SEEK_CUR === $whence) {
+          $this->position += (int) $offset;
+        } elseif (SEEK_END === $whence) {
+          $this->position = strlen($this->contents) + (int) $offset;
+        }
+      }
+
+      public function rewind(): void
+      {
+        $this->seek(0);
+      }
+
+      public function isWritable(): bool
+      {
+        return false;
+      }
+
+      public function write($string): int
+      {
+        throw new RuntimeException('Stream is not writable');
+      }
+
+      public function isReadable(): bool
+      {
+        return $this->readable;
+      }
+
+      public function read($length): string
+      {
+        $chunk = substr($this->contents, $this->position, $length);
+        $this->position += strlen($chunk);
+
+        return $chunk;
+      }
+
+      public function getContents(): string
+      {
+        if ($this->throwOnRead) {
+          throw new RuntimeException('Read failed');
+        }
+
+        $contents = substr($this->contents, $this->position);
+        $this->position = strlen($this->contents);
+
+        return $contents;
+      }
+
+      public function getMetadata($key = null)
+      {
+
+      }
+    };
   }
   // #endregion
 }

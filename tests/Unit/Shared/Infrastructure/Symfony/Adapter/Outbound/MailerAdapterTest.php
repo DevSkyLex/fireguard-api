@@ -14,6 +14,10 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 
 use function count;
+use function file_put_contents;
+use function sys_get_temp_dir;
+use function tempnam;
+use function unlink;
 
 /**
  * Class MailerAdapterTest.
@@ -105,5 +109,34 @@ final class MailerAdapterTest extends TestCase
 
     $this->expectException(MailSendingException::class);
     $this->adapter->send($to, $subject, $body);
+  }
+
+  #[Test]
+  public function testSendWithAttachments(): void
+  {
+    $to = ['recipient@example.com'];
+    $subject = 'Test Subject';
+    $body = 'Test Body';
+    $path = tempnam(sys_get_temp_dir(), 'mail');
+    self::assertIsString($path);
+    file_put_contents($path, 'content');
+
+    $attachments = [
+      'report.txt' => $path,
+      0 => $path,
+      'skip' => ['invalid'],
+    ];
+
+    $this->mailer->expects($this->once())
+      ->method('send')
+      ->with($this->callback(function (Email $email) {
+        return 2 === count($email->getAttachments());
+      }));
+
+    try {
+      $this->adapter->send($to, $subject, $body, [], [], $attachments);
+    } finally {
+      unlink($path);
+    }
   }
 }

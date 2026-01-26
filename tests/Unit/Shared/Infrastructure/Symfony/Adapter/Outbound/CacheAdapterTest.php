@@ -8,7 +8,7 @@ use Exception;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Cache\{CacheItemInterface, CacheItemPoolInterface, InvalidArgumentException};
+use Psr\Cache\{CacheException, CacheItemInterface, CacheItemPoolInterface, InvalidArgumentException};
 use Shared\Infrastructure\Exception\CacheOperationException;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter;
 
@@ -148,6 +148,55 @@ final class CacheAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testSetThrowsExceptionWhenSaveReturnsFalse(): void
+  {
+    $key = 'test_key';
+    $item = $this->createMock(CacheItemInterface::class);
+
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willReturn($item);
+
+    $item->expects($this->once())
+      ->method('set')
+      ->with('value');
+
+    $this->cachePool->expects($this->once())
+      ->method('save')
+      ->with($item)
+      ->willReturn(false);
+
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->set($key, 'value');
+  }
+
+  #[Test]
+  public function testSetWithoutTtlSkipsExpiration(): void
+  {
+    $key = 'test_key';
+    $item = $this->createMock(CacheItemInterface::class);
+
+    $this->cachePool->expects($this->once())
+      ->method('getItem')
+      ->with($key)
+      ->willReturn($item);
+
+    $item->expects($this->once())
+      ->method('set')
+      ->with('value');
+    $item->expects($this->never())
+      ->method('expiresAfter');
+
+    $this->cachePool->expects($this->once())
+      ->method('save')
+      ->with($item)
+      ->willReturn(true);
+
+    $this->adapter->set($key, 'value');
+  }
+
+  #[Test]
   public function testDeleteSuccess(): void
   {
     $key = 'test_key';
@@ -176,12 +225,50 @@ final class CacheAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testDeleteThrowsWhenDeleteReturnsFalse(): void
+  {
+    $key = 'test_key';
+
+    $this->cachePool->expects($this->once())
+      ->method('deleteItem')
+      ->with($key)
+      ->willReturn(false);
+
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->delete($key);
+  }
+
+  #[Test]
   public function testClearSuccess(): void
   {
     $this->cachePool->expects($this->once())
       ->method('clear')
       ->willReturn(true);
 
+    $this->adapter->clear();
+  }
+
+  #[Test]
+  public function testClearThrowsWhenClearReturnsFalse(): void
+  {
+    $this->cachePool->expects($this->once())
+      ->method('clear')
+      ->willReturn(false);
+
+    $this->expectException(CacheOperationException::class);
+    $this->adapter->clear();
+  }
+
+  #[Test]
+  public function testClearThrowsOnCacheException(): void
+  {
+    $exception = new class () extends Exception implements CacheException {};
+
+    $this->cachePool->expects($this->once())
+      ->method('clear')
+      ->willThrowException($exception);
+
+    $this->expectException(CacheOperationException::class);
     $this->adapter->clear();
   }
 }

@@ -9,112 +9,62 @@ use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\UserAgent;
 
+use function str_repeat;
+
 /**
  * Test UserAgentTest.
  *
- * @category Unit Test
- *
- * @version 1.0.0
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- *
- * @covers \Shared\Domain\ValueObject\UserAgent
+ * @category ValueObject Tests
  */
 #[CoversClass(className: UserAgent::class)]
 final class UserAgentTest extends TestCase
 {
-  /**
-   * Method testCanBeCreatedWithValidValue.
-   *
-   * Tests that a valid UserAgent can be created.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
+  // #region Tests
   #[Test]
-  public function testCanBeCreatedWithValidValue(): void
+  public function testDetectsMobileAndBrowserAndOs(): void
   {
-    $value = 'Mozilla/5.0';
-    $userAgent = new UserAgent($value);
+    $uaString = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1';
+    $ua = new UserAgent($uaString);
 
-    $this->assertEquals($value, $userAgent->value);
-    $this->assertEquals($value, (string) $userAgent);
+    self::assertTrue($ua->isMobile());
+    self::assertSame('Safari', $ua->getBrowser());
+    self::assertSame('iOS', $ua->getOS());
   }
 
-  /**
-   * Method testCannotBeCreatedWithEmptyValue.
-   *
-   * Tests that creating a UserAgent with an empty value throws an exception.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
   #[Test]
-  public function testCannotBeCreatedWithEmptyValue(): void
+  public function testDetectsBot(): void
+  {
+    $ua = new UserAgent('curl/7.64.1');
+
+    self::assertTrue($ua->isBot());
+    self::assertNull($ua->getBrowser());
+  }
+
+  #[Test]
+  public function testEquals(): void
+  {
+    $uaOne = new UserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0');
+    $uaTwo = new UserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0');
+    $uaThree = new UserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Firefox/120.0');
+
+    self::assertTrue($uaOne->equals($uaTwo));
+    self::assertFalse($uaOne->equals($uaThree));
+  }
+
+  #[Test]
+  public function testEmptyUserAgentThrows(): void
   {
     $this->expectException(InvalidValueException::class);
+
     new UserAgent('');
   }
 
-  /**
-   * Method testEquality.
-   *
-   * Tests equality comparison between UserAgent objects.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
   #[Test]
-  public function testEquality(): void
+  public function testTooLongUserAgentThrows(): void
   {
-    $ua1 = new UserAgent('Mozilla/5.0');
-    $ua2 = new UserAgent('Mozilla/5.0');
-    $ua3 = new UserAgent('Chrome/1.0');
+    $this->expectException(InvalidValueException::class);
 
-    $this->assertTrue($ua1->equals($ua2));
-    $this->assertFalse($ua1->equals($ua3));
+    new UserAgent(str_repeat('a', 513));
   }
-
-  /**
-   * Method testIsMobile.
-   *
-   * Tests the isMobile method to detect mobile devices.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
-  #[Test]
-  public function testIsMobile(): void
-  {
-    $mobile = new UserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)');
-    $desktop = new UserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-
-    $this->assertTrue($mobile->isMobile());
-    $this->assertFalse($desktop->isMobile());
-  }
-
-  /**
-   * Method testGetBrowser.
-   *
-   * Tests the getBrowser method to extract browser name from User-Agent.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
-  #[Test]
-  public function testGetBrowser(): void
-  {
-    $chrome = new UserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    $firefox = new UserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0');
-    $unknown = new UserAgent('Unknown Browser');
-
-    $this->assertEquals('Chrome', $chrome->getBrowser());
-    $this->assertEquals('Firefox', $firefox->getBrowser());
-    $this->assertNull($unknown->getBrowser());
-  }
+  // #endregion
 }

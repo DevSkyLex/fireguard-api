@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Shared\Infrastructure\Symfony\Adapter\Outbound;
 
+use Doctrine\DBAL\Exception as DoctrineDBALException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -54,5 +55,18 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
 
     $this->expectException(TransactionExecutionException::class);
     $this->adapter->transactional($operation);
+  }
+
+  #[Test]
+  public function testTransactionalWrapsDoctrineDbalException(): void
+  {
+    $exception = new DoctrineDBALException('dbal');
+
+    $this->entityManager->expects($this->once())
+      ->method('wrapInTransaction')
+      ->willThrowException($exception);
+
+    $this->expectException(TransactionExecutionException::class);
+    $this->adapter->transactional(static fn () => 'unused');
   }
 }

@@ -10,86 +10,60 @@ use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\IpAddress;
 
 /**
- * Class IpAddressTest.
+ * Test IpAddressTest.
  *
- * Unit tests for the IpAddress Value Object.
- *
- * @category Unit Test
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- *
- * @covers \Shared\Domain\ValueObject\IpAddress
+ * @category ValueObject Tests
  */
 #[CoversClass(className: IpAddress::class)]
 final class IpAddressTest extends TestCase
 {
-  // #region Methods
-  /**
-   * Method testCanBeCreatedWithValidIpv4.
-   *
-   * Tests that a valid IPv4 address can be created.
-   *
-   * @return void no return value
-   */
+  // #region Tests
   #[Test]
-  public function testCanBeCreatedWithValidIpv4(): void
+  public function testIpv4LoopbackAndReserved(): void
   {
-    $value = '192.168.1.1';
-    $ip = new IpAddress(value: $value);
+    $ip = new IpAddress('127.0.0.1');
 
-    $this->assertEquals(expected: $value, actual: $ip->value);
-    $this->assertEquals(expected: $value, actual: (string) $ip);
+    self::assertTrue($ip->isIpv4());
+    self::assertFalse($ip->isIpv6());
+    self::assertTrue($ip->isLoopback());
+    self::assertTrue($ip->isReserved());
   }
 
-  /**
-   * Method testCanBeCreatedWithValidIpv6.
-   *
-   * Tests that a valid IPv6 address can be created.
-   *
-   * @return void no return value
-   */
   #[Test]
-  public function testCanBeCreatedWithValidIpv6(): void
+  public function testPrivateIpv4(): void
   {
-    $value = '2001:0db8:85a3:0000:0000:8a2e:0370:7334';
-    $ip = new IpAddress(value: $value);
+    $ip = new IpAddress('192.168.1.10');
 
-    $this->assertEquals(expected: $value, actual: $ip->value);
-    $this->assertEquals(expected: $value, actual: (string) $ip);
+    self::assertTrue($ip->isPrivate());
+    self::assertFalse($ip->isLoopback());
   }
 
-  /**
-   * Method testCannotBeCreatedWithInvalidValue.
-   *
-   * Tests that creating an IpAddress with an
-   * invalid value throws an exception.
-   *
-   * @return void no return value
-   */
   #[Test]
-  public function testCannotBeCreatedWithInvalidValue(): void
+  public function testIpv6(): void
   {
-    $this->expectException(exception: InvalidValueException::class);
-    new IpAddress(value: 'invalid-ip');
+    $ip = new IpAddress('2001:db8::1');
+
+    self::assertTrue($ip->isIpv6());
+    self::assertFalse($ip->isIpv4());
   }
 
-  /**
-   * Method testEquality.
-   *
-   * Tests equality comparison between
-   * IpAddress objects.
-   *
-   * @return void no return value
-   */
   #[Test]
-  public function testEquality(): void
+  public function testEquals(): void
   {
-    $ip1 = new IpAddress(value: '192.168.1.1');
-    $ip2 = new IpAddress(value: '192.168.1.1');
-    $ip3 = new IpAddress(value: '10.0.0.1');
+    $ipOne = new IpAddress('8.8.8.8');
+    $ipTwo = new IpAddress('8.8.8.8');
+    $ipThree = new IpAddress('1.1.1.1');
 
-    $this->assertTrue(condition: $ip1->equals($ip2));
-    $this->assertFalse(condition: $ip1->equals($ip3));
+    self::assertTrue($ipOne->equals($ipTwo));
+    self::assertFalse($ipOne->equals($ipThree));
+  }
+
+  #[Test]
+  public function testInvalidIpThrows(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new IpAddress('invalid-ip');
   }
   // #endregion
 }

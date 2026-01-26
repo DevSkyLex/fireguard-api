@@ -8,6 +8,9 @@ use Otp\Domain\ValueObject\TotpSecret;
 use Otp\Infrastructure\Adapter\Notifier\TotpAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+
+use function time;
 
 /**
  * Test TotpAdapterTest.
@@ -53,5 +56,30 @@ final class TotpAdapterTest extends TestCase
     self::assertFalse($adapter->verify('123', $secret));
     self::assertFalse($adapter->verify('abcdef', $secret));
     self::assertFalse($adapter->verify('1234567', $secret));
+  }
+
+  #[Test]
+  public function testVerifyAcceptsGeneratedCode(): void
+  {
+    $adapter = new TotpAdapter();
+    $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
+
+    $timestamp = time();
+    $secretBytes = $this->invokePrivate($adapter, 'base32Decode', [$secret->secret]);
+    $code = $this->invokePrivate($adapter, 'generateCode', [$secretBytes, $timestamp]);
+    self::assertIsString($code);
+
+    self::assertTrue($adapter->verify($code, $secret));
+  }
+
+  /**
+   * @param array<int, mixed> $args
+   */
+  private function invokePrivate(object $object, string $method, array $args): mixed
+  {
+    $reflection = new ReflectionMethod($object, $method);
+    $reflection->setAccessible(true);
+
+    return $reflection->invokeArgs($object, $args);
   }
 }

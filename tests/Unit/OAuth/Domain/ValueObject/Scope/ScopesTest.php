@@ -7,82 +7,102 @@ namespace Tests\Unit\OAuth\Domain\ValueObject\Scope;
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test ScopesTest.
  *
- * @category Unit Test
- *
- * @version 1.0.0
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- *
- * @covers \OAuth\Domain\ValueObject\Scope\Scopes
+ * @category ValueObject Tests
  */
 #[CoversClass(className: Scopes::class)]
 final class ScopesTest extends TestCase
 {
-  // #region Methods
-  /**
-   * Method testCanBeCreatedAndAccessed.
-   *
-   * Tests that Scopes can be created with variadic parameters
-   * and that the collection can be accessed and queried.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
+  // #region Tests
   #[Test]
-  public function testCanBeCreatedAndAccessed(): void
+  public function testConstructorThrowsOnEmpty(): void
   {
-    $s1 = Scope::READ;
-    $s2 = Scope::WRITE;
-    $scopes = new Scopes($s1, $s2);
+    $this->expectException(InvalidValueException::class);
 
-    $this->assertCount(expectedCount: 2, haystack: $scopes);
-    $this->assertTrue(condition: $scopes->contains($s1));
-    $this->assertTrue(condition: $scopes->contains($s2));
-    $this->assertFalse(condition: $scopes->contains(Scope::DELETE));
+    new Scopes();
   }
 
-  /**
-   * Method testIteration.
-   *
-   * Tests that Scopes collection can be iterated over.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
   #[Test]
-  public function testIteration(): void
+  public function testConstructorRemovesDuplicates(): void
   {
-    $s1 = Scope::READ;
-    $scopes = new Scopes($s1);
+    $scopes = new Scopes(Scope::OPENID, Scope::OPENID, Scope::EMAIL);
 
+    self::assertSame(2, $scopes->count());
+  }
+
+  #[Test]
+  public function testFromArrayRemovesDuplicatesAndToString(): void
+  {
+    $scopes = Scopes::fromArray(['OPENID', 'EMAIL', 'OPENID']);
+
+    self::assertSame(2, $scopes->count());
+    self::assertTrue($scopes->contains(Scope::OPENID));
+    self::assertSame('OPENID EMAIL', $scopes->toString());
+  }
+
+  #[Test]
+  public function testFromStringParsesScopes(): void
+  {
+    $scopes = Scopes::fromString('OPENID PROFILE');
+
+    self::assertSame(['OPENID', 'PROFILE'], $scopes->toArray());
+  }
+
+  #[Test]
+  public function testFromArrayThrowsOnInvalidScope(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    Scopes::fromArray(['INVALID']);
+  }
+
+  #[Test]
+  public function testFromArrayThrowsOnEmpty(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    Scopes::fromArray([]);
+  }
+
+  #[Test]
+  public function testFromStringThrowsOnEmpty(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    Scopes::fromString('   ');
+  }
+
+  #[Test]
+  public function testFromStringThrowsOnInvalidScope(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    Scopes::fromString('OPENID INVALID');
+  }
+
+  #[Test]
+  public function testContainsReturnsFalseWhenMissing(): void
+  {
+    $scopes = Scopes::fromArray(['OPENID']);
+
+    self::assertFalse($scopes->contains(Scope::EMAIL));
+  }
+
+  #[Test]
+  public function testIteratorProvidesScopes(): void
+  {
+    $scopes = Scopes::fromArray(['OPENID', 'EMAIL']);
+
+    $values = [];
     foreach ($scopes as $scope) {
-      $this->assertSame(expected: $s1, actual: $scope);
+      $values[] = $scope->value;
     }
+
+    self::assertSame(['OPENID', 'EMAIL'], $values);
   }
-
-  /**
-   * Method testFromArray.
-   *
-   * Tests that Scopes can be created from an array of strings.
-   *
-   * @since 1.0.0
-   *
-   * @return void no return value
-   */
-  #[Test]
-  public function testFromArray(): void
-  {
-    $scopes = Scopes::fromArray(['READ', 'WRITE']);
-
-    $this->assertCount(expectedCount: 2, haystack: $scopes);
-    $this->assertTrue(condition: $scopes->contains(Scope::READ));
-  }
-
   // #endregion
 }

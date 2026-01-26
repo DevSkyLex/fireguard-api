@@ -68,6 +68,10 @@ when@test:
     dbal:
       # "TEST_TOKEN" is typically set by ParaTest
       dbname_suffix: "_test%env(default::TEST_TOKEN)%"
+      profiling_collect_backtrace: false
+    orm:
+      auto_generate_proxy_classes: file_not_exists
+      proxy_dir: "%kernel.cache_dir%/doctrine/orm/Proxies"
 
 when@prod:
   doctrine:

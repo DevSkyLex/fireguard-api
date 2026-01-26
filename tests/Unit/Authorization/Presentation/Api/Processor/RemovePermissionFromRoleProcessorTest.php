@@ -6,6 +6,7 @@ namespace Tests\Unit\Authorization\Presentation\Api\Processor;
 
 use ApiPlatform\Metadata\Delete;
 use Authorization\Application\UseCase\Command\Role\RemovePermissionFromRole\{RemovePermissionFromRoleCommand, RemovePermissionFromRoleResult};
+use Authorization\Application\UseCase\Query\Permission\GetPermission\GetPermissionResult;
 use Authorization\Domain\Exception\{PermissionNotFoundException, RoleNotFoundException};
 use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
 use Authorization\Presentation\Api\Processor\Role\RemovePermissionFromRoleProcessor;
@@ -140,6 +141,72 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
       $operation,
       ['roleId' => $roleId, 'permissionId' => $permissionId],
     );
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenRoleIdIsInvalid(): void
+  {
+    $operation = new Delete();
+
+    $this->expectException(RoleNotFoundException::class);
+
+    $this->processor->process(
+      null,
+      $operation,
+      ['roleId' => ['bad'], 'permissionId' => 'perm-1'],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenPermissionIdIsInvalid(): void
+  {
+    $operation = new Delete();
+
+    $this->expectException(PermissionNotFoundException::class);
+
+    $this->processor->process(
+      null,
+      $operation,
+      ['roleId' => 'role-1', 'permissionId' => ['bad']],
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsPermissionOutputs(): void
+  {
+    $roleId = '550e8400-e29b-41d4-a716-446655440010';
+    $permissionId = '660e8400-e29b-41d4-a716-446655440010';
+
+    $result = new RemovePermissionFromRoleResult(
+      id: $roleId,
+      name: 'admin',
+      description: 'Admin role',
+      isSystem: true,
+      createdAt: '2025-01-02 09:30:00',
+      permissions: [
+        new GetPermissionResult(
+          id: $permissionId,
+          name: 'users.read',
+          description: 'Read users',
+          createdAt: '2025-01-02 08:00:00',
+        ),
+      ],
+    );
+
+    $this->commandBus
+      ->expects($this->once())
+      ->method('dispatch')
+      ->willReturn($result);
+
+    $output = $this->processor->process(
+      null,
+      new Delete(),
+      ['roleId' => $roleId, 'permissionId' => $permissionId],
+    );
+
+    $this->assertCount(1, $output->permissions);
+    $this->assertSame($permissionId, $output->permissions[0]->id);
+    $this->assertSame('users.read', $output->permissions[0]->name);
   }
 
   // #endregion

@@ -203,6 +203,27 @@ final class OAuth2ApiTest extends WebTestCase
     $this->assertNotNull($response);
     $this->assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
   }
+
+  /**
+   * Method testLogoutEndpointRequiresClientIdWithRedirect.
+   *
+   * Tests that post_logout_redirect_uri requires a client_id.
+   */
+  public function testLogoutEndpointRequiresClientIdWithRedirect(): void
+  {
+    $this->client?->request(
+      method: 'GET',
+      uri: '/api/oauth2/logout',
+      server: ['HTTP_ACCEPT' => 'application/json'],
+      parameters: [
+        'post_logout_redirect_uri' => 'https://client.example.com/logout',
+      ],
+    );
+
+    $response = $this->client?->getResponse();
+    $this->assertNotNull($response);
+    $this->assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
   // #endregion
 
   // #region UserInfo Endpoint Tests

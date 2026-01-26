@@ -56,5 +56,30 @@ final class UsernameTest extends TestCase
     $this->expectException(InvalidValueException::class);
     new Username('ab'); // Too short
   }
+
+  #[Test]
+  public function testThrowsOnEmptyValue(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    new Username('');
+  }
+
+  #[Test]
+  public function testThrowsOnInvalidCharacters(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    new Username('invalid*name');
+  }
+
+  #[Test]
+  public function testEquals(): void
+  {
+    $u1 = new Username('valid_user');
+    $u2 = new Username('valid_user');
+    $u3 = new Username('other_user');
+
+    $this->assertTrue($u1->equals($u2));
+    $this->assertFalse($u1->equals($u3));
+  }
   // #endregion
 }

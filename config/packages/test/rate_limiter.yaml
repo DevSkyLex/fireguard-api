@@ -1,0 +1,18 @@
+framework:
+  rate_limiter:
+    login:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    oauth_token:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    oauth_introspection:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    oauth_revocation:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'

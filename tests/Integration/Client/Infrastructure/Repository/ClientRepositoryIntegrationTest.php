@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Integration\Client\Infrastructure\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Tools\SchemaTool;
 use OAuth\Domain\Model\Client\Client;
 use OAuth\Domain\ValueObject\Client\{ClientId, ClientName, ClientSecret, RedirectUri};
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
@@ -15,7 +14,6 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Throwable;
 
 use function password_hash;
 use function sprintf;
@@ -49,18 +47,6 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
     /** @var EntityManagerInterface $entityManager */
     $entityManager = $container->get('doctrine.orm.entity_manager');
     $this->entityManager = $entityManager;
-
-    // Create schema
-    $schemaTool = new SchemaTool($this->entityManager);
-    $metadata = $this->entityManager->getMetadataFactory()->getAllMetadata();
-
-    try {
-      $schemaTool->dropSchema($metadata);
-    } catch (Throwable) {
-      // Schema might not exist
-    }
-
-    $schemaTool->createSchema($metadata);
 
     $this->repository = new ClientRepository($this->entityManager);
   }
