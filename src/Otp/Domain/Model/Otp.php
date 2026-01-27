@@ -109,6 +109,7 @@ final class Otp
    * @param string $recipient the recipient
    * @param int|null $ttlSeconds custom TTL (null for default)
    * @param int|null $maxAttempts custom max attempts (null for default)
+   * @param int|null $codeLength custom OTP code length (null for default)
    *
    * @return self the new OTP
    */
@@ -120,9 +121,14 @@ final class Otp
     string $recipient,
     ?int $ttlSeconds = null,
     ?int $maxAttempts = null,
+    ?int $codeLength = null,
   ): self {
     $ttl = $ttlSeconds ?? $purpose->getDefaultTtlSeconds();
     $attempts = $maxAttempts ?? $purpose->getDefaultMaxAttempts();
+    $effectiveCodeLength = null === $codeLength ? null : max(1, $codeLength);
+    $otpCode = null === $effectiveCodeLength
+      ? OtpCode::generate()
+      : OtpCode::generate($effectiveCodeLength);
 
     $otp = new self(
       id: $id,
@@ -130,7 +136,7 @@ final class Otp
       userId: $userId,
       purpose: $purpose,
       channel: $channel,
-      code: OtpCode::generate(),
+      code: $otpCode,
       recipient: $recipient,
       expiresAt: new DateTimeImmutable("+{$ttl} seconds"),
       maxAttempts: $attempts,

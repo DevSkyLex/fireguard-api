@@ -26,6 +26,8 @@ final class LoginResultTest extends TestCase
 
     self::assertFalse($result->authenticated);
     self::assertSame('Invalid login', $result->errorMessage);
+    self::assertNull($result->errorCode);
+    self::assertNull($result->rateLimitRetryAfter);
   }
   // #endregion
 }

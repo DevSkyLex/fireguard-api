@@ -23,10 +23,11 @@ interface JwtTokenServicePort
    * @param non-empty-string $userId the user ID
    * @param string $email the user email
    * @param array<string> $scopes the granted scopes
+   * @param bool $rememberMe whether to use the long-lived refresh token TTL
    *
    * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int}
    */
-  public function generateTokens(string $userId, string $email, array $scopes = []): array;
+  public function generateTokens(string $userId, string $email, array $scopes = [], bool $rememberMe = true): array;
 
   /**
    * Generates a Pre-Auth Token for MFA workflows.
@@ -36,6 +37,7 @@ interface JwtTokenServicePort
    * @param string $email the user email
    * @param array<string> $scopes the granted scopes
    * @param int $ttl lifetime in seconds (default 300)
+   * @param bool $rememberMe whether the session is persistent
    *
    * @return string the valid JWT token
    */
@@ -45,6 +47,7 @@ interface JwtTokenServicePort
     string $email = '',
     array $scopes = [],
     int $ttl = 300,
+    bool $rememberMe = false,
   ): string;
 
   /**
@@ -61,7 +64,7 @@ interface JwtTokenServicePort
    *
    * @param string $refreshToken the encrypted refresh token
    *
-   * @return array{refresh_token_id: string, access_token_id: string, user_id: string, scopes: array<string>, expires_at: int}|null
+   * @return array{refresh_token_id: string, access_token_id: string, user_id: string, scopes: array<string>, expires_at: int, remember_me?: bool}|null
    */
   public function decodeRefreshToken(string $refreshToken): ?array;
 

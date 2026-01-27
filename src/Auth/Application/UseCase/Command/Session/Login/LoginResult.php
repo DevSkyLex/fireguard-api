@@ -17,6 +17,17 @@ use Shared\Application\Message\ResultMessage;
  */
 final readonly class LoginResult implements ResultMessage
 {
+  // #region Constants
+  /**
+   * Constant ERROR_RATE_LIMIT.
+   *
+   * Error code for rate-limited login attempts.
+   *
+   * @since 1.0.0
+   */
+  public const string ERROR_RATE_LIMIT = 'rate_limit_exceeded';
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -38,6 +49,8 @@ final readonly class LoginResult implements ResultMessage
    * @param string|null $mfaToken the pre-auth token for MFA verification
    * @param string|null $challengeToken the MFA challenge token
    * @param string|null $errorMessage error message if authentication failed
+   * @param string|null $errorCode machine-readable error code
+   * @param int|null $rateLimitRetryAfter retry-after seconds when rate limited
    */
   public function __construct(
     public bool $authenticated,
@@ -52,6 +65,8 @@ final readonly class LoginResult implements ResultMessage
     public ?string $mfaToken = null,
     public ?string $challengeToken = null,
     public ?string $errorMessage = null,
+    public ?string $errorCode = null,
+    public ?int $rateLimitRetryAfter = null,
   ) {
   }
   // #endregion
@@ -65,14 +80,21 @@ final readonly class LoginResult implements ResultMessage
    * @since 1.0.0
    *
    * @param string $message the error message
+   * @param string|null $errorCode machine-readable error code
+   * @param int|null $rateLimitRetryAfter retry-after seconds when rate limited
    *
    * @return self the failed result
    */
-  public static function failed(string $message = 'Invalid credentials'): self
-  {
+  public static function failed(
+    string $message = 'Invalid credentials',
+    ?string $errorCode = null,
+    ?int $rateLimitRetryAfter = null,
+  ): self {
     return new self(
       authenticated: false,
       errorMessage: $message,
+      errorCode: $errorCode,
+      rateLimitRetryAfter: $rateLimitRetryAfter,
     );
   }
   // #endregion

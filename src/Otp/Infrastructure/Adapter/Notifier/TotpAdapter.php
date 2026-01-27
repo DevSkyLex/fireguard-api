@@ -6,6 +6,7 @@ namespace Otp\Infrastructure\Adapter\Notifier;
 
 use Otp\Application\Port\Outbound\Totp\TotpServicePort;
 use Otp\Domain\ValueObject\TotpSecret;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function bindec;
 use function chr;
@@ -13,6 +14,7 @@ use function decbin;
 use function floor;
 use function hash_equals;
 use function hash_hmac;
+use function max;
 use function ord;
 use function pack;
 use function preg_match;
@@ -50,17 +52,6 @@ final readonly class TotpAdapter implements TotpServicePort
   private const int PERIOD = 30;
 
   /**
-   * Constant DIGITS.
-   *
-   * Number of digits in TOTP code.
-   *
-   * @since 1.0.0
-   *
-   * @var int
-   */
-  private const int DIGITS = 6;
-
-  /**
    * Constant WINDOW.
    *
    * Time window for code validation
@@ -71,6 +62,31 @@ final readonly class TotpAdapter implements TotpServicePort
    * @var int
    */
   private const int WINDOW = 1;
+  // #endregion
+
+  // #region Properties
+  /**
+   * Property digits.
+   *
+   * Number of digits in TOTP code.
+   *
+   * @since 1.0.0
+   */
+  private int $digits;
+  // #endregion
+
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @param int $digits number of digits for TOTP codes
+   */
+  public function __construct(
+    #[Autowire('%env(int:TOTP_DIGITS)%')]
+    int $digits = 6,
+  ) {
+    $this->digits = max(1, $digits);
+  }
   // #endregion
 
   // #region Methods
@@ -86,7 +102,7 @@ final readonly class TotpAdapter implements TotpServicePort
   public function verify(string $code, TotpSecret $secret): bool
   {
     // Validate code format
-    if (!preg_match('/^\d{' . self::DIGITS . '}$/', $code)) {
+    if (!preg_match('/^\d{' . $this->digits . '}$/', $code)) {
       return false;
     }
 
@@ -111,7 +127,7 @@ final readonly class TotpAdapter implements TotpServicePort
     string $accountName,
     string $issuer = 'FireGuard Auth',
   ): string {
-    return $secret->getProvisioningUri($accountName, $issuer);
+    return $secret->getProvisioningUri($accountName, $issuer, $this->digits);
   }
 
   /**
@@ -139,9 +155,9 @@ final readonly class TotpAdapter implements TotpServicePort
       (ord($hash[$offset + 3]) & 0xFF)
     );
 
-    $otp = $binary % (10 ** self::DIGITS);
+    $otp = $binary % (10 ** $this->digits);
 
-    return str_pad((string) $otp, self::DIGITS, '0', STR_PAD_LEFT);
+    return str_pad((string) $otp, $this->digits, '0', STR_PAD_LEFT);
   }
 
   /**

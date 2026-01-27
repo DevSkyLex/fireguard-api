@@ -9,6 +9,7 @@ use Otp\Domain\Model\Otp;
 use Otp\Domain\ValueObject\{OtpChannel as DomainOtpChannel, OtpId, OtpPurpose as DomainOtpPurpose};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Handler GenerateOtpHandler.
@@ -32,11 +33,14 @@ final readonly class GenerateOtpHandler implements CommandHandler
    * @param OtpRepositoryPort $otpRepository the OTP repository
    * @param OtpNotifierPort $otpNotifier the OTP notifier
    * @param UuidFactory $uuidFactory the UUID factory
+   * @param int $otpCodeLength the OTP code length
    */
   public function __construct(
     private readonly OtpRepositoryPort $otpRepository,
     private readonly OtpNotifierPort $otpNotifier,
     private readonly UuidFactory $uuidFactory,
+    #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
+    private readonly int $otpCodeLength = 6,
   ) {
   }
   // #endregion
@@ -75,6 +79,7 @@ final readonly class GenerateOtpHandler implements CommandHandler
       recipient: $command->recipient,
       ttlSeconds: $command->ttlSeconds,
       maxAttempts: $command->maxAttempts,
+      codeLength: $this->otpCodeLength,
     );
 
     // Persist OTP

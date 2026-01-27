@@ -12,6 +12,8 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
+use function is_bool;
+
 /**
  * Handler RefreshTokenHandler.
  *
@@ -83,11 +85,13 @@ final readonly class RefreshTokenHandler implements QueryHandler
 
     /** @var list<string> $scopes */
     $scopes = $payload['scopes'];
+    $rememberMe = $this->resolveRememberMe($payload);
 
     $tokens = $this->tokenService->generateTokens(
       userId: $userId,
       email: '',
       scopes: $scopes,
+      rememberMe: $rememberMe,
     );
 
     $this->eventDispatcher->dispatch(new TokenRefreshedEvent(
@@ -152,6 +156,16 @@ final readonly class RefreshTokenHandler implements QueryHandler
 
       return RefreshTokenResult::failed('Failed to verify user');
     }
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   */
+  private function resolveRememberMe(array $payload): bool
+  {
+    $rememberMe = $payload['remember_me'] ?? null;
+
+    return is_bool($rememberMe) ? $rememberMe : false;
   }
   // #endregion
 }

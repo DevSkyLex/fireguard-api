@@ -120,10 +120,11 @@ final class MfaVerifyProcessorTest extends TestCase
         'sub' => 'user-123',
         'email' => 'user@example.com',
         'scopes' => ['READ', 'WRITE'],
+        'remember_me' => true,
       ]);
     $jwt->expects(self::once())
       ->method('generateTokens')
-      ->with('user-123', 'user@example.com', ['READ', 'WRITE'])
+      ->with('user-123', 'user@example.com', ['READ', 'WRITE'], true)
       ->willReturn([
         'access_token' => 'access',
         'refresh_token' => 'refresh',

@@ -90,6 +90,8 @@ final readonly class LoginHandler implements CommandHandler
 
       return LoginResult::failed(
         sprintf('Too many login attempts. Please try again in %d seconds.', $rateLimit->retryAfter),
+        LoginResult::ERROR_RATE_LIMIT,
+        $rateLimit->retryAfter,
       );
     }
 
@@ -129,6 +131,7 @@ final readonly class LoginHandler implements CommandHandler
           challengeToken: $challenge->challengeToken,
           email: $email,
           scopes: $scopes,
+          rememberMe: $command->rememberMe,
         );
 
         return new LoginResult(
@@ -146,6 +149,7 @@ final readonly class LoginHandler implements CommandHandler
         userId: $userId,
         email: $email,
         scopes: $scopes,
+        rememberMe: $command->rememberMe,
       );
 
       // Dispatch domain events

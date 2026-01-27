@@ -6,6 +6,7 @@ namespace Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Query\Session\RefreshToken\{RefreshTokenQuery, RefreshTokenResult};
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
@@ -13,7 +14,9 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 
+use function array_key_exists;
 use function implode;
+use function is_array;
 
 /**
  * Processor RefreshTokenProcessor.
@@ -45,6 +48,7 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     private readonly QueryBusPort $queryBus,
     private readonly RequestStack $requestStack,
     private readonly RefreshTokenCookieService $cookieService,
+    private readonly JwtTokenServicePort $jwtService,
   ) {
   }
   // #endregion
@@ -94,6 +98,11 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     );
 
     if (!$result->success) {
+      $request->attributes->set(
+        key: '_refresh_token_cookie',
+        value: $this->cookieService->createClearCookie(),
+      );
+
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
         message: $result->errorMessage ?? 'Invalid refresh token',
@@ -107,8 +116,15 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     $output->scope = implode(' ', $result->scopes);
 
     if (null !== $result->refreshToken) {
+      $rememberMe = false;
+      $payload = $this->jwtService->decodeRefreshToken($result->refreshToken);
+      if (is_array($payload) && array_key_exists('remember_me', $payload)) {
+        $rememberMe = $payload['remember_me'];
+      }
+
       $cookie = $this->cookieService->createCookie(
         refreshToken: $result->refreshToken,
+        rememberMe: $rememberMe,
       );
 
       $request->attributes->set(

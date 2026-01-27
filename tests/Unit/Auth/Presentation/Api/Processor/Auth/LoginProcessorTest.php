@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
 
 /**
  * Test LoginProcessorTest.
@@ -70,6 +70,36 @@ final class LoginProcessorTest extends TestCase
     );
 
     $this->expectException(UnauthorizedHttpException::class);
+    $processor->process($input, new Post());
+  }
+
+  /**
+   * Method testProcessThrowsTooManyRequestsWhenRateLimited.
+   */
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $input = new LoginInput();
+    $input->email = 'user@example.com';
+    $input->password = 'secret';
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn(LoginResult::failed(
+        'Too many login attempts. Please try again in 30 seconds.',
+        LoginResult::ERROR_RATE_LIMIT,
+        30,
+      ));
+
+    $processor = new LoginProcessor(
+      commandBus: $commandBus,
+      requestStack: new RequestStack(),
+      cookieService: $this->createMock(RefreshTokenCookieService::class),
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
     $processor->process($input, new Post());
   }
 

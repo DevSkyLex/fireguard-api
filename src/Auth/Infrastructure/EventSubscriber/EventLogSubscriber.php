@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Auth\Infrastructure\EventSubscriber;
 
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
+use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -36,6 +37,7 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
   public function __construct(
     #[Autowire(service: 'monolog.logger.security')]
     private readonly LoggerInterface $logger,
+    private readonly SecurityLogSanitizer $sanitizer,
   ) {
   }
   // #endregion
@@ -74,8 +76,10 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
       message: 'User authenticated successfully',
       context: [
         'user_id' => $event->userId,
-        'email' => $event->email,
-        'ip' => $event->ipAddress,
+        'email' => $this->sanitizer->email($event->email),
+        'email_hash' => $this->sanitizer->emailHash($event->email),
+        'ip' => $this->sanitizer->ip($event->ipAddress),
+        'ip_hash' => $this->sanitizer->ipHash($event->ipAddress),
       ],
     );
   }
@@ -94,8 +98,10 @@ final readonly class EventLogSubscriber implements EventSubscriberInterface
     $this->logger->warning(
       message: 'Login attempt failed',
       context: [
-        'email' => $event->email,
-        'ip' => $event->ipAddress,
+        'email' => $this->sanitizer->email($event->email),
+        'email_hash' => $this->sanitizer->emailHash($event->email),
+        'ip' => $this->sanitizer->ip($event->ipAddress),
+        'ip_hash' => $this->sanitizer->ipHash($event->ipAddress),
         'reason' => $event->reason,
       ],
     );

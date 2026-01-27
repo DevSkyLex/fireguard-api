@@ -29,6 +29,7 @@ final readonly class MfaVerifyResult implements ResultMessage
    * @param string $tokenType the token type
    * @param int $expiresIn token expiration in seconds
    * @param list<string> $scopes the granted scopes (if success)
+   * @param bool $rememberMe whether the session is persistent
    */
   public function __construct(
     public bool $success,
@@ -39,6 +40,7 @@ final readonly class MfaVerifyResult implements ResultMessage
     public string $tokenType = 'Bearer',
     public int $expiresIn = 0,
     public array $scopes = [],
+    public bool $rememberMe = false,
   ) {
   }
   // #endregion

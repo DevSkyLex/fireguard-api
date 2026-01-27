@@ -12,11 +12,14 @@ use Otp\Presentation\Api\Dto\Input\Challenge\VerifyOtpInput;
 use Otp\Presentation\Api\Dto\Output\Challenge\VerifyOtpOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Infrastructure\Exception\MessengerRuntimeException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
+use function ctype_digit;
 use function is_string;
+use function strlen;
 
 /**
  * Processor VerifyOtpProcessor.
@@ -36,9 +39,12 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
    * Constructor.
    *
    * @param CommandBusPort $commandBus the command bus
+   * @param int $otpCodeLength expected OTP length
    */
   public function __construct(
     private CommandBusPort $commandBus,
+    #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
+    private readonly int $otpCodeLength = 6,
   ) {
   }
   // #endregion
@@ -54,6 +60,10 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
 
     if (!is_string($otpId) && !is_string($challengeToken)) {
       throw new NotFoundHttpException('OTP ID or challenge token is required.');
+    }
+
+    if (!$this->isValidOtpCode($data->code)) {
+      throw new BadRequestHttpException('Invalid code format.');
     }
 
     try {
@@ -119,6 +129,11 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
     }
 
     return null;
+  }
+
+  private function isValidOtpCode(string $code): bool
+  {
+    return strlen($code) === $this->otpCodeLength && ctype_digit($code);
   }
   // #endregion
 }

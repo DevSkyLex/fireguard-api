@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Infrastructure\Security\DPoP;
 
 use Auth\Infrastructure\Security\DPoP\DPoPValidator;
+use OpenSSLAsymmetricKey;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -12,11 +13,16 @@ use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use function base64_encode;
 use function hash;
 use function json_encode;
+use function openssl_pkey_get_details;
+use function openssl_pkey_new;
+use function openssl_sign;
 use function rtrim;
 use function strtr;
 use function time;
 
 use const JSON_UNESCAPED_SLASHES;
+use const OPENSSL_ALGO_SHA256;
+use const OPENSSL_KEYTYPE_RSA;
 
 /**
  * Test DPoPValidatorTest.
@@ -77,14 +83,7 @@ final class DPoPValidatorTest extends TestCase
     $accessToken = 'access-token';
     $nonce = $validator->generateNonce();
 
-    $header = [
-      'typ' => 'dpop+jwt',
-      'jwk' => [
-        'kty' => 'RSA',
-        'e' => 'AQAB',
-        'n' => 'test',
-      ],
-    ];
+    [$header, $key] = $this->createRsaHeaderAndKey();
 
     $payload = [
       'jti' => 'jti-unique',
@@ -95,7 +94,7 @@ final class DPoPValidatorTest extends TestCase
       'ath' => $this->calculateAccessTokenHash($accessToken),
     ];
 
-    $dpopHeader = $this->buildJwt($header, $payload);
+    $dpopHeader = $this->buildSignedJwt($header, $payload, $key);
 
     $proof = $validator->validateProof(
       dpopHeader: $dpopHeader,
@@ -174,21 +173,14 @@ final class DPoPValidatorTest extends TestCase
   {
     $validator = new DPoPValidator(cache: new ArrayAdapter());
 
-    $header = [
-      'typ' => 'dpop+jwt',
-      'jwk' => [
-        'kty' => 'RSA',
-        'e' => 'AQAB',
-        'n' => 'test',
-      ],
-    ];
+    [$header, $key] = $this->createRsaHeaderAndKey();
 
     $encodedHeader = json_encode($header);
     self::assertIsString($encodedHeader);
     $headerPart = $this->base64UrlEncode($encodedHeader);
     $payloadPart = $this->base64UrlEncode('"payload"');
 
-    $token = $this->buildJwtFromParts($headerPart, $payloadPart);
+    $token = $this->buildSignedJwtFromParts($headerPart, $payloadPart, $key);
 
     self::assertNull($validator->validateProof(
       dpopHeader: $token,
@@ -202,14 +194,7 @@ final class DPoPValidatorTest extends TestCase
   {
     $validator = new DPoPValidator(cache: new ArrayAdapter());
 
-    $header = [
-      'typ' => 'dpop+jwt',
-      'jwk' => [
-        'kty' => 'RSA',
-        'e' => 'AQAB',
-        'n' => 'test',
-      ],
-    ];
+    [$header, $key] = $this->createRsaHeaderAndKey();
 
     $payload = [
       'jti' => 'jti-invalid',
@@ -217,7 +202,7 @@ final class DPoPValidatorTest extends TestCase
       'iat' => time(),
     ];
 
-    $token = $this->buildJwt($header, $payload);
+    $token = $this->buildSignedJwt($header, $payload, $key);
 
     self::assertNull($validator->validateProof(
       dpopHeader: $token,
@@ -256,14 +241,7 @@ final class DPoPValidatorTest extends TestCase
   {
     $validator = new DPoPValidator(cache: new ArrayAdapter());
 
-    $header = [
-      'typ' => 'dpop+jwt',
-      'jwk' => [
-        'kty' => 'RSA',
-        'e' => 'AQAB',
-        'n' => 'test',
-      ],
-    ];
+    [$header, $key] = $this->createRsaHeaderAndKey();
 
     $payload = [
       'jti' => 'jti-4',
@@ -273,7 +251,7 @@ final class DPoPValidatorTest extends TestCase
       'nonce' => 'nonce-one',
     ];
 
-    $dpopHeader = $this->buildJwt($header, $payload);
+    $dpopHeader = $this->buildSignedJwt($header, $payload, $key);
 
     self::assertNull($validator->validateProof(
       dpopHeader: $dpopHeader,
@@ -288,14 +266,7 @@ final class DPoPValidatorTest extends TestCase
   {
     $validator = new DPoPValidator(cache: new ArrayAdapter());
 
-    $header = [
-      'typ' => 'dpop+jwt',
-      'jwk' => [
-        'kty' => 'RSA',
-        'e' => 'AQAB',
-        'n' => 'test',
-      ],
-    ];
+    [$header, $key] = $this->createRsaHeaderAndKey();
 
     $payload = [
       'jti' => 'jti-5',
@@ -305,7 +276,7 @@ final class DPoPValidatorTest extends TestCase
       'ath' => $this->calculateAccessTokenHash('other-token'),
     ];
 
-    $dpopHeader = $this->buildJwt($header, $payload);
+    $dpopHeader = $this->buildSignedJwt($header, $payload, $key);
 
     self::assertNull($validator->validateProof(
       dpopHeader: $dpopHeader,
@@ -320,14 +291,7 @@ final class DPoPValidatorTest extends TestCase
   {
     $validator = new DPoPValidator(cache: new ArrayAdapter());
 
-    $header = [
-      'typ' => 'dpop+jwt',
-      'jwk' => [
-        'kty' => 'RSA',
-        'e' => 'AQAB',
-        'n' => 'test',
-      ],
-    ];
+    [$header, $key] = $this->createRsaHeaderAndKey();
 
     $payload = [
       'jti' => 'jti-6',
@@ -336,7 +300,7 @@ final class DPoPValidatorTest extends TestCase
       'iat' => time(),
     ];
 
-    $dpopHeader = $this->buildJwt($header, $payload);
+    $dpopHeader = $this->buildSignedJwt($header, $payload, $key);
 
     self::assertNull($validator->validateProof(
       dpopHeader: $dpopHeader,
@@ -481,9 +445,79 @@ final class DPoPValidatorTest extends TestCase
     ];
   }
 
+  /**
+   * @return array{0: array<string, mixed>, 1: OpenSSLAsymmetricKey}
+   */
+  private function createRsaHeaderAndKey(): array
+  {
+    $key = openssl_pkey_new([
+      'private_key_bits' => 2048,
+      'private_key_type' => OPENSSL_KEYTYPE_RSA,
+    ]);
+    self::assertNotFalse($key);
+    self::assertInstanceOf(OpenSSLAsymmetricKey::class, $key);
+    $details = openssl_pkey_get_details($key);
+    self::assertIsArray($details);
+    $rsa = $details['rsa'] ?? null;
+    self::assertIsArray($rsa);
+    $exponent = $rsa['e'];
+    $modulus = $rsa['n'];
+    self::assertIsString($exponent);
+    self::assertIsString($modulus);
+
+    $header = [
+      'typ' => 'dpop+jwt',
+      'alg' => 'RS256',
+      'jwk' => [
+        'kty' => 'RSA',
+        'e' => $this->base64UrlEncode($exponent),
+        'n' => $this->base64UrlEncode($modulus),
+      ],
+    ];
+
+    return [$header, $key];
+  }
+
+  /**
+   * @param array<string, mixed> $header
+   * @param array<string, mixed> $payload
+   */
+  private function buildSignedJwt(array $header, array $payload, OpenSSLAsymmetricKey $privateKey): string
+  {
+    $encodedHeader = json_encode($header);
+    $encodedPayload = json_encode($payload);
+    self::assertIsString($encodedHeader);
+    self::assertIsString($encodedPayload);
+
+    $headerPart = $this->base64UrlEncode($encodedHeader);
+    $payloadPart = $this->base64UrlEncode($encodedPayload);
+    $data = $headerPart . '.' . $payloadPart;
+
+    $signature = '';
+    $result = openssl_sign($data, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    self::assertTrue($result);
+    self::assertIsString($signature);
+
+    return $data . '.' . $this->base64UrlEncode($signature);
+  }
+
   private function buildJwtFromParts(string $headerPart, string $payloadPart): string
   {
     return $headerPart . '.' . $payloadPart . '.signature';
+  }
+
+  private function buildSignedJwtFromParts(
+    string $headerPart,
+    string $payloadPart,
+    OpenSSLAsymmetricKey $privateKey,
+  ): string {
+    $data = $headerPart . '.' . $payloadPart;
+    $signature = '';
+    $result = openssl_sign($data, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    self::assertTrue($result);
+    self::assertIsString($signature);
+
+    return $data . '.' . $this->base64UrlEncode($signature);
   }
 
   /**

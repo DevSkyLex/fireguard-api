@@ -24,7 +24,6 @@ final class VerifyOtpInput
    * The verification code.
    */
   #[Assert\NotBlank]
-  #[Assert\Regex(pattern: '/^\d{6}$/', message: 'Code must be 6 digits.')]
   public string $code;
   // #endregion
 }

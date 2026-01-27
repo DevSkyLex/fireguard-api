@@ -65,6 +65,8 @@ final class LoginHandlerTest extends TestCase
     $this->assertInstanceOf(LoginResult::class, $result);
     $this->assertFalse($result->authenticated);
     $this->assertStringContainsString('Too many login attempts', $result->errorMessage ?? '');
+    $this->assertSame(LoginResult::ERROR_RATE_LIMIT, $result->errorCode);
+    $this->assertSame(30, $result->rateLimitRetryAfter);
   }
 
   /**

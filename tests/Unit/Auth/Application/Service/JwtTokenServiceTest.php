@@ -143,6 +143,10 @@ final class JwtTokenServiceTest extends TestCase
       issuer: 'https://test.example.com',
       accessTokenTtl: 3600,
       refreshTokenTtl: 86400,
+      authorizationService: null,
+      refreshTokenTtlShort: null,
+      includeEmailClaim: false,
+      includeRbacClaims: false,
     );
   }
 
@@ -345,6 +349,10 @@ final class JwtTokenServiceTest extends TestCase
       issuer: 'https://test.example.com',
       accessTokenTtl: 1,
       refreshTokenTtl: 1,
+      authorizationService: null,
+      refreshTokenTtlShort: null,
+      includeEmailClaim: false,
+      includeRbacClaims: false,
     );
 
     $tokens = $shortTtlService->generateTokens(
@@ -410,13 +418,14 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertArrayHasKey('exp', $payload, 'JWT should have expiration');
     $this->assertArrayHasKey('iat', $payload, 'JWT should have issued at');
     $this->assertArrayHasKey('jti', $payload, 'JWT should have JWT ID');
-    $this->assertArrayHasKey('email', $payload, 'JWT should have email claim');
     $this->assertArrayHasKey('scopes', $payload, 'JWT should have scopes claim');
 
     $this->assertEquals('https://test.example.com', $payload['iss']);
     $this->assertEquals('user-claims', $payload['sub']);
-    $this->assertEquals('claims@example.com', $payload['email']);
     $this->assertEquals(['OPENID', 'EMAIL'], $payload['scopes']);
+    $this->assertArrayNotHasKey('email', $payload, 'Email claim should be omitted when includeEmailClaim=false');
+    $this->assertArrayNotHasKey('roles', $payload, 'Roles claim should be omitted when includeRbacClaims=false');
+    $this->assertArrayNotHasKey('permissions', $payload, 'Permissions claim should be omitted when includeRbacClaims=false');
   }
 
   /**
@@ -479,6 +488,10 @@ final class JwtTokenServiceTest extends TestCase
       issuer: 'https://test.example.com',
       accessTokenTtl: $customAccessTtl,
       refreshTokenTtl: $customRefreshTtl,
+      authorizationService: null,
+      refreshTokenTtlShort: null,
+      includeEmailClaim: false,
+      includeRbacClaims: false,
     );
 
     $this->assertEquals($customAccessTtl, $service->getAccessTokenTtl());
@@ -542,6 +555,51 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertIsArray($payload);
     /** @var array<string, mixed> $payload */
     $expectedExp = time() + $this->service->getRefreshTokenTtl();
+
+    // Allow 5 seconds tolerance
+    $this->assertEqualsWithDelta($expectedExp, $payload['expires_at'], 5);
+  }
+
+  /**
+   * Method testRefreshTokenUsesShortTtlWhenRememberMeFalse.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testRefreshTokenUsesShortTtlWhenRememberMeFalse(): void
+  {
+    /** @var non-empty-string $privateKeyPath */
+    $privateKeyPath = $this->privateKeyPath;
+    /** @var non-empty-string $publicKeyPath */
+    $publicKeyPath = $this->publicKeyPath;
+
+    $service = new JwtTokenAdapter(
+      privateKeyPath: $privateKeyPath,
+      publicKeyPath: $publicKeyPath,
+      encryptionKey: base64_encode(random_bytes(32)),
+      issuer: 'https://test.example.com',
+      accessTokenTtl: 3600,
+      refreshTokenTtl: 7200,
+      authorizationService: null,
+      refreshTokenTtlShort: 600,
+      includeEmailClaim: false,
+      includeRbacClaims: false,
+    );
+
+    $tokens = $service->generateTokens(
+      userId: 'user-short',
+      email: 'short@example.com',
+      scopes: ['READ'],
+      rememberMe: false,
+    );
+
+    $payload = $service->decodeRefreshToken($tokens['refresh_token']);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
+    $expectedExp = time() + 600;
+
+    $this->assertArrayHasKey('remember_me', $payload);
+    $this->assertFalse($payload['remember_me']);
 
     // Allow 5 seconds tolerance
     $this->assertEqualsWithDelta($expectedExp, $payload['expires_at'], 5);
@@ -682,6 +740,7 @@ final class JwtTokenServiceTest extends TestCase
       accessTokenTtl: 3600,
       refreshTokenTtl: 86400,
       authorizationService: $authorizationService,
+      includeRbacClaims: true,
     );
 
     $tokens = $service->generateTokens(
@@ -698,6 +757,42 @@ final class JwtTokenServiceTest extends TestCase
     /** @var array<string, mixed> $payload */
     $this->assertSame(['role_admin'], $payload['roles'] ?? null);
     $this->assertSame(['user.read'], $payload['permissions'] ?? null);
+  }
+
+  #[Test]
+  public function testAccessTokenIncludesEmailWhenEnabled(): void
+  {
+    /** @var non-empty-string $privateKeyPath */
+    $privateKeyPath = $this->privateKeyPath;
+    /** @var non-empty-string $publicKeyPath */
+    $publicKeyPath = $this->publicKeyPath;
+
+    $service = new JwtTokenAdapter(
+      privateKeyPath: $privateKeyPath,
+      publicKeyPath: $publicKeyPath,
+      encryptionKey: $this->encryptionKey,
+      issuer: 'https://test.example.com',
+      accessTokenTtl: 3600,
+      refreshTokenTtl: 86400,
+      authorizationService: null,
+      refreshTokenTtlShort: null,
+      includeEmailClaim: true,
+      includeRbacClaims: false,
+    );
+
+    $tokens = $service->generateTokens(
+      userId: 'user-email-claim',
+      email: 'claims@example.com',
+      scopes: ['OPENID', 'EMAIL'],
+    );
+
+    $parts = explode('.', $tokens['access_token']);
+    $decoded = base64_decode($parts[1], true);
+    $this->assertNotFalse($decoded);
+    $payload = json_decode($decoded, true);
+    $this->assertIsArray($payload);
+    /** @var array<string, mixed> $payload */
+    $this->assertSame('claims@example.com', $payload['email'] ?? null);
   }
 
   #[Test]
@@ -720,6 +815,7 @@ final class JwtTokenServiceTest extends TestCase
       email: 'preauth@example.com',
       scopes: ['SCOPE'],
       ttl: 300,
+      rememberMe: true,
     );
 
     $claims = $this->service->decodePreAuthToken($token);
@@ -727,6 +823,7 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertIsArray($claims);
     $this->assertSame('user-preauth', $claims['sub'] ?? null);
     $this->assertSame('challenge-token', $claims['challenge_token'] ?? null);
+    $this->assertTrue($claims['remember_me'] ?? false);
   }
 
   #[Test]

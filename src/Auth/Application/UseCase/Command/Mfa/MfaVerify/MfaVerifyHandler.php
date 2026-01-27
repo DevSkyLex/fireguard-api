@@ -14,6 +14,7 @@ use Throwable;
 use function array_filter;
 use function array_values;
 use function is_array;
+use function is_bool;
 use function is_string;
 
 /**
@@ -75,6 +76,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
     $userId = $tokenClaims['sub'] ?? null;
     $email = $tokenClaims['email'] ?? null;
     $scopesClaim = $tokenClaims['scopes'] ?? DefaultScopes::USER_SCOPES;
+    $rememberMe = false;
 
     if (!is_string($challengeToken) || !is_string($userId) || '' === $userId) {
       throw AuthorizationException::invalidGrant('Invalid pre-auth token payload');
@@ -86,6 +88,11 @@ final readonly class MfaVerifyHandler implements CommandHandler
       if ([] === $scopes) {
         $scopes = DefaultScopes::USER_SCOPES;
       }
+    }
+
+    $rememberClaim = $tokenClaims['remember_me'] ?? null;
+    if (is_bool($rememberClaim)) {
+      $rememberMe = $rememberClaim;
     }
 
     // 2. Verify OTP via port
@@ -104,9 +111,10 @@ final readonly class MfaVerifyHandler implements CommandHandler
       userId: $userId,
       email: is_string($email) ? $email : '',
       scopes: $scopes,
+      rememberMe: $rememberMe,
     );
 
-    $this->recordSession($command, $userId, $tokens);
+    $this->recordSession($command, $userId, $tokens, $rememberMe);
 
     return new MfaVerifyResult(
       success: true,
@@ -116,6 +124,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
       tokenType: $tokens['token_type'],
       expiresIn: $tokens['expires_in'],
       scopes: $scopes,
+      rememberMe: $rememberMe,
     );
   }
 
@@ -130,7 +139,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
    *
    * @return void no return value
    */
-  private function recordSession(MfaVerifyCommand $command, string $userId, array $tokens): void
+  private function recordSession(MfaVerifyCommand $command, string $userId, array $tokens, bool $rememberMe): void
   {
     $refreshPayload = $this->jwtService->decodeRefreshToken($tokens['refresh_token']);
     $accessTokenId = null;
@@ -150,7 +159,7 @@ final readonly class MfaVerifyHandler implements CommandHandler
         userAgent: $userAgent,
         accessTokenId: $accessTokenId,
         refreshTokenId: $refreshTokenId,
-        rememberMe: $command->rememberMe,
+        rememberMe: $rememberMe,
       );
     } catch (Throwable) {
       // Best-effort session tracking; MFA verification must not fail.

@@ -9,7 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\{UserDataPurgePort, UserRepositoryPort};
 use User\Application\UseCase\Command\User\DeleteUser\{DeleteUserCommand, DeleteUserHandler, DeleteUserResult};
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\Model\User\User;
@@ -35,7 +35,9 @@ final class DeleteUserHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $handler = new DeleteUserHandler($repository);
+    /** @var UserDataPurgePort&MockObject $purgePort */
+    $purgePort = $this->createMock(UserDataPurgePort::class);
+    $handler = new DeleteUserHandler($repository, $purgePort);
 
     $this->expectException(UserNotFoundException::class);
 
@@ -63,7 +65,13 @@ final class DeleteUserHandlerTest extends TestCase
       ->method('delete')
       ->with($user);
 
-    $handler = new DeleteUserHandler($repository);
+    /** @var UserDataPurgePort&MockObject $purgePort */
+    $purgePort = $this->createMock(UserDataPurgePort::class);
+    $purgePort->expects(self::once())
+      ->method('purgeForUser')
+      ->with($user->id()->value);
+
+    $handler = new DeleteUserHandler($repository, $purgePort);
 
     $result = $handler->__invoke(new DeleteUserCommand(id: $user->id()->value));
 

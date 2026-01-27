@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Post;
+use Auth\Application\Port\Outbound\JwtTokenServicePort;
 use Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenResult;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Processor\Auth\RefreshTokenProcessor;
@@ -37,6 +38,7 @@ final class RefreshTokenProcessorTest extends TestCase
       queryBus: $this->createMock(QueryBusPort::class),
       requestStack: new RequestStack(),
       cookieService: $this->createMock(RefreshTokenCookieService::class),
+      jwtService: $this->createMock(JwtTokenServicePort::class),
     );
 
     $this->assertNull($processor->process(null, new Post()));
@@ -55,6 +57,7 @@ final class RefreshTokenProcessorTest extends TestCase
       queryBus: $this->createMock(QueryBusPort::class),
       requestStack: $requestStack,
       cookieService: $this->createMock(RefreshTokenCookieService::class),
+      jwtService: $this->createMock(JwtTokenServicePort::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
@@ -90,10 +93,17 @@ final class RefreshTokenProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
+      jwtService: $this->createMock(JwtTokenServicePort::class),
     );
 
-    $this->expectException(UnauthorizedHttpException::class);
-    $processor->process(null, new Post());
+    try {
+      $processor->process(null, new Post());
+      $this->fail('Expected UnauthorizedHttpException');
+    } catch (UnauthorizedHttpException) {
+      $cookie = $request->attributes->get('_refresh_token_cookie');
+      $this->assertInstanceOf(\Symfony\Component\HttpFoundation\Cookie::class, $cookie);
+      $this->assertSame('', $cookie->getValue());
+    }
   }
 
   /**
@@ -123,6 +133,13 @@ final class RefreshTokenProcessorTest extends TestCase
       ->method('ask')
       ->willReturn($result);
 
+    /** @var JwtTokenServicePort&MockObject $jwtService */
+    $jwtService = $this->createMock(JwtTokenServicePort::class);
+    $jwtService->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->with('refresh-new')
+      ->willReturn(['remember_me' => true]);
+
     $cookieService = new RefreshTokenCookieService(
       environment: 'test',
       cookieBaseName: 'refresh_token',
@@ -134,6 +151,7 @@ final class RefreshTokenProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
+      jwtService: $jwtService,
     );
 
     $output = $processor->process(null, new Post());

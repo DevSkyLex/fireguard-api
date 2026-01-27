@@ -8,6 +8,11 @@ use DateTimeImmutable;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\{Cookie, Request};
 
+use function filter_var;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOL;
+
 /**
  * Service RefreshTokenCookieService.
  *
@@ -48,6 +53,7 @@ readonly class RefreshTokenCookieService
    * @param string $cookieBaseName the base name for the cookie
    * @param int $lifetimeShort the short lifetime in seconds
    * @param int $lifetimeLong the long lifetime in seconds
+   * @param string|null $cookieSecure overrides secure cookie flag when set
    */
   public function __construct(
     #[Autowire(value: '%kernel.environment%')]
@@ -58,6 +64,8 @@ readonly class RefreshTokenCookieService
     private readonly int $lifetimeShort = 86400,
     #[Autowire(value: '%env(int:REFRESH_TOKEN_LIFETIME_LONG)%')]
     private readonly int $lifetimeLong = 2592000,
+    #[Autowire(value: '%env(default::COOKIE_SECURE)%')]
+    private readonly ?string $cookieSecure = null,
   ) {
   }
   // #endregion
@@ -163,6 +171,13 @@ readonly class RefreshTokenCookieService
    */
   private function isSecureEnvironment(): bool
   {
+    if (null !== $this->cookieSecure && '' !== $this->cookieSecure) {
+      $parsed = filter_var($this->cookieSecure, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+      if (null !== $parsed) {
+        return $parsed;
+      }
+    }
+
     return 'prod' === $this->environment;
   }
   // #endregion

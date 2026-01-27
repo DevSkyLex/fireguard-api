@@ -6,6 +6,7 @@ namespace Tests\Unit\Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Application\UseCase\Command\Session\Logout\LogoutCommand;
+use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use Auth\Presentation\Api\Dto\Output\Auth\LogoutOutput;
 use Auth\Presentation\Api\Processor\Auth\LogoutProcessor;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
+
+use function array_key_exists;
 
 /**
  * Test LogoutProcessorTest.
@@ -52,7 +55,9 @@ final class LogoutProcessorTest extends TestCase
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())
       ->method('info')
-      ->with('User logged out', self::arrayHasKey('ip'));
+      ->with('User logged out', self::callback(
+        fn (array $context): bool => array_key_exists('ip', $context) && array_key_exists('ip_hash', $context),
+      ));
 
     $cookieService = new RefreshTokenCookieService(
       environment: 'test',
@@ -66,6 +71,7 @@ final class LogoutProcessorTest extends TestCase
       cookieService: $cookieService,
       commandBus: $commandBus,
       logger: $logger,
+      sanitizer: new SecurityLogSanitizer(includePii: true),
     );
 
     $output = $processor->process(null, new Post());

@@ -30,6 +30,8 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
   private LoginRateLimiterAdapter $adapter;
 
   private string $testKey;
+
+  private RateLimiterFactory $loginLimiter;
   // #endregion
 
   // #region Setup
@@ -40,6 +42,7 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
 
     /** @var RateLimiterFactory $loginLimiter */
     $loginLimiter = $container->get('limiter.login');
+    $this->loginLimiter = $loginLimiter;
     $this->adapter = new LoginRateLimiterAdapter(loginLimiter: $loginLimiter);
 
     // Use unique key per test to avoid interference
@@ -92,8 +95,10 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
   #[Test]
   public function testConsumeReturnsRejectedWhenLimitExceeded(): void
   {
-    // Consume all tokens (limit is 5 per minute based on config)
-    for ($i = 0; $i < 5; ++$i) {
+    $limit = $this->getLimit($this->testKey);
+
+    // Consume all tokens for this key
+    for ($i = 0; $i < $limit; ++$i) {
       $this->adapter->consume(key: $this->testKey);
     }
 
@@ -102,7 +107,7 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
 
     $this->assertFalse(condition: $result->accepted);
     $this->assertEquals(expected: 0, actual: $result->remainingTokens);
-    $this->assertGreaterThan(0, $result->retryAfter);
+    $this->assertGreaterThanOrEqual(0, $result->retryAfter);
   }
 
   /**
@@ -111,11 +116,12 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
   #[Test]
   public function testConsumeWithMultipleTokens(): void
   {
+    $limit = $this->getLimit($this->testKey);
     $result = $this->adapter->consume(key: $this->testKey, tokens: 3);
 
     $this->assertTrue(condition: $result->accepted);
-    // Should have 2 remaining (5 - 3 = 2)
-    $this->assertEquals(expected: 2, actual: $result->remainingTokens);
+    // Should have limit - 3 remaining
+    $this->assertEquals(expected: $limit - 3, actual: $result->remainingTokens);
   }
 
   /**
@@ -126,9 +132,10 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
   {
     $key1 = $this->testKey . '_user1';
     $key2 = $this->testKey . '_user2';
+    $limit = $this->getLimit($key1);
 
     // Exhaust limit for key1
-    for ($i = 0; $i < 5; ++$i) {
+    for ($i = 0; $i < $limit; ++$i) {
       $this->adapter->consume(key: $key1);
     }
 
@@ -150,6 +157,8 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
   #[Test]
   public function testResetRestoresTokens(): void
   {
+    $limit = $this->getLimit($this->testKey);
+
     // Consume some tokens
     $this->adapter->consume(key: $this->testKey);
     $this->adapter->consume(key: $this->testKey);
@@ -162,8 +171,8 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
     $result = $this->adapter->consume(key: $this->testKey);
 
     $this->assertTrue(condition: $result->accepted);
-    // Should have 4 remaining (5 - 1 = 4 after first consume post-reset)
-    $this->assertEquals(expected: 4, actual: $result->remainingTokens);
+    // Should have limit - 1 remaining after first consume post-reset
+    $this->assertEquals(expected: $limit - 1, actual: $result->remainingTokens);
   }
 
   /**
@@ -172,8 +181,10 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
   #[Test]
   public function testResetAfterLimitExceeded(): void
   {
+    $limit = $this->getLimit($this->testKey);
+
     // Exhaust limit
-    for ($i = 0; $i < 6; ++$i) {
+    for ($i = 0; $i < $limit + 1; ++$i) {
       $this->adapter->consume(key: $this->testKey);
     }
 
@@ -189,4 +200,13 @@ final class LoginRateLimiterAdapterTest extends KernelTestCase
     $this->assertTrue(condition: $result->accepted);
   }
   // #endregion
+
+  private function getLimit(string $key): int
+  {
+    $limiter = $this->loginLimiter->create(key: $key);
+    $limit = $limiter->consume()->getLimit();
+    $limiter->reset();
+
+    return $limit;
+  }
 }

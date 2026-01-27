@@ -7,6 +7,7 @@ namespace Auth\Presentation\Api\Processor\Auth;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Application\UseCase\Command\Session\Logout\LogoutCommand;
+use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use Auth\Presentation\Api\Dto\Output\Auth\LogoutOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use Psr\Log\LoggerInterface;
@@ -75,6 +76,7 @@ final readonly class LogoutProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     #[Autowire(service: 'monolog.logger.security')]
     private LoggerInterface $logger,
+    private SecurityLogSanitizer $sanitizer,
   ) {
   }
   // #endregion
@@ -128,7 +130,10 @@ final readonly class LogoutProcessor implements ProcessorInterface
 
     $this->logger->info(
       message: 'User logged out',
-      context: ['ip' => $request?->getClientIp()],
+      context: [
+        'ip' => $this->sanitizer->ip($request?->getClientIp()),
+        'ip_hash' => $this->sanitizer->ipHash($request?->getClientIp()),
+      ],
     );
 
     return new LogoutOutput();

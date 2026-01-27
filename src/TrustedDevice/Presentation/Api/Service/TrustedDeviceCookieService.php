@@ -8,6 +8,11 @@ use DateTimeImmutable;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\{Cookie, Request};
 
+use function filter_var;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOL;
+
 /**
  * Service TrustedDeviceCookieService.
  *
@@ -48,6 +53,7 @@ readonly class TrustedDeviceCookieService
    * @param string $environment the application environment
    * @param string $cookieBaseName the base name for the cookie
    * @param int $lifetime the cookie lifetime in seconds (default: 30 days)
+   * @param string|null $cookieSecure overrides secure cookie flag when set
    */
   public function __construct(
     #[Autowire(value: '%kernel.environment%')]
@@ -56,6 +62,8 @@ readonly class TrustedDeviceCookieService
     private readonly string $cookieBaseName = 'trusted_device',
     #[Autowire(value: '%env(int:TRUSTED_DEVICE_LIFETIME)%')]
     private readonly int $lifetime = 2592000,
+    #[Autowire(value: '%env(default::COOKIE_SECURE)%')]
+    private readonly ?string $cookieSecure = null,
   ) {
   }
   // #endregion
@@ -163,6 +171,13 @@ readonly class TrustedDeviceCookieService
    */
   private function isSecureEnvironment(): bool
   {
+    if (null !== $this->cookieSecure && '' !== $this->cookieSecure) {
+      $parsed = filter_var($this->cookieSecure, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+      if (null !== $parsed) {
+        return $parsed;
+      }
+    }
+
     return 'prod' === $this->environment;
   }
   // #endregion

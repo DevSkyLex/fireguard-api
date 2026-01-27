@@ -28,6 +28,9 @@ services:
   # JWT Token Adapter (uses #[Autowire] attributes)
   Auth\Infrastructure\Adapter\Jwt\JwtTokenAdapter: ~
 
+  # Logging helpers
+  Auth\Infrastructure\Logging\SecurityLogSanitizer: ~
+
   # Use Case Command Handlers
   Auth\Application\UseCase\Command\Session\Login\LoginHandler:
     tags: ['messenger.message_handler']
@@ -65,3 +68,6 @@ services:
 
   # DPoP Validator
   Auth\Infrastructure\Security\DPoP\DPoPValidator: ~
+
+  # Console Commands
+  Auth\Infrastructure\Console\CleanupAuthDataCommand: ~

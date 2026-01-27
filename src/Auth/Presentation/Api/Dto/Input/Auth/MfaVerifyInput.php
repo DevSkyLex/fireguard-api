@@ -42,5 +42,6 @@ final class MfaVerifyInput
     example: '123456',
   )]
   public string $code;
+
   // #endregion
 }

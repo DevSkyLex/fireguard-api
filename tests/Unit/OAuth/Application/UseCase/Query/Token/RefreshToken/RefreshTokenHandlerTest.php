@@ -231,10 +231,11 @@ final class RefreshTokenHandlerTest extends TestCase
       ->willReturn([
         'user_id' => 'user-123',
         'scopes' => ['openid', 'profile'],
+        'remember_me' => true,
       ]);
     $tokenService->expects(self::once())
       ->method('generateTokens')
-      ->with('user-123', '', ['openid', 'profile'])
+      ->with('user-123', '', ['openid', 'profile'], true)
       ->willReturn([
         'access_token' => 'access-token',
         'refresh_token' => 'new-refresh-token',

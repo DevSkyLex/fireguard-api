@@ -11,10 +11,13 @@ use Auth\Domain\Exception\Session\AuthorizationException;
 use Auth\Presentation\Api\Dto\Input\Auth\MfaVerifyInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
 
+use function ctype_digit;
 use function implode;
+use function strlen;
 
 /**
  * Processor MfaVerifyProcessor.
@@ -40,11 +43,14 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
    * @param MfaVerifyHandler $handler the MFA verify handler
    * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the cookie service
+   * @param int $otpCodeLength expected OTP length
    */
   public function __construct(
     private readonly MfaVerifyHandler $handler,
     private readonly RequestStack $requestStack,
     private readonly RefreshTokenCookieService $cookieService,
+    #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
+    private readonly int $otpCodeLength = 6,
   ) {
   }
   // #endregion
@@ -69,13 +75,16 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
   {
     $request = $this->requestStack->getCurrentRequest();
 
+    if (!$this->isValidOtpCode($data->code)) {
+      throw new BadRequestHttpException('Invalid code format.');
+    }
+
     // Dispatch command to handler
     $command = new MfaVerifyCommand(
       preAuthToken: $data->preAuthToken,
       code: $data->code,
       ipAddress: $request?->getClientIp(),
       userAgent: $request?->headers->get('User-Agent'),
-      rememberMe: true,
     );
 
     try {
@@ -104,7 +113,7 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     if (null !== $result->refreshToken) {
       $cookie = $this->cookieService->createCookie(
         refreshToken: $result->refreshToken,
-        rememberMe: true,
+        rememberMe: $result->rememberMe,
       );
 
       $request?->attributes->set(
@@ -114,6 +123,11 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     }
 
     return $output;
+  }
+
+  private function isValidOtpCode(string $code): bool
+  {
+    return strlen($code) === $this->otpCodeLength && ctype_digit($code);
   }
   // #endregion
 }

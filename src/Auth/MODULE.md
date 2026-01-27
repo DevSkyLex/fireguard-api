@@ -11,6 +11,7 @@ The Auth module is responsible for interactive user authentication. It issues ac
 - Email or username authentication with password.
 - Optional MFA with OTP (email, SMS, TOTP).
 - Refresh token cookies with HttpOnly, SameSite, and secure defaults.
+- Access tokens are minimized by default; optional email/RBAC claims via env.
 - Session tracking and revocation.
 - Integration with OAuth2/OpenID Connect flows for SSO.
 
@@ -75,7 +76,7 @@ Request:
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `preAuthToken` | string | Yes | Token received in `mfa_token` |
-| `code` | string | Yes | 6-digit OTP code |
+| `code` | string | Yes | OTP/TOTP code (length: `OTP_CODE_LENGTH` for SMS/Email, `TOTP_DIGITS` for authenticator app) |
 
 #### POST `/api/auth/refresh`
 
@@ -189,6 +190,8 @@ Key folders:
 
 Environment variables (see `.env`):
 - `MFA_ENABLED`
+- `ACCESS_TOKEN_INCLUDE_EMAIL` (default: `true` for backward compatibility)
+- `ACCESS_TOKEN_INCLUDE_RBAC` (default: `true` for backward compatibility)
 - `REFRESH_TOKEN_COOKIE_NAME`
 - `REFRESH_TOKEN_LIFETIME_SHORT`
 - `REFRESH_TOKEN_LIFETIME_LONG`

@@ -13,7 +13,7 @@ use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use InvalidArgumentException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
 
 use function implode;
 
@@ -78,6 +78,15 @@ final readonly class LoginProcessor implements ProcessorInterface
     $result = $this->commandBus->dispatch($command);
 
     if (!$result->authenticated) {
+      if (LoginResult::ERROR_RATE_LIMIT === $result->errorCode) {
+        $retryAfter = $result->rateLimitRetryAfter ?? 0;
+
+        throw new TooManyRequestsHttpException(
+          $retryAfter,
+          $result->errorMessage ?? 'Too many login attempts.',
+        );
+      }
+
       throw new UnauthorizedHttpException(
         challenge: 'Bearer',
         message: $result->errorMessage ?? 'Invalid credentials',

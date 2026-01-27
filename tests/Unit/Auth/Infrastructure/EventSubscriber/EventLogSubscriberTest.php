@@ -6,9 +6,12 @@ namespace Tests\Unit\Auth\Infrastructure\EventSubscriber;
 
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\EventSubscriber\EventLogSubscriber;
+use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+
+use function hash;
 
 /**
  * Test EventLogSubscriberTest.
@@ -39,11 +42,16 @@ final class EventLogSubscriberTest extends TestCase
         self::callback(
           fn (array $context): bool => 'user-123' === $context['user_id']
           && 'user@example.com' === $context['email']
-          && '127.0.0.1' === $context['ip'],
+          && hash('sha256', 'user@example.com') === $context['email_hash']
+          && '127.0.0.1' === $context['ip']
+          && hash('sha256', '127.0.0.1') === $context['ip_hash'],
         ),
       );
 
-    $subscriber = new EventLogSubscriber($logger);
+    $subscriber = new EventLogSubscriber(
+      $logger,
+      new SecurityLogSanitizer(includePii: true),
+    );
 
     $subscriber->onUserLoggedIn(new UserLoggedInEvent(
       userId: 'user-123',
@@ -62,12 +70,17 @@ final class EventLogSubscriberTest extends TestCase
         'Login attempt failed',
         self::callback(
           fn (array $context): bool => 'user@example.com' === $context['email']
+          && hash('sha256', 'user@example.com') === $context['email_hash']
           && '127.0.0.1' === $context['ip']
+          && hash('sha256', '127.0.0.1') === $context['ip_hash']
           && 'invalid_password' === $context['reason'],
         ),
       );
 
-    $subscriber = new EventLogSubscriber($logger);
+    $subscriber = new EventLogSubscriber(
+      $logger,
+      new SecurityLogSanitizer(includePii: true),
+    );
 
     $subscriber->onLoginFailed(new LoginFailedEvent(
       email: 'user@example.com',

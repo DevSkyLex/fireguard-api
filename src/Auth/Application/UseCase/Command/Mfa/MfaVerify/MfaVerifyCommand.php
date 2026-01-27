@@ -29,14 +29,12 @@ final readonly class MfaVerifyCommand implements CommandMessage
    * @param string $code the verification code entered by the user
    * @param string|null $ipAddress the client IP address
    * @param string|null $userAgent the client user agent
-   * @param bool $rememberMe whether the session is persistent
    */
   public function __construct(
     public readonly string $preAuthToken,
     public readonly string $code,
     public readonly ?string $ipAddress = null,
     public readonly ?string $userAgent = null,
-    public readonly bool $rememberMe = true,
   ) {
   }
   // #endregion

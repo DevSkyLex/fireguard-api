@@ -1,72 +1,158 @@
-# Fireguard Auth Server
+﻿# Fireguard Auth Server Documentation
 
 Modular authentication and authorization server built with Symfony. It provides OAuth 2.0 and OpenID Connect capabilities for APIs and SSO use cases.
 
-## Table of contents
-- Overview
-- Standards and protocols
-- Architecture
-- Modules
-- API surface
-- Project layout
-- Configuration
-- Operations
-- Security
-- Requirements
-- Getting started
-- Development
-- Code quality
-- Testing
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [API surface](#api-surface)
+  - [Auth](#auth)
+  - [OAuth2 and OIDC](#oauth2-and-oidc)
+  - [Discovery](#discovery)
+  - [Administration](#administration)
+- [Flows](#flows)
+  - [OAuth2 and OIDC core flow](#oauth2-and-oidc-core-flow)
+- [Architecture](#architecture)
+- [Project layout](#project-layout)
+- [Configuration](#configuration)
+- [Requirements](#requirements)
+- [Getting started](#getting-started)
+- [Development](#development)
+- [Testing](#testing)
+- [Code quality](#code-quality)
+- [Operations](#operations)
+- [Security](#security)
+- [License](#license)
+
+---
+
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
 
 ## Overview
 
 Fireguard Auth Server is a modular auth stack designed around clear module boundaries and hexagonal architecture.
-Core capabilities include:
-- OAuth 2.0 and OpenID Connect provider (authorization code with PKCE, client credentials, refresh token).
-- Token issuance, introspection, revocation, refresh, and discovery metadata.
-- User authentication with MFA and OTP (email, SMS, TOTP).
-- Session and trusted device management.
-- Multi-tenant support and RBAC (roles and permissions).
-- API Platform integration with rate limiting.
 
-## Standards and protocols
+## Features
 
-- OAuth 2.0 (RFC 6749)
-- OAuth 2.0 Token Revocation (RFC 7009)
-- OAuth 2.0 Token Introspection (RFC 7662)
-- OAuth 2.0 Authorization Server Metadata (RFC 8414)
-- OpenID Connect Core 1.0
+| Feature | Description |
+| --- | --- |
+| OAuth2 and OIDC | Authorization code with PKCE, client credentials, refresh token |
+| Token lifecycle | Issue, introspect, revoke, refresh, and discovery metadata |
+| Authentication | Login with MFA and OTP (email, SMS, TOTP) |
+| Sessions | Session tracking, revocation, and trusted devices |
+| Multi-tenant | Tenant-aware resources and policies |
+| RBAC | Roles and permissions management |
+| API Platform | HTTP exposure, validation, and rate limiting |
+
+---
+
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+
+## API surface
+
+High-level endpoints are grouped below. See each module document for full details.
+
+### Auth
+
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| POST | `/api/auth/login` | User login | No |
+| POST | `/api/auth/mfa/verify` | MFA verification | No |
+| POST | `/api/auth/refresh` | Refresh access token | Refresh cookie |
+| POST | `/api/auth/logout` | Logout and revoke tokens | Bearer access token |
+
+### OAuth2 and OIDC
+
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| GET | `/api/oauth2/authorize` | Authorization code + PKCE | Session |
+| POST | `/api/oauth2/token` | Token issuance | Client credentials |
+| POST | `/api/oauth2/token/introspect` | Token introspection | Client credentials |
+| POST | `/api/oauth2/token/revoke` | Token revocation | Client credentials |
+| GET | `/api/oauth2/userinfo` | OIDC UserInfo | Bearer access token |
+| GET | `/api/oauth2/logout` | End session | Optional |
+
+### Discovery
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/.well-known/openid-configuration` | OpenID Provider metadata |
+| GET | `/api/.well-known/jwks.json` | JSON Web Key Set |
+
+### Administration
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/users` | User management |
+| `/api/tenants` | Tenant management |
+| `/api/sessions` | Session management |
+| `/api/trusted-devices` | Trusted device management |
+| `/api/roles` | Role management |
+| `/api/permissions` | Permission management |
+| `/api/clients` | OAuth client management |
+
+> [!NOTE]
+> Full endpoint documentation is in each module file under `src/<Module>/MODULE.md`.
+
+---
+
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+
+## Flows
+
+### OAuth2 and OIDC core flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client
+  participant AuthServer
+  Client->>AuthServer: /api/oauth2/authorize (PKCE)
+  AuthServer-->>Client: Authorization code
+  Client->>AuthServer: /api/oauth2/token (code + verifier)
+  AuthServer-->>Client: Access token (+ refresh token)
+  Client->>AuthServer: /api/oauth2/token/introspect
+  AuthServer-->>Client: Token status
+  Client->>AuthServer: /api/oauth2/token/revoke
+  AuthServer-->>Client: Revocation acknowledged
+```
+
+---
+
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
 
 ## Architecture
 
 The codebase follows a hexagonal architecture (ports and adapters) and enforces one-way dependencies across layers.
-See the architecture standard in `ARCHITECTURE.md`.
+See `ARCHITECTURE.md` for the full ruleset.
 
-## Modules
+```mermaid
+flowchart LR
+  Client[Client Apps] -->|HTTP| API[API Platform]
+  API --> Auth[Auth Module]
+  API --> OAuth[OAuth Module]
+  API --> User[User Module]
+  API --> Tenant[Tenant Module]
+  API --> Session[Session Module]
+  API --> TrustedDevice[TrustedDevice Module]
+  API --> Authorization[Authorization Module]
+  API --> Otp[OTP Module]
+  Auth --> Shared[Shared]
+  OAuth --> Shared
+  User --> Shared
+  Tenant --> Shared
+  Session --> Shared
+  TrustedDevice --> Shared
+  Authorization --> Shared
+  Otp --> Shared
+```
 
-| Module | Purpose | Documentation |
-| --- | --- | --- |
-| Auth | Authentication flows, MFA, refresh tokens | `src/Auth/MODULE.md` |
-| OAuth | OAuth2 and OpenID Connect provider, consent, discovery | `src/OAuth/MODULE.md` |
-| Authorization | RBAC roles and permissions | `src/Authorization/MODULE.md` |
-| User | User management and profiles | `src/User/MODULE.md` |
-| Tenant | Multi-tenant management | `src/Tenant/MODULE.md` |
-| Session | Session tracking and revocation | `src/Session/MODULE.md` |
-| TrustedDevice | Trusted device management and cookies | `src/TrustedDevice/MODULE.md` |
-| Otp | OTP and TOTP challenges | `src/Otp/MODULE.md` |
-| Shared | Shared contracts, ports, value objects | `src/Shared/MODULE.md` |
+---
 
-Each module document contains its endpoints, flows, configuration, and testing notes.
-
-## API surface
-
-At a high level, the API is organized around the following groups:
-- Auth endpoints under `/api/auth` (login, MFA verify, refresh, logout).
-- OAuth endpoints under `/api/oauth2` (authorize, token, introspect, revoke, userinfo, end session).
-- Discovery endpoints under `/api/.well-known/openid-configuration` and `/api/.well-known/jwks.json`.
-- Admin and resource APIs for users, tenants, sessions, trusted devices, roles, and permissions (see module docs).
-
-For exact routes, request/response payloads, and error codes, use the module documentation.
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
 
 ## Project layout
 
@@ -84,17 +170,24 @@ src/
 tests/
 ```
 
+---
+
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+
 ## Configuration
 
-Configuration is driven by environment variables in `.env` and overrides in `.env.local`:
-- `APP_ENV`, `APP_SECRET`
-- `DATABASE_URL`
-- `OAUTH_ISSUER`, `OAUTH_ENCRYPTION_KEY`
-- `ACCESS_TOKEN_TTL`, `TOKEN_CACHE_TTL`
-- `REFRESH_TOKEN_COOKIE_NAME`, `REFRESH_TOKEN_LIFETIME_SHORT`, `REFRESH_TOKEN_LIFETIME_LONG`
-- `TRUSTED_DEVICE_COOKIE_NAME`, `TRUSTED_DEVICE_LIFETIME`
-- `MFA_ENABLED`, `MAILER_DSN`, `MAILER_FROM`, `SMS_DSN`
-- `CORS_ALLOW_ORIGIN`, `DEFAULT_URI`
+Configuration is driven by environment variables in `.env` and overrides in `.env.local` (or `.env.test` for tests).
+
+| Variable | Purpose |
+| --- | --- |
+| `APP_ENV`, `APP_SECRET` | Symfony environment and secret |
+| `DATABASE_URL` | Database connection string |
+| `OAUTH_ISSUER`, `OAUTH_ENCRYPTION_KEY` | OIDC issuer and encryption key |
+| `ACCESS_TOKEN_TTL`, `TOKEN_CACHE_TTL` | Access token lifetime and cache TTL |
+| `REFRESH_TOKEN_COOKIE_NAME`, `REFRESH_TOKEN_LIFETIME_SHORT`, `REFRESH_TOKEN_LIFETIME_LONG` | Refresh token cookie settings |
+| `TRUSTED_DEVICE_COOKIE_NAME`, `TRUSTED_DEVICE_LIFETIME` | Trusted device cookie settings |
+| `MFA_ENABLED`, `MAILER_DSN`, `MAILER_FROM`, `SMS_DSN` | MFA and notification transport |
+| `CORS_ALLOW_ORIGIN`, `DEFAULT_URI` | CORS and base URL |
 
 JWT keys are expected at:
 - `config/jwt/private.key`
@@ -102,13 +195,9 @@ JWT keys are expected at:
 
 Module wiring is in `config/modules/*.yaml`, with shared framework configuration in `config/packages/*.yaml`.
 
-## Operations
+---
 
-Production and staging runbooks are documented in `OPERATIONS.md`.
-
-## Security
-
-Security-sensitive configuration and guidance is documented in `SECURITY.md`.
+<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
 
 ## Requirements
 
@@ -142,11 +231,27 @@ Security-sensitive configuration and guidance is documented in `SECURITY.md`.
 Common Make targets:
 - `make test` runs CS checks, static analysis, architecture rules, linting, and unit tests.
 - `make phpunit` runs the test suite.
+- `make phpunit-fast` runs the test suite without testdox output.
 - `make phpstan` runs static analysis.
 - `make deptrac` runs dependency rules.
 - `make lint` validates Symfony container and YAML files.
 - `make cs-lint` and `make cs-fix` manage coding style.
 - `make cache-clear` clears and warms up the Symfony cache.
+
+## Testing
+
+- Unit: `tests/Unit`
+- Integration: `tests/Integration`
+- Functional: `tests/Functional`
+- End-to-end: `tests/E2E`
+
+Run the full suite:
+```bash
+make phpunit
+```
+
+> [!NOTE]
+> Use `.env.test` for test overrides. The default test database is SQLite.
 
 ## Code quality
 
@@ -156,9 +261,14 @@ make sonar-up
 make sonar-scan
 ```
 
-## Testing
+## Operations
 
-Tests are organized by type and layer under `tests/`. The full suite can be run via:
-```bash
-make phpunit
-```
+Production and staging runbooks are documented in `OPERATIONS.md`.
+
+## Security
+
+Security-sensitive configuration and guidance is documented in `SECURITY.md`.
+
+## License
+
+This project is proprietary. See internal licensing guidance for distribution and use.

@@ -15,6 +15,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tests\Helper\TestEventIdProvider;
 
+use function preg_replace;
+
 /**
  * Test CreateClientCommandTest.
  *
@@ -85,6 +87,7 @@ final class CreateClientCommandTest extends TestCase
     ]);
 
     $display = $tester->getDisplay();
+    $normalizedDisplay = preg_replace('/\s+/', ' ', $display) ?? $display;
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
     self::assertStringContainsString(
@@ -93,7 +96,7 @@ final class CreateClientCommandTest extends TestCase
     );
     self::assertStringContainsString(
       'Generated: 123e4567-e89b-12d3-a456-426614174000',
-      $display,
+      $normalizedDisplay,
     );
   }
 

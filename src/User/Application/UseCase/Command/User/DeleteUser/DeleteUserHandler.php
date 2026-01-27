@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Command\User\DeleteUser;
 
-use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Application\Port\Outbound\{UserDataPurgePort, UserRepositoryPort};
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\ValueObject\UserId;
 
@@ -32,6 +32,7 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
    */
   public function __construct(
     private readonly UserRepositoryPort $userRepository,
+    private readonly UserDataPurgePort $dataPurge,
   ) {
   }
   // #endregion
@@ -60,6 +61,7 @@ final readonly class DeleteUserHandler implements \Shared\Application\Message\Co
     }
 
     $this->userRepository->delete(user: $user);
+    $this->dataPurge->purgeForUser($user->id()->value);
 
     return new DeleteUserResult(userId: $user->id()->value);
   }

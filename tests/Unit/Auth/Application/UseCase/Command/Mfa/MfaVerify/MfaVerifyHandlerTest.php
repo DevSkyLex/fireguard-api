@@ -125,10 +125,11 @@ final class MfaVerifyHandlerTest extends TestCase
         'sub' => 'user-123',
         'email' => 'user@example.com',
         'scopes' => ['READ', 123, 'WRITE'],
+        'remember_me' => true,
       ]);
     $jwt->expects(self::once())
       ->method('generateTokens')
-      ->with('user-123', 'user@example.com', ['READ', 'WRITE'])
+      ->with('user-123', 'user@example.com', ['READ', 'WRITE'], true)
       ->willReturn([
         'access_token' => 'access',
         'refresh_token' => 'refresh',
@@ -174,7 +175,6 @@ final class MfaVerifyHandlerTest extends TestCase
       code: '123456',
       ipAddress: '127.0.0.1',
       userAgent: 'Agent',
-      rememberMe: true,
     );
 
     $result = $handler->__invoke($command);

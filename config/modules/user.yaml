@@ -7,6 +7,9 @@ services:
   User\Application\Port\Outbound\UserRepositoryPort:
     class: User\Infrastructure\Persistence\Doctrine\Repository\UserRepository
 
+  User\Application\Port\Outbound\UserDataPurgePort:
+    class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter
+
   User\Application\UseCase\Command\User\CreateUser\CreateUserHandler:
     tags: ['messenger.message_handler']
 
