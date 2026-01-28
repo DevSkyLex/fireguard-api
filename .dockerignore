@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Dependencies (will be installed in container)
+/vendor
+
+# Symfony cache and logs
+/var
+!/var/.gitkeep
+
+# Test artifacts
+.phpunit.cache
+.php-cs-fixer.cache
+/var/coverage
+/var/infection
+
+# Environment files (use Docker env instead)
+.env.local
+.env.*.local
+
+# Documentation
+*.md
+!README.md
+/docs
+
+# Docker
+Dockerfile*
+docker-compose*
+compose*.yaml
+.docker
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# SonarQube
+sonar-project.properties
+
+# Temporary files
+*.log
+*.tmp

@@ -5,6 +5,13 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
   shared.file_storage.base_path: '%kernel.project_dir%/var/storage'
+  # Security headers configuration with defaults
+  security_headers.enabled_default: 'true'
+  security_headers.csp_default: ''
+  security_headers.hsts_max_age_default: 31536000
+  security_headers.enabled: '%env(default:security_headers.enabled_default:SECURITY_HEADERS_ENABLED)%'
+  security_headers.csp: '%env(default:security_headers.csp_default:SECURITY_HEADERS_CSP)%'
+  security_headers.hsts_max_age: '%env(int:default:security_headers.hsts_max_age_default:SECURITY_HEADERS_HSTS_MAX_AGE)%'
 
 services:
   # default configuration for services in *this* file

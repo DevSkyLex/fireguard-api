@@ -228,15 +228,40 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
 
 ## Development
 
-Common Make targets:
-- `make test` runs CS checks, static analysis, architecture rules, linting, and unit tests.
-- `make phpunit` runs the test suite.
-- `make phpunit-fast` runs the test suite without testdox output.
-- `make phpstan` runs static analysis.
-- `make deptrac` runs dependency rules.
-- `make lint` validates Symfony container and YAML files.
-- `make cs-lint` and `make cs-fix` manage coding style.
-- `make cache-clear` clears and warms up the Symfony cache.
+### Using Docker (Recommended)
+
+Start the development environment with Docker:
+```bash
+make docker-up
+```
+
+This starts:
+- **App**: http://localhost:8000
+- **PostgreSQL**: localhost:5433
+- **Redis**: localhost:6379
+- **Mailpit** (email testing): http://localhost:8025
+
+Other Docker commands:
+- `make docker-down` stops all services
+- `make docker-shell` opens a shell in the app container
+- `make docker-logs` shows app container logs
+
+### Common Make Targets
+
+| Command | Description |
+|---------|-------------|
+| `make test` | Run CS checks, static analysis, architecture rules, linting, and tests |
+| `make phpunit` | Run the test suite with testdox output |
+| `make phpunit-fast` | Run the test suite without testdox output |
+| `make phpstan` | Run static analysis |
+| `make deptrac` | Run architecture dependency rules |
+| `make lint` | Validate Symfony container and YAML files |
+| `make cs-lint` | Check coding style |
+| `make cs-fix` | Fix coding style issues |
+| `make cache-clear` | Clear and warm up cache |
+| `make coverage` | Run tests with code coverage (text output) |
+| `make coverage-html` | Run tests with HTML coverage report |
+| `make mutation` | Run mutation testing with Infection |
 
 ## Testing
 
@@ -250,16 +275,38 @@ Run the full suite:
 make phpunit
 ```
 
+Run with code coverage:
+```bash
+make coverage-html
+# Report available at var/coverage/html/index.html
+```
+
+Run mutation testing:
+```bash
+make mutation
+# Report available at var/infection/infection.html
+```
+
 > [!NOTE]
 > Use `.env.test` for test overrides. The default test database is SQLite.
 
-## Code quality
+## Code Quality
+
+### SonarQube
 
 SonarQube support is wired via Docker Compose:
 ```bash
 make sonar-up
 make sonar-scan
 ```
+
+### CI/CD
+
+GitHub Actions workflows are configured for:
+- **CI** (`.github/workflows/ci.yml`): Code style, PHPStan, Deptrac, tests, security audit
+- **Release** (`.github/workflows/release.yml`): Docker image build and GitHub release creation
+
+The CI pipeline runs on every push and pull request to `main` and `develop` branches.
 
 ## Operations
 

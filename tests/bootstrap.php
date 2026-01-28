@@ -9,7 +9,17 @@ use Symfony\Component\HttpKernel\KernelInterface;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
-new Dotenv()->bootEnv(dirname(__DIR__) . '/.env');
+// Preserve APP_ENV if already set (e.g., by PHPUnit's server variables)
+// This ensures test environment is used even when Infection randomizes test order
+// PHPUnit sets APP_ENV via <server> tag BEFORE bootstrap runs
+$appEnv = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null;
+if (is_string($appEnv) && '' !== $appEnv) {
+  // Ensure both $_SERVER and $_ENV have the value so bootEnv() loads the correct .env.test file
+  $_SERVER['APP_ENV'] = $_ENV['APP_ENV'] = $appEnv;
+  putenv("APP_ENV={$appEnv}");
+}
+
+(new Dotenv())->usePutenv(true)->bootEnv(dirname(__DIR__) . '/.env');
 
 if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
   $testToken = $_SERVER['TEST_TOKEN'] ?? $_ENV['TEST_TOKEN'] ?? null;
@@ -43,6 +53,7 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
   $kernelClass = $_SERVER['KERNEL_CLASS'] ?? $_ENV['KERNEL_CLASS'] ?? 'App\\Kernel';
   if (is_string($kernelClass) && class_exists($kernelClass) && is_subclass_of($kernelClass, KernelInterface::class)) {
     /** @var KernelInterface $kernel */
+    // Boot with debug=false for schema setup only - tests will recompile with their own settings
     $kernel = new $kernelClass($environment, false);
     $kernel->boot();
 
@@ -65,6 +76,23 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
     $entityManager->clear();
     $entityManager->getConnection()->close();
     $kernel->shutdown();
+
+    // Clear the compiled container cache to ensure tests get a fresh container
+    // with test.service_container available (compiled with framework.test: true)
+    // The bootstrap boots with debug=false but tests need debug container
+    if (is_dir($cacheDir)) {
+      $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($cacheDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST,
+      );
+      foreach ($iterator as $file) {
+        if ($file->isDir()) {
+          @rmdir($file->getPathname());
+        } else {
+          @unlink($file->getPathname());
+        }
+      }
+    }
   }
 }
 

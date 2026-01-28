@@ -44,6 +44,39 @@ Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 
 Tune limits to match threat models and expected traffic. In test environments, limits may be overridden for determinism.
 
+## HTTP security headers
+
+Security headers are automatically added to all responses via `SecurityHeadersSubscriber`.
+
+Headers applied:
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `X-Content-Type-Options` | `nosniff` | Prevent MIME type sniffing |
+| `X-Frame-Options` | `DENY` | Prevent clickjacking (legacy) |
+| `X-XSS-Protection` | `0` | Disabled (rely on CSP instead) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Control referrer information |
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'` | Restrictive CSP for API |
+| `Permissions-Policy` | Restrictive | Block sensitive browser features |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | HSTS (production only) |
+
+Configuration via environment variables:
+
+```env
+# Enable/disable security headers (default: true)
+SECURITY_HEADERS_ENABLED=true
+
+# Custom CSP (leave empty for default restrictive policy)
+SECURITY_HEADERS_CSP=
+
+# HSTS max-age in seconds (default: 31536000 = 1 year)
+SECURITY_HEADERS_HSTS_MAX_AGE=31536000
+```
+
+For authenticated requests (with `Authorization` header), additional cache headers are set:
+- `Cache-Control: no-store, no-cache, must-revalidate, private`
+- `Pragma: no-cache`
+
 ## CORS and network controls
 
 - Restrict `CORS_ALLOW_ORIGIN` to trusted origins.

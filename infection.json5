@@ -1,0 +1,48 @@
+{
+    "$schema": "https://raw.githubusercontent.com/infection/infection/0.29.0/resources/schema.json",
+    "source": {
+        "directories": [
+            "src"
+        ],
+        "excludes": [
+            "*/Infrastructure/Persistence/Doctrine/Record/*",
+            "*/Infrastructure/Persistence/Doctrine/Migrations/*",
+            "*/Presentation/Api/Resource/*",
+            "Kernel.php"
+        ]
+    },
+    "logs": {
+        "text": "var/infection/infection.log",
+        "html": "var/infection/infection.html",
+        "summary": "var/infection/summary.log",
+        "json": "var/infection/infection.json",
+        "perMutator": "var/infection/per-mutator.md",
+        "stryker": {
+            "report": "var/infection/stryker.json"
+        }
+    },
+    "mutators": {
+        "@default": true,
+        // Disable some noisy mutators for better signal
+        "ConcatOperandRemoval": false,
+        "ArrayItemRemoval": {
+            "ignore": [
+                "Shared\\Infrastructure\\EventSubscriber\\SecurityHeadersSubscriber::getSubscribedEvents"
+            ]
+        }
+    },
+    "phpUnit": {
+        "configDir": ".",
+        "customPath": "vendor/bin/phpunit"
+    },
+    "testFramework": "phpunit",
+    // Note: Do NOT add "bootstrap" here - Infection would run it in its own process before PHPUnit,
+    // which causes the Symfony kernel to be compiled without framework.test: true
+    // PHPUnit uses the bootstrap from phpunit.dist.xml which runs properly in the test subprocess
+    "initialTestsPhpOptions": "-d memory_limit=512M",
+    "timeout": 30,
+    "threads": "max",
+    "tmpDir": "var/infection/tmp",
+    "minMsi": 100,
+    "minCoveredMsi": 100
+}

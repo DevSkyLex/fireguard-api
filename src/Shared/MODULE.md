@@ -3,12 +3,31 @@
 ## Overview
 
 Shared is the repo-wide kernel. It provides stable contracts, base value objects,
-ports, and infrastructure adapters used across all modules. It does not contain
-business logic or API endpoints.
+ports, and infrastructure adapters used across all modules. It also exposes the
+health check endpoint.
 
 ## API Endpoints
 
-None.
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/health` | Application health check | No |
+
+### Health Check Response
+
+```json
+{
+  "status": "healthy|degraded|unhealthy",
+  "timestamp": "2024-01-01T12:00:00+00:00",
+  "database": true,
+  "cache": true,
+  "version": "1.0.0"
+}
+```
+
+**Status values:**
+- `healthy`: All dependencies are operational
+- `degraded`: Non-critical dependency failure (cache)
+- `unhealthy`: Critical dependency failure (database)
 
 ## Flows
 

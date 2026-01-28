@@ -15,6 +15,14 @@ services:
       - '../../src/Shared/Infrastructure/**/Tests.php'
       - '../../src/Shared/Infrastructure/**/Test.php'
 
+  # Load Shared Application layer (handlers)
+  Shared\Application\UseCase\:
+    resource: '../../src/Shared/Application/UseCase/'
+
+  # Load Shared Presentation layer (API resources, providers)
+  Shared\Presentation\:
+    resource: '../../src/Shared/Presentation/'
+
   # Specific adapter configurations
   Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter:
     arguments:
@@ -50,3 +58,9 @@ services:
   Shared\Application\Port\Outbound\HashingPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\HashingAdapter'
   Shared\Application\Port\Outbound\EventDispatcherPort: '@Shared\Infrastructure\EventDispatcher\SymfonyEventDispatcherAdapter'
   Shared\Application\Port\Outbound\RateLimiterPort: '@Auth\Infrastructure\Adapter\RateLimiter\LoginRateLimiterAdapter'
+  Shared\Application\Port\Outbound\HealthCheckPort: '@Shared\Infrastructure\Adapter\Doctrine\HealthCheckAdapter'
+
+  # Health Check Adapter configuration
+  Shared\Infrastructure\Adapter\Doctrine\HealthCheckAdapter:
+    arguments:
+      $cache: '@cache.app'

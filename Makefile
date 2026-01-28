@@ -18,7 +18,7 @@ else
 ENV_PREFIX = APP_CACHE_DIR="$(APP_CACHE_DIR)" APP_LOG_DIR="$(APP_LOG_DIR)"
 endif
 
-.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear test cs-fix cs-lint
+.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 phpunit:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --testdox
@@ -49,6 +49,38 @@ cache-clear:
 
 # Run every test suite and static analysis in sequence
 test: cs-lint phpstan deptrac lint phpunit-fast
+
+# Run tests with code coverage (requires PCOV or Xdebug)
+coverage:
+	XDEBUG_MODE=coverage $(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --coverage-text --coverage-clover=var/coverage/clover.xml
+
+# Run tests with HTML coverage report
+coverage-html:
+	XDEBUG_MODE=coverage $(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --coverage-html=var/coverage/html --coverage-clover=var/coverage/clover.xml
+	@echo "Coverage report generated at var/coverage/html/index.html"
+
+# Run mutation testing with Infection (configuration in infection.json5)
+mutation:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) vendor/bin/infection --show-mutations
+
+# Docker commands
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up -d
+	@echo "Services started. App available at http://localhost:8000"
+	@echo "Database available at localhost:5433"
+	@echo "Redis available at localhost:6379"
+
+docker-down:
+	docker compose down
+
+docker-shell:
+	docker compose exec app sh
+
+docker-logs:
+	docker compose logs -f app
 
 # Start local SonarQube server
 sonar-up:
