@@ -165,8 +165,8 @@ jobs:
           openssl genrsa -out config/jwt/private.key 2048
           openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
 
-      - name: Run database migrations
-        run: php bin/console doctrine:migrations:migrate --no-interaction --env=test
+      - name: Create database schema
+        run: php bin/console doctrine:schema:create --env=test
         env:
           DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
 
