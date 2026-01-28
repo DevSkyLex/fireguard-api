@@ -11,7 +11,8 @@
          cacheDirectory=".phpunit.cache"
          displayDetailsOnTestsThatTriggerDeprecations="true"
          displayDetailsOnTestsThatTriggerWarnings="true"
-         executionOrder="default"
+         executionOrder="random"
+         resolveDependencies="true"
 >
     <php>
         <ini name="display_errors" value="1" />
