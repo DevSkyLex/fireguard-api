@@ -7,7 +7,7 @@ namespace Tests\Unit\Authorization\Application\UseCase\Command\Permission\Create
 use Authorization\Application\Port\Outbound\PermissionRepositoryPort;
 use Authorization\Application\UseCase\Command\Permission\CreatePermission\{CreatePermissionCommand, CreatePermissionHandler, CreatePermissionResult};
 use Authorization\Domain\Model\Permission\Permission;
-use Authorization\Domain\ValueObject\{PermissionId};
+use Authorization\Domain\ValueObject\PermissionId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
