@@ -47,11 +47,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: RoleOutput::class,
       provider: ListRolesProvider::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
+      security: "is_granted('roles.read')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'List all roles',
-        description: 'Returns a paginated list of all roles with their associated permissions. Requires ROLE_ADMIN.',
+        description: 'Returns a paginated list of all roles with their associated permissions. Requires roles.read permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
@@ -61,7 +61,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required',
+            description: 'Insufficient permissions - roles.read required',
           ),
         ],
       ),
@@ -73,11 +73,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: RoleOutput::class,
       provider: GetRoleProvider::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
+      security: "is_granted('roles.read')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'Get role details',
-        description: 'Returns details of a specific role including all its assigned permissions. Requires ROLE_ADMIN.',
+        description: 'Returns details of a specific role including all its assigned permissions. Requires roles.read permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
@@ -113,7 +113,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required',
+            description: 'Insufficient permissions - roles.read required',
           ),
         ],
       ),
@@ -126,11 +126,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: CreateRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
       denormalizationContext: ['groups' => [RoleSerializationGroup::WRITE]],
-      security: "is_granted('ROLE_ADMIN')",
+      security: "is_granted('roles.create')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'Create a new role',
-        description: 'Creates a new role with optional permissions. Role names must be unique and follow the naming convention (lowercase, starts with letter). Requires ROLE_ADMIN.',
+        description: 'Creates a new role with optional permissions. Role names must be unique and follow the naming convention (lowercase, starts with letter). Requires roles.create permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_CREATED => new Response(
@@ -162,7 +162,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required',
+            description: 'Insufficient permissions - roles.create required',
           ),
         ],
       ),
@@ -175,11 +175,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
       denormalizationContext: ['groups' => [RoleSerializationGroup::UPDATE]],
-      security: "is_granted('ROLE_ADMIN')",
+      security: "is_granted('roles.update')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'Update a role',
-        description: 'Updates the description or permissions of an existing role. Role name cannot be changed after creation. Requires ROLE_ADMIN.',
+        description: 'Updates the description or permissions of an existing role. Role name cannot be changed after creation. Requires roles.update permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
@@ -204,7 +204,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required',
+            description: 'Insufficient permissions - roles.update required',
           ),
         ],
       ),
@@ -215,11 +215,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: DeleteRoleProcessor::class,
-      security: "is_granted('ROLE_SUPER_ADMIN')",
+      security: "is_granted('roles.delete')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'Delete a role',
-        description: 'Permanently deletes a role. System roles cannot be deleted. Users assigned to this role will lose these permissions. Requires ROLE_SUPER_ADMIN.',
+        description: 'Permanently deletes a role. System roles cannot be deleted. Users assigned to this role will lose these permissions. Requires roles.delete permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(
@@ -235,7 +235,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_SUPER_ADMIN required',
+            description: 'Insufficient permissions - roles.delete required',
           ),
         ],
       ),
@@ -253,11 +253,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: RoleOutput::class,
       processor: AddPermissionToRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
+      security: "is_granted('roles.update')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'Add permission to role',
-        description: 'Adds a permission to an existing role. If the permission is already assigned, no error is returned. Requires ROLE_ADMIN.',
+        description: 'Adds a permission to an existing role. If the permission is already assigned, no error is returned. Requires roles.update permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
@@ -289,7 +289,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required',
+            description: 'Insufficient permissions - roles.update required',
           ),
         ],
       ),
@@ -311,11 +311,11 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: RoleOutput::class,
       processor: RemovePermissionFromRoleProcessor::class,
       normalizationContext: ['groups' => [RoleSerializationGroup::READ]],
-      security: "is_granted('ROLE_ADMIN')",
+      security: "is_granted('roles.update')",
       openapi: new Operation(
         tags: ['Authorization - Roles'],
         summary: 'Remove permission from role',
-        description: 'Removes a permission from an existing role. Returns the updated role. Requires ROLE_ADMIN.',
+        description: 'Removes a permission from an existing role. Returns the updated role. Requires roles.update permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
@@ -344,7 +344,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Authentication required - missing or invalid access token',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions - ROLE_ADMIN required',
+            description: 'Insufficient permissions - roles.update required',
           ),
         ],
       ),

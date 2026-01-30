@@ -13,6 +13,15 @@ services:
   User\Application\UseCase\Command\User\CreateUser\CreateUserHandler:
     tags: ['messenger.message_handler']
 
+  User\Application\UseCase\Command\User\ActivateUser\ActivateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\User\DeactivateUser\DeactivateUserHandler:
+    tags: ['messenger.message_handler']
+
+  User\Application\UseCase\Command\User\VerifyUserEmail\VerifyUserEmailHandler:
+    tags: ['messenger.message_handler']
+
   User\Application\UseCase\Command\User\DeleteUser\DeleteUserHandler:
     tags: ['messenger.message_handler']
 
@@ -39,8 +48,11 @@ services:
   User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper: ~
 
   User\Presentation\Api\Processor\User\CreateUserProcessor: ~
+  User\Presentation\Api\Processor\User\ActivateUserProcessor: ~
+  User\Presentation\Api\Processor\User\DeactivateUserProcessor: ~
   User\Presentation\Api\Processor\User\DeleteUserProcessor: ~
   User\Presentation\Api\Processor\User\UpdateUserProcessor: ~
+  User\Presentation\Api\Processor\User\VerifyUserEmailProcessor: ~
   User\Presentation\Api\Provider\User\UserProvider: ~
   User\Presentation\Api\Provider\User\ListUsersProvider: ~
 

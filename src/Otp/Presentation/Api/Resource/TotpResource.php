@@ -35,11 +35,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: SetupTotpOutput::class,
       processor: SetupTotpProcessor::class,
+      security: "is_granted('otp_totp.setup')",
       openapi: new Operation(
         operationId: 'setupTotp',
         tags: ['OTP'],
         summary: 'Setup TOTP',
-        description: 'Generates a new TOTP secret and returns a QR code URI for authenticator app setup.',
+        description: 'Generates a new TOTP secret and returns a QR code URI for authenticator app setup. Requires otp_totp.setup permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_CREATED => new Response(
             description: 'TOTP setup data returned',

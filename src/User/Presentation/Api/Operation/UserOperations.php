@@ -28,6 +28,39 @@ final class UserOperations
   public const string CREATE = 'user_create';
 
   /**
+   * Constant ACTIVATE.
+   *
+   * Activate user operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string ACTIVATE = 'user_activate';
+
+  /**
+   * Constant DEACTIVATE.
+   *
+   * Deactivate user operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string DEACTIVATE = 'user_deactivate';
+
+  /**
+   * Constant VERIFY_EMAIL.
+   *
+   * Verify user email operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string VERIFY_EMAIL = 'user_verify_email';
+
+  /**
    * Constant GET.
    *
    * Get user operation name.
@@ -98,6 +131,9 @@ final class UserOperations
     self::UPDATE,
     self::REPLACE,
     self::DELETE,
+    self::ACTIVATE,
+    self::DEACTIVATE,
+    self::VERIFY_EMAIL,
   ];
   // #endregion
 }

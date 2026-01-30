@@ -150,7 +150,9 @@ final class User
     }
 
     $this->emailVerified = true;
-    $this->status = UserStatus::ACTIVE;
+    if (UserStatus::PENDING_VERIFICATION === $this->status) {
+      $this->status = UserStatus::ACTIVE;
+    }
 
     $this->recordEvent(event: new UserEmailVerifiedEvent(
       eventId: $eventIdProvider->nextEventId(),
@@ -158,6 +160,31 @@ final class User
       email: $this->email->value,
       occurredAt: new DateTimeImmutable(),
     ));
+  }
+
+  /**
+   * Method activate.
+   *
+   * Activates the user account.
+   *
+   * @since 1.0.0
+   */
+  public function activate(): void
+  {
+    $this->status = $this->emailVerified ? UserStatus::ACTIVE : UserStatus::PENDING_VERIFICATION;
+    $this->failedLoginAttempts = 0;
+  }
+
+  /**
+   * Method deactivate.
+   *
+   * Deactivates the user account.
+   *
+   * @since 1.0.0
+   */
+  public function deactivate(): void
+  {
+    $this->status = UserStatus::INACTIVE;
   }
 
   /**

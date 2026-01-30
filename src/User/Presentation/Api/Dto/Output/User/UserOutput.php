@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace User\Presentation\Api\Dto\Output\User;
 
+use ApiPlatform\Metadata\ApiProperty;
 use Symfony\Component\Serializer\Attribute\Groups;
 use User\Presentation\Api\Serialization\UserSerializationGroup;
 
@@ -25,6 +26,19 @@ final class UserOutput
    * The user ID.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'User identifier (UUID).',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: true,
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'uuid',
+      'readOnly' => true,
+    ],
+  )]
   public ?string $id = null;
 
   /**
@@ -33,6 +47,18 @@ final class UserOutput
    * The username.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Username of the user.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'jdoe',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+  )]
   public ?string $username = null;
 
   /**
@@ -41,6 +67,19 @@ final class UserOutput
    * The user email.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'User email address.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'jane.doe@example.com',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'email',
+      'readOnly' => true,
+    ],
+  )]
   public ?string $email = null;
 
   /**
@@ -49,6 +88,18 @@ final class UserOutput
    * The first name.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'User first name.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'Jane',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+  )]
   public ?string $firstName = null;
 
   /**
@@ -57,6 +108,18 @@ final class UserOutput
    * The last name.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'User last name.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'Doe',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+  )]
   public ?string $lastName = null;
 
   /**
@@ -65,6 +128,20 @@ final class UserOutput
    * The avatar URL.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Avatar URL.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'https://cdn.example.com/avatars/jane.png',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'uri',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
   public ?string $avatarUrl = null;
 
   /**
@@ -73,6 +150,19 @@ final class UserOutput
    * The user status.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Current user status.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'active',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
   public ?string $status = null;
 
   /**
@@ -81,6 +171,18 @@ final class UserOutput
    * Whether the email is verified.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Whether the email is verified.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: true,
+    openapiContext: [
+      'type' => 'boolean',
+      'readOnly' => true,
+    ],
+  )]
   public bool $emailVerified = false;
 
   /**
@@ -89,6 +191,20 @@ final class UserOutput
    * The tenant ID.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Tenant identifier (UUID).',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'uuid',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
   public ?string $tenantId = null;
 
   /**
@@ -97,6 +213,20 @@ final class UserOutput
    * The creation timestamp.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'ISO 8601 datetime when the user was created.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: '2026-01-29T10:15:30+00:00',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'date-time',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
   public ?string $createdAt = null;
 
   /**
@@ -105,6 +235,20 @@ final class UserOutput
    * The last login timestamp.
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'ISO 8601 datetime of the last login.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: '2026-01-29T12:01:00+00:00',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'date-time',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
   public ?string $lastLoginAt = null;
   // #endregion
 }

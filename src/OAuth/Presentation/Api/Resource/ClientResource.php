@@ -55,10 +55,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: RegisterClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ, OAuthSerializationGroup::CLIENT_SECRET]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_WRITE]],
+      security: "is_granted('clients.create')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Register Client',
         description: 'Register a new OAuth2 client application. The response includes the client secret which must be stored securely as it will never be shown again.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_CREATED => new Response(
             description: 'Client registered successfully',
@@ -93,10 +95,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ClientOutput::class,
       provider: GetClientProvider::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
+      security: "is_granted('clients.read')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Get Client Details',
         description: 'Retrieve detailed information about a specific OAuth2 client app.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Client details retrieved successfully',
@@ -132,16 +136,18 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
     new GetCollection(
       name: ClientOperations::LIST,
-      description: 'Returns a paginated list of all OAuth2 clients. Requires ROLE_ADMIN.',
+      description: 'Returns a paginated list of all OAuth2 clients. Requires clients.read permission.',
       uriTemplate: '/clients',
       input: false,
       output: ClientOutput::class,
       provider: ListClientsProvider::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
+      security: "is_granted('clients.read')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'List Clients',
-        description: 'Retrieve a paginated list of all registered OAuth2 clients. Supports filtering by name and active status.',
+        description: 'Retrieve a paginated list of all registered OAuth2 clients. Supports filtering by name and active status. Requires clients.read permission.',
+        security: [['bearerAuth' => []]],
         parameters: [
           new Parameter(
             name: 'name',
@@ -163,7 +169,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'List of clients retrieved successfully',
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
-            description: 'Insufficient permissions (requires ROLE_ADMIN)',
+            description: 'Insufficient permissions (requires clients.read)',
           ),
         ],
       ),
@@ -177,10 +183,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       processor: UpdateClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
       denormalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_UPDATE]],
+      security: "is_granted('clients.update')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Update Client',
         description: 'Modify settings of an existing client application.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Client updated successfully',
@@ -211,10 +219,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ClientOutput::class,
       processor: RegenerateSecretProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ, OAuthSerializationGroup::CLIENT_SECRET]],
+      security: "is_granted('clients.update')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Regenerate Secret',
         description: 'Invalidate the current client secret and generate a new one. The new secret is verified in the response and must be saved immediately.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Secret regenerated successfully',
@@ -233,10 +243,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ClientOutput::class,
       processor: ActivateClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
+      security: "is_granted('clients.update')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Activate Client',
         description: 'Enable a deactivated client application, allowing it to request tokens again.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Client activated successfully',
@@ -255,10 +267,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ClientOutput::class,
       processor: DeactivateClientProcessor::class,
       normalizationContext: ['groups' => [OAuthSerializationGroup::CLIENT_READ]],
+      security: "is_granted('clients.update')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Deactivate Client',
         description: 'Disable a client application. It will no longer be able to request tokens.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Client deactivated successfully',
@@ -276,10 +290,12 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: false,
       processor: DeleteClientProcessor::class,
+      security: "is_granted('clients.delete')",
       openapi: new Operation(
         tags: ['Client Management'],
         summary: 'Delete Client',
         description: 'Permanently remove a client application and all its associated tokens/consents.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(
             description: 'Client deleted successfully',

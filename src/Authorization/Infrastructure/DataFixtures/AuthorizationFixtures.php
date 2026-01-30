@@ -167,6 +167,21 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
       ['name' => 'sessions.read', 'description' => 'View own sessions'],
       ['name' => 'sessions.revoke', 'description' => 'Revoke own sessions'],
 
+      // OTP management
+      ['name' => 'otp_config.read', 'description' => 'View OTP configuration'],
+      ['name' => 'otp_challenges.create', 'description' => 'Create OTP challenges'],
+      ['name' => 'otp_challenges.read', 'description' => 'View OTP challenges'],
+      ['name' => 'otp_challenges.verify', 'description' => 'Verify OTP challenges'],
+      ['name' => 'otp_challenges.resend', 'description' => 'Resend OTP challenges'],
+      ['name' => 'otp_challenges.*', 'description' => 'All OTP challenge operations'],
+      ['name' => 'otp_totp.setup', 'description' => 'Setup TOTP'],
+
+      // Trusted device management
+      ['name' => 'trusted_devices.create', 'description' => 'Create trusted devices'],
+      ['name' => 'trusted_devices.read', 'description' => 'View trusted devices'],
+      ['name' => 'trusted_devices.revoke', 'description' => 'Revoke trusted devices'],
+      ['name' => 'trusted_devices.*', 'description' => 'All trusted device operations'],
+
       // Tenant management
       ['name' => 'tenants.create', 'description' => 'Create tenants'],
       ['name' => 'tenants.read', 'description' => 'View tenants'],
@@ -228,6 +243,20 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
     $adminRecord->permissions->add($permissions['users.*']);
     $adminRecord->permissions->add($permissions['clients.*']);
     $adminRecord->permissions->add($permissions['roles.read']);
+    $adminRecord->permissions->add($permissions['roles.create']);
+    $adminRecord->permissions->add($permissions['roles.update']);
+    $adminRecord->permissions->add($permissions['roles.assign']);
+    $adminRecord->permissions->add($permissions['permissions.read']);
+    $adminRecord->permissions->add($permissions['tenants.create']);
+    $adminRecord->permissions->add($permissions['tenants.read']);
+    $adminRecord->permissions->add($permissions['profile.read']);
+    $adminRecord->permissions->add($permissions['profile.update']);
+    $adminRecord->permissions->add($permissions['sessions.read']);
+    $adminRecord->permissions->add($permissions['sessions.revoke']);
+    $adminRecord->permissions->add($permissions['otp_config.read']);
+    $adminRecord->permissions->add($permissions['otp_challenges.*']);
+    $adminRecord->permissions->add($permissions['otp_totp.setup']);
+    $adminRecord->permissions->add($permissions['trusted_devices.*']);
     $manager->persist($adminRecord);
     $this->addReference(self::ROLE_ADMIN, $adminRecord);
 
@@ -242,6 +271,10 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
     $userRecord->permissions->add($permissions['profile.update']);
     $userRecord->permissions->add($permissions['sessions.read']);
     $userRecord->permissions->add($permissions['sessions.revoke']);
+    $userRecord->permissions->add($permissions['otp_config.read']);
+    $userRecord->permissions->add($permissions['otp_challenges.*']);
+    $userRecord->permissions->add($permissions['otp_totp.setup']);
+    $userRecord->permissions->add($permissions['trusted_devices.*']);
     $manager->persist($userRecord);
     $this->addReference(self::ROLE_USER, $userRecord);
   }

@@ -37,11 +37,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: CreateChallengeInput::class,
       output: ChallengeOutput::class,
       processor: CreateChallengeProcessor::class,
+      security: "is_granted('otp_challenges.create')",
       openapi: new Operation(
         operationId: 'createChallenge',
         tags: ['OTP'],
         summary: 'Create OTP challenge',
-        description: 'Creates a new OTP challenge and sends the code via the specified channel.',
+        description: 'Creates a new OTP challenge and sends the code via the specified channel. Requires otp_challenges.create permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_CREATED => new Response(
             description: 'OTP challenge created successfully',
@@ -84,11 +86,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: ChallengeOutput::class,
       provider: GetChallengeStatusProvider::class,
+      security: "is_granted('otp_challenges.read')",
       openapi: new Operation(
         operationId: 'getChallengeStatus',
         tags: ['OTP'],
         summary: 'Get challenge status',
-        description: 'Returns the current status of an OTP challenge.',
+        description: 'Returns the current status of an OTP challenge. Requires otp_challenges.read permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'Challenge status retrieved',
@@ -115,11 +119,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: VerifyOtpInput::class,
       output: VerifyOtpOutput::class,
       processor: VerifyOtpProcessor::class,
+      security: "is_granted('otp_challenges.verify')",
       openapi: new Operation(
         operationId: 'verifyChallenge',
         tags: ['OTP'],
         summary: 'Verify challenge',
-        description: 'Verifies the OTP code for a challenge.',
+        description: 'Verifies the OTP code for a challenge. Requires otp_challenges.verify permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'OTP verified successfully',
@@ -142,11 +148,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: ChallengeOutput::class,
       processor: ResendChallengeProcessor::class,
+      security: "is_granted('otp_challenges.resend')",
       openapi: new Operation(
         operationId: 'resendChallenge',
         tags: ['OTP'],
         summary: 'Resend OTP',
-        description: 'Resends the OTP code. Subject to cooldown period.',
+        description: 'Resends the OTP code. Subject to cooldown period. Requires otp_challenges.resend permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'OTP resent successfully',

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Session\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Post};
+use ApiPlatform\OpenApi\Model\{Operation, Response};
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
 use Session\Presentation\Api\Operation\SessionOperations;
 use Session\Presentation\Api\Processor\Session\{RevokeAllSessionsProcessor, RevokeSessionProcessor};
 use Session\Presentation\Api\Provider\Session\{GetSessionProvider, ListUserSessionsProvider};
 use Session\Presentation\Api\Serialization\SessionSerializationGroup;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Resource SessionResource.
@@ -32,6 +34,24 @@ use Session\Presentation\Api\Serialization\SessionSerializationGroup;
       output: SessionOutput::class,
       provider: ListUserSessionsProvider::class,
       normalizationContext: ['groups' => [SessionSerializationGroup::READ]],
+      security: "is_granted('sessions.read')",
+      openapi: new Operation(
+        tags: ['Sessions'],
+        summary: 'List sessions',
+        description: 'Returns all active sessions for the authenticated user.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'List of sessions retrieved successfully',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+        ],
+      ),
     ),
     new Get(
       name: SessionOperations::GET,
@@ -41,6 +61,27 @@ use Session\Presentation\Api\Serialization\SessionSerializationGroup;
       output: SessionOutput::class,
       provider: GetSessionProvider::class,
       normalizationContext: ['groups' => [SessionSerializationGroup::READ]],
+      security: "is_granted('sessions.read')",
+      openapi: new Operation(
+        tags: ['Sessions'],
+        summary: 'Get session',
+        description: 'Get details of a specific session.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Session retrieved successfully',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'Session not found',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+        ],
+      ),
     ),
     new Delete(
       name: SessionOperations::REVOKE,
@@ -49,6 +90,27 @@ use Session\Presentation\Api\Serialization\SessionSerializationGroup;
       input: false,
       output: false,
       processor: RevokeSessionProcessor::class,
+      security: "is_granted('sessions.revoke')",
+      openapi: new Operation(
+        tags: ['Sessions'],
+        summary: 'Revoke session',
+        description: 'Revoke a specific session. The user will be logged out from that device.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_NO_CONTENT => new Response(
+            description: 'Session revoked successfully',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'Session not found',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+        ],
+      ),
     ),
     new Post(
       name: SessionOperations::REVOKE_ALL,
@@ -57,6 +119,24 @@ use Session\Presentation\Api\Serialization\SessionSerializationGroup;
       input: false,
       output: false,
       processor: RevokeAllSessionsProcessor::class,
+      security: "is_granted('sessions.revoke')",
+      openapi: new Operation(
+        tags: ['Sessions'],
+        summary: 'Revoke all sessions',
+        description: 'Revoke all sessions for the authenticated user (logout from all devices).',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_NO_CONTENT => new Response(
+            description: 'All sessions revoked successfully',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+        ],
+      ),
     ),
   ],
 )]

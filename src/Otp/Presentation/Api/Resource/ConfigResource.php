@@ -35,11 +35,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: PurposeOutput::class,
       provider: ListPurposesProvider::class,
+      security: "is_granted('otp_config.read')",
       openapi: new Operation(
         operationId: 'listPurposes',
         tags: ['OTP'],
         summary: 'List OTP purposes',
-        description: 'Returns all available OTP purposes with their default TTL and max attempts configuration.',
+        description: 'Returns all available OTP purposes with their default TTL and max attempts configuration. Requires otp_config.read permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'List of available OTP purposes',
@@ -59,11 +61,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: ChannelOutput::class,
       provider: ListChannelsProvider::class,
+      security: "is_granted('otp_config.read')",
       openapi: new Operation(
         operationId: 'listChannels',
         tags: ['OTP'],
         summary: 'List OTP channels',
-        description: 'Returns all available OTP delivery channels.',
+        description: 'Returns all available OTP delivery channels. Requires otp_config.read permission.',
+        security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'List of available OTP channels',

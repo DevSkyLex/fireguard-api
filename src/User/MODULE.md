@@ -2,7 +2,7 @@
 
 ## Overview
 
-User manages account lifecycle (registration, profile updates, lookup, and deletion).
+User manages account lifecycle (provisioning, profile updates, lookup, and deletion).
 It owns the User aggregate and exposes Api Platform resources for CRUD operations.
 User deletion also purges linked auth data (sessions, consents, tokens, OTPs, trusted devices).
 
@@ -16,6 +16,9 @@ User deletion also purges linked auth data (sessions, consents, tokens, OTPs, tr
 | User | PATCH | `/api/users/{id}` | Update user profile |
 | User | PUT | `/api/users/{id}` | Replace user profile |
 | User | DELETE | `/api/users/{id}` | Delete a user |
+| User | POST | `/api/users/{id}/activate` | Activate a user |
+| User | POST | `/api/users/{id}/deactivate` | Deactivate a user |
+| User | POST | `/api/users/{id}/verify-email` | Mark email as verified |
 
 ## Flows
 
