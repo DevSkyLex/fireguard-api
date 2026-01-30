@@ -111,8 +111,8 @@ jobs:
   # ==========================================================================
   # Unit & Integration Tests
   # ==========================================================================
-  tests:
-    name: Tests (PHP ${{ matrix.php }})
+  tests-core:
+    name: Core Tests (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -170,9 +170,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
 
-      - name: Run tests with coverage
+      - name: Run core tests with coverage
         run: |
           XDEBUG_MODE=coverage vendor/bin/phpunit \
+            --testsuite="Core Tests" \
             --coverage-clover=var/coverage/clover.xml \
             --coverage-text
         env:
@@ -188,6 +189,74 @@ jobs:
           fail_ci_if_error: false
           verbose: true
         continue-on-error: true
+
+  # ==========================================================================
+  # E2E Tests
+  # ==========================================================================
+  tests-e2e:
+    name: E2E Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4']
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fireguard_auth_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_pgsql, intl, bcmath, zip
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Create JWT keys for tests
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -out config/jwt/private.key 2048
+          openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
+
+      - name: Create database schema
+        run: php bin/console doctrine:schema:create --env=test
+        env:
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+
+      - name: Run E2E tests
+        run: vendor/bin/phpunit --testsuite="E2E Tests"
+        env:
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          APP_ENV: test
+          APP_DEBUG: 0
 
   # ==========================================================================
   # Symfony Container Lint
@@ -250,7 +319,7 @@ jobs:
     name: Mutation Testing
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    needs: [tests]
+    needs: [tests-core]
 
     steps:
       - name: Checkout code

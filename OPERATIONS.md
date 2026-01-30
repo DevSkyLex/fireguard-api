@@ -94,6 +94,24 @@ php bin/console doctrine:migrations:migrate --no-interaction
 php bin/console doctrine:schema:validate
 ```
 
+### RBAC Permission Sync
+
+When permissions are updated in code (fixtures/catalog), synchronize them to the database:
+
+```bash
+php bin/console app:authz:sync-permissions --update-roles
+```
+
+Use `--dry-run` to preview changes without writing to the database.
+
+### Test Coverage (HTML)
+
+HTML coverage is generated on demand:
+
+```bash
+vendor/bin/phpunit --coverage-html var/coverage/html
+```
+
 **Rollback** (if needed):
 ```bash
 # Rollback last migration

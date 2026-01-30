@@ -1,0 +1,21 @@
+# Configuration for the Audit module
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Audit\Infrastructure\:
+    resource: '../../src/Audit/Infrastructure/'
+    exclude:
+      - '../../src/Audit/Infrastructure/**/Tests/'
+      - '../../src/Audit/Infrastructure/**/Tests.php'
+      - '../../src/Audit/Infrastructure/**/Test.php'
+
+  Audit\Application\UseCase\:
+    resource: '../../src/Audit/Application/UseCase/'
+
+  Audit\Presentation\:
+    resource: '../../src/Audit/Presentation/'
+
+  Audit\Application\Port\Outbound\AuditEventRepositoryPort: '@Audit\Infrastructure\Persistence\Doctrine\Repository\AuditEventRepository'

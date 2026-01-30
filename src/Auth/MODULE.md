@@ -150,6 +150,24 @@ sequenceDiagram
   A-->>C: access_token
 ```
 
+## Refresh Token Policy
+
+- Access token TTL: `ACCESS_TOKEN_TTL` (seconds).
+- Refresh token TTLs:
+  - Short: `REFRESH_TOKEN_LIFETIME_SHORT` (default for non-remembered sessions).
+  - Long: `REFRESH_TOKEN_LIFETIME_LONG` (used when `remember_me=true`).
+- Refresh responses may rotate the refresh token when the OAuth server issues a new one.
+  When a new refresh token is returned, session tracking updates the session identifiers.
+- Logout revokes refresh tokens and clears the refresh token cookie.
+
+## MFA & OTP
+
+- `/api/auth/mfa/verify` completes MFA using a pre-auth token and OTP/TOTP code.
+- General OTP flows (email/SMS challenges and TOTP setup) are exposed in the OTP module:
+  see `src/Otp/MODULE.md`.
+- OTP endpoints require `otp_*` permissions and are intended for authenticated
+  user flows or internal service usage.
+
 ## Integration Examples
 
 Login:

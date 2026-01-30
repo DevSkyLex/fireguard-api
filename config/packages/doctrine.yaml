@@ -60,6 +60,12 @@ doctrine:
         dir: '%kernel.project_dir%/src/TrustedDevice/Infrastructure/Persistence/Doctrine/Record'
         prefix: 'TrustedDevice\Infrastructure\Persistence\Doctrine\Record'
         alias: TrustedDevice
+      Audit:
+        is_bundle: false
+        type: attribute
+        dir: '%kernel.project_dir%/src/Audit/Infrastructure/Persistence/Doctrine/Record'
+        prefix: 'Audit\Infrastructure\Persistence\Doctrine\Record'
+        alias: Audit
     controller_resolver:
       auto_mapping: false
 

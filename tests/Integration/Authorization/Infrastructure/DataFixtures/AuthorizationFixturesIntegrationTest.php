@@ -60,7 +60,7 @@ final class AuthorizationFixturesIntegrationTest extends KernelTestCase
     $roleCount = $this->entityManager->getRepository(RoleRecord::class)->count([]);
     $assignmentCount = $this->entityManager->getRepository(RoleAssignmentRecord::class)->count([]);
 
-    self::assertSame(39, $permissionCount);
+    self::assertSame(42, $permissionCount);
     self::assertSame(3, $roleCount);
     self::assertSame(1, $assignmentCount);
 

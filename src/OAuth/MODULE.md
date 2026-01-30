@@ -75,6 +75,27 @@ Rate limiter services are declared in `config/packages/rate_limiter.yaml` and wi
 > If a refresh token is used and the original scopes include `openid`, a new `id_token` is also returned when a user-bound token is available.
 > OIDC claims are scope-gated: `profile` adds name/username/picture claims, and `email` adds email claims.
 
+#### OIDC Scopes & Claims
+
+| Scope | Claims (UserInfo / ID Token) |
+| --- | --- |
+| `openid` | `sub` |
+| `profile` | `preferred_username`, `given_name`, `family_name`, `picture` |
+| `email` | `email`, `email_verified` |
+
+Claims are resolved from the user profile and returned via `/api/oauth2/userinfo` and, when applicable, the `id_token`.
+
+#### Default Rate Limits
+
+Values are defined in `config/packages/rate_limiter.yaml`:
+
+| Limiter | Default | Applied to |
+| --- | --- | --- |
+| `login` | 5 / minute | `/api/auth/login` |
+| `oauth_token` | 20 / minute | `/api/oauth2/token` |
+| `oauth_introspection` | 60 / minute | `/api/oauth2/token/introspect` |
+| `oauth_revocation` | 30 / minute | `/api/oauth2/token/revoke` |
+
 Example (client_credentials):
 ```json
 {
@@ -89,14 +110,14 @@ Example (client_credentials):
 
 | Method | Endpoint | Description | Auth | Notes |
 |--------|----------|-------------|------|-------|
-| POST | `/api/clients` | Register a client | Admin/privileged | Secret returned once |
-| GET | `/api/clients/{id}` | Get client details | Admin/privileged | No secret in response |
-| GET | `/api/clients` | List clients | Admin/privileged | Pagination supported |
-| PATCH | `/api/clients/{id}` | Update client details | Admin/privileged | Validates scopes/grants |
-| POST | `/api/clients/{id}/regenerate-secret` | Regenerate client secret | Admin/privileged | Secret returned once |
-| POST | `/api/clients/{id}/activate` | Activate client | Admin/privileged | Re-enables token issuance |
-| POST | `/api/clients/{id}/deactivate` | Deactivate client | Admin/privileged | Blocks token issuance |
-| DELETE | `/api/clients/{id}` | Delete client | Admin/privileged | Removes client data |
+| POST | `/api/clients` | Register a client | `clients.create` | Secret returned once |
+| GET | `/api/clients/{id}` | Get client details | `clients.read` | No secret in response |
+| GET | `/api/clients` | List clients | `clients.read` | Pagination supported |
+| PATCH | `/api/clients/{id}` | Update client details | `clients.update` | Validates scopes/grants |
+| POST | `/api/clients/{id}/regenerate-secret` | Regenerate client secret | `clients.update` | Secret returned once |
+| POST | `/api/clients/{id}/activate` | Activate client | `clients.update` | Re-enables token issuance |
+| POST | `/api/clients/{id}/deactivate` | Deactivate client | `clients.update` | Blocks token issuance |
+| DELETE | `/api/clients/{id}` | Delete client | `clients.delete` | Removes client data |
 
 Client secrets are only returned at creation or regeneration. Store them securely.
 Client endpoints are defined in `src/OAuth/Presentation/Api/Resource/ClientResource.php`.

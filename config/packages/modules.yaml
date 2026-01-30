@@ -11,4 +11,5 @@ imports:
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/trusted_device.yaml' }
   - { resource: '../modules/authorization.yaml' }
+  - { resource: '../modules/audit.yaml' }
 

@@ -35,6 +35,12 @@ Modular authentication and authorization server built with Symfony. It provides 
 
 Fireguard Auth Server is a modular auth stack designed around clear module boundaries and hexagonal architecture.
 
+## Scope & Boundaries (SSO vs Business App)
+
+- **Auth Server (this repo)**: identity, authentication, MFA/OTP, token issuance, session tracking, RBAC and permissions.
+- **Business app(s)**: company membership, domain roles/permissions, and business rules using the `sub` (user id) from tokens.
+- If multi-tenant business logic is required, prefer keeping tenant membership in the business app and treat this service as the identity provider.
+
 ## Features
 
 | Feature | Description |
@@ -94,8 +100,16 @@ High-level endpoints are grouped below. See each module document for full detail
 | `/api/permissions` | Permission management |
 | `/api/clients` | OAuth client management |
 
+### Audit
+
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| GET | `/api/audit-events` | List audit events | `audit.read` |
+| GET | `/api/audit-events/{id}` | Get audit event details | `audit.read` |
+
 > [!NOTE]
 > Full endpoint documentation is in each module file under `src/<Module>/MODULE.md`.
+> A permission-to-endpoint map is maintained in `docs/permissions.md`.
 
 ---
 

@@ -61,9 +61,10 @@
             "Tenant\\": "src/Tenant/",
             "Session\\": "src/Session/",
             "Otp\\": "src/Otp/",
-            "TrustedDevice\\": "src/TrustedDevice/",
-            "Authorization\\": "src/Authorization/"
-        },
+        "TrustedDevice\\": "src/TrustedDevice/",
+        "Authorization\\": "src/Authorization/",
+        "Audit\\": "src/Audit/"
+      },
         "classmap": [
             "src/Kernel.php"
         ]

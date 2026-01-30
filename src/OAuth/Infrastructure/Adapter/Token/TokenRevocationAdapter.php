@@ -9,8 +9,10 @@ use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Token\{Parser, Plain};
 use League\OAuth2\Server\CryptTrait;
 use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort, TokenCachePort, TokenRevocationPort as OAuthTokenRevocationPort};
+use OAuth\Domain\Event\Token\TokenRevokedEvent;
 use Psr\Log\LoggerInterface;
 use Session\Application\Port\Inbound\Tracking\SessionTrackingPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
@@ -49,6 +51,7 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
     private readonly RefreshTokenRepositoryPort $refreshTokenRepository,
     private readonly TokenCachePort $tokenCache,
     private readonly SessionTrackingPort $sessionTracking,
+    private readonly EventDispatcherPort $eventDispatcher,
     #[Autowire(service: 'monolog.logger.security')]
     private readonly LoggerInterface $logger,
     #[Autowire('%env(OAUTH_ENCRYPTION_KEY)%')]
@@ -92,6 +95,20 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
         $this->logger->info('Refresh token revoked', [
           'token_id' => $tokenId,
         ]);
+
+        $userId = null;
+        if (isset($payload['user_id']) && is_string($payload['user_id'])) {
+          $userId = $payload['user_id'];
+        }
+
+        $this->eventDispatcher->dispatch(new TokenRevokedEvent(
+          tokenId: $tokenId,
+          tokenType: 'refresh_token',
+          reason: null,
+          clientId: null,
+          userId: $userId,
+          ipAddress: null,
+        ));
 
         return true;
       }
@@ -140,6 +157,18 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
         $this->logger->info('Access token revoked', [
           'token_id' => $tokenId,
         ]);
+
+        $userId = $claims->has('sub') ? $claims->get('sub') : null;
+        $clientId = $claims->has('client_id') ? $claims->get('client_id') : null;
+
+        $this->eventDispatcher->dispatch(new TokenRevokedEvent(
+          tokenId: $tokenId,
+          tokenType: 'access_token',
+          reason: null,
+          clientId: is_string($clientId) ? $clientId : null,
+          userId: is_string($userId) ? $userId : null,
+          ipAddress: null,
+        ));
 
         return true;
       }

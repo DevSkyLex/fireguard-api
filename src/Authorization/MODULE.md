@@ -74,6 +74,8 @@ Key folders:
 - Service wiring: `config/modules/authorization.yaml`
 - Voters: `Authorization\Infrastructure\Security\Voter`
 - Fixtures: `Authorization\Infrastructure\DataFixtures\AuthorizationFixtures`
+- Permission cache: `AUTHZ_PERMISSION_CACHE_TTL` (seconds). Short TTL is recommended to balance performance and consistency.
+- Sync permissions: `php bin/console app:authz:sync-permissions --update-roles`
 
 ## Testing
 

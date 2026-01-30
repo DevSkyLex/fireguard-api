@@ -6,6 +6,9 @@ The OTP module provides challenge-based verification for MFA and other
 secure flows. It exposes challenge endpoints only (no direct OTP CRUD
 endpoints) and offers a clean inbound port for other modules.
 
+All OTP endpoints are protected by RBAC permissions (`otp_*`) and are
+intended for authenticated user flows or internal service usage.
+
 ## API Endpoints
 
 | Method | Path | Description | Handler |

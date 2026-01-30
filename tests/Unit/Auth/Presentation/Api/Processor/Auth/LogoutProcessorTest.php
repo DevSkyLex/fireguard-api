@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Post;
-use Auth\Application\UseCase\Command\Session\Logout\LogoutCommand;
+use Auth\Application\UseCase\Command\Session\Logout\{LogoutCommand, LogoutResult};
 use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use Auth\Presentation\Api\Dto\Output\Auth\LogoutOutput;
 use Auth\Presentation\Api\Processor\Auth\LogoutProcessor;
@@ -15,6 +15,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 
 use function array_key_exists;
@@ -50,7 +51,12 @@ final class LogoutProcessorTest extends TestCase
       ->with(self::callback(function (LogoutCommand $command): bool {
         return 'refresh-token' === $command->refreshToken
           && 'access-token' === $command->accessToken;
-      }));
+      }))
+      ->willReturn(new LogoutResult(
+        success: true,
+        refreshTokenRevoked: true,
+        accessTokenRevoked: true,
+      ));
 
     $logger = $this->createMock(LoggerInterface::class);
     $logger->expects(self::once())
@@ -66,10 +72,16 @@ final class LogoutProcessorTest extends TestCase
       lifetimeLong: 7200,
     );
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch');
+
     $processor = new LogoutProcessor(
       requestStack: $requestStack,
       cookieService: $cookieService,
       commandBus: $commandBus,
+      eventDispatcher: $eventDispatcher,
       logger: $logger,
       sanitizer: new SecurityLogSanitizer(includePii: true),
     );

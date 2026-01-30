@@ -89,6 +89,43 @@ For authenticated requests (with `Authorization` header), additional cache heade
 - Monitor for failed logins, token revocations, and abuse patterns.
 - Security logs hash PII by default (email/ip); enable full PII with `SECURITY_LOG_INCLUDE_PII`.
 
+### Audit Ledger
+
+- Security-relevant events are persisted in the Audit module (`audit_events`).
+- Audit events are hash-chained (`prev_hash` + payload hash) to detect tampering.
+- Audit APIs are read-only and protected by `audit.read`.
+- Audit PII handling uses the same PII settings as security logs.
+
+### Audit Event Format (Security Log)
+
+Security events are emitted as structured logs (JSON) on the `security` channel.
+Core fields vary by event but follow this common shape:
+
+```json
+{
+  "message": "OAuth2 token issued",
+  "context": {
+    "event": "oauth.token_issued_event",
+    "user_id": "uuid",
+    "client_id": "uuid",
+    "grant_type": "client_credentials",
+    "ip": "x.x.x.x",
+    "reason": "optional"
+  }
+}
+```
+
+Event-specific fields:
+
+| Event | Fields |
+| --- | --- |
+| `auth.user_logged_in_event` | `user_id`, `email` (sanitized), `email_hash`, `ip` (sanitized), `ip_hash` |
+| `auth.login_failed_event` | `email` (sanitized), `email_hash`, `ip` (sanitized), `ip_hash`, `reason` |
+| `oauth.token_issued_event` | `grant_type`, `client_id`, `user_id` (optional), `ip` |
+| `oauth.token_issue_failed_event` | `grant_type`, `client_id`, `ip`, `reason` |
+| `oauth.token_refreshed_event` | `user_id`, `ip` |
+| `oauth.token_refresh_failed_event` | `user_id`, `ip`, `reason` |
+
 ## Incident response
 
 - Revoke active tokens and rotate keys when credentials are suspected to be compromised.

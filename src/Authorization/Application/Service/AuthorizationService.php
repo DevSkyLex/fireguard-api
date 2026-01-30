@@ -12,9 +12,12 @@ use Authorization\Domain\ValueObject\{
   PermissionName,
   SubjectType,
 };
+use Shared\Application\Port\Outbound\CachePort;
+use Throwable;
 
 use function array_map;
 use function in_array;
+use function is_array;
 
 /**
  * Service AuthorizationService.
@@ -27,6 +30,8 @@ use function in_array;
  */
 final readonly class AuthorizationService implements AuthorizationPort
 {
+  private const string PERMISSIONS_CACHE_PREFIX = 'authz.permissions.';
+
   // #region Constructor
   /**
    * Constructor.
@@ -37,9 +42,13 @@ final readonly class AuthorizationService implements AuthorizationPort
    * @since 1.0.0
    *
    * @param RoleAssignmentRepositoryPort $roleAssignmentRepository the role assignment repository
+   * @param CachePort $cache the cache port
+   * @param int $permissionCacheTtl permission cache TTL in seconds
    */
   public function __construct(
     private readonly RoleAssignmentRepositoryPort $roleAssignmentRepository,
+    private readonly CachePort $cache,
+    private readonly int $permissionCacheTtl = 60,
   ) {
   }
   // #endregion
@@ -62,18 +71,13 @@ final readonly class AuthorizationService implements AuthorizationPort
   {
     $requiredPermission = new PermissionName(value: $permission);
 
-    // Get user's roles
-    $userRoles = $this->roleAssignmentRepository->findRolesForSubject(
-      subjectType: SubjectType::USER,
-      subjectId: $userId,
-    );
+    foreach ($this->getCachedPermissionNames(userId: $userId) as $permissionName) {
+      if ('' === $permissionName) {
+        continue;
+      }
 
-    // Check permissions
-    foreach ($userRoles as $role) {
-      foreach ($role->permissions() as $rolePermission) {
-        if ($rolePermission->matches(required: $requiredPermission)) {
-          return true;
-        }
+      if (new PermissionName(value: $permissionName)->matches(required: $requiredPermission)) {
+        return true;
       }
     }
 
@@ -236,9 +240,65 @@ final readonly class AuthorizationService implements AuthorizationPort
    */
   public function getUserPermissionNames(string $userId): array
   {
-    $permissions = $this->getUserPermissions(userId: $userId);
+    return $this->getCachedPermissionNames(userId: $userId);
+  }
 
-    return array_map(fn (Permission $p) => $p->name()->value, $permissions);
+  /**
+   * @return list<string>
+   */
+  private function getCachedPermissionNames(string $userId): array
+  {
+    $cacheKey = self::PERMISSIONS_CACHE_PREFIX . $userId;
+
+    try {
+      $cached = $this->cache->get(key: $cacheKey);
+      if (is_array($cached)) {
+        /** @var list<string> $cached */
+        return $cached;
+      }
+    } catch (Throwable) {
+      // Cache failures should not block authorization checks
+    }
+
+    $permissions = $this->buildPermissionNames(userId: $userId);
+
+    try {
+      $this->cache->set(
+        key: $cacheKey,
+        value: $permissions,
+        ttl: $this->permissionCacheTtl,
+      );
+    } catch (Throwable) {
+      // Ignore cache write failures
+    }
+
+    return $permissions;
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function buildPermissionNames(string $userId): array
+  {
+    $userRoles = $this->roleAssignmentRepository->findRolesForSubject(
+      subjectType: SubjectType::USER,
+      subjectId: $userId,
+    );
+
+    $names = [];
+    $seen = [];
+
+    foreach ($userRoles as $role) {
+      foreach ($role->permissions() as $rolePermission) {
+        $name = $rolePermission->name()->value;
+        if (!isset($seen[$name])) {
+          $names[] = $name;
+          $seen[$name] = true;
+        }
+      }
+    }
+
+    return $names;
   }
   // #endregion
 }

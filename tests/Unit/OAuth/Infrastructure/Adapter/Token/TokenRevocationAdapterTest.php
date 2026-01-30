@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Session\Application\Port\Inbound\Tracking\SessionTrackingPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function base64_encode;
 use function implode;
@@ -80,6 +81,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $refreshTokenRepository,
       tokenCache: $tokenCache,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -107,6 +109,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $this->createMock(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
@@ -132,6 +135,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $refreshTokenRepository,
       tokenCache: $this->createMock(TokenCachePort::class),
       sessionTracking: $this->createMock(SessionTrackingPort::class),
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $this->createMock(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
@@ -163,6 +167,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
       tokenCache: $this->createMock(TokenCachePort::class),
       sessionTracking: $this->createMock(SessionTrackingPort::class),
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -204,6 +209,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -247,6 +253,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
       tokenCache: $this->createMock(TokenCachePort::class),
       sessionTracking: $this->createMock(SessionTrackingPort::class),
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $this->createMock(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
@@ -276,6 +283,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
       tokenCache: $this->createMock(TokenCachePort::class),
       sessionTracking: $this->createMock(SessionTrackingPort::class),
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -290,6 +298,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
       tokenCache: $this->createMock(TokenCachePort::class),
       sessionTracking: $this->createMock(SessionTrackingPort::class),
+      eventDispatcher: $this->createMock(EventDispatcherPort::class),
       logger: $this->createMock(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );

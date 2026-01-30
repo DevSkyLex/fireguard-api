@@ -12,6 +12,7 @@ use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Test GrantConsentHandlerTest.
@@ -48,6 +49,10 @@ final class GrantConsentHandlerTest extends TestCase
       ->method('save')
       ->with(self::isInstanceOf(Consent::class));
 
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch');
+
     $command = new GrantConsentCommand(
       userId: 'user-123',
       clientId: 'client-456',
@@ -57,6 +62,7 @@ final class GrantConsentHandlerTest extends TestCase
     $handler = new GrantConsentHandler(
       consentRepository: $repository,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(command: $command);
@@ -93,6 +99,10 @@ final class GrantConsentHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch');
+
     $command = new GrantConsentCommand(
       userId: 'user-123',
       clientId: 'client-456',
@@ -102,6 +112,7 @@ final class GrantConsentHandlerTest extends TestCase
     $handler = new GrantConsentHandler(
       consentRepository: $repository,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(command: $command);

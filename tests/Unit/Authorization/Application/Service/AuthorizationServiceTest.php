@@ -12,6 +12,7 @@ use Authorization\Domain\ValueObject\{PermissionId, PermissionName, RoleId, Role
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\CachePort;
 
 /**
  * Test AuthorizationServiceTest.
@@ -47,7 +48,10 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-123')
       ->willReturn([$role]);
 
-    $service = new AuthorizationService($repository);
+    $cache = $this->createMock(CachePort::class);
+    $cache->method('get')->willReturn(null);
+
+    $service = new AuthorizationService($repository, $cache);
 
     self::assertTrue($service->hasPermission('user-123', 'users.create'));
   }
@@ -75,7 +79,10 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-456')
       ->willReturn([$role]);
 
-    $service = new AuthorizationService($repository);
+    $cache = $this->createMock(CachePort::class);
+    $cache->method('get')->willReturn(null);
+
+    $service = new AuthorizationService($repository, $cache);
 
     self::assertFalse($service->hasPermission('user-456', 'users.create'));
   }
@@ -101,7 +108,10 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-789')
       ->willReturn([$roleAdmin, $roleViewer]);
 
-    $service = new AuthorizationService($repository);
+    $cache = $this->createMock(CachePort::class);
+    $cache->method('get')->willReturn(null);
+
+    $service = new AuthorizationService($repository, $cache);
 
     self::assertTrue($service->hasRole('user-789', 'admin'));
     self::assertFalse($service->hasRole('user-789', 'missing'));
@@ -150,7 +160,10 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-999')
       ->willReturn([$roleOne, $roleTwo]);
 
-    $service = new AuthorizationService($repository);
+    $cache = $this->createMock(CachePort::class);
+    $cache->method('get')->willReturn(null);
+
+    $service = new AuthorizationService($repository, $cache);
 
     $permissions = $service->getUserPermissions('user-999');
     self::assertCount(1, $permissions);

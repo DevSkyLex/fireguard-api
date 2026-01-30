@@ -71,7 +71,9 @@ services:
       $entityManager: '@doctrine.orm.entity_manager'
 
   # Authorization Service
-  Authorization\Application\Service\AuthorizationService: ~
+  Authorization\Application\Service\AuthorizationService:
+    arguments:
+      $permissionCacheTtl: '%env(int:AUTHZ_PERMISSION_CACHE_TTL)%'
 
   # Security Voters
   Authorization\Infrastructure\Security\Voter\PermissionVoter:
@@ -86,4 +88,6 @@ services:
 
   # Console Commands
   Authorization\Infrastructure\Console\AssignRoleCommand:
+    tags: ['console.command']
+  Authorization\Infrastructure\Console\SyncPermissionsCommand:
     tags: ['console.command']

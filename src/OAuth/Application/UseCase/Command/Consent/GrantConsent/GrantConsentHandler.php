@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace OAuth\Application\UseCase\Command\Consent\GrantConsent;
 
 use OAuth\Application\Port\Outbound\Consent\ConsentRepositoryPort;
+use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
 use OAuth\Domain\ValueObject\Scope\Scopes;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Handler GrantConsentHandler.
@@ -36,6 +38,7 @@ final readonly class GrantConsentHandler implements \Shared\Application\Message\
   public function __construct(
     private readonly ConsentRepositoryPort $consentRepository,
     private readonly UuidFactory $uuidFactory,
+    private readonly EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -67,6 +70,13 @@ final readonly class GrantConsentHandler implements \Shared\Application\Message\
       $existingConsent->updateScopes(scopes: $scopes);
       $this->consentRepository->save(consent: $existingConsent);
 
+      $this->eventDispatcher->dispatch(new ConsentGrantedEvent(
+        userId: $command->userId,
+        clientId: $command->clientId,
+        scopes: $scopes->toArray(),
+        isNew: false,
+      ));
+
       return new GrantConsentResult(
         consentId: (string) $existingConsent->id(),
         isNew: false,
@@ -84,6 +94,13 @@ final readonly class GrantConsentHandler implements \Shared\Application\Message\
     );
 
     $this->consentRepository->save(consent: $consent);
+
+    $this->eventDispatcher->dispatch(new ConsentGrantedEvent(
+      userId: $command->userId,
+      clientId: $command->clientId,
+      scopes: $scopes->toArray(),
+      isNew: true,
+    ));
 
     return new GrantConsentResult(
       consentId: (string) $consentId,

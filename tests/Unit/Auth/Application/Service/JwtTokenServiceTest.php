@@ -18,6 +18,7 @@ use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\CachePort;
 
 use function base64_decode;
 use function base64_encode;
@@ -725,7 +726,10 @@ final class JwtTokenServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-roles')
       ->willReturn([$role]);
 
-    $authorizationService = new AuthorizationService($roleAssignmentRepository);
+    $cache = $this->createMock(CachePort::class);
+    $cache->method('get')->willReturn(null);
+
+    $authorizationService = new AuthorizationService($roleAssignmentRepository, $cache);
 
     /** @var non-empty-string $privateKeyPath */
     $privateKeyPath = $this->privateKeyPath;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\DataFixtures;
 
 use Authorization\Domain\ValueObject\SubjectType;
+use Authorization\Infrastructure\Catalog\{PermissionCatalog, RoleCatalog};
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleAssignmentRecord, RoleRecord};
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
@@ -132,66 +133,7 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
    */
   private function createPermissions(ObjectManager $manager): array
   {
-    $permissionDefinitions = [
-      // User management
-      ['name' => 'users.create', 'description' => 'Create new users'],
-      ['name' => 'users.read', 'description' => 'View user information'],
-      ['name' => 'users.update', 'description' => 'Modify user data'],
-      ['name' => 'users.delete', 'description' => 'Delete users'],
-      ['name' => 'users.*', 'description' => 'All user operations'],
-
-      // Client (OAuth2) management
-      ['name' => 'clients.create', 'description' => 'Create OAuth2 clients'],
-      ['name' => 'clients.read', 'description' => 'View OAuth2 clients'],
-      ['name' => 'clients.update', 'description' => 'Modify OAuth2 clients'],
-      ['name' => 'clients.delete', 'description' => 'Delete OAuth2 clients'],
-      ['name' => 'clients.*', 'description' => 'All client operations'],
-
-      // Role management
-      ['name' => 'roles.create', 'description' => 'Create roles'],
-      ['name' => 'roles.read', 'description' => 'View roles'],
-      ['name' => 'roles.update', 'description' => 'Modify roles'],
-      ['name' => 'roles.delete', 'description' => 'Delete roles'],
-      ['name' => 'roles.assign', 'description' => 'Assign roles to users'],
-      ['name' => 'roles.*', 'description' => 'All role operations'],
-
-      // Permission management
-      ['name' => 'permissions.read', 'description' => 'View permissions'],
-      ['name' => 'permissions.manage', 'description' => 'Manage permissions'],
-
-      // Profile (self-service)
-      ['name' => 'profile.read', 'description' => 'View own profile'],
-      ['name' => 'profile.update', 'description' => 'Update own profile'],
-
-      // Session management
-      ['name' => 'sessions.read', 'description' => 'View own sessions'],
-      ['name' => 'sessions.revoke', 'description' => 'Revoke own sessions'],
-
-      // OTP management
-      ['name' => 'otp_config.read', 'description' => 'View OTP configuration'],
-      ['name' => 'otp_challenges.create', 'description' => 'Create OTP challenges'],
-      ['name' => 'otp_challenges.read', 'description' => 'View OTP challenges'],
-      ['name' => 'otp_challenges.verify', 'description' => 'Verify OTP challenges'],
-      ['name' => 'otp_challenges.resend', 'description' => 'Resend OTP challenges'],
-      ['name' => 'otp_challenges.*', 'description' => 'All OTP challenge operations'],
-      ['name' => 'otp_totp.setup', 'description' => 'Setup TOTP'],
-
-      // Trusted device management
-      ['name' => 'trusted_devices.create', 'description' => 'Create trusted devices'],
-      ['name' => 'trusted_devices.read', 'description' => 'View trusted devices'],
-      ['name' => 'trusted_devices.revoke', 'description' => 'Revoke trusted devices'],
-      ['name' => 'trusted_devices.*', 'description' => 'All trusted device operations'],
-
-      // Tenant management
-      ['name' => 'tenants.create', 'description' => 'Create tenants'],
-      ['name' => 'tenants.read', 'description' => 'View tenants'],
-      ['name' => 'tenants.update', 'description' => 'Modify tenants'],
-      ['name' => 'tenants.delete', 'description' => 'Delete tenants'],
-      ['name' => 'tenants.*', 'description' => 'All tenant operations'],
-
-      // Super admin wildcard
-      ['name' => '*.*', 'description' => 'Full system access (super admin)'],
-    ];
+    $permissionDefinitions = PermissionCatalog::definitions();
 
     $permissionRecords = [];
     foreach ($permissionDefinitions as $def) {
@@ -240,23 +182,11 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
     $adminRecord->description = 'Administrative access for user and client management';
     $adminRecord->isSystem = true;
     $adminRecord->createdAt = new DateTimeImmutable();
-    $adminRecord->permissions->add($permissions['users.*']);
-    $adminRecord->permissions->add($permissions['clients.*']);
-    $adminRecord->permissions->add($permissions['roles.read']);
-    $adminRecord->permissions->add($permissions['roles.create']);
-    $adminRecord->permissions->add($permissions['roles.update']);
-    $adminRecord->permissions->add($permissions['roles.assign']);
-    $adminRecord->permissions->add($permissions['permissions.read']);
-    $adminRecord->permissions->add($permissions['tenants.create']);
-    $adminRecord->permissions->add($permissions['tenants.read']);
-    $adminRecord->permissions->add($permissions['profile.read']);
-    $adminRecord->permissions->add($permissions['profile.update']);
-    $adminRecord->permissions->add($permissions['sessions.read']);
-    $adminRecord->permissions->add($permissions['sessions.revoke']);
-    $adminRecord->permissions->add($permissions['otp_config.read']);
-    $adminRecord->permissions->add($permissions['otp_challenges.*']);
-    $adminRecord->permissions->add($permissions['otp_totp.setup']);
-    $adminRecord->permissions->add($permissions['trusted_devices.*']);
+    foreach (RoleCatalog::adminPermissionNames() as $permissionName) {
+      if (isset($permissions[$permissionName])) {
+        $adminRecord->permissions->add($permissions[$permissionName]);
+      }
+    }
     $manager->persist($adminRecord);
     $this->addReference(self::ROLE_ADMIN, $adminRecord);
 
@@ -267,14 +197,11 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
     $userRecord->description = 'Standard user access with profile and session management';
     $userRecord->isSystem = true;
     $userRecord->createdAt = new DateTimeImmutable();
-    $userRecord->permissions->add($permissions['profile.read']);
-    $userRecord->permissions->add($permissions['profile.update']);
-    $userRecord->permissions->add($permissions['sessions.read']);
-    $userRecord->permissions->add($permissions['sessions.revoke']);
-    $userRecord->permissions->add($permissions['otp_config.read']);
-    $userRecord->permissions->add($permissions['otp_challenges.*']);
-    $userRecord->permissions->add($permissions['otp_totp.setup']);
-    $userRecord->permissions->add($permissions['trusted_devices.*']);
+    foreach (RoleCatalog::userPermissionNames() as $permissionName) {
+      if (isset($permissions[$permissionName])) {
+        $userRecord->permissions->add($permissions[$permissionName]);
+      }
+    }
     $manager->persist($userRecord);
     $this->addReference(self::ROLE_USER, $userRecord);
   }

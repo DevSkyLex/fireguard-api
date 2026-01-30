@@ -6,12 +6,14 @@ namespace Auth\Presentation\Api\Processor\Auth;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use Auth\Application\UseCase\Command\Session\Logout\LogoutCommand;
+use Auth\Application\UseCase\Command\Session\Logout\{LogoutCommand, LogoutResult};
+use Auth\Domain\Event\Session\UserLoggedOutEvent;
 use Auth\Infrastructure\Logging\SecurityLogSanitizer;
 use Auth\Presentation\Api\Dto\Output\Auth\LogoutOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -74,6 +76,7 @@ final readonly class LogoutProcessor implements ProcessorInterface
     private RequestStack $requestStack,
     private RefreshTokenCookieService $cookieService,
     private CommandBusPort $commandBus,
+    private EventDispatcherPort $eventDispatcher,
     #[Autowire(service: 'monolog.logger.security')]
     private LoggerInterface $logger,
     private SecurityLogSanitizer $sanitizer,
@@ -121,12 +124,20 @@ final readonly class LogoutProcessor implements ProcessorInterface
       );
     }
 
-    $this->commandBus->dispatch(
+    /** @var LogoutResult $result */
+    $result = $this->commandBus->dispatch(
       command: new LogoutCommand(
         refreshToken: $refreshToken,
         accessToken: $accessToken,
       ),
     );
+
+    $this->eventDispatcher->dispatch(new UserLoggedOutEvent(
+      userId: null,
+      ipAddress: $request?->getClientIp(),
+      refreshTokenRevoked: $result->refreshTokenRevoked,
+      accessTokenRevoked: $result->accessTokenRevoked,
+    ));
 
     $this->logger->info(
       message: 'User logged out',
