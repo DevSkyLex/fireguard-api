@@ -45,3 +45,6 @@ services:
 
   # API Providers
   TrustedDevice\Presentation\Api\Provider\TrustedDevice\ListTrustedDevicesProvider: ~
+
+  # Adapters (cross-module integration)
+  TrustedDevice\Infrastructure\Adapter\TrustedDeviceCheckAdapter: ~

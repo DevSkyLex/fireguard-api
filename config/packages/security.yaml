@@ -21,7 +21,7 @@ security:
 
     # Public OAuth2 endpoints (no authentication required)
     oauth2_public:
-      pattern: ^/api/(oauth2/token|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify)
+      pattern: ^/api/(oauth2/token|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/password/reset)
       security: false
 
     # Protected API endpoints (Bearer token required)
@@ -55,6 +55,7 @@ security:
     - { path: ^/api/auth/refresh$, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/logout$, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/mfa/verify$, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/password/reset, roles: PUBLIC_ACCESS }
     # Protected endpoints requiring authentication
     - { path: ^/api/oauth2/userinfo$, roles: ROLE_USER }
     - { path: ^/api/oauth2/token/revoke$, roles: ROLE_USER }

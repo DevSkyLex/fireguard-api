@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Otp\Presentation\Api\Dto\Output\Challenge;
 
+use ApiPlatform\Metadata\ApiProperty;
+
 /**
  * DTO VerifyOtpOutput.
  *
@@ -21,6 +23,18 @@ final class VerifyOtpOutput
    *
    * Whether verification was successful.
    */
+  #[ApiProperty(
+    description: 'Whether verification was successful',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: true,
+    openapiContext: [
+      'type' => 'boolean',
+      'readOnly' => true,
+    ],
+  )]
   public bool $success;
 
   /**
@@ -28,6 +42,18 @@ final class VerifyOtpOutput
    *
    * Remaining verification attempts.
    */
+  #[ApiProperty(
+    description: 'Remaining verification attempts before the challenge is locked',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 2,
+    openapiContext: [
+      'type' => 'integer',
+      'readOnly' => true,
+    ],
+  )]
   public int $attemptsRemaining;
 
   /**
@@ -35,6 +61,19 @@ final class VerifyOtpOutput
    *
    * Error message if failed.
    */
+  #[ApiProperty(
+    description: 'Error message when verification fails',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'Invalid OTP code',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
   public ?string $error = null;
   // #endregion
 }

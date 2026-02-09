@@ -13,6 +13,7 @@ use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use OAuth\Infrastructure\Console\Command\Token\GenerateTokenCommand;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -106,6 +107,37 @@ final class GenerateTokenCommandTest extends TestCase
       'Access token generated successfully',
       $tester->getDisplay(),
     );
+  }
+
+  #[Test]
+  public function testExecuteReturnsFailureOnException(): void
+  {
+    $client = $this->createClient();
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $clientRepository = $this->createMock(ClientRepositoryPort::class);
+    $clientRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($client);
+
+    $command = new GenerateTokenCommand(
+      commandBus: $commandBus,
+      clientRepository: $clientRepository,
+    );
+
+    $tester = new CommandTester($command);
+
+    $tester->execute([
+      'client-id' => $client->id()->value,
+      'client-secret' => 'plain-secret',
+    ]);
+
+    self::assertSame(Command::FAILURE, $tester->getStatusCode());
+    self::assertStringContainsString('Failed to generate token', $tester->getDisplay());
   }
 
   private function createClient(): Client

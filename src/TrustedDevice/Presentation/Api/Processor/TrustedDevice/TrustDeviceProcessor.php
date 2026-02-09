@@ -43,7 +43,7 @@ final readonly class TrustDeviceProcessor implements ProcessorInterface
     }
 
     $command = new TrustDeviceCommand(
-      userId: $user->getUserIdentifier(),
+      userId: $user->getId(),
       userAgent: $request->headers->get('User-Agent', 'Unknown'),
       ipAddress: $request->getClientIp(),
       acceptLanguage: $request->headers->get('Accept-Language'),

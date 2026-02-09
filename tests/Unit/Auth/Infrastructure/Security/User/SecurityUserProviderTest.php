@@ -194,6 +194,45 @@ final class SecurityUserProviderTest extends TestCase
     $provider->refreshUser($this->createMock(\Symfony\Component\Security\Core\User\UserInterface::class));
   }
 
+  #[Test]
+  public function testRefreshUserReloadsSecurityUser(): void
+  {
+    $userView = $this->createUserView(canLogin: true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetUserQuery::class))
+      ->willReturn(new GetUserResult(user: $userView));
+
+    /** @var AuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('getUserRoleNames')
+      ->with('user-123')
+      ->willReturn([]);
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+    );
+
+    $securityUser = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hashed',
+      roles: ['ROLE_USER'],
+      scopes: ['read'],
+      isActive: true,
+    );
+
+    $refreshed = $provider->refreshUser($securityUser);
+
+    $this->assertInstanceOf(SecurityUser::class, $refreshed);
+    $this->assertSame('user-123', $refreshed->getId());
+  }
+
   /**
    * Method testSupportsClassReturnsTrueForSecurityUser.
    */

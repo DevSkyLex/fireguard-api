@@ -56,6 +56,36 @@ final class GrantTypeValidatorTest extends TestCase
     $validator->validate(GrantTypeValidator::GRANT_AUTHORIZATION_CODE, null, null, null, null);
   }
 
+  #[Test]
+  public function testValidateAuthorizationCodeRequiresRedirectUri(): void
+  {
+    $validator = new GrantTypeValidator();
+
+    $this->expectException(ValidationException::class);
+    $validator->validate(
+      grantType: GrantTypeValidator::GRANT_AUTHORIZATION_CODE,
+      refreshToken: null,
+      code: 'code-123',
+      redirectUri: null,
+      codeVerifier: 'verifier',
+    );
+  }
+
+  #[Test]
+  public function testValidateAuthorizationCodeRequiresCodeVerifier(): void
+  {
+    $validator = new GrantTypeValidator();
+
+    $this->expectException(ValidationException::class);
+    $validator->validate(
+      grantType: GrantTypeValidator::GRANT_AUTHORIZATION_CODE,
+      refreshToken: null,
+      code: 'code-123',
+      redirectUri: 'https://client.example.com/callback',
+      codeVerifier: null,
+    );
+  }
+
   /**
    * Method testValidateAuthorizationCodeSucceedsWhenValid.
    */

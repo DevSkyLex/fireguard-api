@@ -95,6 +95,25 @@ final class TrustedDeviceTest extends TestCase
     self::assertInstanceOf(DeviceRevokedEvent::class, $events[0]);
   }
 
+  #[Test]
+  public function testRevokeIsIdempotent(): void
+  {
+    $device = TrustedDevice::trust(
+      id: new TrustedDeviceId('123e4567-e89b-12d3-a456-426614174004'),
+      userId: 'user-123',
+      fingerprint: DeviceFingerprint::create('Mozilla/5.0', null, null),
+      ttlDays: 30,
+    );
+
+    $device->releaseEvents();
+    $device->revoke();
+    $device->releaseEvents();
+
+    $device->revoke();
+
+    self::assertSame([], $device->releaseEvents());
+  }
+
   /**
    * Method testTouchUpdatesLastUsedAt.
    *

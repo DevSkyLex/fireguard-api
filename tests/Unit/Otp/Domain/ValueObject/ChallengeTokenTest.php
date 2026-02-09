@@ -40,5 +40,13 @@ final class ChallengeTokenTest extends TestCase
     self::assertTrue($tokenA->equals($tokenB));
     self::assertFalse($tokenA->equals($tokenC));
   }
+
+  #[Test]
+  public function testToStringReturnsValue(): void
+  {
+    $token = ChallengeToken::fromString('token-xyz');
+
+    self::assertSame('token-xyz', (string) $token);
+  }
   // #endregion
 }

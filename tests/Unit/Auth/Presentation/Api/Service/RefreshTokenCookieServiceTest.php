@@ -112,5 +112,22 @@ final class RefreshTokenCookieServiceTest extends TestCase
 
     $this->assertSame('token-abc', $service->getRefreshTokenFromRequest($request));
   }
+
+  #[Test]
+  public function testCookieSecureOverrideDisablesHostPrefix(): void
+  {
+    $service = new RefreshTokenCookieService(
+      environment: 'prod',
+      cookieBaseName: 'refresh_token',
+      lifetimeShort: 3600,
+      lifetimeLong: 7200,
+      cookieSecure: 'false',
+    );
+
+    $cookie = $service->createCookie(refreshToken: 'token-123', rememberMe: false);
+
+    $this->assertSame('refresh_token', $service->getCookieName());
+    $this->assertFalse($cookie->isSecure());
+  }
   // #endregion
 }

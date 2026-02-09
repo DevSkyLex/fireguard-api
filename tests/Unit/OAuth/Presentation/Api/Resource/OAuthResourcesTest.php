@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\OAuth\Presentation\Api\Resource;
 
 use OAuth\Presentation\Api\Resource\{ClientResource, DiscoveryResource, OAuth2Resource};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversNothing, Test};
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,9 +15,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: OAuth2Resource::class)]
-#[CoversClass(className: ClientResource::class)]
-#[CoversClass(className: DiscoveryResource::class)]
+#[CoversNothing]
 final class OAuthResourcesTest extends TestCase
 {
   // #region Methods

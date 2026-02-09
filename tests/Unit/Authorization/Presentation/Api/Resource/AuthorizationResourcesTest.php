@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Presentation\Api\Resource;
 
 use Authorization\Presentation\Api\Resource\{PermissionResource, RoleResource};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversNothing, Test};
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,8 +15,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: RoleResource::class)]
-#[CoversClass(className: PermissionResource::class)]
+#[CoversNothing]
 final class AuthorizationResourcesTest extends TestCase
 {
   // #region Methods

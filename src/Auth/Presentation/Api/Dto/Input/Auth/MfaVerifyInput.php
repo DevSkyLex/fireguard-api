@@ -27,7 +27,19 @@ final class MfaVerifyInput
   #[Assert\NotBlank]
   #[ApiProperty(
     description: 'The Pre-Auth Token received from the login response.',
+    readable: false,
+    writable: true,
+    required: true,
+    identifier: false,
     example: 'eyJ...',
+    openapiContext: [
+      'type' => 'string',
+      'writeOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'writeOnly' => true,
+    ],
   )]
   public string $preAuthToken;
 
@@ -39,7 +51,19 @@ final class MfaVerifyInput
   #[Assert\NotBlank]
   #[ApiProperty(
     description: 'The OTP code received by the user.',
+    readable: false,
+    writable: true,
+    required: true,
+    identifier: false,
     example: '123456',
+    openapiContext: [
+      'type' => 'string',
+      'writeOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'writeOnly' => true,
+    ],
   )]
   public string $code;
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Otp\Presentation\Api\Dto\Output\Totp;
 
+use ApiPlatform\Metadata\ApiProperty;
+
 /**
  * DTO SetupTotpOutput.
  *
@@ -19,15 +21,40 @@ final class SetupTotpOutput
   /**
    * Property secret.
    *
-   * The TOTP secret (base32 encoded).
+   * Base32 secret for authenticator enrollment.
+   * Treat as sensitive.
    */
+  #[ApiProperty(
+    description: 'Base32-encoded TOTP secret for the authenticator app',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'JBSWY3DPEHPK3PXP',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+  )]
   public string $secret;
 
   /**
    * Property qrCodeUri.
    *
-   * The otpauth:// URI for QR code generation.
+   * The otpauth:// URI used to render a QR code.
    */
+  #[ApiProperty(
+    description: 'otpauth:// URI to generate the QR code',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: 'otpauth://totp/Example:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
+  )]
   public string $qrCodeUri;
   // #endregion
 }

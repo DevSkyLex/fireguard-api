@@ -9,6 +9,7 @@ use Auth\Application\UseCase\Query\Session\RefreshToken\{RefreshTokenHandler, Re
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Test RefreshTokenHandlerTest.
@@ -107,6 +108,128 @@ final class RefreshTokenHandlerTest extends TestCase
     );
 
     $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token'));
+  }
+
+  #[Test]
+  public function testInvokeSkipsRotationWhenNewPayloadInvalid(): void
+  {
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::exactly(2))
+      ->method('decodeRefreshToken')
+      ->willReturnOnConsecutiveCalls(
+        ['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access'],
+        null,
+      );
+
+    $result = new RefreshTokenResult(
+      success: true,
+      accessToken: 'access',
+      refreshToken: 'new-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      scopes: ['READ'],
+    );
+
+    /** @var TokenRefreshPort&MockObject $refresh */
+    $refresh = $this->createMock(TokenRefreshPort::class);
+    $refresh->expects(self::once())
+      ->method('refresh')
+      ->willReturn($result);
+
+    /** @var SessionTrackingPort&MockObject $sessionTracking */
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::never())->method('rotateSessionTokens');
+
+    $handler = new RefreshTokenHandler(
+      tokenRefresh: $refresh,
+      jwtService: $jwt,
+      sessionTracking: $sessionTracking,
+    );
+
+    self::assertSame($result, $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token')));
+  }
+
+  #[Test]
+  public function testInvokeSkipsRotationWhenNewTokenIdsMissing(): void
+  {
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::exactly(2))
+      ->method('decodeRefreshToken')
+      ->willReturnOnConsecutiveCalls(
+        ['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access'],
+        ['refresh_token_id' => '', 'access_token_id' => ''],
+      );
+
+    $result = new RefreshTokenResult(
+      success: true,
+      accessToken: 'access',
+      refreshToken: 'new-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      scopes: ['READ'],
+    );
+
+    /** @var TokenRefreshPort&MockObject $refresh */
+    $refresh = $this->createMock(TokenRefreshPort::class);
+    $refresh->expects(self::once())
+      ->method('refresh')
+      ->willReturn($result);
+
+    /** @var SessionTrackingPort&MockObject $sessionTracking */
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::never())->method('rotateSessionTokens');
+
+    $handler = new RefreshTokenHandler(
+      tokenRefresh: $refresh,
+      jwtService: $jwt,
+      sessionTracking: $sessionTracking,
+    );
+
+    self::assertSame($result, $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token')));
+  }
+
+  #[Test]
+  public function testInvokeIgnoresSessionTrackingFailures(): void
+  {
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::exactly(2))
+      ->method('decodeRefreshToken')
+      ->willReturnOnConsecutiveCalls(
+        ['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access'],
+        ['refresh_token_id' => 'new-refresh', 'access_token_id' => 'new-access'],
+      );
+
+    $result = new RefreshTokenResult(
+      success: true,
+      accessToken: 'access',
+      refreshToken: 'new-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      scopes: ['READ'],
+    );
+
+    /** @var TokenRefreshPort&MockObject $refresh */
+    $refresh = $this->createMock(TokenRefreshPort::class);
+    $refresh->expects(self::once())
+      ->method('refresh')
+      ->willReturn($result);
+
+    /** @var SessionTrackingPort&MockObject $sessionTracking */
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::once())
+      ->method('rotateSessionTokens')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $handler = new RefreshTokenHandler(
+      tokenRefresh: $refresh,
+      jwtService: $jwt,
+      sessionTracking: $sessionTracking,
+    );
+
+    self::assertSame($result, $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token')));
   }
   // #endregion
 }

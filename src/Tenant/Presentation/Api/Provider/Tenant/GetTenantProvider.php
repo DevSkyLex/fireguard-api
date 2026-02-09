@@ -74,6 +74,9 @@ final readonly class GetTenantProvider implements ProviderInterface
       $output->accessTokenTtl = $result->settings->accessTokenTtl;
       $output->refreshTokenTtl = $result->settings->refreshTokenTtl;
       $output->requirePkce = $result->settings->requirePkce;
+      $output->allowPublicClients = $result->settings->allowPublicClients;
+      $output->allowedScopes = $result->settings->allowedScopes;
+      $output->customIssuer = $result->settings->customIssuer;
       $output->createdAt = $result->createdAt->format('c');
 
       return $output;

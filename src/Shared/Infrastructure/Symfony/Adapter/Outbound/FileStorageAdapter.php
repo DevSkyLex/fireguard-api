@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
+use Closure;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Infrastructure\Exception\FileStorageException;
 use Throwable;
 
 use function dirname;
 use function file_exists;
-use function file_get_contents;
 use function file_put_contents;
 use function is_dir;
 use function is_file;
@@ -40,9 +40,11 @@ final readonly class FileStorageAdapter implements FileStoragePort
    * @since 1.0.0
    *
    * @param string $basePath the base path for file storage
+   * @param Closure|null $fileReader optional reader for file contents
    */
   public function __construct(
     private readonly string $basePath,
+    private readonly ?Closure $fileReader = null,
   ) {
   }
   // #endregion
@@ -121,7 +123,8 @@ final readonly class FileStorageAdapter implements FileStoragePort
       );
     }
 
-    $data = @file_get_contents($fullPath);
+    $reader = $this->fileReader ?? 'file_get_contents';
+    $data = @$reader($fullPath);
 
     if (false === $data) {
       throw FileStorageException::readFailed(

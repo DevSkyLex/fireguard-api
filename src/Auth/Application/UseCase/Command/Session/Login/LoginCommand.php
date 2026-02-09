@@ -31,6 +31,7 @@ final readonly class LoginCommand implements CommandMessage
    * @param bool $rememberMe whether to extend token lifetime
    * @param string|null $ipAddress the client IP address
    * @param string|null $userAgent the client user agent
+   * @param string|null $trustedDeviceToken the trusted device token (from cookie) to bypass MFA
    */
   public function __construct(
     public readonly string $email,
@@ -38,6 +39,7 @@ final readonly class LoginCommand implements CommandMessage
     public readonly bool $rememberMe = false,
     public readonly ?string $ipAddress = null,
     public readonly ?string $userAgent = null,
+    public readonly ?string $trustedDeviceToken = null,
   ) {
   }
   // #endregion

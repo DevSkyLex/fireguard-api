@@ -108,6 +108,29 @@ final class SessionTrackingServiceTest extends TestCase
   }
 
   #[Test]
+  public function testRotateSessionTokensSkipsWhenMissingIds(): void
+  {
+    $repository = $this->createMock(SessionRepositoryPort::class);
+    $repository->expects(self::never())
+      ->method('findByRefreshTokenId');
+
+    $service = new SessionTrackingService(
+      createSessionHandler: new CreateSessionHandler(
+        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
+      ),
+      updateSessionTokensHandler: new UpdateSessionTokensHandler(
+        sessionRepository: $repository,
+      ),
+      revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
+        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+      ),
+    );
+
+    $service->rotateSessionTokens('', null, 'access-new', 'refresh-new');
+  }
+
+  #[Test]
   public function testRevokeSessionByTokenSkipsEmptyTokens(): void
   {
     $repository = $this->createMock(SessionRepositoryPort::class);

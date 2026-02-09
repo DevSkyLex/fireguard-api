@@ -25,7 +25,15 @@ final class ChannelOutput
    */
   #[ApiProperty(
     description: 'The channel identifier (use this in API requests)',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'email',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
   )]
   public string $value;
 
@@ -36,7 +44,15 @@ final class ChannelOutput
    */
   #[ApiProperty(
     description: 'Human-readable label for display',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'Email',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
   )]
   public string $label;
 
@@ -47,7 +63,15 @@ final class ChannelOutput
    */
   #[ApiProperty(
     description: 'Whether OTP is actively delivered (false for TOTP which uses authenticator app)',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: true,
+    openapiContext: [
+      'type' => 'boolean',
+      'readOnly' => true,
+    ],
   )]
   public bool $requiresDelivery;
   // #endregion

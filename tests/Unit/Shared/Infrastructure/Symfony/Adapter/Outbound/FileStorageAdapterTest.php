@@ -95,6 +95,18 @@ final class FileStorageAdapterTest extends TestCase
     $this->adapter->read('non_existent.txt');
   }
 
+  #[Test]
+  public function testReadThrowsWhenReaderFails(): void
+  {
+    $path = 'unreadable.txt';
+    file_put_contents($this->tempDir . '/' . $path, 'content');
+
+    $adapter = new FileStorageAdapter($this->tempDir, static fn (string $fullPath): bool => false);
+
+    $this->expectException(FileStorageException::class);
+    $adapter->read($path);
+  }
+
   /**
    * Test that a file can be deleted.
    */

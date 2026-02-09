@@ -93,6 +93,15 @@ final class OtpNotificationTest extends TestCase
     self::assertInstanceOf(SmsMessage::class, $message);
     self::assertStringContainsString('******', $message->getSubject());
   }
+
+  #[Test]
+  public function testGetOtpReturnsOriginalOtp(): void
+  {
+    $otp = $this->createOtp(OtpChannel::EMAIL, 'user@example.com');
+    $notification = new OtpNotification($otp);
+
+    self::assertSame($otp, $notification->getOtp());
+  }
   // #endregion
 
   /**

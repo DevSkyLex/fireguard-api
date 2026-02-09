@@ -152,6 +152,30 @@ final class AuthorizationServerAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testIssueAccessTokenMapsThrowableToInvalidGrantForAuthorizationCode(): void
+  {
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('respondToAccessTokenRequest')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $adapter = new AuthorizationServerAdapter($authorizationServer);
+
+    try {
+      $adapter->issueAccessToken(
+        grantType: 'authorization_code',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        code: 'auth-code',
+      );
+      self::fail('Expected AuthorizationException to be thrown.');
+    } catch (AuthorizationException $exception) {
+      self::assertSame('invalid_grant', $exception->errorType());
+      self::assertSame('Invalid authorization code.', $exception->getMessage());
+    }
+  }
+
+  #[Test]
   public function testIssueAccessTokenMapsThrowableToServerErrorForOtherGrant(): void
   {
     $authorizationServer = $this->createMock(AuthorizationServer::class);
@@ -191,6 +215,7 @@ final class AuthorizationServerAdapterTest extends TestCase
       'access_denied' => ['access_denied', 'access_denied'],
       'temporarily_unavailable' => ['temporarily_unavailable', 'temporarily_unavailable'],
       'server_error' => ['server_error', 'server_error'],
+      'custom_error' => ['custom_error', 'server_error'],
     ];
   }
   // #endregion

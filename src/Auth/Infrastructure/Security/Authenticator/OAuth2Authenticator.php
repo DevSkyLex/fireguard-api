@@ -9,11 +9,11 @@ use Auth\Application\Port\Outbound\AccessTokenLookupPort;
 use Auth\Infrastructure\Security\User\SecurityUserProvider;
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Lcobucci\JWT\{Configuration, UnencryptedToken};
+use Lcobucci\JWT\{Configuration, Parser as JwtParser, UnencryptedToken};
 use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\Token\Parser;
+use Lcobucci\JWT\Token\Parser as TokenParser;
 use Lcobucci\JWT\Validation\Constraint\SignedWith;
 use Lcobucci\JWT\Validation\Validator;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -71,6 +71,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
     private readonly SecurityUserProvider $userProvider,
     #[Autowire('%kernel.project_dir%/config/jwt/public.key')]
     string $publicKeyPath,
+    private readonly ?JwtParser $parser = null,
   ) {
     if ('' === $publicKeyPath) {
       throw new InvalidArgumentException('Public key path cannot be empty');
@@ -131,7 +132,7 @@ final class OAuth2Authenticator extends AbstractAuthenticator
     }
 
     try {
-      $parser = new Parser(new JoseEncoder());
+      $parser = $this->parser ?? new TokenParser(new JoseEncoder());
       $parsedToken = $parser->parse($token);
 
       if (!$parsedToken instanceof UnencryptedToken) {

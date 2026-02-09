@@ -6,6 +6,7 @@ namespace Tests\Unit\Tenant\Domain\ValueObject;
 
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 use Tenant\Domain\ValueObject\TenantSettings;
 
 /**
@@ -50,7 +51,7 @@ final class TenantSettingsTest extends TestCase
     $settings = new TenantSettings(
       accessTokenTtl: 7200,
       refreshTokenTtl: 172800,
-      requirePkce: false,
+      requirePkce: true,
       allowPublicClients: true,
       allowedScopes: ['openid', 'profile'],
       customIssuer: 'https://custom.issuer.com',
@@ -58,7 +59,7 @@ final class TenantSettingsTest extends TestCase
 
     $this->assertEquals(expected: 7200, actual: $settings->accessTokenTtl);
     $this->assertEquals(expected: 172800, actual: $settings->refreshTokenTtl);
-    $this->assertFalse(condition: $settings->requirePkce);
+    $this->assertTrue(condition: $settings->requirePkce);
     $this->assertTrue(condition: $settings->allowPublicClients);
     $this->assertEquals(expected: ['openid', 'profile'], actual: $settings->allowedScopes);
     $this->assertEquals(expected: 'https://custom.issuer.com', actual: $settings->customIssuer);
@@ -138,7 +139,7 @@ final class TenantSettingsTest extends TestCase
     $data = [
       'access_token_ttl' => 7200,
       'refresh_token_ttl' => 172800,
-      'require_pkce' => false,
+      'require_pkce' => true,
       'allow_public_clients' => true,
       'allowed_scopes' => ['openid', 'profile'],
       'custom_issuer' => 'https://custom.com',
@@ -148,7 +149,7 @@ final class TenantSettingsTest extends TestCase
 
     $this->assertEquals(expected: 7200, actual: $settings->accessTokenTtl);
     $this->assertEquals(expected: 172800, actual: $settings->refreshTokenTtl);
-    $this->assertFalse(condition: $settings->requirePkce);
+    $this->assertTrue(condition: $settings->requirePkce);
     $this->assertTrue(condition: $settings->allowPublicClients);
     $this->assertEquals(expected: ['openid', 'profile'], actual: $settings->allowedScopes);
     $this->assertEquals(expected: 'https://custom.com', actual: $settings->customIssuer);
@@ -168,6 +169,60 @@ final class TenantSettingsTest extends TestCase
     $this->assertEquals(expected: 86400, actual: $settings->refreshTokenTtl);
     $this->assertTrue(condition: $settings->requirePkce);
     $this->assertFalse(condition: $settings->allowPublicClients);
+  }
+
+  #[Test]
+  public function testFromArrayNormalizesScopesAndIssuer(): void
+  {
+    $settings = TenantSettings::fromArray([
+      'allowed_scopes' => [' ', 123],
+      'custom_issuer' => '   ',
+    ]);
+
+    $this->assertEquals(expected: ['openid', 'profile', 'email'], actual: $settings->allowedScopes);
+    $this->assertNull($settings->customIssuer);
+  }
+
+  /**
+   * Method testAccessTokenTtlOutOfRangeThrows.
+   *
+   * Tests that invalid access token TTL throws an exception.
+   */
+  #[Test]
+  public function testAccessTokenTtlOutOfRangeThrows(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new TenantSettings(accessTokenTtl: 60);
+  }
+
+  /**
+   * Method testRefreshTokenTtlOutOfRangeThrows.
+   *
+   * Tests that invalid refresh token TTL throws an exception.
+   */
+  #[Test]
+  public function testRefreshTokenTtlOutOfRangeThrows(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new TenantSettings(refreshTokenTtl: 99999999);
+  }
+
+  /**
+   * Method testPublicClientsRequirePkce.
+   *
+   * Tests that public clients require PKCE.
+   */
+  #[Test]
+  public function testPublicClientsRequirePkce(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new TenantSettings(
+      requirePkce: false,
+      allowPublicClients: true,
+    );
   }
   // #endregion
 }

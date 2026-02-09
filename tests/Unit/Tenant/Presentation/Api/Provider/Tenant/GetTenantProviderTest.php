@@ -79,7 +79,14 @@ final class GetTenantProviderTest extends TestCase
     $result = new GetTenantResult(
       tenantId: 'tenant-1',
       name: 'Acme',
-      settings: new TenantSettings(),
+      settings: new TenantSettings(
+        accessTokenTtl: 7200,
+        refreshTokenTtl: 172800,
+        requirePkce: true,
+        allowPublicClients: true,
+        allowedScopes: ['openid', 'profile'],
+        customIssuer: 'https://issuer.example.com',
+      ),
       isActive: true,
       createdAt: new DateTimeImmutable('2024-01-01T00:00:00+00:00'),
     );
@@ -101,6 +108,12 @@ final class GetTenantProviderTest extends TestCase
     self::assertInstanceOf(TenantOutput::class, $output);
     self::assertSame('Acme', $output->name);
     self::assertTrue($output->isActive);
+    self::assertSame(7200, $output->accessTokenTtl);
+    self::assertSame(172800, $output->refreshTokenTtl);
+    self::assertTrue($output->requirePkce);
+    self::assertTrue($output->allowPublicClients);
+    self::assertSame(['openid', 'profile'], $output->allowedScopes);
+    self::assertSame('https://issuer.example.com', $output->customIssuer);
   }
 
   #[Test]

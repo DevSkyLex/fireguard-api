@@ -69,6 +69,9 @@ final readonly class ListTenantsProvider implements ProviderInterface
         $output->accessTokenTtl = $tenant->settings->accessTokenTtl;
         $output->refreshTokenTtl = $tenant->settings->refreshTokenTtl;
         $output->requirePkce = $tenant->settings->requirePkce;
+        $output->allowPublicClients = $tenant->settings->allowPublicClients;
+        $output->allowedScopes = $tenant->settings->allowedScopes;
+        $output->customIssuer = $tenant->settings->customIssuer;
         $output->createdAt = $tenant->createdAt->format('c');
 
         return $output;

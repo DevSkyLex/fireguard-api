@@ -121,5 +121,33 @@ final class DPoPProofTest extends TestCase
 
     $this->assertFalse($proof->isValidFor('GET', 'https://example.com/resource', 10));
   }
+
+  #[Test]
+  public function testIsValidForHandlesUnparseableUri(): void
+  {
+    $proof = new DPoPProof(
+      jti: 'token-id',
+      htm: 'GET',
+      htu: 'http://',
+      iat: new DateTimeImmutable(),
+      thumbprint: 'thumbprint',
+    );
+
+    $this->assertTrue($proof->isValidFor('GET', 'http://'));
+  }
+
+  #[Test]
+  public function testIsValidForKeepsNonDefaultPort(): void
+  {
+    $proof = new DPoPProof(
+      jti: 'token-id',
+      htm: 'GET',
+      htu: 'https://example.com:444/resource',
+      iat: new DateTimeImmutable(),
+      thumbprint: 'thumbprint',
+    );
+
+    $this->assertTrue($proof->isValidFor('GET', 'https://example.com:444/resource'));
+  }
   // #endregion
 }

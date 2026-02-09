@@ -62,6 +62,8 @@ final readonly class CreateTenantProcessor implements ProcessorInterface
       refreshTokenTtl: $data->refreshTokenTtl,
       requirePkce: $data->requirePkce,
       allowPublicClients: $data->allowPublicClients,
+      allowedScopes: $data->allowedScopes,
+      customIssuer: $data->customIssuer,
     );
 
     $command = new CreateTenantCommand(
@@ -76,9 +78,12 @@ final readonly class CreateTenantProcessor implements ProcessorInterface
     $output->id = $result->tenantId;
     $output->name = $data->name;
     $output->isActive = true;
-    $output->accessTokenTtl = $data->accessTokenTtl;
-    $output->refreshTokenTtl = $data->refreshTokenTtl;
-    $output->requirePkce = $data->requirePkce;
+    $output->accessTokenTtl = $settings->accessTokenTtl;
+    $output->refreshTokenTtl = $settings->refreshTokenTtl;
+    $output->requirePkce = $settings->requirePkce;
+    $output->allowPublicClients = $settings->allowPublicClients;
+    $output->allowedScopes = $settings->allowedScopes;
+    $output->customIssuer = $settings->customIssuer;
     $output->createdAt = date('c');
 
     return $output;

@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
+use ReflectionMethod;
 use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -674,6 +675,38 @@ final class GrantConsentProcessorTest extends TestCase
       data: $input,
       operation: $this->createMock(Operation::class),
     );
+  }
+
+  #[Test]
+  public function testExtractCodeFromFormPostBodyReturnsNullWhenEmpty(): void
+  {
+    $processor = new GrantConsentProcessor(
+      authorizationServer: $this->createMock(AuthorizationServer::class),
+      commandBus: $this->createMock(CommandBusPort::class),
+      security: $this->createMock(Security::class),
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+    );
+
+    $method = new ReflectionMethod(GrantConsentProcessor::class, 'extractCodeFromFormPostBody');
+    $method->setAccessible(true);
+
+    self::assertNull($method->invoke($processor, ''));
+  }
+
+  #[Test]
+  public function testExtractCodeFromFormPostBodyReturnsNullWhenCodeMissing(): void
+  {
+    $processor = new GrantConsentProcessor(
+      authorizationServer: $this->createMock(AuthorizationServer::class),
+      commandBus: $this->createMock(CommandBusPort::class),
+      security: $this->createMock(Security::class),
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+    );
+
+    $method = new ReflectionMethod(GrantConsentProcessor::class, 'extractCodeFromFormPostBody');
+    $method->setAccessible(true);
+
+    self::assertNull($method->invoke($processor, '<input name=\"state\" value=\"xyz\" />'));
   }
 
   private function createSecurityUser(): SecurityUser

@@ -122,5 +122,21 @@ final class TrustedDeviceCookieServiceTest extends TestCase
 
     self::assertSame('token-abc', $service->getTokenFromRequest($request));
   }
+
+  #[Test]
+  public function testCookieSecureOverrideDisablesHostPrefix(): void
+  {
+    $service = new TrustedDeviceCookieService(
+      environment: 'prod',
+      cookieBaseName: 'trusted_device',
+      lifetime: 3600,
+      cookieSecure: '0',
+    );
+
+    $cookie = $service->createCookie(token: 'token-abc', expiresAt: new DateTimeImmutable('+1 hour'));
+
+    self::assertSame('trusted_device', $service->getCookieName());
+    self::assertFalse($cookie->isSecure());
+  }
   // #endregion
 }

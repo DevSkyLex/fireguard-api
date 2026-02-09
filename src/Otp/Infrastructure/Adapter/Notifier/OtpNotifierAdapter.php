@@ -67,10 +67,6 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
    */
   public function send(Otp $otp): void
   {
-    if (!$otp->channel()->requiresDelivery()) {
-      return;
-    }
-
     match ($otp->channel()) {
       OtpChannel::EMAIL => $this->sendEmail($otp),
       OtpChannel::SMS => $this->sendSms($otp),

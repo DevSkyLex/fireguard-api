@@ -49,7 +49,9 @@ final class CreateTenantProcessorTest extends TestCase
           && 7200 === $command->settings->accessTokenTtl
           && 172800 === $command->settings->refreshTokenTtl
           && true === $command->settings->requirePkce
-          && false === $command->settings->allowPublicClients;
+          && false === $command->settings->allowPublicClients
+          && ['openid', 'profile'] === $command->settings->allowedScopes
+          && 'https://issuer.example.com' === $command->settings->customIssuer;
       }))
       ->willReturn(new CreateTenantResult(tenantId: $tenantId));
 
@@ -64,6 +66,8 @@ final class CreateTenantProcessorTest extends TestCase
     $input->refreshTokenTtl = 172800;
     $input->requirePkce = true;
     $input->allowPublicClients = false;
+    $input->allowedScopes = ['openid', 'profile'];
+    $input->customIssuer = 'https://issuer.example.com';
 
     $processor = new CreateTenantProcessor(
       commandBus: $commandBus,
@@ -83,6 +87,32 @@ final class CreateTenantProcessorTest extends TestCase
     self::assertTrue($output->isActive);
     self::assertEquals(7200, $output->accessTokenTtl);
     self::assertTrue($output->requirePkce);
+    self::assertFalse($output->allowPublicClients);
+    self::assertSame(['openid', 'profile'], $output->allowedScopes);
+    self::assertSame('https://issuer.example.com', $output->customIssuer);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn(null);
+
+    $processor = new CreateTenantProcessor(
+      commandBus: $this->createMock(CommandBusPort::class),
+      security: $security,
+    );
+
+    $this->expectException(\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: new TenantInput(),
+      operation: new Post(),
+      uriVariables: [],
+      context: [],
+    );
   }
   // #endregion
 }

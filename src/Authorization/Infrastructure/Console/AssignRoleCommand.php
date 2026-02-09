@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Console;
 
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{InputArgument, InputInterface, InputOption};
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Uid\Uuid;
 use Throwable;
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
@@ -160,37 +162,61 @@ HELP
         return Command::FAILURE;
       }
 
+      // Find existing assignment in role_assignments table
+      $assignmentRepository = $this->entityManager->getRepository(RoleAssignmentRecord::class);
+      /** @var RoleAssignmentRecord|null $existingAssignment */
+      $existingAssignment = $assignmentRepository->findOneBy([
+        'subjectType' => 'user',
+        'subjectId' => $user->id,
+        'roleId' => $role->id,
+      ]);
+
       if ($remove) {
-        // Remove the role
-        if (!$user->roles->contains($role)) {
+        // Remove the role assignment
+        if (null === $existingAssignment) {
           $io->warning(sprintf('User "%s" does not have role "%s".', $email, $roleName));
 
           return Command::SUCCESS;
         }
 
-        $user->roles->removeElement($role);
+        $this->entityManager->remove($existingAssignment);
         $this->entityManager->flush();
 
         $io->success(sprintf('Role "%s" removed from user "%s".', $roleName, $email));
       } else {
-        // Add the role
-        if ($user->roles->contains($role)) {
+        // Add the role assignment
+        if (null !== $existingAssignment) {
           $io->warning(sprintf('User "%s" already has role "%s".', $email, $roleName));
 
           return Command::SUCCESS;
         }
 
-        $user->roles->add($role);
+        $assignment = new RoleAssignmentRecord();
+        $assignment->id = Uuid::v7()->toRfc4122();
+        $assignment->roleId = $role->id;
+        $assignment->subjectType = 'user';
+        $assignment->subjectId = $user->id;
+        $assignment->assignedAt = new DateTimeImmutable();
+        $assignment->role = $role;
+
+        $this->entityManager->persist($assignment);
         $this->entityManager->flush();
 
         $io->success(sprintf('Role "%s" assigned to user "%s".', $roleName, $email));
       }
 
-      // Show current roles
+      // Show current roles from role_assignments table
+      /** @var list<RoleAssignmentRecord> $userAssignments */
+      $userAssignments = $assignmentRepository->findBy([
+        'subjectType' => 'user',
+        'subjectId' => $user->id,
+      ]);
+
       $currentRoles = [];
-      foreach ($user->roles as $userRole) {
-        /** @var RoleRecord $userRole */
-        $currentRoles[] = $userRole->name;
+      foreach ($userAssignments as $assignment) {
+        if (null !== $assignment->role) {
+          $currentRoles[] = $assignment->role->name;
+        }
       }
 
       if (!empty($currentRoles)) {

@@ -63,6 +63,7 @@ final class TokenExpiryTest extends TestCase
     $expiry = TokenExpiry::fromSeconds(30);
 
     $this->assertGreaterThan(0, $expiry->remainingSeconds);
+    $this->assertGreaterThan(0, $expiry->secondsRemaining());
   }
 
   /**

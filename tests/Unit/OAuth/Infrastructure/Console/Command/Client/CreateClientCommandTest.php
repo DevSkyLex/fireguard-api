@@ -9,6 +9,7 @@ use OAuth\Domain\Model\Client\Client;
 use OAuth\Infrastructure\Console\Command\Client\CreateClientCommand;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Component\Console\Command\Command;
@@ -98,6 +99,62 @@ final class CreateClientCommandTest extends TestCase
       'Generated: 123e4567-e89b-12d3-a456-426614174000',
       $normalizedDisplay,
     );
+  }
+
+  #[Test]
+  public function testExecuteGeneratesIdWhenNotProvided(): void
+  {
+    $clientRepository = $this->createMock(ClientRepositoryPort::class);
+    $clientRepository->expects(self::once())
+      ->method('save')
+      ->with(self::isInstanceOf(Client::class));
+
+    $uuidFactory = $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174222');
+
+    $command = new CreateClientCommand(
+      clientRepository: $clientRepository,
+      uuidFactory: $uuidFactory,
+      eventIdProvider: new TestEventIdProvider(),
+    );
+
+    $tester = new CommandTester($command);
+    $tester->execute([
+      'name' => 'Auto ID Client',
+      '--secret' => 'plain-secret',
+      '--grant-type' => ['CLIENT_CREDENTIALS'],
+      '--scope' => ['openid'],
+    ]);
+
+    self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+    self::assertStringContainsString('OAuth2 client created successfully', $tester->getDisplay());
+  }
+
+  #[Test]
+  public function testExecuteReturnsFailureOnException(): void
+  {
+    $clientRepository = $this->createMock(ClientRepositoryPort::class);
+    $clientRepository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $uuidFactory = $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174333');
+
+    $command = new CreateClientCommand(
+      clientRepository: $clientRepository,
+      uuidFactory: $uuidFactory,
+      eventIdProvider: new TestEventIdProvider(),
+    );
+
+    $tester = new CommandTester($command);
+    $tester->execute([
+      'name' => 'Failing Client',
+      '--secret' => 'plain-secret',
+      '--grant-type' => ['CLIENT_CREDENTIALS'],
+      '--scope' => ['openid'],
+    ]);
+
+    self::assertSame(Command::FAILURE, $tester->getStatusCode());
+    self::assertStringContainsString('Failed to create client', $tester->getDisplay());
   }
 
   private function createUuidFactory(string $uuid): UuidFactory

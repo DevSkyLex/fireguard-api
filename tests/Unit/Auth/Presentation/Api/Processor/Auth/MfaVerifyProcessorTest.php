@@ -61,6 +61,29 @@ final class MfaVerifyProcessorTest extends TestCase
     $processor->process($input, new Post());
   }
 
+  #[Test]
+  public function testProcessThrowsBadRequestWhenCodeInvalid(): void
+  {
+    $handler = new MfaVerifyHandler(
+      jwtService: $this->createMock(JwtTokenServicePort::class),
+      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
+      sessionTracking: $this->createMock(SessionTrackingPort::class),
+    );
+
+    $processor = new MfaVerifyProcessor(
+      handler: $handler,
+      requestStack: new RequestStack(),
+      cookieService: $this->createMock(RefreshTokenCookieService::class),
+    );
+
+    $input = new MfaVerifyInput();
+    $input->preAuthToken = 'pre-auth';
+    $input->code = '12ab';
+
+    $this->expectException(BadRequestHttpException::class);
+    $processor->process($input, new Post());
+  }
+
   /**
    * Method testProcessThrowsBadRequestWhenVerificationFails.
    */

@@ -12,6 +12,7 @@ use OAuth\Domain\ValueObject\Security\{GrantType, GrantTypes};
 use OAuth\Infrastructure\Console\Command\Client\DeleteClientCommand;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tests\Helper\TestEventIdProvider;
@@ -107,6 +108,26 @@ final class DeleteClientCommandTest extends TestCase
       'deleted successfully',
       $tester->getDisplay(),
     );
+  }
+
+  #[Test]
+  public function testExecuteReturnsFailureOnException(): void
+  {
+    $clientRepository = $this->createMock(ClientRepositoryPort::class);
+    $clientRepository->expects(self::once())
+      ->method('findById')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $command = new DeleteClientCommand(clientRepository: $clientRepository);
+    $tester = new CommandTester($command);
+
+    $tester->execute([
+      'client-id' => '123e4567-e89b-12d3-a456-426614174000',
+      '--force' => true,
+    ]);
+
+    self::assertSame(Command::FAILURE, $tester->getStatusCode());
+    self::assertStringContainsString('Failed to delete client', $tester->getDisplay());
   }
 
   private function createClient(): Client

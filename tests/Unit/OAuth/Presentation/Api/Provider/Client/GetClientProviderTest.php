@@ -93,5 +93,21 @@ final class GetClientProviderTest extends TestCase
 
     self::assertNull(actual: $output);
   }
+
+  #[Test]
+  public function testProvideReturnsNullWhenIdInvalid(): void
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetClientProvider(queryBus: $queryBus);
+
+    $output = $provider->provide(
+      operation: $this->createMock(Operation::class),
+      uriVariables: ['id' => ['not-string']],
+    );
+
+    self::assertNull($output);
+  }
   // #endregion
 }

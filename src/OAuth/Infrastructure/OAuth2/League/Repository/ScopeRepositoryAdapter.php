@@ -6,7 +6,6 @@ namespace OAuth\Infrastructure\OAuth2\League\Repository;
 
 use League\OAuth2\Server\Entities\{ClientEntityInterface, ScopeEntityInterface};
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use OAuth\Domain\Exception\Token\InvalidScopeException;
 use OAuth\Domain\ValueObject\Scope\Scope;
 use OAuth\Infrastructure\OAuth2\League\Entity\Scope as LeagueScope;
 
@@ -39,28 +38,24 @@ final readonly class ScopeRepositoryAdapter implements ScopeRepositoryInterface
    */
   public function getScopeEntityByIdentifier(mixed $identifier): ?LeagueScope
   {
-    try {
-      if (!is_string($identifier)) {
-        return null;
-      }
-
-      $normalized = trim($identifier);
-      if ('' === $normalized) {
-        return null;
-      }
-
-      $domainScope = Scope::tryFrom(value: $normalized);
-      if (null === $domainScope) {
-        return null;
-      }
-
-      $scope = new LeagueScope();
-      $scope->setIdentifier(identifier: $normalized);
-
-      return $scope;
-    } catch (InvalidScopeException $exception) {
+    if (!is_string($identifier)) {
       return null;
     }
+
+    $normalized = trim($identifier);
+    if ('' === $normalized) {
+      return null;
+    }
+
+    $domainScope = Scope::tryFrom(value: $normalized);
+    if (null === $domainScope) {
+      return null;
+    }
+
+    $scope = new LeagueScope();
+    $scope->setIdentifier(identifier: $normalized);
+
+    return $scope;
   }
 
   /**

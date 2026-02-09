@@ -59,7 +59,14 @@ final class ListTenantsProviderTest extends TestCase
     $tenantResult = new GetTenantResult(
       tenantId: 'tenant-1',
       name: 'Acme',
-      settings: new TenantSettings(),
+      settings: new TenantSettings(
+        accessTokenTtl: 900,
+        refreshTokenTtl: 7200,
+        requirePkce: true,
+        allowPublicClients: true,
+        allowedScopes: ['openid'],
+        customIssuer: 'https://issuer.example.com',
+      ),
       isActive: true,
       createdAt: new DateTimeImmutable('2024-01-01T00:00:00+00:00'),
     );
@@ -82,6 +89,12 @@ final class ListTenantsProviderTest extends TestCase
 
     self::assertCount(1, $output);
     self::assertSame('Acme', $output[0]->name);
+    self::assertSame(900, $output[0]->accessTokenTtl);
+    self::assertSame(7200, $output[0]->refreshTokenTtl);
+    self::assertTrue($output[0]->requirePkce);
+    self::assertTrue($output[0]->allowPublicClients);
+    self::assertSame(['openid'], $output[0]->allowedScopes);
+    self::assertSame('https://issuer.example.com', $output[0]->customIssuer);
   }
   // #endregion
 }

@@ -222,8 +222,14 @@ final class AuditEventOutput
     readable: true,
     writable: false,
     required: false,
+    example: [
+      'ip' => '203.0.113.5',
+      'action' => 'login',
+      'success' => true,
+    ],
     openapiContext: [
       'type' => 'object',
+      'additionalProperties' => true,
       'readOnly' => true,
     ],
   )]

@@ -16,6 +16,7 @@ use ReflectionNamedType;
 use ReflectionParameter;
 use ReflectionUnionType;
 use Shared\Domain\ValueObject\Uuid;
+use Tenant\Domain\ValueObject\TenantSettings;
 
 use function class_exists;
 use function enum_exists;
@@ -103,6 +104,12 @@ final class UseCaseMessageConstructionTest extends TestCase
 
     yield 'Tenant.CreateTenantCommand' => [\Tenant\Application\UseCase\Command\Tenant\CreateTenant\CreateTenantCommand::class];
     yield 'Tenant.CreateTenantResult' => [\Tenant\Application\UseCase\Command\Tenant\CreateTenant\CreateTenantResult::class];
+    yield 'Tenant.UpdateTenantCommand' => [\Tenant\Application\UseCase\Command\Tenant\UpdateTenant\UpdateTenantCommand::class];
+    yield 'Tenant.UpdateTenantResult' => [\Tenant\Application\UseCase\Command\Tenant\UpdateTenant\UpdateTenantResult::class];
+    yield 'Tenant.DeleteTenantCommand' => [\Tenant\Application\UseCase\Command\Tenant\DeleteTenant\DeleteTenantCommand::class];
+    yield 'Tenant.DeleteTenantResult' => [\Tenant\Application\UseCase\Command\Tenant\DeleteTenant\DeleteTenantResult::class];
+    yield 'Tenant.ActivateTenantCommand' => [\Tenant\Application\UseCase\Command\Tenant\ActivateTenant\ActivateTenantCommand::class];
+    yield 'Tenant.DeactivateTenantCommand' => [\Tenant\Application\UseCase\Command\Tenant\DeactivateTenant\DeactivateTenantCommand::class];
     yield 'Tenant.GetTenantQuery' => [\Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantQuery::class];
     yield 'Tenant.GetTenantResult' => [\Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult::class];
     yield 'Tenant.ListTenantsQuery' => [\Tenant\Application\UseCase\Query\Tenant\ListTenants\ListTenantsQuery::class];
@@ -297,6 +304,10 @@ final class UseCaseMessageConstructionTest extends TestCase
 
     if (RedirectUri::class === $name) {
       return new RedirectUri('https://client.example.com/callback');
+    }
+
+    if (TenantSettings::class === $name) {
+      return new TenantSettings();
     }
 
     if (is_subclass_of($name, Uuid::class)) {

@@ -53,6 +53,15 @@ final class AuthOperations
   public const string MFA_VERIFY = 'mfa_verify';
 
   /**
+   * Constant MFA_RESEND.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string MFA_RESEND = 'mfa_resend';
+
+  /**
    * Constant ALL.
    *
    * @since 1.0.0
@@ -64,6 +73,7 @@ final class AuthOperations
     self::REFRESH,
     self::LOGOUT,
     self::MFA_VERIFY,
+    self::MFA_RESEND,
   ];
   // #endregion
 }

@@ -250,6 +250,20 @@ final class OtpTest extends TestCase
   }
 
   #[Test]
+  public function testMaskedRecipientEmailInvalidFormat(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174116'),
+      userId: 'user-123',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::EMAIL,
+      recipient: 'invalid-email',
+    );
+
+    self::assertSame('***@***', $otp->maskedRecipient());
+  }
+
+  #[Test]
   public function testMaskedRecipientPhoneShortNumber(): void
   {
     $otp = Otp::generate(

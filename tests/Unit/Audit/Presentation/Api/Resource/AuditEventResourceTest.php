@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Presentation\Api\Resource;
 
 use Audit\Presentation\Api\Resource\AuditEventResource;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversNothing, Test};
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AuditEventResource::class)]
+#[CoversNothing]
 final class AuditEventResourceTest extends TestCase
 {
   // #region Methods

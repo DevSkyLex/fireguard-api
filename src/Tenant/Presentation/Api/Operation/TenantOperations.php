@@ -50,6 +50,41 @@ final class TenantOperations
   public const string LIST = 'tenant_list';
 
   /**
+   * Update tenant operation name.
+   *
+   * @since 1.0.0
+   */
+  public const string UPDATE = 'tenant_update';
+
+  /**
+   * Replace tenant operation name.
+   *
+   * @since 1.0.0
+   */
+  public const string REPLACE = 'tenant_replace';
+
+  /**
+   * Delete tenant operation name.
+   *
+   * @since 1.0.0
+   */
+  public const string DELETE = 'tenant_delete';
+
+  /**
+   * Activate tenant operation name.
+   *
+   * @since 1.0.0
+   */
+  public const string ACTIVATE = 'tenant_activate';
+
+  /**
+   * Deactivate tenant operation name.
+   *
+   * @since 1.0.0
+   */
+  public const string DEACTIVATE = 'tenant_deactivate';
+
+  /**
    * Constant ALL.
    *
    * All tenant operation names.
@@ -62,6 +97,11 @@ final class TenantOperations
     self::CREATE,
     self::GET,
     self::LIST,
+    self::UPDATE,
+    self::REPLACE,
+    self::DELETE,
+    self::ACTIVATE,
+    self::DEACTIVATE,
   ];
   // #endregion
 }

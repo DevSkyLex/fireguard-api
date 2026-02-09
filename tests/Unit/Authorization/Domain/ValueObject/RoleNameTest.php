@@ -124,5 +124,16 @@ final class RoleNameTest extends TestCase
     $this->assertFalse($roleName1->equals($roleName2));
   }
 
+  /**
+   * Test RoleName string casting.
+   */
+  #[Test]
+  public function testRoleNameToString(): void
+  {
+    $roleName = new RoleName('admin');
+
+    $this->assertSame('admin', (string) $roleName);
+  }
+
   // #endregion
 }

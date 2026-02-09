@@ -19,6 +19,9 @@ services:
   Auth\Application\Port\Outbound\SessionTrackingPort:
     alias: Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter
 
+  Auth\Application\Port\Outbound\TrustedDeviceCheckPort:
+    alias: TrustedDevice\Infrastructure\Adapter\TrustedDeviceCheckAdapter
+
   # Adapters
   Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
   Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
@@ -41,6 +44,17 @@ services:
   Auth\Application\UseCase\Command\Mfa\MfaVerify\MfaVerifyHandler:
     tags: ['messenger.message_handler']
 
+  Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendHandler: ~
+
+  Auth\Application\UseCase\Command\PasswordReset\RequestPasswordReset\RequestPasswordResetHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordReset\ResendPasswordReset\ResendPasswordResetHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\ConfirmPasswordResetHandler:
+    tags: ['messenger.message_handler']
+
   # Use Case Query Handlers
   Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenHandler:
     tags: ['messenger.message_handler']
@@ -53,6 +67,12 @@ services:
   Auth\Presentation\Api\Processor\Auth\RefreshTokenProcessor: ~
   Auth\Presentation\Api\Processor\Auth\LogoutProcessor: ~
   Auth\Presentation\Api\Processor\Auth\MfaVerifyProcessor: ~
+  Auth\Presentation\Api\Processor\Auth\MfaResendProcessor: ~
+
+  # Password Reset Processors
+  Auth\Presentation\Api\Processor\PasswordReset\RequestPasswordResetProcessor: ~
+  Auth\Presentation\Api\Processor\PasswordReset\ResendPasswordResetProcessor: ~
+  Auth\Presentation\Api\Processor\PasswordReset\ConfirmPasswordResetProcessor: ~
 
   # Event Subscribers
   Auth\Infrastructure\EventSubscriber\RefreshTokenCookieSubscriber: ~

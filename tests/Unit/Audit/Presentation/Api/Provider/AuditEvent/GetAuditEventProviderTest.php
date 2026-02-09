@@ -68,5 +68,45 @@ final class GetAuditEventProviderTest extends TestCase
     self::assertSame('user-123', $output->actorId);
     self::assertSame('event-hash', $output->eventHash);
   }
+
+  #[Test]
+  public function testProvideUsesEmptyIdWhenNonString(): void
+  {
+    $view = new AuditEventView(
+      id: 'event-456',
+      action: 'auth.login_failed',
+      actorType: 'user',
+      actorId: 'user-456',
+      actorEmail: 'user2@example.com',
+      actorEmailHash: 'email-hash-2',
+      subjectType: 'token',
+      subjectId: 'token-456',
+      clientId: 'client-456',
+      tenantId: 'tenant-456',
+      ipAddress: null,
+      ipHash: 'ip-hash-2',
+      userAgent: 'Mozilla',
+      metadata: [],
+      occurredAt: '2026-01-30T10:00:00+00:00',
+      recordedAt: '2026-01-30T10:00:01+00:00',
+      chainId: 'global',
+      sequence: 2,
+      prevHash: null,
+      eventHash: 'event-hash-2',
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(fn (GetAuditEventQuery $query): bool => '' === $query->eventId))
+      ->willReturn($view);
+
+    $provider = new GetAuditEventProvider(queryBus: $queryBus);
+
+    $output = $provider->provide(new Get(), ['id' => ['not-string']]);
+
+    self::assertSame('event-456', $output->id);
+  }
   // #endregion
 }

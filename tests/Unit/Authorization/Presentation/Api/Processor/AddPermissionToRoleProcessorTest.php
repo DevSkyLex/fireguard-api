@@ -162,5 +162,40 @@ final class AddPermissionToRoleProcessorTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testProcessThrowsWhenRoleIdMissing(): void
+  {
+    $input = new AddPermissionInput();
+    $input->permissionId = '660e8400-e29b-41d4-a716-446655440000';
+
+    $this->commandBus->expects($this->never())->method('dispatch');
+
+    $this->expectException(RoleNotFoundException::class);
+
+    $this->processor->process(
+      $input,
+      new Post(),
+      ['roleId' => null],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenPermissionIdMissing(): void
+  {
+    $this->commandBus->expects($this->never())->method('dispatch');
+
+    $input = new class () {
+      public mixed $permissionId = null;
+    };
+
+    $this->expectException(PermissionNotFoundException::class);
+
+    $this->processor->process(
+      $input,
+      new Post(),
+      ['roleId' => '550e8400-e29b-41d4-a716-446655440000'],
+    );
+  }
+
   // #endregion
 }

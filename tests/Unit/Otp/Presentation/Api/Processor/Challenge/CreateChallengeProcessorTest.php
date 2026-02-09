@@ -152,5 +152,69 @@ final class CreateChallengeProcessorTest extends TestCase
     self::assertSame('jo******@example.com', $output->maskedRecipient);
     self::assertSame(5, $output->attemptsRemaining);
   }
+
+  #[Test]
+  public function testProcessUsesPhoneWhenSmsRecipientMissing(): void
+  {
+    $user = new class () implements UserInterface {
+      public function getUserIdentifier(): string
+      {
+        return 'user-3';
+      }
+
+      public function getRoles(): array
+      {
+        return [];
+      }
+
+      public function eraseCredentials(): void
+      {
+      }
+
+      public function getPhone(): string
+      {
+        return '+33612345678';
+      }
+    };
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with($this->callback(
+        fn (GenerateOtpCommand $command) => 'user-3' === $command->userId
+          && OtpPurpose::LOGIN === $command->purpose
+          && OtpChannel::SMS === $command->channel
+          && '+33612345678' === $command->recipient,
+      ))
+      ->willReturn(new GenerateOtpResult(
+        otpId: 'otp-2',
+        token: 'token-2',
+        maskedRecipient: '****5678',
+        expiresAt: new DateTimeImmutable('+5 minutes'),
+        maxAttempts: 5,
+      ));
+
+    $processor = new CreateChallengeProcessor(
+      commandBus: $commandBus,
+      security: $security,
+    );
+
+    $input = new CreateChallengeInput();
+    $input->purpose = 'login';
+    $input->channel = 'sms';
+
+    $output = $processor->process($input, new Post());
+
+    self::assertInstanceOf(ChallengeOutput::class, $output);
+    self::assertSame('token-2', $output->token);
+    self::assertSame('sms', $output->channel);
+    self::assertSame('****5678', $output->maskedRecipient);
+  }
   // #endregion
 }

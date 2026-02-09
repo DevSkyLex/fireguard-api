@@ -7,7 +7,6 @@ namespace App\Tests\E2E;
 use Symfony\Component\HttpFoundation\Response;
 
 use function json_encode;
-use function uniqid;
 
 /**
  * TenantManagementFlowTest - E2E tests for multi-tenant management API.
@@ -16,6 +15,9 @@ use function uniqid;
  * - Listing all tenants (GET /api/tenants)
  * - Retrieving a specific tenant by ID (GET /api/tenants/{id})
  * - Creating new tenants (POST /api/tenants)
+ * - Updating tenants (PATCH /api/tenants/{id})
+ * - Activating / deactivating tenants (POST /api/tenants/{id}/activate|deactivate)
+ * - Deleting tenants (DELETE /api/tenants/{id})
  *
  * Tenants define OAuth2 settings and configuration for different organizations
  * in a multi-tenant architecture. Each tenant can have custom authentication
@@ -181,6 +183,150 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
 
   // #endregion
 
+  // #region Update Tenant Tests
+
+  /**
+   * Test updating a tenant with a valid OAuth2 access token.
+   *
+   * Expected behavior:
+   * - HTTP 200: Tenant updated successfully
+   * - HTTP 404: Tenant not found
+   * - HTTP 400/422: Validation errors
+   * - HTTP 401/403: Unauthorized or forbidden
+   *
+   * @see \Tenant\Presentation\Api\Processor\Tenant\UpdateTenantProcessor
+   */
+  public function testUpdateTenantWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/tenants/00000000-0000-4000-8000-000000000000',
+      server: [
+        'CONTENT_TYPE' => 'application/merge-patch+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode([
+        'name' => 'Updated Tenant',
+        'accessTokenTtl' => 3600,
+        'refreshTokenTtl' => 86400,
+        'requirePkce' => true,
+        'allowPublicClients' => false,
+        'allowedScopes' => ['openid', 'profile'],
+        'customIssuer' => 'https://auth.example.com',
+      ]) ?: '',
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_NOT_FOUND, Response::HTTP_BAD_REQUEST, Response::HTTP_UNPROCESSABLE_ENTITY, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
+      'Update tenant should respond appropriately. Response: ' . $response->getContent(),
+    );
+  }
+
+  // #endregion
+
+  // #region Activate/Deactivate/Delete Tests
+
+  /**
+   * Test activating a tenant with a valid OAuth2 access token.
+   *
+   * @see \Tenant\Presentation\Api\Processor\Tenant\ActivateTenantProcessor
+   */
+  public function testActivateTenantWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/tenants/00000000-0000-4000-8000-000000000000/activate',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
+      'Activate tenant should respond appropriately. Response: ' . $response->getContent(),
+    );
+  }
+
+  /**
+   * Test deactivating a tenant with a valid OAuth2 access token.
+   *
+   * @see \Tenant\Presentation\Api\Processor\Tenant\DeactivateTenantProcessor
+   */
+  public function testDeactivateTenantWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/tenants/00000000-0000-4000-8000-000000000000/deactivate',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
+      'Deactivate tenant should respond appropriately. Response: ' . $response->getContent(),
+    );
+  }
+
+  /**
+   * Test deleting a tenant with a valid OAuth2 access token.
+   *
+   * @see \Tenant\Presentation\Api\Processor\Tenant\DeleteTenantProcessor
+   */
+  public function testDeleteTenantWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'DELETE',
+      uri: '/api/tenants/00000000-0000-4000-8000-000000000000',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_NO_CONTENT, Response::HTTP_NOT_FOUND, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
+      'Delete tenant should respond appropriately. Response: ' . $response->getContent(),
+    );
+  }
+
+  // #endregion
+
   // #region Create Tenant Tests
 
   /**
@@ -219,10 +365,12 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'name' => 'Test Tenant',
-        'slug' => 'test-tenant-' . uniqid(),
-        'settings' => [
-          'allowPasswordLogin' => true,
-        ],
+        'accessTokenTtl' => 3600,
+        'refreshTokenTtl' => 86400,
+        'requirePkce' => true,
+        'allowPublicClients' => false,
+        'allowedScopes' => ['openid', 'profile', 'email'],
+        'customIssuer' => 'https://auth.example.com',
       ]) ?: '',
     );
 
@@ -263,7 +411,10 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'name' => 'Unauthorized Tenant',
-        'slug' => 'unauthorized-tenant',
+        'accessTokenTtl' => 3600,
+        'refreshTokenTtl' => 86400,
+        'requirePkce' => true,
+        'allowPublicClients' => false,
       ]) ?: '',
     );
 

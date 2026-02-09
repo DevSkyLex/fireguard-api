@@ -375,6 +375,44 @@ final class IssueTokenProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessRethrowsAuthorizationExceptionFromDeepChain(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/oauth2/token',
+      method: 'POST',
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    ));
+
+    $input = new TokenInput();
+    $input->grantType = 'client_credentials';
+    $input->clientId = 'client-123';
+    $input->clientSecret = 'secret';
+
+    $inner = AuthorizationException::invalidRequest('Invalid grant');
+    $middle = new RuntimeException('middle', 0, $inner);
+    $outer = new RuntimeException('outer', 0, $middle);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException($outer);
+
+    $processor = new IssueTokenProcessor(
+      commandBus: $commandBus,
+      requestStack: $requestStack,
+      rateLimiter: $this->createRateLimiterFactory(),
+    );
+
+    $this->expectException(AuthorizationException::class);
+
+    $processor->process(
+      data: $input,
+      operation: $this->createMock(Operation::class),
+    );
+  }
+
+  #[Test]
   public function testProcessWrapsUnhandledThrowableAsServerError(): void
   {
     $requestStack = new RequestStack();

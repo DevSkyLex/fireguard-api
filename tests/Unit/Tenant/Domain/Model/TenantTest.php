@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Tenant\Domain\Model;
 
+use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Tenant\Domain\Model\Tenant\Tenant;
@@ -75,6 +76,43 @@ final class TenantTest extends TestCase
     $tenant->deactivate();
 
     $this->assertFalse(condition: $tenant->isActive());
+  }
+
+  /**
+   * Method testCanRenameTenant.
+   *
+   * Tests that tenant name can be updated.
+   */
+  #[Test]
+  public function testCanRenameTenant(): void
+  {
+    $tenant = $this->createTenant();
+    $tenant->rename(new TenantName('Renamed Tenant'));
+
+    $this->assertSame('Renamed Tenant', (string) $tenant->name());
+  }
+
+  /**
+   * Method testReconstituteTenant.
+   *
+   * Tests that tenant can be reconstituted from persistence.
+   */
+  #[Test]
+  public function testReconstituteTenant(): void
+  {
+    $createdAt = new DateTimeImmutable('2024-01-01T00:00:00+00:00');
+    $tenant = Tenant::reconstitute(
+      id: new TenantId('550e8400-e29b-41d4-a716-446655440009'),
+      name: new TenantName('Persisted Tenant'),
+      settings: new TenantSettings(accessTokenTtl: 7200),
+      isActive: false,
+      createdAt: $createdAt,
+    );
+
+    $this->assertSame('Persisted Tenant', (string) $tenant->name());
+    $this->assertFalse($tenant->isActive());
+    $this->assertSame($createdAt, $tenant->createdAt());
+    $this->assertSame(7200, $tenant->settings()->accessTokenTtl);
   }
 
   /**

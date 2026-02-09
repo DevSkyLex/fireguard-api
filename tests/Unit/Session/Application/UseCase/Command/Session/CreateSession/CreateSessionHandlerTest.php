@@ -68,5 +68,49 @@ final class CreateSessionHandlerTest extends TestCase
     self::assertInstanceOf(CreateSessionResult::class, $result);
     self::assertEquals($sessionId, $result->sessionId);
   }
+
+  #[Test]
+  public function testInvokeDefaultsIpAndUserAgentAndMergesMetadata(): void
+  {
+    $sessionId = '123e4567-e89b-12d3-a456-426614174999';
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(SessionId::class)
+      ->willReturn(new SessionId($sessionId));
+
+    $repository = $this->createMock(SessionRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(function (Session $session): bool {
+        $metadata = $session->metadata()->toArray();
+
+        return '127.0.0.1' === $session->ipAddress()->value
+          && 'unknown' === $session->userAgent()->value
+          && 'FR' === ($metadata['country'] ?? null)
+          && true === ($metadata['remember_me'] ?? false);
+      }));
+
+    $command = new CreateSessionCommand(
+      userId: 'user-123',
+      ipAddress: '   ',
+      userAgent: ' ',
+      accessTokenId: 'access-token-id',
+      refreshTokenId: 'refresh-token-id',
+      rememberMe: true,
+      metadata: ['country' => 'FR'],
+    );
+
+    $handler = new CreateSessionHandler(
+      sessionRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(command: $command);
+
+    self::assertInstanceOf(CreateSessionResult::class, $result);
+    self::assertSame($sessionId, $result->sessionId);
+  }
   // #endregion
 }

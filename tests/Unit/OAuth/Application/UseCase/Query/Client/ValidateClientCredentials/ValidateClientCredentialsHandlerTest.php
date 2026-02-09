@@ -170,5 +170,64 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
     self::assertFalse(condition: $result->isValid);
     self::assertNull(actual: $result->clientId);
   }
+
+  #[Test]
+  public function testInvokeReturnsInvalidResultWhenClientIdInvalid(): void
+  {
+    $repository = $this->createMock(ClientRepositoryPort::class);
+    $repository->expects(self::never())->method('findById');
+
+    $hashing = $this->createMock(HashingPort::class);
+    $hashing->expects(self::never())->method('verify');
+
+    $query = new ValidateClientCredentialsQuery(clientId: 'not-a-uuid', clientSecret: 'secret');
+
+    $handler = new ValidateClientCredentialsHandler(
+      clientRepository: $repository,
+      hashing: $hashing,
+    );
+
+    $result = $handler->__invoke($query);
+
+    self::assertFalse($result->isValid);
+    self::assertNull($result->clientId);
+  }
+
+  #[Test]
+  public function testInvokeReturnsInvalidResultWhenClientInactive(): void
+  {
+    $clientId = '123e4567-e89b-12d3-a456-426614174000';
+
+    $client = Client::register(
+      id: new ClientId($clientId),
+      name: new ClientName('Test Client'),
+      secret: new ClientSecret(password_hash('secret', PASSWORD_BCRYPT)),
+      redirectUris: [new RedirectUri('https://example.com')],
+      grantTypes: new GrantTypes(GrantType::AUTHORIZATION_CODE),
+      scopes: new Scopes(Scope::READ),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+    $client->deactivate(new TestEventIdProvider());
+
+    $repository = $this->createMock(ClientRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($client);
+
+    $hashing = $this->createMock(HashingPort::class);
+    $hashing->expects(self::never())->method('verify');
+
+    $query = new ValidateClientCredentialsQuery(clientId: $clientId, clientSecret: 'secret');
+
+    $handler = new ValidateClientCredentialsHandler(
+      clientRepository: $repository,
+      hashing: $hashing,
+    );
+
+    $result = $handler->__invoke($query);
+
+    self::assertFalse($result->isValid);
+    self::assertNull($result->clientId);
+  }
   // #endregion
 }

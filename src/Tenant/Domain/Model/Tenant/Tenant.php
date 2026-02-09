@@ -71,6 +71,37 @@ final class Tenant
   }
 
   /**
+   * Method reconstitute.
+   *
+   * Rebuilds a tenant from persistence.
+   *
+   * @since 1.0.0
+   *
+   * @param TenantId $id the tenant ID
+   * @param TenantName $name the tenant name
+   * @param TenantSettings $settings the tenant settings
+   * @param bool $isActive whether the tenant is active
+   * @param DateTimeImmutable $createdAt the creation timestamp
+   *
+   * @return self the reconstituted tenant
+   */
+  public static function reconstitute(
+    TenantId $id,
+    TenantName $name,
+    TenantSettings $settings,
+    bool $isActive,
+    DateTimeImmutable $createdAt,
+  ): self {
+    return new self(
+      id: $id,
+      name: $name,
+      settings: $settings,
+      isActive: $isActive,
+      createdAt: $createdAt,
+    );
+  }
+
+  /**
    * Method id.
    *
    * Returns the tenant ID.
@@ -96,6 +127,20 @@ final class Tenant
   public function name(): TenantName
   {
     return $this->name;
+  }
+
+  /**
+   * Method rename.
+   *
+   * Updates the tenant name.
+   *
+   * @since 1.0.0
+   *
+   * @param TenantName $name the new name
+   */
+  public function rename(TenantName $name): void
+  {
+    $this->name = $name;
   }
 
   /**

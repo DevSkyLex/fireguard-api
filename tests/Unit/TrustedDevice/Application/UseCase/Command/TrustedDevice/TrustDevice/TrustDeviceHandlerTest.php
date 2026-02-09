@@ -26,13 +26,13 @@ final class TrustDeviceHandlerTest extends TestCase
 {
   // #region Methods
   /**
-   * Method testInvokeReturnsExistingDeviceWhenValid.
+   * Method testInvokeCreatesNewDeviceAlways.
    *
-   * Test that __invoke returns an existing
-   * valid device without saving a new one.
+   * Test that __invoke creates a new device
+   * and deletes the old one if it exists.
    */
   #[Test]
-  public function testInvokeReturnsExistingDeviceWhenValid(): void
+  public function testInvokeCreatesNewDeviceAlways(): void
   {
     $command = new TrustDeviceCommand(
       userId: 'user-123',
@@ -55,16 +55,25 @@ final class TrustDeviceHandlerTest extends TestCase
       ttlDays: 30,
     );
 
+    $newId = new TrustedDeviceId('123e4567-e89b-12d3-a456-426614174099');
+
     /** @var TrustedDeviceRepositoryPort&MockObject $repository */
     $repository = $this->createMock(TrustedDeviceRepositoryPort::class);
     $repository->expects(self::once())
       ->method('findByUserIdAndFingerprint')
       ->with($command->userId, $fingerprint->value)
       ->willReturn($existing);
-    $repository->expects(self::never())->method('save');
+    $repository->expects(self::once())
+      ->method('delete')
+      ->with(self::equalTo($existing->id()));
+    $repository->expects(self::once())
+      ->method('save');
 
     $uuidFactory = $this->createMock(UuidFactory::class);
-    $uuidFactory->expects(self::never())->method('create');
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(TrustedDeviceId::class)
+      ->willReturn($newId);
 
     $handler = new TrustDeviceHandler(
       repository: $repository,
@@ -74,9 +83,9 @@ final class TrustDeviceHandlerTest extends TestCase
     $result = $handler->__invoke(command: $command);
 
     self::assertInstanceOf(TrustDeviceResult::class, $result);
-    self::assertSame($existing->id()->value, $result->deviceId);
-    self::assertSame($existing->token()->plain(), $result->token);
-    self::assertSame($existing->name(), $result->deviceName);
+    self::assertSame($newId->value, $result->deviceId);
+    self::assertNotEmpty($result->token);
+    self::assertSame($fingerprint->getDeviceName(), $result->deviceName);
     self::assertInstanceOf(DateTimeImmutable::class, $result->expiresAt);
   }
 

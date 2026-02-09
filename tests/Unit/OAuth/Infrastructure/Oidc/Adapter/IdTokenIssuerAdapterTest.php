@@ -88,6 +88,28 @@ final class IdTokenIssuerAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testIssuerFallbackUsesLocalhostWhenMissing(): void
+  {
+    $adapter = new IdTokenIssuerAdapter(
+      privateKeyPath: $this->getPrivateKeyPath(),
+      publicKeyPath: $this->getPublicKeyPath(),
+      issuer: null,
+      defaultUri: null,
+      accessTokenTtl: 3600,
+      idTokenTtl: null,
+    );
+
+    $jwt = $adapter->issueIdToken(
+      subject: 'user-123',
+      audience: 'client-123',
+    );
+
+    $token = $this->parseToken($jwt);
+
+    self::assertSame('https://localhost', $token->claims()->get('iss'));
+  }
+
+  #[Test]
   public function testUsesAccessTokenTtlWhenIdTokenTtlInvalid(): void
   {
     $adapter = new IdTokenIssuerAdapter(

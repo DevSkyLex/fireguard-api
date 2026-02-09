@@ -92,5 +92,34 @@ final class ListAuditEventsProviderTest extends TestCase
     self::assertSame('auth.login_success', $items[0]->action);
     self::assertSame('event-hash', $items[0]->eventHash);
   }
+
+  #[Test]
+  public function testProvideParsesNonAtomDates(): void
+  {
+    $filters = [
+      'from' => '2026-01-30T00:00:00+00:00',
+      'to' => '2026-01-30 10:00:00',
+    ];
+
+    $paginated = new PaginatedResult(items: [], total: 0, limit: 30, offset: 0);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(function (ListAuditEventsQuery $query): bool {
+        $to = $query->criteria->to;
+
+        return $to instanceof DateTimeImmutable
+          && '2026-01-30 10:00:00' === $to->format('Y-m-d H:i:s');
+      }))
+      ->willReturn($paginated);
+
+    $provider = new ListAuditEventsProvider(queryBus: $queryBus);
+
+    $result = $provider->provide(new GetCollection(), [], ['filters' => $filters]);
+
+    self::assertInstanceOf(TraversablePaginator::class, $result);
+  }
   // #endregion
 }

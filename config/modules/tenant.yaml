@@ -10,6 +10,14 @@ services:
     # Command Handlers
     Tenant\Application\UseCase\Command\Tenant\CreateTenant\CreateTenantHandler:
         tags: ['messenger.message_handler']
+    Tenant\Application\UseCase\Command\Tenant\UpdateTenant\UpdateTenantHandler:
+        tags: ['messenger.message_handler']
+    Tenant\Application\UseCase\Command\Tenant\DeleteTenant\DeleteTenantHandler:
+        tags: ['messenger.message_handler']
+    Tenant\Application\UseCase\Command\Tenant\ActivateTenant\ActivateTenantHandler:
+        tags: ['messenger.message_handler']
+    Tenant\Application\UseCase\Command\Tenant\DeactivateTenant\DeactivateTenantHandler:
+        tags: ['messenger.message_handler']
 
     # Query Handlers
     Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantHandler:
@@ -28,9 +36,18 @@ services:
     Tenant\Application\Port\Outbound\TenantRepositoryPort:
         alias: Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository
 
+    Tenant\Application\Port\Inbound\TenantResolverPort:
+        class: Tenant\Infrastructure\Resolver\RequestTenantResolver
+
     # Providers
     Tenant\Presentation\Api\Provider\Tenant\GetTenantProvider: ~
     Tenant\Presentation\Api\Provider\Tenant\ListTenantsProvider: ~
 
     # Processors
     Tenant\Presentation\Api\Processor\Tenant\CreateTenantProcessor: ~
+    Tenant\Presentation\Api\Processor\Tenant\UpdateTenantProcessor: ~
+    Tenant\Presentation\Api\Processor\Tenant\DeleteTenantProcessor: ~
+    Tenant\Presentation\Api\Processor\Tenant\ActivateTenantProcessor: ~
+    Tenant\Presentation\Api\Processor\Tenant\DeactivateTenantProcessor: ~
+
+    Tenant\Infrastructure\EventSubscriber\TenantIsolationSubscriber: ~

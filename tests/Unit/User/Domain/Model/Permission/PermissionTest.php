@@ -41,6 +41,7 @@ final class PermissionTest extends TestCase
     );
 
     self::assertTrue($permission->equals($same));
+    self::assertSame('users.create', $permission->name()->value);
   }
   // #endregion
 }

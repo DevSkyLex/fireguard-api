@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tenant\Application\UseCase\Command\Tenant\CreateTenant;
 
+use DateTimeImmutable;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Domain\ValueObject\Uuid;
 use Tenant\Application\Port\Outbound\TenantRepositoryPort;
+use Tenant\Domain\Event\TenantCreatedEvent;
 use Tenant\Domain\Model\Tenant\Tenant;
 use Tenant\Domain\ValueObject\{TenantId, TenantName, TenantSettings};
 
@@ -36,6 +40,7 @@ final readonly class CreateTenantHandler implements CommandHandler
   public function __construct(
     private readonly TenantRepositoryPort $tenantRepository,
     private readonly UuidFactory $uuidFactory,
+    private readonly EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -63,6 +68,13 @@ final readonly class CreateTenantHandler implements CommandHandler
     );
 
     $this->tenantRepository->save(tenant: $tenant);
+
+    $this->eventDispatcher->dispatch(new TenantCreatedEvent(
+      eventId: $this->uuidFactory->create(Uuid::class),
+      tenantId: (string) $tenantId,
+      tenantName: (string) $tenant->name(),
+      occurredAt: new DateTimeImmutable(),
+    ));
 
     return new CreateTenantResult(
       tenantId: (string) $tenantId,

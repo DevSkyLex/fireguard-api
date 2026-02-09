@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Tenant\Presentation\Api\Resource;
 
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversNothing, Test};
 use PHPUnit\Framework\TestCase;
 use Tenant\Presentation\Api\Resource\TenantResource;
 
@@ -15,7 +15,7 @@ use Tenant\Presentation\Api\Resource\TenantResource;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: TenantResource::class)]
+#[CoversNothing]
 final class TenantResourceTest extends TestCase
 {
   // #region Methods

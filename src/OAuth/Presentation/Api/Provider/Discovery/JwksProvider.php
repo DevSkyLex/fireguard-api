@@ -6,6 +6,7 @@ namespace OAuth\Presentation\Api\Provider\Discovery;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
+use Closure;
 use OAuth\Presentation\Api\Dto\Output\Discovery\JwksOutput;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -42,10 +43,12 @@ final readonly class JwksProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param string $publicKeyPath the path to the public key
+   * @param Closure|null $keyDetailsResolver optional resolver for key details
    */
   public function __construct(
     #[Autowire('%kernel.project_dir%/config/jwt/public.key')]
     private readonly string $publicKeyPath,
+    private readonly ?Closure $keyDetailsResolver = null,
   ) {
   }
   // #endregion
@@ -79,7 +82,9 @@ final readonly class JwksProvider implements ProviderInterface
       return $output;
     }
 
-    $details = openssl_pkey_get_details($keyData);
+    $details = null === $this->keyDetailsResolver
+      ? openssl_pkey_get_details($keyData)
+      : ($this->keyDetailsResolver)($keyData);
     if (false === $details || !isset($details['rsa']) || !is_array($details['rsa'])) {
       return $output;
     }

@@ -142,6 +142,70 @@ final class TenantOutput
   public bool $requirePkce = true;
 
   /**
+   * Property allowPublicClients.
+   *
+   * Whether public clients are allowed.
+   */
+  #[Groups([TenantSerializationGroup::READ, TenantSerializationGroup::SETTINGS])]
+  #[ApiProperty(
+    description: 'Whether public clients are allowed.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: false,
+    openapiContext: [
+      'type' => 'boolean',
+      'readOnly' => true,
+    ],
+  )]
+  public bool $allowPublicClients = false;
+
+  /**
+   * Property allowedScopes.
+   *
+   * Allowed OAuth2 scopes for this tenant.
+   *
+   * @var list<string>
+   */
+  #[Groups([TenantSerializationGroup::READ, TenantSerializationGroup::SETTINGS])]
+  #[ApiProperty(
+    description: 'Allowed OAuth2 scopes for this tenant.',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
+    example: ['openid', 'profile', 'email'],
+    openapiContext: [
+      'type' => 'array',
+      'items' => ['type' => 'string'],
+      'readOnly' => true,
+    ],
+  )]
+  public array $allowedScopes = ['openid', 'profile', 'email'];
+
+  /**
+   * Property customIssuer.
+   *
+   * Custom issuer URL for this tenant.
+   */
+  #[Groups([TenantSerializationGroup::READ, TenantSerializationGroup::SETTINGS])]
+  #[ApiProperty(
+    description: 'Custom issuer URL for this tenant.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'https://auth.example.com',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'uri',
+      'readOnly' => true,
+    ],
+  )]
+  public ?string $customIssuer = null;
+
+  /**
    * Property createdAt.
    *
    * The creation timestamp.

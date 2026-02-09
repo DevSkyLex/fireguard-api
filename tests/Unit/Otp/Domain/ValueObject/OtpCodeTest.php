@@ -83,4 +83,13 @@ final class OtpCodeTest extends TestCase
     self::assertEquals(substr($plain, -2), substr($masked, -2));
     self::assertStringStartsWith('****', $masked);
   }
+
+  #[Test]
+  public function testMaskedReturnsPlaceholderWhenPlainMissing(): void
+  {
+    $original = OtpCode::generate();
+    $recovered = OtpCode::fromHash($original->hash());
+
+    self::assertSame('******', $recovered->masked());
+  }
 }

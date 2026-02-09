@@ -99,5 +99,17 @@ final class SecurityUserTest extends TestCase
     $this->assertTrue($active->isActive());
     $this->assertFalse($inactive->isActive());
   }
+
+  #[Test]
+  public function testGetPasswordReturnsHash(): void
+  {
+    $user = new SecurityUser(
+      id: 'user-789',
+      email: 'user@example.com',
+      password: 'hashed',
+    );
+
+    $this->assertSame('hashed', $user->getPassword());
+  }
   // #endregion
 }

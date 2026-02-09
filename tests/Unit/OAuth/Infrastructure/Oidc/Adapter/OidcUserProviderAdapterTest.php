@@ -61,6 +61,20 @@ final class OidcUserProviderAdapterTest extends TestCase
     self::assertNull($adapter->findByIdentifier('user-id'));
   }
 
+  #[Test]
+  public function testFindByIdentifierReturnsNullWhenUserMissing(): void
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetUserQuery::class))
+      ->willReturn(new GetUserResult(null));
+
+    $adapter = new OidcUserProviderAdapter(queryBus: $queryBus);
+
+    self::assertNull($adapter->findByIdentifier('user-id'));
+  }
+
   /**
    * Method testFindByIdentifierReturnsOidcUser.
    *

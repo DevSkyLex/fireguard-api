@@ -212,6 +212,25 @@ final class AuthCodeRepositoryTest extends TestCase
   }
 
   #[Test]
+  public function testUpdateNonceReturnsWhenIdentifierEmpty(): void
+  {
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->expects(self::once())
+      ->method('find')
+      ->with(AuthCodeRecord::class, '')
+      ->willReturn(null);
+    $entityManager->expects(self::never())
+      ->method('flush');
+
+    $repository = new AuthCodeRepository(
+      entityManager: $entityManager,
+      encryptionKey: self::ENCRYPTION_KEY,
+    );
+
+    $repository->updateNonce('', 'nonce');
+  }
+
+  #[Test]
   public function testUpdateNonceReturnsWhenEncryptedPayloadMissingIdentifier(): void
   {
     $encrypted = $this->encryptPayload(['auth_code_id' => '']);

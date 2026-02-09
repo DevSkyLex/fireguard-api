@@ -78,6 +78,30 @@ Request:
 | `preAuthToken` | string | Yes | Token received in `mfa_token` |
 | `code` | string | Yes | OTP/TOTP code (length: `OTP_CODE_LENGTH` for SMS/Email, `TOTP_DIGITS` for authenticator app) |
 
+#### POST `/api/auth/mfa/resend`
+
+Resends the MFA OTP code using the pre-auth token.
+
+Request:
+```json
+{
+  "preAuthToken": "eyJ..."
+}
+```
+
+Response (200):
+```json
+{
+  "mfa_required": true,
+  "mfa_token": "eyJ...",
+  "challenge_token": "abc123..."
+}
+```
+
+Notes:
+- Returns a **new** `mfa_token` and `challenge_token` to use for verification.
+- Subject to cooldown and rate limiting.
+
 #### POST `/api/auth/refresh`
 
 Refreshes the access token using the refresh token cookie.
@@ -111,6 +135,77 @@ Response (200):
   "message": "Logout successful"
 }
 ```
+
+### Password Reset
+
+#### POST `/api/auth/password/reset/request`
+
+Request a password reset by email. An OTP code will be sent if the account exists.
+
+Request:
+```json
+{
+  "email": "john.doe@example.com"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `email` | string | Yes | User's email address |
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "If an account exists with this email, you will receive a password reset code."
+}
+```
+
+Notes:
+- Always returns success to prevent user enumeration
+- OTP code is sent via email (15 min expiry, 5 attempts max)
+
+#### POST `/api/auth/password/reset/confirm`
+
+Confirm password reset using the token, code, and new password.
+
+Request:
+```json
+{
+  "token": "abc123...",
+  "code": "123456",
+  "newPassword": "NewSecureP@ss123!"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `token` | string | Yes | Challenge token from request step |
+| `code` | string | Yes | OTP code received by email |
+| `newPassword` | string | Yes | New password (min 8 chars, must include uppercase, lowercase, digit, special char) |
+
+Response (200):
+```json
+{
+  "success": true,
+  "message": "Password has been reset successfully. All active sessions have been terminated."
+}
+```
+
+Error response (401):
+```json
+{
+  "success": false,
+  "message": "Invalid verification code. Please check and try again.",
+  "errorCode": "invalid_code",
+  "attemptsRemaining": 3
+}
+```
+
+Notes:
+- All active sessions are revoked on success
+- All OAuth tokens are revoked on success
+- Error codes: `invalid_code`, `expired`, `max_attempts_exceeded`, `invalid_token`
 
 ### OAuth2 and Discovery
 

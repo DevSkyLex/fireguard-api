@@ -11,9 +11,11 @@ use Auth\Presentation\Api\Dto\Input\Auth\LoginInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use InvalidArgumentException;
+use Otp\Application\Service\ChallengeResendPolicy;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
 
 use function implode;
 
@@ -41,11 +43,13 @@ final readonly class LoginProcessor implements ProcessorInterface
    * @param CommandBusPort $commandBus the command bus
    * @param RequestStack $requestStack the request stack
    * @param RefreshTokenCookieService $cookieService the refresh token cookie service
+   * @param TrustedDeviceCookieService $trustedDeviceCookieService the trusted device cookie service
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private RequestStack $requestStack,
     private RefreshTokenCookieService $cookieService,
+    private TrustedDeviceCookieService $trustedDeviceCookieService,
   ) {
   }
   // #endregion
@@ -66,12 +70,19 @@ final readonly class LoginProcessor implements ProcessorInterface
 
     $userAgent = $request?->headers->get('User-Agent');
 
+    // Get trusted device token from cookie (if present)
+    $trustedDeviceToken = null;
+    if (null !== $request) {
+      $trustedDeviceToken = $this->trustedDeviceCookieService->getTokenFromRequest($request);
+    }
+
     $command = new LoginCommand(
       email: $data->email ?? '',
       password: $data->password ?? '',
       rememberMe: $data->rememberMe ?? false,
       ipAddress: $ipAddress,
       userAgent: $userAgent,
+      trustedDeviceToken: $trustedDeviceToken,
     );
 
     /** @var LoginResult $result */
@@ -115,6 +126,9 @@ final readonly class LoginProcessor implements ProcessorInterface
     $output->mfaRequired = true;
     $output->mfaToken = $result->mfaToken;
     $output->challengeToken = $result->challengeToken;
+    $output->mfaMethod = $result->mfaMethod;
+    $output->mfaDestination = $result->mfaDestination;
+    $output->mfaResendIn = ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS;
 
     return $output;
   }

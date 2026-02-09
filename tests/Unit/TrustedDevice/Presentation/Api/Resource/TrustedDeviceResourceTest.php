@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\TrustedDevice\Presentation\Api\Resource;
 
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversNothing, Test};
 use PHPUnit\Framework\TestCase;
 use TrustedDevice\Presentation\Api\Resource\TrustedDeviceResource;
 
@@ -15,7 +15,7 @@ use TrustedDevice\Presentation\Api\Resource\TrustedDeviceResource;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: TrustedDeviceResource::class)]
+#[CoversNothing]
 final class TrustedDeviceResourceTest extends TestCase
 {
   // #region Methods

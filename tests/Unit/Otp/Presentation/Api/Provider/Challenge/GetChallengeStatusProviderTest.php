@@ -188,6 +188,25 @@ final class GetChallengeStatusProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideMapsOtpNotFoundFromDeepMessengerPrevious(): void
+  {
+    $otpNotFound = OtpNotFoundException::forIdentifier('token-9');
+    $middle = new RuntimeException('middle', 0, $otpNotFound);
+    $outer = new RuntimeException('outer', 0, $middle);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willThrowException(MessengerRuntimeException::wrap($outer));
+
+    $provider = new GetChallengeStatusProvider($queryBus);
+
+    $this->expectException(NotFoundHttpException::class);
+    $provider->provide(new Get(), ['token' => 'token-9']);
+  }
+
+  #[Test]
   public function testProvideReturnsZeroExpiresInWhenExpired(): void
   {
     $result = new GetChallengeStatusResult(

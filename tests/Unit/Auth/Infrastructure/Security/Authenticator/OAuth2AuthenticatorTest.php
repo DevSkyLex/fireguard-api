@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\Authenticator\OAuth2Authenticator;
 use Auth\Infrastructure\Security\User\{SecurityUser, SecurityUserProvider};
 use Authorization\Application\Port\Inbound\AuthorizationPort;
 use DateTimeImmutable;
+use DateTimeInterface;
 use InvalidArgumentException;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer\Hmac\Sha256 as HmacSha256;
@@ -60,6 +61,77 @@ final class OAuth2AuthenticatorTest extends TestCase
 
     $this->expectException(CustomUserMessageAuthenticationException::class);
     $this->expectExceptionMessage('No access token provided');
+
+    $authenticator->authenticate($request);
+  }
+
+  #[Test]
+  public function testAuthenticateRejectsNonUnencryptedToken(): void
+  {
+    $parser = new class () implements \Lcobucci\JWT\Parser {
+      public function parse(string $jwt): \Lcobucci\JWT\Token
+      {
+        return new class () implements \Lcobucci\JWT\Token {
+          public function headers(): \Lcobucci\JWT\Token\DataSet
+          {
+            return new \Lcobucci\JWT\Token\DataSet([], '');
+          }
+
+          public function isPermittedFor(string $audience): bool
+          {
+            return false;
+          }
+
+          public function isIdentifiedBy(string $id): bool
+          {
+            return false;
+          }
+
+          public function isRelatedTo(string $subject): bool
+          {
+            return false;
+          }
+
+          public function hasBeenIssuedBy(string ...$issuers): bool
+          {
+            return false;
+          }
+
+          public function hasBeenIssuedBefore(DateTimeInterface $now): bool
+          {
+            return false;
+          }
+
+          public function isMinimumTimeBefore(DateTimeInterface $now): bool
+          {
+            return false;
+          }
+
+          public function isExpired(DateTimeInterface $now): bool
+          {
+            return false;
+          }
+
+          public function toString(): string
+          {
+            return 'token';
+          }
+        };
+      }
+    };
+
+    $authenticator = new OAuth2Authenticator(
+      accessTokenLookup: $this->createMock(AccessTokenLookupPort::class),
+      userProvider: $this->createUserProvider(),
+      publicKeyPath: $this->getPublicKeyPath(),
+      parser: $parser,
+    );
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer token');
+
+    $this->expectException(CustomUserMessageAuthenticationException::class);
+    $this->expectExceptionMessage('Invalid token format');
 
     $authenticator->authenticate($request);
   }

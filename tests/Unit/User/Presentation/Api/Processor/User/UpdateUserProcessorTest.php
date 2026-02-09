@@ -107,5 +107,30 @@ final class UpdateUserProcessorTest extends TestCase
     self::assertSame('jdoe', $output->username);
     self::assertSame('active', $output->status);
   }
+
+  #[Test]
+  public function testProcessReturnsNullWhenUserMissing(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(UpdateUserCommand::class));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new GetUserResult(user: null));
+
+    $processor = new UpdateUserProcessor(
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+    );
+
+    $input = new UserInput();
+
+    self::assertNull($processor->process($input, new Put(), ['id' => 'user-1']));
+  }
   // #endregion
 }

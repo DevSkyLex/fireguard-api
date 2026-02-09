@@ -262,5 +262,21 @@ final class TokenSessionTest extends TestCase
 
     $this->assertNull(actual: $session->refreshTokenExpiry());
   }
+
+  #[Test]
+  public function testIsValidReflectsRevocationAndExpiry(): void
+  {
+    $session = TokenSession::createForClient(
+      clientId: 'client-789',
+      scopes: ['OPENID'],
+      accessTokenTtl: 3600,
+    );
+
+    $this->assertTrue($session->isValid());
+
+    $session->revoke();
+
+    $this->assertFalse($session->isValid());
+  }
   // #endregion
 }

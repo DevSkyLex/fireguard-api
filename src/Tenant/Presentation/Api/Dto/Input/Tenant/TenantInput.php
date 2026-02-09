@@ -127,5 +127,52 @@ final class TenantInput
     ],
   )]
   public bool $allowPublicClients = false;
+
+  /**
+   * Property allowedScopes.
+   *
+   * Allowed OAuth2 scopes for this tenant.
+   *
+   * @var list<string>
+   */
+  #[Assert\All([
+    new Assert\Type('string'),
+    new Assert\NotBlank(message: 'Scope entries must be non-empty.'),
+  ])]
+  #[Groups([TenantSerializationGroup::WRITE])]
+  #[ApiProperty(
+    description: 'Allowed OAuth2 scopes for this tenant.',
+    readable: false,
+    writable: true,
+    required: false,
+    identifier: false,
+    example: ['openid', 'profile', 'email'],
+    openapiContext: [
+      'type' => 'array',
+      'items' => ['type' => 'string'],
+    ],
+  )]
+  public array $allowedScopes = ['openid', 'profile', 'email'];
+
+  /**
+   * Property customIssuer.
+   *
+   * Custom issuer URL for this tenant.
+   */
+  #[Assert\Url(message: 'Custom issuer must be a valid URL.')]
+  #[Groups([TenantSerializationGroup::WRITE])]
+  #[ApiProperty(
+    description: 'Custom issuer URL for this tenant.',
+    readable: false,
+    writable: true,
+    required: false,
+    identifier: false,
+    example: 'https://auth.example.com',
+    openapiContext: [
+      'type' => 'string',
+      'format' => 'uri',
+    ],
+  )]
+  public ?string $customIssuer = null;
   // #endregion
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Auth\Application\UseCase\Command\Session\Login;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
-use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, UserAuthenticationPort};
+use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort, UserAuthenticationPort};
 use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\MfaChallengeCommand;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
@@ -48,6 +48,7 @@ final readonly class LoginHandler implements CommandHandler
    * @param SessionTrackingPort $sessionTracking the session tracking port
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    * @param RateLimiterPort $rateLimiter the rate limiter
+   * @param TrustedDeviceCheckPort $trustedDeviceCheck the trusted device check port
    * @param bool $mfaEnabled whether MFA is enabled globally
    */
   public function __construct(
@@ -57,6 +58,7 @@ final readonly class LoginHandler implements CommandHandler
     private readonly SessionTrackingPort $sessionTracking,
     private readonly EventDispatcherPort $eventDispatcher,
     private readonly RateLimiterPort $rateLimiter,
+    private readonly TrustedDeviceCheckPort $trustedDeviceCheck,
     #[Autowire('%env(bool:MFA_ENABLED)%')]
     private readonly bool $mfaEnabled,
   ) {
@@ -117,7 +119,8 @@ final readonly class LoginHandler implements CommandHandler
       $email = $authResult->email ?? $command->email;
       $scopes = DefaultScopes::USER_SCOPES;
 
-      if ($this->mfaEnabled) {
+      // Check if MFA is required (enabled globally and device is not trusted)
+      if ($this->shouldRequireMfa($userId, $command->trustedDeviceToken)) {
         $challengeCommand = new MfaChallengeCommand(
           userId: $userId,
           purpose: 'login',
@@ -142,6 +145,8 @@ final readonly class LoginHandler implements CommandHandler
           mfaRequired: true,
           mfaToken: $preAuthToken,
           challengeToken: $challenge->challengeToken,
+          mfaMethod: $challengeCommand->channel,
+          mfaDestination: \Shared\Domain\ValueObject\MaskedDestination::maskEmail($email),
         );
       }
 
@@ -244,6 +249,41 @@ final readonly class LoginHandler implements CommandHandler
     } catch (Throwable) {
       // Best-effort session tracking; login must not fail.
     }
+  }
+
+  /**
+   * Method shouldRequireMfa.
+   *
+   * Determines if MFA should be required for the login attempt.
+   * MFA is bypassed if the device is trusted.
+   *
+   * @param string $userId the user ID
+   * @param string|null $trustedDeviceToken the trusted device token
+   *
+   * @return bool true if MFA is required, false otherwise
+   */
+  private function shouldRequireMfa(string $userId, ?string $trustedDeviceToken): bool
+  {
+    // MFA not enabled globally
+    if (!$this->mfaEnabled) {
+      return false;
+    }
+
+    // No trusted device token provided
+    if (null === $trustedDeviceToken || '' === $trustedDeviceToken) {
+      return true;
+    }
+
+    // Check if the device is trusted for this user
+    try {
+      if ($this->trustedDeviceCheck->isTrusted($userId, $trustedDeviceToken)) {
+        return false; // Device is trusted, skip MFA
+      }
+    } catch (Throwable) {
+      // If check fails, require MFA for safety
+    }
+
+    return true;
   }
   // #endregion
 }

@@ -94,4 +94,12 @@ final class TenantIdTest extends TestCase
     $this->assertTrue($t1->equals($t2));
     $this->assertFalse($t1->equals($t3));
   }
+
+  #[Test]
+  public function testToUuidReturnsUuid(): void
+  {
+    $tenantId = TenantId::fromString('550e8400-e29b-41d4-a716-446655440000');
+
+    $this->assertSame('550e8400-e29b-41d4-a716-446655440000', $tenantId->toUuid()->value);
+  }
 }

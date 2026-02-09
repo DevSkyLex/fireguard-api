@@ -13,7 +13,7 @@ use ApiPlatform\OpenApi\Model\{
   Response
 };
 use ArrayObject;
-use Auth\Presentation\Api\Dto\Input\Auth\LoginInput;
+use Auth\Presentation\Api\Dto\Input\Auth\{LoginInput, MfaResendInput};
 use Auth\Presentation\Api\Dto\Output\Auth\{
   LoginOutput,
   LogoutOutput
@@ -21,6 +21,7 @@ use Auth\Presentation\Api\Dto\Output\Auth\{
 use Auth\Presentation\Api\Operation\AuthOperations;
 use Auth\Presentation\Api\Processor\Auth\{
   LoginProcessor,
+  MfaResendProcessor,
   LogoutProcessor,
   RefreshTokenProcessor
 };
@@ -195,6 +196,33 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
             description: 'Invalid OTP code',
+          ),
+        ],
+      ),
+    ),
+    new Post(
+      name: AuthOperations::MFA_RESEND,
+      uriTemplate: '/mfa/resend',
+      input: MfaResendInput::class,
+      output: LoginOutput::class,
+      processor: MfaResendProcessor::class,
+      normalizationContext: ['groups' => [AuthSerializationGroup::TOKEN_READ]],
+      openapi: new Operation(
+        tags: ['Authentication'],
+        summary: 'Resend MFA Code',
+        description: 'Resend the MFA OTP code using the pre-auth token received during login.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'MFA code resent successfully',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Invalid or expired pre-auth token',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'MFA challenge not found or no longer valid',
+          ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Resend cooldown not yet elapsed',
           ),
         ],
       ),

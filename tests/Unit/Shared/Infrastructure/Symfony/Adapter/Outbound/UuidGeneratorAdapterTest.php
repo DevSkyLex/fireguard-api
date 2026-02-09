@@ -62,4 +62,14 @@ final class UuidGeneratorAdapterTest extends TestCase
     $this->expectException(UuidGenerationException::class);
     $adapter->generate();
   }
+
+  #[Test]
+  public function testGenerateThrowsWhenGeneratorReturnsInvalidType(): void
+  {
+    $generator = fn () => 'not-a-uuid';
+    $adapter = new UuidGeneratorAdapter($generator);
+
+    $this->expectException(UuidGenerationException::class);
+    $adapter->generate();
+  }
 }

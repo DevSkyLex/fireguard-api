@@ -151,7 +151,20 @@ final class LoginOutput
   #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'If true, authentication is incomplete. Use mfa_token to verify code.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
     example: true,
+    openapiContext: [
+      'type' => 'boolean',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'boolean',
+      'nullable' => true,
+    ],
   )]
   #[SerializedName('mfa_required')]
   public ?bool $mfaRequired = null;
@@ -164,7 +177,20 @@ final class LoginOutput
   #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'Temporary Pre-Auth Token (JWT) covering the partial authentication state.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
     example: 'eyJ...',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'nullable' => true,
+    ],
   )]
   #[SerializedName('mfa_token')]
   public ?string $mfaToken = null;
@@ -177,10 +203,102 @@ final class LoginOutput
   #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
   #[ApiProperty(
     description: 'The OTP challenge token (reference).',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
     example: 'abc...',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'nullable' => true,
+    ],
   )]
   #[SerializedName('challenge_token')]
   public ?string $challengeToken = null;
+
+  /**
+   * Property mfaMethod.
+   *
+   * The method used to deliver the MFA code.
+   */
+  #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'The delivery method for the MFA code (email, sms, totp).',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'email',
+    openapiContext: [
+      'type' => 'string',
+      'enum' => ['email', 'sms', 'totp'],
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'nullable' => true,
+    ],
+  )]
+  #[SerializedName('mfa_method')]
+  public ?string $mfaMethod = null;
+
+  /**
+   * Property mfaDestination.
+   *
+   * The masked destination where the MFA code was sent.
+   */
+  #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'The masked destination where the code was sent (e.g., "j***e@e****e.com" or "+336****5678").',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 'j***e@e****e.com',
+    openapiContext: [
+      'type' => 'string',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'string',
+      'nullable' => true,
+    ],
+  )]
+  #[SerializedName('mfa_destination')]
+  public ?string $mfaDestination = null;
+
+  /**
+   * Property mfaResendIn.
+   *
+   * Seconds until MFA code can be resent.
+   */
+  #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
+  #[ApiProperty(
+    description: 'Seconds until MFA code can be resent',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: 60,
+    openapiContext: [
+      'type' => 'integer',
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+    jsonSchemaContext: [
+      'type' => 'integer',
+      'nullable' => true,
+    ],
+  )]
+  #[SerializedName('mfa_resend_in')]
+  public ?int $mfaResendIn = null;
 
   // #endregion
 }

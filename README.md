@@ -69,6 +69,8 @@ High-level endpoints are grouped below. See each module document for full detail
 | POST | `/api/auth/mfa/verify` | MFA verification | No |
 | POST | `/api/auth/refresh` | Refresh access token | Refresh cookie |
 | POST | `/api/auth/logout` | Logout and revoke tokens | Bearer access token |
+| POST | `/api/auth/password/reset/request` | Request password reset | No |
+| POST | `/api/auth/password/reset/confirm` | Confirm password reset | No |
 
 ### OAuth2 and OIDC
 

@@ -25,7 +25,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'Challenge token to use in GET/verify/resend endpoints',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'a1b2c3d4e5f6...',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
   )]
   public string $token;
 
@@ -36,7 +44,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'The purpose of this OTP challenge',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'login',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
   )]
   public string $purpose;
 
@@ -47,7 +63,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'The delivery channel used',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'email',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
   )]
   public string $channel;
 
@@ -58,7 +82,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'Masked recipient for user-friendly display',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'jo***@example.com',
+    openapiContext: [
+      'type' => 'string',
+      'readOnly' => true,
+    ],
   )]
   public string $maskedRecipient;
 
@@ -69,9 +101,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'Current status: pending, verified, expired, or failed',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 'pending',
     openapiContext: [
+      'type' => 'string',
       'enum' => ['pending', 'verified', 'expired', 'failed'],
+      'readOnly' => true,
     ],
   )]
   public string $status;
@@ -83,7 +121,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'Seconds remaining until the challenge expires',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 285,
+    openapiContext: [
+      'type' => 'integer',
+      'readOnly' => true,
+    ],
   )]
   public int $expiresIn;
 
@@ -94,7 +140,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'Number of verification attempts remaining',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 4,
+    openapiContext: [
+      'type' => 'integer',
+      'readOnly' => true,
+    ],
   )]
   public int $attemptsRemaining;
 
@@ -105,7 +159,15 @@ final class ChallengeOutput
    */
   #[ApiProperty(
     description: 'Seconds until OTP can be resent (0 = can resend now)',
+    readable: true,
+    writable: false,
+    required: true,
+    identifier: false,
     example: 45,
+    openapiContext: [
+      'type' => 'integer',
+      'readOnly' => true,
+    ],
   )]
   public int $canResendIn;
   // #endregion

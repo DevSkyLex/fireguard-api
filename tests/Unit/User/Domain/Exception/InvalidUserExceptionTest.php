@@ -36,6 +36,14 @@ final class InvalidUserExceptionTest extends TestCase
   }
 
   #[Test]
+  public function testInactiveAccountCreatesMessage(): void
+  {
+    $exception = InvalidUserException::inactiveAccount();
+
+    $this->assertSame('User account is inactive.', $exception->getMessage());
+  }
+
+  #[Test]
   public function testCannotLoginIncludesReason(): void
   {
     $exception = InvalidUserException::cannotLogin('Inactive');

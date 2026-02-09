@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Application\UseCase\Command\Session\Login;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
-use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, UserAuthenticationPort};
+use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort, UserAuthenticationPort};
 use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\MfaChallengeResult;
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginHandler, LoginResult};
@@ -57,6 +57,7 @@ final class LoginHandlerTest extends TestCase
       sessionTracking: $this->createMock(SessionTrackingPort::class),
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -102,6 +103,7 @@ final class LoginHandlerTest extends TestCase
       sessionTracking: $this->createMock(SessionTrackingPort::class),
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -158,6 +160,7 @@ final class LoginHandlerTest extends TestCase
       sessionTracking: $this->createMock(SessionTrackingPort::class),
       eventDispatcher: $this->createMock(EventDispatcherPort::class),
       rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
       mfaEnabled: true,
     );
 
@@ -246,6 +249,7 @@ final class LoginHandlerTest extends TestCase
       sessionTracking: $sessionTracking,
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 

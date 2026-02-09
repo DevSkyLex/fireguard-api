@@ -47,5 +47,13 @@ final class TokenIdentifierTest extends TestCase
 
     new TokenIdentifier('');
   }
+
+  #[Test]
+  public function testToStringReturnsValue(): void
+  {
+    $identifier = new TokenIdentifier('token-123');
+
+    self::assertSame('token-123', (string) $identifier);
+  }
   // #endregion
 }

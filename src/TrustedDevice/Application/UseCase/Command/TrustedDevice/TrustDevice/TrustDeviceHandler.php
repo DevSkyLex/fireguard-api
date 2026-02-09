@@ -67,14 +67,10 @@ final readonly class TrustDeviceHandler implements CommandHandler
       fingerprint: $fingerprint->value,
     );
 
-    if (null !== $existing && $existing->isValid()) {
-      // Return existing valid device
-      return new TrustDeviceResult(
-        deviceId: $existing->id()->value,
-        token: $existing->token()->plain(),
-        deviceName: $existing->name(),
-        expiresAt: $existing->expiresAt(),
-      );
+    // Always create a new device (to generate a fresh token)
+    if (null !== $existing) {
+      // Delete the old device to avoid unique constraint violation
+      $this->repository->delete(id: $existing->id());
     }
 
     // Create new trusted device

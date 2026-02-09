@@ -48,6 +48,8 @@ final readonly class LoginResult implements ResultMessage
    * @param bool|null $mfaRequired whether MFA is required to complete authentication
    * @param string|null $mfaToken the pre-auth token for MFA verification
    * @param string|null $challengeToken the MFA challenge token
+   * @param string|null $mfaMethod the MFA delivery method (email, sms, totp)
+   * @param string|null $mfaDestination the masked destination where the code was sent
    * @param string|null $errorMessage error message if authentication failed
    * @param string|null $errorCode machine-readable error code
    * @param int|null $rateLimitRetryAfter retry-after seconds when rate limited
@@ -64,6 +66,8 @@ final readonly class LoginResult implements ResultMessage
     public ?bool $mfaRequired = null,
     public ?string $mfaToken = null,
     public ?string $challengeToken = null,
+    public ?string $mfaMethod = null,
+    public ?string $mfaDestination = null,
     public ?string $errorMessage = null,
     public ?string $errorCode = null,
     public ?int $rateLimitRetryAfter = null,

@@ -39,6 +39,7 @@ final class UserCreatedEventTest extends TestCase
     $payload = $event->payload();
     self::assertSame('jdoe', $payload['username']);
     self::assertSame('jdoe@example.com', $payload['email']);
+    self::assertSame('2024-01-01T00:00:00+00:00', $event->occurredAt()->format('c'));
   }
   // #endregion
 }

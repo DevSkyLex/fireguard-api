@@ -71,6 +71,29 @@ final class PermissionRepositoryTest extends TestCase
   }
 
   #[Test]
+  public function testFindByNameReturnsNullWhenMissing(): void
+  {
+    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository->expects(self::once())
+      ->method('findOneBy')
+      ->with(['name' => 'missing.permission'])
+      ->willReturn(null);
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->expects(self::once())
+      ->method('getRepository')
+      ->with(PermissionRecord::class)
+      ->willReturn($doctrineRepository);
+
+    $repository = new PermissionRepository(
+      entityManager: $entityManager,
+      mapper: new PermissionMapper(),
+    );
+
+    self::assertNull($repository->findByName(new PermissionName('missing.permission')));
+  }
+
+  #[Test]
   public function testFindAllReturnsPermissions(): void
   {
     $record = $this->createRecord();

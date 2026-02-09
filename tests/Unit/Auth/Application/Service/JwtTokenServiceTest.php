@@ -899,6 +899,42 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertNull($this->service->decodeRefreshToken($encrypted));
   }
 
+  #[Test]
+  public function testDecodeRefreshTokenCoercesRememberMeString(): void
+  {
+    $encrypted = $this->encryptPayload([
+      'refresh_token_id' => 'refresh-1',
+      'access_token_id' => 'access-1',
+      'user_id' => 'user-1',
+      'scopes' => ['READ'],
+      'expires_at' => time() + 3600,
+      'remember_me' => 'true',
+    ]);
+
+    $payload = $this->service->decodeRefreshToken($encrypted);
+
+    $this->assertIsArray($payload);
+    $this->assertTrue($payload['remember_me'] ?? false);
+  }
+
+  #[Test]
+  public function testDecodeRefreshTokenDropsInvalidRememberMe(): void
+  {
+    $encrypted = $this->encryptPayload([
+      'refresh_token_id' => 'refresh-2',
+      'access_token_id' => 'access-2',
+      'user_id' => 'user-2',
+      'scopes' => ['READ'],
+      'expires_at' => time() + 3600,
+      'remember_me' => 'maybe',
+    ]);
+
+    $payload = $this->service->decodeRefreshToken($encrypted);
+
+    $this->assertIsArray($payload);
+    $this->assertArrayNotHasKey('remember_me', $payload);
+  }
+
   private function createPreAuthToken(DateTimeImmutable $expiresAt): string
   {
     $config = Configuration::forAsymmetricSigner(

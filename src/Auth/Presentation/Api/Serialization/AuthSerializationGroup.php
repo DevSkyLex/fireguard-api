@@ -39,5 +39,17 @@ final readonly class AuthSerializationGroup
    * @var string
    */
   public const string TOKEN_WRITE = 'token:write';
+
+  /**
+   * Constant PASSWORD_RESET_WRITE.
+   *
+   * Group PASSWORD_RESET_WRITE
+   * Used for password reset operations.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string PASSWORD_RESET_WRITE = 'password_reset:write';
   // #endregion
 }

@@ -49,8 +49,8 @@ final class CleanupAuthDataCommand extends Command
     #[Autowire('%env(int:DATA_RETENTION_DAYS)%')]
     int $defaultRetentionDays = 90,
   ) {
-    parent::__construct();
     $this->defaultRetentionDays = $defaultRetentionDays;
+    parent::__construct();
   }
   // #endregion
 

@@ -56,6 +56,9 @@ final class GrantTypeTest extends TestCase
     $this->assertEquals('AUTHORIZATION_CODE', GrantType::AUTHORIZATION_CODE->value);
     $this->assertEquals('CLIENT_CREDENTIALS', GrantType::CLIENT_CREDENTIALS->value);
     $this->assertEquals('REFRESH_TOKEN', GrantType::REFRESH_TOKEN->value);
+
+    $values = GrantType::values();
+    $this->assertContains('AUTHORIZATION_CODE', $values);
   }
 
   /**

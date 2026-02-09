@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Tenant\Domain\ValueObject;
 
+use Shared\Domain\Exception\InvalidValueException;
+
 use function array_filter;
 use function array_values;
 use function is_array;
 use function is_numeric;
 use function is_scalar;
+use function is_string;
+use function sprintf;
+use function trim;
 
 /**
  * ValueObject TenantSettings.
@@ -21,6 +26,45 @@ use function is_scalar;
  */
 final readonly class TenantSettings
 {
+  // #region Constants
+  /**
+   * Minimum access token TTL in seconds (5 minutes).
+   */
+  private const int MIN_ACCESS_TOKEN_TTL = 300;
+
+  /**
+   * Maximum access token TTL in seconds (24 hours).
+   */
+  private const int MAX_ACCESS_TOKEN_TTL = 86400;
+
+  /**
+   * Minimum refresh token TTL in seconds (1 hour).
+   */
+  private const int MIN_REFRESH_TOKEN_TTL = 3600;
+
+  /**
+   * Maximum refresh token TTL in seconds (30 days).
+   */
+  private const int MAX_REFRESH_TOKEN_TTL = 2592000;
+  // #endregion
+
+  // #region Properties
+  public int $accessTokenTtl;
+
+  public int $refreshTokenTtl;
+
+  public bool $requirePkce;
+
+  public bool $allowPublicClients;
+
+  /**
+   * @var list<string>
+   */
+  public array $allowedScopes;
+
+  public ?string $customIssuer;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -37,13 +81,22 @@ final readonly class TenantSettings
    * @param string|null $customIssuer custom issuer URL for this tenant
    */
   public function __construct(
-    public int $accessTokenTtl = 3600,
-    public int $refreshTokenTtl = 86400,
-    public bool $requirePkce = true,
-    public bool $allowPublicClients = false,
-    public array $allowedScopes = ['openid', 'profile', 'email'],
-    public ?string $customIssuer = null,
+    int $accessTokenTtl = 3600,
+    int $refreshTokenTtl = 86400,
+    bool $requirePkce = true,
+    bool $allowPublicClients = false,
+    array $allowedScopes = ['openid', 'profile', 'email'],
+    ?string $customIssuer = null,
   ) {
+    $this->accessTokenTtl = $accessTokenTtl;
+    $this->refreshTokenTtl = $refreshTokenTtl;
+    $this->requirePkce = $requirePkce;
+    $this->allowPublicClients = $allowPublicClients;
+    $this->allowedScopes = self::normalizeAllowedScopes($allowedScopes);
+    $this->customIssuer = self::normalizeIssuer($customIssuer);
+
+    $this->validateTtls();
+    $this->validatePkceRequirements();
   }
   // #endregion
 
@@ -134,9 +187,10 @@ final readonly class TenantSettings
     $refreshTokenTtl = $data['refresh_token_ttl'] ?? 86400;
     $customIssuer = $data['custom_issuer'] ?? null;
     $allowedScopesRaw = $data['allowed_scopes'] ?? ['openid', 'profile', 'email'];
-    $allowedScopes = is_array($allowedScopesRaw)
-      ? array_values(array_filter($allowedScopesRaw, 'is_string'))
-      : ['openid', 'profile', 'email'];
+    /** @var list<string> $allowedScopes */
+    $allowedScopes = self::normalizeAllowedScopes(
+      is_array($allowedScopesRaw) ? $allowedScopesRaw : ['openid', 'profile', 'email'],
+    );
 
     return new self(
       accessTokenTtl: is_numeric($accessTokenTtl) ? (int) $accessTokenTtl : 3600,
@@ -146,6 +200,79 @@ final readonly class TenantSettings
       allowedScopes: $allowedScopes,
       customIssuer: is_scalar($customIssuer) ? (string) $customIssuer : null,
     );
+  }
+
+  /**
+   * Ensures TTL values are within supported bounds.
+   */
+  private function validateTtls(): void
+  {
+    if ($this->accessTokenTtl < self::MIN_ACCESS_TOKEN_TTL || $this->accessTokenTtl > self::MAX_ACCESS_TOKEN_TTL) {
+      throw InvalidValueException::because(sprintf(
+        'Access token TTL must be between %d and %d seconds.',
+        self::MIN_ACCESS_TOKEN_TTL,
+        self::MAX_ACCESS_TOKEN_TTL,
+      ));
+    }
+
+    if ($this->refreshTokenTtl < self::MIN_REFRESH_TOKEN_TTL || $this->refreshTokenTtl > self::MAX_REFRESH_TOKEN_TTL) {
+      throw InvalidValueException::because(sprintf(
+        'Refresh token TTL must be between %d and %d seconds.',
+        self::MIN_REFRESH_TOKEN_TTL,
+        self::MAX_REFRESH_TOKEN_TTL,
+      ));
+    }
+  }
+
+  /**
+   * Enforces PKCE requirements for public clients.
+   */
+  private function validatePkceRequirements(): void
+  {
+    if ($this->allowPublicClients && !$this->requirePkce) {
+      throw InvalidValueException::because('Public clients require PKCE to be enabled.');
+    }
+  }
+
+  /**
+   * @param array<mixed> $scopes
+   *
+   * @return list<string>
+   */
+  private static function normalizeAllowedScopes(array $scopes): array
+  {
+    $normalized = [];
+
+    foreach ($scopes as $scope) {
+      if (!is_string($scope)) {
+        continue;
+      }
+      $trimmed = trim($scope);
+      if ('' === $trimmed) {
+        continue;
+      }
+      $normalized[] = $trimmed;
+    }
+
+    if ([] === $normalized) {
+      return ['openid', 'profile', 'email'];
+    }
+
+    return array_values(array_filter($normalized, 'is_string'));
+  }
+
+  /**
+   * @return string|null normalized issuer or null when empty
+   */
+  private static function normalizeIssuer(?string $issuer): ?string
+  {
+    if (null === $issuer) {
+      return null;
+    }
+
+    $trimmed = trim($issuer);
+
+    return '' === $trimmed ? null : $trimmed;
   }
   // #endregion
 }

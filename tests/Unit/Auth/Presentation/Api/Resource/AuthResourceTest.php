@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Auth\Presentation\Api\Resource;
 
 use Auth\Presentation\Api\Resource\AuthResource;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversNothing, Test};
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversClass(className: AuthResource::class)]
+#[CoversNothing]
 final class AuthResourceTest extends TestCase
 {
   // #region Methods
