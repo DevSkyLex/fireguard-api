@@ -756,7 +756,7 @@ class RolePermissionManagementFlowTest extends WebTestCase
     $container = $client->getContainer();
 
     /** @var EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.entity_manager');
+    $entityManager = $container->get('doctrine.orm.auth_entity_manager');
 
     // Load fixtures
     $loader = new Loader();

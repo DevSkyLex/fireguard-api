@@ -60,15 +60,15 @@ services:
   # Repositories
   Authorization\Infrastructure\Persistence\Doctrine\Repository\PermissionRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   Authorization\Infrastructure\Persistence\Doctrine\Repository\RoleAssignmentRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   # Authorization Service
   Authorization\Application\Service\AuthorizationService:

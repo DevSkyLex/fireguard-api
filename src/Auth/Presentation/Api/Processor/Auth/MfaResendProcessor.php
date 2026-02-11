@@ -118,8 +118,6 @@ final readonly class MfaResendProcessor implements ProcessorInterface
   /**
    * Handle error responses.
    *
-   * @param MfaResendResult $result
-   *
    * @throws NotFoundHttpException
    * @throws TooManyRequestsHttpException
    * @throws BadRequestHttpException

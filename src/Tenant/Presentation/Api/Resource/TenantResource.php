@@ -31,7 +31,7 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
  */
 #[ApiResource(
   shortName: 'Tenant',
-  description: 'Multi-tenant configuration management. Tenants define OAuth2 settings for different organizations.',
+  description: 'Multi-tenant configuration management. Tenants define OAuth2 settings for different Organizations.',
   operations: [
     new Post(
       name: TenantOperations::CREATE,

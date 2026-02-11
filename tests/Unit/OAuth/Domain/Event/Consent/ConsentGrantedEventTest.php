@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Domain\Event\Consent;
 
+use DateTimeImmutable;
 use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -33,7 +34,7 @@ final class ConsentGrantedEventTest extends TestCase
     self::assertSame('client-1', $event->clientId);
     self::assertSame(['openid', 'profile'], $event->scopes);
     self::assertTrue($event->isNew);
-    self::assertNotNull($event->occurredAt);
+    self::assertInstanceOf(DateTimeImmutable::class, $event->occurredAt);
   }
   // #endregion
 }

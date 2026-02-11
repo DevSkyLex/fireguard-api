@@ -14,7 +14,7 @@ services:
   # Infrastructure
   TrustedDevice\Infrastructure\Persistence\Doctrine\Repository\TrustedDeviceRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   TrustedDevice\Infrastructure\Persistence\Doctrine\Mapper\TrustedDeviceMapper: ~
 
@@ -47,4 +47,4 @@ services:
   TrustedDevice\Presentation\Api\Provider\TrustedDevice\ListTrustedDevicesProvider: ~
 
   # Adapters (cross-module integration)
-  TrustedDevice\Infrastructure\Adapter\TrustedDeviceCheckAdapter: ~
+  TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter: ~

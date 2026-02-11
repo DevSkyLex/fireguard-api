@@ -18,6 +18,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use TrustedDevice\Presentation\Api\Service\TrustedDeviceCookieService;
 
 /**
  * Test LoginProcessorTest.
@@ -40,6 +41,7 @@ final class LoginProcessorTest extends TestCase
       commandBus: $this->createMock(CommandBusPort::class),
       requestStack: new RequestStack(),
       cookieService: $this->createMock(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -67,6 +69,7 @@ final class LoginProcessorTest extends TestCase
       commandBus: $commandBus,
       requestStack: new RequestStack(),
       cookieService: $this->createMock(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
@@ -97,6 +100,7 @@ final class LoginProcessorTest extends TestCase
       commandBus: $commandBus,
       requestStack: new RequestStack(),
       cookieService: $this->createMock(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(TooManyRequestsHttpException::class);
@@ -132,6 +136,7 @@ final class LoginProcessorTest extends TestCase
       commandBus: $commandBus,
       requestStack: new RequestStack(),
       cookieService: $this->createMock(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
     );
 
     $output = $processor->process($input, new Post());
@@ -185,6 +190,7 @@ final class LoginProcessorTest extends TestCase
       commandBus: $commandBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
+      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
     );
 
     $output = $processor->process($input, new Post());

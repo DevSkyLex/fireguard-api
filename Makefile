@@ -21,7 +21,7 @@ ENV_PREFIX = APP_CACHE_DIR="$(APP_CACHE_DIR)" APP_LOG_DIR="$(APP_LOG_DIR)"
 XDEBUG_PREFIX = XDEBUG_MODE=coverage
 endif
 
-.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 phpunit:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --testdox
@@ -50,7 +50,18 @@ cs-fix:
 cache-clear:
 	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) cache:clear
 
-# Run every test suite and static analysis in sequence
+
+# Apply auth database migrations
+migrate-auth:
+	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
+
+# Apply main database migrations
+migrate-main:
+	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
+
+# Apply all database migrations
+migrate-all: migrate-auth migrate-main
+
 test: cs-lint phpstan deptrac lint phpunit-fast
 
 # Run tests with code coverage (requires PCOV or Xdebug)
@@ -73,7 +84,8 @@ docker-build:
 docker-up:
 	docker compose up -d
 	@echo "Services started. App available at http://localhost:8000"
-	@echo "Database available at localhost:5433"
+	@echo "Auth database available at localhost:5433"
+	@echo "Main database available at localhost:5434"
 	@echo "Redis available at localhost:6379"
 
 docker-down:
@@ -92,3 +104,5 @@ sonar-up:
 # Run SonarQube analysis (requires server to be up)
 sonar-scan:
 	docker compose -f compose.sonar.yaml run --rm -e SONAR_TOKEN sonar-scanner
+
+

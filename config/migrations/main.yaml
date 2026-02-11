@@ -1,0 +1,7 @@
+em: main
+table_storage:
+  table_name: doctrine_migration_versions_main
+
+migrations_paths:
+  DoctrineMigrations\Main: migrations/main
+

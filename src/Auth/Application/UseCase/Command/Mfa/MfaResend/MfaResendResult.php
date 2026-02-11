@@ -20,6 +20,7 @@ final readonly class MfaResendResult implements ResultMessage
 {
   // #region Constants
   public const string ERROR_INVALID_CHALLENGE = 'invalid_challenge';
+
   public const string ERROR_RESEND_NOT_ALLOWED = 'resend_not_allowed';
   // #endregion
 
@@ -69,8 +70,6 @@ final readonly class MfaResendResult implements ResultMessage
    * @param int $maxAttempts max verification attempts
    * @param int $canResendIn seconds until resend is allowed
    * @param string $message success message
-   *
-   * @return self
    */
   public static function success(
     string $preAuthToken,
@@ -101,8 +100,6 @@ final readonly class MfaResendResult implements ResultMessage
    * @param string $message error message
    * @param string $errorCode error code
    * @param int $retryAfter retry-after seconds
-   *
-   * @return self
    */
   public static function failed(
     string $message,

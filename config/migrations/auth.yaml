@@ -1,0 +1,6 @@
+em: auth
+table_storage:
+  table_name: doctrine_migration_versions_auth
+
+migrations_paths:
+  DoctrineMigrations\Auth: migrations/auth

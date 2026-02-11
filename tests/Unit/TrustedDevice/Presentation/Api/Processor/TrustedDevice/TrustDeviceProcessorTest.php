@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\TrustedDevice\Presentation\Api\Processor\TrustedDevice;
 
 use ApiPlatform\Metadata\Post;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -13,7 +14,6 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\Security\Core\User\UserInterface;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice\{TrustDeviceCommand, TrustDeviceResult};
 use TrustedDevice\Presentation\Api\Dto\Output\TrustedDevice\TrustDeviceOutput;
 use TrustedDevice\Presentation\Api\EventSubscriber\TrustedDeviceCookieListener;
@@ -47,10 +47,14 @@ final class TrustDeviceProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $user = $this->createMock(UserInterface::class);
-    $user->expects(self::once())
-      ->method('getUserIdentifier')
-      ->willReturn('user-123');
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
@@ -152,7 +156,14 @@ final class TrustDeviceProcessorTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
       ->method('getUser')
-      ->willReturn($this->createMock(UserInterface::class));
+      ->willReturn(new SecurityUser(
+        id: 'user-123',
+        email: 'user@example.com',
+        password: 'hashed-password',
+        roles: ['ROLE_USER'],
+        scopes: [],
+        isActive: true,
+      ));
 
     $processor = new TrustDeviceProcessor(
       commandBus: $this->createMock(CommandBusPort::class),

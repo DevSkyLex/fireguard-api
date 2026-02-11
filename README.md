@@ -1,4 +1,4 @@
-﻿# Fireguard Auth Server Documentation
+# Fireguard Auth Server Documentation
 
 Modular authentication and authorization server built with Symfony. It provides OAuth 2.0 and OpenID Connect capabilities for APIs and SSO use cases.
 
@@ -38,8 +38,8 @@ Fireguard Auth Server is a modular auth stack designed around clear module bound
 ## Scope & Boundaries (SSO vs Business App)
 
 - **Auth Server (this repo)**: identity, authentication, MFA/OTP, token issuance, session tracking, RBAC and permissions.
-- **Business app(s)**: company membership, domain roles/permissions, and business rules using the `sub` (user id) from tokens.
-- If multi-tenant business logic is required, prefer keeping tenant membership in the business app and treat this service as the identity provider.
+- **Business app(s)**: core domain workflows for fire safety operations (sites, assets, interventions, compliance), using `sub` from tokens and `Organization` context.
+- Organization membership and Organization-scoped RBAC are available in this server via the Organization module; deeper operational domain rules stay in domain modules.
 
 ## Features
 
@@ -51,6 +51,7 @@ Fireguard Auth Server is a modular auth stack designed around clear module bound
 | Sessions | Session tracking, revocation, and trusted devices |
 | Multi-tenant | Tenant-aware resources and policies |
 | RBAC | Roles and permissions management |
+| Organization context | Organization membership and Organization-scoped RBAC |
 | API Platform | HTTP exposure, validation, and rate limiting |
 
 ---
@@ -155,6 +156,7 @@ flowchart LR
   API --> Session[Session Module]
   API --> TrustedDevice[TrustedDevice Module]
   API --> Authorization[Authorization Module]
+  API --> Organization[Organization Module]
   API --> Otp[OTP Module]
   Auth --> Shared[Shared]
   OAuth --> Shared
@@ -163,6 +165,7 @@ flowchart LR
   Session --> Shared
   TrustedDevice --> Shared
   Authorization --> Shared
+  Organization --> Shared
   Otp --> Shared
 ```
 
@@ -197,7 +200,8 @@ Configuration is driven by environment variables in `.env` and overrides in `.en
 | Variable | Purpose |
 | --- | --- |
 | `APP_ENV`, `APP_SECRET` | Symfony environment and secret |
-| `DATABASE_URL` | Database connection string |
+| `AUTH_DATABASE_URL` | Auth database connection string |
+| `MAIN_DATABASE_URL` | Main database connection string |
 | `OAUTH_ISSUER`, `OAUTH_ENCRYPTION_KEY` | OIDC issuer and encryption key |
 | `ACCESS_TOKEN_TTL`, `TOKEN_CACHE_TTL` | Access token lifetime and cache TTL |
 | `REFRESH_TOKEN_COOKIE_NAME`, `REFRESH_TOKEN_LIFETIME_SHORT`, `REFRESH_TOKEN_LIFETIME_LONG` | Refresh token cookie settings |
@@ -219,7 +223,7 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
 
 - PHP 8.4+
 - Composer
-- Database (PostgreSQL by default, configurable)
+- Databases (PostgreSQL by default, configurable)
 - Docker and Docker Compose (for SonarQube only)
 - Make (recommended)
 
@@ -233,9 +237,9 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
    ```bash
    cp .env .env.local
    ```
-3. Configure the database and run migrations:
+3. Configure both databases and run migrations:
    ```bash
-   php bin/console doctrine:migrations:migrate
+   make migrate-all
    ```
 4. Start the application using your preferred Symfony runtime:
    ```bash
@@ -253,7 +257,8 @@ make docker-up
 
 This starts:
 - **App**: http://localhost:8000
-- **PostgreSQL**: localhost:5433
+- **PostgreSQL (auth)**: localhost:5433
+- **PostgreSQL (main)**: localhost:5434
 - **Redis**: localhost:6379
 - **Mailpit** (email testing): http://localhost:8025
 
@@ -275,6 +280,9 @@ Other Docker commands:
 | `make cs-lint` | Check coding style |
 | `make cs-fix` | Fix coding style issues |
 | `make cache-clear` | Clear and warm up cache |
+| `make migrate-auth` | Apply auth database migrations |
+| `make migrate-main` | Apply main database migrations |
+| `make migrate-all` | Apply auth + main migrations |
 | `make coverage` | Run tests with code coverage (text output) |
 | `make coverage-html` | Run tests with HTML coverage report |
 | `make mutation` | Run mutation testing with Infection |
@@ -304,7 +312,7 @@ make mutation
 ```
 
 > [!NOTE]
-> Use `.env.test` for test overrides. The default test database is SQLite.
+> Use `.env.test` for test overrides. The default test auth and main databases are SQLite.
 
 ## Code Quality
 
@@ -335,3 +343,8 @@ Security-sensitive configuration and guidance is documented in `SECURITY.md`.
 ## License
 
 This project is proprietary. See internal licensing guidance for distribution and use.
+
+
+
+
+

@@ -34,7 +34,7 @@ services:
     # Repository
     Session\Infrastructure\Persistence\Doctrine\Repository\SessionRepository:
         arguments:
-            $entityManager: '@doctrine.orm.entity_manager'
+            $entityManager: '@doctrine.orm.auth_entity_manager'
 
     Session\Infrastructure\Persistence\Doctrine\Mapper\SessionMapper: ~
 

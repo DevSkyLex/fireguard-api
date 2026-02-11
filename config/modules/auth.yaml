@@ -20,7 +20,7 @@ services:
     alias: Auth\Infrastructure\Adapter\Session\SessionTrackingAdapter
 
   Auth\Application\Port\Outbound\TrustedDeviceCheckPort:
-    alias: TrustedDevice\Infrastructure\Adapter\TrustedDeviceCheckAdapter
+    alias: TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter
 
   # Adapters
   Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
@@ -91,3 +91,4 @@ services:
 
   # Console Commands
   Auth\Infrastructure\Console\CleanupAuthDataCommand: ~
+

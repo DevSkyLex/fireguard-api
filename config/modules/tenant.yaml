@@ -28,7 +28,7 @@ services:
     # Repository
     Tenant\Infrastructure\Persistence\Doctrine\Repository\TenantRepository:
         arguments:
-            $entityManager: '@doctrine.orm.entity_manager'
+            $entityManager: '@doctrine.orm.auth_entity_manager'
 
     Tenant\Infrastructure\Persistence\Doctrine\Mapper\TenantMapper: ~
 

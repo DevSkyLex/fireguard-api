@@ -57,7 +57,6 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): RequestPasswordResetOutput
   {
-    /** @phpstan-ignore instanceof.alwaysTrue */
     if (!$data instanceof RequestPasswordResetInput) {
       throw new InvalidArgumentException('Invalid input data');
     }

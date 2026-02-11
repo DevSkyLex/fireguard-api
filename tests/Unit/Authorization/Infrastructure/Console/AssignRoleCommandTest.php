@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Authorization\Infrastructure\Console;
 
 use Authorization\Infrastructure\Console\AssignRoleCommand;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\RoleRecord;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
@@ -121,11 +122,23 @@ final class AssignRoleCommandTest extends TestCase
       ->with(['name' => 'admin'])
       ->willReturn($role);
 
+    /** @var EntityRepository<RoleAssignmentRecord>&MockObject $assignmentRepo */
+    $assignmentRepo = $this->createMock(EntityRepository::class);
+    $assignmentRepo->expects(self::once())
+      ->method('findOneBy')
+      ->willReturn(null);
+    $assignmentRepo->expects(self::once())
+      ->method('findBy')
+      ->willReturn([
+        $this->createAssignment($role, $user->id),
+      ]);
+
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
         [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
+        [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
     $entityManager->expects(self::once())
       ->method('flush');
@@ -139,7 +152,6 @@ final class AssignRoleCommandTest extends TestCase
     ]);
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-    self::assertTrue($user->roles->contains($role));
     self::assertStringContainsString('assigned to user', $tester->getDisplay());
     self::assertStringContainsString('Current roles:', $tester->getDisplay());
   }
@@ -149,7 +161,6 @@ final class AssignRoleCommandTest extends TestCase
   {
     $user = $this->createUser();
     $role = $this->createRole('admin');
-    $user->roles->add($role);
 
     $userRepo = $this->createMock(EntityRepository::class);
     $userRepo->expects(self::once())
@@ -163,11 +174,18 @@ final class AssignRoleCommandTest extends TestCase
       ->with(['name' => 'admin'])
       ->willReturn($role);
 
+    /** @var EntityRepository<RoleAssignmentRecord>&MockObject $assignmentRepo */
+    $assignmentRepo = $this->createMock(EntityRepository::class);
+    $assignmentRepo->expects(self::once())
+      ->method('findOneBy')
+      ->willReturn($this->createAssignment($role, $user->id));
+
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
         [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
+        [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
     $entityManager->expects(self::never())
       ->method('flush');
@@ -189,7 +207,7 @@ final class AssignRoleCommandTest extends TestCase
   {
     $user = $this->createUser();
     $role = $this->createRole('admin');
-    $user->roles->add($role);
+    $existingAssignment = $this->createAssignment($role, $user->id);
 
     $userRepo = $this->createMock(EntityRepository::class);
     $userRepo->expects(self::once())
@@ -203,12 +221,25 @@ final class AssignRoleCommandTest extends TestCase
       ->with(['name' => 'admin'])
       ->willReturn($role);
 
+    /** @var EntityRepository<RoleAssignmentRecord>&MockObject $assignmentRepo */
+    $assignmentRepo = $this->createMock(EntityRepository::class);
+    $assignmentRepo->expects(self::once())
+      ->method('findOneBy')
+      ->willReturn($existingAssignment);
+    $assignmentRepo->expects(self::once())
+      ->method('findBy')
+      ->willReturn([]);
+
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
         [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
+        [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
+    $entityManager->expects(self::once())
+      ->method('remove')
+      ->with($existingAssignment);
     $entityManager->expects(self::once())
       ->method('flush');
 
@@ -222,7 +253,6 @@ final class AssignRoleCommandTest extends TestCase
     ]);
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-    self::assertFalse($user->roles->contains($role));
     self::assertStringContainsString('removed from user', $tester->getDisplay());
   }
 
@@ -244,11 +274,18 @@ final class AssignRoleCommandTest extends TestCase
       ->with(['name' => 'admin'])
       ->willReturn($role);
 
+    /** @var EntityRepository<RoleAssignmentRecord>&MockObject $assignmentRepo */
+    $assignmentRepo = $this->createMock(EntityRepository::class);
+    $assignmentRepo->expects(self::once())
+      ->method('findOneBy')
+      ->willReturn(null);
+
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
       ->willReturnMap([
         [UserRecord::class, $userRepo],
         [RoleRecord::class, $roleRepo],
+        [RoleAssignmentRecord::class, $assignmentRepo],
       ]);
     $entityManager->expects(self::never())
       ->method('flush');
@@ -318,6 +355,19 @@ final class AssignRoleCommandTest extends TestCase
     $user->createdAt = new DateTimeImmutable();
 
     return $user;
+  }
+
+  private function createAssignment(RoleRecord $role, string $userId): RoleAssignmentRecord
+  {
+    $assignment = new RoleAssignmentRecord();
+    $assignment->id = '123e4567-e89b-12d3-a456-426614174998';
+    $assignment->roleId = $role->id;
+    $assignment->subjectType = 'user';
+    $assignment->subjectId = $userId;
+    $assignment->assignedAt = new DateTimeImmutable();
+    $assignment->role = $role;
+
+    return $assignment;
   }
 
   private function createRole(string $name): RoleRecord

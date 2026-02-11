@@ -8,8 +8,13 @@ imports:
   - { resource: '../modules/user.yaml' }
   - { resource: '../modules/session.yaml' }
   - { resource: '../modules/tenant.yaml' }
+  - { resource: '../modules/organization.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/trusted_device.yaml' }
   - { resource: '../modules/authorization.yaml' }
   - { resource: '../modules/audit.yaml' }
+
+
+
+
 

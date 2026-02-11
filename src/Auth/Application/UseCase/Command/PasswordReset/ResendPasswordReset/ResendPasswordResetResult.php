@@ -20,6 +20,7 @@ final readonly class ResendPasswordResetResult implements ResultMessage
 {
   // #region Constants
   public const string ERROR_INVALID_TOKEN = 'invalid_token';
+
   public const string ERROR_RESEND_NOT_ALLOWED = 'resend_not_allowed';
   // #endregion
 
@@ -63,8 +64,6 @@ final readonly class ResendPasswordResetResult implements ResultMessage
    * @param int|null $maxAttempts max verification attempts
    * @param int|null $canResendIn seconds until resend is allowed
    * @param string $message success message
-   *
-   * @return self
    */
   public static function success(
     ?string $challengeToken = null,
@@ -91,8 +90,6 @@ final readonly class ResendPasswordResetResult implements ResultMessage
    * @param string $message error message
    * @param string $errorCode error code
    * @param int $retryAfter retry-after seconds
-   *
-   * @return self
    */
   public static function failed(
     string $message,

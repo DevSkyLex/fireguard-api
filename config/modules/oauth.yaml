@@ -50,23 +50,23 @@ services:
   # Repository
   OAuth\Infrastructure\Persistence\Doctrine\Repository\Client\ClientRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   OAuth\Infrastructure\Persistence\Doctrine\Repository\AccessTokenRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   OAuth\Infrastructure\Persistence\Doctrine\Repository\RefreshTokenRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   OAuth\Infrastructure\Persistence\Doctrine\Repository\AuthCodeRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   OAuth\Infrastructure\Persistence\Doctrine\Repository\ConsentRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper: ~
   OAuth\Infrastructure\Persistence\Doctrine\Mapper\ConsentMapper: ~

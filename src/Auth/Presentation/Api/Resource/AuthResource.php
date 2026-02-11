@@ -21,8 +21,8 @@ use Auth\Presentation\Api\Dto\Output\Auth\{
 use Auth\Presentation\Api\Operation\AuthOperations;
 use Auth\Presentation\Api\Processor\Auth\{
   LoginProcessor,
-  MfaResendProcessor,
   LogoutProcessor,
+  MfaResendProcessor,
   RefreshTokenProcessor
 };
 use Auth\Presentation\Api\Serialization\AuthSerializationGroup;

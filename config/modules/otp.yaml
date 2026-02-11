@@ -19,7 +19,7 @@ services:
   # OTP Repository
   Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository:
     arguments:
-      $entityManager: '@doctrine.orm.entity_manager'
+      $entityManager: '@doctrine.orm.auth_entity_manager'
 
   Otp\Infrastructure\Persistence\Doctrine\Mapper\OtpMapper: ~
 
@@ -61,4 +61,3 @@ services:
   Otp\Presentation\Api\Provider\Challenge\GetChallengeStatusProvider: ~
   Otp\Presentation\Api\Provider\Config\ListPurposesProvider: ~
   Otp\Presentation\Api\Provider\Config\ListChannelsProvider: ~
-

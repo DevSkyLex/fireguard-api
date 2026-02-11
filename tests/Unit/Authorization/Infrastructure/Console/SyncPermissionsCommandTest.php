@@ -16,6 +16,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Uid\Uuid;
 
 use function count;
+use function is_string;
 
 /**
  * Test SyncPermissionsCommandTest.
@@ -72,6 +73,9 @@ final class SyncPermissionsCommandTest extends TestCase
     $permissionRepo->method('findOneBy')
       ->willReturnCallback(static function (array $criteria) use ($definitionMap): ?PermissionRecord {
         $name = $criteria['name'] ?? '';
+        if (!is_string($name)) {
+          $name = '';
+        }
         if ('users.create' === $name) {
           return null;
         }
@@ -137,6 +141,9 @@ final class SyncPermissionsCommandTest extends TestCase
         ++$callCount;
         if ($callCount <= $definitionCount) {
           $name = $criteria['name'] ?? '';
+          if (!is_string($name)) {
+            $name = '';
+          }
           $record = new PermissionRecord();
           $record->id = Uuid::v7()->toRfc4122();
           $record->name = $name;

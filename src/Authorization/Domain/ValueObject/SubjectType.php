@@ -8,7 +8,7 @@ namespace Authorization\Domain\ValueObject;
  * Enum SubjectType.
  *
  * Represents the type of subject that can be assigned a role.
- * The SSO manages only users - company/organization context is
+ * The SSO manages only users - Organization/Organization context is
  * provided as external reference IDs.
  *
  * @category ValueObject

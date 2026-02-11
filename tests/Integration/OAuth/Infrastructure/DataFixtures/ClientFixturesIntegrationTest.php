@@ -35,7 +35,7 @@ final class ClientFixturesIntegrationTest extends KernelTestCase
     $container = static::getContainer();
 
     /** @var EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.entity_manager');
+    $entityManager = $container->get('doctrine.orm.auth_entity_manager');
     $this->entityManager = $entityManager;
 
   }

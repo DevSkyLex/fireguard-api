@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Organization\Application\UseCase\Query\Organization\GetOrganization;
+
+use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\ValueObject\OrganizationId;
+use Shared\Application\Message\QueryHandler;
+
+/**
+ * UseCase GetOrganizationHandler.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class GetOrganizationHandler implements QueryHandler
+{
+  // #region Constructor
+  public function __construct(
+    private OrganizationRepositoryPort $organizationRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+
+  /**
+   * Method __invoke.
+   *
+   * Handles the corresponding use case execution.
+   *
+   * @since 1.0.0
+   *
+   * @param GetOrganizationQuery $query the query payload
+   */
+  public function __invoke(GetOrganizationQuery $query): GetOrganizationResult
+  {
+    $organization = $this->organizationRepository->findById(OrganizationId::fromString($query->organizationId));
+
+    if (null === $organization) {
+      throw OrganizationNotFoundException::withId($query->organizationId);
+    }
+
+    return new GetOrganizationResult(
+      id: (string) $organization->id(),
+      name: (string) $organization->name(),
+      slug: (string) $organization->slug(),
+      ownerUserId: $organization->ownerUserId(),
+      createdByUserId: $organization->createdByUserId(),
+      status: $organization->status()->value,
+      isActive: $organization->isActive(),
+      createdAt: $organization->createdAt(),
+      updatedAt: $organization->updatedAt(),
+    );
+  }
+  // #endregion
+}

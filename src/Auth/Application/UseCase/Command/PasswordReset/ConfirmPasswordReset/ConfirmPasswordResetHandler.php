@@ -6,12 +6,12 @@ namespace Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset;
 
 use Auth\Application\Port\Outbound\TokenRevocationPort;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
 use Otp\Domain\ValueObject\ChallengeToken;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Shared\Application\Message\CommandHandler;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\{HashedPassword, UserId};
-use Otp\Domain\Exception\{OtpExpiredException, OtpMaxAttemptsException};
 
 /**
  * Handler ConfirmPasswordResetHandler.
@@ -86,14 +86,12 @@ final readonly class ConfirmPasswordResetHandler implements CommandHandler
           attemptsRemaining: $otp->attemptsRemaining(),
         );
       }
-    }
-    catch (OtpExpiredException) {
+    } catch (OtpExpiredException) {
       return ConfirmPasswordResetResult::failed(
         message: 'The password reset code has expired. Please request a new one.',
         errorCode: ConfirmPasswordResetResult::ERROR_EXPIRED,
       );
-    }
-    catch (OtpMaxAttemptsException) {
+    } catch (OtpMaxAttemptsException) {
       return ConfirmPasswordResetResult::failed(
         message: 'Maximum verification attempts exceeded. Please request a new code.',
         errorCode: ConfirmPasswordResetResult::ERROR_MAX_ATTEMPTS,

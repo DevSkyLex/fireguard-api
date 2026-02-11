@@ -135,7 +135,6 @@ final readonly class RequestPasswordResetOutput
       ],
     )]
     public ?int $maxAttempts = null,
-
     #[Groups(groups: [AuthSerializationGroup::TOKEN_READ])]
     #[SerializedName(serializedName: 'canResendIn')]
     #[ApiProperty(

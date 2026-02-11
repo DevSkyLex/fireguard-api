@@ -14,11 +14,14 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-dev}
       APP_DEBUG: ${APP_DEBUG:-1}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
+      AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
+      MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
       REDIS_URL: redis://redis:6379
       MAILER_DSN: smtp://mailer:1025
     depends_on:
-      database:
+      auth_database:
+        condition: service_healthy
+      main_database:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -31,24 +34,43 @@ services:
 ###< fireguard/app ###
 
 ###> doctrine/doctrine-bundle ###
-  database:
+  auth_database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-db_fireguard_auth}
+      POSTGRES_DB: ${POSTGRES_AUTH_DB:-db_fireguard_auth}
       # You should definitely change the password in production
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
-      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}
+      POSTGRES_USER: ${POSTGRES_AUTH_USER:-admin}
     healthcheck:
-      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-db_fireguard_auth}", "-U", "${POSTGRES_USER:-admin}"]
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_AUTH_DB:-db_fireguard_auth}", "-U", "${POSTGRES_AUTH_USER:-admin}"]
       timeout: 5s
       retries: 5
       start_period: 60s
     volumes:
-      - database_data:/var/lib/postgresql/data:rw
+      - auth_database_data:/var/lib/postgresql/data:rw
       # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
-      # - ./docker/db/data:/var/lib/postgresql/data:rw
+      # - ./docker/db/auth-data:/var/lib/postgresql/data:rw
+
+  main_database:
+    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_MAIN_DB:-db_fireguard_main}
+      # You should definitely change the password in production
+      POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}
+      POSTGRES_USER: ${POSTGRES_MAIN_USER:-main_admin}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_MAIN_DB:-db_fireguard_main}", "-U", "${POSTGRES_MAIN_USER:-main_admin}"]
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - main_database_data:/var/lib/postgresql/data:rw
+      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/main-data:/var/lib/postgresql/data:rw
 ###< doctrine/doctrine-bundle ###
 
 ###> symfony/cache ###
@@ -67,7 +89,8 @@ services:
 
 volumes:
 ###> doctrine/doctrine-bundle ###
-  database_data:
+  auth_database_data:
+  main_database_data:
 ###< doctrine/doctrine-bundle ###
 ###> fireguard/app ###
   app_var:
@@ -76,3 +99,4 @@ volumes:
 ###> symfony/cache ###
   redis_data:
 ###< symfony/cache ###
+

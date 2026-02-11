@@ -62,26 +62,42 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
     mkdir($cacheDir, 0777, true);
   }
 
-  $databaseUrl = $_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? '';
-  if (!is_string($databaseUrl)) {
-    $databaseUrl = '';
-  }
   $resetNonSqlite = filter_var($_SERVER['TEST_DB_RESET'] ?? $_ENV['TEST_DB_RESET'] ?? false, FILTER_VALIDATE_BOOLEAN);
-  $isSqlite = '' === $databaseUrl || str_starts_with($databaseUrl, 'sqlite://');
-  if ($isSqlite) {
-    $dbPath = $baseTempDir . DIRECTORY_SEPARATOR . 'test.db';
+
+  /** @var array<string, string> $databaseFiles */
+  $databaseFiles = [
+    'AUTH_DATABASE_URL' => 'test-auth.db',
+    'MAIN_DATABASE_URL' => 'test-main.db',
+  ];
+
+  /** @var array<string, bool> $sqliteConnections */
+  $sqliteConnections = [];
+
+  foreach ($databaseFiles as $envVar => $sqliteFileName) {
+    $databaseUrl = $_SERVER[$envVar] ?? $_ENV[$envVar] ?? '';
+    if (!is_string($databaseUrl)) {
+      $databaseUrl = '';
+    }
+
+    $isSqlite = '' === $databaseUrl || str_starts_with($databaseUrl, 'sqlite://');
+    $sqliteConnections[$envVar] = $isSqlite;
+
+    if (!$isSqlite) {
+      continue;
+    }
+
+    $dbPath = $baseTempDir . DIRECTORY_SEPARATOR . $sqliteFileName;
     $normalizedPath = ltrim(str_replace('\\', '/', $dbPath), '/');
     $sqliteUrl = 'sqlite:///' . $normalizedPath;
-    $_SERVER['DATABASE_URL'] = $_ENV['DATABASE_URL'] = $sqliteUrl;
-    $databaseUrl = $sqliteUrl;
+    $_SERVER[$envVar] = $_ENV[$envVar] = $sqliteUrl;
+
     if (file_exists($dbPath)) {
       @unlink($dbPath);
     }
   }
 
-  $shouldResetSchema = $isSqlite || $resetNonSqlite;
   $kernelClass = $_SERVER['KERNEL_CLASS'] ?? $_ENV['KERNEL_CLASS'] ?? 'App\\Kernel';
-  if ($shouldResetSchema && is_string($kernelClass) && class_exists($kernelClass) && is_subclass_of($kernelClass, KernelInterface::class)) {
+  if (is_string($kernelClass) && class_exists($kernelClass) && is_subclass_of($kernelClass, KernelInterface::class)) {
     /** @var KernelInterface $kernel */
     // Boot with debug=false for schema setup only - tests will recompile with their own settings
     $kernel = new $kernelClass($environment, false);
@@ -89,24 +105,39 @@ if (($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? null) === 'test') {
 
     /** @var ContainerInterface $container */
     $container = $kernel->getContainer();
-    /** @var Doctrine\ORM\EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.entity_manager');
 
-    $schemaTool = new SchemaTool($entityManager);
-    $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
+    /** @var array<string, string> $entityManagers */
+    $entityManagers = [
+      'doctrine.orm.auth_entity_manager' => 'AUTH_DATABASE_URL',
+      'doctrine.orm.main_entity_manager' => 'MAIN_DATABASE_URL',
+    ];
 
-    if ($resetNonSqlite) {
-      try {
-        $schemaTool->dropSchema($metadata);
-      } catch (Throwable) {
-        // Schema might not exist yet
+    foreach ($entityManagers as $serviceId => $envVar) {
+      $shouldResetSchema = $resetNonSqlite || ($sqliteConnections[$envVar] ?? false);
+      if (!$shouldResetSchema) {
+        continue;
       }
+
+      /** @var Doctrine\ORM\EntityManagerInterface $entityManager */
+      $entityManager = $container->get($serviceId);
+
+      $schemaTool = new SchemaTool($entityManager);
+      $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
+
+      if ($resetNonSqlite) {
+        try {
+          $schemaTool->dropSchema($metadata);
+        } catch (Throwable) {
+          // Schema might not exist yet
+        }
+      }
+
+      $schemaTool->createSchema($metadata);
+
+      $entityManager->clear();
+      $entityManager->getConnection()->close();
     }
 
-    $schemaTool->createSchema($metadata);
-
-    $entityManager->clear();
-    $entityManager->getConnection()->close();
     $kernel->shutdown();
   }
 }

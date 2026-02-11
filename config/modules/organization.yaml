@@ -1,0 +1,78 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Organization\Presentation\:
+    resource: '../../src/Organization/Presentation'
+
+  organization.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Command handlers
+  Organization\Application\UseCase\Command\Organization\CreateOrganization\CreateOrganizationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\CreateOrganizationRoleHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\ListOrganizationMembersHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\ListOrganizationRolesHandler:
+    tags: ['messenger.message_handler']
+
+  # Repositories
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRoleRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Outbound ports
+  Organization\Application\Port\Outbound\OrganizationRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository
+
+  Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRoleRepository
+
+  Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository
+
+  Organization\Application\Port\Outbound\OrganizationLegalProfileRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository
+
+  # Inbound ports
+  Organization\Application\Port\Inbound\OrganizationAuthorizationPort:
+    alias: Organization\Application\Service\OrganizationAuthorizationService
+
+  Organization\Application\Service\OrganizationAuthorizationService: ~

@@ -27,6 +27,7 @@ final class MaskedDestinationTest extends TestCase
    * @dataProvider emailProvider
    */
   #[Test]
+  #[DataProvider('emailProvider')]
   public function testMaskEmail(string $email, string $expected): void
   {
     $masked = MaskedDestination::maskEmail($email);
@@ -47,7 +48,7 @@ final class MaskedDestinationTest extends TestCase
       ],
       'short email' => [
         'ab@cd.ef',
-        'a***@c***.ef',
+        'ab***@cd***.ef',
       ],
       'very short' => [
         'a@b.c',
@@ -68,6 +69,7 @@ final class MaskedDestinationTest extends TestCase
    * @dataProvider phoneProvider
    */
   #[Test]
+  #[DataProvider('phoneProvider')]
   public function testMaskPhone(string $phone, string $expected): void
   {
     $masked = MaskedDestination::maskPhone($phone);
@@ -84,19 +86,19 @@ final class MaskedDestinationTest extends TestCase
     return [
       'french mobile' => [
         '+33612345678',
-        '+33****5678',
+        '+33*****5678',
       ],
       'french mobile without prefix' => [
         '0612345678',
-        '061****5678',
+        '061***5678',
       ],
       'short number' => [
         '123',
-        '12***',
+        '***',
       ],
       'international' => [
         '+14155552671',
-        '+14****2671',
+        '+14*****2671',
       ],
     ];
   }

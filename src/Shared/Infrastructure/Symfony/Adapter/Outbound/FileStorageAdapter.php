@@ -14,6 +14,7 @@ use function file_exists;
 use function file_put_contents;
 use function is_dir;
 use function is_file;
+use function is_string;
 use function ltrim;
 use function mkdir;
 use function unlink;
@@ -126,7 +127,7 @@ final readonly class FileStorageAdapter implements FileStoragePort
     $reader = $this->fileReader ?? 'file_get_contents';
     $data = @$reader($fullPath);
 
-    if (false === $data) {
+    if (false === $data || !is_string($data)) {
       throw FileStorageException::readFailed(
         path: $fullPath,
       );

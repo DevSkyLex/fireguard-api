@@ -39,7 +39,11 @@ final class OidcClaimsBuilder implements OidcClaimsBuilderInterface
    */
   public function buildUserInfoClaims(OidcUser $user, array $scopes): array
   {
-    return $this->buildClaims(user: $user, scopes: $scopes, includeAuthTime: false);
+    return $this->buildClaims(
+      user: $user,
+      scopes: $scopes,
+      includeAuthTime: false,
+    );
   }
 
   /**
@@ -57,7 +61,11 @@ final class OidcClaimsBuilder implements OidcClaimsBuilderInterface
    */
   public function buildIdTokenClaims(OidcUser $user, array $scopes): array
   {
-    return $this->buildClaims(user: $user, scopes: $scopes, includeAuthTime: true);
+    return $this->buildClaims(
+      user: $user,
+      scopes: $scopes,
+      includeAuthTime: true,
+    );
   }
 
   /**

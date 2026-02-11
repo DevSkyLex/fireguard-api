@@ -117,7 +117,7 @@ final class TenantNameTest extends TestCase
     return [
       'simple name' => ['Acme'],
       'name with spaces' => ['Acme Corporation'],
-      'name with numbers' => ['Company 123'],
+      'name with numbers' => ['Organization 123'],
       'name with special chars' => ['Société Générale'],
       'unicode name' => ['日本企業'],
     ];

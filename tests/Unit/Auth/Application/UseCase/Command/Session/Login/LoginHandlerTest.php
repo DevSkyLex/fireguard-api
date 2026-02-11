@@ -290,6 +290,7 @@ final class LoginHandlerTest extends TestCase
       sessionTracking: $this->createMock(SessionTrackingPort::class),
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -350,6 +351,7 @@ final class LoginHandlerTest extends TestCase
       sessionTracking: $sessionTracking,
       eventDispatcher: $this->createMock(EventDispatcherPort::class),
       rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 

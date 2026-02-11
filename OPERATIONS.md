@@ -56,8 +56,9 @@ This document provides operational procedures, runbooks, and monitoring guidance
    APP_ENV=prod
    APP_SECRET=<generate-with-openssl-rand-hex-32>
 
-   # Database
-   DATABASE_URL="postgresql://user:password@host:5432/fireguard_auth?sslmode=require"
+   # Databases
+   AUTH_DATABASE_URL="postgresql://auth_user:password@host:5432/fireguard_auth?sslmode=require"
+   MAIN_DATABASE_URL="postgresql://main_user:password@host:5432/fireguard_main?sslmode=require"
 
    # OAuth2
    OAUTH_ISSUER=https://auth.yourdomain.com
@@ -78,20 +79,32 @@ This document provides operational procedures, runbooks, and monitoring guidance
 
 **Pre-deployment check**:
 ```bash
-# List pending migrations
+# List pending auth migrations
 php bin/console doctrine:migrations:status
 
-# Dry-run migrations (review SQL)
+# List pending main migrations
+php bin/console doctrine:migrations:status --configuration=config/migrations/main.yaml
+
+# Dry-run auth migrations (review SQL)
 php bin/console doctrine:migrations:migrate --dry-run
+
+# Dry-run main migrations (review SQL)
+php bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --dry-run
 ```
 
 **Execute migrations**:
 ```bash
-# Apply migrations
+# Apply auth migrations
 php bin/console doctrine:migrations:migrate --no-interaction
 
-# Verify schema
-php bin/console doctrine:schema:validate
+# Apply main migrations
+php bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
+
+# Verify auth schema
+php bin/console doctrine:schema:validate --em=auth
+
+# Verify main schema
+php bin/console doctrine:schema:validate --em=main
 ```
 
 ### RBAC Permission Sync
@@ -114,11 +127,14 @@ vendor/bin/phpunit --coverage-html var/coverage/html
 
 **Rollback** (if needed):
 ```bash
-# Rollback last migration
+# Rollback last auth migration
 php bin/console doctrine:migrations:migrate prev
 
-# Rollback to specific version
-php bin/console doctrine:migrations:migrate DoctrineMigrations\\Version20240101000000
+# Rollback last main migration
+php bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml prev
+
+# Rollback auth to specific version
+php bin/console doctrine:migrations:migrate DoctrineMigrations\\Auth\\Version20240101000000
 ```
 
 ### JWT Key Generation
@@ -180,7 +196,11 @@ curl -s -o /dev/null -w "%{http_code}" https://auth.yourdomain.com/api/.well-kno
 ### Database Connectivity
 
 ```bash
-php bin/console doctrine:query:sql "SELECT 1" --env=prod
+# Auth database
+php bin/console doctrine:query:sql "SELECT 1" --connection=auth --env=prod
+
+# Main database
+php bin/console doctrine:query:sql "SELECT 1" --connection=main --env=prod
 ```
 
 ### Cache Status
@@ -382,14 +402,17 @@ php bin/console debug:config framework rate_limiter
 
 1. **Check connection count**:
    ```sql
-   SELECT count(*) FROM pg_stat_activity WHERE datname = 'fireguard_auth';
+   SELECT datname, count(*)
+   FROM pg_stat_activity
+   WHERE datname IN ('fireguard_auth', 'fireguard_main')
+   GROUP BY datname;
    ```
 
 2. **Kill idle connections**:
    ```sql
    SELECT pg_terminate_backend(pid)
    FROM pg_stat_activity
-   WHERE datname = 'fireguard_auth'
+   WHERE datname IN ('fireguard_auth', 'fireguard_main')
      AND state = 'idle'
      AND state_change < NOW() - INTERVAL '10 minutes';
    ```
@@ -465,11 +488,13 @@ php bin/console app:cleanup:auth-data --days=90 --dry-run
 **Database backup** (daily):
 ```bash
 pg_dump -Fc fireguard_auth > /backup/fireguard_auth_$(date +%Y%m%d).dump
+pg_dump -Fc fireguard_main > /backup/fireguard_main_$(date +%Y%m%d).dump
 ```
 
 **Restore**:
 ```bash
 pg_restore -d fireguard_auth /backup/fireguard_auth_20240101.dump
+pg_restore -d fireguard_main /backup/fireguard_main_20240101.dump
 ```
 
 **Critical files to backup**:
@@ -492,7 +517,8 @@ pg_restore -d fireguard_auth /backup/fireguard_auth_20240101.dump
 The application is **stateless** and can be horizontally scaled behind a load balancer.
 
 **Requirements for multiple instances**:
-- Shared database (PostgreSQL)
+- Shared auth database (PostgreSQL)
+- Shared main database (PostgreSQL)
 - Shared cache (Redis recommended for production)
 - Same JWT keys on all instances
 - Same encryption keys on all instances
@@ -519,7 +545,8 @@ framework:
 For high traffic, use PgBouncer or similar:
 
 ```env
-DATABASE_URL="postgresql://user:password@pgbouncer:6432/fireguard_auth?sslmode=require"
+AUTH_DATABASE_URL="postgresql://auth_user:password@pgbouncer-auth:6432/fireguard_auth?sslmode=require"
+MAIN_DATABASE_URL="postgresql://main_user:password@pgbouncer-main:6432/fireguard_main?sslmode=require"
 ```
 
 ---
@@ -552,8 +579,11 @@ php bin/console debug:config security
 # Check rate limiter configuration
 php bin/console debug:config framework rate_limiter
 
-# Test database connection
-php bin/console doctrine:query:sql "SELECT NOW()"
+# Test auth database connection
+php bin/console doctrine:query:sql "SELECT NOW()" --connection=auth
+
+# Test main database connection
+php bin/console doctrine:query:sql "SELECT NOW()" --connection=main
 ```
 
 ### Log Locations
@@ -574,3 +604,7 @@ For security incidents, follow your organization's incident response procedures.
 - [SECURITY.md](./SECURITY.md) - Security configuration guide
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Architecture documentation
 - Module documentation in `src/<Module>/MODULE.md`
+
+
+
+

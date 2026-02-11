@@ -64,7 +64,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
     $container = $client->getContainer();
 
     /** @var EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.entity_manager');
+    $entityManager = $container->get('doctrine.orm.auth_entity_manager');
 
     // Load fixtures using proper executor with reference repository
     $loader = new Loader();

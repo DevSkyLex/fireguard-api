@@ -59,12 +59,13 @@
             "User\\": "src/User/",
             "Auth\\": "src/Auth/",
             "Tenant\\": "src/Tenant/",
+            "Organization\\": "src/Organization/",
             "Session\\": "src/Session/",
             "Otp\\": "src/Otp/",
-        "TrustedDevice\\": "src/TrustedDevice/",
-        "Authorization\\": "src/Authorization/",
-        "Audit\\": "src/Audit/"
-      },
+            "TrustedDevice\\": "src/TrustedDevice/",
+            "Authorization\\": "src/Authorization/",
+            "Audit\\": "src/Audit/"
+        },
         "classmap": [
             "src/Kernel.php"
         ]
@@ -122,3 +123,5 @@
         "symfony/phpunit-bridge": "^7.3"
     }
 }
+
+

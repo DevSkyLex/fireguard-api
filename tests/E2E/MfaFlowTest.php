@@ -93,7 +93,7 @@ class MfaFlowTest extends OAuth2WebTestCase
     // 3. Force Known Code (Bypass Email)
     $container = $client->getContainer();
     /** @var \Doctrine\ORM\EntityManagerInterface $em */
-    $em = $container->get('doctrine.orm.entity_manager');
+    $em = $container->get('doctrine.orm.auth_entity_manager');
     $repo = $em->getRepository(\Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord::class);
 
     /** @var \Otp\Infrastructure\Persistence\Doctrine\Record\OtpRecord|null $otpRecord */

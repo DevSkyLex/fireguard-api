@@ -159,16 +159,22 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
+      - name: Create main database
+        run: docker exec ${{ job.services.postgres.id }} psql -U test -d postgres -c "CREATE DATABASE fireguard_main_test;"
+
       - name: Create JWT keys for tests
         run: |
           mkdir -p config/jwt
           openssl genrsa -out config/jwt/private.key 2048
           openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
 
-      - name: Create database schema
-        run: php bin/console doctrine:schema:create --env=test
+      - name: Create database schemas
+        run: |
+          php bin/console doctrine:schema:create --env=test --em=auth
+          php bin/console doctrine:schema:create --env=test --em=main
         env:
-          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
 
       - name: Run core tests with coverage
         run: |
@@ -177,7 +183,8 @@ jobs:
             --coverage-clover=var/coverage/clover.xml \
             --coverage-text
         env:
-          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
           APP_ENV: test
           APP_DEBUG: 0
 
@@ -240,21 +247,28 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
+      - name: Create main database
+        run: docker exec ${{ job.services.postgres.id }} psql -U test -d postgres -c "CREATE DATABASE fireguard_main_test;"
+
       - name: Create JWT keys for tests
         run: |
           mkdir -p config/jwt
           openssl genrsa -out config/jwt/private.key 2048
           openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
 
-      - name: Create database schema
-        run: php bin/console doctrine:schema:create --env=test
+      - name: Create database schemas
+        run: |
+          php bin/console doctrine:schema:create --env=test --em=auth
+          php bin/console doctrine:schema:create --env=test --em=main
         env:
-          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
 
       - name: Run E2E tests
         run: vendor/bin/phpunit --testsuite="E2E Tests"
         env:
-          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
           APP_ENV: test
           APP_DEBUG: 0
 
@@ -361,3 +375,5 @@ jobs:
         env:
           APP_ENV: test
           APP_DEBUG: 0
+
+

@@ -7,8 +7,8 @@ namespace Auth\Application\UseCase\Command\PasswordReset\ResendPasswordReset;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{OtpChannel, OtpPurpose};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
-use Otp\Application\Service\ChallengeResendPolicy;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Service\ChallengeResendPolicy;
 use Otp\Domain\ValueObject\ChallengeToken;
 use Shared\Application\Message\CommandHandler;
 

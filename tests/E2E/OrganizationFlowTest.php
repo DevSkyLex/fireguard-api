@@ -1,0 +1,378 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\E2E;
+
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpFoundation\Response;
+
+use function basename;
+use function is_array;
+use function is_string;
+use function json_encode;
+use function str_contains;
+use function uniqid;
+
+/**
+ * End-to-end tests for Organization management and Organization-scoped RBAC.
+ */
+final class OrganizationFlowTest extends OAuth2WebTestCase
+{
+  public function testCompleteOrganizationManagementFlow(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $ownerEmail = 'Organization-owner-' . uniqid() . '@example.com';
+    $ownerPassword = 'OwnerPassword123!';
+    $memberEmail = 'Organization-member-' . uniqid() . '@example.com';
+    $memberPassword = 'MemberPassword123!';
+
+    $this->createAndActivateUser($client, $ownerEmail, $ownerPassword);
+    $this->createAndActivateUser($client, $memberEmail, $memberPassword);
+
+    $ownerToken = $this->loginAndGetUserAccessToken($client, $ownerEmail, $ownerPassword);
+
+    $OrganizationName = 'Fireguard Organization ' . uniqid();
+
+    // Step 1: Create Organization as owner.
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'name' => $OrganizationName,
+      ]) ?: '',
+    );
+
+    $createOrganizationResponse = $client->getResponse();
+    $this->assertContains(
+      $createOrganizationResponse->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Organization creation should succeed. Response: ' . $createOrganizationResponse->getContent(),
+    );
+
+    $createOrganizationData = $this->decodeJsonResponse($createOrganizationResponse->getContent() ?: '{}');
+    $organizationId = $this->extractResourceId($createOrganizationData);
+
+    $this->assertNotNull($organizationId, 'Organization ID should be present in create response.');
+
+    // Step 2: Owner lists Organizations.
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+    );
+
+    $listCompaniesResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $listCompaniesResponse->getStatusCode(),
+      'Organization list should succeed for owner. Response: ' . $listCompaniesResponse->getContent(),
+    );
+
+    $listCompaniesData = $this->decodeJsonResponse($listCompaniesResponse->getContent() ?: '{}');
+    $organizations = $this->getCollectionMembers($listCompaniesData);
+    $this->assertTrue($this->collectionContainsId($organizations, $organizationId), 'Created Organization should appear in owner list.');
+
+    // Step 3: Owner gets Organization by id.
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+    );
+
+    $getOrganizationResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $getOrganizationResponse->getStatusCode(),
+      'Owner should be able to read Organization. Response: ' . $getOrganizationResponse->getContent(),
+    );
+
+    // Step 4: Add second user as member (default member role).
+    $memberUserId = $this->findUserIdByEmail($client, $memberEmail);
+    $this->assertNotNull($memberUserId, 'Created member user should exist in database.');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/members',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'userId' => $memberUserId,
+      ]) ?: '',
+    );
+
+    $addMemberResponse = $client->getResponse();
+    $this->assertContains(
+      $addMemberResponse->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Adding Organization member should succeed. Response: ' . $addMemberResponse->getContent(),
+    );
+
+    $addMemberData = $this->decodeJsonResponse($addMemberResponse->getContent() ?: '{}');
+    $memberId = $this->extractResourceId($addMemberData);
+
+    $this->assertNotNull($memberId, 'Organization member ID should be present after add member.');
+
+    // Step 5: List Organization members.
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/members',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+    );
+
+    $listMembersResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $listMembersResponse->getStatusCode(),
+      'Listing Organization members should succeed. Response: ' . $listMembersResponse->getContent(),
+    );
+
+    $listMembersData = $this->decodeJsonResponse($listMembersResponse->getContent() ?: '{}');
+    $members = $this->getCollectionMembers($listMembersData);
+    $this->assertTrue($this->collectionContainsId($members, $memberId), 'Added member should appear in members list.');
+
+    // Step 6: Create custom role.
+    $roleName = 'inspector_' . uniqid();
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/roles',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'name' => $roleName,
+        'permissions' => ['organization.members.read', 'organization.roles.read'],
+      ]) ?: '',
+    );
+
+    $createRoleResponse = $client->getResponse();
+    $this->assertContains(
+      $createRoleResponse->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Creating Organization role should succeed. Response: ' . $createRoleResponse->getContent(),
+    );
+
+    $createRoleData = $this->decodeJsonResponse($createRoleResponse->getContent() ?: '{}');
+    $roleId = $this->extractResourceId($createRoleData);
+
+    $this->assertNotNull($roleId, 'Organization role ID should be present after role creation.');
+
+    // Step 7: List roles.
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/roles',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+    );
+
+    $listRolesResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $listRolesResponse->getStatusCode(),
+      'Listing Organization roles should succeed. Response: ' . $listRolesResponse->getContent(),
+    );
+
+    $listRolesData = $this->decodeJsonResponse($listRolesResponse->getContent() ?: '{}');
+    $roles = $this->getCollectionMembers($listRolesData);
+    $this->assertTrue($this->collectionContainsId($roles, $roleId), 'Created role should appear in role list.');
+
+    // Step 8: Assign role to member.
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/members/' . $memberId . '/roles',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'roleId' => $roleId,
+      ]) ?: '',
+    );
+
+    $assignRoleResponse = $client->getResponse();
+    $this->assertContains(
+      $assignRoleResponse->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Assigning Organization role to member should succeed. Response: ' . $assignRoleResponse->getContent(),
+    );
+
+    $assignRoleData = $this->decodeJsonResponse($assignRoleResponse->getContent() ?: '{}');
+    $assignedRoleIds = $assignRoleData['roleIds'] ?? null;
+
+    $this->assertTrue(is_array($assignedRoleIds), 'Assign role response should expose roleIds array.');
+    $this->assertContains($roleId, $assignedRoleIds, 'Assigned role should be present in roleIds response.');
+
+    // Step 9: Member can read Organization after being added.
+    $memberToken = $this->loginAndGetUserAccessToken($client, $memberEmail, $memberPassword);
+
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $memberToken,
+      ],
+    );
+
+    $memberReadResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $memberReadResponse->getStatusCode(),
+      'Added member should be able to read Organization details. Response: ' . $memberReadResponse->getContent(),
+    );
+  }
+
+  public function testOrganizationEndpointsRequireAuthentication(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN],
+      'Organizations endpoint should require authentication. Response: ' . $response->getContent(),
+    );
+  }
+
+  private function loginAndGetUserAccessToken(KernelBrowser $client, string $email, string $password): string
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/auth/login',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode([
+        'email' => $email,
+        'password' => $password,
+      ]) ?: '',
+    );
+
+    $response = $client->getResponse();
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'User login should succeed for E2E flow. Response: ' . $response->getContent(),
+    );
+
+    $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+    $token = $data['access_token'] ?? null;
+
+    $this->assertTrue(is_string($token) && '' !== $token, 'Login response should contain access_token.');
+
+    return $token;
+  }
+
+  private function findUserIdByEmail(KernelBrowser $client, string $email): ?string
+  {
+    /** @var \Doctrine\ORM\EntityManagerInterface $entityManager */
+    $entityManager = $client->getContainer()->get('doctrine.orm.auth_entity_manager');
+
+    $value = $entityManager->getConnection()->fetchOne(
+      'SELECT id FROM users WHERE email = ?',
+      [$email],
+    );
+
+    return is_string($value) && '' !== $value ? $value : null;
+  }
+
+  /**
+   * @param array<string, mixed> $data
+   */
+  private function extractResourceId(array $data): ?string
+  {
+    $id = $data['id'] ?? null;
+    if (is_string($id) && '' !== $id) {
+      return $id;
+    }
+
+    $iri = $data['@id'] ?? null;
+    if (is_string($iri) && str_contains($iri, '/')) {
+      $candidate = basename($iri);
+
+      return '' !== $candidate ? $candidate : null;
+    }
+
+    return null;
+  }
+
+  /**
+   * @param array<string, mixed> $data
+   *
+   * @return list<array<string, mixed>>
+   */
+  private function getCollectionMembers(array $data): array
+  {
+    $members = $data['member'] ?? [];
+
+    if (!is_array($members)) {
+      return [];
+    }
+
+    $result = [];
+    foreach ($members as $member) {
+      if (!is_array($member)) {
+        continue;
+      }
+
+      $normalized = [];
+      foreach ($member as $key => $value) {
+        if (is_string($key)) {
+          $normalized[$key] = $value;
+        }
+      }
+
+      $result[] = $normalized;
+    }
+
+    return $result;
+  }
+
+  /**
+   * @param list<array<string, mixed>> $collection
+   */
+  private function collectionContainsId(array $collection, string $id): bool
+  {
+    foreach ($collection as $item) {
+      $itemId = $this->extractResourceId($item);
+      if ($id === $itemId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+}

@@ -47,6 +47,8 @@ final readonly class ConfirmPasswordResetProcessor implements ProcessorInterface
 
   // #region Methods
   /**
+   * Method process.
+   *
    * Process the password reset confirmation.
    *
    * @param mixed $data the input data
@@ -62,9 +64,8 @@ final readonly class ConfirmPasswordResetProcessor implements ProcessorInterface
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ConfirmPasswordResetOutput
   {
-    /** @phpstan-ignore instanceof.alwaysTrue */
     if (!$data instanceof ConfirmPasswordResetInput) {
-      throw new InvalidArgumentException('Invalid input data');
+      throw new InvalidArgumentException(message: 'Invalid input data');
     }
 
     $request = $this->requestStack->getCurrentRequest();

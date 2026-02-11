@@ -1,82 +1,107 @@
 doctrine:
   dbal:
-    url: "%env(resolve:DATABASE_URL)%"
-
-    # IMPORTANT: You MUST configure your server version,
-    # either here or in the DATABASE_URL env var (see .env file)
-    #server_version: '16'
-
-    profiling_collect_backtrace: "%kernel.debug%"
-    use_savepoints: true
+    default_connection: auth
+    connections:
+      auth:
+        url: "%env(resolve:AUTH_DATABASE_URL)%"
+        profiling_collect_backtrace: "%kernel.debug%"
+        use_savepoints: true
+      main:
+        url: "%env(resolve:MAIN_DATABASE_URL)%"
+        profiling_collect_backtrace: "%kernel.debug%"
+        use_savepoints: true
   orm:
+    default_entity_manager: auth
     auto_generate_proxy_classes: true
     enable_lazy_ghost_objects: true
-    report_fields_where_declared: true
-    validate_xml_mapping: true
-    naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
-    identity_generation_preferences:
-      Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
-    auto_mapping: true
-    filters:
-      tenant:
-        class: Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter
-        enabled: false
-    mappings:
-      OAuth:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/OAuth/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'OAuth\Infrastructure\Persistence\Doctrine\Record'
-        alias: OAuth
-      User:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'User\Infrastructure\Persistence\Doctrine\Record'
-        alias: User
-      Otp:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/Otp/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'Otp\Infrastructure\Persistence\Doctrine\Record'
-        alias: Otp
-      Authorization:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/Authorization/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'Authorization\Infrastructure\Persistence\Doctrine\Record'
-        alias: Authorization
-      Session:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/Session/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'Session\Infrastructure\Persistence\Doctrine\Record'
-        alias: Session
-      Tenant:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/Tenant/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'Tenant\Infrastructure\Persistence\Doctrine\Record'
-        alias: Tenant
-      TrustedDevice:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/TrustedDevice/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'TrustedDevice\Infrastructure\Persistence\Doctrine\Record'
-        alias: TrustedDevice
-      Audit:
-        is_bundle: false
-        type: attribute
-        dir: '%kernel.project_dir%/src/Audit/Infrastructure/Persistence/Doctrine/Record'
-        prefix: 'Audit\Infrastructure\Persistence\Doctrine\Record'
-        alias: Audit
+    entity_managers:
+      auth:
+        connection: auth
+        auto_mapping: false
+        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        report_fields_where_declared: true
+        validate_xml_mapping: true
+        identity_generation_preferences:
+          Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        filters:
+          tenant:
+            class: Tenant\Infrastructure\Persistence\Doctrine\Filter\TenantFilter
+            enabled: false
+        mappings:
+          OAuth:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/OAuth/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'OAuth\Infrastructure\Persistence\Doctrine\Record'
+            alias: OAuth
+          User:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/User/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'User\Infrastructure\Persistence\Doctrine\Record'
+            alias: User
+          Otp:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Otp/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Otp\Infrastructure\Persistence\Doctrine\Record'
+            alias: Otp
+          Authorization:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Authorization/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Authorization\Infrastructure\Persistence\Doctrine\Record'
+            alias: Authorization
+          Session:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Session/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Session\Infrastructure\Persistence\Doctrine\Record'
+            alias: Session
+          Tenant:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Tenant/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Tenant\Infrastructure\Persistence\Doctrine\Record'
+            alias: Tenant
+          TrustedDevice:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/TrustedDevice/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'TrustedDevice\Infrastructure\Persistence\Doctrine\Record'
+            alias: TrustedDevice
+          Audit:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Audit/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Audit\Infrastructure\Persistence\Doctrine\Record'
+            alias: Audit
+      main:
+        connection: main
+        auto_mapping: false
+        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        report_fields_where_declared: true
+        validate_xml_mapping: true
+        identity_generation_preferences:
+          Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        mappings:
+          Organization:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Organization/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Organization\Infrastructure\Persistence\Doctrine\Record'
+            alias: Organization
     controller_resolver:
       auto_mapping: false
 
 when@test:
   doctrine:
     dbal:
-      profiling_collect_backtrace: false
+      connections:
+        auth:
+          profiling_collect_backtrace: false
+        main:
+          profiling_collect_backtrace: false
     orm:
       auto_generate_proxy_classes: file_not_exists
       proxy_dir: "%kernel.cache_dir%/doctrine/orm/Proxies"
@@ -100,3 +125,5 @@ when@prod:
           adapter: cache.app
         doctrine.system_cache_pool:
           adapter: cache.system
+
+

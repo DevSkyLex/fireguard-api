@@ -19,7 +19,7 @@ use function json_encode;
  * - Activating / deactivating tenants (POST /api/tenants/{id}/activate|deactivate)
  * - Deleting tenants (DELETE /api/tenants/{id})
  *
- * Tenants define OAuth2 settings and configuration for different organizations
+ * Tenants define OAuth2 settings and configuration for different Organizations
  * in a multi-tenant architecture. Each tenant can have custom authentication
  * settings, branding, and access policies.
  *
@@ -84,7 +84,7 @@ class TenantManagementFlowTest extends OAuth2WebTestCase
    *
    * This test ensures the endpoint properly enforces authentication.
    * Anonymous access to tenant listing must be denied to protect
-   * organizational information.
+   * Organizational information.
    *
    * Expected behavior:
    * - HTTP 401: Authentication required

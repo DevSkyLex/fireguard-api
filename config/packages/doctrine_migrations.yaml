@@ -1,6 +1,10 @@
 doctrine_migrations:
+  em: auth
   migrations_paths:
     # namespace is arbitrary but should be different from App\Migrations
     # as migrations classes should NOT be autoloaded
-    "DoctrineMigrations": "%kernel.project_dir%/migrations"
+    'DoctrineMigrations\Auth': '%kernel.project_dir%/migrations/auth'
+  storage:
+    table_storage:
+      table_name: doctrine_migration_versions_auth
   enable_profiler: false

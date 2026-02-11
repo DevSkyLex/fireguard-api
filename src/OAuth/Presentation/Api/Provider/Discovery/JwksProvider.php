@@ -85,11 +85,15 @@ final readonly class JwksProvider implements ProviderInterface
     $details = null === $this->keyDetailsResolver
       ? openssl_pkey_get_details($keyData)
       : ($this->keyDetailsResolver)($keyData);
-    if (false === $details || !isset($details['rsa']) || !is_array($details['rsa'])) {
+    if (false === $details || !is_array($details)) {
       return $output;
     }
 
-    $rsa = $details['rsa'];
+    $rsa = $details['rsa'] ?? null;
+    if (!is_array($rsa)) {
+      return $output;
+    }
+
     $rsaN = $rsa['n'] ?? '';
     $rsaE = $rsa['e'] ?? '';
 

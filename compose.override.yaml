@@ -1,7 +1,10 @@
-
 services:
 ###> doctrine/doctrine-bundle ###
-  database:
+  auth_database:
+    ports:
+      - "5432"
+
+  main_database:
     ports:
       - "5432"
 ###< doctrine/doctrine-bundle ###
