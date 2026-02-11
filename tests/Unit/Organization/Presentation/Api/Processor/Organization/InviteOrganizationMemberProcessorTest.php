@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
+
+use ApiPlatform\Metadata\Post;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
+use Organization\Presentation\Api\Dto\Input\Organization\InviteOrganizationMemberInput;
+use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
+use Organization\Presentation\Api\Processor\Organization\InviteOrganizationMemberProcessor;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+#[CoversClass(InviteOrganizationMemberProcessor::class)]
+final class InviteOrganizationMemberProcessorTest extends TestCase
+{
+  #[Test]
+  public function testProcessThrowsWhenUserLacksPermission(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441930'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with('550e8400-e29b-41d4-a716-446655441930', '550e8400-e29b-41d4-a716-446655441931', 'organization.members.manage')
+      ->willReturn(false);
+
+    $processor = new InviteOrganizationMemberProcessor(
+      commandBus: $this->createMock(CommandBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $input = new InviteOrganizationMemberInput();
+    $input->email = 'member@example.com';
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessDispatchesCommandAndMapsOutput(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441930');
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (InviteOrganizationMemberCommand $command): bool {
+        return '550e8400-e29b-41d4-a716-446655441931' === $command->organizationId
+          && 'member@example.com' === $command->email
+          && '550e8400-e29b-41d4-a716-446655441930' === $command->invitedByUserId
+          && ['550e8400-e29b-41d4-a716-446655441932'] === $command->roleIds;
+      }))
+      ->willReturn(new InviteOrganizationMemberResult(
+        invitationId: '550e8400-e29b-41d4-a716-446655441933',
+        organizationId: '550e8400-e29b-41d4-a716-446655441931',
+        email: 'member@example.com',
+        status: 'pending',
+        invitedByUserId: '550e8400-e29b-41d4-a716-446655441930',
+        expiresAt: new DateTimeImmutable('+7 days'),
+        createdAt: new DateTimeImmutable('-1 minute'),
+        updatedAt: new DateTimeImmutable('-1 minute'),
+        roleIds: ['550e8400-e29b-41d4-a716-446655441932'],
+      ));
+
+    $processor = new InviteOrganizationMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $input = new InviteOrganizationMemberInput();
+    $input->email = 'member@example.com';
+    $input->roleIds = ['550e8400-e29b-41d4-a716-446655441932'];
+
+    $output = $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+
+    self::assertInstanceOf(OrganizationInvitationOutput::class, $output);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441933', $output->id);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441931', $output->organizationId);
+    self::assertSame('member@example.com', $output->email);
+    self::assertSame('pending', $output->status);
+    self::assertSame(['550e8400-e29b-41d4-a716-446655441932'], $output->roleIds);
+  }
+
+  private function createSecurityUser(string $id): SecurityUser
+  {
+    return new SecurityUser(
+      id: $id,
+      email: 'owner@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
+  }
+}

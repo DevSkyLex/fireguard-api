@@ -30,4 +30,12 @@ final class OrganizationOperations
   public const string LIST_ORGANIZATION_ROLES = 'listOrganizationRoles';
 
   public const string ASSIGN_ORGANIZATION_ROLE_TO_MEMBER = 'assignOrganizationRoleToMember';
+
+  public const string INVITE_ORGANIZATION_MEMBER = 'inviteOrganizationMember';
+
+  public const string LIST_ORGANIZATION_INVITATIONS = 'listOrganizationInvitations';
+
+  public const string ACCEPT_ORGANIZATION_INVITATION = 'acceptOrganizationInvitation';
+
+  public const string REVOKE_ORGANIZATION_INVITATION = 'revokeOrganizationInvitation';
 }

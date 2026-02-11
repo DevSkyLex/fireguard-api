@@ -9,6 +9,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 
 - Create Organizations
 - Add existing users as Organization members
+- Invite users by email (existing account or future account)
 - Create Organization-scoped roles
 - Assign roles to members
 - Evaluate Organization permissions (`Organization.*`, `Organization.members.*`, `Organization.roles.*`)
@@ -22,6 +23,10 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`) |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
 | GET | `/api/organizations/{organizationId}/members` | List Organization members |
+| POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |
+| GET | `/api/organizations/{organizationId}/invitations` | List Organization invitations |
+| POST | `/api/organizations/invitations/accept` | Accept an invitation token |
+| POST | `/api/organizations/{organizationId}/invitations/{invitationId}/revoke` | Revoke pending invitation |
 | POST | `/api/organizations/{organizationId}/roles` | Create Organization role |
 | GET | `/api/organizations/{organizationId}/roles` | List Organization roles |
 | POST | `/api/organizations/{organizationId}/members/{memberId}/roles` | Assign role to member |
@@ -34,6 +39,8 @@ Doctrine tables are mapped in the main database:
 - `Organization_members`
 - `Organization_roles`
 - `Organization_member_roles`
+- `Organization_invitations`
+- `Organization_invitation_roles`
 
 ## Architecture
 

@@ -28,6 +28,21 @@ services:
   Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\InviteOrganizationMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\AcceptOrganizationInvitationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\RevokeOrganizationInvitationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   # Query handlers
   Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationHandler:
     tags: ['messenger.message_handler']
@@ -39,6 +54,9 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\ListOrganizationRolesHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler:
     tags: ['messenger.message_handler']
 
   # Repositories
@@ -58,6 +76,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Outbound ports
   Organization\Application\Port\Outbound\OrganizationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository
@@ -70,6 +92,9 @@ services:
 
   Organization\Application\Port\Outbound\OrganizationLegalProfileRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository
+
+  Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository
 
   # Inbound ports
   Organization\Application\Port\Inbound\OrganizationAuthorizationPort:

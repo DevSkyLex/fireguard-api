@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations;
+
+use DateTimeImmutable;
+use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\ValueObject\OrganizationId;
+use Shared\Application\Message\QueryHandler;
+
+/**
+ * UseCase ListOrganizationInvitationsHandler.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class ListOrganizationInvitationsHandler implements QueryHandler
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the ListOrganizationInvitationsHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository port
+   * @param OrganizationInvitationRepositoryPort $invitationRepository the invitation repository port
+   */
+  public function __construct(
+    private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationInvitationRepositoryPort $invitationRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Lists invitations of an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param ListOrganizationInvitationsQuery $query the query payload
+   *
+   * @return ListOrganizationInvitationsResult the use case result
+   */
+  public function __invoke(ListOrganizationInvitationsQuery $query): ListOrganizationInvitationsResult
+  {
+    $organizationId = OrganizationId::fromString($query->organizationId);
+    $organization = $this->organizationRepository->findById($organizationId);
+
+    if (null === $organization) {
+      throw OrganizationNotFoundException::withId($query->organizationId);
+    }
+
+    $invitations = $this->invitationRepository->findByOrganizationId($organizationId);
+    $now = new DateTimeImmutable();
+    $results = [];
+
+    foreach ($invitations as $invitation) {
+      if ($invitation->status()->isPending() && $invitation->isExpired($now)) {
+        $invitation->expire($now);
+        $this->invitationRepository->save($invitation);
+      }
+
+      $results[] = new GetOrganizationInvitationResult(
+        id: (string) $invitation->id(),
+        organizationId: (string) $invitation->organizationId(),
+        email: (string) $invitation->email(),
+        status: $invitation->status()->value,
+        invitedByUserId: $invitation->invitedByUserId(),
+        acceptedByUserId: $invitation->acceptedByUserId(),
+        revokedByUserId: $invitation->revokedByUserId(),
+        expiresAt: $invitation->expiresAt(),
+        createdAt: $invitation->createdAt(),
+        updatedAt: $invitation->updatedAt(),
+        acceptedAt: $invitation->acceptedAt(),
+        revokedAt: $invitation->revokedAt(),
+        roleIds: $this->invitationRepository->findRoleIdsForInvitation($invitation->id()),
+      );
+    }
+
+    return new ListOrganizationInvitationsResult($results);
+  }
+  // #endregion
+}

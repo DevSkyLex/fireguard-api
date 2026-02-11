@@ -15,7 +15,6 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
-use Shared\Infrastructure\Exception\TransactionExecutionException;
 use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
@@ -172,7 +171,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
           updatedAt: $organization->updatedAt(),
         );
       });
-    } catch (TransactionExecutionException $exception) {
+    } catch (Throwable $exception) {
       if ($this->isDuplicateSlugConstraintViolation($exception)) {
         throw OrganizationSlugAlreadyExistsException::withSlug((string) $organization->slug());
       }

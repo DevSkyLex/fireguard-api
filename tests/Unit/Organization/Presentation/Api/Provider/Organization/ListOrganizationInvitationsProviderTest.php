@@ -1,0 +1,141 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
+
+use ApiPlatform\Metadata\GetCollection;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{GetOrganizationInvitationResult, ListOrganizationInvitationsQuery, ListOrganizationInvitationsResult};
+use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
+use Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitationsProvider;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+#[CoversClass(ListOrganizationInvitationsProvider::class)]
+final class ListOrganizationInvitationsProviderTest extends TestCase
+{
+  #[Test]
+  public function testProvideReturnsEmptyArrayWhenOrganizationIdMissing(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441950'));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new ListOrganizationInvitationsProvider(
+      queryBus: $queryBus,
+      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $output = $provider->provide(new GetCollection(), []);
+
+    self::assertSame([], $output);
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenPermissionIsMissing(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441950'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with('550e8400-e29b-41d4-a716-446655441950', '550e8400-e29b-41d4-a716-446655441951', 'organization.members.manage')
+      ->willReturn(false);
+
+    $provider = new ListOrganizationInvitationsProvider(
+      queryBus: $this->createMock(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441951']);
+  }
+
+  #[Test]
+  public function testProvideMapsInvitationsResult(): void
+  {
+    $createdAt = new DateTimeImmutable('2026-02-11T09:00:00+00:00');
+    $expiresAt = new DateTimeImmutable('2026-02-18T09:00:00+00:00');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441950'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(ListOrganizationInvitationsQuery::class))
+      ->willReturn(new ListOrganizationInvitationsResult([
+        new GetOrganizationInvitationResult(
+          id: '550e8400-e29b-41d4-a716-446655441952',
+          organizationId: '550e8400-e29b-41d4-a716-446655441951',
+          email: 'member@example.com',
+          status: 'pending',
+          invitedByUserId: '550e8400-e29b-41d4-a716-446655441950',
+          acceptedByUserId: null,
+          revokedByUserId: null,
+          expiresAt: $expiresAt,
+          createdAt: $createdAt,
+          updatedAt: $createdAt,
+          acceptedAt: null,
+          revokedAt: null,
+          roleIds: ['550e8400-e29b-41d4-a716-446655441953'],
+        ),
+      ]));
+
+    $provider = new ListOrganizationInvitationsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $provider->provide(new GetCollection(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441951']);
+
+    self::assertCount(1, $output);
+    self::assertInstanceOf(OrganizationInvitationOutput::class, $output[0]);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441952', $output[0]->id);
+    self::assertSame('member@example.com', $output[0]->email);
+    self::assertSame('pending', $output[0]->status);
+    self::assertSame(['550e8400-e29b-41d4-a716-446655441953'], $output[0]->roleIds);
+    self::assertSame($expiresAt->format('c'), $output[0]->expiresAt);
+  }
+
+  private function createSecurityUser(string $id): SecurityUser
+  {
+    return new SecurityUser(
+      id: $id,
+      email: 'owner@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+      scopes: [],
+      isActive: true,
+    );
+  }
+}
