@@ -5,23 +5,32 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\InviteOrganizationMember;
 
 use DateTimeImmutable;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberHandler, InviteOrganizationMemberResult};
 use Organization\Domain\Model\Organization\Organization;
+use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\{MailerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 use User\Application\Port\Outbound\UserRepositoryPort;
+
+use function array_key_exists;
+use function is_array;
+use function is_string;
+use function str_contains;
 
 #[CoversClass(InviteOrganizationMemberHandler::class)]
 final class InviteOrganizationMemberHandlerTest extends TestCase
 {
   #[Test]
-  public function testInvokeCreatesInvitationAndSendsEmail(): void
+  public function testInvokeCreatesInvitationAndSendsNotification(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655441900';
     $invitationId = '550e8400-e29b-41d4-a716-446655441901';
@@ -68,14 +77,25 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
 
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $persistedInvitation = null;
     $invitationRepository->expects(self::once())
       ->method('findPendingByOrganizationAndEmail')
       ->willReturn(null);
+    $invitationRepository->expects(self::exactly(2))
+      ->method('save')
+      ->willReturnCallback(static function (OrganizationInvitation $invitation) use (&$persistedInvitation): void {
+        if (!$persistedInvitation instanceof OrganizationInvitation) {
+          $persistedInvitation = $invitation;
+        }
+      });
     $invitationRepository->expects(self::once())
-      ->method('save');
+      ->method('findById')
+      ->willReturnCallback(static function () use (&$persistedInvitation): ?OrganizationInvitation {
+        return $persistedInvitation;
+      });
     $invitationRepository->expects(self::once())
       ->method('replaceRoleIds');
-    $invitationRepository->expects(self::once())
+    $invitationRepository->expects(self::exactly(2))
       ->method('findRoleIdsForInvitation')
       ->willReturn([$roleId]);
 
@@ -85,15 +105,25 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       ->method('findByEmail')
       ->willReturn(null);
 
-    /** @var MailerPort&MockObject $mailer */
-    $mailer = $this->createMock(MailerPort::class);
-    $mailer->expects(self::once())
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::once())
       ->method('send')
-      ->with(
-        [$email],
-        self::stringContains('Invitation to join'),
-        self::stringContains('Use this token'),
-      );
+      ->with(self::callback(static function (SendNotificationRequest $request) use ($email): bool {
+        $emailPayload = $request->deliveryPayload['email'] ?? null;
+        $emailBody = is_array($emailPayload) ? ($emailPayload['body'] ?? null) : null;
+
+        return 'organization.invitation' === $request->type
+          && [NotificationChannel::EMAIL] === $request->channels
+          && null === $request->recipientUserId
+          && $email === $request->recipientEmail
+          && !array_key_exists('token', $request->payload)
+          && !str_contains($request->body, 'Use this token')
+          && str_contains($request->subject, 'Invitation to join')
+          && is_string($emailBody)
+          && str_contains($emailBody, 'Use this token');
+      }))
+      ->willThrowException(new RuntimeException('Notification delivery failed.'));
 
     /** @var UuidFactory&MockObject $uuidFactory */
     $uuidFactory = $this->createMock(UuidFactory::class);
@@ -104,10 +134,15 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
 
     /** @var TransactionManagerPort&MockObject $transactionManager */
     $transactionManager = $this->createMock(TransactionManagerPort::class);
-    $transactionManager->expects(self::once())
+    $transactionManager->expects(self::exactly(2))
       ->method('transactional')
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::exactly(2))
+      ->method('warning');
 
     $handler = new InviteOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
@@ -115,7 +150,8 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       memberRepository: $memberRepository,
       invitationRepository: $invitationRepository,
       userRepository: $userRepository,
-      mailer: $mailer,
+      notificationPort: $notificationPort,
+      logger: $logger,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
     );
@@ -131,7 +167,7 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     self::assertSame($invitationId, $result->invitationId);
     self::assertSame($organizationId, $result->organizationId);
     self::assertSame($email, $result->email);
-    self::assertSame('pending', $result->status);
+    self::assertSame('revoked', $result->status);
     self::assertSame($inviterUserId, $result->invitedByUserId);
     self::assertSame([$roleId], $result->roleIds);
   }

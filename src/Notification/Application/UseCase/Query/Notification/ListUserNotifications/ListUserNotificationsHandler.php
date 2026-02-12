@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Notification\Application\UseCase\Query\Notification\ListUserNotifications;
+
+use Notification\Application\Port\Outbound\NotificationRepositoryPort;
+use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
+use Notification\Domain\Model\Notification\Notification;
+use Shared\Application\Message\QueryHandler;
+
+use function array_map;
+use function max;
+use function min;
+
+/**
+ * UseCase ListUserNotificationsHandler.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class ListUserNotificationsHandler implements QueryHandler
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param NotificationRepositoryPort $notificationRepository the notification repository port
+   */
+  public function __construct(
+    private NotificationRepositoryPort $notificationRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Lists notifications for a user.
+   *
+   * @since 1.0.0
+   *
+   * @param ListUserNotificationsQuery $query the query payload
+   *
+   * @return ListUserNotificationsResult the use case result
+   */
+  public function __invoke(ListUserNotificationsQuery $query): ListUserNotificationsResult
+  {
+    $limit = min(100, max(1, $query->limit));
+
+    $notifications = $this->notificationRepository->findByUserId(
+      userId: $query->userId,
+      onlyUnread: $query->onlyUnread,
+      limit: $limit,
+    );
+
+    $results = array_map(
+      fn (Notification $notification): GetUserNotificationResult => $this->mapNotification($notification),
+      $notifications,
+    );
+
+    return new ListUserNotificationsResult($results);
+  }
+
+  /**
+   * Method mapNotification.
+   *
+   * @since 1.0.0
+   *
+   * @param Notification $notification the notification
+   *
+   * @return GetUserNotificationResult the mapped result
+   */
+  private function mapNotification(Notification $notification): GetUserNotificationResult
+  {
+    return new GetUserNotificationResult(
+      id: (string) $notification->id(),
+      type: $notification->type(),
+      subject: $notification->subject(),
+      body: $notification->body(),
+      channels: $notification->channels(),
+      payload: $notification->payload(),
+      isRead: $notification->isRead(),
+      createdAt: $notification->createdAt(),
+      readAt: $notification->readAt(),
+    );
+  }
+  // #endregion
+}

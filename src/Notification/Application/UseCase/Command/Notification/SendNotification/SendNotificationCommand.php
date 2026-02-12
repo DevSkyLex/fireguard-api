@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Notification\Application\UseCase\Command\Notification\SendNotification;
+
+use Notification\Application\Contract\Notification\NotificationChannel;
+use Shared\Application\Message\CommandMessage;
+
+/**
+ * UseCase SendNotificationCommand.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class SendNotificationCommand implements CommandMessage
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $type the notification type
+   * @param string $subject the subject
+   * @param string $body the body content
+   * @param list<NotificationChannel> $channels the delivery channels
+   * @param array<string, mixed> $payload the payload data
+   * @param array<string, mixed> $deliveryPayload ephemeral delivery payload (not persisted)
+   * @param string|null $recipientUserId the recipient user identifier
+   * @param string|null $recipientEmail the recipient email
+   */
+  public function __construct(
+    public string $type,
+    public string $subject,
+    public string $body,
+    public array $channels,
+    public array $payload = [],
+    public array $deliveryPayload = [],
+    public ?string $recipientUserId = null,
+    public ?string $recipientEmail = null,
+  ) {
+  }
+  // #endregion
+}

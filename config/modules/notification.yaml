@@ -1,0 +1,43 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Notification\Presentation\:
+    resource: '../../src/Notification/Presentation'
+
+  Notification\Application\Port\Inbound\NotificationPort:
+    alias: Notification\Application\Service\NotificationService
+
+  Notification\Application\Port\Outbound\NotificationRepositoryPort:
+    alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository
+
+  Notification\Application\Port\Outbound\EmailNotificationChannelPort:
+    alias: Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter
+
+  Notification\Application\Port\Outbound\MercureNotificationChannelPort:
+    alias: Notification\Infrastructure\Adapter\Channel\MercureNotificationChannelAdapter
+
+  Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter: ~
+
+  Notification\Infrastructure\Adapter\Channel\MercureNotificationChannelAdapter:
+    arguments:
+      $hub: '@mercure.hub.default'
+
+  Notification\Application\Service\NotificationService: ~
+
+  Notification\Application\UseCase\Command\Notification\SendNotification\SendNotificationHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Command\Notification\MarkNotificationAsRead\MarkNotificationAsReadHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Query\Notification\ListUserNotifications\ListUserNotificationsHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationHandler:
+    tags: ['messenger.message_handler']

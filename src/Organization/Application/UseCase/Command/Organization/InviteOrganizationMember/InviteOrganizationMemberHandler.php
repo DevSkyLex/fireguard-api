@@ -6,15 +6,18 @@ namespace Organization\Application\UseCase\Command\Organization\InviteOrganizati
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{MailerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
+use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 
 use function array_map;
@@ -56,7 +59,8 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param UserRepositoryPort $userRepository the user repository port
-   * @param MailerPort $mailer the mailer port
+   * @param NotificationPort $notificationPort the notification module port
+   * @param LoggerPort $logger the logger port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    */
@@ -66,7 +70,8 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationInvitationRepositoryPort $invitationRepository,
     private UserRepositoryPort $userRepository,
-    private MailerPort $mailer,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
   ) {
@@ -121,6 +126,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
         throw new InvalidArgumentException('User is already an active member of this organization.');
       }
     }
+    $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
 
     /** @var list<string> $resolvedRoleIds */
     $resolvedRoleIds = $this->resolveRoleIds($organizationId, $command->roleIds);
@@ -156,18 +162,9 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     $result = $this->transactionManager->transactional(function () use (
       $invitation,
       $roleIdsAsVo,
-      $token,
-      $organization,
     ): InviteOrganizationMemberResult {
       $this->invitationRepository->save($invitation);
       $this->invitationRepository->replaceRoleIds($invitation->id(), $roleIdsAsVo);
-
-      $this->sendInvitationEmail(
-        organizationName: (string) $organization->name(),
-        email: (string) $invitation->email(),
-        token: $token,
-        expiresAt: $invitation->expiresAt(),
-      );
 
       return new InviteOrganizationMemberResult(
         invitationId: (string) $invitation->id(),
@@ -181,6 +178,58 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
         roleIds: $this->invitationRepository->findRoleIdsForInvitation($invitation->id()),
       );
     });
+
+    $notification = null;
+
+    try {
+      $notification = $this->sendInvitationNotification(
+        organizationName: (string) $organization->name(),
+        email: (string) $invitation->email(),
+        token: $token,
+        expiresAt: $invitation->expiresAt(),
+        recipientUserId: $recipientUserId,
+      );
+    } catch (Throwable $exception) {
+      $this->logger->warning('Invitation notification dispatch failed.', [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'recipientEmail' => (string) $invitation->email(),
+        'error' => $exception->getMessage(),
+      ]);
+    }
+
+    if (!$this->isEmailDelivered($notification)) {
+      $invalidated = $this->invalidateInvitation(
+        invitationId: $invitation->id(),
+        revokedByUserId: $command->invitedByUserId,
+      );
+
+      if (null !== $invalidated) {
+        $this->logger->warning('Invitation invalidated because email delivery failed.', [
+          'organizationId' => (string) $invalidated->organizationId(),
+          'invitationId' => (string) $invalidated->id(),
+          'recipientEmail' => (string) $invalidated->email(),
+        ]);
+
+        return new InviteOrganizationMemberResult(
+          invitationId: (string) $invalidated->id(),
+          organizationId: (string) $invalidated->organizationId(),
+          email: (string) $invalidated->email(),
+          status: $invalidated->status()->value,
+          invitedByUserId: $invalidated->invitedByUserId(),
+          expiresAt: $invalidated->expiresAt(),
+          createdAt: $invalidated->createdAt(),
+          updatedAt: $invalidated->updatedAt(),
+          roleIds: $this->invitationRepository->findRoleIdsForInvitation($invalidated->id()),
+        );
+      }
+
+      $this->logger->warning('Invitation could not be invalidated after email delivery failure.', [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'recipientEmail' => (string) $invitation->email(),
+      ]);
+    }
 
     return $result;
   }
@@ -269,9 +318,9 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
   }
 
   /**
-   * Method sendInvitationEmail.
+   * Method sendInvitationNotification.
    *
-   * Sends invitation instructions by email.
+   * Sends invitation instructions through the notification module.
    *
    * @since 1.0.0
    *
@@ -279,26 +328,105 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
    * @param string $email the recipient email
    * @param string $token the invitation token
    * @param DateTimeImmutable $expiresAt the invitation expiration datetime
+   * @param string|null $recipientUserId the recipient user identifier
+   *
+   * @return SentNotification the sent notification result
    */
-  private function sendInvitationEmail(
+  private function sendInvitationNotification(
     string $organizationName,
     string $email,
     string $token,
     DateTimeImmutable $expiresAt,
-  ): void {
+    ?string $recipientUserId = null,
+  ): SentNotification {
     $subject = sprintf('Invitation to join %s', $organizationName);
     $body = sprintf(
+      '<p>You have been invited to join <strong>%s</strong>.</p><p>Open your invitation details to continue.</p><p>This invitation expires at %s.</p>',
+      $organizationName,
+      $expiresAt->format('c'),
+    );
+    $emailBody = sprintf(
       '<p>You have been invited to join <strong>%s</strong>.</p><p>Use this token to accept your invitation: <code>%s</code></p><p>This invitation expires at %s.</p>',
       $organizationName,
       $token,
       $expiresAt->format('c'),
     );
 
-    $this->mailer->send(
-      to: [$email],
+    $channels = [NotificationChannel::EMAIL];
+    if (null !== $recipientUserId) {
+      $channels[] = NotificationChannel::MERCURE;
+    }
+
+    return $this->notificationPort->send(new SendNotificationRequest(
+      type: 'organization.invitation',
       subject: $subject,
       body: $body,
-    );
+      channels: $channels,
+      payload: [
+        'organizationName' => $organizationName,
+        'expiresAt' => $expiresAt->format('c'),
+      ],
+      deliveryPayload: [
+        NotificationChannel::EMAIL->value => [
+          'body' => $emailBody,
+        ],
+      ],
+      recipientUserId: $recipientUserId,
+      recipientEmail: $email,
+    ));
+  }
+
+  /**
+   * Method isEmailDelivered.
+   *
+   * @since 1.0.0
+   *
+   * @param SentNotification|null $notification the sent notification result
+   *
+   * @return bool true when email channel was delivered
+   */
+  private function isEmailDelivered(?SentNotification $notification): bool
+  {
+    if (null === $notification) {
+      return false;
+    }
+
+    return true === ($notification->channelDelivery[NotificationChannel::EMAIL->value] ?? false);
+  }
+
+  /**
+   * Method invalidateInvitation.
+   *
+   * Invalidates a pending invitation when delivery failed.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationInvitationId $invitationId the invitation identifier
+   * @param string $revokedByUserId the revoker user identifier
+   *
+   * @return OrganizationInvitation|null the invalidated invitation
+   */
+  private function invalidateInvitation(
+    OrganizationInvitationId $invitationId,
+    string $revokedByUserId,
+  ): ?OrganizationInvitation {
+    /** @var OrganizationInvitation|null $invalidated */
+    $invalidated = $this->transactionManager->transactional(function () use (
+      $invitationId,
+      $revokedByUserId,
+    ): ?OrganizationInvitation {
+      $invitation = $this->invitationRepository->findById($invitationId);
+      if (null === $invitation || !$invitation->status()->isPending()) {
+        return null;
+      }
+
+      $invitation->revoke($revokedByUserId);
+      $this->invitationRepository->save($invitation);
+
+      return $invitation;
+    });
+
+    return $invalidated;
   }
   // #endregion
 }

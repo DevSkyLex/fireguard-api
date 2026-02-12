@@ -91,6 +91,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Organization/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Organization\Infrastructure\Persistence\Doctrine\Record'
             alias: Organization
+          Notification:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Notification/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Notification\Infrastructure\Persistence\Doctrine\Record'
+            alias: Notification
     controller_resolver:
       auto_mapping: false
 
