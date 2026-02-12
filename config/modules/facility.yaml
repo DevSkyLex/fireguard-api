@@ -1,0 +1,32 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Facility\Presentation\:
+    resource: '../../src/Facility/Presentation'
+
+  Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilityRepositoryPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository
+
+  Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Facility\UpdateFacility\UpdateFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Facility\ArchiveFacility\ArchiveFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesHandler:
+    tags: ['messenger.message_handler']

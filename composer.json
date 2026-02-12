@@ -61,6 +61,7 @@
             "Auth\\": "src/Auth/",
             "Tenant\\": "src/Tenant/",
             "Organization\\": "src/Organization/",
+            "Facility\\": "src/Facility/",
             "Session\\": "src/Session/",
             "Otp\\": "src/Otp/",
             "Notification\\": "src/Notification/",

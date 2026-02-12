@@ -72,6 +72,7 @@ sequenceDiagram
 
 - Services: `config/modules/otp.yaml`.
 - Notification sender: `MAILER_FROM` (used by `OtpNotifierAdapter`).
+- Email template: `templates/otp/email/code.html.twig` (rendered by Twig in `OtpNotifierAdapter`).
 - OTP code length: `OTP_CODE_LENGTH` (applies to challenge OTPs like SMS/email).
 - TOTP code length: `TOTP_DIGITS` (applies to authenticator app codes). Changing this will invalidate existing TOTP enrollments.
 

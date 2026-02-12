@@ -91,6 +91,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Organization/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Organization\Infrastructure\Persistence\Doctrine\Record'
             alias: Organization
+          Facility:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Facility/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Facility\Infrastructure\Persistence\Doctrine\Record'
+            alias: Facility
           Notification:
             is_bundle: false
             type: attribute

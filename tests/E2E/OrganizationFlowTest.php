@@ -161,7 +161,7 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'name' => $roleName,
-        'permissions' => ['organization.members.read', 'organization.roles.read'],
+        'permissions' => ['organization.members.read', 'organization.roles.read', 'organization.facilities.read'],
       ]) ?: '',
     );
 

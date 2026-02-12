@@ -16,6 +16,7 @@ use Symfony\Component\Mime\Email;
 use Symfony\Component\Notifier\NotifierInterface;
 use Symfony\Component\Notifier\Recipient\Recipient;
 use Throwable;
+use Twig\Environment;
 
 use function ceil;
 use function time;
@@ -31,6 +32,8 @@ use function time;
  */
 final readonly class OtpNotifierAdapter implements OtpNotifierPort
 {
+  private const string EMAIL_TEMPLATE = 'otp/email/code.html.twig';
+
   // #region Constructor
   /**
    * Constructor.
@@ -42,11 +45,13 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
    *
    * @param NotifierInterface $notifier the Symfony Notifier
    * @param MailerInterface $mailer the Symfony Mailer for email fallback
+   * @param Environment $twig the Twig renderer
    * @param string $senderEmail the sender email address
    */
   public function __construct(
     private readonly NotifierInterface $notifier,
     private readonly MailerInterface $mailer,
+    private readonly Environment $twig,
     private readonly string $senderEmail = 'noreply@fireguard.local',
   ) {
   }
@@ -93,11 +98,13 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
       return;
     }
 
+    $subject = $this->getEmailSubject($otp);
+
     $email = new Email()
       ->from($this->senderEmail)
       ->to($otp->recipient())
-      ->subject($this->getEmailSubject($otp))
-      ->html($this->getEmailHtml($otp, $code));
+      ->subject($subject)
+      ->html($this->renderEmailHtml($otp, $code, $subject));
 
     $this->mailer->send(message: $email);
   }
@@ -148,47 +155,54 @@ final readonly class OtpNotifierAdapter implements OtpNotifierPort
   }
 
   /**
-   * Method getEmailHtml.
+   * Method renderEmailHtml.
    *
-   * Returns the HTML email content.
+   * Renders the HTML email content from Twig template.
    *
    * @since 1.0.0
    *
    * @param Otp $otp the OTP
    * @param string $code the code
+   * @param string $subject the subject
    *
    * @return string the HTML content
    */
-  private function getEmailHtml(Otp $otp, string $code): string
+  private function renderEmailHtml(Otp $otp, string $code, string $subject): string
   {
     $minutes = (int) ceil(($otp->expiresAt()->getTimestamp() - time()) / 60);
+    if ($minutes < 1) {
+      $minutes = 1;
+    }
 
-    return <<<HTML
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .code { font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2563eb; text-align: center; padding: 20px; background: #f1f5f9; border-radius: 8px; margin: 20px 0; }
-        .footer { color: #64748b; font-size: 12px; margin-top: 20px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h2>Your verification code</h2>
-        <p>Use the code below to complete your verification:</p>
-        <div class="code">{$code}</div>
-        <p>This code expires in <strong>{$minutes} minutes</strong>.</p>
-        <p>If you didn't request this code, please ignore this email.</p>
-        <div class="footer">
-          <p>FireGuard Auth - Secure Authentication Service</p>
-        </div>
-      </div>
-    </body>
-    </html>
-    HTML;
+    return $this->twig->render(self::EMAIL_TEMPLATE, [
+      'subject' => $subject,
+      'code' => $code,
+      'instruction' => $this->getEmailInstruction($otp),
+      'expiresInMinutes' => $minutes,
+    ]);
+  }
+
+  /**
+   * Method getEmailInstruction.
+   *
+   * Returns purpose-specific instructions for OTP emails.
+   *
+   * @since 1.0.0
+   *
+   * @param Otp $otp the OTP
+   *
+   * @return string the instruction text
+   */
+  private function getEmailInstruction(Otp $otp): string
+  {
+    return match ($otp->purpose()) {
+      OtpPurpose::LOGIN => 'Use the code below to complete your sign-in.',
+      OtpPurpose::PASSWORD_RESET => 'Use the code below to reset your password.',
+      OtpPurpose::EMAIL_VERIFICATION => 'Use the code below to verify your email address.',
+      OtpPurpose::PHONE_VERIFICATION => 'Use the code below to verify your phone number.',
+      OtpPurpose::SENSITIVE_OPERATION => 'Use the code below to confirm this sensitive action.',
+      OtpPurpose::TRANSACTION_APPROVAL => 'Use the code below to approve this transaction.',
+    };
   }
   // #endregion
 }

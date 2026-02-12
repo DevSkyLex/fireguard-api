@@ -51,6 +51,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     'organization.read',
     'organization.members.read',
     'organization.roles.read',
+    'organization.facilities.read',
   ];
 
   // #region Constructor

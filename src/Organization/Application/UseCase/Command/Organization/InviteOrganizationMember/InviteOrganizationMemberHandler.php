@@ -339,17 +339,13 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     DateTimeImmutable $expiresAt,
     ?string $recipientUserId = null,
   ): SentNotification {
+    $expiresAtIso = $expiresAt->format('c');
+
     $subject = sprintf('Invitation to join %s', $organizationName);
     $body = sprintf(
       '<p>You have been invited to join <strong>%s</strong>.</p><p>Open your invitation details to continue.</p><p>This invitation expires at %s.</p>',
       $organizationName,
-      $expiresAt->format('c'),
-    );
-    $emailBody = sprintf(
-      '<p>You have been invited to join <strong>%s</strong>.</p><p>Use this token to accept your invitation: <code>%s</code></p><p>This invitation expires at %s.</p>',
-      $organizationName,
-      $token,
-      $expiresAt->format('c'),
+      $expiresAtIso,
     );
 
     $channels = [NotificationChannel::EMAIL];
@@ -364,11 +360,16 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       channels: $channels,
       payload: [
         'organizationName' => $organizationName,
-        'expiresAt' => $expiresAt->format('c'),
+        'expiresAt' => $expiresAtIso,
       ],
       deliveryPayload: [
         NotificationChannel::EMAIL->value => [
-          'body' => $emailBody,
+          'template' => 'notification/email/organization_invitation.html.twig',
+          'context' => [
+            'organizationName' => $organizationName,
+            'token' => $token,
+            'expiresAt' => $expiresAtIso,
+          ],
         ],
       ],
       recipientUserId: $recipientUserId,

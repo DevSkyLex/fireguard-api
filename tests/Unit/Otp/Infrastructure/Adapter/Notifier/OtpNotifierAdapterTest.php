@@ -13,6 +13,10 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\{Email, RawMessage};
 use Symfony\Component\Notifier\NotifierInterface;
+use Twig\Environment;
+use Twig\Loader\ArrayLoader;
+
+use function is_string;
 
 /**
  * Test OtpNotifierAdapterTest.
@@ -39,6 +43,7 @@ final class OtpNotifierAdapterTest extends TestCase
     $adapter = new OtpNotifierAdapter(
       notifier: $notifier,
       mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
       senderEmail: 'noreply@example.com',
     );
 
@@ -59,6 +64,7 @@ final class OtpNotifierAdapterTest extends TestCase
     $adapter = new OtpNotifierAdapter(
       notifier: $notifier,
       mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
     );
 
     $adapter->send($otp);
@@ -78,6 +84,7 @@ final class OtpNotifierAdapterTest extends TestCase
     $adapter = new OtpNotifierAdapter(
       notifier: $notifier,
       mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
     );
 
     $adapter->send($otp);
@@ -97,6 +104,7 @@ final class OtpNotifierAdapterTest extends TestCase
     $adapter = new OtpNotifierAdapter(
       notifier: $notifier,
       mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
     );
 
     $adapter->send($otp);
@@ -113,6 +121,7 @@ final class OtpNotifierAdapterTest extends TestCase
     $adapter = new OtpNotifierAdapter(
       notifier: $notifier,
       mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
       senderEmail: 'noreply@example.com',
     );
 
@@ -134,6 +143,36 @@ final class OtpNotifierAdapterTest extends TestCase
     }
 
     self::assertSame($expectedSubjects, $mailer->subjects);
+  }
+
+  #[Test]
+  public function testSendEmailRendersHtmlFromTwigTemplate(): void
+  {
+    $otp = $this->createOtp(OtpChannel::EMAIL, 'user@example.com', OtpPurpose::PASSWORD_RESET);
+    $mailer = new FakeMailer();
+
+    $notifier = $this->createMock(NotifierInterface::class);
+    $notifier->expects(self::never())->method('send');
+
+    $adapter = new OtpNotifierAdapter(
+      notifier: $notifier,
+      mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
+      senderEmail: 'noreply@example.com',
+    );
+
+    $adapter->send($otp);
+
+    self::assertCount(1, $mailer->htmlBodies);
+    self::assertStringContainsString('Use the code below to reset your password.', $mailer->htmlBodies[0]);
+    self::assertStringContainsString('expires in', $mailer->htmlBodies[0]);
+  }
+
+  private function createTwigEnvironment(): Environment
+  {
+    return new Environment(new ArrayLoader([
+      'otp/email/code.html.twig' => '<h1>{{ subject }}</h1><p>{{ instruction }}</p><p>{{ code }}</p><p>expires in {{ expiresInMinutes }}</p>',
+    ]));
   }
 
   private function createOtp(OtpChannel $channel, string $recipient, OtpPurpose $purpose = OtpPurpose::LOGIN): Otp
@@ -174,10 +213,19 @@ final class FakeMailer implements MailerInterface
    */
   public array $subjects = [];
 
+  /**
+   * @var list<string>
+   */
+  public array $htmlBodies = [];
+
   public function send(RawMessage $message, ?\Symfony\Component\Mailer\Envelope $envelope = null): void
   {
     if ($message instanceof Email) {
       $this->subjects[] = $message->getSubject() ?? '';
+      $htmlBody = $message->getHtmlBody();
+      if (is_string($htmlBody)) {
+        $this->htmlBodies[] = $htmlBody;
+      }
     }
   }
 }

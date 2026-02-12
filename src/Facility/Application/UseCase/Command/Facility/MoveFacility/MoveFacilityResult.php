@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Facility\Application\UseCase\Command\Facility\MoveFacility;
+
+use DateTimeImmutable;
+use Shared\Application\Message\ResultMessage;
+
+/**
+ * UseCase MoveFacilityResult.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class MoveFacilityResult implements ResultMessage
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $metadata the optional metadata
+   */
+  public function __construct(
+    public string $facilityId,
+    public string $organizationId,
+    public ?string $parentFacilityId,
+    public string $type,
+    public string $name,
+    public ?string $code,
+    public string $status,
+    public ?string $address,
+    public array $metadata,
+    public DateTimeImmutable $createdAt,
+    public DateTimeImmutable $updatedAt,
+  ) {
+  }
+  // #endregion
+}

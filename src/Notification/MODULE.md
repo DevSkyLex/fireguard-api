@@ -38,7 +38,14 @@ $sent = $notificationPort->send(new SendNotificationRequest(
   channels: [NotificationChannel::EMAIL, NotificationChannel::MERCURE],
   payload: ['organizationId' => '...'], // persisted
   deliveryPayload: [ // ephemeral, not persisted
-    NotificationChannel::EMAIL->value => ['body' => '<p>Use token ...</p>'],
+    NotificationChannel::EMAIL->value => [
+      'template' => 'notification/email/organization_invitation.html.twig',
+      'context' => [
+        'organizationName' => 'Fireguard HQ',
+        'token' => '...',
+        'expiresAt' => '2026-02-20T10:00:00+00:00',
+      ],
+    ],
   ],
   recipientUserId: '...',
   recipientEmail: 'member@example.com',
@@ -65,7 +72,10 @@ Channel details:
 
 - Email channel (`EmailNotificationChannelAdapter`):
   - uses `MailerPort`,
-  - optional override: `deliveryPayload['email']['body']`.
+  - renders a Twig template (default: `notification/email/default.html.twig`),
+  - optional custom template: `deliveryPayload['email']['template']`,
+  - optional template vars: `deliveryPayload['email']['context']`,
+  - `deliveryPayload['email']['body']` is still supported as default-template body override.
 - Mercure channel (`MercureNotificationChannelAdapter`):
   - publishes private updates to topic: `/{topicPrefix}/{userId}/notifications`
     (default prefix: `/users`).

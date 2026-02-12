@@ -111,7 +111,9 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       ->method('send')
       ->with(self::callback(static function (SendNotificationRequest $request) use ($email): bool {
         $emailPayload = $request->deliveryPayload['email'] ?? null;
-        $emailBody = is_array($emailPayload) ? ($emailPayload['body'] ?? null) : null;
+        $emailTemplate = is_array($emailPayload) ? ($emailPayload['template'] ?? null) : null;
+        $emailContext = is_array($emailPayload) ? ($emailPayload['context'] ?? null) : null;
+        $emailToken = is_array($emailContext) ? ($emailContext['token'] ?? null) : null;
 
         return 'organization.invitation' === $request->type
           && [NotificationChannel::EMAIL] === $request->channels
@@ -120,8 +122,10 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
           && !array_key_exists('token', $request->payload)
           && !str_contains($request->body, 'Use this token')
           && str_contains($request->subject, 'Invitation to join')
-          && is_string($emailBody)
-          && str_contains($emailBody, 'Use this token');
+          && 'notification/email/organization_invitation.html.twig' === $emailTemplate
+          && is_array($emailContext)
+          && is_string($emailToken)
+          && '' !== $emailToken;
       }))
       ->willThrowException(new RuntimeException('Notification delivery failed.'));
 
