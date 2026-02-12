@@ -7,7 +7,7 @@ namespace Auth\Infrastructure\Security\Voter;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\Authorization\Voter\Voter;
+use Symfony\Component\Security\Core\Authorization\Voter\{Vote, Voter};
 
 use function in_array;
 use function is_int;
@@ -47,7 +47,7 @@ final class ResourceOwnerVoter extends Voter
       && is_object($subject);
   }
 
-  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
   {
     $user = $token->getUser();
 

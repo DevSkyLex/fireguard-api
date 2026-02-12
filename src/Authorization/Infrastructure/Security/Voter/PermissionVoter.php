@@ -7,7 +7,7 @@ namespace Authorization\Infrastructure\Security\Voter;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Authorization\Application\Port\Inbound\AuthorizationPort;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\Authorization\Voter\Voter;
+use Symfony\Component\Security\Core\Authorization\Voter\{Vote, Voter};
 
 use function preg_match;
 
@@ -74,10 +74,11 @@ final class PermissionVoter extends Voter
    * @param string $attribute the attribute
    * @param mixed $subject the subject
    * @param TokenInterface $token the token
+   * @param Vote|null $vote the vote explanation context
    *
    * @return bool true if the attribute is supported, false otherwise
    */
-  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
   {
     $user = $token->getUser();
 

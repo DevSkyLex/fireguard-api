@@ -7,7 +7,7 @@ namespace Auth\Infrastructure\Security\Voter;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\Authorization\Voter\Voter;
+use Symfony\Component\Security\Core\Authorization\Voter\{Vote, Voter};
 
 use function str_starts_with;
 use function strlen;
@@ -41,7 +41,7 @@ final class OAuth2ScopeVoter extends Voter
     );
   }
 
-  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
+  protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
   {
     $user = $token->getUser();
 
