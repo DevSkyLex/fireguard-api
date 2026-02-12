@@ -57,7 +57,9 @@ final readonly class MercureNotificationChannelAdapter implements MercureNotific
   {
     $userId = $notification->recipientUserId();
 
-    if (null === $userId) return;
+    if (null === $userId) {
+      return;
+    }
 
     $payload = [
       'id' => (string) $notification->id(),
