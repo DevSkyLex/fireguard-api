@@ -5,7 +5,20 @@ declare(strict_types=1);
 namespace Organization\Domain\Model\OrganizationLegalProfile;
 
 use DateTimeImmutable;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationLegalName, OrganizationRegistrationNumber, OrganizationVatNumber};
+use InvalidArgumentException;
+use Organization\Domain\Service\OrganizationLegalRequirementsCatalog;
+use Organization\Domain\ValueObject\{
+  OrganizationCountryCode,
+  OrganizationId,
+  OrganizationLegalName,
+  OrganizationLegalType,
+  OrganizationRegistrationNumber,
+  OrganizationVatNumber
+};
+
+use function is_string;
+use function preg_match;
+use function sprintf;
 
 /**
  * Model OrganizationLegalProfile.
@@ -27,6 +40,8 @@ final class OrganizationLegalProfile
    * @since 1.0.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param OrganizationCountryCode $countryCode the organization legal country code
+   * @param OrganizationLegalType $legalType the legal type
    * @param OrganizationLegalName $legalName the legal name
    * @param ?OrganizationRegistrationNumber $registrationNumber the optional registration number
    * @param ?OrganizationVatNumber $vatNumber the optional VAT number
@@ -35,6 +50,8 @@ final class OrganizationLegalProfile
    */
   private function __construct(
     private OrganizationId $organizationId,
+    private OrganizationCountryCode $countryCode,
+    private OrganizationLegalType $legalType,
     private OrganizationLegalName $legalName,
     private ?OrganizationRegistrationNumber $registrationNumber,
     private ?OrganizationVatNumber $vatNumber,
@@ -53,6 +70,8 @@ final class OrganizationLegalProfile
    * @since 1.0.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param OrganizationCountryCode $countryCode the organization legal country code
+   * @param OrganizationLegalType $legalType the legal type
    * @param OrganizationLegalName $legalName the legal name
    * @param ?OrganizationRegistrationNumber $registrationNumber the optional registration number
    * @param ?OrganizationVatNumber $vatNumber the optional VAT number
@@ -61,14 +80,20 @@ final class OrganizationLegalProfile
    */
   public static function create(
     OrganizationId $organizationId,
+    OrganizationCountryCode $countryCode,
+    OrganizationLegalType $legalType,
     OrganizationLegalName $legalName,
     ?OrganizationRegistrationNumber $registrationNumber = null,
     ?OrganizationVatNumber $vatNumber = null,
   ): self {
+    self::assertConsistency($countryCode, $legalType, $registrationNumber, $vatNumber);
+
     $now = new DateTimeImmutable();
 
     return new self(
       organizationId: $organizationId,
+      countryCode: $countryCode,
+      legalType: $legalType,
       legalName: $legalName,
       registrationNumber: $registrationNumber,
       vatNumber: $vatNumber,
@@ -85,6 +110,8 @@ final class OrganizationLegalProfile
    * @since 1.0.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param OrganizationCountryCode $countryCode the organization legal country code
+   * @param OrganizationLegalType $legalType the legal type
    * @param OrganizationLegalName $legalName the legal name
    * @param ?OrganizationRegistrationNumber $registrationNumber the optional registration number
    * @param ?OrganizationVatNumber $vatNumber the optional VAT number
@@ -95,14 +122,20 @@ final class OrganizationLegalProfile
    */
   public static function reconstitute(
     OrganizationId $organizationId,
+    OrganizationCountryCode $countryCode,
+    OrganizationLegalType $legalType,
     OrganizationLegalName $legalName,
     ?OrganizationRegistrationNumber $registrationNumber,
     ?OrganizationVatNumber $vatNumber,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
   ): self {
+    self::assertConsistency($countryCode, $legalType, $registrationNumber, $vatNumber);
+
     return new self(
       organizationId: $organizationId,
+      countryCode: $countryCode,
+      legalType: $legalType,
       legalName: $legalName,
       registrationNumber: $registrationNumber,
       vatNumber: $vatNumber,
@@ -123,6 +156,34 @@ final class OrganizationLegalProfile
   public function organizationId(): OrganizationId
   {
     return $this->organizationId;
+  }
+
+  /**
+   * Method countryCode.
+   *
+   * Returns the legal country code.
+   *
+   * @since 1.0.0
+   *
+   * @return OrganizationCountryCode the legal country code
+   */
+  public function countryCode(): OrganizationCountryCode
+  {
+    return $this->countryCode;
+  }
+
+  /**
+   * Method legalType.
+   *
+   * Returns the legal type.
+   *
+   * @since 1.0.0
+   *
+   * @return OrganizationLegalType the legal type
+   */
+  public function legalType(): OrganizationLegalType
+  {
+    return $this->legalType;
   }
 
   /**
@@ -202,19 +263,100 @@ final class OrganizationLegalProfile
    *
    * @since 1.0.0
    *
+   * @param OrganizationCountryCode $countryCode the legal country code
    * @param OrganizationLegalName $legalName the legal name
    * @param ?OrganizationRegistrationNumber $registrationNumber the optional registration number
    * @param ?OrganizationVatNumber $vatNumber the optional VAT number
    */
   public function update(
+    OrganizationCountryCode $countryCode,
+    OrganizationLegalType $legalType,
     OrganizationLegalName $legalName,
     ?OrganizationRegistrationNumber $registrationNumber,
     ?OrganizationVatNumber $vatNumber,
   ): void {
+    self::assertConsistency($countryCode, $legalType, $registrationNumber, $vatNumber);
+
+    $this->countryCode = $countryCode;
+    $this->legalType = $legalType;
     $this->legalName = $legalName;
     $this->registrationNumber = $registrationNumber;
     $this->vatNumber = $vatNumber;
     $this->updatedAt = new DateTimeImmutable();
+  }
+
+  /**
+   * Method isComplete.
+   *
+   * Returns whether the legal profile fulfills required fields.
+   *
+   * @since 1.0.0
+   *
+   * @return bool true when complete
+   */
+  public function isComplete(): bool
+  {
+    $requirements = OrganizationLegalRequirementsCatalog::resolve($this->countryCode, $this->legalType);
+
+    return (!$requirements['registrationNumber']['required'] || null !== $this->registrationNumber)
+      && (!$requirements['vatNumber']['required'] || null !== $this->vatNumber);
+  }
+
+  /**
+   * Method assertConsistency.
+   *
+   * Validates field requirements based on legal type and country.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationCountryCode $countryCode the legal country code
+   * @param OrganizationLegalType $legalType the legal type
+   * @param ?OrganizationRegistrationNumber $registrationNumber the optional registration number
+   * @param ?OrganizationVatNumber $vatNumber the optional VAT number
+   */
+  private static function assertConsistency(
+    OrganizationCountryCode $countryCode,
+    OrganizationLegalType $legalType,
+    ?OrganizationRegistrationNumber $registrationNumber,
+    ?OrganizationVatNumber $vatNumber,
+  ): void {
+    $requirements = OrganizationLegalRequirementsCatalog::resolve($countryCode, $legalType);
+    $registrationRule = $requirements['registrationNumber'];
+    $vatRule = $requirements['vatNumber'];
+
+    if ($registrationRule['required'] && null === $registrationNumber) {
+      throw new InvalidArgumentException(sprintf(
+        'Registration number is required for legal type "%s" in country "%s".',
+        $legalType->value,
+        (string) $countryCode,
+      ));
+    }
+
+    if ($vatRule['required'] && null === $vatNumber) {
+      throw new InvalidArgumentException(sprintf(
+        'VAT number is required for legal type "%s" in country "%s".',
+        $legalType->value,
+        (string) $countryCode,
+      ));
+    }
+
+    $registrationPattern = $registrationRule['pattern'];
+    if (null !== $registrationNumber && is_string($registrationPattern) && '' !== $registrationPattern && !preg_match($registrationPattern, (string) $registrationNumber)) {
+      throw new InvalidArgumentException(sprintf(
+        'Registration number format is invalid for legal type "%s" in country "%s".',
+        $legalType->value,
+        (string) $countryCode,
+      ));
+    }
+
+    $vatPattern = $vatRule['pattern'];
+    if (null !== $vatNumber && is_string($vatPattern) && '' !== $vatPattern && !preg_match($vatPattern, (string) $vatNumber)) {
+      throw new InvalidArgumentException(sprintf(
+        'VAT number format is invalid for legal type "%s" in country "%s".',
+        $legalType->value,
+        (string) $countryCode,
+      ));
+    }
   }
   // #endregion
 }

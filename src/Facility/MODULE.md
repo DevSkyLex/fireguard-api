@@ -16,6 +16,7 @@ Main goals:
 
 | Method | Path | Description |
 | --- | --- | --- |
+| GET | `/api/facilities/types` | List facility types for selects |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (`includeArchived` optional query param, default `false`) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility |

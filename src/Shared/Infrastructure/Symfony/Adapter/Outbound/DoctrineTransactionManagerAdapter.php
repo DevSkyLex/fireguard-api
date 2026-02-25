@@ -68,9 +68,7 @@ final readonly class DoctrineTransactionManagerAdapter implements TransactionMan
         );
       }
 
-      throw TransactionExecutionException::wrap(
-        previous: $exception,
-      );
+      throw $exception;
     }
   }
 }

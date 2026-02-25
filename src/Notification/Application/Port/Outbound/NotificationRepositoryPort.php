@@ -54,9 +54,17 @@ interface NotificationRepositoryPort
    * @param string $userId the user identifier
    * @param bool $onlyUnread whether to return only unread notifications
    * @param int $limit max number of results
+   * @param string|null $type exact type filter (e.g. `organization.invitation`)
+   * @param string|null $category category prefix filter (e.g. `organization`)
    *
    * @return list<Notification> the notifications
    */
-  public function findByUserId(string $userId, bool $onlyUnread = false, int $limit = 50): array;
+  public function findByUserId(
+    string $userId,
+    bool $onlyUnread = false,
+    int $limit = 50,
+    ?string $type = null,
+    ?string $category = null,
+  ): array;
   // #endregion
 }

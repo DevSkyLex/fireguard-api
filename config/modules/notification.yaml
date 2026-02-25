@@ -6,6 +6,10 @@ services:
   Notification\Presentation\:
     resource: '../../src/Notification/Presentation'
 
+  Notification\Infrastructure\Console\:
+    resource: '../../src/Notification/Infrastructure/Console'
+    tags: ['console.command']
+
   Notification\Application\Port\Inbound\NotificationPort:
     alias: Notification\Application\Service\NotificationService
 

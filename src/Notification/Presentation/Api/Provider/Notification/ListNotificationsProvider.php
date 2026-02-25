@@ -9,6 +9,7 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsQuery, ListUserNotificationsResult};
+use Notification\Domain\ValueObject\NotificationType;
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -21,6 +22,7 @@ use function is_string;
 use function max;
 use function min;
 use function strtolower;
+use function trim;
 
 /**
  * Provider ListNotificationsProvider.
@@ -75,12 +77,16 @@ final readonly class ListNotificationsProvider implements ProviderInterface
 
     $onlyUnread = $this->toBool($filters['unreadOnly'] ?? false);
     $limit = $this->toLimit($filters['limit'] ?? 50);
+    $type = $this->toNullableString($filters['type'] ?? null);
+    $category = $this->toNullableString($filters['category'] ?? null);
 
     /** @var ListUserNotificationsResult $result */
     $result = $this->queryBus->ask(new ListUserNotificationsQuery(
       userId: $user->getId(),
       onlyUnread: $onlyUnread,
       limit: $limit,
+      type: $type,
+      category: $category,
     ));
 
     return array_map(
@@ -103,6 +109,7 @@ final readonly class ListNotificationsProvider implements ProviderInterface
     $output = new NotificationOutput();
     $output->id = $result->id;
     $output->type = $result->type;
+    $output->category = NotificationType::category($result->type);
     $output->subject = $result->subject;
     $output->body = $result->body;
     $output->channels = $result->channels;
@@ -112,6 +119,26 @@ final readonly class ListNotificationsProvider implements ProviderInterface
     $output->readAt = null !== $result->readAt ? $result->readAt->format('c') : null;
 
     return $output;
+  }
+
+  /**
+   * Method toNullableString.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $value the raw filter value
+   *
+   * @return string|null trimmed non-empty string, or null
+   */
+  private function toNullableString(mixed $value): ?string
+  {
+    if (!is_string($value)) {
+      return null;
+    }
+
+    $trimmed = trim($value);
+
+    return '' !== $trimmed ? $trimmed : null;
   }
 
   /**

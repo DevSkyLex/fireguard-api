@@ -86,8 +86,13 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     return NotificationMapper::toDomain($record);
   }
 
-  public function findByUserId(string $userId, bool $onlyUnread = false, int $limit = 50): array
-  {
+  public function findByUserId(
+    string $userId,
+    bool $onlyUnread = false,
+    int $limit = 50,
+    ?string $type = null,
+    ?string $category = null,
+  ): array {
     $qb = $this->entityManager->createQueryBuilder()
       ->select('n')
       ->from(NotificationRecord::class, 'n')
@@ -98,6 +103,12 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
 
     if ($onlyUnread) {
       $qb->andWhere('n.isRead = :isRead')->setParameter('isRead', false);
+    }
+
+    if (null !== $type) {
+      $qb->andWhere('n.type = :type')->setParameter('type', $type);
+    } elseif (null !== $category) {
+      $qb->andWhere('n.type LIKE :categoryPrefix')->setParameter('categoryPrefix', $category . '.%');
     }
 
     /** @var list<NotificationRecord> $records */

@@ -9,6 +9,7 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Notification\Application\Exception\NotificationNotFoundException;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\{GetUserNotificationQuery, GetUserNotificationResult};
+use Notification\Domain\ValueObject\NotificationType;
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -88,6 +89,7 @@ final readonly class GetNotificationProvider implements ProviderInterface
     $output = new NotificationOutput();
     $output->id = $result->id;
     $output->type = $result->type;
+    $output->category = NotificationType::category($result->type);
     $output->subject = $result->subject;
     $output->body = $result->body;
     $output->channels = $result->channels;

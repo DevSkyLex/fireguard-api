@@ -11,8 +11,8 @@ use Organization\Application\UseCase\Command\Organization\CreateOrganization\{Cr
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;

@@ -15,8 +15,8 @@ use Organization\Presentation\Api\Processor\Organization\CreateOrganizationProce
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
-use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
 use Symfony\Component\Messenger\Envelope;

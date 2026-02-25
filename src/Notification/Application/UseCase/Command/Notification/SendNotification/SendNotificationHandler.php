@@ -144,6 +144,7 @@ final readonly class SendNotificationHandler implements CommandHandler
           'recipientUserId' => $notification->recipientUserId(),
           'recipientEmail' => null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
           'error' => $exception->getMessage(),
+          'cause' => $exception->getPrevious()?->getMessage(),
         ]);
 
         // Best-effort delivery: notification creation must not fail on channel errors.

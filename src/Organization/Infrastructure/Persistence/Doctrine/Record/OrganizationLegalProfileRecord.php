@@ -39,6 +39,22 @@ class OrganizationLegalProfileRecord
   public string $legalName;
 
   /**
+   * Property countryCode.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'country_code', type: 'string', length: 2)]
+  public string $countryCode;
+
+  /**
+   * Property legalType.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'legal_type', type: 'string', length: 32)]
+  public string $legalType;
+
+  /**
    * Property registrationNumber.
    *
    * @since 1.0.0

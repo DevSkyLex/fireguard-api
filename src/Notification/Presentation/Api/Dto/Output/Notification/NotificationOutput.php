@@ -39,6 +39,18 @@ final class NotificationOutput
   public string $type = '';
 
   /**
+   * Property category.
+   *
+   * The category segment extracted from the type string (prefix before
+   * the first dot). Examples: `organization`, `system`.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([NotificationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $category = '';
+
+  /**
    * Property subject.
    *
    * @since 1.0.0

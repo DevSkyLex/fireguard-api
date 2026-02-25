@@ -17,6 +17,14 @@ final class OrganizationOperations
 {
   public const string CREATE_ORGANIZATION = 'createOrganization';
 
+  public const string LIST_ORGANIZATION_COUNTRIES = 'listOrganizationCountries';
+
+  public const string LIST_ORGANIZATION_LEGAL_TYPES = 'listOrganizationLegalTypes';
+
+  public const string GET_ORGANIZATION_LEGAL_PROFILE = 'getOrganizationLegalProfile';
+
+  public const string UPSERT_ORGANIZATION_LEGAL_PROFILE = 'upsertOrganizationLegalProfile';
+
   public const string LIST_USER_ORGANIZATIONS = 'listUserOrganizations';
 
   public const string GET_ORGANIZATION = 'getOrganization';

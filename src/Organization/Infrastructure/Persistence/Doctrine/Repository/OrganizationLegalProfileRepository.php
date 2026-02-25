@@ -62,6 +62,8 @@ final readonly class OrganizationLegalProfileRepository implements OrganizationL
     $existing = $this->repository->find($record->organizationId);
 
     if ($existing instanceof OrganizationLegalProfileRecord) {
+      $existing->countryCode = $record->countryCode;
+      $existing->legalType = $record->legalType;
       $existing->legalName = $record->legalName;
       $existing->registrationNumber = $record->registrationNumber;
       $existing->vatNumber = $record->vatNumber;

@@ -14,7 +14,7 @@ use OAuth\Presentation\Api\Operation\OAuthOperations;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Infrastructure\Exception\MessengerRuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use stdClass;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;

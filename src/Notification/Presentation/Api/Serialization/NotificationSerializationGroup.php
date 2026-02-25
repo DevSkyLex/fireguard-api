@@ -21,4 +21,18 @@ final class NotificationSerializationGroup
    * @since 1.0.0
    */
   public const string READ = 'notification:read';
+
+  /**
+   * Group for Mercure subscription views.
+   *
+   * @since 1.0.0
+   */
+  public const string MERCURE_SUBSCRIPTION = 'notification:mercure_subscription';
+
+  /**
+   * Group for notification type list views.
+   *
+   * @since 1.0.0
+   */
+  public const string NOTIFICATION_TYPE_READ = 'notification_type:read';
 }

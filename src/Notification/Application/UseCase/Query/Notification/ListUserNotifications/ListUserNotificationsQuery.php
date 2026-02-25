@@ -26,11 +26,15 @@ final readonly class ListUserNotificationsQuery implements QueryMessage
    * @param string $userId the user identifier
    * @param bool $onlyUnread whether to list only unread notifications
    * @param int $limit maximum number of notifications
+   * @param string|null $type exact type filter (e.g. `organization.invitation`)
+   * @param string|null $category category prefix filter (e.g. `organization`)
    */
   public function __construct(
     public string $userId,
     public bool $onlyUnread = false,
     public int $limit = 50,
+    public ?string $type = null,
+    public ?string $category = null,
   ) {
   }
   // #endregion

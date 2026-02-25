@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
@@ -354,7 +355,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     }
 
     return $this->notificationPort->send(new SendNotificationRequest(
-      type: 'organization.invitation',
+      type: NotificationType::ORGANIZATION_INVITATION,
       subject: $subject,
       body: $body,
       channels: $channels,

@@ -43,7 +43,7 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
   }
 
   #[Test]
-  public function testTransactionalThrowsException(): void
+  public function testTransactionalRethrowsNonDbalExceptionUnchanged(): void
   {
     $operation = fn () => throw new Exception('Transaction failed');
 
@@ -53,7 +53,8 @@ final class DoctrineTransactionManagerAdapterTest extends TestCase
         return $callback($this->entityManager);
       });
 
-    $this->expectException(TransactionExecutionException::class);
+    $this->expectException(Exception::class);
+    $this->expectExceptionMessage('Transaction failed');
     $this->adapter->transactional($operation);
   }
 

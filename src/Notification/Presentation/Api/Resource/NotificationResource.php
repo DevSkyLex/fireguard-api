@@ -6,9 +6,11 @@ namespace Notification\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
+use Notification\Presentation\Api\Dto\Output\MercureSubscription\MercureSubscriptionOutput;
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
 use Notification\Presentation\Api\Operation\NotificationOperations;
 use Notification\Presentation\Api\Processor\Notification\MarkNotificationAsReadProcessor;
+use Notification\Presentation\Api\Provider\MercureSubscription\GetMercureSubscriptionProvider;
 use Notification\Presentation\Api\Provider\Notification\{GetNotificationProvider, ListNotificationsProvider};
 use Notification\Presentation\Api\Serialization\NotificationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -55,9 +57,42 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Maximum number of notifications (1-100).',
             schema: ['type' => 'integer'],
           ),
+          new Parameter(
+            name: 'type',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact notification type (e.g. `organization.invitation`). See `GET /notification-types` for the full list.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'category',
+            in: 'query',
+            required: false,
+            description: 'Filter by category prefix (e.g. `organization`, `system`). Ignored when `type` is also provided.',
+            schema: ['type' => 'string'],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Notifications retrieved successfully'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+        ],
+      ),
+    ),
+    new Get(
+      name: NotificationOperations::MERCURE_SUBSCRIPTION,
+      uriTemplate: '/subscription',
+      input: false,
+      output: MercureSubscriptionOutput::class,
+      provider: GetMercureSubscriptionProvider::class,
+      normalizationContext: ['groups' => [NotificationSerializationGroup::MERCURE_SUBSCRIPTION]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Notification'],
+        summary: 'Get Mercure subscription token',
+        description: 'Returns a Mercure subscriber JWT and the private SSE topic for the authenticated user. The client must pass this token in the Authorization header (Bearer) when opening an EventSource connection to the Mercure hub.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Mercure subscription token returned successfully'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
         ],
       ),
@@ -87,6 +122,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       uriTemplate: '/{id}/read',
       input: false,
       output: NotificationOutput::class,
+      provider: GetNotificationProvider::class,
       processor: MarkNotificationAsReadProcessor::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",

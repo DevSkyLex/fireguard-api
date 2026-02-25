@@ -12,6 +12,8 @@ parameters:
     ignoreErrors:
         -
             identifier: argument.named
+            paths:
+                - tests/
     phpat:
         ignore_built_in_classes: true
 

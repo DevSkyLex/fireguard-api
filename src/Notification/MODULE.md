@@ -19,6 +19,7 @@ Main goals:
 | GET | `/api/notifications` | List notifications for authenticated user (`unreadOnly`, `limit`) | `ListNotificationsProvider` |
 | GET | `/api/notifications/{id}` | Get one notification owned by authenticated user | `GetNotificationProvider` |
 | PATCH | `/api/notifications/{id}/read` | Mark one notification as read (idempotent) | `MarkNotificationAsReadProcessor` |
+| GET | `/api/notifications/subscription` | Get Mercure subscriber JWT and SSE topic for the authenticated user | `GetMercureSubscriptionProvider` |
 
 ## Inter-Module Usage
 
@@ -79,6 +80,23 @@ Channel details:
 - Mercure channel (`MercureNotificationChannelAdapter`):
   - publishes private updates to topic: `/{topicPrefix}/{userId}/notifications`
     (default prefix: `/users`).
+
+## Mercure Real-Time Subscription
+
+To receive real-time notification updates, clients must:
+
+1. Call `GET /api/notifications/subscription` (Bearer token required).
+2. Receive `{ "token": "<subscriber JWT>", "topic": "/users/{id}/notifications" }`.
+3. Open an SSE connection to the Mercure hub public URL:
+   ```
+   EventSource(MERCURE_PUBLIC_URL + '?topic=' + encodeURIComponent(topic), {
+     headers: { Authorization: 'Bearer ' + token }
+   })
+   ```
+   (or pass the token via the `mercureAuthorization` cookie if the client supports it).
+
+The subscriber JWT is scoped to the user's own topic only (subscribe-only, no publish).
+It is signed with the same `MERCURE_JWT_SECRET` used by the hub.
 
 ## Visibility Model
 

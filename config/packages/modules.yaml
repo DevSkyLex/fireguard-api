@@ -9,6 +9,7 @@ imports:
   - { resource: '../modules/session.yaml' }
   - { resource: '../modules/tenant.yaml' }
   - { resource: '../modules/organization.yaml' }
+  - { resource: '../modules/onboarding.yaml' }
   - { resource: '../modules/facility.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/notification.yaml' }

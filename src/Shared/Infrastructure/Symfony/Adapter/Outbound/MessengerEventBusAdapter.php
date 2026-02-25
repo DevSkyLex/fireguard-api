@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Event\DomainEvent;
-use Shared\Infrastructure\Exception\MessengerRuntimeException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 

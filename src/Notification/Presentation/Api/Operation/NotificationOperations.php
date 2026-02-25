@@ -35,4 +35,18 @@ final class NotificationOperations
    * @since 1.0.0
    */
   public const string MARK_AS_READ = 'notification_mark_as_read';
+
+  /**
+   * Get Mercure subscription token operation.
+   *
+   * @since 1.0.0
+   */
+  public const string MERCURE_SUBSCRIPTION = 'notification_mercure_subscription';
+
+  /**
+   * List notification types operation.
+   *
+   * @since 1.0.0
+   */
+  public const string LIST_TYPES = 'notification_types_list';
 }

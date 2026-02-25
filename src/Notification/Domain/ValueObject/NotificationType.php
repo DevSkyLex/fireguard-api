@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Notification\Domain\ValueObject;
+
+use function explode;
+use function in_array;
+
+/**
+ * ValueObject NotificationType.
+ *
+ * Defines all known notification type constants organized by category.
+ *
+ * Type format: `{category}.{action}` — e.g. `organization.invitation`.
+ * The category is the prefix before the first dot and drives
+ * how the notification is rendered and grouped on the client side.
+ *
+ * @category ValueObject
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class NotificationType
+{
+  // #region Categories
+  public const string CATEGORY_SYSTEM = 'system';
+
+  public const string CATEGORY_ORGANIZATION = 'organization';
+  // #endregion
+
+  // #region System types
+  /**
+   * Platform-wide announcement (maintenance window, new features, …).
+   */
+  public const string SYSTEM_ANNOUNCEMENT = 'system.announcement';
+
+  /**
+   * Scheduled or unplanned maintenance notification.
+   */
+  public const string SYSTEM_MAINTENANCE = 'system.maintenance';
+  // #endregion
+
+  // #region Organization types
+  /**
+   * Sent when a user is invited to join an organization.
+   */
+  public const string ORGANIZATION_INVITATION = 'organization.invitation';
+
+  /**
+   * Sent to the inviter when the invitation is accepted.
+   */
+  public const string ORGANIZATION_INVITATION_ACCEPTED = 'organization.invitation_accepted';
+
+  /**
+   * Sent to the invited user when their invitation is revoked.
+   */
+  public const string ORGANIZATION_INVITATION_REVOKED = 'organization.invitation_revoked';
+
+  /**
+   * Sent to organization owners/admins when a new member joins.
+   */
+  public const string ORGANIZATION_MEMBER_JOINED = 'organization.member_joined';
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method all.
+   *
+   * @since 1.0.0
+   *
+   * @return list<string> all known type constants
+   */
+  public static function all(): array
+  {
+    return [
+      self::SYSTEM_ANNOUNCEMENT,
+      self::SYSTEM_MAINTENANCE,
+      self::ORGANIZATION_INVITATION,
+      self::ORGANIZATION_INVITATION_ACCEPTED,
+      self::ORGANIZATION_INVITATION_REVOKED,
+      self::ORGANIZATION_MEMBER_JOINED,
+    ];
+  }
+
+  /**
+   * Method isValid.
+   *
+   * Returns true for known types. Unknown types are still accepted by
+   * the domain on purpose, to allow forward-compatibility with types
+   * added without a server-side code deployment.
+   *
+   * @since 1.0.0
+   *
+   * @param string $type the type string to check
+   *
+   * @return bool true when `$type` belongs to the known set
+   */
+  public static function isValid(string $type): bool
+  {
+    return in_array($type, self::all(), true);
+  }
+
+  /**
+   * Method category.
+   *
+   * Extracts the category from a type string by returning the segment
+   * before the first dot. Falls back to the full string when no dot
+   * is present (e.g. a legacy bare type).
+   *
+   * Examples:
+   *   `organization.invitation`    → `organization`
+   *   `system.announcement`        → `system`
+   *   `legacy`                     → `legacy`
+   *
+   * @since 1.0.0
+   *
+   * @param string $type the dot-notation type string
+   *
+   * @return string the category segment
+   */
+  public static function category(string $type): string
+  {
+    return explode('.', $type, 2)[0];
+  }
+  // #endregion
+}

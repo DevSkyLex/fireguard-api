@@ -67,7 +67,8 @@
             "Notification\\": "src/Notification/",
             "TrustedDevice\\": "src/TrustedDevice/",
             "Authorization\\": "src/Authorization/",
-            "Audit\\": "src/Audit/"
+            "Audit\\": "src/Audit/",
+            "Onboarding\\": "src/Onboarding/"
         },
         "classmap": [
             "src/Kernel.php"

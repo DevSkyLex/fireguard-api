@@ -19,6 +19,9 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/api/organizations` | Create a Organization and owner membership |
+| GET | `/api/organizations/legal-types` | List legal types for selects |
+| GET | `/api/organizations/{organizationId}/legal-profile` | Get organization legal profile |
+| PUT | `/api/organizations/{organizationId}/legal-profile` | Create/update organization legal profile |
 | GET | `/api/organizations` | List Organizations for current user |
 | GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`) |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |

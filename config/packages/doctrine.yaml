@@ -103,6 +103,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Notification/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Notification\Infrastructure\Persistence\Doctrine\Record'
             alias: Notification
+          Onboarding:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Onboarding/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Onboarding\Infrastructure\Persistence\Doctrine\Record'
+            alias: Onboarding
     controller_resolver:
       auto_mapping: false
 

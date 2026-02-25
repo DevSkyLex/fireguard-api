@@ -58,6 +58,8 @@ final readonly class ListUserNotificationsHandler implements QueryHandler
       userId: $query->userId,
       onlyUnread: $query->onlyUnread,
       limit: $limit,
+      type: $query->type,
+      category: $query->category,
     );
 
     $results = array_map(

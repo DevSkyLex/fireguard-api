@@ -5,7 +5,14 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Organization\Domain\Model\OrganizationLegalProfile\OrganizationLegalProfile;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationLegalName, OrganizationRegistrationNumber, OrganizationVatNumber};
+use Organization\Domain\ValueObject\{
+  OrganizationCountryCode,
+  OrganizationId,
+  OrganizationLegalName,
+  OrganizationLegalType,
+  OrganizationRegistrationNumber,
+  OrganizationVatNumber
+};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationLegalProfileRecord;
 
 /**
@@ -35,6 +42,8 @@ final class OrganizationLegalProfileMapper
   {
     return OrganizationLegalProfile::reconstitute(
       organizationId: OrganizationId::fromString($record->organizationId),
+      countryCode: new OrganizationCountryCode($record->countryCode),
+      legalType: OrganizationLegalType::from($record->legalType),
       legalName: new OrganizationLegalName($record->legalName),
       registrationNumber: null !== $record->registrationNumber ? new OrganizationRegistrationNumber($record->registrationNumber) : null,
       vatNumber: null !== $record->vatNumber ? new OrganizationVatNumber($record->vatNumber) : null,
@@ -58,6 +67,8 @@ final class OrganizationLegalProfileMapper
   {
     $record = new OrganizationLegalProfileRecord();
     $record->organizationId = (string) $profile->organizationId();
+    $record->countryCode = (string) $profile->countryCode();
+    $record->legalType = $profile->legalType()->value;
     $record->legalName = (string) $profile->legalName();
     $record->registrationNumber = null !== $profile->registrationNumber() ? (string) $profile->registrationNumber() : null;
     $record->vatNumber = null !== $profile->vatNumber() ? (string) $profile->vatNumber() : null;

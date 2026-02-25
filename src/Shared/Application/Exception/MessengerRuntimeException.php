@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Shared\Infrastructure\Exception;
+namespace Shared\Application\Exception;
 
 use Throwable;
 
 /**
  * Exception MessengerRuntimeException.
+ *
+ * Thrown by command/query bus ports when message dispatching fails.
+ * Wraps the underlying infrastructure exception for Application-layer handling.
  *
  * @category Exception
  *
@@ -15,7 +18,7 @@ use Throwable;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class MessengerRuntimeException extends InfrastructureException
+final class MessengerRuntimeException extends ApplicationException
 {
   // #region Methods
   /**
