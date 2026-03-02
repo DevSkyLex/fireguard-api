@@ -116,6 +116,28 @@ final class UserOperations
   public const string DELETE = 'user_delete';
 
   /**
+   * Constant UPLOAD_AVATAR.
+   *
+   * Upload user avatar operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string UPLOAD_AVATAR = 'user_upload_avatar';
+
+  /**
+   * Constant GET_AVATAR.
+   *
+   * Get user avatar operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string GET_AVATAR = 'user_get_avatar';
+
+  /**
    * Constant ALL.
    *
    * All user operation names.
@@ -134,6 +156,8 @@ final class UserOperations
     self::ACTIVATE,
     self::DEACTIVATE,
     self::VERIFY_EMAIL,
+    self::UPLOAD_AVATAR,
+    self::GET_AVATAR,
   ];
   // #endregion
 }

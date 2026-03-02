@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationHandler, GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
@@ -37,7 +37,14 @@ final class GetOrganizationHandlerTest extends TestCase
       ->with(self::isInstanceOf(OrganizationId::class))
       ->willReturn($organization);
 
-    $handler = new GetOrganizationHandler($organizationRepository);
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(self::isInstanceOf(OrganizationId::class))
+      ->willReturn(5);
+
+    $handler = new GetOrganizationHandler($organizationRepository, $memberRepository);
 
     $result = $handler->__invoke(new GetOrganizationQuery('550e8400-e29b-41d4-a716-446655440700'));
 
@@ -47,6 +54,7 @@ final class GetOrganizationHandlerTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655440001', $result->createdByUserId);
     self::assertTrue($result->isActive);
     self::assertSame($createdAt, $result->createdAt);
+    self::assertSame(5, $result->memberCount);
   }
 
   #[Test]
@@ -58,7 +66,10 @@ final class GetOrganizationHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $handler = new GetOrganizationHandler($organizationRepository);
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+
+    $handler = new GetOrganizationHandler($organizationRepository, $memberRepository);
 
     $this->expectException(OrganizationNotFoundException::class);
 

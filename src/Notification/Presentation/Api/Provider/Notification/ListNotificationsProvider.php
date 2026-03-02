@@ -11,7 +11,10 @@ use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetU
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsQuery, ListUserNotificationsResult};
 use Notification\Domain\ValueObject\NotificationType;
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -89,10 +92,17 @@ final readonly class ListNotificationsProvider implements ProviderInterface
       category: $category,
     ));
 
-    return array_map(
+    $outputs = array_map(
       fn (GetUserNotificationResult $notification): NotificationOutput => $this->mapOutput($notification),
       $result->notifications,
     );
+
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['type', 'category', 'subject', 'body']);
+
+    $sorting = SortingExtractor::fromContext($context, ['type', 'category', 'isRead', 'createdAt'], 'createdAt', SortDirection::DESC);
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
 
   /**

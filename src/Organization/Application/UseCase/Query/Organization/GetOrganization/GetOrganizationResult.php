@@ -29,6 +29,7 @@ final readonly class GetOrganizationResult implements ResultMessage
     public bool $isActive,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public int $memberCount = 0,
   ) {
   }
   // #endregion

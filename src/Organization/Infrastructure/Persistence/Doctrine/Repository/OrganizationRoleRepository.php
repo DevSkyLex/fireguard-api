@@ -149,6 +149,24 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
   }
 
   /**
+   * Method countByOrganizationId.
+   *
+   * Counts roles belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the role count
+   */
+  public function countByOrganizationId(OrganizationId $organizationId): int
+  {
+    return (int) $this->repository->count([
+      'organizationId' => (string) $organizationId,
+    ]);
+  }
+
+  /**
    * Method findByIdsInOrganization.
    *
    * Finds organization roles by a scoped list of role identifiers.

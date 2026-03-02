@@ -73,6 +73,7 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
         isActive: $organization->isActive(),
         createdAt: $organization->createdAt(),
         updatedAt: $organization->updatedAt(),
+        memberCount: $this->memberRepository->countByOrganizationId($organization->id()),
       );
     }
 

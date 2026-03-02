@@ -9,6 +9,8 @@ use ApiPlatform\State\ProviderInterface;
 use DateTimeInterface;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use User\Application\UseCase\Query\User\ListUsers\ListUsersQuery;
 use User\Domain\Model\User\User;
 use User\Presentation\Api\Dto\Output\User\UserOutput;
@@ -68,7 +70,7 @@ final readonly class ListUsersProvider implements ProviderInterface
     /** @var array<User> $users */
     $users = $result->items;
 
-    return array_map(function (User $user) {
+    $outputs = array_map(function (User $user) {
       $output = new UserOutput();
       $output->id = $user->id()->value;
       $output->username = $user->username()->value;
@@ -84,5 +86,12 @@ final readonly class ListUsersProvider implements ProviderInterface
 
       return $output;
     }, $users);
+
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['username', 'email', 'firstName', 'lastName', 'status']);
+
+    $sorting = SortingExtractor::fromContext($context, ['username', 'email', 'firstName', 'lastName', 'status', 'createdAt'], 'createdAt');
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
 }

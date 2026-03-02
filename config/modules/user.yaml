@@ -52,9 +52,12 @@ services:
   User\Presentation\Api\Processor\User\DeactivateUserProcessor: ~
   User\Presentation\Api\Processor\User\DeleteUserProcessor: ~
   User\Presentation\Api\Processor\User\UpdateUserProcessor: ~
+  User\Presentation\Api\Processor\User\UploadUserAvatarProcessor: ~
   User\Presentation\Api\Processor\User\VerifyUserEmailProcessor: ~
   User\Presentation\Api\Provider\User\UserProvider: ~
   User\Presentation\Api\Provider\User\ListUsersProvider: ~
+  User\Presentation\Api\Controller\User\GetUserAvatarController: ~
+  User\Infrastructure\Image\AvatarResizer: ~
 
   # Console Commands use #[AsCommand]
   User\Infrastructure\Console\CreateUserConsoleCommand: ~

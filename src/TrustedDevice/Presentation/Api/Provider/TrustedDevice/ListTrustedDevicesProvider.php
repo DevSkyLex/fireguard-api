@@ -6,7 +6,10 @@ namespace TrustedDevice\Presentation\Api\Provider\TrustedDevice;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesQuery, ListTrustedDevicesResult};
@@ -50,6 +53,11 @@ final readonly class ListTrustedDevicesProvider implements ProviderInterface
       $outputs[] = $output;
     }
 
-    return $outputs;
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['name']);
+
+    $sorting = SortingExtractor::fromContext($context, ['name', 'lastUsedAt', 'expiresAt', 'createdAt'], 'createdAt', SortDirection::DESC);
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
 }

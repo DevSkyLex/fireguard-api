@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace User\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post, Put};
-use ApiPlatform\OpenApi\Model\{Operation, Response};
+use ApiPlatform\OpenApi\Model\{Operation, RequestBody, Response};
+use ArrayObject;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use User\Presentation\Api\Dto\Input\User\UserInput;
 use User\Presentation\Api\Dto\Output\User\UserOutput;
@@ -16,6 +17,7 @@ use User\Presentation\Api\Processor\User\{
   DeactivateUserProcessor,
   DeleteUserProcessor,
   UpdateUserProcessor,
+  UploadUserAvatarProcessor,
   VerifyUserEmailProcessor
 };
 use User\Presentation\Api\Provider\User\{ListUsersProvider, UserProvider};
@@ -289,6 +291,57 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'User email verified successfully',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'User not found',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+        ],
+      ),
+    ),
+    new Post(
+      name: UserOperations::UPLOAD_AVATAR,
+      uriTemplate: '/users/{id}/avatar',
+      input: false,
+      output: UserOutput::class,
+      processor: UploadUserAvatarProcessor::class,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
+      security: "is_granted('users.update')",
+      openapi: new Operation(
+        tags: ['Users'],
+        summary: 'Upload user avatar',
+        description: 'Uploads an avatar image for a user. Accepted formats: JPEG, PNG, WebP, GIF (max 5 MB). The image is resized to four WebP variants (256, 128, 64, 32 px) with cover crop. Requires users.update permission.',
+        security: [['bearerAuth' => []]],
+        requestBody: new RequestBody(
+          description: 'Avatar image file (JPEG, PNG, WebP or GIF, max 5 MB)',
+          content: new ArrayObject([
+            'multipart/form-data' => [
+              'schema' => [
+                'type' => 'object',
+                'required' => ['avatar'],
+                'properties' => [
+                  'avatar' => [
+                    'type' => 'string',
+                    'format' => 'binary',
+                    'description' => 'Image file (JPEG, PNG, WebP or GIF), max 5 MB',
+                  ],
+                ],
+              ],
+            ],
+          ]),
+          required: true,
+        ),
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Avatar uploaded — user output with updated avatarUrl returned',
+          ),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(
+            description: 'Invalid file — missing, too large, or unsupported MIME type',
           ),
           HttpResponse::HTTP_NOT_FOUND => new Response(
             description: 'User not found',

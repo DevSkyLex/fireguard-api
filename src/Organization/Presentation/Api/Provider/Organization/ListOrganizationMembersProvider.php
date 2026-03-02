@@ -12,6 +12,8 @@ use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 
@@ -89,7 +91,12 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       $outputs[] = $output;
     }
 
-    return $outputs;
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['userId']);
+
+    $sorting = SortingExtractor::fromContext($context, ['userId', 'isActive', 'joinedAt'], 'joinedAt');
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
   // #endregion
 }

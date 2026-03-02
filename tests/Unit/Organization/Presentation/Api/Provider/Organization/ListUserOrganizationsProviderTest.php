@@ -62,6 +62,7 @@ final class ListUserOrganizationsProviderTest extends TestCase
           isActive: true,
           createdAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
           updatedAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+          memberCount: 7,
         ),
       ]));
 
@@ -80,6 +81,7 @@ final class ListUserOrganizationsProviderTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655441500', $output[0]->ownerUserId);
     self::assertSame('active', $output[0]->status);
     self::assertTrue($output[0]->isActive);
+    self::assertSame(7, $output[0]->memberCount);
   }
 
   private function createSecurityUser(string $id): SecurityUser

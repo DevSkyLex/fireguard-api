@@ -7,6 +7,8 @@ namespace Tenant\Presentation\Api\Provider\Tenant;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult;
@@ -60,7 +62,7 @@ final readonly class ListTenantsProvider implements ProviderInterface
     /** @var ListTenantsResult $result */
     $result = $this->queryBus->ask(query: new ListTenantsQuery());
 
-    return array_map(
+    $outputs = array_map(
       callback: function (GetTenantResult $tenant): TenantOutput {
         $output = new TenantOutput();
         $output->id = $tenant->tenantId;
@@ -78,6 +80,13 @@ final readonly class ListTenantsProvider implements ProviderInterface
       },
       array: $result->tenants,
     );
+
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['name']);
+
+    $sorting = SortingExtractor::fromContext($context, ['name', 'isActive', 'createdAt'], 'name');
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
   // #endregion
 }

@@ -63,6 +63,10 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       ->method('findByUserId')
       ->with($userId)
       ->willReturn([$activeMembershipA, $activeMembershipDuplicate, $inactiveMembership]);
+    $memberRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(self::isInstanceOf(OrganizationId::class))
+      ->willReturn(2);
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
@@ -86,6 +90,7 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     self::assertCount(1, $result->organizations);
     self::assertSame($organizationId, $result->organizations[0]->id);
     self::assertSame('Fireguard Nantes', $result->organizations[0]->name);
+    self::assertSame(2, $result->organizations[0]->memberCount);
   }
 
   #[Test]

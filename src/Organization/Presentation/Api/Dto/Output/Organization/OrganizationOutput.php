@@ -84,6 +84,15 @@ final class OrganizationOutput
   public bool $isActive = true;
 
   /**
+   * Property memberCount.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $memberCount = 0;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

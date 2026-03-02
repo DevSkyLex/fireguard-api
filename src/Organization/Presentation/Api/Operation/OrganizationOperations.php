@@ -29,13 +29,19 @@ final class OrganizationOperations
 
   public const string GET_ORGANIZATION = 'getOrganization';
 
+  public const string GET_ORGANIZATION_STATISTICS = 'getOrganizationStatistics';
+
   public const string ADD_ORGANIZATION_MEMBER = 'addOrganizationMember';
 
   public const string LIST_ORGANIZATION_MEMBERS = 'listOrganizationMembers';
 
   public const string CREATE_ORGANIZATION_ROLE = 'createOrganizationRole';
 
+  public const string UPDATE_ORGANIZATION_ROLE = 'updateOrganizationRole';
+
   public const string LIST_ORGANIZATION_ROLES = 'listOrganizationRoles';
+
+  public const string LIST_ORGANIZATION_PERMISSIONS = 'listOrganizationPermissions';
 
   public const string ASSIGN_ORGANIZATION_ROLE_TO_MEMBER = 'assignOrganizationRoleToMember';
 

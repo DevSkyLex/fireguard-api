@@ -83,6 +83,7 @@ final readonly class GetOrganizationProvider implements ProviderInterface
     $output->createdByUserId = $result->createdByUserId;
     $output->status = $result->status;
     $output->isActive = $result->isActive;
+    $output->memberCount = $result->memberCount;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 

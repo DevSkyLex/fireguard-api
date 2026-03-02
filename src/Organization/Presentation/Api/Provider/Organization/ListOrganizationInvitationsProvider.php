@@ -11,7 +11,10 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\{ListOrganizationInvitationsQuery, ListOrganizationInvitationsResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 
@@ -106,7 +109,12 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       $outputs[] = $output;
     }
 
-    return $outputs;
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['email', 'status']);
+
+    $sorting = SortingExtractor::fromContext($context, ['email', 'status', 'createdAt', 'expiresAt'], 'createdAt', SortDirection::DESC);
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
   // #endregion
 }

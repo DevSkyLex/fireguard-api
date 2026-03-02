@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganization;
 
-use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
@@ -23,6 +23,7 @@ final readonly class GetOrganizationHandler implements QueryHandler
   // #region Constructor
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationMemberRepositoryPort $memberRepository,
   ) {
   }
   // #endregion
@@ -56,6 +57,7 @@ final readonly class GetOrganizationHandler implements QueryHandler
       isActive: $organization->isActive(),
       createdAt: $organization->createdAt(),
       updatedAt: $organization->updatedAt(),
+      memberCount: $this->memberRepository->countByOrganizationId($organization->id()),
     );
   }
   // #endregion

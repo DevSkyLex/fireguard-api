@@ -85,6 +85,19 @@ interface OrganizationInvitationRepositoryPort
   public function findByOrganizationId(OrganizationId $organizationId): array;
 
   /**
+   * Method countPendingByOrganizationId.
+   *
+   * Counts pending invitations for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the pending invitation count
+   */
+  public function countPendingByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
    * Method replaceRoleIds.
    *
    * Replaces role assignments for an invitation.

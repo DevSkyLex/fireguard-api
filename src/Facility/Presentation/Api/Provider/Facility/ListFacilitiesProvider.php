@@ -14,6 +14,8 @@ use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -98,7 +100,12 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
       $outputs[] = $this->mapResult($facility);
     }
 
-    return $outputs;
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['name', 'type', 'code', 'status', 'address']);
+
+    $sorting = SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt'], 'name');
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
 
   /**

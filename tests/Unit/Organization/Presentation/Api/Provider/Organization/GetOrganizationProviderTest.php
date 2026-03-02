@@ -99,6 +99,7 @@ final class GetOrganizationProviderTest extends TestCase
         isActive: true,
         createdAt: new DateTimeImmutable('2026-02-01T08:00:00+00:00'),
         updatedAt: new DateTimeImmutable('2026-02-01T08:00:00+00:00'),
+        memberCount: 3,
       ));
 
     $provider = new GetOrganizationProvider(
@@ -116,6 +117,7 @@ final class GetOrganizationProviderTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655441600', $output->ownerUserId);
     self::assertSame('active', $output->status);
     self::assertTrue($output->isActive);
+    self::assertSame(3, $output->memberCount);
   }
 
   private function createSecurityUser(string $id): SecurityUser

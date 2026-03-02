@@ -13,7 +13,10 @@ use Audit\Application\UseCase\Query\ListAuditEvents\ListAuditEventsQuery;
 use Audit\Presentation\Api\Dto\Output\AuditEvent\AuditEventOutput;
 use DateTimeImmutable;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 
 use function array_map;
 use function is_numeric;
@@ -104,6 +107,12 @@ final readonly class ListAuditEventsProvider implements ProviderInterface
       fn (AuditEventView $view): AuditEventOutput => $this->mapToOutput($view),
       $result->items,
     );
+
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['action', 'actorType', 'actorEmail']);
+
+    $sorting = SortingExtractor::fromContext($context, ['action', 'actorType', 'occurredAt'], 'occurredAt', SortDirection::DESC);
+    $outputs = CollectionSorter::sort($outputs, $sorting);
 
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),

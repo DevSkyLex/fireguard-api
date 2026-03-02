@@ -8,7 +8,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Session\Application\UseCase\Query\Session\ListUserSessions\{ListUserSessionsQuery, ListUserSessionsResult};
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -67,7 +70,7 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
       : null;
     $currentSessionId = $request?->getSession()->getId() ?? '';
 
-    return array_map(
+    $outputs = array_map(
       callback: function ($session) use ($currentSessionId): SessionOutput {
         $output = new SessionOutput();
         $output->id = $session->sessionId;
@@ -85,6 +88,13 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
       },
       array: $result->sessions,
     );
+
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['ipAddress', 'browser', 'deviceType']);
+
+    $sorting = SortingExtractor::fromContext($context, ['createdAt', 'lastActivityAt', 'isActive'], 'lastActivityAt', SortDirection::DESC);
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
   // #endregion
 }

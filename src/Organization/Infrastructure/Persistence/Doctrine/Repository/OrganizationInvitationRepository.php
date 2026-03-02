@@ -298,5 +298,24 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
 
     return array_values(array_filter(array_unique($roleIds), static fn (string $roleId): bool => '' !== $roleId));
   }
+
+  /**
+   * Method countPendingByOrganizationId.
+   *
+   * Counts pending invitations for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the pending invitation count
+   */
+  public function countPendingByOrganizationId(OrganizationId $organizationId): int
+  {
+    return (int) $this->invitationRepository->count([
+      'organizationId' => (string) $organizationId,
+      'status' => 'pending',
+    ]);
+  }
   // #endregion
 }

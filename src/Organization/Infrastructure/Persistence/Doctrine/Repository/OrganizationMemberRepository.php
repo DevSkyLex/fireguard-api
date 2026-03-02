@@ -282,6 +282,24 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   }
 
   /**
+   * Method countByOrganizationId.
+   *
+   * Counts members belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the member count
+   */
+  public function countByOrganizationId(OrganizationId $organizationId): int
+  {
+    return (int) $this->memberRepository->count([
+      'organizationId' => (string) $organizationId,
+    ]);
+  }
+
+  /**
    * Method getPermissionNamesForUserInOrganization.
    *
    * Resolves effective permission names for a user in an organization.

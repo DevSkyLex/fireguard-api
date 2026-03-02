@@ -10,6 +10,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsQuery, ListUserOrganizationsResult};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
+use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -69,12 +71,18 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $output->createdByUserId = $organization->createdByUserId;
       $output->status = $organization->status;
       $output->isActive = $organization->isActive;
+      $output->memberCount = $organization->memberCount;
       $output->createdAt = $organization->createdAt->format('c');
       $output->updatedAt = $organization->updatedAt->format('c');
       $outputs[] = $output;
     }
 
-    return $outputs;
+    $search = SearchExtractor::fromContext($context);
+    $outputs = CollectionSearcher::search($outputs, $search, ['name', 'slug', 'status']);
+
+    $sorting = SortingExtractor::fromContext($context, ['name', 'slug', 'status', 'memberCount', 'createdAt'], 'name');
+
+    return CollectionSorter::sort($outputs, $sorting);
   }
   // #endregion
 }

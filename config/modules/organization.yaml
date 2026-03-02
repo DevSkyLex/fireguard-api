@@ -31,6 +31,9 @@ services:
   Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\CreateOrganizationRoleHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\UpdateOrganizationRoleHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
     tags: ['messenger.message_handler']
 
@@ -65,10 +68,16 @@ services:
   Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\ListOrganizationRolesHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\ListOrganizationPermissions\ListOrganizationPermissionsHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\GetOrganizationLegalProfileHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics\GetOrganizationStatisticsHandler:
     tags: ['messenger.message_handler']
 
   # Repositories
