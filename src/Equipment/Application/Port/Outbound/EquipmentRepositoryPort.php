@@ -1,0 +1,68 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Equipment\Application\Port\Outbound;
+
+use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
+
+/**
+ * Port EquipmentRepositoryPort.
+ *
+ * @category Port
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+interface EquipmentRepositoryPort
+{
+  // #region Methods
+  /**
+   * Method save.
+   *
+   * Persists an equipment aggregate.
+   *
+   * @since 1.0.0
+   *
+   * @param Equipment $equipment the equipment aggregate
+   */
+  public function save(Equipment $equipment): void;
+
+  /**
+   * Method findById.
+   *
+   * Finds an equipment by identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentId $id the equipment identifier
+   *
+   * @return ?Equipment the equipment aggregate when found
+   */
+  public function findById(EquipmentId $id): ?Equipment;
+
+  /**
+   * Method findByOrganizationId.
+   *
+   * Lists equipment for an organization with optional filters.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $type optional type filter
+   * @param ?string $status optional status filter
+   *
+   * @return list<Equipment> the equipment list
+   */
+  public function findByOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    ?string $facilityId = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array;
+
+  // #endregion
+}

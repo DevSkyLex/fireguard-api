@@ -146,7 +146,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     /** @var AvatarResizer&MockObject $resizer */
     $resizer = $this->createMock(AvatarResizer::class);
     $resizer->expects(self::once())->method('delete')->with('user-1');
-    $resizer->expects(self::once())->method('resize')->with('user-1', self::isType('string'));
+    $resizer->expects(self::once())->method('resize')->with('user-1', self::isString());
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);

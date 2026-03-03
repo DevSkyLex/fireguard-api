@@ -1,0 +1,70 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Equipment\Presentation\:
+    resource: '../../src/Equipment/Presentation'
+
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\AttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Application\Port\Outbound\EquipmentRepositoryPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository
+
+  Equipment\Application\Port\Outbound\TagRepositoryPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository
+
+  Equipment\Application\Port\Outbound\AttachmentRepositoryPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\AttachmentRepository
+
+  Equipment\Application\UseCase\Command\Equipment\CreateEquipment\CreateEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\UpdateEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\AssignToFacility\AssignToFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility\UnassignFromFacilityHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\CommissionEquipment\CommissionEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\PutUnderMaintenanceHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\DecommissionEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\AddTagToEquipment\AddTagToEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment\RemoveTagFromEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\AddAttachment\AddAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Command\Equipment\DeleteAttachment\DeleteAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\ListEquipmentAttachments\ListEquipmentAttachmentsHandler:
+    tags: ['messenger.message_handler']

@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
+
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
+use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use InvalidArgumentException;
+use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Message\CommandHandler;
+use Shared\Domain\Exception\InvalidValueException;
+use Throwable;
+use ValueError;
+
+use function str_contains;
+use function strtolower;
+
+/**
+ * UseCase CreateEquipmentHandler.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class CreateEquipmentHandler implements CommandHandler
+{
+  // #region Constructor
+  public function __construct(
+    private EquipmentRepositoryPort $equipmentRepository,
+    private UuidFactory $uuidFactory,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the corresponding use case execution.
+   *
+   * @since 1.0.0
+   *
+   * @param CreateEquipmentCommand $command the command payload
+   *
+   * @return CreateEquipmentResult the use case result
+   */
+  public function __invoke(CreateEquipmentCommand $command): CreateEquipmentResult
+  {
+    try {
+      $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
+
+      /** @var EquipmentId $equipmentId */
+      $equipmentId = $this->uuidFactory->create(EquipmentId::class);
+
+      $equipment = Equipment::create(
+        id: $equipmentId,
+        organizationId: $organizationId,
+        type: EquipmentType::from($command->type),
+        subType: $command->subType,
+        brand: $command->brand,
+        model: $command->model,
+        serialNumber: $command->serialNumber,
+        locationLabel: $command->locationLabel,
+      );
+    } catch (InvalidValueException|ValueError $exception) {
+      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    try {
+      $this->equipmentRepository->save($equipment);
+    } catch (Throwable $exception) {
+      if ($this->isDuplicateSerialNumberViolation($exception)) {
+        throw EquipmentSerialNumberAlreadyExistsException::withSerialNumber($command->serialNumber ?? '');
+      }
+
+      throw $exception;
+    }
+
+    return new CreateEquipmentResult(
+      equipmentId: (string) $equipment->id(),
+      organizationId: (string) $equipment->organizationId(),
+      facilityId: $equipment->facilityId()?->__toString(),
+      type: $equipment->type()->value,
+      subType: $equipment->subType(),
+      brand: $equipment->brand(),
+      model: $equipment->model(),
+      serialNumber: $equipment->serialNumber(),
+      locationLabel: $equipment->locationLabel(),
+      status: $equipment->status()->value,
+      installedAt: $equipment->installedAt()?->format('c'),
+      commissionedAt: $equipment->commissionedAt()?->format('c'),
+      tags: [],
+      createdAt: $equipment->createdAt(),
+      updatedAt: $equipment->updatedAt(),
+    );
+  }
+
+  /**
+   * Method isDuplicateSerialNumberViolation.
+   *
+   * @since 1.0.0
+   */
+  private function isDuplicateSerialNumberViolation(Throwable $exception): bool
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      if ($current instanceof UniqueConstraintViolationException) {
+        $message = strtolower($current->getMessage());
+
+        if (str_contains($message, 'uniq_equipment_organization_serial') || (str_contains($message, 'equipment') && str_contains($message, 'serial'))) {
+          return true;
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return false;
+  }
+  // #endregion
+}

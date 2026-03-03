@@ -42,7 +42,7 @@ final class AvatarResizerTest extends TestCase
       ->method('write')
       ->with(
         self::callback(fn (string $path) => in_array($path, $expectedPaths, strict: true)),
-        self::isType('string'),
+        self::isString(),
       );
 
     $resizer = new AvatarResizer($storage);

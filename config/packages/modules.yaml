@@ -11,6 +11,7 @@ imports:
   - { resource: '../modules/organization.yaml' }
   - { resource: '../modules/onboarding.yaml' }
   - { resource: '../modules/facility.yaml' }
+  - { resource: '../modules/equipment.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/notification.yaml' }
   - { resource: '../modules/trusted_device.yaml' }
