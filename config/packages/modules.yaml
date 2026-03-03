@@ -12,6 +12,7 @@ imports:
   - { resource: '../modules/onboarding.yaml' }
   - { resource: '../modules/facility.yaml' }
   - { resource: '../modules/equipment.yaml' }
+  - { resource: '../modules/inspection.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/notification.yaml' }
   - { resource: '../modules/trusted_device.yaml' }

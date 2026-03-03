@@ -1,0 +1,68 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Inspection\Presentation\:
+    resource: '../../src/Inspection/Presentation'
+
+  # Repositories
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Port aliases
+  Inspection\Application\Port\Outbound\InspectionRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
+
+  Inspection\Application\Port\Outbound\NonConformityRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository
+
+  Inspection\Application\Port\Outbound\ChecklistRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository
+
+  # Command Handlers
+  Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\SubmitInspection\SubmitInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\CloseInspection\CloseInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\NonConformity\AddNonConformity\AddNonConformityHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Checklist\CreateChecklist\CreateChecklistHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Checklist\ArchiveChecklist\ArchiveChecklistHandler:
+    tags: ['messenger.message_handler']
+
+  # Query Handlers
+  Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\ListNonConformitiesHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsHandler:
+    tags: ['messenger.message_handler']

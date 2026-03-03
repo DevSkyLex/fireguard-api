@@ -115,6 +115,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Equipment/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Equipment\Infrastructure\Persistence\Doctrine\Record'
             alias: Equipment
+          Inspection:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Inspection/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Inspection\Infrastructure\Persistence\Doctrine\Record'
+            alias: Inspection
     controller_resolver:
       auto_mapping: false
 

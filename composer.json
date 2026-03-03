@@ -64,6 +64,7 @@
             "Organization\\": "src/Organization/",
             "Facility\\": "src/Facility/",
             "Equipment\\": "src/Equipment/",
+            "Inspection\\": "src/Inspection/",
             "Session\\": "src/Session/",
             "Otp\\": "src/Otp/",
             "Notification\\": "src/Notification/",
