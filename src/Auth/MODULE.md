@@ -1,6 +1,6 @@
 # Auth Module
 
-Authentication module for Fireguard Auth Server. It provides user login, MFA verification, refresh token handling, and logout, while integrating with the OAuth2 and OpenID Connect stack for SSO flows.
+Authentication module for Fireguard API. It provides user login, MFA verification, refresh token handling, and logout, while integrating with the OAuth2 and OpenID Connect stack.
 
 ## Overview
 
@@ -13,7 +13,7 @@ The Auth module is responsible for interactive user authentication. It issues ac
 - Refresh token cookies with HttpOnly, SameSite, and secure defaults.
 - Access tokens are minimized by default; optional email/RBAC claims via env.
 - Session tracking and revocation.
-- Integration with OAuth2/OpenID Connect flows for SSO.
+- Integration with OAuth2/OpenID Connect flows.
 
 ## API Endpoints
 
@@ -279,7 +279,7 @@ curl -X POST http://localhost:8000/api/auth/refresh \
   -b cookies.txt
 ```
 
-SSO (OIDC Authorization Code + PKCE):
+OIDC Authorization Code + PKCE:
 1. Redirect the user to `/api/oauth2/authorize` with PKCE parameters.
 2. Exchange the code at `/api/oauth2/token`.
 3. Use the access token for protected APIs and `/api/oauth2/userinfo`.

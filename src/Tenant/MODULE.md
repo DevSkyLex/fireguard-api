@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tenant manages multi-tenant configuration for the auth server. It stores per-tenant
+Tenant manages multi-tenant configuration for the API. It stores per-tenant
 OAuth settings (token TTLs, PKCE requirements, allowed scopes, optional issuer) and
 exposes endpoints to create, read, update, activate/deactivate, and delete tenants.
 

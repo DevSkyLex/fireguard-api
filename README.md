@@ -1,6 +1,6 @@
-# Fireguard Auth Server Documentation
+# Fireguard API
 
-Modular authentication and authorization server built with Symfony. It provides OAuth 2.0 and OpenID Connect capabilities for APIs and SSO use cases.
+Modular API for fire safety management built with Symfony. It covers the full stack: authentication, authorization, OAuth 2.0 / OpenID Connect, and the fire safety business domain (organizations, facilities, equipment, inspections).
 
 ---
 
@@ -13,6 +13,8 @@ Modular authentication and authorization server built with Symfony. It provides 
   - [OAuth2 and OIDC](#oauth2-and-oidc)
   - [Discovery](#discovery)
   - [Administration](#administration)
+  - [Business domain](#business-domain)
+  - [Audit](#audit)
 - [Flows](#flows)
   - [OAuth2 and OIDC core flow](#oauth2-and-oidc-core-flow)
 - [Architecture](#architecture)
@@ -29,17 +31,11 @@ Modular authentication and authorization server built with Symfony. It provides 
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## Overview
 
-Fireguard Auth Server is a modular auth stack designed around clear module boundaries and hexagonal architecture.
-
-## Scope & Boundaries (SSO vs Business App)
-
-- **Auth Server (this repo)**: identity, authentication, MFA/OTP, token issuance, session tracking, RBAC and permissions.
-- **Business app(s)**: core domain workflows for fire safety operations (sites, assets, interventions, compliance), using `sub` from tokens and `Organization` context.
-- Organization membership and Organization-scoped RBAC are available in this server via the Organization module; deeper operational domain rules stay in domain modules.
+Fireguard API is a modular platform designed around clear module boundaries and hexagonal architecture. It handles both the authentication / authorization layer and the fire safety business domain within a single deployable unit (modulith).
 
 ## Features
 
@@ -51,12 +47,18 @@ Fireguard Auth Server is a modular auth stack designed around clear module bound
 | Sessions | Session tracking, revocation, and trusted devices |
 | Multi-tenant | Tenant-aware resources and policies |
 | RBAC | Roles and permissions management |
-| Organization context | Organization membership and Organization-scoped RBAC |
+| Organizations | Organization membership and organization-scoped RBAC |
+| Facilities | Location hierarchy (site → building → floor → zone → area) |
+| Equipment | Fire safety asset inventory with lifecycle management |
+| Inspections | Inspection workflow, checklists, and non-conformity tracking |
+| Onboarding | Guided organization onboarding flow |
+| Notifications | Email and real-time (Mercure) notification delivery |
+| Audit | Append-only, hash-chained security event ledger |
 | API Platform | HTTP exposure, validation, and rate limiting |
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## API surface
 
@@ -103,6 +105,19 @@ High-level endpoints are grouped below. See each module document for full detail
 | `/api/permissions` | Permission management |
 | `/api/clients` | OAuth client management |
 
+### Business domain
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/organizations/{organizationId}/facilities` | Facility hierarchy (site, building, floor, zone, area) |
+| `/api/organizations/{organizationId}/equipment` | Equipment inventory and lifecycle |
+| `/api/organizations/{organizationId}/inspections` | Inspections with submit / close workflow |
+| `/api/organizations/{organizationId}/checklists` | Reusable inspection checklist templates |
+| `/api/organizations/{organizationId}/inspections/{id}/non-conformities` | Deficiency tracking |
+| `/api/organizations` | Organization CRUD and membership |
+| `/api/onboarding/organization` | Guided organization onboarding |
+| `/api/notifications` | User notifications and real-time subscriptions |
+
 ### Audit
 
 | Method | Endpoint | Description | Auth |
@@ -116,7 +131,7 @@ High-level endpoints are grouped below. See each module document for full detail
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## Flows
 
@@ -126,20 +141,20 @@ High-level endpoints are grouped below. See each module document for full detail
 sequenceDiagram
   autonumber
   participant Client
-  participant AuthServer
-  Client->>AuthServer: /api/oauth2/authorize (PKCE)
-  AuthServer-->>Client: Authorization code
-  Client->>AuthServer: /api/oauth2/token (code + verifier)
-  AuthServer-->>Client: Access token (+ refresh token)
-  Client->>AuthServer: /api/oauth2/token/introspect
-  AuthServer-->>Client: Token status
-  Client->>AuthServer: /api/oauth2/token/revoke
-  AuthServer-->>Client: Revocation acknowledged
+  participant API as Fireguard API
+  Client->>API: /api/oauth2/authorize (PKCE)
+  API-->>Client: Authorization code
+  Client->>API: /api/oauth2/token (code + verifier)
+  API-->>Client: Access token (+ refresh token)
+  Client->>API: /api/oauth2/token/introspect
+  API-->>Client: Token status
+  Client->>API: /api/oauth2/token/revoke
+  API-->>Client: Revocation acknowledged
 ```
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## Architecture
 
@@ -149,29 +164,64 @@ See `ARCHITECTURE.md` for the full ruleset.
 ```mermaid
 flowchart LR
   Client[Client Apps] -->|HTTP| API[API Platform]
-  API --> Auth[Auth Module]
-  API --> OAuth[OAuth Module]
-  API --> User[User Module]
-  API --> Tenant[Tenant Module]
-  API --> Session[Session Module]
-  API --> TrustedDevice[TrustedDevice Module]
-  API --> Authorization[Authorization Module]
-  API --> Organization[Organization Module]
-  API --> Otp[OTP Module]
+
+  subgraph Auth & Identity
+    Auth[Auth]
+    OAuth[OAuth]
+    User[User]
+    Session[Session]
+    TrustedDevice[TrustedDevice]
+    Otp[OTP]
+    Tenant[Tenant]
+    Authorization[Authorization]
+  end
+
+  subgraph Business Domain
+    Organization[Organization]
+    Facility[Facility]
+    Equipment[Equipment]
+    Inspection[Inspection]
+    Onboarding[Onboarding]
+    Notification[Notification]
+    Audit[Audit]
+  end
+
+  API --> Auth
+  API --> OAuth
+  API --> User
+  API --> Session
+  API --> TrustedDevice
+  API --> Otp
+  API --> Tenant
+  API --> Authorization
+  API --> Organization
+  API --> Facility
+  API --> Equipment
+  API --> Inspection
+  API --> Onboarding
+  API --> Notification
+  API --> Audit
+
   Auth --> Shared[Shared]
   OAuth --> Shared
   User --> Shared
-  Tenant --> Shared
   Session --> Shared
   TrustedDevice --> Shared
+  Otp --> Shared
+  Tenant --> Shared
   Authorization --> Shared
   Organization --> Shared
-  Otp --> Shared
+  Facility --> Shared
+  Equipment --> Shared
+  Inspection --> Shared
+  Onboarding --> Shared
+  Notification --> Shared
+  Audit --> Shared
 ```
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## Project layout
 
@@ -191,7 +241,7 @@ tests/
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## Configuration
 
@@ -217,7 +267,7 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
 
 ---
 
-<div align="right"><a href="#fireguard-auth-server-documentation">Back to top</a></div>
+<div align="right"><a href="#fireguard-api">Back to top</a></div>
 
 ## Requirements
 

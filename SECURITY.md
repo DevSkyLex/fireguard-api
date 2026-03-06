@@ -1,6 +1,6 @@
 # Security Guide
 
-This document summarizes security-sensitive configuration and operational practices for Fireguard Auth Server.
+This document summarizes security-sensitive configuration and operational practices for Fireguard API.
 
 ## Scope
 

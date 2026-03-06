@@ -1,6 +1,6 @@
 # OAuth Module Documentation
 
-OAuth2 and OpenID Connect provider module for **Fireguard Auth Server**.
+OAuth2 and OpenID Connect provider module for **Fireguard API**.
 Implements OAuth 2.0 (RFC 6749), Token Revocation (RFC 7009), Token Introspection (RFC 7662), and Discovery (RFC 8414 / OpenID Connect Discovery).
 
 ---

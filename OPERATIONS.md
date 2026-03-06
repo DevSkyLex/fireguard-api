@@ -1,6 +1,6 @@
 # Operations Guide
 
-This document provides operational procedures, runbooks, and monitoring guidance for Fireguard Auth Server in production and staging environments.
+This document provides operational procedures, runbooks, and monitoring guidance for Fireguard API in production and staging environments.
 
 ---
 
