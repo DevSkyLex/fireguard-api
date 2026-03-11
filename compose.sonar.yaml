@@ -20,7 +20,7 @@ services:
       - fireguard-network
 
   sonar-scanner:
-    image: sonarsource/sonar-scanner-cli:11
+    image: sonarsource/sonar-scanner-cli:12
     container_name: fireguard-sonar-scanner
     profiles: ["tools"] # Only run when explicitly requested
     depends_on:
