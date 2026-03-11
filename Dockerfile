@@ -3,7 +3,7 @@
 # =============================================================================
 # Base PHP image with common extensions
 # =============================================================================
-FROM php:8.4-cli-alpine AS base
+FROM php:8.5-cli-alpine AS base
 
 # Install system dependencies
 RUN apk add --no-cache \
