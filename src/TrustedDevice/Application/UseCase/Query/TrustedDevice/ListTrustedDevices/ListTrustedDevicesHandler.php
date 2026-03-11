@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices;
 
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
+
+use function count;
 
 /**
  * Handler ListTrustedDevicesHandler.
@@ -17,7 +20,10 @@ final readonly class ListTrustedDevicesHandler implements QueryHandler
   ) {
   }
 
-  public function __invoke(ListTrustedDevicesQuery $query): ListTrustedDevicesResult
+  /**
+   * @return PaginatedResult<TrustedDeviceItemResult>
+   */
+  public function __invoke(ListTrustedDevicesQuery $query): PaginatedResult
   {
     $devices = $this->repository->findAllByUserId($query->userId);
 
@@ -36,6 +42,13 @@ final readonly class ListTrustedDevicesHandler implements QueryHandler
       );
     }
 
-    return new ListTrustedDevicesResult(devices: $items);
+    $total = count($items);
+
+    return new PaginatedResult(
+      items: $items,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
 }

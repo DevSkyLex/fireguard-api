@@ -17,11 +17,9 @@ use Onboarding\Domain\ValueObject\{
 };
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{
-  ListUserOrganizationsQuery,
-  ListUserOrganizationsResult
-};
+use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
 use Organization\Domain\Exception\OrganizationNotFoundException;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
@@ -338,7 +336,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function synchronizeSessionFromCurrentState(OrganizationOnboardingSession $session, string $userId): ComputedOnboardingState
   {
-    /** @var ListUserOrganizationsResult $organizationsResult */
+    /** @var PaginatedResult<GetOrganizationResult> $organizationsResult */
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
     $targetOrganization = $this->resolveTargetOrganization($session, $organizationsResult);
 
@@ -457,28 +455,28 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    * @since 1.0.0
    *
    * @param OrganizationOnboardingSession $session the onboarding session aggregate
-   * @param ListUserOrganizationsResult $organizationsResult the current organizations list
+   * @param PaginatedResult<GetOrganizationResult> $organizationsResult the current organizations list
    *
    * @return ?GetOrganizationResult the resolved target organization
    */
   private function resolveTargetOrganization(
     OrganizationOnboardingSession $session,
-    ListUserOrganizationsResult $organizationsResult,
+    PaginatedResult $organizationsResult,
   ): ?GetOrganizationResult {
-    if ([] === $organizationsResult->organizations) {
+    if ([] === $organizationsResult->items) {
       return null;
     }
 
     $targetOrganizationId = $session->targetOrganizationId();
     if (is_string($targetOrganizationId) && '' !== $targetOrganizationId) {
-      foreach ($organizationsResult->organizations as $organization) {
+      foreach ($organizationsResult->items as $organization) {
         if ($organization->id === $targetOrganizationId) {
           return $organization;
         }
       }
     }
 
-    return $organizationsResult->organizations[0];
+    return $organizationsResult->items[0];
   }
 
   /**
@@ -510,11 +508,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    */
   private function rollbackDeleteOrganization(string $userId, string $organizationId): void
   {
-    /** @var ListUserOrganizationsResult $organizationsResult */
+    /** @var PaginatedResult<GetOrganizationResult> $organizationsResult */
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
 
     $isUserMember = false;
-    foreach ($organizationsResult->organizations as $organization) {
+    foreach ($organizationsResult->items as $organization) {
       if ($organization->id === $organizationId) {
         $isUserMember = true;
 

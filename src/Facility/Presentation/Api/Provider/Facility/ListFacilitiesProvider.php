@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Facility\Presentation\Api\Provider\Facility;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
-use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesQuery, ListFacilitiesResult};
+use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
@@ -22,7 +25,11 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
+use function array_slice;
+use function count;
+use function is_numeric;
 use function is_string;
+use function max;
 
 /**
  * Provider ListFacilitiesProvider.
@@ -49,17 +56,9 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
 
   // #region Methods
   /**
-   * Method provide.
-   *
-   * @since 1.0.0
-   *
-   * @param Operation $operation the API operation metadata
-   * @param array<string, mixed> $uriVariables URI variables extracted from the request
-   * @param array<string, mixed> $context processing context values
-   *
-   * @return list<FacilityOutput>
+   * @return TraversablePaginator<FacilityOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -78,11 +77,25 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     $request = $this->requestStack->getCurrentRequest();
     $includeArchived = $request?->query->getBoolean('includeArchived', false) ?? false;
 
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
     try {
-      /** @var ListFacilitiesResult $result */
+      /** @var PaginatedResult<GetFacilityResult> $result */
       $result = $this->queryBus->ask(new ListFacilitiesQuery(
         organizationId: $organizationId,
         includeArchived: $includeArchived,
+        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -96,16 +109,26 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     }
 
     $outputs = [];
-    foreach ($result->facilities as $facility) {
+    foreach ($result->items as $facility) {
       $outputs[] = $this->mapResult($facility);
     }
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['name', 'type', 'code', 'status', 'address']);
 
-    $sorting = SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt'], 'name');
+    $total = count($outputs);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $sorting = SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt'], 'name');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
 
   /**

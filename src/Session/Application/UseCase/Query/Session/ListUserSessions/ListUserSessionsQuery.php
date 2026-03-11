@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Session\Application\UseCase\Query\Session\ListUserSessions;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -29,6 +30,7 @@ final readonly class ListUserSessionsQuery implements QueryMessage
   public function __construct(
     public readonly string $userId,
     public readonly bool $activeOnly = true,
+    public readonly Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

@@ -5,18 +5,21 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Provider\Organization\ListUserOrganizationsProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+use function iterator_to_array;
 
 #[CoversClass(ListUserOrganizationsProvider::class)]
 final class ListUserOrganizationsProviderTest extends TestCase
@@ -51,20 +54,25 @@ final class ListUserOrganizationsProviderTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
       ->method('ask')
-      ->willReturn(new ListUserOrganizationsResult([
-        new GetOrganizationResult(
-          id: '550e8400-e29b-41d4-a716-446655441510',
-          name: 'Fireguard Brest',
-          slug: 'fireguard-brest',
-          ownerUserId: '550e8400-e29b-41d4-a716-446655441500',
-          createdByUserId: '550e8400-e29b-41d4-a716-446655441500',
-          status: 'active',
-          isActive: true,
-          createdAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
-          updatedAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
-          memberCount: 7,
-        ),
-      ]));
+      ->willReturn(new PaginatedResult(
+        items: [
+          new GetOrganizationResult(
+            id: '550e8400-e29b-41d4-a716-446655441510',
+            name: 'Fireguard Brest',
+            slug: 'fireguard-brest',
+            ownerUserId: '550e8400-e29b-41d4-a716-446655441500',
+            createdByUserId: '550e8400-e29b-41d4-a716-446655441500',
+            status: 'active',
+            isActive: true,
+            createdAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+            updatedAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+            memberCount: 7,
+          ),
+        ],
+        total: 1,
+        limit: 1,
+        offset: 0,
+      ));
 
     $provider = new ListUserOrganizationsProvider(
       queryBus: $queryBus,
@@ -73,15 +81,59 @@ final class ListUserOrganizationsProviderTest extends TestCase
 
     $output = $provider->provide(new GetCollection());
 
-    self::assertCount(1, $output);
-    self::assertInstanceOf(OrganizationOutput::class, $output[0]);
-    self::assertSame('550e8400-e29b-41d4-a716-446655441510', $output[0]->id);
-    self::assertSame('Fireguard Brest', $output[0]->name);
-    self::assertSame('fireguard-brest', $output[0]->slug);
-    self::assertSame('550e8400-e29b-41d4-a716-446655441500', $output[0]->ownerUserId);
-    self::assertSame('active', $output[0]->status);
-    self::assertTrue($output[0]->isActive);
-    self::assertSame(7, $output[0]->memberCount);
+    $items = iterator_to_array($output);
+    self::assertCount(1, $items);
+    self::assertInstanceOf(OrganizationOutput::class, $items[0]);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441510', $items[0]->id);
+    self::assertSame('Fireguard Brest', $items[0]->name);
+    self::assertSame('fireguard-brest', $items[0]->slug);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441500', $items[0]->ownerUserId);
+    self::assertSame('active', $items[0]->status);
+    self::assertTrue($items[0]->isActive);
+    self::assertSame(7, $items[0]->memberCount);
+  }
+
+  #[Test]
+  public function testProvideExposesTotalItemsInPaginator(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441520'));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new PaginatedResult(
+        items: [
+          new GetOrganizationResult(
+            id: '550e8400-e29b-41d4-a716-446655441530',
+            name: 'Fireguard Lyon',
+            slug: 'fireguard-lyon',
+            ownerUserId: '550e8400-e29b-41d4-a716-446655441520',
+            createdByUserId: '550e8400-e29b-41d4-a716-446655441520',
+            status: 'active',
+            isActive: true,
+            createdAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+            updatedAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+            memberCount: 3,
+          ),
+        ],
+        total: 1,
+        limit: 1,
+        offset: 0,
+      ));
+
+    $provider = new ListUserOrganizationsProvider(
+      queryBus: $queryBus,
+      security: $security,
+    );
+
+    $output = $provider->provide(new GetCollection());
+
+    self::assertInstanceOf(TraversablePaginator::class, $output);
+    self::assertSame(1.0, $output->getTotalItems());
   }
 
   private function createSecurityUser(string $id): SecurityUser

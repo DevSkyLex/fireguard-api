@@ -10,11 +10,14 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
-use Session\Application\UseCase\Query\Session\ListUserSessions\{ListUserSessionsQuery, ListUserSessionsResult};
+use Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsQuery;
 use Session\Presentation\Api\Provider\Session\ListUserSessionsProvider;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\User\UserInterface;
+
+use function iterator_to_array;
 
 /**
  * Test ListUserSessionsProviderTest.
@@ -65,8 +68,8 @@ final class ListUserSessionsProviderTest extends TestCase
   public function testProvideReturnsSessionsForAuthenticatedUser(): void
   {
     $sessionId = '123e4567-e89b-12d3-a456-426614174000';
-    $result = new ListUserSessionsResult(
-      sessions: [
+    $result = new PaginatedResult(
+      items: [
         new GetSessionResult(
           sessionId: $sessionId,
           userId: 'user-123',
@@ -83,7 +86,9 @@ final class ListUserSessionsProviderTest extends TestCase
           isRevoked: false,
         ),
       ],
-      totalCount: 1,
+      total: 1,
+      limit: 1,
+      offset: 0,
     );
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -114,8 +119,9 @@ final class ListUserSessionsProviderTest extends TestCase
       context: ['request' => null],
     );
 
-    self::assertCount(1, $result);
-    self::assertEquals($sessionId, $result[0]->id);
+    $items = iterator_to_array($result);
+    self::assertCount(1, $items);
+    self::assertEquals($sessionId, $items[0]->id);
   }
   // #endregion
 }

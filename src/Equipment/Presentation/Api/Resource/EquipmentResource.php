@@ -67,6 +67,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: EquipmentOutput::class,
       provider: ListEquipmentsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(

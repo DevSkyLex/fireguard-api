@@ -8,6 +8,7 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User\User;
 
+use function array_slice;
 use function count;
 
 use const COUNT_NORMAL;
@@ -55,18 +56,16 @@ final readonly class ListUsersHandler implements \Shared\Application\Message\Que
   public function __invoke(ListUsersQuery $query): PaginatedResult
   {
 
-    // Note: UserRepositoryPort needs to support pagination or listing
-    // For now, we assume findAll exists or we add it.
     $users = $this->userRepository->findAll();
+    $total = count(value: $users, mode: COUNT_NORMAL);
+    $offset = ($query->page - 1) * $query->limit;
+    $paged = array_slice($users, $offset, $query->limit);
 
     return new PaginatedResult(
-      items: $users,
-      total: count(
-        value: $users,
-        mode: COUNT_NORMAL,
-      ),
+      items: $paged,
+      total: $total,
       limit: $query->limit,
-      offset: ($query->page - 1) * $query->limit,
+      offset: $offset,
     );
   }
 }

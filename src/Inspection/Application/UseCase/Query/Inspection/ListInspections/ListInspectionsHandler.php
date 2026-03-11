@@ -8,9 +8,12 @@ use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformit
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResult, InspectionStatus};
 use InvalidArgumentException;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
+
+use function count;
 
 /**
  * UseCase ListInspectionsHandler.
@@ -36,8 +39,10 @@ final readonly class ListInspectionsHandler implements QueryHandler
    * Method __invoke.
    *
    * @since 1.0.0
+   *
+   * @return PaginatedResult<GetInspectionResult>
    */
-  public function __invoke(ListInspectionsQuery $query): ListInspectionsResult
+  public function __invoke(ListInspectionsQuery $query): PaginatedResult
   {
     try {
       $organizationId = InspectionOrganizationId::fromString($query->organizationId);
@@ -87,7 +92,14 @@ final readonly class ListInspectionsHandler implements QueryHandler
       );
     }
 
-    return new ListInspectionsResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

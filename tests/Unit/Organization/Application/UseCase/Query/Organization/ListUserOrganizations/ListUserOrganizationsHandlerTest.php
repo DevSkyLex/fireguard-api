@@ -6,13 +6,14 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListUse
 
 use DateTimeImmutable;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery, ListUserOrganizationsResult};
+use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 
 use function count;
 
@@ -86,11 +87,11 @@ final class ListUserOrganizationsHandlerTest extends TestCase
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery($userId));
 
-    self::assertInstanceOf(ListUserOrganizationsResult::class, $result);
-    self::assertCount(1, $result->organizations);
-    self::assertSame($organizationId, $result->organizations[0]->id);
-    self::assertSame('Fireguard Nantes', $result->organizations[0]->name);
-    self::assertSame(2, $result->organizations[0]->memberCount);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertCount(1, $result->items);
+    self::assertSame($organizationId, $result->items[0]->id);
+    self::assertSame('Fireguard Nantes', $result->items[0]->name);
+    self::assertSame(2, $result->items[0]->memberCount);
   }
 
   #[Test]
@@ -113,7 +114,7 @@ final class ListUserOrganizationsHandlerTest extends TestCase
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery('550e8400-e29b-41d4-a716-446655440800'));
 
-    self::assertInstanceOf(ListUserOrganizationsResult::class, $result);
-    self::assertSame([], $result->organizations);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertSame([], $result->items);
   }
 }

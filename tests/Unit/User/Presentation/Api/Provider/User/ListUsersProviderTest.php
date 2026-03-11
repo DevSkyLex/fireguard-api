@@ -16,6 +16,8 @@ use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Presentation\Api\Provider\User\ListUsersProvider;
 
+use function iterator_to_array;
+
 /**
  * Test ListUsersProviderTest.
  *
@@ -57,9 +59,10 @@ final class ListUsersProviderTest extends TestCase
 
     $output = $provider->provide(new GetCollection());
 
-    self::assertCount(1, $output);
-    self::assertSame('jdoe', $output[0]->username);
-    self::assertSame('jdoe@example.com', $output[0]->email);
+    $items = iterator_to_array($output);
+    self::assertCount(1, $items);
+    self::assertSame('jdoe', $items[0]->username);
+    self::assertSame('jdoe@example.com', $items[0]->email);
   }
   // #endregion
 }

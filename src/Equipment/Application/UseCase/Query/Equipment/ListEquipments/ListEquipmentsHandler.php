@@ -8,11 +8,13 @@ use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryP
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, EquipmentType};
 use InvalidArgumentException;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_map;
+use function count;
 
 /**
  * UseCase ListEquipmentsHandler.
@@ -38,8 +40,10 @@ final readonly class ListEquipmentsHandler implements QueryHandler
    * Method __invoke.
    *
    * @since 1.0.0
+   *
+   * @return PaginatedResult<GetEquipmentResult>
    */
-  public function __invoke(ListEquipmentsQuery $query): ListEquipmentsResult
+  public function __invoke(ListEquipmentsQuery $query): PaginatedResult
   {
     try {
       $organizationId = EquipmentOrganizationId::fromString($query->organizationId);
@@ -94,7 +98,14 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       );
     }
 
-    return new ListEquipmentsResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

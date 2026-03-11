@@ -30,3 +30,6 @@ services:
 
   Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesHandler:
     tags: ['messenger.message_handler']
+
+  # Console Commands use #[AsCommand]
+  Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~

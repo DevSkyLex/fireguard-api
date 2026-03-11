@@ -14,10 +14,10 @@ use Onboarding\Presentation\Api\Dto\Input\Onboarding\ExecuteOrganizationOnboardi
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Processor\Onboarding\ExecuteOrganizationOnboardingStepProcessor;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\TransactionManagerPort;
@@ -111,7 +111,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([$orgResult]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     $input = new ExecuteOrganizationOnboardingStepInput();
 
@@ -163,7 +163,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new ExecuteOrganizationOnboardingStepInput();
 
@@ -213,7 +213,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new ExecuteOrganizationOnboardingStepInput();
 

@@ -8,9 +8,12 @@ use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformit
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId, NonConformitySeverity, NonConformityStatus};
 use InvalidArgumentException;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
+
+use function count;
 
 /**
  * UseCase ListNonConformitiesHandler.
@@ -36,8 +39,10 @@ final readonly class ListNonConformitiesHandler implements QueryHandler
    * Method __invoke.
    *
    * @since 1.0.0
+   *
+   * @return PaginatedResult<NonConformityResult>
    */
-  public function __invoke(ListNonConformitiesQuery $query): ListNonConformitiesResult
+  public function __invoke(ListNonConformitiesQuery $query): PaginatedResult
   {
     try {
       $organizationId = InspectionOrganizationId::fromString($query->organizationId);
@@ -77,7 +82,14 @@ final readonly class ListNonConformitiesHandler implements QueryHandler
       );
     }
 
-    return new ListNonConformitiesResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

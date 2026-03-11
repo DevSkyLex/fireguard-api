@@ -103,6 +103,9 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       input: false,
       output: UserOutput::class,
       provider: ListUsersProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
       security: "is_granted('users.read')",
       openapi: new Operation(

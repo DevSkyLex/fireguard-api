@@ -48,6 +48,9 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       input: false,
       output: OrganizationMemberOutput::class,
       provider: ListOrganizationMembersProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(

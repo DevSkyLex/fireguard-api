@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -23,6 +24,7 @@ final readonly class ListEquipmentsQuery implements QueryMessage
     public ?string $facilityId = null,
     public ?string $type = null,
     public ?string $status = null,
+    public Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

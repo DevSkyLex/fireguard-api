@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Session\Presentation\Api\Provider\Session;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
-use Session\Application\UseCase\Query\Session\ListUserSessions\{ListUserSessionsQuery, ListUserSessionsResult};
+use ArrayIterator;
+use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
+use Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsQuery;
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
@@ -16,6 +20,10 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 use function array_map;
+use function array_slice;
+use function count;
+use function is_numeric;
+use function max;
 
 /**
  * Provider ListUserSessionsProvider.
@@ -51,9 +59,9 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
    * Method provide
    * {@inheritDoc}
    *
-   * @return list<SessionOutput>
+   * @return TraversablePaginator<SessionOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (null === $user) {
@@ -61,9 +69,26 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
     }
 
     $userId = $user->getUserIdentifier();
-    $query = new ListUserSessionsQuery(userId: $userId, activeOnly: true);
-    /** @var ListUserSessionsResult $result */
-    $result = $this->queryBus->ask(query: $query);
+
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
+    /** @var PaginatedResult<GetSessionResult> $result */
+    $result = $this->queryBus->ask(query: new ListUserSessionsQuery(
+      userId: $userId,
+      activeOnly: true,
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+    ));
 
     $request = isset($context['request']) && $context['request'] instanceof \Symfony\Component\HttpFoundation\Request
       ? $context['request']
@@ -86,15 +111,25 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
 
         return $output;
       },
-      array: $result->sessions,
+      array: $result->items,
     );
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['ipAddress', 'browser', 'deviceType']);
 
-    $sorting = SortingExtractor::fromContext($context, ['createdAt', 'lastActivityAt', 'isActive'], 'lastActivityAt', SortDirection::DESC);
+    $total = count($outputs);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $sorting = SortingExtractor::fromContext($context, ['createdAt', 'lastActivityAt', 'isActive'], 'lastActivityAt', SortDirection::DESC);
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
   // #endregion
 }

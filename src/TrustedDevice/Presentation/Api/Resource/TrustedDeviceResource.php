@@ -56,6 +56,9 @@ use TrustedDevice\Presentation\Api\Serialization\TrustedDeviceSerializationGroup
       uriTemplate: '/trusted-devices',
       output: TrustedDeviceOutput::class,
       provider: ListTrustedDevicesProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [TrustedDeviceSerializationGroup::READ]],
       security: "is_granted('trusted_devices.read')",
       openapi: new Operation(

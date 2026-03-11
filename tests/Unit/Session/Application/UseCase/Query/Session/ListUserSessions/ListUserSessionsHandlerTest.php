@@ -8,9 +8,10 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
-use Session\Application\UseCase\Query\Session\ListUserSessions\{ListUserSessionsHandler, ListUserSessionsQuery, ListUserSessionsResult};
+use Session\Application\UseCase\Query\Session\ListUserSessions\{ListUserSessionsHandler, ListUserSessionsQuery};
 use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Domain\ValueObject\{IpAddress, UserAgent};
 
 /**
@@ -48,8 +49,8 @@ final class ListUserSessionsHandlerTest extends TestCase
       activeOnly: false,
     ));
 
-    self::assertInstanceOf(ListUserSessionsResult::class, $result);
-    self::assertCount(1, $result->sessions);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertCount(1, $result->items);
   }
 
   #[Test]
@@ -76,8 +77,8 @@ final class ListUserSessionsHandlerTest extends TestCase
       activeOnly: true,
     ));
 
-    self::assertCount(1, $result->sessions);
-    self::assertSame(1, $result->totalCount);
+    self::assertCount(1, $result->items);
+    self::assertSame(1, $result->total);
   }
   // #endregion
 }

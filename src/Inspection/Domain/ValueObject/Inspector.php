@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Domain\ValueObject;
 
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function mb_strlen;
 use function sprintf;
@@ -61,18 +61,18 @@ final readonly class Inspector
   {
     $normalized = trim($name);
     if ('' === $normalized) {
-      throw new InvalidArgumentException('Inspector name must not be empty.');
+      throw InvalidValueException::because('Inspector name must not be empty.');
     }
 
     if (mb_strlen($normalized) > 255) {
-      throw new InvalidArgumentException(
+      throw InvalidValueException::because(
         sprintf('Inspector name must be at most %d characters.', 255),
       );
     }
 
     $userId = trim($userId);
     if ('' === $userId) {
-      throw new InvalidArgumentException('User ID must not be empty for USER inspector type.');
+      throw InvalidValueException::because('User ID must not be empty for USER inspector type.');
     }
 
     return new self(
@@ -99,11 +99,11 @@ final readonly class Inspector
   {
     $normalized = trim($name);
     if ('' === $normalized) {
-      throw new InvalidArgumentException('Inspector name must not be empty.');
+      throw InvalidValueException::because('Inspector name must not be empty.');
     }
 
     if (mb_strlen($normalized) > 255) {
-      throw new InvalidArgumentException(
+      throw InvalidValueException::because(
         sprintf('Inspector name must be at most %d characters.', 255),
       );
     }
@@ -114,7 +114,7 @@ final readonly class Inspector
       if ('' === $normalizedOrg) {
         $normalizedOrg = null;
       } elseif (mb_strlen($normalizedOrg) > 255) {
-        throw new InvalidArgumentException(
+        throw InvalidValueException::because(
           sprintf('Inspector organization name must be at most %d characters.', 255),
         );
       }

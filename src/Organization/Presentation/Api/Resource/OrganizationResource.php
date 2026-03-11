@@ -54,6 +54,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationOutput::class,
       provider: ListUserOrganizationsProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['Organization'],

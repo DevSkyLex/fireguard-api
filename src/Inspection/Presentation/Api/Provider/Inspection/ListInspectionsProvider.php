@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace Inspection\Presentation\Api\Provider\Inspection;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
-use Inspection\Application\UseCase\Query\Inspection\ListInspections\{ListInspectionsQuery, ListInspectionsResult};
+use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
@@ -21,7 +24,11 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
+use function array_slice;
+use function count;
+use function is_numeric;
 use function is_string;
+use function max;
 
 /** @implements ProviderInterface<InspectionOutput> */
 final readonly class ListInspectionsProvider implements ProviderInterface
@@ -37,9 +44,9 @@ final readonly class ListInspectionsProvider implements ProviderInterface
   }
 
   /**
-   * @return list<InspectionOutput>
+   * @return TraversablePaginator<InspectionOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -61,14 +68,28 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     $result = $request?->query->get('result');
     $status = $request?->query->get('status');
 
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
     try {
-      /** @var ListInspectionsResult $queryResult */
+      /** @var PaginatedResult<GetInspectionResult> $queryResult */
       $queryResult = $this->queryBus->ask(new ListInspectionsQuery(
         organizationId: $organizationId,
         equipmentId: is_string($equipmentId) && '' !== $equipmentId ? $equipmentId : null,
         facilityId: is_string($facilityId) && '' !== $facilityId ? $facilityId : null,
         result: is_string($result) && '' !== $result ? $result : null,
         status: is_string($status) && '' !== $status ? $status : null,
+        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -82,16 +103,26 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     }
 
     $outputs = [];
-    foreach ($queryResult->inspections as $inspection) {
+    foreach ($queryResult->items as $inspection) {
       $outputs[] = $this->mapResult($inspection);
     }
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['result', 'status', 'inspectorName', 'equipmentId']);
 
-    $sorting = SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt');
+    $total = count($outputs);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $sorting = SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
 
   private function mapResult(GetInspectionResult $result): InspectionOutput

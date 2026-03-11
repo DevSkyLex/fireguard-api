@@ -101,6 +101,9 @@ use Tenant\Presentation\Api\Serialization\TenantSerializationGroup;
       input: false,
       output: TenantOutput::class,
       provider: ListTenantsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [TenantSerializationGroup::READ]],
       security: "is_granted('tenants.read')",
       openapi: new Operation(

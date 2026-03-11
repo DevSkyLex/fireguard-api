@@ -16,7 +16,7 @@ use Inspection\Domain\ValueObject\{
   InspectionStatus,
   Inspector
 };
-use InvalidArgumentException;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function mb_strlen;
 use function sprintf;
@@ -389,7 +389,7 @@ final class Inspection
     }
 
     if (mb_strlen($normalized) > $maxLength) {
-      throw new InvalidArgumentException(
+      throw InvalidValueException::because(
         sprintf('Inspection %s must be at most %d characters.', $fieldName, $maxLength),
       );
     }

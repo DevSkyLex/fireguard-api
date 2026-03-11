@@ -9,14 +9,16 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult;
-use Tenant\Application\UseCase\Query\Tenant\ListTenants\ListTenantsResult;
 use Tenant\Domain\ValueObject\TenantSettings;
 use Tenant\Presentation\Api\Provider\Tenant\ListTenantsProvider;
+
+use function iterator_to_array;
 
 /**
  * Test ListTenantsProviderTest.
@@ -75,9 +77,11 @@ final class ListTenantsProviderTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
       ->method('ask')
-      ->willReturn(new ListTenantsResult(
-        tenants: [$tenantResult],
-        totalCount: 1,
+      ->willReturn(new PaginatedResult(
+        items: [$tenantResult],
+        total: 1,
+        limit: 1,
+        offset: 0,
       ));
 
     $provider = new ListTenantsProvider(
@@ -87,14 +91,15 @@ final class ListTenantsProviderTest extends TestCase
 
     $output = $provider->provide(new GetCollection());
 
-    self::assertCount(1, $output);
-    self::assertSame('Acme', $output[0]->name);
-    self::assertSame(900, $output[0]->accessTokenTtl);
-    self::assertSame(7200, $output[0]->refreshTokenTtl);
-    self::assertTrue($output[0]->requirePkce);
-    self::assertTrue($output[0]->allowPublicClients);
-    self::assertSame(['openid'], $output[0]->allowedScopes);
-    self::assertSame('https://issuer.example.com', $output[0]->customIssuer);
+    $items = iterator_to_array($output);
+    self::assertCount(1, $items);
+    self::assertSame('Acme', $items[0]->name);
+    self::assertSame(900, $items[0]->accessTokenTtl);
+    self::assertSame(7200, $items[0]->refreshTokenTtl);
+    self::assertTrue($items[0]->requirePkce);
+    self::assertTrue($items[0]->allowPublicClients);
+    self::assertSame(['openid'], $items[0]->allowedScopes);
+    self::assertSame('https://issuer.example.com', $items[0]->customIssuer);
   }
   // #endregion
 }

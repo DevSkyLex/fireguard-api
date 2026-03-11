@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationMembers;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -20,6 +21,7 @@ final readonly class ListOrganizationMembersQuery implements QueryMessage
   // #region Constructor
   public function __construct(
     public string $organizationId,
+    public Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

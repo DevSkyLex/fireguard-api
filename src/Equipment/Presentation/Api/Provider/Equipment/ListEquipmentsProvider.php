@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace Equipment\Presentation\Api\Provider\Equipment;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
-use Equipment\Application\UseCase\Query\Equipment\ListEquipments\{ListEquipmentsQuery, ListEquipmentsResult};
+use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
@@ -22,7 +25,11 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function array_map;
+use function array_slice;
+use function count;
+use function is_numeric;
 use function is_string;
+use function max;
 
 /**
  * Provider ListEquipmentsProvider.
@@ -51,17 +58,9 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
 
   // #region Methods
   /**
-   * Method provide.
-   *
-   * @since 1.0.0
-   *
-   * @param Operation $operation the API operation metadata
-   * @param array<string, mixed> $uriVariables URI variables extracted from the request
-   * @param array<string, mixed> $context processing context values
-   *
-   * @return list<EquipmentOutput>
+   * @return TraversablePaginator<EquipmentOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -82,13 +81,27 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $type = $request?->query->get('type');
     $status = $request?->query->get('status');
 
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
     try {
-      /** @var ListEquipmentsResult $result */
+      /** @var PaginatedResult<GetEquipmentResult> $result */
       $result = $this->queryBus->ask(new ListEquipmentsQuery(
         organizationId: $organizationId,
         facilityId: is_string($facilityId) && '' !== $facilityId ? $facilityId : null,
         type: is_string($type) && '' !== $type ? $type : null,
         status: is_string($status) && '' !== $status ? $status : null,
+        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -102,16 +115,24 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     }
 
     $outputs = [];
-    foreach ($result->equipments as $equipment) {
+    foreach ($result->items as $equipment) {
       $outputs[] = $this->mapResult($equipment);
     }
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['type', 'subType', 'brand', 'model', 'serialNumber', 'status', 'locationLabel']);
+    $total = count($outputs);
 
     $sorting = SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt'], 'createdAt');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
 
   /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Inspection\ListInspections;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -24,6 +25,7 @@ final readonly class ListInspectionsQuery implements QueryMessage
     public ?string $facilityId = null,
     public ?string $result = null,
     public ?string $status = null,
+    public Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

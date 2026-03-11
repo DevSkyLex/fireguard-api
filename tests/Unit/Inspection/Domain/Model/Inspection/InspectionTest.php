@@ -19,9 +19,9 @@ use Inspection\Domain\ValueObject\{
   InspectionStatus,
   Inspector
 };
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Domain\Exception\InvalidValueException;
 
 use function str_repeat;
 use function usleep;
@@ -94,7 +94,7 @@ final class InspectionTest extends TestCase
   #[Test]
   public function testCreateThrowsWhenNotesTooLong(): void
   {
-    $this->expectException(InvalidArgumentException::class);
+    $this->expectException(InvalidValueException::class);
     $this->expectExceptionMessage('notes must be at most 5000 characters');
 
     Inspection::create(

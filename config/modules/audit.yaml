@@ -15,6 +15,15 @@ services:
   Audit\Application\UseCase\:
     resource: '../../src/Audit/Application/UseCase/'
 
+  Audit\Application\UseCase\Command\RecordAuditEvent\RecordAuditEventHandler:
+    tags: ['messenger.message_handler']
+
+  Audit\Application\UseCase\Query\GetAuditEvent\GetAuditEventHandler:
+    tags: ['messenger.message_handler']
+
+  Audit\Application\UseCase\Query\ListAuditEvents\ListAuditEventsHandler:
+    tags: ['messenger.message_handler']
+
   Audit\Presentation\:
     resource: '../../src/Audit/Presentation/'
 

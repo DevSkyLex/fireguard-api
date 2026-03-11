@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tenant\Application\UseCase\Query\Tenant\ListTenants;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -26,8 +27,9 @@ final readonly class ListTenantsQuery implements QueryMessage
    *
    * @since 1.0.0
    */
-  public function __construct()
-  {
+  public function __construct(
+    public Pagination $pagination = new Pagination(),
+  ) {
   }
   // #endregion
 }

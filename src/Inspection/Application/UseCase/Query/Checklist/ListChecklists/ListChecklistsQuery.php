@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Checklist\ListChecklists;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -21,6 +22,7 @@ final readonly class ListChecklistsQuery implements QueryMessage
   public function __construct(
     public string $organizationId,
     public ?string $status = null,
+    public Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

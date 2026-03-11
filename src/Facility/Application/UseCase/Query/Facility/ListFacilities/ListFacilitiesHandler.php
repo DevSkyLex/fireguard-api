@@ -8,8 +8,11 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\ValueObject\FacilityOrganizationId;
 use InvalidArgumentException;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
+
+use function count;
 
 /**
  * UseCase ListFacilitiesHandler.
@@ -39,9 +42,9 @@ final readonly class ListFacilitiesHandler implements QueryHandler
    *
    * @param ListFacilitiesQuery $query the query payload
    *
-   * @return ListFacilitiesResult the use case result
+   * @return PaginatedResult<GetFacilityResult> the use case result
    */
-  public function __invoke(ListFacilitiesQuery $query): ListFacilitiesResult
+  public function __invoke(ListFacilitiesQuery $query): PaginatedResult
   {
     try {
       $organizationId = FacilityOrganizationId::fromString($query->organizationId);
@@ -72,7 +75,14 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       );
     }
 
-    return new ListFacilitiesResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

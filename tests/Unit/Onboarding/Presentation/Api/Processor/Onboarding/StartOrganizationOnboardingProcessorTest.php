@@ -11,10 +11,10 @@ use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Presentation\Api\Dto\Input\Onboarding\StartOrganizationOnboardingInput;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Processor\Onboarding\StartOrganizationOnboardingProcessor;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\TransactionManagerPort;
@@ -65,7 +65,7 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new StartOrganizationOnboardingInput();
     $input->reset = false;
@@ -110,7 +110,7 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new StartOrganizationOnboardingInput();
     $input->reset = true;

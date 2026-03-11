@@ -33,6 +33,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: SessionOutput::class,
       provider: ListUserSessionsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [SessionSerializationGroup::READ]],
       security: "is_granted('sessions.read')",
       openapi: new Operation(

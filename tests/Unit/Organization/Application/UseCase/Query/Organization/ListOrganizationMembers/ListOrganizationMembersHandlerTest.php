@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListOrg
 
 use DateTimeImmutable;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
-use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{ListOrganizationMembersHandler, ListOrganizationMembersQuery, ListOrganizationMembersResult};
+use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{ListOrganizationMembersHandler, ListOrganizationMembersQuery};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -14,6 +14,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 
 #[CoversClass(ListOrganizationMembersHandler::class)]
 final class ListOrganizationMembersHandlerTest extends TestCase
@@ -64,12 +65,12 @@ final class ListOrganizationMembersHandlerTest extends TestCase
 
     $result = $handler->__invoke(new ListOrganizationMembersQuery($organizationId));
 
-    self::assertInstanceOf(ListOrganizationMembersResult::class, $result);
-    self::assertCount(1, $result->members);
-    self::assertSame($memberId, $result->members[0]->id);
-    self::assertSame($organizationId, $result->members[0]->organizationId);
-    self::assertSame('550e8400-e29b-41d4-a716-446655440902', $result->members[0]->userId);
-    self::assertSame(['550e8400-e29b-41d4-a716-446655440903'], $result->members[0]->roleIds);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertCount(1, $result->items);
+    self::assertSame($memberId, $result->items[0]->id);
+    self::assertSame($organizationId, $result->items[0]->organizationId);
+    self::assertSame('550e8400-e29b-41d4-a716-446655440902', $result->items[0]->userId);
+    self::assertSame(['550e8400-e29b-41d4-a716-446655440903'], $result->items[0]->roleIds);
   }
 
   #[Test]

@@ -8,8 +8,9 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use TrustedDevice\Application\Port\Outbound\TrustedDeviceRepositoryPort;
-use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesHandler, ListTrustedDevicesQuery, ListTrustedDevicesResult, TrustedDeviceItemResult};
+use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesHandler, ListTrustedDevicesQuery, TrustedDeviceItemResult};
 use TrustedDevice\Domain\Model\TrustedDevice\TrustedDevice;
 use TrustedDevice\Domain\ValueObject\{DeviceFingerprint, DeviceToken, TrustedDeviceId};
 
@@ -77,11 +78,11 @@ final class ListTrustedDevicesHandlerTest extends TestCase
 
     $result = $handler->__invoke(query: $query);
 
-    self::assertInstanceOf(ListTrustedDevicesResult::class, $result);
-    self::assertCount(1, $result->devices);
-    self::assertInstanceOf(TrustedDeviceItemResult::class, $result->devices[0]);
-    self::assertSame($validDevice->id()->value, $result->devices[0]->id);
-    self::assertSame($validDevice->name(), $result->devices[0]->name);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertCount(1, $result->items);
+    self::assertInstanceOf(TrustedDeviceItemResult::class, $result->items[0]);
+    self::assertSame($validDevice->id()->value, $result->items[0]->id);
+    self::assertSame($validDevice->name(), $result->items[0]->name);
   }
   // #endregion
 }

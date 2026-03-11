@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\NonConformity\ListNonConformities;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -23,6 +24,7 @@ final readonly class ListNonConformitiesQuery implements QueryMessage
     public string $inspectionId,
     public ?string $severity = null,
     public ?string $status = null,
+    public Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

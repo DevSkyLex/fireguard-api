@@ -49,6 +49,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: InspectionOutput::class,
       provider: ListInspectionsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(

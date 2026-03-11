@@ -7,12 +7,13 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 use DateTimeImmutable;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
-use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery, ListFacilitiesResult};
+use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 
 use function array_map;
 
@@ -54,10 +55,10 @@ final class ListFacilitiesHandlerTest extends TestCase
       includeArchived: false,
     ));
 
-    self::assertInstanceOf(ListFacilitiesResult::class, $result);
-    self::assertCount(1, $result->facilities);
-    self::assertSame('550e8400-e29b-41d4-a716-446655441801', $result->facilities[0]->facilityId);
-    self::assertSame('active', $result->facilities[0]->status);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertCount(1, $result->items);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441801', $result->items[0]->facilityId);
+    self::assertSame('active', $result->items[0]->status);
   }
 
   #[Test]
@@ -95,9 +96,9 @@ final class ListFacilitiesHandlerTest extends TestCase
       includeArchived: true,
     ));
 
-    self::assertCount(2, $result->facilities);
+    self::assertCount(2, $result->items);
 
-    $statuses = array_map(static fn (GetFacilityResult $r): string => $r->status, $result->facilities);
+    $statuses = array_map(static fn (GetFacilityResult $r): string => $r->status, $result->items);
     self::assertContains('active', $statuses);
     self::assertContains('archived', $statuses);
   }
@@ -117,8 +118,8 @@ final class ListFacilitiesHandlerTest extends TestCase
       organizationId: '550e8400-e29b-41d4-a716-446655441820',
     ));
 
-    self::assertInstanceOf(ListFacilitiesResult::class, $result);
-    self::assertEmpty($result->facilities);
+    self::assertInstanceOf(PaginatedResult::class, $result);
+    self::assertEmpty($result->items);
   }
 
   #[Test]
@@ -147,7 +148,7 @@ final class ListFacilitiesHandlerTest extends TestCase
       organizationId: (string) $organizationId,
     ));
 
-    self::assertEmpty($result->facilities);
+    self::assertEmpty($result->items);
   }
 
   #[Test]
@@ -177,9 +178,9 @@ final class ListFacilitiesHandlerTest extends TestCase
       organizationId: (string) $organizationId,
     ));
 
-    self::assertCount(1, $result->facilities);
+    self::assertCount(1, $result->items);
 
-    $item = $result->facilities[0];
+    $item = $result->items[0];
     self::assertSame('550e8400-e29b-41d4-a716-446655441841', $item->facilityId);
     self::assertSame((string) $organizationId, $item->organizationId);
     self::assertSame((string) $parentId, $item->parentFacilityId);

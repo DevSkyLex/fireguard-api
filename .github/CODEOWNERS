@@ -1,0 +1,40 @@
+# Default owner
+* @DevSkyLex
+
+# GitHub automation and repo governance
+/.github/ @DevSkyLex
+
+# Core repository documentation
+/README.md @DevSkyLex
+/ARCHITECTURE.md @DevSkyLex
+/SECURITY.md @DevSkyLex
+/OPERATIONS.md @DevSkyLex
+
+# Configuration and infrastructure
+/config/ @DevSkyLex
+/migrations/ @DevSkyLex
+/Dockerfile @DevSkyLex
+/compose.yaml @DevSkyLex
+/compose.override.yaml @DevSkyLex
+/compose.sonar.yaml @DevSkyLex
+
+# Application modules
+/src/Auth/ @DevSkyLex
+/src/OAuth/ @DevSkyLex
+/src/Session/ @DevSkyLex
+/src/Otp/ @DevSkyLex
+/src/TrustedDevice/ @DevSkyLex
+/src/Authorization/ @DevSkyLex
+/src/Audit/ @DevSkyLex
+/src/Tenant/ @DevSkyLex
+/src/Organization/ @DevSkyLex
+/src/Facility/ @DevSkyLex
+/src/Equipment/ @DevSkyLex
+/src/Inspection/ @DevSkyLex
+/src/Notification/ @DevSkyLex
+/src/Onboarding/ @DevSkyLex
+/src/User/ @DevSkyLex
+/src/Shared/ @DevSkyLex
+
+# Tests
+/tests/ @DevSkyLex

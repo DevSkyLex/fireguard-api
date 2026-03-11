@@ -8,7 +8,10 @@ use DateTimeImmutable;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
+
+use function count;
 
 /**
  * UseCase ListOrganizationInvitationsHandler.
@@ -49,9 +52,9 @@ final readonly class ListOrganizationInvitationsHandler implements QueryHandler
    *
    * @param ListOrganizationInvitationsQuery $query the query payload
    *
-   * @return ListOrganizationInvitationsResult the use case result
+   * @return PaginatedResult<GetOrganizationInvitationResult> the use case result
    */
-  public function __invoke(ListOrganizationInvitationsQuery $query): ListOrganizationInvitationsResult
+  public function __invoke(ListOrganizationInvitationsQuery $query): PaginatedResult
   {
     $organizationId = OrganizationId::fromString($query->organizationId);
     $organization = $this->organizationRepository->findById($organizationId);
@@ -87,7 +90,14 @@ final readonly class ListOrganizationInvitationsHandler implements QueryHandler
       );
     }
 
-    return new ListOrganizationInvitationsResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

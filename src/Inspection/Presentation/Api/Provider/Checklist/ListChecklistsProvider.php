@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace Inspection\Presentation\Api\Provider\Checklist;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistResult;
-use Inspection\Application\UseCase\Query\Checklist\ListChecklists\{ListChecklistsQuery, ListChecklistsResult};
+use Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsQuery;
 use Inspection\Presentation\Api\Dto\Output\Checklist\{ChecklistItemOutput, ChecklistOutput};
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
@@ -21,7 +24,11 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
+use function array_slice;
+use function count;
+use function is_numeric;
 use function is_string;
+use function max;
 
 /** @implements ProviderInterface<ChecklistOutput> */
 final readonly class ListChecklistsProvider implements ProviderInterface
@@ -37,9 +44,9 @@ final readonly class ListChecklistsProvider implements ProviderInterface
   }
 
   /**
-   * @return list<ChecklistOutput>
+   * @return TraversablePaginator<ChecklistOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -58,11 +65,25 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     $request = $this->requestStack->getCurrentRequest();
     $status = $request?->query->get('status');
 
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
     try {
-      /** @var ListChecklistsResult $queryResult */
+      /** @var PaginatedResult<GetChecklistResult> $queryResult */
       $queryResult = $this->queryBus->ask(new ListChecklistsQuery(
         organizationId: $organizationId,
         status: is_string($status) && '' !== $status ? $status : null,
+        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -76,16 +97,26 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     }
 
     $outputs = [];
-    foreach ($queryResult->checklists as $checklist) {
+    foreach ($queryResult->items as $checklist) {
       $outputs[] = $this->mapResult($checklist);
     }
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['name', 'version', 'status']);
 
-    $sorting = SortingExtractor::fromContext($context, ['name', 'version', 'status', 'createdAt'], 'createdAt');
+    $total = count($outputs);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $sorting = SortingExtractor::fromContext($context, ['name', 'version', 'status', 'createdAt'], 'createdAt');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
 
   private function mapResult(GetChecklistResult $result): ChecklistOutput

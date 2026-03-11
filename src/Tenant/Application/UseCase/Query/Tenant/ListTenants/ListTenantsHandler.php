@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tenant\Application\UseCase\Query\Tenant\ListTenants;
 
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Tenant\Application\Port\Outbound\TenantRepositoryPort;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult;
@@ -50,9 +51,9 @@ final readonly class ListTenantsHandler implements QueryHandler
    *
    * @param ListTenantsQuery $query the query to handle
    *
-   * @return ListTenantsResult the result
+   * @return PaginatedResult<GetTenantResult> the result
    */
-  public function __invoke(ListTenantsQuery $query): ListTenantsResult
+  public function __invoke(ListTenantsQuery $query): PaginatedResult
   {
     $tenants = $this->tenantRepository->findAll();
 
@@ -67,9 +68,13 @@ final readonly class ListTenantsHandler implements QueryHandler
       array: $tenants,
     );
 
-    return new ListTenantsResult(
-      tenants: $results,
-      totalCount: count($results),
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
     );
   }
   // #endregion

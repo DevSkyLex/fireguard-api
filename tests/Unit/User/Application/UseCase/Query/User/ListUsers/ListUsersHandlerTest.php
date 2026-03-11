@@ -57,12 +57,12 @@ final class ListUsersHandlerTest extends TestCase
 
     $handler = new ListUsersHandler($repository);
 
-    $result = $handler->__invoke(new ListUsersQuery(page: 2, limit: 10));
+    $result = $handler->__invoke(new ListUsersQuery(page: 1, limit: 10));
 
     self::assertCount(2, $result->items);
     self::assertSame(2, $result->total);
     self::assertSame(10, $result->limit);
-    self::assertSame(10, $result->offset);
+    self::assertSame(0, $result->offset);
   }
   // #endregion
 }

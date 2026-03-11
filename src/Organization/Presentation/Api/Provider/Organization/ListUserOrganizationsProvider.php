@@ -5,15 +5,24 @@ declare(strict_types=1);
 namespace Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsQuery, ListUserOrganizationsResult};
+use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
+use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+use function array_slice;
+use function count;
+use function is_numeric;
+use function max;
 
 /**
  * Provider ListUserOrganizationsProvider.
@@ -41,7 +50,7 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
   /**
    * Method provide.
    *
-   * Provides resource data for the requested API operation.
+   * Provides a paginated list of organizations for the authenticated user.
    *
    * @since 1.0.0
    *
@@ -49,20 +58,36 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
-   * @return list<OrganizationOutput>
+   * @return TraversablePaginator<OrganizationOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
       throw new AccessDeniedHttpException('Authentication required.');
     }
 
-    /** @var ListUserOrganizationsResult $result */
-    $result = $this->queryBus->ask(new ListUserOrganizationsQuery($user->getId()));
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
+    /** @var PaginatedResult<GetOrganizationResult> $result */
+    $result = $this->queryBus->ask(new ListUserOrganizationsQuery(
+      userId: $user->getId(),
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+    ));
 
     $outputs = [];
-    foreach ($result->organizations as $organization) {
+    foreach ($result->items as $organization) {
       $output = new OrganizationOutput();
       $output->id = $organization->id;
       $output->name = $organization->name;
@@ -80,9 +105,19 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['name', 'slug', 'status']);
 
-    $sorting = SortingExtractor::fromContext($context, ['name', 'slug', 'status', 'memberCount', 'createdAt'], 'name');
+    $total = count($outputs);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $sorting = SortingExtractor::fromContext($context, ['name', 'slug', 'status', 'memberCount', 'createdAt'], 'name');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
   // #endregion
 }

@@ -7,7 +7,10 @@ namespace Organization\Application\UseCase\Query\Organization\ListOrganizationMe
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
+
+use function count;
 
 /**
  * UseCase ListOrganizationMembersHandler.
@@ -38,8 +41,10 @@ final readonly class ListOrganizationMembersHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param ListOrganizationMembersQuery $query the query payload
+   *
+   * @return PaginatedResult<GetOrganizationMemberResult>
    */
-  public function __invoke(ListOrganizationMembersQuery $query): ListOrganizationMembersResult
+  public function __invoke(ListOrganizationMembersQuery $query): PaginatedResult
   {
     $organizationId = OrganizationId::fromString($query->organizationId);
     $organization = $this->organizationRepository->findById($organizationId);
@@ -62,7 +67,14 @@ final readonly class ListOrganizationMembersHandler implements QueryHandler
       );
     }
 
-    return new ListOrganizationMembersResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

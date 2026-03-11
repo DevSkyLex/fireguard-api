@@ -16,10 +16,10 @@ use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboarding
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\TransactionManagerPort;
@@ -52,7 +52,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->method('ask')
-      ->willReturn(new ListUserOrganizationsResult([]));
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -103,7 +103,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([$orgResult]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -139,7 +139,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -173,7 +173,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([$orgResult]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -226,7 +226,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $this->expectException(LogicException::class);
     $this->expectExceptionMessage('"invite_members" is not available');
@@ -269,7 +269,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([$orgResult]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -313,7 +313,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('No organization found.');
@@ -388,7 +388,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $this->expectException(LogicException::class);
     $this->expectExceptionMessage('No rollback action available.');
@@ -438,7 +438,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([$orgResult]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     /** @var EventDispatcherInterface&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
@@ -500,7 +500,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([$orgResult]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     /** @var EventDispatcherInterface&MockObject $eventDispatcher */
     $eventDispatcher = $this->createMock(EventDispatcherInterface::class);

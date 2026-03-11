@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace User\Presentation\Api\Provider\User;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use DateTimeInterface;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -16,6 +18,8 @@ use User\Domain\Model\User\User;
 use User\Presentation\Api\Dto\Output\User\UserOutput;
 
 use function array_map;
+use function is_numeric;
+use function max;
 
 /**
  * Provider ListUsersProvider.
@@ -61,14 +65,24 @@ final readonly class ListUsersProvider implements ProviderInterface
    *
    * @return array<UserOutput> the list of users
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  /**
+   * @return TraversablePaginator<UserOutput>
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
-    $query = new ListUsersQuery();
-    /** @var PaginatedResult<User> $result */
-    $result = $this->queryBus->ask(query: $query);
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
 
-    /** @var array<User> $users */
-    $users = $result->items;
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    /** @var PaginatedResult<User> $result */
+    $result = $this->queryBus->ask(query: new ListUsersQuery(page: $page, limit: $itemsPerPage));
 
     $outputs = array_map(function (User $user) {
       $output = new UserOutput();
@@ -85,13 +99,19 @@ final readonly class ListUsersProvider implements ProviderInterface
       $output->lastLoginAt = $user->lastLoginAt()?->format(DateTimeInterface::ATOM);
 
       return $output;
-    }, $users);
+    }, $result->items);
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['username', 'email', 'firstName', 'lastName', 'status']);
 
     $sorting = SortingExtractor::fromContext($context, ['username', 'email', 'firstName', 'lastName', 'status', 'createdAt'], 'createdAt');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $result->total,
+    );
   }
 }

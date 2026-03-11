@@ -9,12 +9,15 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Security\Core\User\UserInterface;
-use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesQuery, ListTrustedDevicesResult, TrustedDeviceItemResult};
+use TrustedDevice\Application\UseCase\Query\TrustedDevice\ListTrustedDevices\{ListTrustedDevicesQuery, TrustedDeviceItemResult};
 use TrustedDevice\Presentation\Api\Provider\TrustedDevice\ListTrustedDevicesProvider;
+
+use function iterator_to_array;
 
 /**
  * Test ListTrustedDevicesProviderTest.
@@ -74,7 +77,7 @@ final class ListTrustedDevicesProviderTest extends TestCase
     $queryBus->expects(self::once())
       ->method('ask')
       ->with(self::isInstanceOf(ListTrustedDevicesQuery::class))
-      ->willReturn(new ListTrustedDevicesResult(devices: [$item]));
+      ->willReturn(new PaginatedResult(items: [$item], total: 1, limit: 1, offset: 0));
 
     $user = $this->createMock(UserInterface::class);
     $user->expects(self::once())
@@ -97,9 +100,10 @@ final class ListTrustedDevicesProviderTest extends TestCase
       context: [],
     );
 
-    self::assertCount(1, $result);
-    self::assertSame('device-123', $result[0]->id);
-    self::assertSame('Chrome on Windows', $result[0]->name);
+    $items = iterator_to_array($result);
+    self::assertCount(1, $items);
+    self::assertSame('device-123', $items[0]->id);
+    self::assertSame('Chrome on Windows', $items[0]->name);
   }
   // #endregion
 }

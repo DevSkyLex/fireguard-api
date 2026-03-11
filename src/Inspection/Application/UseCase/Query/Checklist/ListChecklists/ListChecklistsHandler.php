@@ -8,9 +8,12 @@ use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{ChecklistItemResult, GetChecklistResult};
 use Inspection\Domain\ValueObject\{ChecklistOrganizationId, ChecklistStatus};
 use InvalidArgumentException;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
+
+use function count;
 
 /**
  * UseCase ListChecklistsHandler.
@@ -35,8 +38,10 @@ final readonly class ListChecklistsHandler implements QueryHandler
    * Method __invoke.
    *
    * @since 1.0.0
+   *
+   * @return PaginatedResult<GetChecklistResult>
    */
-  public function __invoke(ListChecklistsQuery $query): ListChecklistsResult
+  public function __invoke(ListChecklistsQuery $query): PaginatedResult
   {
     try {
       $organizationId = ChecklistOrganizationId::fromString($query->organizationId);
@@ -77,7 +82,14 @@ final readonly class ListChecklistsHandler implements QueryHandler
       );
     }
 
-    return new ListChecklistsResult($results);
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
+    );
   }
   // #endregion
 }

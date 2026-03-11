@@ -5,17 +5,24 @@ declare(strict_types=1);
 namespace Tenant\Presentation\Api\Provider\Tenant;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Tenant\Application\UseCase\Query\Tenant\GetTenant\GetTenantResult;
-use Tenant\Application\UseCase\Query\Tenant\ListTenants\{ListTenantsQuery, ListTenantsResult};
+use Tenant\Application\UseCase\Query\Tenant\ListTenants\ListTenantsQuery;
 use Tenant\Presentation\Api\Dto\Output\Tenant\TenantOutput;
 
 use function array_map;
+use function array_slice;
+use function count;
+use function is_numeric;
+use function max;
 
 /**
  * Provider ListTenantsProvider.
@@ -51,16 +58,31 @@ final readonly class ListTenantsProvider implements ProviderInterface
    * Method provide
    * {@inheritDoc}
    *
-   * @return list<TenantOutput>
+   * @return TraversablePaginator<TenantOutput>
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
     if (null === $this->security->getUser()) {
       throw new AccessDeniedHttpException('Authentication required');
     }
 
-    /** @var ListTenantsResult $result */
-    $result = $this->queryBus->ask(query: new ListTenantsQuery());
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
+    /** @var PaginatedResult<GetTenantResult> $result */
+    $result = $this->queryBus->ask(query: new ListTenantsQuery(
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+    ));
 
     $outputs = array_map(
       callback: function (GetTenantResult $tenant): TenantOutput {
@@ -78,15 +100,25 @@ final readonly class ListTenantsProvider implements ProviderInterface
 
         return $output;
       },
-      array: $result->tenants,
+      array: $result->items,
     );
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['name']);
 
-    $sorting = SortingExtractor::fromContext($context, ['name', 'isActive', 'createdAt'], 'name');
+    $total = count($outputs);
 
-    return CollectionSorter::sort($outputs, $sorting);
+    $sorting = SortingExtractor::fromContext($context, ['name', 'isActive', 'createdAt'], 'name');
+    $outputs = CollectionSorter::sort($outputs, $sorting);
+
+    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $total,
+    );
   }
   // #endregion
 }

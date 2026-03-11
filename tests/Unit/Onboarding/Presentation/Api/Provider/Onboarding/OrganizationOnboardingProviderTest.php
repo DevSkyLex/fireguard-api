@@ -9,9 +9,9 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Presentation\Api\Provider\Onboarding\OrganizationOnboardingProvider;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\TransactionManagerPort;
@@ -88,7 +88,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
       ->method('ask')
-      ->willReturn(new ListUserOrganizationsResult([]));
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $commandBus = $this->createMock(CommandBusPort::class);
 

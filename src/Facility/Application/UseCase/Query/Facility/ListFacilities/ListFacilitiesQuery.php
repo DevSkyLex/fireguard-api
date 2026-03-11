@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -21,6 +22,7 @@ final readonly class ListFacilitiesQuery implements QueryMessage
   public function __construct(
     public string $organizationId,
     public bool $includeArchived = false,
+    public Pagination $pagination = new Pagination(),
   ) {
   }
   // #endregion

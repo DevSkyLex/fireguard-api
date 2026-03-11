@@ -7,6 +7,7 @@ namespace Session\Application\UseCase\Query\Session\ListUserSessions;
 use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
 use Session\Domain\Model\Session\Session;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 
 use function array_map;
 use function count;
@@ -48,9 +49,9 @@ final readonly class ListUserSessionsHandler implements \Shared\Application\Mess
    *
    * @param ListUserSessionsQuery $query the query to handle
    *
-   * @return ListUserSessionsResult the result
+   * @return PaginatedResult<GetSessionResult> the result
    */
-  public function __invoke(ListUserSessionsQuery $query): ListUserSessionsResult
+  public function __invoke(ListUserSessionsQuery $query): PaginatedResult
   {
     $sessions = $query->activeOnly
       ? $this->sessionRepository->findActiveByUserId(userId: $query->userId)
@@ -75,9 +76,13 @@ final readonly class ListUserSessionsHandler implements \Shared\Application\Mess
       array: $sessions,
     );
 
-    return new ListUserSessionsResult(
-      sessions: $results,
-      totalCount: count($results),
+    $total = count($results);
+
+    return new PaginatedResult(
+      items: $results,
+      total: $total,
+      limit: $total,
+      offset: 0,
     );
   }
   // #endregion

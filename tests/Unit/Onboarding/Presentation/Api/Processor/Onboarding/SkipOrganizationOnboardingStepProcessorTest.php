@@ -14,10 +14,10 @@ use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Domain\ValueObject\OrganizationOnboardingStep;
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Processor\Onboarding\SkipOrganizationOnboardingStepProcessor;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
@@ -175,7 +175,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->method('ask')->willReturn(new ListUserOrganizationsResult([]));
+    $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     // We mock the port directly so we can skip a step without modelling external
     // state required to advance the flow to COMPLETE_LEGAL_PROFILE.

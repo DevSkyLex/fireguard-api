@@ -16,10 +16,10 @@ use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnbo
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Processor\Onboarding\RollbackOrganizationOnboardingProcessor;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
@@ -110,10 +110,10 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ->willReturnCallback(static function (mixed $query) use ($orgResult, &$listOrgCallCount): mixed {
         ++$listOrgCallCount;
         if ($listOrgCallCount <= 2) {
-          return new ListUserOrganizationsResult([$orgResult]);
+          return new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0);
         }
 
-        return new ListUserOrganizationsResult([]);
+        return new PaginatedResult(items: [], total: 0, limit: 100, offset: 0);
       });
 
     /** @var CommandBusPort&MockObject $commandBus */
