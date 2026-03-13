@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment;
 
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
-use Equipment\Domain\Exception\{EquipmentNotFoundException};
+use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;

@@ -7,7 +7,7 @@ namespace Inspection\Presentation\Api\Processor\Inspection;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Inspection\Application\UseCase\Command\Inspection\SubmitInspection\{SubmitInspectionCommand};
+use Inspection\Application\UseCase\Command\Inspection\SubmitInspection\SubmitInspectionCommand;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionQuery, GetInspectionResult};
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
