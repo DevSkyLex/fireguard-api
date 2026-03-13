@@ -5,17 +5,115 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ==========================================================================
+  # Release Preflight Checks
+  # ==========================================================================
+  preflight:
+    name: Release Preflight
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fireguard_auth_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, intl, bcmath, zip
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Create main database
+        run: docker exec ${{ job.services.postgres.id }} psql -U test -d postgres -c "CREATE DATABASE fireguard_main_test;"
+
+      - name: Create JWT keys for tests
+        run: |
+          mkdir -p config/jwt
+          openssl genrsa -out config/jwt/private.key 2048
+          openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
+
+      - name: Run database migrations
+        run: |
+          php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
+          php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
+        env:
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
+
+      - name: Validate Doctrine schema
+        run: |
+          php bin/console doctrine:schema:validate --env=test --em=auth
+          php bin/console doctrine:schema:validate --env=test --em=main
+        env:
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
+
+      - name: Run PHP CS Fixer
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse -c phpstan.dist.neon --memory-limit=512M
+
+      - name: Run Deptrac
+        run: vendor/bin/deptrac analyse --config-file=deptrac.yaml
+
+      - name: Lint Symfony container
+        run: php bin/console lint:container --env=dev
+
+      - name: Lint YAML files
+        run: php bin/console lint:yaml config
+
+      - name: Run non-E2E test suites
+        run: vendor/bin/phpunit --exclude-testsuite="E2E Tests"
+        env:
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
+          APP_ENV: test
+          APP_DEBUG: 0
+
+  # ==========================================================================
   # Build and Push Docker Image
   # ==========================================================================
   build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    needs: preflight
     permissions:
       contents: read
       packages: write
