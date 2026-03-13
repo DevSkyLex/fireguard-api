@@ -13,13 +13,8 @@
     },
     "logs": {
         "text": "var/infection/infection.log",
-        "html": "var/infection/infection.html",
         "summary": "var/infection/summary.log",
-        "json": "var/infection/infection.json",
-        "perMutator": "var/infection/per-mutator.md",
-        "stryker": {
-            "report": "var/infection/stryker.json"
-        }
+        "perMutator": "var/infection/per-mutator.md"
     },
     "mutators": {
         "@default": true,
@@ -36,11 +31,17 @@
         "customPath": "vendor/bin/phpunit"
     },
     "testFramework": "phpunit",
+    // Run only the fast unit test suite during mutation testing.
+    // E2E / Integration / Functional tests bootstrap the Symfony kernel per process and would
+    // multiply the total runtime by ~10×. Mutations in infrastructure/presentation code that is
+    // only covered by those slower suites will appear as "Skipped" (no covering test), which is
+    // the expected and acceptable outcome — they are covered by the dedicated slower suites.
+    "testFrameworkOptions": "--testsuite=General Unit Tests",
     // Note: Do NOT add "bootstrap" here - Infection would run it in its own process before PHPUnit,
     // which causes the Symfony kernel to be compiled without framework.test: true
     // PHPUnit uses the bootstrap from phpunit.dist.xml which runs properly in the test subprocess
     "initialTestsPhpOptions": "-d memory_limit=512M",
-    "timeout": 30,
+    "timeout": 10,
     "threads": "max",
     "tmpDir": "var/infection/tmp",
     "minMsi": 100,

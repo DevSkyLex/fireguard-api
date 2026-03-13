@@ -74,8 +74,10 @@ coverage-html:
 	@echo "Coverage report generated at var/coverage/html/index.html"
 
 # Run mutation testing with Infection (configuration in infection.json5)
+# --only-covering-test-cases: run only the test cases that cover the mutated line, not the whole
+# test file, dramatically cutting per-mutant execution time on large suites.
 mutation:
-	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) vendor/bin/infection --show-mutations
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) vendor/bin/infection --show-mutations --only-covering-test-cases
 
 # Docker commands
 docker-build:

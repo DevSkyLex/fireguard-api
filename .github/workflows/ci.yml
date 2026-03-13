@@ -367,13 +367,8 @@ jobs:
           openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
 
       - name: Run Infection
-        run: |
-          php -d memory_limit=1G vendor/bin/infection \
-            --threads=max \
-            --show-mutations \
-            --no-progress
+        run: php -d memory_limit=1G vendor/bin/infection --show-mutations --only-covering-test-cases
         env:
           APP_ENV: test
           APP_DEBUG: 0
-
 

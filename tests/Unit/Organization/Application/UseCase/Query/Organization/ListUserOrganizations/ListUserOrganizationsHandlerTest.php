@@ -92,6 +92,9 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     self::assertSame($organizationId, $result->items[0]->id);
     self::assertSame('Fireguard Nantes', $result->items[0]->name);
     self::assertSame(2, $result->items[0]->memberCount);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]
@@ -116,5 +119,8 @@ final class ListUserOrganizationsHandlerTest extends TestCase
 
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertSame([], $result->items);
+    self::assertSame(0, $result->total);
+    self::assertSame(20, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 }

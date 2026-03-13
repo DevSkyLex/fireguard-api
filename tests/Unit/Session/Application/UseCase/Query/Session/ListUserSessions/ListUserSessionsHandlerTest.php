@@ -51,6 +51,9 @@ final class ListUserSessionsHandlerTest extends TestCase
 
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertCount(1, $result->items);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]
@@ -79,6 +82,8 @@ final class ListUserSessionsHandlerTest extends TestCase
 
     self::assertCount(1, $result->items);
     self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
   // #endregion
 }
