@@ -64,7 +64,7 @@ class RoleRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(type: 'boolean')]
+  #[ORM\Column(type: 'boolean', options: ['default' => false])]
   public bool $isSystem = false;
 
   /**
