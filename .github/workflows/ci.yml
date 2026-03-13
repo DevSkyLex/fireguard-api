@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -27,25 +31,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
         with:
           php-version: ${{ env.PHP_VERSION }}
           tools: php-cs-fixer
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
 
       - name: Run PHP CS Fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
@@ -60,24 +50,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
         with:
           php-version: ${{ env.PHP_VERSION }}
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
 
       - name: Run PHPStan
         run: vendor/bin/phpstan analyse -c phpstan.dist.neon --memory-limit=512M
@@ -92,24 +68,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
         with:
           php-version: ${{ env.PHP_VERSION }}
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
 
       - name: Run Deptrac
         run: vendor/bin/deptrac analyse --config-file=deptrac.yaml
@@ -267,24 +229,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
         with:
           php-version: ${{ env.PHP_VERSION }}
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
 
       - name: Lint Symfony container
         run: php bin/console lint:container --env=dev
@@ -302,11 +250,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
         with:
           php-version: ${{ env.PHP_VERSION }}
-          tools: composer
+          install-dependencies: 'false'
 
       - name: Check for security vulnerabilities
         run: composer audit
@@ -324,26 +272,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - name: Prepare PHP workspace
+        uses: ./.github/actions/prepare-php-workspace
         with:
           php-version: ${{ env.PHP_VERSION }}
           extensions: pdo_sqlite, intl, bcmath, zip
-          coverage: pcov
-
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+          coverage-driver: pcov
 
       - name: Create JWT keys for tests
         run: |
