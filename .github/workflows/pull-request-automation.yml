@@ -1,0 +1,147 @@
+name: Pull Request Automation
+
+on:
+  pull_request_target:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
+
+concurrency:
+  group: pr-automation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  models: read
+  pull-requests: write
+
+jobs:
+  enrich:
+    name: Enrich Pull Request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ensure managed labels exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const managedLabels = [
+              { name: 'area:github', color: '0e8a16', description: 'GitHub workflows, templates, or repository automation' },
+              { name: 'area:auth', color: '1d76db', description: 'Authentication, MFA, OTP, or trusted devices' },
+              { name: 'area:oauth', color: '0052cc', description: 'OAuth2 flows, clients, or token handling' },
+              { name: 'area:authorization', color: '5319e7', description: 'Roles, permissions, or access control' },
+              { name: 'area:organization', color: 'c2e0c6', description: 'Organization or onboarding domain changes' },
+              { name: 'area:facility', color: 'bfdadc', description: 'Facility domain changes' },
+              { name: 'area:equipment', color: 'fef2c0', description: 'Equipment domain changes' },
+              { name: 'area:inspection', color: 'fbca04', description: 'Inspection or checklist domain changes' },
+              { name: 'area:tenant', color: 'f9d0c4', description: 'Tenant domain changes' },
+              { name: 'area:user', color: 'd4c5f9', description: 'User domain changes' },
+              { name: 'area:shared', color: 'c5def5', description: 'Shared, notification, or audit changes' },
+              { name: 'area:tests', color: 'fef2c0', description: 'Test-only changes' },
+              { name: 'area:docs', color: '0075ca', description: 'Documentation changes' },
+              { name: 'area:config', color: 'e99695', description: 'Configuration or runtime settings changes' },
+              { name: 'type:dependencies', color: 'd93f0b', description: 'Composer dependency updates' },
+              { name: 'risk:database', color: 'b60205', description: 'Database schema, migrations, or persistence risk' },
+              { name: 'risk:security', color: 'b60205', description: 'Security-sensitive change' },
+              { name: 'risk:api-contract', color: 'b60205', description: 'API contract or serialization risk' },
+              { name: 'size:xs', color: 'c2e0c6', description: 'Small PR: under 50 changed lines' },
+              { name: 'size:s', color: '7fd67f', description: 'Small-to-medium PR: under 150 changed lines' },
+              { name: 'size:m', color: 'fbca04', description: 'Medium PR: under 400 changed lines' },
+              { name: 'size:l', color: 'f9d0c4', description: 'Large PR: under 800 changed lines' },
+              { name: 'size:xl', color: 'b60205', description: 'Very large PR: 800 changed lines or more' },
+              { name: 'state:draft', color: 'cccccc', description: 'Draft pull request' },
+              { name: 'state:ready', color: '0e8a16', description: 'Ready for review' },
+            ];
+
+            for (const label of managedLabels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ...label,
+                });
+              }
+            }
+
+      - name: Apply path-based labels
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          sync-labels: true
+
+      - name: Apply size and state labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const currentLabels = pr.labels.map((label) => label.name);
+            const managedSizeLabels = ['size:xs', 'size:s', 'size:m', 'size:l', 'size:xl'];
+            const managedStateLabels = ['state:draft', 'state:ready'];
+
+            const totalChanges = pr.additions + pr.deletions;
+            let sizeLabel = 'size:xl';
+
+            if (totalChanges < 50) {
+              sizeLabel = 'size:xs';
+            } else if (totalChanges < 150) {
+              sizeLabel = 'size:s';
+            } else if (totalChanges < 400) {
+              sizeLabel = 'size:m';
+            } else if (totalChanges < 800) {
+              sizeLabel = 'size:l';
+            }
+
+            const desiredLabels = [sizeLabel, pr.draft ? 'state:draft' : 'state:ready'];
+            const removableLabels = currentLabels.filter((label) =>
+              [...managedSizeLabels, ...managedStateLabels].includes(label) && !desiredLabels.includes(label),
+            );
+            const missingLabels = desiredLabels.filter((label) => !currentLabels.includes(label));
+
+            for (const label of removableLabels) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                name: label,
+              });
+            }
+
+            if (missingLabels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: missingLabels,
+              });
+            }
+
+  autofill-description:
+    name: Autofill PR Description
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.actor != 'github-actions[bot]' || github.event.action != 'edited'
+
+    steps:
+      - name: Checkout base workflow files
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Autofill AI-managed PR sections
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AI_MODEL: openai/gpt-4.1
+        run: node .github/scripts/auto-fill-pr-description.mjs

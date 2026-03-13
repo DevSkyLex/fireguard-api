@@ -1,0 +1,114 @@
+area:github:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+area:auth:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Auth/**'
+          - 'src/Otp/**'
+          - 'src/TrustedDevice/**'
+
+area:oauth:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/OAuth/**'
+          - 'config/packages/league_oauth2_server.yaml'
+
+area:authorization:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Authorization/**'
+
+area:organization:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Organization/**'
+          - 'src/Onboarding/**'
+
+area:facility:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Facility/**'
+
+area:equipment:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Equipment/**'
+
+area:inspection:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Inspection/**'
+
+area:tenant:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Tenant/**'
+
+area:user:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/User/**'
+
+area:shared:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Shared/**'
+          - 'src/Notification/**'
+          - 'src/Audit/**'
+
+area:tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'
+
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'README.md'
+          - 'ARCHITECTURE.md'
+          - 'SECURITY.md'
+          - 'OPERATIONS.md'
+          - 'docs/**'
+
+area:config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'config/**'
+          - 'phpunit*.xml'
+          - '*.neon'
+          - '*.dist'
+          - 'deptrac.yaml'
+
+type:dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'composer.json'
+          - 'composer.lock'
+
+risk:database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'migrations/**'
+          - 'src/**/Infrastructure/Persistence/**'
+          - 'config/packages/doctrine.yaml'
+
+risk:security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/Auth/**'
+          - 'src/OAuth/**'
+          - 'src/Authorization/**'
+          - 'src/Session/**'
+          - 'src/Otp/**'
+          - 'src/TrustedDevice/**'
+          - 'config/packages/security.yaml'
+          - 'config/packages/lexik_jwt_authentication.yaml'
+
+risk:api-contract:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'src/**/Presentation/Api/**'
+          - 'src/**/Application/UseCase/**/Result.php'
