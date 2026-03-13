@@ -64,15 +64,4 @@ runs:
       shell: bash
       run: |
         php bin/console doctrine:schema:validate --env=test --em=auth
-
-        set +e
         php bin/console doctrine:schema:validate --env=test --em=main
-        main_validate_exit_code=$?
-        set -e
-
-        if [ "$main_validate_exit_code" -ne 0 ]; then
-          echo "::group::Doctrine main schema diff"
-          php bin/console doctrine:schema:update --env=test --em=main --dump-sql || true
-          echo "::endgroup::"
-          exit "$main_validate_exit_code"
-        fi

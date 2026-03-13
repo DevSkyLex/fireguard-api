@@ -255,7 +255,7 @@ jobs:
           postgres-service-id: ${{ job.services.postgres.id }}
 
       - name: Run end-to-end flow tests
-        run: vendor/bin/phpunit --testsuite="E2E Tests"
+        run: vendor/bin/phpunit --testsuite="E2E Tests" --no-coverage
 
   # ==========================================================================
   # Symfony Container Lint
