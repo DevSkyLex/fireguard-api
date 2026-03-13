@@ -9,6 +9,7 @@ use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -19,9 +20,13 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainMapsAllFields(): void
   {
     $record = new FacilityRecord();
+    $organization = new OrganizationRecord();
+    $organization->id = '550e8400-e29b-41d4-a716-446655441601';
+    $parent = new FacilityRecord();
+    $parent->id = '550e8400-e29b-41d4-a716-446655441602';
     $record->id = '550e8400-e29b-41d4-a716-446655441600';
-    $record->organizationId = '550e8400-e29b-41d4-a716-446655441601';
-    $record->parentFacilityId = '550e8400-e29b-41d4-a716-446655441602';
+    $record->organization = $organization;
+    $record->parentFacility = $parent;
     $record->type = 'building';
     $record->name = 'Building A';
     $record->code = 'BLDG-1';
@@ -50,9 +55,11 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainHandlesNullOptionalFields(): void
   {
     $record = new FacilityRecord();
+    $organization = new OrganizationRecord();
+    $organization->id = '550e8400-e29b-41d4-a716-446655441604';
     $record->id = '550e8400-e29b-41d4-a716-446655441603';
-    $record->organizationId = '550e8400-e29b-41d4-a716-446655441604';
-    $record->parentFacilityId = null;
+    $record->organization = $organization;
+    $record->parentFacility = null;
     $record->type = 'site';
     $record->name = 'HQ';
     $record->code = null;
@@ -95,8 +102,8 @@ final class FacilityMapperTest extends TestCase
 
     self::assertInstanceOf(FacilityRecord::class, $record);
     self::assertSame('550e8400-e29b-41d4-a716-446655441606', $record->id);
-    self::assertSame('550e8400-e29b-41d4-a716-446655441607', $record->organizationId);
-    self::assertSame('550e8400-e29b-41d4-a716-446655441605', $record->parentFacilityId);
+    self::assertNull($record->organization);
+    self::assertNull($record->parentFacility);
     self::assertSame('floor', $record->type);
     self::assertSame('Floor 1', $record->name);
     self::assertSame('FLR-1', $record->code);
@@ -124,7 +131,7 @@ final class FacilityMapperTest extends TestCase
 
     $record = FacilityMapper::toRecord($facility);
 
-    self::assertNull($record->parentFacilityId);
+    self::assertNull($record->parentFacility);
     self::assertNull($record->code);
     self::assertNull($record->address);
     self::assertSame('archived', $record->status);
@@ -135,9 +142,11 @@ final class FacilityMapperTest extends TestCase
   public function testToDomainAndToRecordRoundTrip(): void
   {
     $record = new FacilityRecord();
+    $organization = new OrganizationRecord();
+    $organization->id = '550e8400-e29b-41d4-a716-446655441611';
     $record->id = '550e8400-e29b-41d4-a716-446655441610';
-    $record->organizationId = '550e8400-e29b-41d4-a716-446655441611';
-    $record->parentFacilityId = null;
+    $record->organization = $organization;
+    $record->parentFacility = null;
     $record->type = 'zone';
     $record->name = 'Zone Alpha';
     $record->code = 'ZONE-A';
@@ -151,8 +160,8 @@ final class FacilityMapperTest extends TestCase
     $roundTripped = FacilityMapper::toRecord($facility);
 
     self::assertSame($record->id, $roundTripped->id);
-    self::assertSame($record->organizationId, $roundTripped->organizationId);
-    self::assertSame($record->parentFacilityId, $roundTripped->parentFacilityId);
+    self::assertNull($roundTripped->organization);
+    self::assertNull($roundTripped->parentFacility);
     self::assertSame($record->type, $roundTripped->type);
     self::assertSame($record->name, $roundTripped->name);
     self::assertSame($record->code, $roundTripped->code);

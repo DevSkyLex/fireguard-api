@@ -124,6 +124,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
     return (int) $this->repository->count([
       'organization' => $organization,
     ]);

@@ -742,8 +742,8 @@ class RolePermissionManagementFlowTest extends WebTestCase
   protected static function createClientWithFixtures(): KernelBrowser
   {
     $client = static::createClient();
-    $client->disableReboot();
     static::loadTestFixtures($client);
+    $client->enableReboot();
 
     return $client;
   }

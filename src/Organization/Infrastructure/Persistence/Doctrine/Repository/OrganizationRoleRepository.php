@@ -171,6 +171,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
     return (int) $this->repository->count([
       'organization' => $organization,
     ]);

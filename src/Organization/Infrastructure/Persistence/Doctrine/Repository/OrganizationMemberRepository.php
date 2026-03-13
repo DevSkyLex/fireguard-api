@@ -303,6 +303,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
     return (int) $this->memberRepository->count([
       'organization' => $organization,
     ]);

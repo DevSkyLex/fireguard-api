@@ -321,6 +321,7 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
   {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
     return (int) $this->invitationRepository->count([
       'organization' => $organization,
       'status' => 'pending',
