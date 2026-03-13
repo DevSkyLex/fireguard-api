@@ -12,7 +12,6 @@ concurrency:
 permissions:
   contents: read
   issues: write
-  models: read
   pull-requests: write
 
 jobs:
@@ -126,22 +125,3 @@ jobs:
                 labels: missingLabels,
               });
             }
-
-  autofill-description:
-    name: Autofill PR Description
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: github.actor != 'github-actions[bot]' || github.event.action != 'edited'
-
-    steps:
-      - name: Checkout base workflow files
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          persist-credentials: false
-
-      - name: Autofill AI-managed PR sections
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_AI_MODEL: openai/gpt-4.1
-        run: node .github/scripts/auto-fill-pr-description.mjs

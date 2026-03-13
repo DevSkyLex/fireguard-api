@@ -1,34 +1,25 @@
 # Context
 
-<!-- AI-managed sections below may be auto-filled and refreshed by workflow automation. -->
-<!-- Add a standalone HTML comment named pr-ai:disable anywhere in this body to opt out. -->
-
 - Issue / ticket:
 - Goal:
 - Out of scope:
 
 ## Change Summary
 
-<!-- pr-ai:change-summary:start -->
 - TODO
 - TODO
-<!-- pr-ai:change-summary:end -->
 
 ## Review Guide
 
 ### Modules / Areas
 
 <!-- Example: Auth, OAuth, Organization, Inspection, Shared, .github -->
-<!-- pr-ai:modules-areas:start -->
 - TODO
-<!-- pr-ai:modules-areas:end -->
 
 ### Main Files / Entry Points
 
 <!-- Point reviewers to the exact handlers, processors, repositories, resources, configs, migrations, or tests that matter. -->
-<!-- pr-ai:main-files:start -->
 - TODO
-<!-- pr-ai:main-files:end -->
 
 ### Reviewer Focus
 
@@ -58,16 +49,12 @@ Select only what really matters for this PR.
 ### Before
 
 <!-- Optional: short description of the previous behavior. -->
-<!-- pr-ai:before:start -->
 Needs manual confirmation.
-<!-- pr-ai:before:end -->
 
 ### After
 
 <!-- Optional: short description of the expected new behavior. -->
-<!-- pr-ai:after:start -->
 Needs manual confirmation.
-<!-- pr-ai:after:end -->
 
 ## Risk And Rollback
 
@@ -81,16 +68,12 @@ Needs manual confirmation.
 ### Risk Notes
 
 <!-- Call out the exact edge cases or failure modes reviewers should validate. -->
-<!-- pr-ai:risk-notes:start -->
 - TODO
-<!-- pr-ai:risk-notes:end -->
 
 ### Rollback Plan
 
 <!-- How to revert safely if this goes wrong in production. -->
-<!-- pr-ai:rollback-plan:start -->
 - TODO
-<!-- pr-ai:rollback-plan:end -->
 
 ## Validation
 
@@ -126,9 +109,7 @@ Needs manual confirmation.
 ## Known Gaps
 
 <!-- Anything intentionally deferred or not covered in this PR. -->
-<!-- pr-ai:known-gaps:start -->
 - TODO
-<!-- pr-ai:known-gaps:end -->
 
 ## Copilot Review Request
 
