@@ -13,8 +13,8 @@ permissions:
 env:
   PHP_VERSION: '8.4'
   COMPOSER_ALLOW_SUPERUSER: 1
-  TEST_AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
-  TEST_MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
+  AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_test?serverVersion=16
+  MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_test?serverVersion=16
 
 jobs:
   # ==========================================================================
@@ -121,8 +121,6 @@ jobs:
     name: Unit and Architecture Tests
     runs-on: ubuntu-latest
     env:
-      AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
-      MAIN_DATABASE_URL: ${{ env.TEST_MAIN_DATABASE_URL }}
       APP_ENV: test
       APP_DEBUG: 0
 
@@ -174,8 +172,6 @@ jobs:
     name: Integration and Functional Tests
     runs-on: ubuntu-latest
     env:
-      AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
-      MAIN_DATABASE_URL: ${{ env.TEST_MAIN_DATABASE_URL }}
       APP_ENV: test
       APP_DEBUG: 0
 
@@ -230,8 +226,6 @@ jobs:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
     env:
-      AUTH_DATABASE_URL: ${{ env.TEST_AUTH_DATABASE_URL }}
-      MAIN_DATABASE_URL: ${{ env.TEST_MAIN_DATABASE_URL }}
       APP_ENV: test
       APP_DEBUG: 0
 
