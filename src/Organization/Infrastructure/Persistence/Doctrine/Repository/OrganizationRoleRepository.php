@@ -62,12 +62,13 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
   public function save(OrganizationRole $role): void
   {
     $record = OrganizationRoleMapper::toRecord($role);
-    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $role->organizationId());
+    $record->organization = $organization;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof OrganizationRoleRecord) {
-      $existing->organizationId = $record->organizationId;
-      $existing->organization = $record->organization;
+      $existing->organization = $organization;
       $existing->name = $record->name;
       $existing->permissions = $record->permissions;
       $existing->isSystem = $record->isSystem;
@@ -114,8 +115,10 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function findByOrganizationAndName(OrganizationId $organizationId, OrganizationRoleName $name): ?OrganizationRole
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->repository->findOneBy([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
       'name' => (string) $name,
     ]);
 
@@ -139,8 +142,10 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function findByOrganizationId(OrganizationId $organizationId): array
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $records = $this->repository->findBy([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
     ], [
       'name' => 'ASC',
     ]);
@@ -164,8 +169,10 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function countByOrganizationId(OrganizationId $organizationId): int
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     return (int) $this->repository->count([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
     ]);
   }
 
@@ -190,9 +197,9 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     $rawIds = array_map(static fn (OrganizationRoleId $id): string => (string) $id, $roleIds);
 
     $records = $this->repository->createQueryBuilder('r')
-      ->where('r.organizationId = :organizationId')
+      ->where('r.organization = :organization')
       ->andWhere('r.id IN (:ids)')
-      ->setParameter('organizationId', (string) $organizationId)
+      ->setParameter('organization', $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId))
       ->setParameter('ids', $rawIds)
       ->getQuery()
       ->getResult();

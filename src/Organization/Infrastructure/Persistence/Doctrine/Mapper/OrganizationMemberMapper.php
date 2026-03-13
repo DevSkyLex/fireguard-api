@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
+use LogicException;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationMemberRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
 
 /**
  * Mapper OrganizationMemberMapper.
@@ -33,9 +34,13 @@ final class OrganizationMemberMapper
    */
   public static function toDomain(OrganizationMemberRecord $record): OrganizationMember
   {
+    if (!$record->organization instanceof OrganizationRecord) {
+      throw new LogicException('Organization member record must reference an organization.');
+    }
+
     return OrganizationMember::reconstitute(
       id: OrganizationMemberId::fromString($record->id),
-      organizationId: OrganizationId::fromString($record->organizationId),
+      organizationId: OrganizationId::fromString($record->organization->id),
       userId: $record->userId,
       isActive: $record->isActive,
       joinedAt: $record->joinedAt,
@@ -57,7 +62,6 @@ final class OrganizationMemberMapper
   {
     $record = new OrganizationMemberRecord();
     $record->id = (string) $member->id();
-    $record->organizationId = (string) $member->organizationId();
     $record->userId = $member->userId();
     $record->isActive = $member->isActive();
     $record->joinedAt = $member->joinedAt();

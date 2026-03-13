@@ -33,14 +33,6 @@ class OrganizationRoleRecord
   public string $id;
 
   /**
-   * Property organizationId.
-   *
-   * @since 1.0.0
-   */
-  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
-  public string $organizationId;
-
-  /**
    * Property organization.
    *
    * @since 1.0.0

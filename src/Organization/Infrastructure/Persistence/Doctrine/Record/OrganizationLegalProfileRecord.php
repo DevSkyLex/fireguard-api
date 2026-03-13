@@ -22,19 +22,11 @@ class OrganizationLegalProfileRecord
 {
   // #region Properties
   /**
-   * Property organizationId.
-   *
-   * @since 1.0.0
-   */
-  #[ORM\Id]
-  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
-  public string $organizationId;
-
-  /**
    * Property organization.
    *
    * @since 1.0.0
    */
+  #[ORM\Id]
   #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;

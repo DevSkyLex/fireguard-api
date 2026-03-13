@@ -80,12 +80,13 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
   public function save(OrganizationInvitation $invitation): void
   {
     $record = OrganizationInvitationMapper::toRecord($invitation);
-    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $invitation->organizationId());
+    $record->organization = $organization;
     $existing = $this->invitationRepository->find($record->id);
 
     if ($existing instanceof OrganizationInvitationRecord) {
-      $existing->organizationId = $record->organizationId;
-      $existing->organization = $record->organization;
+      $existing->organization = $organization;
       $existing->email = $record->email;
       $existing->tokenHash = $record->tokenHash;
       $existing->invitedByUserId = $record->invitedByUserId;
@@ -164,8 +165,10 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findPendingByOrganizationAndEmail(OrganizationId $organizationId, Email $email): ?OrganizationInvitation
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->invitationRepository->findOneBy([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
       'email' => (string) $email,
       'status' => 'pending',
     ], [
@@ -192,8 +195,10 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findByOrganizationId(OrganizationId $organizationId): array
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $records = $this->invitationRepository->findBy([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
     ], [
       'createdAt' => 'DESC',
     ]);
@@ -314,8 +319,10 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function countPendingByOrganizationId(OrganizationId $organizationId): int
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     return (int) $this->invitationRepository->count([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
       'status' => 'pending',
     ]);
   }

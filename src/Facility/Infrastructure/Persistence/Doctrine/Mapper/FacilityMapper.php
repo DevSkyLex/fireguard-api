@@ -13,6 +13,8 @@ use Facility\Domain\ValueObject\{
   FacilityType
 };
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use LogicException;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Mapper FacilityMapper.
@@ -39,10 +41,14 @@ final class FacilityMapper
    */
   public static function toDomain(FacilityRecord $record): Facility
   {
+    if (!$record->organization instanceof OrganizationRecord) {
+      throw new LogicException('Facility record must reference an organization.');
+    }
+
     return Facility::reconstitute(
       id: FacilityId::fromString($record->id),
-      organizationId: FacilityOrganizationId::fromString($record->organizationId),
-      parentFacilityId: null !== $record->parentFacilityId ? FacilityId::fromString($record->parentFacilityId) : null,
+      organizationId: FacilityOrganizationId::fromString($record->organization->id),
+      parentFacilityId: null !== $record->parentFacility ? FacilityId::fromString($record->parentFacility->id) : null,
       type: FacilityType::from($record->type),
       name: new FacilityName($record->name),
       code: $record->code,
@@ -69,8 +75,6 @@ final class FacilityMapper
   {
     $record = new FacilityRecord();
     $record->id = (string) $facility->id();
-    $record->organizationId = (string) $facility->organizationId();
-    $record->parentFacilityId = $facility->parentFacilityId()?->__toString();
     $record->type = $facility->type()->value;
     $record->name = (string) $facility->name();
     $record->code = $facility->code();

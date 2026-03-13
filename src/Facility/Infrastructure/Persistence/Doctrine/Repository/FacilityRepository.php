@@ -62,16 +62,16 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   public function save(Facility $facility): void
   {
     $record = FacilityMapper::toRecord($facility);
-    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
-    $record->parentFacility = null !== $record->parentFacilityId
-      ? $this->entityManager->getReference(FacilityRecord::class, $record->parentFacilityId)
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $facility->organizationId());
+    $record->organization = $organization;
+    $record->parentFacility = null !== $facility->parentFacilityId()
+      ? $this->entityManager->getReference(FacilityRecord::class, (string) $facility->parentFacilityId())
       : null;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof FacilityRecord) {
-      $existing->organizationId = $record->organizationId;
-      $existing->organization = $record->organization;
-      $existing->parentFacilityId = $record->parentFacilityId;
+      $existing->organization = $organization;
       $existing->parentFacility = $record->parentFacility;
       $existing->type = $record->type;
       $existing->name = $record->name;
@@ -122,8 +122,10 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    */
   public function countByOrganizationId(FacilityOrganizationId $organizationId): int
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     return (int) $this->repository->count([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
     ]);
   }
 
@@ -140,8 +142,10 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    */
   public function findByOrganizationId(FacilityOrganizationId $organizationId): array
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $records = $this->repository->findBy(
-      ['organizationId' => (string) $organizationId],
+      ['organization' => $organization],
       ['name' => 'ASC'],
     );
 

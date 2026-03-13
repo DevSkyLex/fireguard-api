@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
+use LogicException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRoleRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationRecord, OrganizationRoleRecord};
 
 /**
  * Mapper OrganizationRoleMapper.
@@ -33,9 +34,13 @@ final class OrganizationRoleMapper
    */
   public static function toDomain(OrganizationRoleRecord $record): OrganizationRole
   {
+    if (!$record->organization instanceof OrganizationRecord) {
+      throw new LogicException('Organization role record must reference an organization.');
+    }
+
     return OrganizationRole::reconstitute(
       id: OrganizationRoleId::fromString($record->id),
-      organizationId: OrganizationId::fromString($record->organizationId),
+      organizationId: OrganizationId::fromString($record->organization->id),
       name: new OrganizationRoleName($record->name),
       permissions: $record->permissions,
       isSystem: $record->isSystem,
@@ -58,7 +63,6 @@ final class OrganizationRoleMapper
   {
     $record = new OrganizationRoleRecord();
     $record->id = (string) $role->id();
-    $record->organizationId = (string) $role->organizationId();
     $record->name = (string) $role->name();
     $record->permissions = $role->permissions();
     $record->isSystem = $role->isSystem();
