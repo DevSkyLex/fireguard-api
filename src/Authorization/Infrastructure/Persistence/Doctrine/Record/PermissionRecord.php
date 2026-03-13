@@ -20,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'permissions')]
-#[ORM\Index(name: 'idx_permissions_name', columns: ['name'])]
+#[ORM\UniqueConstraint(name: 'uniq_permissions_name', columns: ['name'])]
 class PermissionRecord
 {
   // #region Properties
@@ -42,7 +42,7 @@ class PermissionRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(type: 'string', length: 100, unique: true)]
+  #[ORM\Column(type: 'string', length: 100)]
   public string $name;
 
   /**

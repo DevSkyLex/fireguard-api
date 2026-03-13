@@ -22,7 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'roles')]
 #[ORM\Index(name: 'idx_roles_tenant', columns: ['tenant_id'])]
-#[ORM\Index(name: 'idx_roles_name', columns: ['name'])]
+#[ORM\UniqueConstraint(name: 'uniq_roles_name', columns: ['name'])]
 class RoleRecord
 {
   // #region Properties
@@ -44,7 +44,7 @@ class RoleRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(type: 'string', length: 50, unique: true)]
+  #[ORM\Column(type: 'string', length: 50)]
   public string $name;
 
   /**
