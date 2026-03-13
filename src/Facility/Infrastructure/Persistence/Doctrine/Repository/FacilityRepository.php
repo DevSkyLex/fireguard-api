@@ -10,6 +10,7 @@ use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 
@@ -61,11 +62,17 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   public function save(Facility $facility): void
   {
     $record = FacilityMapper::toRecord($facility);
+    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
+    $record->parentFacility = null !== $record->parentFacilityId
+      ? $this->entityManager->getReference(FacilityRecord::class, $record->parentFacilityId)
+      : null;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof FacilityRecord) {
       $existing->organizationId = $record->organizationId;
+      $existing->organization = $record->organization;
       $existing->parentFacilityId = $record->parentFacilityId;
+      $existing->parentFacility = $record->parentFacility;
       $existing->type = $record->type;
       $existing->name = $record->name;
       $existing->code = $record->code;

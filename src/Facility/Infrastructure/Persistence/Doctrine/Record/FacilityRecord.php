@@ -6,6 +6,7 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Record FacilityRecord.
@@ -45,12 +46,30 @@ final class FacilityRecord
   public string $organizationId;
 
   /**
+   * Property organization.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
+  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?OrganizationRecord $organization = null;
+
+  /**
    * Property parentFacilityId.
    *
    * @since 1.0.0
    */
   #[ORM\Column(name: 'parent_facility_id', type: 'string', length: 36, nullable: true)]
   public ?string $parentFacilityId = null;
+
+  /**
+   * Property parentFacility.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\ManyToOne(targetEntity: self::class)]
+  #[ORM\JoinColumn(name: 'parent_facility_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+  public ?FacilityRecord $parentFacility = null;
 
   /**
    * Property type.

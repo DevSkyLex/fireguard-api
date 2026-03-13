@@ -9,7 +9,7 @@ use Organization\Application\Port\Outbound\OrganizationLegalProfileRepositoryPor
 use Organization\Domain\Model\OrganizationLegalProfile\OrganizationLegalProfile;
 use Organization\Domain\ValueObject\OrganizationId;
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationLegalProfileMapper;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationLegalProfileRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationLegalProfileRecord, OrganizationRecord};
 
 /**
  * Repository OrganizationLegalProfileRepository.
@@ -59,9 +59,12 @@ final readonly class OrganizationLegalProfileRepository implements OrganizationL
   public function save(OrganizationLegalProfile $profile): void
   {
     $record = OrganizationLegalProfileMapper::toRecord($profile);
+    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
     $existing = $this->repository->find($record->organizationId);
 
     if ($existing instanceof OrganizationLegalProfileRecord) {
+      $existing->organizationId = $record->organizationId;
+      $existing->organization = $record->organization;
       $existing->countryCode = $record->countryCode;
       $existing->legalType = $record->legalType;
       $existing->legalName = $record->legalName;

@@ -11,7 +11,7 @@ use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 
 use function array_filter;
 use function array_map;
@@ -79,12 +79,14 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   public function save(OrganizationMember $member): void
   {
     $record = OrganizationMemberMapper::toRecord($member);
+    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
     $existing = $this->memberRepository->find($record->id);
 
     if ($existing instanceof OrganizationMemberRecord) {
       $existing->isActive = $record->isActive;
       $existing->userId = $record->userId;
       $existing->organizationId = $record->organizationId;
+      $existing->organization = $record->organization;
     } else {
       $this->entityManager->persist($record);
     }

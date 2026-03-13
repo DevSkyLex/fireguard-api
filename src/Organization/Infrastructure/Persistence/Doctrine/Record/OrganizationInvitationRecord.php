@@ -44,6 +44,15 @@ class OrganizationInvitationRecord
   public string $organizationId;
 
   /**
+   * Property organization.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
+  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?OrganizationRecord $organization = null;
+
+  /**
    * Property email.
    *
    * @since 1.0.0

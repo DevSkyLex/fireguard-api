@@ -11,7 +11,7 @@ use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationInvitationMapper;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Shared\Domain\ValueObject\Email;
 
 use function array_filter;
@@ -80,10 +80,12 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
   public function save(OrganizationInvitation $invitation): void
   {
     $record = OrganizationInvitationMapper::toRecord($invitation);
+    $record->organization = $this->entityManager->getReference(OrganizationRecord::class, $record->organizationId);
     $existing = $this->invitationRepository->find($record->id);
 
     if ($existing instanceof OrganizationInvitationRecord) {
       $existing->organizationId = $record->organizationId;
+      $existing->organization = $record->organization;
       $existing->email = $record->email;
       $existing->tokenHash = $record->tokenHash;
       $existing->invitedByUserId = $record->invitedByUserId;
