@@ -176,11 +176,6 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     if ($record instanceof OrganizationRecord) {
       $this->entityManager->remove($record);
       $this->entityManager->flush();
-
-      // The organization is removed with database-level cascades for related records.
-      // Clear the unit of work so subsequent flushes in the same request
-      // do not operate on stale entities from the pre-delete state.
-      $this->entityManager->clear();
     }
   }
   // #endregion
