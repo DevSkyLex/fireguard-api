@@ -30,7 +30,7 @@
         "symfony/mercure-bundle": "^0.4.2",
         "symfony/messenger": "7.3.*",
         "symfony/monolog-bundle": "^4.0",
-        "symfony/notifier": "7.3.*",
+        "symfony/notifier": "8.0.*",
         "symfony/property-access": "7.3.*",
         "symfony/property-info": "7.3.*",
         "symfony/psr-http-message-bridge": "7.3.*",
