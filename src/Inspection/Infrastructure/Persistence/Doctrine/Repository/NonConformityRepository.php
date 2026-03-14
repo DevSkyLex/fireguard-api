@@ -9,7 +9,7 @@ use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
-use Inspection\Infrastructure\Persistence\Doctrine\Record\NonConformityRecord;
+use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
 
 use function array_map;
 
@@ -29,10 +29,13 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
   public function save(NonConformity $nonConformity): void
   {
     $record = NonConformityMapper::toRecord($nonConformity);
+    /** @var InspectionRecord $inspection */
+    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $nonConformity->inspectionId());
+    $record->inspection = $inspection;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof NonConformityRecord) {
-      $existing->inspectionId = $record->inspectionId;
+      $existing->inspection = $inspection;
       $existing->description = $record->description;
       $existing->severity = $record->severity;
       $existing->status = $record->status;
@@ -63,7 +66,9 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $severity = null,
     ?string $status = null,
   ): array {
-    $criteria = ['inspectionId' => (string) $inspectionId];
+    /** @var InspectionRecord $inspection */
+    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $inspectionId);
+    $criteria = ['inspection' => $inspection];
 
     if (null !== $severity) {
       $criteria['severity'] = $severity;
@@ -82,7 +87,10 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
 
   public function countByInspectionId(NonConformityInspectionId $inspectionId): int
   {
-    return $this->repository->count(['inspectionId' => (string) $inspectionId]);
+    /** @var InspectionRecord $inspection */
+    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $inspectionId);
+
+    return $this->repository->count(['inspection' => $inspection]);
   }
 
   /**
@@ -104,11 +112,11 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
 
     /** @var list<array{inspectionId: string, cnt: int|string}> $rows */
     $rows = $qb
-      ->select('r.inspectionId, COUNT(r.id) AS cnt')
+      ->select('IDENTITY(r.inspection) AS inspectionId, COUNT(r.id) AS cnt')
       ->from(NonConformityRecord::class, 'r')
-      ->where($qb->expr()->in('r.inspectionId', ':ids'))
+      ->where($qb->expr()->in('IDENTITY(r.inspection)', ':ids'))
       ->setParameter('ids', $inspectionIds)
-      ->groupBy('r.inspectionId')
+      ->groupBy('r.inspection')
       ->getQuery()
       ->getArrayResult();
 

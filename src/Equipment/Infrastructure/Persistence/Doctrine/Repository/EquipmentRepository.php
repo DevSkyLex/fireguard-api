@@ -10,6 +10,7 @@ use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 
@@ -55,10 +56,13 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
   public function save(Equipment $equipment): void
   {
     $record = EquipmentMapper::toRecord($equipment);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $equipment->organizationId());
+    $record->organization = $organization;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof EquipmentRecord) {
-      $existing->organizationId = $record->organizationId;
+      $existing->organization = $organization;
       $existing->facilityId = $record->facilityId;
       $existing->type = $record->type;
       $existing->subType = $record->subType;
@@ -104,7 +108,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $type = null,
     ?string $status = null,
   ): array {
-    $criteria = ['organizationId' => (string) $organizationId];
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $criteria = ['organization' => $organization];
 
     if (null !== $facilityId) {
       $criteria['facilityId'] = $facilityId;

@@ -14,14 +14,15 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_non_conformity_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_non_conformity_inspection_severity', columns: ['inspection_id', 'severity'])]
 #[ORM\Index(name: 'idx_non_conformity_inspection_status', columns: ['inspection_id', 'status'])]
-final class NonConformityRecord
+class NonConformityRecord
 {
   #[ORM\Id]
   #[ORM\Column(type: 'string', length: 36)]
   public string $id;
 
-  #[ORM\Column(name: 'inspection_id', type: 'string', length: 36)]
-  public string $inspectionId;
+  #[ORM\ManyToOne(targetEntity: InspectionRecord::class, inversedBy: 'nonConformities')]
+  #[ORM\JoinColumn(name: 'inspection_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?InspectionRecord $inspection = null;
 
   #[ORM\Column(name: 'description', type: 'text')]
   public string $description;

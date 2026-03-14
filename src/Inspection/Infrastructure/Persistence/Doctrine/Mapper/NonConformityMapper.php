@@ -11,15 +11,20 @@ use Inspection\Domain\ValueObject\{
   NonConformitySeverity,
   NonConformityStatus
 };
-use Inspection\Infrastructure\Persistence\Doctrine\Record\NonConformityRecord;
+use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
+use LogicException;
 
 final class NonConformityMapper
 {
   public static function toDomain(NonConformityRecord $record): NonConformity
   {
+    if (!$record->inspection instanceof InspectionRecord) {
+      throw new LogicException('Non-conformity record must reference an inspection.');
+    }
+
     return NonConformity::reconstitute(
       id: NonConformityId::fromString($record->id),
-      inspectionId: NonConformityInspectionId::fromString($record->inspectionId),
+      inspectionId: NonConformityInspectionId::fromString($record->inspection->id),
       description: $record->description,
       severity: NonConformitySeverity::from($record->severity),
       status: NonConformityStatus::from($record->status),
@@ -35,7 +40,6 @@ final class NonConformityMapper
   {
     $record = new NonConformityRecord();
     $record->id = (string) $nonConformity->id();
-    $record->inspectionId = (string) $nonConformity->inspectionId();
     $record->description = $nonConformity->description();
     $record->severity = $nonConformity->severity()->value;
     $record->status = $nonConformity->status()->value;

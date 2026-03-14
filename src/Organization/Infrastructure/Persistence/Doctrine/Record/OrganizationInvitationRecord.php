@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -40,7 +41,7 @@ class OrganizationInvitationRecord
    *
    * @since 1.0.0
    */
-  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'invitations')]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;
 
@@ -131,5 +132,21 @@ class OrganizationInvitationRecord
    */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * Property roleAssignments.
+   *
+   * @var Collection<int, OrganizationInvitationRoleRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'invitation', targetEntity: OrganizationInvitationRoleRecord::class, cascade: ['remove'])]
+  public Collection $roleAssignments;
+
+  /**
+   * Constructor.
+   */
+  public function __construct()
+  {
+    $this->roleAssignments = new ArrayCollection();
+  }
   // #endregion
 }

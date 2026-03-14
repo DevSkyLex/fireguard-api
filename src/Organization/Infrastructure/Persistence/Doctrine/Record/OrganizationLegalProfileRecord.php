@@ -27,7 +27,7 @@ class OrganizationLegalProfileRecord
    * @since 1.0.0
    */
   #[ORM\Id]
-  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
+  #[ORM\OneToOne(targetEntity: OrganizationRecord::class, inversedBy: 'legalProfile')]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;
 

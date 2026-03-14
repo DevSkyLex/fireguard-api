@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
@@ -25,7 +26,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_facility_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_facility_organization_type', columns: ['organization_id', 'type'])]
 #[ORM\UniqueConstraint(name: 'uniq_facility_organization_code', columns: ['organization_id', 'code'])]
-final class FacilityRecord
+class FacilityRecord
 {
   // #region Properties
   /**
@@ -42,7 +43,7 @@ final class FacilityRecord
    *
    * @since 1.0.0
    */
-  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class)]
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'facilities')]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;
 
@@ -51,9 +52,17 @@ final class FacilityRecord
    *
    * @since 1.0.0
    */
-  #[ORM\ManyToOne(targetEntity: self::class)]
+  #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
   #[ORM\JoinColumn(name: 'parent_facility_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
   public ?FacilityRecord $parentFacility = null;
+
+  /**
+   * Property children.
+   *
+   * @var Collection<int, FacilityRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'parentFacility', targetEntity: self::class)]
+  public Collection $children;
 
   /**
    * Property type.
@@ -120,5 +129,13 @@ final class FacilityRecord
    */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * Constructor.
+   */
+  public function __construct()
+  {
+    $this->children = new ArrayCollection();
+  }
   // #endregion
 }

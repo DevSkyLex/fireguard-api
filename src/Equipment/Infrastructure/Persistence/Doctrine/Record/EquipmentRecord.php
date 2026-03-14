@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Record EquipmentRecord.
@@ -25,7 +27,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_equipment_organization_type', columns: ['organization_id', 'type'])]
 #[ORM\Index(name: 'idx_equipment_organization_status', columns: ['organization_id', 'status'])]
 #[ORM\UniqueConstraint(name: 'uniq_equipment_organization_serial', columns: ['organization_id', 'serial_number'])]
-final class EquipmentRecord
+class EquipmentRecord
 {
   // #region Properties
   /**
@@ -38,12 +40,13 @@ final class EquipmentRecord
   public string $id;
 
   /**
-   * Property organizationId.
+   * Property organization.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
-  public string $organizationId;
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'equipment')]
+  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?OrganizationRecord $organization = null;
 
   /**
    * Property facilityId.
@@ -140,5 +143,30 @@ final class EquipmentRecord
    */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * Property attachments.
+   *
+   * @var Collection<int, EquipmentAttachmentRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'equipment', targetEntity: EquipmentAttachmentRecord::class, cascade: ['remove'])]
+  public Collection $attachments;
+
+  /**
+   * Property tagLinks.
+   *
+   * @var Collection<int, EquipmentTagRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'equipment', targetEntity: EquipmentTagRecord::class, cascade: ['remove'])]
+  public Collection $tagLinks;
+
+  /**
+   * Constructor.
+   */
+  public function __construct()
+  {
+    $this->attachments = new ArrayCollection();
+    $this->tagLinks = new ArrayCollection();
+  }
   // #endregion
 }

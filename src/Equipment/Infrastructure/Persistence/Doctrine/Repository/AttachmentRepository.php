@@ -9,7 +9,7 @@ use Equipment\Application\Port\Outbound\AttachmentRepositoryPort;
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\AttachmentMapper;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentAttachmentRecord;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
 
 use function array_map;
 
@@ -48,12 +48,24 @@ final readonly class AttachmentRepository implements AttachmentRepositoryPort
   public function save(EquipmentAttachment $attachment): void
   {
     $record = AttachmentMapper::toRecord($attachment);
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $attachment->equipmentId());
+    $record->equipment = $equipment;
     $existing = $this->repository->find($record->id);
 
-    if (!$existing instanceof EquipmentAttachmentRecord) {
+    if ($existing instanceof EquipmentAttachmentRecord) {
+      $existing->equipment = $equipment;
+      $existing->fileName = $record->fileName;
+      $existing->storagePath = $record->storagePath;
+      $existing->mimeType = $record->mimeType;
+      $existing->size = $record->size;
+      $existing->label = $record->label;
+      $existing->uploadedAt = $record->uploadedAt;
+    } else {
       $this->entityManager->persist($record);
-      $this->entityManager->flush();
     }
+
+    $this->entityManager->flush();
   }
 
   /**
@@ -79,8 +91,10 @@ final readonly class AttachmentRepository implements AttachmentRepositoryPort
    */
   public function findByEquipmentId(EquipmentId $equipmentId): array
   {
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
     $records = $this->repository->findBy(
-      ['equipmentId' => (string) $equipmentId],
+      ['equipment' => $equipment],
       ['uploadedAt' => 'DESC'],
     );
 

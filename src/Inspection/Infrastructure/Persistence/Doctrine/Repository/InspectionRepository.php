@@ -10,6 +10,7 @@ use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\InspectionMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 
@@ -29,10 +30,13 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   public function save(Inspection $inspection): void
   {
     $record = InspectionMapper::toRecord($inspection);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $inspection->organizationId());
+    $record->organization = $organization;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof InspectionRecord) {
-      $existing->organizationId = $record->organizationId;
+      $existing->organization = $organization;
       $existing->equipmentId = $record->equipmentId;
       $existing->facilityId = $record->facilityId;
       $existing->inspectorType = $record->inspectorType;
@@ -71,7 +75,9 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $result = null,
     ?string $status = null,
   ): array {
-    $criteria = ['organizationId' => (string) $organizationId];
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $criteria = ['organization' => $organization];
 
     if (null !== $equipmentId) {
       $criteria['equipmentId'] = $equipmentId;

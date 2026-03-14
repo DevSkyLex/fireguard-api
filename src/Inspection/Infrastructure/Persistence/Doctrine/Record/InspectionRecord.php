@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Inspection\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'inspections')]
@@ -17,14 +19,15 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_inspection_organization_equipment', columns: ['organization_id', 'equipment_id'])]
 #[ORM\Index(name: 'idx_inspection_organization_result', columns: ['organization_id', 'result'])]
 #[ORM\Index(name: 'idx_inspection_organization_status', columns: ['organization_id', 'status'])]
-final class InspectionRecord
+class InspectionRecord
 {
   #[ORM\Id]
   #[ORM\Column(type: 'string', length: 36)]
   public string $id;
 
-  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
-  public string $organizationId;
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'inspections')]
+  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?OrganizationRecord $organization = null;
 
   #[ORM\Column(name: 'equipment_id', type: 'string', length: 36)]
   public string $equipmentId;
@@ -67,4 +70,15 @@ final class InspectionRecord
 
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * @var Collection<int, NonConformityRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'inspection', targetEntity: NonConformityRecord::class, cascade: ['remove'])]
+  public Collection $nonConformities;
+
+  public function __construct()
+  {
+    $this->nonConformities = new ArrayCollection();
+  }
 }

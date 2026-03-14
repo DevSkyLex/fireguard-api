@@ -6,7 +6,8 @@ namespace Equipment\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId};
-use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentAttachmentRecord;
+use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
+use LogicException;
 
 /**
  * Mapper AttachmentMapper.
@@ -27,9 +28,13 @@ final class AttachmentMapper
    */
   public static function toDomain(EquipmentAttachmentRecord $record): EquipmentAttachment
   {
+    if (!$record->equipment instanceof EquipmentRecord) {
+      throw new LogicException('Attachment record must reference equipment.');
+    }
+
     return EquipmentAttachment::reconstitute(
       id: AttachmentId::fromString($record->id),
-      equipmentId: EquipmentId::fromString($record->equipmentId),
+      equipmentId: EquipmentId::fromString($record->equipment->id),
       fileName: $record->fileName,
       storagePath: $record->storagePath,
       mimeType: $record->mimeType,
@@ -48,7 +53,6 @@ final class AttachmentMapper
   {
     $record = new EquipmentAttachmentRecord();
     $record->id = (string) $attachment->id();
-    $record->equipmentId = (string) $attachment->equipmentId();
     $record->fileName = $attachment->fileName();
     $record->storagePath = $attachment->storagePath();
     $record->mimeType = $attachment->mimeType();

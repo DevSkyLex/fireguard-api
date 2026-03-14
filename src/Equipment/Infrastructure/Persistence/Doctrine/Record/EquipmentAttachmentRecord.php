@@ -20,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'equipment_attachments')]
 #[ORM\Index(name: 'idx_attachment_equipment', columns: ['equipment_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_attachment_storage_path', columns: ['storage_path'])]
-final class EquipmentAttachmentRecord
+class EquipmentAttachmentRecord
 {
   // #region Properties
   /**
@@ -33,12 +33,13 @@ final class EquipmentAttachmentRecord
   public string $id;
 
   /**
-   * Property equipmentId.
+   * Property equipment.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'equipment_id', type: 'string', length: 36)]
-  public string $equipmentId;
+  #[ORM\ManyToOne(targetEntity: EquipmentRecord::class, inversedBy: 'attachments')]
+  #[ORM\JoinColumn(name: 'equipment_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?EquipmentRecord $equipment = null;
 
   /**
    * Property fileName.
