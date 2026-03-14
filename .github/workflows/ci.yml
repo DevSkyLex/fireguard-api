@@ -121,7 +121,7 @@ jobs:
             --only-summary-for-coverage-text
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: github.event_name != 'workflow_call'
         with:
           files: var/coverage/unit-and-architecture.xml
@@ -172,7 +172,7 @@ jobs:
             --only-summary-for-coverage-text
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: github.event_name != 'workflow_call'
         with:
           files: var/coverage/integration-and-functional.xml
