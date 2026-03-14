@@ -28,7 +28,7 @@ class OrganizationInvitationRoleRecord
    * @since 1.0.0
    */
   #[ORM\Id]
-  #[ORM\ManyToOne(targetEntity: OrganizationInvitationRecord::class)]
+  #[ORM\ManyToOne(targetEntity: OrganizationInvitationRecord::class, inversedBy: 'roleAssignments')]
   #[ORM\JoinColumn(name: 'invitation_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationInvitationRecord $invitation = null;
 
@@ -38,7 +38,7 @@ class OrganizationInvitationRoleRecord
    * @since 1.0.0
    */
   #[ORM\Id]
-  #[ORM\ManyToOne(targetEntity: OrganizationRoleRecord::class)]
+  #[ORM\ManyToOne(targetEntity: OrganizationRoleRecord::class, inversedBy: 'invitationAssignments')]
   #[ORM\JoinColumn(name: 'role_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRoleRecord $role = null;
 
