@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Command\Inspection\CloseInspection;
 
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
-use Inspection\Domain\Exception\{InspectionNotFoundException};
+use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;

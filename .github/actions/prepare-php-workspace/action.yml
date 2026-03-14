@@ -1,0 +1,54 @@
+name: Prepare PHP Workspace
+description: Setup PHP, cache Composer dependencies, and optionally install project dependencies.
+
+inputs:
+  php-version:
+    description: PHP version to install
+    required: false
+    default: '8.4'
+  extensions:
+    description: Comma-separated list of PHP extensions to install
+    required: false
+    default: intl, bcmath, zip
+  tools:
+    description: Comma-separated list of PHP tools to install
+    required: false
+    default: ''
+  coverage-driver:
+    description: Coverage driver passed to setup-php
+    required: false
+    default: none
+  install-dependencies:
+    description: Whether Composer dependencies should be installed
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        tools: ${{ inputs.tools }}
+        coverage: ${{ inputs.coverage-driver }}
+
+    - name: Get Composer cache directory
+      if: ${{ inputs.install-dependencies == 'true' }}
+      id: composer-cache
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Composer dependencies
+      if: ${{ inputs.install-dependencies == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: Install dependencies
+      if: ${{ inputs.install-dependencies == 'true' }}
+      shell: bash
+      run: composer install --prefer-dist --no-progress

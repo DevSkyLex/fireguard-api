@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Record FacilityRecord.
@@ -24,7 +26,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_facility_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_facility_organization_type', columns: ['organization_id', 'type'])]
 #[ORM\UniqueConstraint(name: 'uniq_facility_organization_code', columns: ['organization_id', 'code'])]
-final class FacilityRecord
+class FacilityRecord
 {
   // #region Properties
   /**
@@ -37,20 +39,30 @@ final class FacilityRecord
   public string $id;
 
   /**
-   * Property organizationId.
+   * Property organization.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
-  public string $organizationId;
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'facilities')]
+  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?OrganizationRecord $organization = null;
 
   /**
-   * Property parentFacilityId.
+   * Property parentFacility.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'parent_facility_id', type: 'string', length: 36, nullable: true)]
-  public ?string $parentFacilityId = null;
+  #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'children')]
+  #[ORM\JoinColumn(name: 'parent_facility_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+  public ?FacilityRecord $parentFacility = null;
+
+  /**
+   * Property children.
+   *
+   * @var Collection<int, FacilityRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'parentFacility', targetEntity: self::class)]
+  public Collection $children;
 
   /**
    * Property type.
@@ -117,5 +129,13 @@ final class FacilityRecord
    */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * Constructor.
+   */
+  public function __construct()
+  {
+    $this->children = new ArrayCollection();
+  }
   // #endregion
 }

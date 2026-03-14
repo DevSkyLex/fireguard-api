@@ -20,8 +20,9 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'role_assignments')]
-#[ORM\Index(name: 'idx_assignments_subject', columns: ['subject_type', 'subject_id'])]
-#[ORM\Index(name: 'idx_assignments_role', columns: ['role_id'])]
+#[ORM\Index(name: 'idx_role_assignments_subject', columns: ['subject_type', 'subject_id'])]
+#[ORM\Index(name: 'idx_role_assignments_role', columns: ['role_id'])]
+#[ORM\Index(name: 'idx_role_assignments_tenant', columns: ['tenant_id'])]
 #[ORM\UniqueConstraint(name: 'unique_assignment', columns: ['role_id', 'subject_type', 'subject_id'])]
 class RoleAssignmentRecord
 {

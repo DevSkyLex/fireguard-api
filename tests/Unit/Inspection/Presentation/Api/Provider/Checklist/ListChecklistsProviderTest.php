@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{GetChecklistResult};
+use Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistResult;
 use Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsQuery;
 use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Provider\Checklist\ListChecklistsProvider;

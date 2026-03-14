@@ -1,0 +1,67 @@
+name: Prepare PostgreSQL Test Environment
+description: Setup PHP, install dependencies, and prepare PostgreSQL-backed test databases.
+
+inputs:
+  php-version:
+    description: PHP version to install
+    required: false
+    default: '8.4'
+  coverage-driver:
+    description: Coverage driver passed to setup-php
+    required: false
+    default: none
+  postgres-service-id:
+    description: Service container identifier for the PostgreSQL job service
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        extensions: pdo_pgsql, intl, bcmath, zip
+        coverage: ${{ inputs.coverage-driver }}
+
+    - name: Get Composer cache directory
+      id: composer-cache
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: ${{ runner.os }}-composer-
+
+    - name: Install dependencies
+      shell: bash
+      run: composer install --prefer-dist --no-progress
+
+    - name: Prepare test artifacts
+      shell: bash
+      run: mkdir -p config/jwt var/coverage
+
+    - name: Create main database
+      shell: bash
+      run: docker exec "${{ inputs.postgres-service-id }}" psql -U test -d postgres -c "CREATE DATABASE fireguard_main_test;"
+
+    - name: Create JWT keys for tests
+      shell: bash
+      run: |
+        openssl genrsa -out config/jwt/private.key 2048
+        openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key
+
+    - name: Run database migrations
+      shell: bash
+      run: |
+        php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
+        php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
+
+    - name: Validate Doctrine schema
+      shell: bash
+      run: |
+        php bin/console doctrine:schema:validate --env=test --em=auth
+        php bin/console doctrine:schema:validate --env=test --em=main

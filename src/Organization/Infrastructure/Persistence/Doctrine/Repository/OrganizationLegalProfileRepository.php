@@ -9,7 +9,7 @@ use Organization\Application\Port\Outbound\OrganizationLegalProfileRepositoryPor
 use Organization\Domain\Model\OrganizationLegalProfile\OrganizationLegalProfile;
 use Organization\Domain\ValueObject\OrganizationId;
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationLegalProfileMapper;
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationLegalProfileRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationLegalProfileRecord, OrganizationRecord};
 
 /**
  * Repository OrganizationLegalProfileRepository.
@@ -59,9 +59,15 @@ final readonly class OrganizationLegalProfileRepository implements OrganizationL
   public function save(OrganizationLegalProfile $profile): void
   {
     $record = OrganizationLegalProfileMapper::toRecord($profile);
-    $existing = $this->repository->find($record->organizationId);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $profile->organizationId());
+    $record->organization = $organization;
+    $existing = $this->repository->findOneBy([
+      'organization' => $organization,
+    ]);
 
     if ($existing instanceof OrganizationLegalProfileRecord) {
+      $existing->organization = $organization;
       $existing->countryCode = $record->countryCode;
       $existing->legalType = $record->legalType;
       $existing->legalName = $record->legalName;
@@ -88,7 +94,11 @@ final readonly class OrganizationLegalProfileRepository implements OrganizationL
    */
   public function findByOrganizationId(OrganizationId $organizationId): ?OrganizationLegalProfile
   {
-    $record = $this->repository->find((string) $organizationId);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $record = $this->repository->findOneBy([
+      'organization' => $organization,
+    ]);
 
     if (!$record instanceof OrganizationLegalProfileRecord) {
       return null;
@@ -108,7 +118,11 @@ final readonly class OrganizationLegalProfileRepository implements OrganizationL
    */
   public function deleteByOrganizationId(OrganizationId $organizationId): void
   {
-    $record = $this->repository->find((string) $organizationId);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $record = $this->repository->findOneBy([
+      'organization' => $organization,
+    ]);
 
     if ($record instanceof OrganizationLegalProfileRecord) {
       $this->entityManager->remove($record);

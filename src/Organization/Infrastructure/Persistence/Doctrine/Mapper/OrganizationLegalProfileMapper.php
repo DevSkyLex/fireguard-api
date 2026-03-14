@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
+use LogicException;
 use Organization\Domain\Model\OrganizationLegalProfile\OrganizationLegalProfile;
 use Organization\Domain\ValueObject\{
   OrganizationCountryCode,
@@ -13,7 +14,7 @@ use Organization\Domain\ValueObject\{
   OrganizationRegistrationNumber,
   OrganizationVatNumber
 };
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationLegalProfileRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationLegalProfileRecord, OrganizationRecord};
 
 /**
  * Mapper OrganizationLegalProfileMapper.
@@ -40,8 +41,12 @@ final class OrganizationLegalProfileMapper
    */
   public static function toDomain(OrganizationLegalProfileRecord $record): OrganizationLegalProfile
   {
+    if (!$record->organization instanceof OrganizationRecord) {
+      throw new LogicException('Organization legal profile record must reference an organization.');
+    }
+
     return OrganizationLegalProfile::reconstitute(
-      organizationId: OrganizationId::fromString($record->organizationId),
+      organizationId: OrganizationId::fromString($record->organization->id),
       countryCode: new OrganizationCountryCode($record->countryCode),
       legalType: OrganizationLegalType::from($record->legalType),
       legalName: new OrganizationLegalName($record->legalName),
@@ -66,7 +71,6 @@ final class OrganizationLegalProfileMapper
   public static function toRecord(OrganizationLegalProfile $profile): OrganizationLegalProfileRecord
   {
     $record = new OrganizationLegalProfileRecord();
-    $record->organizationId = (string) $profile->organizationId();
     $record->countryCode = (string) $profile->countryCode();
     $record->legalType = $profile->legalType()->value;
     $record->legalName = (string) $profile->legalName();

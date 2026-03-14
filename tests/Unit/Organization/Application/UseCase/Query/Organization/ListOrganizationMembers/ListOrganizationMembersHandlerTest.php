@@ -71,6 +71,9 @@ final class ListOrganizationMembersHandlerTest extends TestCase
     self::assertSame($organizationId, $result->items[0]->organizationId);
     self::assertSame('550e8400-e29b-41d4-a716-446655440902', $result->items[0]->userId);
     self::assertSame(['550e8400-e29b-41d4-a716-446655440903'], $result->items[0]->roleIds);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]

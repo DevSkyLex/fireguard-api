@@ -50,8 +50,8 @@ abstract class OAuth2WebTestCase extends WebTestCase
   protected static function createClientWithFixtures(): KernelBrowser
   {
     $client = static::createClient();
-    $client->disableReboot();
     static::loadTestFixtures($client);
+    $client->enableReboot();
 
     return $client;
   }

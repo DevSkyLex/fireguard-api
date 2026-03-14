@@ -83,6 +83,9 @@ final class ListTrustedDevicesHandlerTest extends TestCase
     self::assertInstanceOf(TrustedDeviceItemResult::class, $result->items[0]);
     self::assertSame($validDevice->id()->value, $result->items[0]->id);
     self::assertSame($validDevice->name(), $result->items[0]->name);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
   // #endregion
 }

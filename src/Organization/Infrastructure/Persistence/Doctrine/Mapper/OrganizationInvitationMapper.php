@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
+use LogicException;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
-use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationInvitationRecord;
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationRecord};
 use Shared\Domain\ValueObject\Email;
 
 /**
@@ -34,9 +35,13 @@ final class OrganizationInvitationMapper
    */
   public static function toDomain(OrganizationInvitationRecord $record): OrganizationInvitation
   {
+    if (!$record->organization instanceof OrganizationRecord) {
+      throw new LogicException('Organization invitation record must reference an organization.');
+    }
+
     return OrganizationInvitation::reconstitute(
       id: OrganizationInvitationId::fromString($record->id),
-      organizationId: OrganizationId::fromString($record->organizationId),
+      organizationId: OrganizationId::fromString($record->organization->id),
       email: new Email($record->email),
       tokenHash: $record->tokenHash,
       invitedByUserId: $record->invitedByUserId,
@@ -66,7 +71,6 @@ final class OrganizationInvitationMapper
   {
     $record = new OrganizationInvitationRecord();
     $record->id = (string) $invitation->id();
-    $record->organizationId = (string) $invitation->organizationId();
     $record->email = (string) $invitation->email();
     $record->tokenHash = $invitation->tokenHash();
     $record->invitedByUserId = $invitation->invitedByUserId();

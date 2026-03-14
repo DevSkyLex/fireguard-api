@@ -10,6 +10,7 @@ use Inspection\Domain\Model\Checklist\Checklist;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\ChecklistMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_map;
 use function in_array;
@@ -36,18 +37,21 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
   public function save(Checklist $checklist): void
   {
     $record = ChecklistMapper::toRecord($checklist);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $checklist->organizationId());
+    $record->organization = $organization;
     $itemRecords = ChecklistMapper::toItemRecords($checklist);
     $existing = $this->checklistRepository->find($record->id);
 
     if ($existing instanceof ChecklistRecord) {
-      $existing->organizationId = $record->organizationId;
+      $existing->organization = $organization;
       $existing->name = $record->name;
       $existing->version = $record->version;
       $existing->status = $record->status;
       $existing->updatedAt = $record->updatedAt;
 
       // Upsert items: update existing, add new, remove deleted
-      $existingItems = $this->itemRepository->findBy(['checklistId' => $record->id]);
+      $existingItems = $this->itemRepository->findBy(['checklist' => $existing]);
       /** @var array<string, ChecklistItemRecord> $existingById */
       $existingById = [];
       foreach ($existingItems as $existingItem) {
@@ -63,6 +67,7 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
           $existingById[$itemRecord->id]->required = $itemRecord->required;
           $existingById[$itemRecord->id]->description = $itemRecord->description;
         } else {
+          $itemRecord->checklist = $existing;
           $this->entityManager->persist($itemRecord);
         }
       }
@@ -75,6 +80,7 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     } else {
       $this->entityManager->persist($record);
       foreach ($itemRecords as $itemRecord) {
+        $itemRecord->checklist = $record;
         $this->entityManager->persist($itemRecord);
       }
     }
@@ -91,7 +97,7 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     }
 
     $itemRecords = $this->itemRepository->findBy(
-      ['checklistId' => (string) $id],
+      ['checklist' => $record],
       ['position' => 'ASC'],
     );
 
@@ -102,7 +108,9 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     ChecklistOrganizationId $organizationId,
     ?string $status = null,
   ): array {
-    $criteria = ['organizationId' => (string) $organizationId];
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $criteria = ['organization' => $organization];
 
     if (null !== $status) {
       $criteria['status'] = $status;
@@ -113,7 +121,7 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     return array_map(
       function (ChecklistRecord $record): Checklist {
         $itemRecords = $this->itemRepository->findBy(
-          ['checklistId' => $record->id],
+          ['checklist' => $record],
           ['position' => 'ASC'],
         );
 

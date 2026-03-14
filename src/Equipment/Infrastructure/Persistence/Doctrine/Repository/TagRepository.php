@@ -9,9 +9,9 @@ use Equipment\Application\Port\Outbound\TagRepositoryPort;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, TagId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\TagMapper;
-use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentTagRecord, TagRecord};
+use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentRecord, EquipmentTagRecord, TagRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
-use function array_keys;
 use function array_map;
 
 /**
@@ -55,9 +55,16 @@ final readonly class TagRepository implements TagRepositoryPort
   public function save(Tag $tag): void
   {
     $record = TagMapper::toRecord($tag);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $tag->organizationId());
+    $record->organization = $organization;
     $existing = $this->tagEntityRepository->find($record->id);
 
-    if (!$existing instanceof TagRecord) {
+    if ($existing instanceof TagRecord) {
+      $existing->organization = $organization;
+      $existing->name = $record->name;
+      $existing->createdAt = $record->createdAt;
+    } else {
       $this->entityManager->persist($record);
     }
 
@@ -87,9 +94,11 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function findByNameAndOrganizationId(string $name, EquipmentOrganizationId $organizationId): ?Tag
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->tagEntityRepository->findOneBy([
       'name' => $name,
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
     ]);
 
     if (!$record instanceof TagRecord) {
@@ -106,12 +115,15 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function findByEquipmentId(EquipmentId $equipmentId): array
   {
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
     $qb = $this->entityManager->createQueryBuilder();
     $qb
       ->select('t')
       ->from(TagRecord::class, 't')
-      ->innerJoin(EquipmentTagRecord::class, 'et', 'WITH', 'et.tagId = t.id AND et.equipmentId = :equipmentId')
-      ->setParameter('equipmentId', (string) $equipmentId);
+      ->innerJoin('t.equipmentLinks', 'et')
+      ->where('et.equipment = :equipment')
+      ->setParameter('equipment', $equipment);
 
     /** @var list<TagRecord> $records */
     $records = $qb->getQuery()->getResult();
@@ -129,9 +141,14 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function isTagLinkedToEquipment(EquipmentId $equipmentId, TagId $tagId): bool
   {
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
+    /** @var TagRecord $tag */
+    $tag = $this->entityManager->getReference(TagRecord::class, (string) $tagId);
+
     return null !== $this->pivotEntityRepository->findOneBy([
-      'equipmentId' => (string) $equipmentId,
-      'tagId' => (string) $tagId,
+      'equipment' => $equipment,
+      'tag' => $tag,
     ]);
   }
 
@@ -142,9 +159,13 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function addTagToEquipment(EquipmentId $equipmentId, TagId $tagId): void
   {
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
+    /** @var TagRecord $tag */
+    $tag = $this->entityManager->getReference(TagRecord::class, (string) $tagId);
     $existing = $this->pivotEntityRepository->findOneBy([
-      'equipmentId' => (string) $equipmentId,
-      'tagId' => (string) $tagId,
+      'equipment' => $equipment,
+      'tag' => $tag,
     ]);
 
     if (null !== $existing) {
@@ -152,8 +173,8 @@ final readonly class TagRepository implements TagRepositoryPort
     }
 
     $pivot = new EquipmentTagRecord();
-    $pivot->equipmentId = (string) $equipmentId;
-    $pivot->tagId = (string) $tagId;
+    $pivot->equipment = $equipment;
+    $pivot->tag = $tag;
 
     $this->entityManager->persist($pivot);
     $this->entityManager->flush();
@@ -166,9 +187,13 @@ final readonly class TagRepository implements TagRepositoryPort
    */
   public function removeTagFromEquipment(EquipmentId $equipmentId, TagId $tagId): void
   {
+    /** @var EquipmentRecord $equipment */
+    $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
+    /** @var TagRecord $tag */
+    $tag = $this->entityManager->getReference(TagRecord::class, (string) $tagId);
     $pivot = $this->pivotEntityRepository->findOneBy([
-      'equipmentId' => (string) $equipmentId,
-      'tagId' => (string) $tagId,
+      'equipment' => $equipment,
+      'tag' => $tag,
     ]);
 
     if (null === $pivot) {
@@ -191,31 +216,26 @@ final readonly class TagRepository implements TagRepositoryPort
     }
 
     $stringIds = array_map(static fn (EquipmentId $id): string => (string) $id, $equipmentIds);
-
+    $qb = $this->entityManager->createQueryBuilder();
     /** @var list<EquipmentTagRecord> $pivots */
-    $pivots = $this->pivotEntityRepository->findBy(['equipmentId' => $stringIds]);
+    $pivots = $qb
+      ->select('et', 't', 'e')
+      ->from(EquipmentTagRecord::class, 'et')
+      ->innerJoin('et.tag', 't')
+      ->innerJoin('et.equipment', 'e')
+      ->where($qb->expr()->in('e.id', ':ids'))
+      ->setParameter('ids', $stringIds)
+      ->getQuery()
+      ->getResult();
 
     if ([] === $pivots) {
       return [];
     }
 
-    $tagIdSet = [];
-    foreach ($pivots as $pivot) {
-      $tagIdSet[$pivot->tagId] = true;
-    }
-
-    /** @var list<TagRecord> $tagRecords */
-    $tagRecords = $this->tagEntityRepository->findBy(['id' => array_keys($tagIdSet)]);
-
-    $tagsById = [];
-    foreach ($tagRecords as $tagRecord) {
-      $tagsById[$tagRecord->id] = TagMapper::toDomain($tagRecord);
-    }
-
     $result = [];
     foreach ($pivots as $pivot) {
-      if (isset($tagsById[$pivot->tagId])) {
-        $result[$pivot->equipmentId][] = $tagsById[$pivot->tagId];
+      if ($pivot->equipment instanceof EquipmentRecord && $pivot->tag instanceof TagRecord) {
+        $result[$pivot->equipment->id][] = TagMapper::toDomain($pivot->tag);
       }
     }
 
@@ -231,20 +251,30 @@ final readonly class TagRepository implements TagRepositoryPort
   {
     $this->entityManager->wrapInTransaction(function () use ($tag, $equipmentId): void {
       $record = TagMapper::toRecord($tag);
+      /** @var OrganizationRecord $organization */
+      $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $tag->organizationId());
+      /** @var EquipmentRecord $equipment */
+      $equipment = $this->entityManager->getReference(EquipmentRecord::class, (string) $equipmentId);
+      $record->organization = $organization;
 
-      if (!$this->tagEntityRepository->find($record->id) instanceof TagRecord) {
+      $existingRecord = $this->tagEntityRepository->find($record->id);
+      if ($existingRecord instanceof TagRecord) {
+        $existingRecord->organization = $organization;
+        $existingRecord->name = $record->name;
+        $existingRecord->createdAt = $record->createdAt;
+      } else {
         $this->entityManager->persist($record);
       }
 
       $existingPivot = $this->pivotEntityRepository->findOneBy([
-        'equipmentId' => (string) $equipmentId,
-        'tagId' => (string) $tag->id(),
+        'equipment' => $equipment,
+        'tag' => $existingRecord instanceof TagRecord ? $existingRecord : $record,
       ]);
 
       if (null === $existingPivot) {
         $pivot = new EquipmentTagRecord();
-        $pivot->equipmentId = (string) $equipmentId;
-        $pivot->tagId = (string) $tag->id();
+        $pivot->equipment = $equipment;
+        $pivot->tag = $existingRecord instanceof TagRecord ? $existingRecord : $record;
         $this->entityManager->persist($pivot);
       }
     });

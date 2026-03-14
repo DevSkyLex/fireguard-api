@@ -19,25 +19,27 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'equipment_tag')]
 #[ORM\Index(name: 'idx_equipment_tag_equipment', columns: ['equipment_id'])]
 #[ORM\Index(name: 'idx_equipment_tag_tag', columns: ['tag_id'])]
-final class EquipmentTagRecord
+class EquipmentTagRecord
 {
   // #region Properties
   /**
-   * Property equipmentId.
+   * Property equipment.
    *
    * @since 1.0.0
    */
   #[ORM\Id]
-  #[ORM\Column(name: 'equipment_id', type: 'string', length: 36)]
-  public string $equipmentId;
+  #[ORM\ManyToOne(targetEntity: EquipmentRecord::class, inversedBy: 'tagLinks')]
+  #[ORM\JoinColumn(name: 'equipment_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?EquipmentRecord $equipment = null;
 
   /**
-   * Property tagId.
+   * Property tag.
    *
    * @since 1.0.0
    */
   #[ORM\Id]
-  #[ORM\Column(name: 'tag_id', type: 'string', length: 36)]
-  public string $tagId;
+  #[ORM\ManyToOne(targetEntity: TagRecord::class, inversedBy: 'equipmentLinks')]
+  #[ORM\JoinColumn(name: 'tag_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?TagRecord $tag = null;
   // #endregion
 }

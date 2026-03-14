@@ -1,87 +1,121 @@
-# Summary
+# Context
 
-<!-- What changed in a few lines. -->
+- Issue / ticket:
+- Goal:
+- Out of scope:
 
-## Why
+## Change Summary
 
-<!-- Why this PR exists. -->
+- TODO
+- TODO
 
-## Scope
+## Review Guide
 
-### Modules
+### Modules / Areas
 
-<!-- Example: Auth, OAuth, Equipment, Inspection, Shared -->
+<!-- Example: Auth, OAuth, Organization, Inspection, Shared, .github -->
+- TODO
 
-### Main Files Or Flows To Review
+### Main Files / Entry Points
 
-<!-- Point Copilot and reviewers to the exact handlers, providers, processors, repositories, resources, configs, or tests that matter. -->
+<!-- Point reviewers to the exact handlers, processors, repositories, resources, configs, migrations, or tests that matter. -->
+- TODO
 
-## What Copilot Should Check
+### Reviewer Focus
 
-Select the areas that matter for this PR.
+Select only what really matters for this PR.
 
 - [ ] Business logic correctness
 - [ ] Authorization / permissions
-- [ ] Tenant or organization isolation
-- [ ] API contract / serialization changes
-- [ ] Database or migration impact
+- [ ] Tenant / organization isolation
+- [ ] API contract / serialization
+- [ ] Persistence / migrations / Doctrine mapping
 - [ ] Architecture / layer boundaries
-- [ ] Performance on collection queries
+- [ ] Query / collection performance
+- [ ] CI / workflow / release impact
 - [ ] Regression risk
 - [ ] Missing tests
 
-## Risk Notes
+## Functional Impact
 
-Call out anything that could easily break.
+- [ ] No functional impact
+- [ ] User-visible behavior changed
+- [ ] Public API or response shape changed
+- [ ] Database schema or migration impact
+- [ ] Config / environment impact
+- [ ] CI / delivery impact
+- [ ] Breaking change
+
+### Before
+
+<!-- Optional: short description of the previous behavior. -->
+Needs manual confirmation.
+
+### After
+
+<!-- Optional: short description of the expected new behavior. -->
+Needs manual confirmation.
+
+## Risk And Rollback
 
 - [ ] No special risk
 - [ ] Security-sensitive change
 - [ ] Auth / OAuth / JWT / session / MFA flow changed
 - [ ] Cross-tenant or cross-organization scope involved
-- [ ] Data model or persistence logic changed
-- [ ] Public endpoint or response shape changed
+- [ ] Persistence / transaction / data lifecycle changed
+- [ ] Release or deployment process changed
+
+### Risk Notes
+
+<!-- Call out the exact edge cases or failure modes reviewers should validate. -->
+- TODO
+
+### Rollback Plan
+
+<!-- How to revert safely if this goes wrong in production. -->
+- TODO
+
+## Validation
+
+### Local Validation
+
+<!-- Only list what you actually ran locally. Example: targeted phpunit suite, manual API check, smoke test. -->
+
+- TODO
+- TODO
+
+### CI Validation
+
+<!-- GitHub Actions is the source of truth for automated validation on this PR. -->
+
+- [ ] I expect the standard PR checks to cover this change
+- [ ] This PR needs an extra manual verification outside standard CI
+
+### Additional Evidence
+
+<!-- Optional: screenshots, API payloads, SQL diff, benchmark notes, logs. -->
+
+## Deployment Notes
+
+- [ ] No special deployment step
+- [ ] Migration order matters
+- [ ] New env var / secret required
+- [ ] Manual post-deploy check required
 
 ### Details
 
-<!-- Add the exact risk reviewers should validate. -->
-
-## Expected Behavior
-
-### Before
-
-<!-- Optional: short description of the previous behavior. -->
-
-### After
-
-<!-- Optional: short description of the expected new behavior. -->
-
-## Tests
-
-List what you actually ran.
-
-| Command | Result |
-| --- | --- |
-| `make cs-lint` | <!-- pass / not run / n.a. --> |
-| `make phpstan` | <!-- pass / not run / n.a. --> |
-| `make deptrac` | <!-- pass / not run / n.a. --> |
-| `make lint` | <!-- pass / not run / n.a. --> |
-| `make phpunit-fast` | <!-- pass / not run / n.a. --> |
-| `make phpunit` | <!-- pass / not run / n.a. --> |
-| `make mutation` | <!-- pass / not run / n.a. --> |
-
-### Test Notes
-
-<!-- Mention targeted tests, edge cases covered, or why tests were skipped. -->
+<!-- Add exact deployment or verification steps if needed. -->
 
 ## Known Gaps
 
 <!-- Anything intentionally deferred or not covered in this PR. -->
+- TODO
 
 ## Copilot Review Request
 
 ```text
 Review this pull request using the repository Copilot instructions.
 Focus only on actionable findings in the changed code.
-Prioritize correctness, security, tenant and organization isolation, architecture violations, API contract regressions, persistence risks, and missing tests.
+Prioritize correctness, security, tenant and organization isolation, architecture violations, API contract regressions, persistence risks, workflow impact, and missing tests.
 Ignore formatting and non-essential refactoring advice.
 ```

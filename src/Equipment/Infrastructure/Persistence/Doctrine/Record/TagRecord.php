@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Record;
 
 use DateTimeImmutable;
+use Doctrine\Common\Collections\{ArrayCollection, Collection};
 use Doctrine\ORM\Mapping as ORM;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
  * Record TagRecord.
@@ -20,7 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'equipment_tag_catalog')]
 #[ORM\Index(name: 'idx_tag_organization', columns: ['organization_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_tag_organization_name', columns: ['organization_id', 'name'])]
-final class TagRecord
+class TagRecord
 {
   // #region Properties
   /**
@@ -33,12 +35,13 @@ final class TagRecord
   public string $id;
 
   /**
-   * Property organizationId.
+   * Property organization.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'organization_id', type: 'string', length: 36)]
-  public string $organizationId;
+  #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'tags')]
+  #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+  public ?OrganizationRecord $organization = null;
 
   /**
    * Property name.
@@ -55,5 +58,21 @@ final class TagRecord
    */
   #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
   public DateTimeImmutable $createdAt;
+
+  /**
+   * Property equipmentLinks.
+   *
+   * @var Collection<int, EquipmentTagRecord>
+   */
+  #[ORM\OneToMany(mappedBy: 'tag', targetEntity: EquipmentTagRecord::class, cascade: ['remove'])]
+  public Collection $equipmentLinks;
+
+  /**
+   * Constructor.
+   */
+  public function __construct()
+  {
+    $this->equipmentLinks = new ArrayCollection();
+  }
   // #endregion
 }

@@ -46,6 +46,9 @@ final class ListTenantsHandlerTest extends TestCase
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertCount(1, $result->items);
     self::assertSame('Acme', $result->items[0]->name);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
   // #endregion
 }

@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\Inspection\CloseInspection\CloseInspectionCommand;
-use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionResult};
+use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionNotFoundException, InspectionNotSubmittedException};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Processor\Inspection\CloseInspectionProcessor;

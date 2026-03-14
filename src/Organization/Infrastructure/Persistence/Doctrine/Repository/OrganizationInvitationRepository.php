@@ -11,7 +11,7 @@ use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationInvitationMapper;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Shared\Domain\ValueObject\Email;
 
 use function array_filter;
@@ -80,10 +80,13 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
   public function save(OrganizationInvitation $invitation): void
   {
     $record = OrganizationInvitationMapper::toRecord($invitation);
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $invitation->organizationId());
+    $record->organization = $organization;
     $existing = $this->invitationRepository->find($record->id);
 
     if ($existing instanceof OrganizationInvitationRecord) {
-      $existing->organizationId = $record->organizationId;
+      $existing->organization = $organization;
       $existing->email = $record->email;
       $existing->tokenHash = $record->tokenHash;
       $existing->invitedByUserId = $record->invitedByUserId;
@@ -162,8 +165,10 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findPendingByOrganizationAndEmail(OrganizationId $organizationId, Email $email): ?OrganizationInvitation
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $record = $this->invitationRepository->findOneBy([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
       'email' => (string) $email,
       'status' => 'pending',
     ], [
@@ -190,8 +195,10 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function findByOrganizationId(OrganizationId $organizationId): array
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
     $records = $this->invitationRepository->findBy([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
     ], [
       'createdAt' => 'DESC',
     ]);
@@ -312,8 +319,11 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function countPendingByOrganizationId(OrganizationId $organizationId): int
   {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
     return (int) $this->invitationRepository->count([
-      'organizationId' => (string) $organizationId,
+      'organization' => $organization,
       'status' => 'pending',
     ]);
   }

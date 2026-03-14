@@ -59,6 +59,9 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertCount(1, $result->items);
     self::assertSame('550e8400-e29b-41d4-a716-446655441801', $result->items[0]->facilityId);
     self::assertSame('active', $result->items[0]->status);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]
@@ -101,6 +104,9 @@ final class ListFacilitiesHandlerTest extends TestCase
     $statuses = array_map(static fn (GetFacilityResult $r): string => $r->status, $result->items);
     self::assertContains('active', $statuses);
     self::assertContains('archived', $statuses);
+    self::assertSame(2, $result->total);
+    self::assertSame(2, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]
@@ -120,6 +126,9 @@ final class ListFacilitiesHandlerTest extends TestCase
 
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertEmpty($result->items);
+    self::assertSame(0, $result->total);
+    self::assertSame(0, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]
@@ -149,6 +158,9 @@ final class ListFacilitiesHandlerTest extends TestCase
     ));
 
     self::assertEmpty($result->items);
+    self::assertSame(0, $result->total);
+    self::assertSame(0, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 
   #[Test]
@@ -190,5 +202,8 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertSame('active', $item->status);
     self::assertSame('Wing B', $item->address);
     self::assertSame(['capacity' => 50], $item->metadata);
+    self::assertSame(1, $result->total);
+    self::assertSame(1, $result->limit);
+    self::assertSame(0, $result->offset);
   }
 }
