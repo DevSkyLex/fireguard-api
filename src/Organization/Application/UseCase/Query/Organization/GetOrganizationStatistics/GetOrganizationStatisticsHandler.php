@@ -54,12 +54,12 @@ final readonly class GetOrganizationStatisticsHandler implements QueryHandler
     $memberCount = $this->memberRepository->countByOrganizationId($organizationId);
     $roleCount = $this->roleRepository->countByOrganizationId($organizationId);
     $pendingInvitationCount = $this->invitationRepository->countPendingByOrganizationId($organizationId);
-    $facilityCount = $this->facilityStatistics->countActiveFacilities($query->organizationId);
+    $activeFacilityCount = $this->facilityStatistics->countActiveFacilities($query->organizationId);
 
     return new GetOrganizationStatisticsResult(
       memberCount: $memberCount,
       roleCount: $roleCount,
-      facilityCount: $facilityCount,
+      activeFacilityCount: $activeFacilityCount,
       pendingInvitationCount: $pendingInvitationCount,
     );
   }

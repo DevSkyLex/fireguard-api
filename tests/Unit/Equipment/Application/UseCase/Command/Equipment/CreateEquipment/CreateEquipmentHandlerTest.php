@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
-use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Application\UseCase\Command\Equipment\CreateEquipment\{CreateEquipmentCommand, CreateEquipmentHandler, CreateEquipmentResult};
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
@@ -14,7 +12,6 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 
 #[CoversClass(CreateEquipmentHandler::class)]
@@ -50,18 +47,11 @@ final class CreateEquipmentHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsSerialNumberAlreadyExistsOnUniqueConstraintViolation(): void
   {
-    $driverException = new class ('SQLSTATE[23505]: duplicate key value violates unique constraint "uniq_equipment_organization_serial"') extends RuntimeException implements DoctrineDriverException {
-      public function getSQLState(): string
-      {
-        return '23505';
-      }
-    };
-
     /** @var EquipmentRepositoryPort&MockObject $repository */
     $repository = $this->createMock(EquipmentRepositoryPort::class);
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new UniqueConstraintViolationException($driverException, null));
+      ->willThrowException(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('EXT-2026-001'));
 
     /** @var UuidFactory&MockObject $uuidFactory */
     $uuidFactory = $this->createMock(UuidFactory::class);

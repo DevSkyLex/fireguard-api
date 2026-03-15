@@ -23,7 +23,7 @@ final readonly class ListEquipmentAttachmentsResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param list<array{id: string, fileName: string, storagePath: string, mimeType: string, size: int, label: ?string, uploadedAt: string}> $attachments
+   * @param list<array{id: string, fileName: string, mimeType: string, size: int, label: ?string, uploadedAt: string}> $attachments
    */
   public function __construct(
     public array $attachments,

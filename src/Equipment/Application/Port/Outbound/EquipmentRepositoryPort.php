@@ -54,6 +54,8 @@ interface EquipmentRepositoryPort
    * @param ?string $facilityId optional facility filter
    * @param ?string $type optional type filter
    * @param ?string $status optional status filter
+   * @param int $limit maximum number of results
+   * @param int $offset result offset
    *
    * @return list<Equipment> the equipment list
    */
@@ -62,7 +64,30 @@ interface EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    int $limit = 20,
+    int $offset = 0,
   ): array;
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts equipment for an organization with optional filters.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $type optional type filter
+   * @param ?string $status optional status filter
+   *
+   * @return int the total count
+   */
+  public function countByOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    ?string $facilityId = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): int;
 
   // #endregion
 }

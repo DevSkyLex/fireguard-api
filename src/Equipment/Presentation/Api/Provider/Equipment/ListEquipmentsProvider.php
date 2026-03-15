@@ -25,8 +25,6 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function array_map;
-use function array_slice;
-use function count;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -121,17 +119,15 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
 
     $search = SearchExtractor::fromContext($context);
     $outputs = CollectionSearcher::search($outputs, $search, ['type', 'subType', 'brand', 'model', 'serialNumber', 'status', 'locationLabel']);
-    $total = count($outputs);
 
     $sorting = SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt'], 'createdAt');
     $outputs = CollectionSorter::sort($outputs, $sorting);
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
 
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $total,
+      totalItems: (float) $result->total,
     );
   }
 

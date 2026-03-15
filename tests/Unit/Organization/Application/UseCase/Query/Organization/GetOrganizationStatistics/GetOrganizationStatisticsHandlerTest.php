@@ -75,7 +75,7 @@ final class GetOrganizationStatisticsHandlerTest extends TestCase
     self::assertInstanceOf(GetOrganizationStatisticsResult::class, $result);
     self::assertSame(5, $result->memberCount);
     self::assertSame(3, $result->roleCount);
-    self::assertSame(7, $result->facilityCount);
+    self::assertSame(7, $result->activeFacilityCount);
     self::assertSame(2, $result->pendingInvitationCount);
   }
 

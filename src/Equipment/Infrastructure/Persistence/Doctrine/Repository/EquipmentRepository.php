@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
+use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Throwable;
 
 use function array_map;
+use function str_contains;
+use function strtolower;
 
 /**
  * Repository EquipmentRepository.
@@ -78,7 +83,15 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $this->entityManager->persist($record);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (Throwable $exception) {
+      if ($this->isDuplicateSerialNumberViolation($exception)) {
+        throw EquipmentSerialNumberAlreadyExistsException::withSerialNumber($equipment->serialNumber() ?? '');
+      }
+
+      throw $exception;
+    }
   }
 
   /**
@@ -107,6 +120,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    int $limit = 20,
+    int $offset = 0,
   ): array {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -124,12 +139,61 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $criteria['status'] = $status;
     }
 
-    $records = $this->repository->findBy($criteria, ['createdAt' => 'DESC']);
+    $records = $this->repository->findBy($criteria, ['createdAt' => 'DESC'], $limit, $offset);
 
     return array_map(
       static fn (EquipmentRecord $record): Equipment => EquipmentMapper::toDomain($record),
       $records,
     );
+  }
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * @since 1.0.0
+   */
+  public function countByOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    ?string $facilityId = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): int {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $criteria = ['organization' => $organization];
+
+    if (null !== $facilityId) {
+      $criteria['facilityId'] = $facilityId;
+    }
+
+    if (null !== $type) {
+      $criteria['type'] = $type;
+    }
+
+    if (null !== $status) {
+      $criteria['status'] = $status;
+    }
+
+    return $this->repository->count($criteria);
+  }
+
+  private function isDuplicateSerialNumberViolation(Throwable $exception): bool
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      if ($current instanceof UniqueConstraintViolationException) {
+        $message = strtolower($current->getMessage());
+
+        if (str_contains($message, 'uniq_equipment_organization_serial') || (str_contains($message, 'equipment') && str_contains($message, 'serial'))) {
+          return true;
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return false;
   }
 
   // #endregion
