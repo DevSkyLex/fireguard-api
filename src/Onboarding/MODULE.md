@@ -22,13 +22,27 @@ Current flow:
 
 ## Flow Behavior
 
-Organization onboarding is stateful and contains two sequential steps:
+Organization onboarding is stateful and contains six sequential steps:
 
 1. `create_organization` — user first creates an org via `POST /api/organizations`, then confirms
    the step via `POST /api/onboarding/organization/steps/create_organization/execute` (empty payload).
-2. `invite_members` — user optionally invites members via `POST /api/organizations/{id}/invitations`,
+   **Required.** Rollbackable (deletes the created organization).
+2. `complete_legal_profile` — user completes the legal profile via `PUT /api/organizations/{id}/legal-profile`,
+   then confirms via `POST /api/onboarding/organization/steps/complete_legal_profile/execute`.
+   **Required.** Auto-detected from module state (legal profile existence).
+3. `invite_members` — user optionally invites members via `POST /api/organizations/{id}/invitations`,
    then confirms via `POST /api/onboarding/organization/steps/invite_members/execute` (empty payload),
    or skips via `POST /api/onboarding/organization/steps/invite_members/skip`.
+   **Optional / skippable.**
+4. `create_first_facility` — user creates a facility via `POST /api/organizations/{id}/facilities`,
+   then confirms via `POST /api/onboarding/organization/steps/create_first_facility/execute`.
+   **Required.** Auto-detected from module state (at least one facility exists).
+5. `create_first_equipment` — user creates equipment via `POST /api/organizations/{id}/equipment`,
+   then confirms via `POST /api/onboarding/organization/steps/create_first_equipment/execute`.
+   **Required.** Auto-detected from module state (at least one equipment exists).
+6. `run_first_inspection` — user creates an inspection via `POST /api/organizations/{id}/inspections`,
+   then confirms via `POST /api/onboarding/organization/steps/run_first_inspection/execute`.
+   **Required.** Auto-detected from module state (at least one inspection exists).
 
 The persisted session stores:
 
@@ -43,11 +57,22 @@ The persisted session stores:
 Step execution is sequential:
 
 1. `create_organization` can be confirmed only after the org was created via `POST /api/organizations`
-2. `invite_members` can be confirmed or skipped only after `create_organization` is completed
+2. `complete_legal_profile` is auto-detected when a legal profile exists on the target organization
+3. `invite_members` can be confirmed or skipped only after `complete_legal_profile` is completed
+4. `create_first_facility` is auto-detected when at least one facility exists on the target organization
+5. `create_first_equipment` is auto-detected when at least one equipment item exists on the target organization
+6. `run_first_inspection` is auto-detected when at least one inspection exists on the target organization
 
 Rollback uses LIFO semantics:
 
 - rollback of `create_organization` deletes the created organization (and all cascaded data)
+- no destructive rollback is supported for facility, equipment, or inspection steps in the current version
+
+## Target Organization Pinning
+
+Once a target organization is selected during onboarding, it is pinned in the session.
+If the pinned organization is deleted externally, the flow resets to `create_organization`
+and does NOT silently switch to another organization the user may belong to.
 
 ## Architecture
 
@@ -56,6 +81,9 @@ Rollback uses LIFO semantics:
 - Infrastructure: Doctrine session record/mapper/repository
 - Dependencies:
   - `Organization` module for organizations and legal profile queries
+  - `Facility` module for facility existence checks
+  - `Equipment` module for equipment existence checks
+  - `Inspection` module for inspection existence checks
   - Shared command/query bus and transaction manager
 
 ## Notes
