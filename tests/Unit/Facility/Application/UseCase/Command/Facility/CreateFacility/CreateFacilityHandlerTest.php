@@ -8,7 +8,7 @@ use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler, CreateFacilityResult};
-use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
+use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
@@ -207,5 +207,46 @@ final class CreateFacilityHandlerTest extends TestCase
     self::assertSame('active', $result->status);
     self::assertSame('1 Main Street', $result->address);
     self::assertSame(['region' => 'west'], $result->metadata);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenParentFacilityIsArchived(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441940';
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655441941');
+
+    $parentFacility = Facility::create(
+      id: $parentId,
+      organizationId: new FacilityOrganizationId($organizationId),
+      type: FacilityType::SITE,
+      name: new FacilityName('Archived Site'),
+    );
+    $parentFacility->archive();
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($parentFacility);
+    $repository->expects(self::never())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(FacilityArchivedException::class);
+    $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441941" is archived and cannot be used.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'building',
+      name: 'Building Under Archived',
+      parentFacilityId: (string) $parentId,
+    ));
   }
 }

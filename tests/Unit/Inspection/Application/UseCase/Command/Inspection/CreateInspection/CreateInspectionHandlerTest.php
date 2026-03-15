@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\CreateInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{
   CreateInspectionCommand,
   CreateInspectionHandler,
@@ -52,8 +52,20 @@ final class CreateInspectionHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
       uuidFactory: $uuidFactory,
     );
 
@@ -95,8 +107,20 @@ final class CreateInspectionHandlerTest extends TestCase
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
 
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
       uuidFactory: $uuidFactory,
     );
 
@@ -127,8 +151,20 @@ final class CreateInspectionHandlerTest extends TestCase
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
 
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
       uuidFactory: $uuidFactory,
     );
 
@@ -157,8 +193,20 @@ final class CreateInspectionHandlerTest extends TestCase
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
 
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
       uuidFactory: $uuidFactory,
     );
 
@@ -175,6 +223,225 @@ final class CreateInspectionHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
 
     $handler->__invoke($command);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenEquipmentNotFound(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation->expects(self::once())
+      ->method('assertEquipmentExists')
+      ->willThrowException(new InvalidArgumentException('Equipment with ID "' . self::EQUIP_ID . '" not found.'));
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
+    $handler = new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenFacilityNotFound(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation->expects(self::once())
+      ->method('assertFacilityIsUsable')
+      ->willThrowException(new InvalidArgumentException('Facility with ID "550e8400-e29b-41d4-a716-446655440010" not found.'));
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
+    $handler = new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+      facilityId: '550e8400-e29b-41d4-a716-446655440010',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenFacilityIsArchived(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation->expects(self::once())
+      ->method('assertFacilityIsUsable')
+      ->willThrowException(new InvalidArgumentException('Facility with ID "550e8400-e29b-41d4-a716-446655440010" is archived and cannot be used.'));
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
+    $handler = new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+      facilityId: '550e8400-e29b-41d4-a716-446655440010',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenChecklistNotFound(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation->expects(self::once())
+      ->method('assertChecklistIsUsable')
+      ->willThrowException(new InvalidArgumentException('Checklist with ID "550e8400-e29b-41d4-a716-446655440020" not found.'));
+
+    $handler = new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+      checklistId: '550e8400-e29b-41d4-a716-446655440020',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenChecklistIsArchived(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation->expects(self::once())
+      ->method('assertChecklistIsUsable')
+      ->willThrowException(new InvalidArgumentException('Checklist with ID "550e8400-e29b-41d4-a716-446655440020" is archived and cannot be used.'));
+
+    $handler = new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+      checklistId: '550e8400-e29b-41d4-a716-446655440020',
+    ));
   }
   // #endregion
 }

@@ -123,6 +123,9 @@ services:
 
   Organization\Application\Service\OrganizationAuthorizationService: ~
 
+  Organization\Application\Port\Outbound\FacilityStatisticsPort:
+    alias: Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter
+
   # Console Commands use #[AsCommand]
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~
   Organization\Infrastructure\Console\AddOrganizationAdminConsoleCommand: ~

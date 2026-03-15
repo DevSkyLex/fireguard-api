@@ -46,9 +46,9 @@ final class InspectionFlowTest extends OAuth2WebTestCase
     $organizationId = $this->createOrganization($client, $token, 'Inspection Org ' . uniqid());
     $this->assertNotNull($organizationId, 'Organization should be created successfully.');
 
-    // Use an arbitrary equipment UUID (no FK constraint in the domain).
-    $equipmentId = '550e8400-e29b-41d4-a716-' . uniqid('', false);
-    $equipmentId = '550e8400-e29b-41d4-a716-446655440099'; // stable UUID for simplicity
+    // Create real equipment via API so cross-module validation passes.
+    $equipmentId = $this->createEquipment($client, $token, $organizationId);
+    $this->assertNotNull($equipmentId, 'Equipment should be created successfully.');
 
     // ------------------------------------------------------------------
     // Step 1: Create a checklist.
@@ -398,6 +398,9 @@ final class InspectionFlowTest extends OAuth2WebTestCase
     $organizationId = $this->createOrganization($client, $token, 'Draft Guard Org ' . uniqid());
     $this->assertNotNull($organizationId);
 
+    $equipmentId = $this->createEquipment($client, $token, $organizationId);
+    $this->assertNotNull($equipmentId);
+
     // Create inspection in DRAFT.
     $client->request(
       method: 'POST',
@@ -408,7 +411,7 @@ final class InspectionFlowTest extends OAuth2WebTestCase
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
       ],
       content: json_encode([
-        'equipmentId' => '550e8400-e29b-41d4-a716-446655440099',
+        'equipmentId' => $equipmentId,
         'result' => 'pass',
         'performedAt' => '2026-03-01T10:00:00+00:00',
         'inspectorType' => 'external',
@@ -454,6 +457,9 @@ final class InspectionFlowTest extends OAuth2WebTestCase
     $organizationId = $this->createOrganization($client, $token, 'Double Submit Org ' . uniqid());
     $this->assertNotNull($organizationId);
 
+    $equipmentId = $this->createEquipment($client, $token, $organizationId);
+    $this->assertNotNull($equipmentId);
+
     // Create and submit inspection.
     $client->request(
       method: 'POST',
@@ -464,7 +470,7 @@ final class InspectionFlowTest extends OAuth2WebTestCase
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
       ],
       content: json_encode([
-        'equipmentId' => '550e8400-e29b-41d4-a716-446655440099',
+        'equipmentId' => $equipmentId,
         'result' => 'pass',
         'performedAt' => '2026-03-01T10:00:00+00:00',
         'inspectorType' => 'external',
@@ -515,6 +521,9 @@ final class InspectionFlowTest extends OAuth2WebTestCase
     $organizationId = $this->createOrganization($client, $token, 'Closed NC Org ' . uniqid());
     $this->assertNotNull($organizationId);
 
+    $equipmentId = $this->createEquipment($client, $token, $organizationId);
+    $this->assertNotNull($equipmentId);
+
     $inspectionUri = '/api/organizations/' . $organizationId . '/inspections';
     $authHeaders = [
       'CONTENT_TYPE' => 'application/ld+json',
@@ -528,7 +537,7 @@ final class InspectionFlowTest extends OAuth2WebTestCase
       uri: $inspectionUri,
       server: $authHeaders,
       content: json_encode([
-        'equipmentId' => '550e8400-e29b-41d4-a716-446655440099',
+        'equipmentId' => $equipmentId,
         'result' => 'pass',
         'performedAt' => '2026-03-01T10:00:00+00:00',
         'inspectorType' => 'external',
@@ -580,6 +589,9 @@ final class InspectionFlowTest extends OAuth2WebTestCase
     $organizationId = $this->createOrganization($client, $token, 'Double Close Org ' . uniqid());
     $this->assertNotNull($organizationId);
 
+    $equipmentId = $this->createEquipment($client, $token, $organizationId);
+    $this->assertNotNull($equipmentId);
+
     $inspectionUri = '/api/organizations/' . $organizationId . '/inspections';
     $authHeaders = [
       'CONTENT_TYPE' => 'application/ld+json',
@@ -593,7 +605,7 @@ final class InspectionFlowTest extends OAuth2WebTestCase
       uri: $inspectionUri,
       server: $authHeaders,
       content: json_encode([
-        'equipmentId' => '550e8400-e29b-41d4-a716-446655440099',
+        'equipmentId' => $equipmentId,
         'result' => 'partial',
         'performedAt' => '2026-03-01T10:00:00+00:00',
         'inspectorType' => 'external',
@@ -753,6 +765,30 @@ final class InspectionFlowTest extends OAuth2WebTestCase
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
       ],
       content: json_encode(['name' => $name]) ?: '',
+    );
+
+    $data = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+
+    return $this->extractResourceId($data);
+  }
+
+  private function createEquipment(KernelBrowser $client, string $token, string $organizationId): ?string
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/equipment',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode([
+        'type' => 'fire_extinguisher',
+        'brand' => 'Sicli',
+        'model' => 'Pro 6',
+        'serialNumber' => 'EXT-INSP-' . uniqid(),
+        'locationLabel' => 'Floor 1 – Test',
+      ]) ?: '',
     );
 
     $data = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');

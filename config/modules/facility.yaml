@@ -13,6 +13,8 @@ services:
   Facility\Application\Port\Outbound\FacilityRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository
 
+  Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter: ~
+
   Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
     tags: ['messenger.message_handler']
 

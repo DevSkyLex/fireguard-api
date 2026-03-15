@@ -27,6 +27,11 @@ services:
   Equipment\Application\Port\Outbound\AttachmentRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\AttachmentRepository
 
+  Equipment\Application\Port\Outbound\FacilityValidationPort:
+    alias: Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter
+
+  Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter: ~
+
   Equipment\Application\UseCase\Command\Equipment\CreateEquipment\CreateEquipmentHandler:
     tags: ['messenger.message_handler']
 

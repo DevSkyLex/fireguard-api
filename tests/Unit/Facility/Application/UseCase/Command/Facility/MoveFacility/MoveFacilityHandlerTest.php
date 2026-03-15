@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\MoveFacility;
 
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityHandler, MoveFacilityResult};
-use Facility\Domain\Exception\{FacilityHierarchyException, FacilityNotFoundException};
+use Facility\Domain\Exception\{FacilityArchivedException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
@@ -279,5 +279,56 @@ final class MoveFacilityHandlerTest extends TestCase
     self::assertSame('floor', $result->type);
     self::assertSame('Floor 5', $result->name);
     self::assertSame('active', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenParentFacilityIsArchived(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442150');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442151');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442152');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building Y'),
+    );
+
+    $archivedParent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Archived Parent'),
+    );
+    $archivedParent->archive();
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::exactly(2))
+      ->method('findById')
+      ->willReturnCallback(static function (FacilityId $id) use ($facilityId, $parentId, $facility, $archivedParent): ?Facility {
+        if ((string) $id === (string) $facilityId) {
+          return $facility;
+        }
+
+        if ((string) $id === (string) $parentId) {
+          return $archivedParent;
+        }
+
+        return null;
+      });
+    $repository->expects(self::never())->method('save');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+
+    $this->expectException(FacilityArchivedException::class);
+    $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442152" is archived and cannot be used.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
   }
 }

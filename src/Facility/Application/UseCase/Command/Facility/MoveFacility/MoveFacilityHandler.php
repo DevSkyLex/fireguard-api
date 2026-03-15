@@ -7,6 +7,7 @@ namespace Facility\Application\UseCase\Command\Facility\MoveFacility;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Exception\{
+  FacilityArchivedException,
   FacilityHierarchyException,
   FacilityNotFoundException
 };
@@ -144,6 +145,10 @@ final readonly class MoveFacilityHandler implements CommandHandler
 
     if ((string) $parent->organizationId() !== (string) $organizationId) {
       throw FacilityHierarchyException::parentInAnotherOrganization();
+    }
+
+    if (!$parent->status()->isActive()) {
+      throw FacilityArchivedException::withId((string) $parentId);
     }
 
     $current = $parent;

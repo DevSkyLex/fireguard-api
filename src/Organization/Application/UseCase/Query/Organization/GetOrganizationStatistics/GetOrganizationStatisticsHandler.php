@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\ValueObject\FacilityOrganizationId;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{FacilityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
@@ -28,7 +26,7 @@ final readonly class GetOrganizationStatisticsHandler implements QueryHandler
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private OrganizationInvitationRepositoryPort $invitationRepository,
-    private FacilityRepositoryPort $facilityRepository,
+    private FacilityStatisticsPort $facilityStatistics,
   ) {
   }
   // #endregion
@@ -56,9 +54,7 @@ final readonly class GetOrganizationStatisticsHandler implements QueryHandler
     $memberCount = $this->memberRepository->countByOrganizationId($organizationId);
     $roleCount = $this->roleRepository->countByOrganizationId($organizationId);
     $pendingInvitationCount = $this->invitationRepository->countPendingByOrganizationId($organizationId);
-    $facilityCount = $this->facilityRepository->countByOrganizationId(
-      FacilityOrganizationId::fromString($query->organizationId),
-    );
+    $facilityCount = $this->facilityStatistics->countActiveFacilities($query->organizationId);
 
     return new GetOrganizationStatisticsResult(
       memberCount: $memberCount,

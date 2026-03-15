@@ -10,6 +10,7 @@ use Doctrine\DBAL\Exception\{
 };
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Exception\{
+  FacilityArchivedException,
   FacilityCodeAlreadyExistsException,
   FacilityHierarchyException,
   FacilityNotFoundException
@@ -76,6 +77,10 @@ final readonly class CreateFacilityHandler implements CommandHandler
 
         if ((string) $parent->organizationId() !== (string) $organizationId) {
           throw FacilityHierarchyException::parentInAnotherOrganization();
+        }
+
+        if (!$parent->status()->isActive()) {
+          throw FacilityArchivedException::withId((string) $parentId);
         }
       }
 
