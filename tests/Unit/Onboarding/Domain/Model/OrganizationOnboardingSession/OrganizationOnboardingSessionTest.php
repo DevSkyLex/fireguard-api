@@ -320,6 +320,22 @@ final class OrganizationOnboardingSessionTest extends TestCase
   }
 
   #[Test]
+  public function testClearStepHistoryEmptiesRecordedEntries(): void
+  {
+    $session = OrganizationOnboardingSession::start(
+      id: '550e8400-e29b-41d4-a716-550000000001',
+      userId: '550e8400-e29b-41d4-a716-550000000002',
+    );
+
+    $session->markStepCompleted(OrganizationOnboardingStep::CREATE_ORGANIZATION);
+    $session->markStepSkipped(OrganizationOnboardingStep::INVITE_MEMBERS);
+
+    $session->clearStepHistory();
+
+    self::assertSame([], $session->stepHistory());
+  }
+
+  #[Test]
   public function testClearRollbackStackIsNoopWhenAlreadyEmpty(): void
   {
     $session = OrganizationOnboardingSession::start(

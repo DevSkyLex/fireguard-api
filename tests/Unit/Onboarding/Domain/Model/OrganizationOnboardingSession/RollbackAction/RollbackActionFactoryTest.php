@@ -76,4 +76,29 @@ final class RollbackActionFactoryTest extends TestCase
     self::assertSame($original->step(), $restored->step());
     self::assertSame($original->actionType(), $restored->actionType());
   }
+
+  #[Test]
+  public function testFromArrayThrowsWhenOrganizationIdMissing(): void
+  {
+    // Regression: a persisted rollback action without organizationId must fail fast
+    // rather than silently building an empty-string id that causes a no-op rollback.
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('"organizationId"');
+
+    DeleteOrganizationRollbackAction::fromArray([
+      'action' => DeleteOrganizationRollbackAction::ACTION_TYPE,
+    ]);
+  }
+
+  #[Test]
+  public function testFromArrayThrowsWhenOrganizationIdIsEmpty(): void
+  {
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('"organizationId"');
+
+    DeleteOrganizationRollbackAction::fromArray([
+      'action' => DeleteOrganizationRollbackAction::ACTION_TYPE,
+      'organizationId' => '',
+    ]);
+  }
 }

@@ -138,11 +138,12 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       throw new InvalidArgumentException(sprintf('Unsupported onboarding step "%s".', $stepKey));
     }
 
+    $completionEvent = null;
+
     /** @var OrganizationOnboardingSessionState $state */
-    $state = $this->transactionManager->transactional(function () use ($userId, $stepKey): OrganizationOnboardingSessionState {
+    $state = $this->transactionManager->transactional(function () use ($userId, $stepKey, &$completionEvent): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
-      // autoDetect: false to avoid auto-completing the step before the guard check
-      $computed = $this->synchronizeSessionFromCurrentState($session, $userId, autoDetect: false);
+      $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
 
       if (OrganizationOnboardingState::BLOCKED === $computed->state) {
         $reason = $computed->blockedReason ?? 'unknown';
@@ -165,16 +166,20 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         OrganizationOnboardingState::COMPLETED === $computed->state
         && null !== $computed->targetOrganizationId
       ) {
-        $this->eventDispatcher->dispatch(new OrganizationOnboardingSessionCompletedEvent(
+        $completionEvent = new OrganizationOnboardingSessionCompletedEvent(
           sessionId: $session->id(),
           userId: $userId,
           targetOrganizationId: $computed->targetOrganizationId,
           completedAt: $session->updatedAt(),
-        ));
+        );
       }
 
       return $this->buildState($session, $computed);
     });
+
+    if ($completionEvent instanceof OrganizationOnboardingSessionCompletedEvent) {
+      $this->eventDispatcher->dispatch($completionEvent);
+    }
 
     return $state;
   }
@@ -241,8 +246,10 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       throw new LogicException(sprintf('Step "%s" is required and cannot be skipped.', $stepKey));
     }
 
+    $completionEvent = null;
+
     /** @var OrganizationOnboardingSessionState $state */
-    $state = $this->transactionManager->transactional(function () use ($userId, $stepKey): OrganizationOnboardingSessionState {
+    $state = $this->transactionManager->transactional(function () use ($userId, $stepKey, &$completionEvent): OrganizationOnboardingSessionState {
       $session = $this->getOrCreateSession($userId);
       $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
 
@@ -271,16 +278,20 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         OrganizationOnboardingState::COMPLETED === $computed->state
         && null !== $computed->targetOrganizationId
       ) {
-        $this->eventDispatcher->dispatch(new OrganizationOnboardingSessionCompletedEvent(
+        $completionEvent = new OrganizationOnboardingSessionCompletedEvent(
           sessionId: $session->id(),
           userId: $userId,
           targetOrganizationId: $computed->targetOrganizationId,
           completedAt: $session->updatedAt(),
-        ));
+        );
       }
 
       return $this->buildState($session, $computed);
     });
+
+    if ($completionEvent instanceof OrganizationOnboardingSessionCompletedEvent) {
+      $this->eventDispatcher->dispatch($completionEvent);
+    }
 
     return $state;
   }
@@ -323,7 +334,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   private function synchronizeSessionFromCurrentState(
     OrganizationOnboardingSession $session,
     string $userId,
-    bool $autoDetect = true,
   ): ComputedOnboardingState {
     /** @var PaginatedResult<GetOrganizationResult> $organizationsResult */
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
@@ -335,6 +345,7 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
         $session->markStepPending($step);
         $session->removeSkippedStep($step);
       }
+      $session->clearStepHistory();
       $session->clearRollbackStack();
       $session->setInProgress(OrganizationOnboardingStep::CREATE_ORGANIZATION);
 
@@ -371,39 +382,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       } else {
         $stepDone[$step] = in_array($step, $completedSteps, true)
           || in_array($step, $skippedSteps, true);
-      }
-    }
-
-    // Auto-detect completed steps from authoritative module state when create_organization is done.
-    // Disabled during the first sync in executeStep so the step guard resolves correctly
-    // even when module data already exists — applyStepExecution validates and marks completion.
-    if ($autoDetect && $stepDone[OrganizationOnboardingStep::CREATE_ORGANIZATION]) {
-      if (!$stepDone[OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE]) {
-        $stepDone[OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE] = $this->hasLegalProfile($orgId);
-        if ($stepDone[OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE]) {
-          $session->markStepCompleted(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE);
-        }
-      }
-
-      if (!$stepDone[OrganizationOnboardingStep::CREATE_FIRST_FACILITY]) {
-        $stepDone[OrganizationOnboardingStep::CREATE_FIRST_FACILITY] = $this->hasFacility($orgId);
-        if ($stepDone[OrganizationOnboardingStep::CREATE_FIRST_FACILITY]) {
-          $session->markStepCompleted(OrganizationOnboardingStep::CREATE_FIRST_FACILITY);
-        }
-      }
-
-      if (!$stepDone[OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT]) {
-        $stepDone[OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT] = $this->hasEquipment($orgId);
-        if ($stepDone[OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT]) {
-          $session->markStepCompleted(OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT);
-        }
-      }
-
-      if (!$stepDone[OrganizationOnboardingStep::RUN_FIRST_INSPECTION]) {
-        $stepDone[OrganizationOnboardingStep::RUN_FIRST_INSPECTION] = $this->hasInspection($orgId);
-        if ($stepDone[OrganizationOnboardingStep::RUN_FIRST_INSPECTION]) {
-          $session->markStepCompleted(OrganizationOnboardingStep::RUN_FIRST_INSPECTION);
-        }
       }
     }
 
@@ -637,7 +615,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
    * When a targetOrganizationId is already pinned on the session, only that
    * organization is accepted. If it was deleted externally the method returns
    * null so the flow resets instead of silently switching to another org.
-   * When no org is pinned yet (fresh session) the first available org is used.
+   *
+   * When no org is pinned yet (fresh session) only an organization whose
+   * createdAt is greater than or equal to the session createdAt is adopted.
+   * This prevents pre-existing production organizations from being silently
+   * adopted and later destroyed by the create_organization rollback action.
    *
    * @since 1.0.0
    *
@@ -666,8 +648,20 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return null;
     }
 
-    // No org pinned yet — use the first available one
-    return $organizationsResult->items[0];
+    // No org pinned yet — only adopt an org created during this onboarding session
+    // (createdAt >= session.createdAt). Pick the most recently created qualifying org
+    // in case the user created several organizations before confirming the step.
+    $sessionCreatedAt = $session->createdAt();
+    $candidate = null;
+    foreach ($organizationsResult->items as $organization) {
+      if ($organization->createdAt >= $sessionCreatedAt) {
+        if (null === $candidate || $organization->createdAt > $candidate->createdAt) {
+          $candidate = $organization;
+        }
+      }
+    }
+
+    return $candidate;
   }
 
   /**

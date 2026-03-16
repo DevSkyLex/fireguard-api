@@ -127,7 +127,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
-  public function testGetFlowWithOrgExistsAndInvitePending(): void
+  public function testGetFlowWithOrgExistsAndLegalProfilePresentStillRequiresConfirmation(): void
   {
     $userId = '550e8400-e29b-41d4-a716-446655440115';
     $orgId = '550e8400-e29b-41d4-a716-446655440155';
@@ -168,7 +168,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $state = $service->getFlow($userId);
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $state->nextStep);
+    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->nextStep);
+    self::assertSame([OrganizationOnboardingStep::CREATE_ORGANIZATION], $state->completedSteps);
     self::assertSame($orgId, $state->targetOrganizationId);
     self::assertTrue($state->canRollback);
     self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->lastRollbackableStep);
@@ -209,7 +210,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
-  public function testGetFlowWithOrgExistsButCreateNotYetConfirmed(): void
+  public function testGetFlowWithPreExistingOrgIsNotAdoptedForFreshSession(): void
   {
     $userId = '550e8400-e29b-41d4-a716-446655440113';
     $orgId = '550e8400-e29b-41d4-a716-446655440153';
@@ -224,6 +225,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
+    // Org predates the session (pre-existing production org)
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -238,10 +240,11 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $state = $service->getFlow($userId);
 
-    // Org exists externally but create_organization has not been confirmed yet.
+    // A pre-existing org must not be auto-adopted: targetOrganizationId stays null
+    // and the user is required to create a new org for this onboarding session.
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
     self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->nextStep);
-    self::assertSame($orgId, $state->targetOrganizationId);
+    self::assertNull($state->targetOrganizationId);
     self::assertSame([], $state->completedSteps);
     self::assertFalse($state->canRollback);
   }
@@ -320,7 +323,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+    // Org was created after the session started (simulates user creating the org during onboarding)
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId, new DateTimeImmutable('+1 hour'));
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -369,6 +373,52 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('No organization found.');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      uuidFactory: $uuidFactory,
+      transactionManager: $transactionManager,
+    );
+    $service->executeStep(
+      userId: $userId,
+      stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      input: new ExecuteOnboardingStepPayload(),
+    );
+  }
+
+  #[Test]
+  public function testExecuteStepCreateOrganizationThrowsWhenPreExistingOrgIsPresent(): void
+  {
+    // A pre-existing org (createdAt in the past) must not be adoptable for create_organization.
+    // Without this guard, rollback would destroy a production org the user did not create
+    // during onboarding.
+    $userId = '550e8400-e29b-41d4-a716-446655440116';
+    $orgId = '550e8400-e29b-41d4-a716-446655440156';
+    $sessionId = '550e8400-e29b-41d4-a716-446655440186';
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn(null);
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+
+    // Pre-existing org with a past createdAt (predates the onboarding session)
+    $orgResult = $this->buildOrganizationResult($orgId, 'Legacy Corp', $userId);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
 
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('No organization found.');
@@ -677,7 +727,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
-  public function testAutoDetectsCompletedStepsFromModuleState(): void
+  public function testGetFlowDoesNotAutoCompleteStepsFromModuleState(): void
   {
     $userId = '550e8400-e29b-41d4-a716-446655440118';
     $orgId = '550e8400-e29b-41d4-a716-446655440168';
@@ -719,10 +769,72 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $state = $service->getFlow($userId);
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    // complete_legal_profile and create_first_facility are auto-detected; invite_members is next
-    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $state->nextStep);
-    self::assertContains(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->completedSteps);
-    self::assertContains(OrganizationOnboardingStep::CREATE_FIRST_FACILITY, $state->completedSteps);
+    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->nextStep);
+    self::assertSame([OrganizationOnboardingStep::CREATE_ORGANIZATION], $state->completedSteps);
+  }
+
+  #[Test]
+  public function testGetFlowDoesNotDispatchCompletionEventFromExternalModuleStateAlone(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440122';
+    $orgId = '550e8400-e29b-41d4-a716-446655440173';
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440181',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [
+        OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+        OrganizationOnboardingStep::INVITE_MEMBERS,
+        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+      ],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $this->configureQueryBus(
+      $queryBus,
+      $orgResult,
+      hasLegalProfile: true,
+      hasFacility: true,
+      hasEquipment: true,
+      hasInspection: true,
+    );
+
+    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $state = $service->getFlow($userId);
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+    self::assertSame(OrganizationOnboardingStep::RUN_FIRST_INSPECTION, $state->nextStep);
+    self::assertNotContains(OrganizationOnboardingStep::RUN_FIRST_INSPECTION, $state->completedSteps);
   }
 
   #[Test]
@@ -850,7 +962,18 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       ],
       skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
       rollbackStack: [],
-      stepHistory: [],
+      stepHistory: [
+        new \Onboarding\Domain\Model\OrganizationOnboardingSession\StepHistoryEntry(
+          stepKey: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          occurredAt: '2026-02-19T08:00:00+00:00',
+          skipped: false,
+        ),
+        new \Onboarding\Domain\Model\OrganizationOnboardingSession\StepHistoryEntry(
+          stepKey: OrganizationOnboardingStep::INVITE_MEMBERS,
+          occurredAt: '2026-02-19T09:00:00+00:00',
+          skipped: true,
+        ),
+      ],
       createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
@@ -878,6 +1001,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     // skippedSteps must be cleared so invite_members is not pre-skipped for the new org
     self::assertSame([], $state->skippedSteps);
     self::assertSame([], $state->completedSteps);
+    self::assertSame([], $state->stepHistory);
   }
 
   private function buildService(
@@ -898,8 +1022,14 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     );
   }
 
-  private function buildOrganizationResult(string $id, string $name, string $userId): GetOrganizationResult
-  {
+  private function buildOrganizationResult(
+    string $id,
+    string $name,
+    string $userId,
+    ?DateTimeImmutable $createdAt = null,
+  ): GetOrganizationResult {
+    $date = $createdAt ?? new DateTimeImmutable('2026-02-19T08:00:00+00:00');
+
     return new GetOrganizationResult(
       id: $id,
       name: $name,
@@ -908,8 +1038,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       createdByUserId: $userId,
       status: 'active',
       isActive: true,
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      createdAt: $date,
+      updatedAt: $date,
     );
   }
 

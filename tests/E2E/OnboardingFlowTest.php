@@ -227,6 +227,22 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->createAndActivateUser($client, $email, $password);
     $token = $this->loginAndGetUserAccessToken($client, $email, $password);
 
+    // Initialize the onboarding session before creating the org so that the session
+    // createdAt is earlier than the org createdAt, satisfying the adoption guard.
+    $client->request(
+      method: 'GET',
+      uri: '/api/onboarding/organization',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+    $this->assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'GET /api/onboarding/organization should initialize the session. Response: ' . $client->getResponse()->getContent(),
+    );
+
     // Create the organization via the dedicated endpoint first.
     $client->request(
       method: 'POST',

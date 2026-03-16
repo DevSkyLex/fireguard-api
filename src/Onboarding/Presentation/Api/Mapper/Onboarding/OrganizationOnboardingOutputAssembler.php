@@ -185,7 +185,12 @@ final class OrganizationOnboardingOutputAssembler
         $step->reason = 'previous_step_required';
       }
 
-      $step->completedAt = $completedAtByStep[$stepKey] ?? null;
+      // Only expose completedAt for steps that are actually confirmed or skipped;
+      // history entries from a rolled-back or externally-reset session must not
+      // leak a timestamp for a step that is no longer in a terminal state.
+      $step->completedAt = ($isCompleted || $isSkipped)
+        ? ($completedAtByStep[$stepKey] ?? null)
+        : null;
 
       self::hydrateRollbackMetadata($step, $state->lastRollbackableStep);
       self::hydrateSkipMetadata($step, $state->nextStep);

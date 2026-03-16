@@ -246,6 +246,74 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertFalse($inviteStep->rollbackAvailable);
   }
 
+  #[Test]
+  public function testCompletedAtIsNullForStepThatWasRolledBack(): void
+  {
+    // The history entry is present (create_organization was completed then rolled back),
+    // but completedSteps is empty. completedAt must be null — a pending/blocked step
+    // must never expose a timestamp from a previous session lifecycle.
+    $state = new OrganizationOnboardingSessionState(
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      blockedReason: null,
+      targetOrganizationId: null,
+      targetOrganizationName: null,
+      completedSteps: [],
+      skippedSteps: [],
+      stepHistory: [
+        [
+          'stepKey' => OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          'occurredAt' => '2026-03-15T10:00:00+00:00',
+          'skipped' => false,
+        ],
+      ],
+      updatedAt: '2026-03-15T11:00:00+00:00',
+      canRollback: false,
+      lastRollbackableStep: null,
+    );
+
+    $output = OrganizationOnboardingOutputAssembler::fromState($state);
+
+    $createStep = $output->steps[0];
+    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $createStep->key);
+    self::assertSame('pending', $createStep->status);
+    self::assertNull($createStep->completedAt, 'completedAt must be null for a rolled-back step');
+  }
+
+  #[Test]
+  public function testCompletedAtIsExposedWhenStepIsConfirmed(): void
+  {
+    $orgId = '550e8400-e29b-41d4-a716-446655440007';
+
+    $state = new OrganizationOnboardingSessionState(
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      stepHistory: [
+        [
+          'stepKey' => OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          'occurredAt' => '2026-03-15T10:00:00+00:00',
+          'skipped' => false,
+        ],
+      ],
+      updatedAt: '2026-03-15T10:00:00+00:00',
+      canRollback: true,
+      lastRollbackableStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+    );
+
+    $output = OrganizationOnboardingOutputAssembler::fromState($state);
+
+    $createStep = $output->steps[0];
+    self::assertSame('completed', $createStep->status);
+    self::assertSame('2026-03-15T10:00:00+00:00', $createStep->completedAt);
+  }
+
   /**
    * @param list<string> $completedSteps
    * @param list<string> $skippedSteps
