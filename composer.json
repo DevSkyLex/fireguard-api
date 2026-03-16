@@ -26,7 +26,7 @@
         "symfony/expression-language": "7.3.*",
         "symfony/flex": "^2",
         "symfony/framework-bundle": "7.3.*",
-        "symfony/mailer": "7.3.*",
+        "symfony/mailer": "8.0.*",
         "symfony/mercure-bundle": "^0.4.2",
         "symfony/messenger": "7.3.*",
         "symfony/monolog-bundle": "^4.0",
