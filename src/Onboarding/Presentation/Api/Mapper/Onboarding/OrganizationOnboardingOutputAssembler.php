@@ -91,15 +91,6 @@ final class OrganizationOnboardingOutputAssembler
         'actionMethod' => 'POST',
         'actionPath' => '/api/organizations',
       ],
-      OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE => [
-        'label' => 'Complete legal profile',
-        'required' => true,
-        'skippable' => false,
-        'actionMethod' => 'PUT',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/legal-profile', $orgId)
-          : '/api/organizations/{organizationId}/legal-profile',
-      ],
       OrganizationOnboardingStep::INVITE_MEMBERS => [
         'label' => 'Invite members',
         'required' => false,

@@ -9,14 +9,16 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
+use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationRoleOutput;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 
+use function array_map;
 use function is_string;
 
 /**
@@ -85,9 +87,19 @@ final readonly class ListOrganizationRolesProvider implements ProviderInterface
       $output->id = $role->id;
       $output->organizationId = $role->organizationId;
       $output->name = $role->name;
-      $output->permissions = $role->permissions;
+      $output->permissions = array_map(
+        static function (string $name): OrganizationPermissionOutput {
+          $perm = new OrganizationPermissionOutput();
+          $perm->name = $name;
+          $perm->description = OrganizationPermissionCatalog::descriptionFor($name);
+
+          return $perm;
+        },
+        $role->permissions,
+      );
       $output->isSystem = $role->isSystem;
       $output->createdAt = $role->createdAt->format('c');
+      $output->description = $role->description;
       $outputs[] = $output;
     }
 

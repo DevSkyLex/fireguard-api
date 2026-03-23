@@ -39,6 +39,7 @@ final class ListOrganizationRolesHandlerTest extends TestCase
       permissions: ['organization.read', 'organization.members.read'],
       isSystem: false,
       createdAt: new DateTimeImmutable('-1 day'),
+      description: '',
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
@@ -68,6 +69,7 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     self::assertSame('technician', $result->roles[0]->name);
     self::assertSame(['organization.read', 'organization.members.read'], $result->roles[0]->permissions);
     self::assertFalse($result->roles[0]->isSystem);
+    self::assertSame('', $result->roles[0]->description);
   }
 
   #[Test]

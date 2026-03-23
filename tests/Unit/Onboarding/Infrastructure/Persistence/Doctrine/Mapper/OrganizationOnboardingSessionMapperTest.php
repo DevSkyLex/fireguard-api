@@ -30,7 +30,7 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-660000000002',
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
       blockedReason: null,
       targetOrganizationId: 'org-mapper-001',
       targetOrganizationName: 'Mapper Org',
@@ -54,7 +54,7 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-660000000002', $record->userId);
     self::assertSame('organization', $record->flow);
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $record->state);
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $record->nextStep);
+    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $record->nextStep);
     self::assertNull($record->blockedReason);
     self::assertSame('org-mapper-001', $record->targetOrganizationId);
     self::assertSame('Mapper Org', $record->targetOrganizationName);
@@ -87,7 +87,7 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
     $record->targetOrganizationName = 'Domain Org';
     $record->completedSteps = [
       OrganizationOnboardingStep::CREATE_ORGANIZATION,
-      OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      OrganizationOnboardingStep::INVITE_MEMBERS,
     ];
     $record->skippedSteps = [];
     $record->rollbackStack = [
@@ -117,7 +117,7 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
     self::assertSame('Domain Org', $session->targetOrganizationName());
     self::assertSame([
       OrganizationOnboardingStep::CREATE_ORGANIZATION,
-      OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      OrganizationOnboardingStep::INVITE_MEMBERS,
     ], $session->completedSteps());
     self::assertInstanceOf(DeleteOrganizationRollbackAction::class, $session->rollbackStack()[0]);
     self::assertSame('org-domain-001', $session->rollbackStack()[0]->organizationId);
@@ -139,7 +139,6 @@ final class OrganizationOnboardingSessionMapperTest extends TestCase
       targetOrganizationName: 'Round Trip Org',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
         OrganizationOnboardingStep::INVITE_MEMBERS,
       ],
       skippedSteps: [],

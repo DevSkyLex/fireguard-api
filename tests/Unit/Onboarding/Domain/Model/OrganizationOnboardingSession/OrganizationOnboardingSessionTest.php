@@ -78,7 +78,7 @@ final class OrganizationOnboardingSessionTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-550000000011',
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
       blockedReason: null,
       targetOrganizationId: 'org-123',
       targetOrganizationName: 'My Org',
@@ -424,10 +424,10 @@ final class OrganizationOnboardingSessionTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-550000000002',
     );
 
-    $session->setInProgress(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE);
+    $session->setInProgress(OrganizationOnboardingStep::INVITE_MEMBERS);
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $session->state());
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $session->nextStep());
+    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $session->nextStep());
     self::assertNull($session->blockedReason());
   }
 

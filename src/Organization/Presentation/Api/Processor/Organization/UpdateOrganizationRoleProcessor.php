@@ -10,13 +10,15 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleResult};
+use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Input\Organization\UpdateOrganizationRoleInput;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationRoleOutput;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function array_map;
 use function is_string;
 
 /**
@@ -83,6 +85,7 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
         organizationId: $organizationId,
         roleId: $roleId,
         permissions: $data->permissions,
+        description: $data->description,
       ));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -94,9 +97,19 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     $output->id = $result->id;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
-    $output->permissions = $result->permissions;
+    $output->permissions = array_map(
+      static function (string $name): OrganizationPermissionOutput {
+        $perm = new OrganizationPermissionOutput();
+        $perm->name = $name;
+        $perm->description = OrganizationPermissionCatalog::descriptionFor($name);
+
+        return $perm;
+      },
+      $result->permissions,
+    );
     $output->isSystem = $result->isSystem;
     $output->createdAt = $result->createdAt->format('c');
+    $output->description = $result->description;
 
     return $output;
   }

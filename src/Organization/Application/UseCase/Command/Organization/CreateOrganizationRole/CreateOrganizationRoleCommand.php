@@ -29,12 +29,14 @@ final readonly class CreateOrganizationRoleCommand implements CommandMessage
    * @param string $name the role name
    * @param list<string> $permissions the role permissions
    * @param bool $isSystem whether the role is system-managed
+   * @param string|null $description the role description
    */
   public function __construct(
     public string $organizationId,
     public string $name,
     public array $permissions,
     public bool $isSystem = false,
+    public ?string $description = null,
   ) {
   }
   // #endregion

@@ -178,7 +178,7 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     // We mock the port directly so we can skip a step without modelling external
-    // state required to advance the flow to COMPLETE_LEGAL_PROFILE.
+    // state required to advance the flow to INVITE_MEMBERS.
     /** @var OrganizationOnboardingServicePort&MockObject $flowService */
     $flowService = $this->createMock(OrganizationOnboardingServicePort::class);
     $flowService

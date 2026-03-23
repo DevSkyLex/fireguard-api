@@ -79,7 +79,7 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->assertSame('in_progress', $data['state']);
     $this->assertSame('create_organization', $data['nextStep']);
     $this->assertIsArray($data['steps']);
-    $this->assertCount(6, $data['steps']);
+    $this->assertCount(5, $data['steps']);
   }
 
   public function testCompleteOrganizationOnboardingFlow(): void
@@ -155,21 +155,17 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
 
     $createOrgData = $this->decodeJsonResponse($createOrgResponse->getContent() ?: '{}');
     $this->assertSame('in_progress', $createOrgData['state']);
-    $this->assertSame('complete_legal_profile', $createOrgData['nextStep']);
+    $this->assertSame('invite_members', $createOrgData['nextStep']);
     $this->assertNotNull($createOrgData['targetOrganizationId']);
     $this->assertTrue($createOrgData['canRollback']);
 
     $organizationId = $createOrgData['targetOrganizationId'];
     $this->assertIsString($organizationId);
 
-    // Step 3: Skip the invite_members step (it is optional, but it is not the next
-    //         step anymore — complete_legal_profile is required first).
-    //         Instead, verify the flow is correctly at complete_legal_profile.
-    //         Since we cannot easily create legal profile data in E2E,
-    //         verify that skipping a non-current step returns a conflict.
+    // Step 3: Try to skip a required step (create_first_facility) — must return 409 conflict.
     $client->request(
       method: 'POST',
-      uri: '/api/onboarding/organization/steps/invite_members/skip',
+      uri: '/api/onboarding/organization/steps/create_first_facility/skip',
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
@@ -182,7 +178,7 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->assertSame(
       Response::HTTP_CONFLICT,
       $skipResponse->getStatusCode(),
-      'Skipping invite_members when next step is complete_legal_profile should return 409. Response: ' . $skipResponse->getContent(),
+      'Skipping required step create_first_facility should return 409. Response: ' . $skipResponse->getContent(),
     );
   }
 

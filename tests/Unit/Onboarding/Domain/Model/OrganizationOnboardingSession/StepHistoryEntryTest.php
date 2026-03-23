@@ -47,14 +47,14 @@ final class StepHistoryEntryTest extends TestCase
   public function testFromArrayReconstitutesAllFields(): void
   {
     $data = [
-      'stepKey' => OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      'stepKey' => OrganizationOnboardingStep::INVITE_MEMBERS,
       'occurredAt' => '2026-02-19T12:00:00+00:00',
       'skipped' => true,
     ];
 
     $entry = StepHistoryEntry::fromArray($data);
 
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $entry->stepKey);
+    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $entry->stepKey);
     self::assertSame('2026-02-19T12:00:00+00:00', $entry->occurredAt);
     self::assertTrue($entry->skipped);
   }

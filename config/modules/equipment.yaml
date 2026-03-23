@@ -73,3 +73,6 @@ services:
 
   Equipment\Application\UseCase\Query\Equipment\ListEquipmentAttachments\ListEquipmentAttachmentsHandler:
     tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\ListEquipmentTypes\ListEquipmentTypesHandler:
+    tags: ['messenger.message_handler']

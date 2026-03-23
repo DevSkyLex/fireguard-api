@@ -10,7 +10,7 @@ use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleResult};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationRoleInput;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationRoleOutput;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Processor\Organization\CreateOrganizationRoleProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -72,7 +72,8 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       ->with(self::callback(static function (CreateOrganizationRoleCommand $command): bool {
         return '550e8400-e29b-41d4-a716-446655441310' === $command->organizationId
           && 'inspector' === $command->name
-          && ['organization.read', 'organization.members.read'] === $command->permissions;
+          && ['organization.read', 'organization.members.read'] === $command->permissions
+          && null === $command->description;
       }))
       ->willReturn(new CreateOrganizationRoleResult(
         id: '550e8400-e29b-41d4-a716-446655441311',
@@ -81,6 +82,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
         permissions: ['organization.read', 'organization.members.read'],
         isSystem: false,
         createdAt: $createdAt,
+        description: 'Inspects equipment',
       ));
 
     $processor = new CreateOrganizationRoleProcessor(
@@ -99,9 +101,15 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655441311', $output->id);
     self::assertSame('550e8400-e29b-41d4-a716-446655441310', $output->organizationId);
     self::assertSame('inspector', $output->name);
-    self::assertSame(['organization.read', 'organization.members.read'], $output->permissions);
+    self::assertCount(2, $output->permissions);
+    self::assertInstanceOf(OrganizationPermissionOutput::class, $output->permissions[0]);
+    self::assertSame('organization.read', $output->permissions[0]->name);
+    self::assertSame('View organization details', $output->permissions[0]->description);
+    self::assertSame('organization.members.read', $output->permissions[1]->name);
+    self::assertSame('View organization members', $output->permissions[1]->description);
     self::assertFalse($output->isSystem);
     self::assertSame($createdAt->format('c'), $output->createdAt);
+    self::assertSame('Inspects equipment', $output->description);
   }
 
   #[Test]

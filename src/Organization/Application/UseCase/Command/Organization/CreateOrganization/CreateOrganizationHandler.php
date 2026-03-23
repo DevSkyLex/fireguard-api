@@ -35,7 +35,7 @@ use function trim;
  */
 final readonly class CreateOrganizationHandler implements CommandHandler
 {
-  private const string OWNER_ROLE_NAME = 'owner';
+  private const string OWNER_ROLE_NAME = 'admin';
 
   private const string MEMBER_ROLE_NAME = 'member';
 
@@ -126,6 +126,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       name: new OrganizationRoleName(self::OWNER_ROLE_NAME),
       permissions: self::OWNER_PERMISSIONS,
       isSystem: true,
+      description: 'Full administrator of the organization',
     );
 
     $memberRole = OrganizationRole::create(
@@ -134,6 +135,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
       name: new OrganizationRoleName(self::MEMBER_ROLE_NAME),
       permissions: self::MEMBER_PERMISSIONS,
       isSystem: true,
+      description: 'Regular member of the organization',
     );
 
     $ownerMember = OrganizationMember::join(

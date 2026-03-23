@@ -48,7 +48,7 @@ final class OrganizationRoleOutput
   public string $name = '';
 
   /**
-   * @var list<string>
+   * @var list<OrganizationPermissionOutput>
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
@@ -71,5 +71,14 @@ final class OrganizationRoleOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $createdAt = '';
+
+  /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $description = '';
   // #endregion
 }

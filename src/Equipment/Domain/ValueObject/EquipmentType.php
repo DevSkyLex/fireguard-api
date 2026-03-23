@@ -44,5 +44,32 @@ enum EquipmentType: string
   {
     return array_column(self::cases(), 'value');
   }
+
+  /**
+   * Method label.
+   *
+   * Returns a human-readable label for this equipment type.
+   *
+   * @since 1.0.0
+   *
+   * @return string the human-readable label
+   */
+  public function label(): string
+  {
+    return match ($this) {
+      self::FIRE_EXTINGUISHER => 'Fire Extinguisher',
+      self::SMOKE_DETECTOR => 'Smoke Detector',
+      self::HEAT_DETECTOR => 'Heat Detector',
+      self::SPRINKLER => 'Sprinkler',
+      self::FIRE_ALARM_PANEL => 'Fire Alarm Panel',
+      self::HYDRANT => 'Hydrant',
+      self::FIRE_DOOR => 'Fire Door',
+      self::EMERGENCY_LIGHTING => 'Emergency Lighting',
+      self::ACCESS_CONTROL => 'Access Control',
+      self::CAMERA => 'Camera',
+      self::GAS_DETECTOR => 'Gas Detector',
+      self::OTHER => 'Other',
+    };
+  }
   // #endregion
 }

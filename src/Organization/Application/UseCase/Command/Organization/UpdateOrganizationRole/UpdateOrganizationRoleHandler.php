@@ -72,6 +72,11 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     }
 
     $role->updatePermissions($permissions);
+
+    if (null !== $command->description) {
+      $role->updateDescription($command->description);
+    }
+
     $this->roleRepository->save($role);
 
     return new UpdateOrganizationRoleResult(
@@ -81,6 +86,7 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
       permissions: $role->permissions(),
       isSystem: $role->isSystem(),
       createdAt: $role->createdAt(),
+      description: $role->description(),
     );
   }
   // #endregion

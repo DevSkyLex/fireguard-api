@@ -20,9 +20,8 @@ use Onboarding\Domain\ValueObject\{
 };
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\GetOrganizationLegalProfileQuery;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
-use Organization\Domain\Exception\{OrganizationLegalProfileNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\OrganizationNotFoundException;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Factory\UuidFactory;
@@ -454,8 +453,8 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return;
     }
 
-    // Auto-detected steps (complete_legal_profile, create_first_facility,
-    // create_first_equipment, run_first_inspection): validate that the external
+    // Auto-detected steps (create_first_facility, create_first_equipment,
+    // run_first_inspection): validate that the external
     // action was actually completed before accepting the user's confirmation.
     // This prevents advancing the flow when the required module data does not exist yet.
     $orgId = $session->targetOrganizationId();
@@ -466,7 +465,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     }
 
     $stateExists = match ($stepKey) {
-      OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE => $this->hasLegalProfile($orgId),
       OrganizationOnboardingStep::CREATE_FIRST_FACILITY => $this->hasFacility($orgId),
       OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT => $this->hasEquipment($orgId),
       OrganizationOnboardingStep::RUN_FIRST_INSPECTION => $this->hasInspection($orgId),
@@ -481,33 +479,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
 
     $session->markStepCompleted($stepKey);
     $session->removeSkippedStep($stepKey);
-  }
-
-  /**
-   * Method hasLegalProfile.
-   *
-   * @since 2.0.0
-   *
-   * @param string $organizationId the organization to check
-   *
-   * @return bool true when a legal profile exists
-   */
-  private function hasLegalProfile(string $organizationId): bool
-  {
-    try {
-      $this->queryBus->ask(new GetOrganizationLegalProfileQuery($organizationId));
-
-      return true;
-    } catch (OrganizationLegalProfileNotFoundException) {
-      return false;
-    } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, OrganizationLegalProfileNotFoundException::class);
-      if ($notFound instanceof OrganizationLegalProfileNotFoundException) {
-        return false;
-      }
-
-      throw $exception;
-    }
   }
 
   /**

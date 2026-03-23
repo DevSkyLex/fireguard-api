@@ -19,9 +19,7 @@ use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboarding
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\{GetOrganizationLegalProfileQuery, GetOrganizationLegalProfileResult};
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
-use Organization\Domain\Exception\OrganizationLegalProfileNotFoundException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -76,103 +74,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     self::assertSame([], $state->completedSteps);
     self::assertFalse($state->canRollback);
     self::assertNull($state->lastRollbackableStep);
-  }
-
-  #[Test]
-  public function testGetFlowWithOrgExistsAndLegalProfilePending(): void
-  {
-    $userId = '550e8400-e29b-41d4-a716-446655440102';
-    $orgId = '550e8400-e29b-41d4-a716-446655440150';
-
-    $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440198',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-    );
-
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
-    $sessionRepository->method('findByUserId')->willReturn($existingSession);
-    $sessionRepository->expects(self::once())->method('save');
-
-    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $this->configureQueryBus($queryBus, $orgResult);
-
-    $service = $this->buildService(
-      sessionRepository: $sessionRepository,
-      queryBus: $queryBus,
-    );
-
-    $state = $service->getFlow($userId);
-
-    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->nextStep);
-    self::assertSame($orgId, $state->targetOrganizationId);
-    self::assertTrue($state->canRollback);
-    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->lastRollbackableStep);
-  }
-
-  #[Test]
-  public function testGetFlowWithOrgExistsAndLegalProfilePresentStillRequiresConfirmation(): void
-  {
-    $userId = '550e8400-e29b-41d4-a716-446655440115';
-    $orgId = '550e8400-e29b-41d4-a716-446655440155';
-
-    $existingSession = OrganizationOnboardingSession::reconstitute(
-      id: '550e8400-e29b-41d4-a716-446655440187',
-      userId: $userId,
-      flow: 'organization',
-      state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
-      blockedReason: null,
-      targetOrganizationId: $orgId,
-      targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
-      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
-      stepHistory: [],
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-    );
-
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
-    $sessionRepository->method('findByUserId')->willReturn($existingSession);
-    $sessionRepository->expects(self::once())->method('save');
-
-    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
-
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $this->configureQueryBus($queryBus, $orgResult, hasLegalProfile: true);
-
-    $service = $this->buildService(
-      sessionRepository: $sessionRepository,
-      queryBus: $queryBus,
-    );
-
-    $state = $service->getFlow($userId);
-
-    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->nextStep);
-    self::assertSame([OrganizationOnboardingStep::CREATE_ORGANIZATION], $state->completedSteps);
-    self::assertSame($orgId, $state->targetOrganizationId);
-    self::assertTrue($state->canRollback);
-    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->lastRollbackableStep);
   }
 
   #[Test]
@@ -344,7 +245,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     );
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->nextStep);
+    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $state->nextStep);
     self::assertSame($orgId, $state->targetOrganizationId);
     self::assertContains(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->completedSteps);
     self::assertTrue($state->canRollback);
@@ -523,7 +424,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
       ],
       skippedSteps: [],
       rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
@@ -546,7 +446,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $this->configureQueryBus($queryBus, $orgResult, hasLegalProfile: true);
+    $this->configureQueryBus($queryBus, $orgResult);
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -583,7 +483,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
       ],
       skippedSteps: [],
       rollbackStack: [],
@@ -606,7 +505,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $this->configureQueryBus($queryBus, $orgResult, hasLegalProfile: true);
+    $this->configureQueryBus($queryBus, $orgResult);
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -639,19 +538,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
-  public function testSkipStepThrowsForRequiredCompleteLegalProfileStep(): void
-  {
-    $this->expectException(LogicException::class);
-    $this->expectExceptionMessage('Step "complete_legal_profile" is required and cannot be skipped.');
-
-    $service = $this->buildService();
-    $service->skipStep(
-      userId: '550e8400-e29b-41d4-a716-446655440116',
-      stepKey: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
-    );
-  }
-
-  #[Test]
   public function testFullFlowCompletionFiresEvent(): void
   {
     $userId = '550e8400-e29b-41d4-a716-446655440117';
@@ -668,7 +554,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
         OrganizationOnboardingStep::INVITE_MEMBERS,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
         OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
@@ -697,7 +582,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $this->configureQueryBus(
       $queryBus,
       $orgResult,
-      hasLegalProfile: true,
       hasFacility: true,
       hasEquipment: true,
       hasInspection: true,
@@ -737,12 +621,12 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       userId: $userId,
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
       blockedReason: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
+      skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
       rollbackStack: [],
       stepHistory: [],
       createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
@@ -758,8 +642,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    // Legal profile exists, facility exists → auto-detected as completed
-    $this->configureQueryBus($queryBus, $orgResult, hasLegalProfile: true, hasFacility: true);
+    // Facility already exists externally — must NOT auto-complete the step
+    $this->configureQueryBus($queryBus, $orgResult, hasFacility: true);
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -769,7 +653,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $state = $service->getFlow($userId);
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE, $state->nextStep);
+    self::assertSame(OrganizationOnboardingStep::CREATE_FIRST_FACILITY, $state->nextStep);
     self::assertSame([OrganizationOnboardingStep::CREATE_ORGANIZATION], $state->completedSteps);
   }
 
@@ -790,7 +674,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
         OrganizationOnboardingStep::INVITE_MEMBERS,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
         OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
@@ -814,7 +697,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $this->configureQueryBus(
       $queryBus,
       $orgResult,
-      hasLegalProfile: true,
       hasFacility: true,
       hasEquipment: true,
       hasInspection: true,
@@ -898,12 +780,12 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       userId: $userId,
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      nextStep: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
       blockedReason: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [],
+      skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
       rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
       stepHistory: [],
       createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
@@ -923,11 +805,11 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    // Legal profile does NOT exist yet
-    $this->configureQueryBus($queryBus, $orgResult, hasLegalProfile: false);
+    // Facility does NOT exist yet
+    $this->configureQueryBus($queryBus, $orgResult, hasFacility: false);
 
     $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Cannot confirm step "complete_legal_profile"');
+    $this->expectExceptionMessage('Cannot confirm step "create_first_facility"');
 
     $service = $this->buildService(
       sessionRepository: $sessionRepository,
@@ -936,7 +818,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     );
     $service->executeStep(
       userId: $userId,
-      stepKey: OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
+      stepKey: OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
       input: new ExecuteOnboardingStepPayload(),
     );
   }
@@ -958,7 +840,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Deleted Org',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::COMPLETE_LEGAL_PROFILE,
       ],
       skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
       rollbackStack: [],
@@ -1049,38 +930,18 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   private function configureQueryBus(
     QueryBusPort&MockObject $queryBus,
     ?GetOrganizationResult $orgResult,
-    bool $hasLegalProfile = false,
     bool $hasFacility = false,
     bool $hasEquipment = false,
     bool $hasInspection = false,
   ): void {
     $queryBus->method('ask')->willReturnCallback(
-      static function (object $query) use ($orgResult, $hasLegalProfile, $hasFacility, $hasEquipment, $hasInspection): mixed {
+      static function (object $query) use ($orgResult, $hasFacility, $hasEquipment, $hasInspection): mixed {
         if ($query instanceof ListUserOrganizationsQuery) {
           if (null === $orgResult) {
             return new PaginatedResult(items: [], total: 0, limit: 100, offset: 0);
           }
 
           return new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0);
-        }
-
-        if ($query instanceof GetOrganizationLegalProfileQuery) {
-          if (!$hasLegalProfile) {
-            throw OrganizationLegalProfileNotFoundException::forOrganization($query->organizationId);
-          }
-
-          return new GetOrganizationLegalProfileResult(
-            organizationId: $query->organizationId,
-            countryCode: 'FR',
-            legalType: 'SAS',
-            legalName: 'Fireguard SAS',
-            registrationNumber: '123456789',
-            vatNumber: 'FR12345678901',
-            registrationNumberRequired: true,
-            vatNumberRequired: true,
-            createdAt: new DateTimeImmutable(),
-            updatedAt: new DateTimeImmutable(),
-          );
         }
 
         if ($query instanceof ListFacilitiesQuery) {

@@ -22,25 +22,22 @@ Current flow:
 
 ## Flow Behavior
 
-Organization onboarding is stateful and contains six sequential steps:
+Organization onboarding is stateful and contains five sequential steps:
 
 1. `create_organization` — user first creates an org via `POST /api/organizations`, then confirms
    the step via `POST /api/onboarding/organization/steps/create_organization/execute` (empty payload).
    **Required.** Rollbackable (deletes the created organization).
-2. `complete_legal_profile` — user completes the legal profile via `PUT /api/organizations/{id}/legal-profile`,
-   then confirms via `POST /api/onboarding/organization/steps/complete_legal_profile/execute`.
-   **Required.** Requires a legal profile on the target organization as precondition.
-3. `invite_members` — user optionally invites members via `POST /api/organizations/{id}/invitations`,
+2. `invite_members` — user optionally invites members via `POST /api/organizations/{id}/invitations`,
    then confirms via `POST /api/onboarding/organization/steps/invite_members/execute` (empty payload),
    or skips via `POST /api/onboarding/organization/steps/invite_members/skip`.
    **Optional / skippable.**
-4. `create_first_facility` — user creates a facility via `POST /api/organizations/{id}/facilities`,
+3. `create_first_facility` — user creates a facility via `POST /api/organizations/{id}/facilities`,
    then confirms via `POST /api/onboarding/organization/steps/create_first_facility/execute`.
    **Required.** Requires at least one facility on the target organization as precondition.
-5. `create_first_equipment` — user creates equipment via `POST /api/organizations/{id}/equipment`,
+4. `create_first_equipment` — user creates equipment via `POST /api/organizations/{id}/equipment`,
    then confirms via `POST /api/onboarding/organization/steps/create_first_equipment/execute`.
    **Required.** Requires at least one equipment item on the target organization as precondition.
-6. `run_first_inspection` — user creates an inspection via `POST /api/organizations/{id}/inspections`,
+5. `run_first_inspection` — user creates an inspection via `POST /api/organizations/{id}/inspections`,
    then confirms via `POST /api/onboarding/organization/steps/run_first_inspection/execute`.
    **Required.** Requires at least one inspection on the target organization as precondition.
 
@@ -57,11 +54,10 @@ The persisted session stores:
 Step execution is sequential:
 
 1. `create_organization` can be confirmed only after the org was created via `POST /api/organizations`
-2. `complete_legal_profile` can be confirmed only after a legal profile exists on the target organization
-3. `invite_members` can be confirmed or skipped only after `complete_legal_profile` is completed
-4. `create_first_facility` can be confirmed only after at least one facility exists on the target organization
-5. `create_first_equipment` can be confirmed only after at least one equipment item exists on the target organization
-6. `run_first_inspection` can be confirmed only after at least one inspection exists on the target organization
+2. `invite_members` can be confirmed or skipped only after `create_organization` is completed
+3. `create_first_facility` can be confirmed only after at least one facility exists on the target organization
+4. `create_first_equipment` can be confirmed only after at least one equipment item exists on the target organization
+5. `run_first_inspection` can be confirmed only after at least one inspection exists on the target organization
 
 Rollback uses LIFO semantics:
 
@@ -80,7 +76,7 @@ and does NOT silently switch to another organization the user may belong to.
 - Domain: onboarding session aggregate + flow state/step value objects
 - Infrastructure: Doctrine session record/mapper/repository
 - Dependencies:
-  - `Organization` module for organizations and legal profile queries
+  - `Organization` module for organization queries
   - `Facility` module for facility existence checks
   - `Equipment` module for equipment existence checks
   - `Inspection` module for inspection existence checks

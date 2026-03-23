@@ -32,6 +32,7 @@ final readonly class UpdateOrganizationRoleResult implements ResultMessage
    * @param list<string> $permissions the role permissions
    * @param bool $isSystem whether the role is system-managed
    * @param DateTimeImmutable $createdAt the role creation datetime
+   * @param string $description the role description
    */
   public function __construct(
     public string $id,
@@ -40,6 +41,7 @@ final readonly class UpdateOrganizationRoleResult implements ResultMessage
     public array $permissions,
     public bool $isSystem,
     public DateTimeImmutable $createdAt,
+    public string $description = '',
   ) {
   }
   // #endregion

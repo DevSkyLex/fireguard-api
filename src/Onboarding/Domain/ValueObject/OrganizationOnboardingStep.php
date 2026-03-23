@@ -20,8 +20,6 @@ final class OrganizationOnboardingStep
   // #region Constants
   public const string CREATE_ORGANIZATION = 'create_organization';
 
-  public const string COMPLETE_LEGAL_PROFILE = 'complete_legal_profile';
-
   public const string INVITE_MEMBERS = 'invite_members';
 
   public const string CREATE_FIRST_FACILITY = 'create_first_facility';
@@ -37,7 +35,6 @@ final class OrganizationOnboardingStep
    */
   private const array REQUIRED_STEPS = [
     self::CREATE_ORGANIZATION,
-    self::COMPLETE_LEGAL_PROFILE,
     self::CREATE_FIRST_FACILITY,
     self::CREATE_FIRST_EQUIPMENT,
     self::RUN_FIRST_INSPECTION,
@@ -58,7 +55,6 @@ final class OrganizationOnboardingStep
   {
     return [
       self::CREATE_ORGANIZATION,
-      self::COMPLETE_LEGAL_PROFILE,
       self::INVITE_MEMBERS,
       self::CREATE_FIRST_FACILITY,
       self::CREATE_FIRST_EQUIPMENT,
