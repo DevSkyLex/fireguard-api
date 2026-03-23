@@ -15,6 +15,10 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 
 use function array_map;
 use function assert;
+use function filter_var;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Provider ListRolesProvider.
@@ -65,7 +69,14 @@ final readonly class ListRolesProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    $query = new ListRolesQuery();
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $isSystem = null;
+    if (isset($filters['isSystem'])) {
+      $isSystem = filter_var($filters['isSystem'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    }
+
+    $query = new ListRolesQuery(isSystem: $isSystem);
     $result = $this->queryBus->ask(query: $query);
 
     assert($result instanceof ListRolesResult);

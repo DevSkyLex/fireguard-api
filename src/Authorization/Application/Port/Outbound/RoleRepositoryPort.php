@@ -55,10 +55,11 @@ interface RoleRepositoryPort
    * @since 1.0.0
    *
    * @param TenantId|null $tenantId optional tenant filter
+   * @param bool|null $isSystem optional filter for system roles
    *
    * @return array<Role> all roles
    */
-  public function findAll(?TenantId $tenantId = null): array;
+  public function findAll(?TenantId $tenantId = null, ?bool $isSystem = null): array;
 
   /**
    * Method save.

@@ -22,9 +22,12 @@ final readonly class ListRolesQuery implements QueryMessage
    * Constructor.
    *
    * @since 1.0.0
+   *
+   * @param bool|null $isSystem optional filter to return only system or non-system roles
    */
-  public function __construct()
-  {
+  public function __construct(
+    public readonly ?bool $isSystem = null,
+  ) {
   }
   // #endregion
 }

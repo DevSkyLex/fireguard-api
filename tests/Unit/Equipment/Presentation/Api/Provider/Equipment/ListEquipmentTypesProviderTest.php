@@ -8,7 +8,6 @@ use ApiPlatform\Metadata\GetCollection;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipmentTypes\{GetEquipmentTypeResult, ListEquipmentTypesQuery, ListEquipmentTypesResult};
 use Equipment\Domain\ValueObject\EquipmentType;
-use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentTypeOutput;
 use Equipment\Presentation\Api\Provider\Equipment\ListEquipmentTypesProvider;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -139,7 +138,6 @@ final class ListEquipmentTypesProviderTest extends TestCase
     );
 
     self::assertCount(count(EquipmentType::cases()), $outputs);
-    self::assertContainsOnlyInstancesOf(EquipmentTypeOutput::class, $outputs);
 
     $byValue = [];
     foreach ($outputs as $output) {

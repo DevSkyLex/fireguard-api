@@ -52,7 +52,7 @@ final readonly class ListRolesHandler implements QueryHandler
    */
   public function __invoke(ListRolesQuery $query): ListRolesResult
   {
-    $roles = $this->roleRepository->findAll();
+    $roles = $this->roleRepository->findAll(isSystem: $query->isSystem);
 
     return new ListRolesResult(
       roles: array_values(array_map(
