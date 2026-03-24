@@ -48,6 +48,15 @@ final class OrganizationStatisticsOutput
   public int $facilityCount = 0;
 
   /**
+   * Property activeFacilityCount.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $activeFacilityCount = 0;
+
+  /**
    * Property pendingInvitationCount.
    *
    * @since 1.0.0

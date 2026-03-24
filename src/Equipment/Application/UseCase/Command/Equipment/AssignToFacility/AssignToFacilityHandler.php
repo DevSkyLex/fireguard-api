@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\AssignToFacility;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, FacilityValidationPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId};
 use Exception;
@@ -30,6 +30,7 @@ final readonly class AssignToFacilityHandler implements CommandHandler
   // #region Constructor
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
+    private FacilityValidationPort $facilityValidation,
     private TagRepositoryPort $tagRepository,
   ) {
   }
@@ -56,6 +57,8 @@ final readonly class AssignToFacilityHandler implements CommandHandler
     if (null === $equipment || (string) $equipment->organizationId() !== (string) $organizationId) {
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
+
+    $this->facilityValidation->assertFacilityIsAssignable($command->facilityId, $command->organizationId);
 
     try {
       $installedAt = null !== $command->installedAt

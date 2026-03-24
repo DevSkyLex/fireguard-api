@@ -6,7 +6,7 @@ namespace Inspection\Application\UseCase\Command\Inspection\CreateInspection;
 
 use DateTimeImmutable;
 use Exception;
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\{ChecklistValidationPort, EquipmentValidationPort, FacilityValidationPort, InspectionRepositoryPort};
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
@@ -38,6 +38,9 @@ final readonly class CreateInspectionHandler implements CommandHandler
   // #region Constructor
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
+    private EquipmentValidationPort $equipmentValidation,
+    private FacilityValidationPort $facilityValidation,
+    private ChecklistValidationPort $checklistValidation,
     private UuidFactory $uuidFactory,
   ) {
   }
@@ -58,6 +61,16 @@ final readonly class CreateInspectionHandler implements CommandHandler
   public function __invoke(CreateInspectionCommand $command): CreateInspectionResult
   {
     try {
+      $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
+
+      if (null !== $command->facilityId) {
+        $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
+      }
+
+      if (null !== $command->checklistId) {
+        $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
+      }
+
       $organizationId = InspectionOrganizationId::fromString($command->organizationId);
       $equipmentId = InspectionEquipmentId::fromString($command->equipmentId);
       $facilityId = null !== $command->facilityId ? InspectionFacilityId::fromString($command->facilityId) : null;

@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Functional\Api;
+
+use PHPUnit\Framework\Attributes\Test;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+
+use function json_encode;
+
+final class __API_TEST_CLASS__ extends WebTestCase
+{
+  #[Test]
+  public function test__SUCCESS_TEST_NAME__(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: '__HTTP_METHOD__',
+      uri: '__URI__',
+      server: ['CONTENT_TYPE' => 'application/json'],
+      content: (string) json_encode(__PAYLOAD__),
+    );
+
+    self::assertSame(__EXPECTED_STATUS_CODE__, $client->getResponse()->getStatusCode());
+    __SUCCESS_RESPONSE_ASSERTIONS__
+  }
+
+  #[Test]
+  public function test__FAILURE_TEST_NAME__(): void
+  {
+    $client = static::createClient();
+
+    $client->request('__FAILURE_HTTP_METHOD__', '__FAILURE_URI__');
+
+    self::assertContains(
+      needle: $client->getResponse()->getStatusCode(),
+      haystack: [401, 403, 404, 409, 422],
+    );
+  }
+}

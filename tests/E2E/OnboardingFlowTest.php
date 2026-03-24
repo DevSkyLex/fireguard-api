@@ -79,7 +79,7 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->assertSame('in_progress', $data['state']);
     $this->assertSame('create_organization', $data['nextStep']);
     $this->assertIsArray($data['steps']);
-    $this->assertCount(2, $data['steps']);
+    $this->assertCount(5, $data['steps']);
   }
 
   public function testCompleteOrganizationOnboardingFlow(): void
@@ -162,10 +162,10 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $organizationId = $createOrgData['targetOrganizationId'];
     $this->assertIsString($organizationId);
 
-    // Step 3: Skip the invite_members step (it is optional).
+    // Step 3: Try to skip a required step (create_first_facility) — must return 409 conflict.
     $client->request(
       method: 'POST',
-      uri: '/api/onboarding/organization/steps/invite_members/skip',
+      uri: '/api/onboarding/organization/steps/create_first_facility/skip',
       server: [
         'CONTENT_TYPE' => 'application/ld+json',
         'HTTP_ACCEPT' => 'application/ld+json',
@@ -175,15 +175,11 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     );
 
     $skipResponse = $client->getResponse();
-    $this->assertContains(
+    $this->assertSame(
+      Response::HTTP_CONFLICT,
       $skipResponse->getStatusCode(),
-      [Response::HTTP_OK, Response::HTTP_CREATED],
-      'Skip invite_members step should succeed. Response: ' . $skipResponse->getContent(),
+      'Skipping required step create_first_facility should return 409. Response: ' . $skipResponse->getContent(),
     );
-
-    $skipData = $this->decodeJsonResponse($skipResponse->getContent() ?: '{}');
-    $this->assertSame('completed', $skipData['state']);
-    $this->assertNull($skipData['nextStep']);
   }
 
   public function testExecuteWrongStepReturnsConflict(): void
@@ -226,6 +222,22 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
 
     $this->createAndActivateUser($client, $email, $password);
     $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+
+    // Initialize the onboarding session before creating the org so that the session
+    // createdAt is earlier than the org createdAt, satisfying the adoption guard.
+    $client->request(
+      method: 'GET',
+      uri: '/api/onboarding/organization',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+    $this->assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'GET /api/onboarding/organization should initialize the session. Response: ' . $client->getResponse()->getContent(),
+    );
 
     // Create the organization via the dedicated endpoint first.
     $client->request(

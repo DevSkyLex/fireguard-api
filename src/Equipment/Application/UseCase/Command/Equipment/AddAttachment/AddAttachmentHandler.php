@@ -15,6 +15,7 @@ use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
+use function basename;
 use function sprintf;
 
 /**
@@ -66,7 +67,7 @@ final readonly class AddAttachmentHandler implements CommandHandler
       'equipment/%s/attachments/%s_%s',
       $command->equipmentId,
       (string) $attachmentId,
-      $command->fileName,
+      basename($command->fileName),
     );
 
     $attachment = EquipmentAttachment::create(
@@ -79,21 +80,20 @@ final readonly class AddAttachmentHandler implements CommandHandler
       label: $command->label,
     );
 
-    $this->attachmentRepository->save($attachment);
+    $this->fileStorage->write($storagePath, $command->contents);
 
     try {
-      $this->fileStorage->write($storagePath, $command->contents);
-    } catch (Throwable $storageException) {
-      $this->attachmentRepository->delete($attachment->id());
+      $this->attachmentRepository->save($attachment);
+    } catch (Throwable $dbException) {
+      $this->fileStorage->delete($storagePath);
 
-      throw $storageException;
+      throw $dbException;
     }
 
     return new AddAttachmentResult(
       attachmentId: (string) $attachment->id(),
       equipmentId: (string) $attachment->equipmentId(),
       fileName: $attachment->fileName(),
-      storagePath: $attachment->storagePath(),
       mimeType: $attachment->mimeType(),
       size: $attachment->size(),
       label: $attachment->label(),

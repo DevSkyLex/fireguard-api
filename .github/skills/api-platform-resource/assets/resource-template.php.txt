@@ -1,0 +1,122 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Resource;
+
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
+use ApiPlatform\OpenApi\Model\{Operation, Response};
+use __MODULE__\Presentation\Api\Dto\Input\__AREA__\{__CREATE_INPUT__, __UPDATE_INPUT__};
+use __MODULE__\Presentation\Api\Dto\Output\__AREA__\__OUTPUT__;
+use __MODULE__\Presentation\Api\Operation\__OPERATIONS_CLASS__;
+use __MODULE__\Presentation\Api\Processor\__AREA__\{__CREATE_PROCESSOR__, __UPDATE_PROCESSOR__};
+use __MODULE__\Presentation\Api\Provider\__AREA__\{__GET_PROVIDER__, __LIST_PROVIDER__};
+use __MODULE__\Presentation\Api\Serialization\__SERIALIZATION_GROUPS_CLASS__;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
+
+/**
+ * Resource __RESOURCE_CLASS__.
+ *
+ * Replace the placeholders and keep the description focused on the external API contract.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+#[ApiResource(
+  shortName: '__SHORT_NAME__',
+  routePrefix: '/__ROUTE_PREFIX__',
+  description: '__RESOURCE_DESCRIPTION__',
+  operations: [
+    new Post(
+      name: __OPERATIONS_CLASS__::__CREATE_OPERATION__,
+      uriTemplate: '/{__SCOPE_ID__}/__COLLECTION_PATH__',
+      input: __CREATE_INPUT__::class,
+      output: __OUTPUT__::class,
+      processor: __CREATE_PROCESSOR__::class,
+      denormalizationContext: ['groups' => [__SERIALIZATION_GROUPS_CLASS__::WRITE]],
+      normalizationContext: ['groups' => [__SERIALIZATION_GROUPS_CLASS__::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['__TAG__'],
+        summary: '__CREATE_SUMMARY__',
+        description: '__CREATE_DESCRIPTION__',
+        responses: [
+          HttpResponse::HTTP_CREATED => new Response(description: '__CREATE_SUCCESS_RESPONSE__'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new GetCollection(
+      name: __OPERATIONS_CLASS__::__LIST_OPERATION__,
+      uriTemplate: '/{__SCOPE_ID__}/__COLLECTION_PATH__',
+      input: false,
+      output: __OUTPUT__::class,
+      provider: __LIST_PROVIDER__::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
+      normalizationContext: ['groups' => [__SERIALIZATION_GROUPS_CLASS__::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['__TAG__'],
+        summary: '__LIST_SUMMARY__',
+        description: '__LIST_DESCRIPTION__',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: '__LIST_SUCCESS_RESPONSE__'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or query parameter'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Get(
+      name: __OPERATIONS_CLASS__::__GET_OPERATION__,
+      uriTemplate: '/{__SCOPE_ID__}/__COLLECTION_PATH__/{__RESOURCE_ID__}',
+      input: false,
+      output: __OUTPUT__::class,
+      provider: __GET_PROVIDER__::class,
+      normalizationContext: ['groups' => [__SERIALIZATION_GROUPS_CLASS__::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['__TAG__'],
+        summary: '__GET_SUMMARY__',
+        description: '__GET_DESCRIPTION__',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: '__GET_SUCCESS_RESPONSE__'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: '__NOT_FOUND_RESPONSE__'),
+        ],
+      ),
+    ),
+    new Patch(
+      name: __OPERATIONS_CLASS__::__UPDATE_OPERATION__,
+      uriTemplate: '/{__SCOPE_ID__}/__COLLECTION_PATH__/{__RESOURCE_ID__}',
+      read: false,
+      input: __UPDATE_INPUT__::class,
+      output: __OUTPUT__::class,
+      processor: __UPDATE_PROCESSOR__::class,
+      denormalizationContext: ['groups' => [__SERIALIZATION_GROUPS_CLASS__::WRITE]],
+      normalizationContext: ['groups' => [__SERIALIZATION_GROUPS_CLASS__::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['__TAG__'],
+        summary: '__UPDATE_SUMMARY__',
+        description: '__UPDATE_DESCRIPTION__',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: '__UPDATE_SUCCESS_RESPONSE__'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: '__NOT_FOUND_RESPONSE__'),
+        ],
+      ),
+    ),
+  ],
+)]
+final class __RESOURCE_CLASS__
+{
+  // This class intentionally stays empty because Api Platform metadata is declared above.
+}

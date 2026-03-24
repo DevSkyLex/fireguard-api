@@ -37,5 +37,15 @@ final class UpdateOrganizationRoleInput
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Role permissions', required: true, example: ['organization.read', 'organization.members.read'])]
   public array $permissions = [];
+
+  /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Length(max: 500, maxMessage: 'Role description cannot exceed 500 characters.')]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Role description', required: false, example: 'Can inspect equipment')]
+  public ?string $description = null;
   // #endregion
 }

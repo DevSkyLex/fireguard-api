@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction;
 
+use LogicException;
 use Onboarding\Domain\ValueObject\OrganizationOnboardingStep;
 
 use function is_string;
@@ -80,8 +81,12 @@ final readonly class DeleteOrganizationRollbackAction implements RollbackActionI
   {
     $organizationId = $data['organizationId'] ?? null;
 
+    if (!is_string($organizationId) || '' === $organizationId) {
+      throw new LogicException('Rollback action payload is missing or has an invalid "organizationId".');
+    }
+
     return new self(
-      organizationId: is_string($organizationId) ? $organizationId : '',
+      organizationId: $organizationId,
     );
   }
   // #endregion

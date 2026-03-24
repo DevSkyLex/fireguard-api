@@ -79,76 +79,123 @@ final class OrganizationOnboardingOutputAssembler
       $completedAtByStep[$entry['stepKey']] = $entry['occurredAt'];
     }
 
-    $createOrganizationStep = self::createStep(
-      key: OrganizationOnboardingStep::CREATE_ORGANIZATION,
-      label: 'Create organization',
-      actionMethod: 'POST',
-      actionPath: '/api/organizations',
-    );
-    $inviteMembersStep = self::createStep(
-      key: OrganizationOnboardingStep::INVITE_MEMBERS,
-      label: 'Invite members',
-      actionMethod: 'POST',
-      actionPath: null !== $state->targetOrganizationId
-        ? sprintf('/api/organizations/%s/invitations', $state->targetOrganizationId)
-        : '/api/organizations/{organizationId}/invitations',
-    );
-
-    // invite_members is skippable
-    $inviteMembersStep->skippable = true;
-
+    $orgId = $state->targetOrganizationId;
     $isCreateCompleted = in_array(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->completedSteps, true);
 
-    if (!$isCreateCompleted) {
-      $createOrganizationStep->status = 'pending';
-      $createOrganizationStep->required = true;
-      $createOrganizationStep->available = true;
+    // Step catalog: key => [label, required, skippable, actionMethod, actionPath]
+    $stepCatalog = [
+      OrganizationOnboardingStep::CREATE_ORGANIZATION => [
+        'label' => 'Create organization',
+        'required' => true,
+        'skippable' => false,
+        'actionMethod' => 'POST',
+        'actionPath' => '/api/organizations',
+      ],
+      OrganizationOnboardingStep::INVITE_MEMBERS => [
+        'label' => 'Invite members',
+        'required' => false,
+        'skippable' => true,
+        'actionMethod' => 'POST',
+        'actionPath' => null !== $orgId
+          ? sprintf('/api/organizations/%s/invitations', $orgId)
+          : '/api/organizations/{organizationId}/invitations',
+      ],
+      OrganizationOnboardingStep::CREATE_FIRST_FACILITY => [
+        'label' => 'Create first facility',
+        'required' => true,
+        'skippable' => false,
+        'actionMethod' => 'POST',
+        'actionPath' => null !== $orgId
+          ? sprintf('/api/organizations/%s/facilities', $orgId)
+          : '/api/organizations/{organizationId}/facilities',
+      ],
+      OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT => [
+        'label' => 'Create first equipment',
+        'required' => true,
+        'skippable' => false,
+        'actionMethod' => 'POST',
+        'actionPath' => null !== $orgId
+          ? sprintf('/api/organizations/%s/equipment', $orgId)
+          : '/api/organizations/{organizationId}/equipment',
+      ],
+      OrganizationOnboardingStep::RUN_FIRST_INSPECTION => [
+        'label' => 'Run first inspection',
+        'required' => true,
+        'skippable' => false,
+        'actionMethod' => 'POST',
+        'actionPath' => null !== $orgId
+          ? sprintf('/api/organizations/%s/inspections', $orgId)
+          : '/api/organizations/{organizationId}/inspections',
+      ],
+    ];
 
-      $inviteMembersStep->status = 'blocked';
-      $inviteMembersStep->required = false;
-      $inviteMembersStep->available = false;
-      $inviteMembersStep->reason = 'organization_required';
-    } else {
-      $createOrganizationStep->status = 'completed';
-      $createOrganizationStep->required = false;
-      $createOrganizationStep->available = true;
+    $steps = [];
+    foreach (OrganizationOnboardingStep::all() as $stepKey) {
+      $meta = $stepCatalog[$stepKey];
 
-      $isSkipped = in_array(OrganizationOnboardingStep::INVITE_MEMBERS, $state->skippedSteps, true);
-      $isCompleted = in_array(OrganizationOnboardingStep::INVITE_MEMBERS, $state->completedSteps, true);
+      $step = self::createStep(
+        key: $stepKey,
+        label: $meta['label'],
+        actionMethod: $meta['actionMethod'],
+        actionPath: $meta['actionPath'],
+      );
+      $step->skippable = $meta['skippable'];
 
-      if ($isSkipped) {
-        $inviteMembersStep->status = 'skipped';
-        $inviteMembersStep->required = false;
-        $inviteMembersStep->available = true;
-      } elseif ($isCompleted) {
-        $inviteMembersStep->status = 'completed';
-        $inviteMembersStep->required = false;
-        $inviteMembersStep->available = true;
+      $isCompleted = in_array($stepKey, $state->completedSteps, true);
+      $isSkipped = in_array($stepKey, $state->skippedSteps, true);
+
+      if ($isCompleted) {
+        $step->status = 'completed';
+        $step->required = false;
+        $step->available = true;
+      } elseif ($isSkipped) {
+        $step->status = 'skipped';
+        $step->required = false;
+        $step->available = true;
+      } elseif (!$isCreateCompleted) {
+        // Before create_organization is confirmed, all subsequent steps are blocked
+        if (OrganizationOnboardingStep::CREATE_ORGANIZATION === $stepKey) {
+          $step->status = 'pending';
+          $step->required = true;
+          $step->available = true;
+        } else {
+          $step->status = 'blocked';
+          $step->required = $meta['required'];
+          $step->available = false;
+          $step->reason = 'organization_required';
+        }
+      } elseif ($stepKey === $state->nextStep) {
+        $step->status = 'pending';
+        $step->required = $meta['required'];
+        $step->available = true;
       } else {
-        $inviteMembersStep->status = 'pending';
-        $inviteMembersStep->required = false;
-        $inviteMembersStep->available = true;
+        // Future step not yet reachable
+        $step->status = 'blocked';
+        $step->required = $meta['required'];
+        $step->available = false;
+        $step->reason = 'previous_step_required';
       }
+
+      // Only expose completedAt for steps that are actually confirmed or skipped;
+      // history entries from a rolled-back or externally-reset session must not
+      // leak a timestamp for a step that is no longer in a terminal state.
+      $step->completedAt = ($isCompleted || $isSkipped)
+        ? ($completedAtByStep[$stepKey] ?? null)
+        : null;
+
+      self::hydrateRollbackMetadata($step, $state->lastRollbackableStep);
+      self::hydrateSkipMetadata($step, $state->nextStep);
+
+      $steps[] = $step;
     }
 
-    // Hydrate completedAt timestamps
-    $createOrganizationStep->completedAt = $completedAtByStep[OrganizationOnboardingStep::CREATE_ORGANIZATION] ?? null;
-    $inviteMembersStep->completedAt = $completedAtByStep[OrganizationOnboardingStep::INVITE_MEMBERS] ?? null;
+    $output->steps = $steps;
 
     // Rollback metadata
     $output->canRollback = $state->canRollback;
     $output->lastRollbackableStep = $state->lastRollbackableStep;
     $output->rollbackMethod = $state->canRollback ? 'POST' : null;
     $output->rollbackPath = $state->canRollback ? self::ROLLBACK_PATH : null;
-
-    self::hydrateRollbackMetadata($createOrganizationStep, $state->lastRollbackableStep);
-    self::hydrateRollbackMetadata($inviteMembersStep, $state->lastRollbackableStep);
-
-    // Skip metadata: only available when the step is the current pending step
-    self::hydrateSkipMetadata($createOrganizationStep, $state->nextStep);
-    self::hydrateSkipMetadata($inviteMembersStep, $state->nextStep);
-
-    $output->steps = [$createOrganizationStep, $inviteMembersStep];
 
     return $output;
   }

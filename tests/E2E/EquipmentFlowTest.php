@@ -139,6 +139,51 @@ final class EquipmentFlowTest extends OAuth2WebTestCase
     $updateData = $this->decodeJsonResponse($updateResponse->getContent() ?: '{}');
     $this->assertSame('Amerex', $updateData['brand'] ?? null, 'Brand should be updated.');
 
+    // Step 6a: Create a facility (required before commissioning).
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/facilities',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'type' => 'building',
+        'name' => 'Main Building',
+      ]) ?: '',
+    );
+
+    $facilityResponse = $client->getResponse();
+    $this->assertContains(
+      $facilityResponse->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Facility creation should succeed. Response: ' . $facilityResponse->getContent(),
+    );
+
+    $facilityData = $this->decodeJsonResponse($facilityResponse->getContent() ?: '{}');
+    $facilityId = $this->extractResourceId($facilityData);
+    $this->assertNotNull($facilityId, 'Facility ID should be present in create response.');
+
+    // Step 6b: Assign equipment to the facility (required before commissioning).
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/equipment/' . $equipmentId . '/assign',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode(['facilityId' => $facilityId]) ?: '',
+    );
+
+    $assignResponse = $client->getResponse();
+    $this->assertContains(
+      $assignResponse->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_CREATED],
+      'Assign to facility should succeed. Response: ' . $assignResponse->getContent(),
+    );
+
     // Step 6: Commission equipment.
     $client->request(
       method: 'POST',

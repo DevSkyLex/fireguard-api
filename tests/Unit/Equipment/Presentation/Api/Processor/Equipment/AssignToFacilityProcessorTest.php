@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
@@ -147,6 +147,46 @@ final class AssignToFacilityProcessorTest extends TestCase
     self::assertInstanceOf(EquipmentOutput::class, $output);
     self::assertSame($facilityId, $output->facilityId);
     self::assertSame('Floor 2, Room 201', $output->locationLabel);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenPermissionMissing(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441220';
+    $equipmentId = '550e8400-e29b-41d4-a716-446655441221';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441222');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with($user->getId(), $organizationId, 'organization.equipment.write')
+      ->willReturn(false);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new AssignToFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: new AssignToFacilityInput(),
+      operation: new Post(),
+      uriVariables: [
+        'organizationId' => $organizationId,
+        'equipmentId' => $equipmentId,
+      ],
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

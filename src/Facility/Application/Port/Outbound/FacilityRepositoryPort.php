@@ -57,6 +57,19 @@ interface FacilityRepositoryPort
   public function countByOrganizationId(FacilityOrganizationId $organizationId): int;
 
   /**
+   * Method countActiveByOrganizationId.
+   *
+   * Counts active (non-archived) facilities belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   *
+   * @return int the active facility count
+   */
+  public function countActiveByOrganizationId(FacilityOrganizationId $organizationId): int;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities for an organization.

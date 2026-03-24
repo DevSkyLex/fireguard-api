@@ -4,20 +4,14 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\CreateEquipment;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
-use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
 use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
-use Throwable;
 use ValueError;
-
-use function str_contains;
-use function strtolower;
 
 /**
  * UseCase CreateEquipmentHandler.
@@ -72,15 +66,7 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    try {
-      $this->equipmentRepository->save($equipment);
-    } catch (Throwable $exception) {
-      if ($this->isDuplicateSerialNumberViolation($exception)) {
-        throw EquipmentSerialNumberAlreadyExistsException::withSerialNumber($command->serialNumber ?? '');
-      }
-
-      throw $exception;
-    }
+    $this->equipmentRepository->save($equipment);
 
     return new CreateEquipmentResult(
       equipmentId: (string) $equipment->id(),
@@ -101,28 +87,5 @@ final readonly class CreateEquipmentHandler implements CommandHandler
     );
   }
 
-  /**
-   * Method isDuplicateSerialNumberViolation.
-   *
-   * @since 1.0.0
-   */
-  private function isDuplicateSerialNumberViolation(Throwable $exception): bool
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      if ($current instanceof UniqueConstraintViolationException) {
-        $message = strtolower($current->getMessage());
-
-        if (str_contains($message, 'uniq_equipment_organization_serial') || (str_contains($message, 'equipment') && str_contains($message, 'serial'))) {
-          return true;
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return false;
-  }
   // #endregion
 }

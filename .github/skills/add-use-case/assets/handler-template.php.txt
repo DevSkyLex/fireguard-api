@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\__FLOW_TYPE__\__AREA__\__USE_CASE__;
+
+use __MODULE__\Application\Port\Outbound\__REPOSITORY_PORT__;
+use InvalidArgumentException;
+
+/**
+ * Handler __HANDLER_CLASS__.
+ *
+ * Keep orchestration, scoping, and business validation here.
+ *
+ * @category Handler
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __HANDLER_CLASS__
+{
+  // #region Constructor
+  public function __construct(
+    private __REPOSITORY_PORT__ $repository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * @since 1.0.0
+   */
+  public function __invoke(__MESSAGE_CLASS__ $message): __RESULT_CLASS__
+  {
+    if ('' === $message->__SCOPE_ID_PROPERTY__) {
+      throw new InvalidArgumentException('__SCOPE_ID_PROPERTY__ cannot be empty.');
+    }
+
+    __HANDLER_BODY__
+
+    return new __RESULT_CLASS__(
+      __RESULT_ARGUMENTS__
+    );
+  }
+  // #endregion
+}

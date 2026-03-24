@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Integration\__MODULE__\Infrastructure\Persistence\Doctrine\Repository;
+
+use __MODULE__\Infrastructure\Persistence\Doctrine\Repository\__REPOSITORY_CLASS__;
+use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+#[CoversClass(className: __REPOSITORY_CLASS__::class)]
+final class __REPOSITORY_CLASS__IntegrationTest extends KernelTestCase
+{
+  private EntityManagerInterface $entityManager;
+
+  private __REPOSITORY_CLASS__ $repository;
+
+  protected function setUp(): void
+  {
+    self::bootKernel();
+    $container = static::getContainer();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = $container->get('__ENTITY_MANAGER_SERVICE__');
+    $this->entityManager = $entityManager;
+
+    $this->repository = new __REPOSITORY_CLASS__(
+      entityManager: $this->entityManager,
+      __REPOSITORY_CONSTRUCTOR_ARGUMENTS__
+    );
+  }
+
+  protected function tearDown(): void
+  {
+    parent::tearDown();
+    $this->entityManager->close();
+  }
+
+  #[Test]
+  public function test__TEST_NAME__(): void
+  {
+    __SETUP_RECORDS__
+
+    __EXERCISE_REPOSITORY__
+
+    __ASSERTIONS__
+  }
+}

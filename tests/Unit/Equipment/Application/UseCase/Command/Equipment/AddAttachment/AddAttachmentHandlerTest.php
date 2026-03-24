@@ -1,0 +1,255 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\AddAttachment;
+
+use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
+use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachmentCommand, AddAttachmentHandler, AddAttachmentResult};
+use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\FileStoragePort;
+
+#[CoversClass(AddAttachmentHandler::class)]
+final class AddAttachmentHandlerTest extends TestCase
+{
+  private const string ORG_ID = '550e8400-e29b-41d4-a716-446655446001';
+
+  private const string EQUIP_ID = '550e8400-e29b-41d4-a716-446655446002';
+
+  private const string ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655446003';
+
+  // #region Methods
+  #[Test]
+  public function testInvokeStoresAttachmentSuccessfully(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::once())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+      label: 'Inspection report',
+    ));
+
+    self::assertInstanceOf(AddAttachmentResult::class, $result);
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
+    self::assertSame('report.pdf', $result->fileName);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenEquipmentNotFound(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn(null);
+
+    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(EquipmentNotFoundException::class);
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotSaveRecordWhenStorageWriteFails(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())
+      ->method('write')
+      ->willThrowException(new RuntimeException('Storage unavailable.'));
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Storage unavailable.');
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeDeletesFileWhenDatabaseSaveFails(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new RuntimeException('Database error.'));
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write');
+    $fileStorage->expects(self::once())->method('delete');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Database error.');
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeAppliesBasenameToPreventPathTraversal(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())
+      ->method('write')
+      ->with(
+        self::matchesRegularExpression('#^equipment/.+/attachments/.+_evil\.pdf$#'),
+        self::anything(),
+      );
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: '../../etc/evil.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 7,
+    ));
+  }
+  // #endregion
+}

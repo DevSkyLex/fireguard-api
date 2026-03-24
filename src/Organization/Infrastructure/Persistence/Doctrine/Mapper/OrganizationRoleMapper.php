@@ -45,6 +45,7 @@ final class OrganizationRoleMapper
       permissions: $record->permissions,
       isSystem: $record->isSystem,
       createdAt: $record->createdAt,
+      description: $record->description,
     );
   }
 
@@ -65,6 +66,7 @@ final class OrganizationRoleMapper
     $record->id = (string) $role->id();
     $record->name = (string) $role->name();
     $record->permissions = $role->permissions();
+    $record->description = $role->description();
     $record->isSystem = $role->isSystem();
     $record->createdAt = $role->createdAt();
 

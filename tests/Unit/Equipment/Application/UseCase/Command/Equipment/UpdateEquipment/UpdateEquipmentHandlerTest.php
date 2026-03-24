@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 
-use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
-use Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\{UpdateEquipmentCommand, UpdateEquipmentHandler};
+use Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\{UpdateEquipmentCommand, UpdateEquipmentHandler, UpdateEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentSerialNumberAlreadyExistsException};
+use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 #[CoversClass(UpdateEquipmentHandler::class)]
 final class UpdateEquipmentHandlerTest extends TestCase
@@ -45,24 +45,13 @@ final class UpdateEquipmentHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsSerialNumberAlreadyExistsOnUniqueConstraintViolation(): void
   {
-    $driverException = new class ('SQLSTATE[23505]: duplicate key value violates unique constraint "uniq_equipment_organization_serial"') extends RuntimeException implements DoctrineDriverException {
-      public function getSQLState(): string
-      {
-        return '23505';
-      }
-    };
-
-    // Build a real equipment instance to return from findById
     $existingEquipmentId = '550e8400-e29b-41d4-a716-446655440901';
     $organizationId = '550e8400-e29b-41d4-a716-446655440902';
 
-    // We need a real Equipment model; use the factory helpers
-    $equipmentId = new \Equipment\Domain\ValueObject\EquipmentId($existingEquipmentId);
-    $orgId = new \Equipment\Domain\ValueObject\EquipmentOrganizationId($organizationId);
-    $equipment = \Equipment\Domain\Model\Equipment\Equipment::create(
-      id: $equipmentId,
-      organizationId: $orgId,
-      type: \Equipment\Domain\ValueObject\EquipmentType::FIRE_EXTINGUISHER,
+    $equipment = Equipment::create(
+      id: new EquipmentId($existingEquipmentId),
+      organizationId: new EquipmentOrganizationId($organizationId),
+      type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
     /** @var EquipmentRepositoryPort&MockObject $repository */
@@ -72,7 +61,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $repository->expects(self::once())
       ->method('save')
-      ->willThrowException(new UniqueConstraintViolationException($driverException, null));
+      ->willThrowException(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('EXT-DUPLICATE'));
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
     $tagRepository = $this->createMock(TagRepositoryPort::class);
@@ -87,6 +76,86 @@ final class UpdateEquipmentHandlerTest extends TestCase
       equipmentId: $existingEquipmentId,
       type: 'fire_extinguisher',
       serialNumber: 'EXT-DUPLICATE',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultOnSuccess(): void
+  {
+    $equipmentId = '550e8400-e29b-41d4-a716-446655440903';
+    $organizationId = '550e8400-e29b-41d4-a716-446655440904';
+
+    $equipment = Equipment::create(
+      id: new EquipmentId($equipmentId),
+      organizationId: new EquipmentOrganizationId($organizationId),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($equipment);
+    $repository->expects(self::once())->method('save');
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
+
+    $result = $handler->__invoke(new UpdateEquipmentCommand(
+      organizationId: $organizationId,
+      equipmentId: $equipmentId,
+      type: 'smoke_detector',
+      brand: 'Fireman',
+      model: 'Pro-2000',
+      serialNumber: 'SN-UPDATED',
+      locationLabel: '3rd floor',
+    ));
+
+    self::assertInstanceOf(UpdateEquipmentResult::class, $result);
+    self::assertSame($equipmentId, $result->equipmentId);
+    self::assertSame($organizationId, $result->organizationId);
+    self::assertSame('smoke_detector', $result->type);
+    self::assertSame('Fireman', $result->brand);
+    self::assertSame('Pro-2000', $result->model);
+    self::assertSame('SN-UPDATED', $result->serialNumber);
+    self::assertSame('3rd floor', $result->locationLabel);
+    self::assertSame('in_stock', $result->status);
+    self::assertSame([], $result->tags);
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentExceptionOnInvalidType(): void
+  {
+    $equipmentId = '550e8400-e29b-41d4-a716-446655440905';
+    $organizationId = '550e8400-e29b-41d4-a716-446655440906';
+
+    $equipment = Equipment::create(
+      id: new EquipmentId($equipmentId),
+      organizationId: new EquipmentOrganizationId($organizationId),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($equipment);
+    $repository->expects(self::never())->method('save');
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+
+    $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new UpdateEquipmentCommand(
+      organizationId: $organizationId,
+      equipmentId: $equipmentId,
+      type: 'invalid_type_xyz',
     ));
   }
 }

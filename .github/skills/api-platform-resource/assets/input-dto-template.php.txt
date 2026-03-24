@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Dto\Input\__AREA__;
+
+use ApiPlatform\Metadata\ApiProperty;
+use __MODULE__\Presentation\Api\Serialization\__SERIALIZATION_GROUPS_CLASS__;
+use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
+
+/**
+ * DTO __INPUT_CLASS__.
+ *
+ * Keep only writable request fields here. Avoid adding derived or domain-only values.
+ *
+ * @category DTO
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final class __INPUT_CLASS__
+{
+  // #region Properties
+  /**
+   * Property __FIELD_ONE_PROPERTY__.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\NotBlank(message: '__FIELD_ONE__ is required.')]
+  #[Assert\Length(max: 255)]
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::WRITE])]
+  #[ApiProperty(description: '__FIELD_ONE__ description', required: true, example: '__FIELD_ONE_EXAMPLE__')]
+  public string $__FIELD_ONE_PROPERTY__ = '';
+
+  /**
+   * Property __FIELD_TWO_PROPERTY__.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Length(max: 255)]
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::WRITE])]
+  #[ApiProperty(description: '__FIELD_TWO__ description', required: false, example: '__FIELD_TWO_EXAMPLE__')]
+  public ?string $__FIELD_TWO_PROPERTY__ = null;
+  // #endregion
+}

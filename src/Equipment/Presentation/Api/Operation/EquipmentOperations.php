@@ -80,6 +80,13 @@ final class EquipmentOperations
   public const string DECOMMISSION_EQUIPMENT = 'equipment_decommission';
 
   /**
+   * Constant LIST_EQUIPMENT_TYPES.
+   *
+   * @var string
+   */
+  public const string LIST_EQUIPMENT_TYPES = 'equipment_types_list';
+
+  /**
    * Constant ADD_TAG_TO_EQUIPMENT.
    *
    * @var string

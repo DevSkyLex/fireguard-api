@@ -9,7 +9,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{GetOrganizationRoleResult, ListOrganizationRolesQuery, ListOrganizationRolesResult};
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationRoleOutput;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationRolesProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -99,6 +99,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
           permissions: ['organization.read', 'organization.members.manage'],
           isSystem: false,
           createdAt: $createdAt,
+          description: 'Manager role',
         ),
       ]));
 
@@ -115,9 +116,15 @@ final class ListOrganizationRolesProviderTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655441811', $output[0]->id);
     self::assertSame('550e8400-e29b-41d4-a716-446655441810', $output[0]->organizationId);
     self::assertSame('manager', $output[0]->name);
-    self::assertSame(['organization.read', 'organization.members.manage'], $output[0]->permissions);
+    self::assertCount(2, $output[0]->permissions);
+    self::assertInstanceOf(OrganizationPermissionOutput::class, $output[0]->permissions[0]);
+    self::assertSame('organization.read', $output[0]->permissions[0]->name);
+    self::assertSame('View organization details', $output[0]->permissions[0]->description);
+    self::assertSame('organization.members.manage', $output[0]->permissions[1]->name);
+    self::assertSame('Manage organization members (add, invite, revoke)', $output[0]->permissions[1]->description);
     self::assertFalse($output[0]->isSystem);
     self::assertSame($createdAt->format('c'), $output[0]->createdAt);
+    self::assertSame('Manager role', $output[0]->description);
   }
 
   private function createSecurityUser(string $id): SecurityUser

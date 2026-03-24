@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\__FLOW_TYPE__\__AREA__\__USE_CASE__;
+
+use DateTimeImmutable;
+
+/**
+ * Result __RESULT_CLASS__.
+ *
+ * This is the explicit application-layer contract returned to Presentation.
+ *
+ * @category Result
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __RESULT_CLASS__
+{
+  // #region Constructor
+  public function __construct(
+    public string $id,
+    public string $__SCOPE_ID_PROPERTY__,
+    public ?string $__FIELD_ONE_PROPERTY__,
+    public ?string $__FIELD_TWO_PROPERTY__,
+    public DateTimeImmutable $createdAt,
+    public DateTimeImmutable $updatedAt,
+  ) {
+  }
+  // #endregion
+}

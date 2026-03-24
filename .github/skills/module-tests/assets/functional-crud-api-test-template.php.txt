@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Functional\Api;
+
+use PHPUnit\Framework\Attributes\Test;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+
+use function json_encode;
+
+/**
+ * Test __API_TEST_CLASS__.
+ *
+ * @category Functional Tests
+ *
+ * @author __AUTHOR__
+ */
+final class __API_TEST_CLASS__ extends WebTestCase
+{
+  // #region Methods
+  /**
+   * Method test__COLLECTION_ENDPOINT_TEST_NAME__.
+   *
+   * Tests that the collection endpoint enforces the expected contract.
+   */
+  #[Test]
+  public function test__COLLECTION_ENDPOINT_TEST_NAME__(): void
+  {
+    $client = static::createClient();
+
+    $client->request('__COLLECTION_HTTP_METHOD__', '__COLLECTION_URI__');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [__COLLECTION_EXPECTED_STATUS_LIST__],
+      message: '__COLLECTION_ASSERTION_MESSAGE__' . $statusCode,
+    );
+  }
+
+  /**
+   * Method test__CREATE_ENDPOINT_TEST_NAME__.
+   *
+   * Tests that create behavior enforces the expected contract.
+   */
+  #[Test]
+  public function test__CREATE_ENDPOINT_TEST_NAME__(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: 'POST',
+      uri: '__CREATE_URI__',
+      server: ['CONTENT_TYPE' => 'application/json'],
+      content: (string) json_encode(__CREATE_PAYLOAD__),
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [__CREATE_EXPECTED_STATUS_LIST__],
+      message: '__CREATE_ASSERTION_MESSAGE__' . $statusCode,
+    );
+  }
+  // #endregion
+}

@@ -19,6 +19,28 @@ namespace Organization\Domain\Catalog;
 final class OrganizationPermissionCatalog
 {
   /**
+   * Method descriptionFor.
+   *
+   * Returns the description for a given permission name, or an empty string if unknown.
+   *
+   * @since 1.0.0
+   *
+   * @param string $name the permission name
+   *
+   * @return string the description
+   */
+  public static function descriptionFor(string $name): string
+  {
+    foreach (self::definitions() as $definition) {
+      if ($definition['name'] === $name) {
+        return $definition['description'];
+      }
+    }
+
+    return '';
+  }
+
+  /**
    * Method definitions.
    *
    * Returns all available organization-scoped permissions.

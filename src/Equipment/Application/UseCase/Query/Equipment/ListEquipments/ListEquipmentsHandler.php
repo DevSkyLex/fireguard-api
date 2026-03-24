@@ -14,7 +14,6 @@ use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_map;
-use function count;
 
 /**
  * UseCase ListEquipmentsHandler.
@@ -58,6 +57,18 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $query->facilityId,
       $type,
       $status,
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
+    );
+
+    $total = $this->equipmentRepository->countByOrganizationId(
+      $organizationId,
+      $query->facilityId,
+      $type,
+      $status,
+      $query->search,
     );
 
     $results = [];
@@ -98,13 +109,11 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       );
     }
 
-    $total = count($results);
-
     return new PaginatedResult(
       items: $results,
       total: $total,
-      limit: $total,
-      offset: 0,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

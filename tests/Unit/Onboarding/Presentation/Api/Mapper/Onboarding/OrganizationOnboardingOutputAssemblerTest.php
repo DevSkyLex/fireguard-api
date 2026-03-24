@@ -37,7 +37,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertNull($output->rollbackPath);
     self::assertNull($output->rollbackMethod);
 
-    self::assertCount(2, $output->steps);
+    self::assertCount(5, $output->steps);
 
     $createStep = $output->steps[0];
     self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $createStep->key);
@@ -49,13 +49,21 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertSame('/api/organizations', $createStep->actionPath);
     self::assertFalse($createStep->rollbackAvailable);
 
+    // All subsequent steps are blocked before create_organization
+    for ($i = 1; $i < 5; ++$i) {
+      self::assertSame('blocked', $output->steps[$i]->status);
+      self::assertFalse($output->steps[$i]->available);
+      self::assertSame('organization_required', $output->steps[$i]->reason);
+    }
+
+    // Required flag must reflect the step's intrinsic nature, not its current status
+    self::assertFalse($output->steps[1]->required); // invite_members (optional)
+    self::assertTrue($output->steps[2]->required);  // create_first_facility
+    self::assertTrue($output->steps[3]->required);  // create_first_equipment
+    self::assertTrue($output->steps[4]->required);  // run_first_inspection
+
     $inviteStep = $output->steps[1];
     self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $inviteStep->key);
-    self::assertSame('blocked', $inviteStep->status);
-    self::assertFalse($inviteStep->required);
-    self::assertFalse($inviteStep->available);
-    self::assertSame('organization_required', $inviteStep->reason);
-    self::assertSame('/api/organizations/{organizationId}/invitations', $inviteStep->actionPath);
     self::assertTrue($inviteStep->skippable);
     self::assertFalse($inviteStep->rollbackAvailable);
   }
@@ -88,9 +96,17 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertTrue($createStep->required);
     self::assertTrue($createStep->available);
 
-    $inviteStep = $output->steps[1];
-    self::assertSame('blocked', $inviteStep->status);
-    self::assertSame('organization_required', $inviteStep->reason);
+    // All subsequent steps are blocked
+    for ($i = 1; $i < 5; ++$i) {
+      self::assertSame('blocked', $output->steps[$i]->status);
+      self::assertSame('organization_required', $output->steps[$i]->reason);
+    }
+
+    // Required flag must reflect intrinsic nature even when blocked
+    self::assertFalse($output->steps[1]->required); // invite_members (optional)
+    self::assertTrue($output->steps[2]->required);  // create_first_facility
+    self::assertTrue($output->steps[3]->required);  // create_first_equipment
+    self::assertTrue($output->steps[4]->required);  // run_first_inspection
   }
 
   #[Test]
@@ -103,7 +119,9 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
       nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      completedSteps: [
+        OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      ],
       canRollback: true,
       lastRollbackableStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
     );
@@ -116,6 +134,16 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertSame('/api/onboarding/organization/rollback', $output->rollbackPath);
     self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $output->lastRollbackableStep);
 
+    self::assertCount(5, $output->steps);
+
+    // create_organization: completed, rollbackable
+    $createStep = $output->steps[0];
+    self::assertSame('completed', $createStep->status);
+    self::assertTrue($createStep->rollbackAvailable);
+    self::assertSame('POST', $createStep->rollbackMethod);
+    self::assertSame('/api/onboarding/organization/rollback', $createStep->rollbackPath);
+
+    // invite_members: pending, skippable
     $inviteStep = $output->steps[1];
     self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $inviteStep->key);
     self::assertSame('pending', $inviteStep->status);
@@ -129,13 +157,18 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
       '/api/onboarding/organization/steps/invite_members/skip',
       $inviteStep->skipPath,
     );
-
-    $createStep = $output->steps[0];
-    self::assertTrue($createStep->rollbackAvailable);
-    self::assertSame('POST', $createStep->rollbackMethod);
-    self::assertSame('/api/onboarding/organization/rollback', $createStep->rollbackPath);
-
     self::assertFalse($inviteStep->rollbackAvailable);
+
+    // Remaining steps: blocked (previous_step_required)
+    for ($i = 2; $i < 5; ++$i) {
+      self::assertSame('blocked', $output->steps[$i]->status);
+      self::assertSame('previous_step_required', $output->steps[$i]->reason);
+    }
+
+    // All three are required steps — required flag must be true even when blocked
+    self::assertTrue($output->steps[2]->required);  // create_first_facility
+    self::assertTrue($output->steps[3]->required);  // create_first_equipment
+    self::assertTrue($output->steps[4]->required);  // run_first_inspection
   }
 
   #[Test]
@@ -148,10 +181,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
       nextStep: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [
-        OrganizationOnboardingStep::CREATE_ORGANIZATION,
-        OrganizationOnboardingStep::INVITE_MEMBERS,
-      ],
+      completedSteps: OrganizationOnboardingStep::all(),
       canRollback: false,
       lastRollbackableStep: null,
     );
@@ -162,19 +192,14 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertNull($output->nextStep);
     self::assertFalse($output->canRollback);
     self::assertNull($output->rollbackPath);
+    self::assertCount(5, $output->steps);
 
-    $createStep = $output->steps[0];
-    self::assertSame('completed', $createStep->status);
-    self::assertFalse($createStep->required);
-
-    $inviteStep = $output->steps[1];
-    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $inviteStep->key);
-    self::assertSame('completed', $inviteStep->status);
-    self::assertFalse($inviteStep->required);
-    self::assertTrue($inviteStep->available);
-
-    self::assertFalse($createStep->rollbackAvailable);
-    self::assertFalse($inviteStep->rollbackAvailable);
+    foreach ($output->steps as $step) {
+      self::assertSame('completed', $step->status);
+      self::assertFalse($step->required);
+      self::assertTrue($step->available);
+      self::assertFalse($step->rollbackAvailable);
+    }
   }
 
   #[Test]
@@ -187,7 +212,12 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
       nextStep: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
-      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      completedSteps: [
+        OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+        OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
+      ],
       skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
       canRollback: false,
       lastRollbackableStep: null,
@@ -204,6 +234,74 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertFalse($inviteStep->required);
     self::assertTrue($inviteStep->available);
     self::assertFalse($inviteStep->rollbackAvailable);
+  }
+
+  #[Test]
+  public function testCompletedAtIsNullForStepThatWasRolledBack(): void
+  {
+    // The history entry is present (create_organization was completed then rolled back),
+    // but completedSteps is empty. completedAt must be null — a pending/blocked step
+    // must never expose a timestamp from a previous session lifecycle.
+    $state = new OrganizationOnboardingSessionState(
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+      blockedReason: null,
+      targetOrganizationId: null,
+      targetOrganizationName: null,
+      completedSteps: [],
+      skippedSteps: [],
+      stepHistory: [
+        [
+          'stepKey' => OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          'occurredAt' => '2026-03-15T10:00:00+00:00',
+          'skipped' => false,
+        ],
+      ],
+      updatedAt: '2026-03-15T11:00:00+00:00',
+      canRollback: false,
+      lastRollbackableStep: null,
+    );
+
+    $output = OrganizationOnboardingOutputAssembler::fromState($state);
+
+    $createStep = $output->steps[0];
+    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $createStep->key);
+    self::assertSame('pending', $createStep->status);
+    self::assertNull($createStep->completedAt, 'completedAt must be null for a rolled-back step');
+  }
+
+  #[Test]
+  public function testCompletedAtIsExposedWhenStepIsConfirmed(): void
+  {
+    $orgId = '550e8400-e29b-41d4-a716-446655440007';
+
+    $state = new OrganizationOnboardingSessionState(
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      stepHistory: [
+        [
+          'stepKey' => OrganizationOnboardingStep::CREATE_ORGANIZATION,
+          'occurredAt' => '2026-03-15T10:00:00+00:00',
+          'skipped' => false,
+        ],
+      ],
+      updatedAt: '2026-03-15T10:00:00+00:00',
+      canRollback: true,
+      lastRollbackableStep: OrganizationOnboardingStep::CREATE_ORGANIZATION,
+    );
+
+    $output = OrganizationOnboardingOutputAssembler::fromState($state);
+
+    $createStep = $output->steps[0];
+    self::assertSame('completed', $createStep->status);
+    self::assertSame('2026-03-15T10:00:00+00:00', $createStep->completedAt);
   }
 
   /**

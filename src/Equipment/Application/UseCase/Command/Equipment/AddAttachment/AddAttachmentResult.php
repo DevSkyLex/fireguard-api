@@ -23,7 +23,6 @@ final readonly class AddAttachmentResult implements ResultMessage
     public string $attachmentId,
     public string $equipmentId,
     public string $fileName,
-    public string $storagePath,
     public string $mimeType,
     public int $size,
     public ?string $label,

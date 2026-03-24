@@ -105,14 +105,18 @@ final readonly class RoleRepository implements RoleRepositoryPort
    * @since 1.0.0
    *
    * @param ?TenantId $tenantId the tenant ID
+   * @param ?bool $isSystem optional filter for system roles
    *
    * @return array<Role> the roles
    */
-  public function findAll(?TenantId $tenantId = null): array
+  public function findAll(?TenantId $tenantId = null, ?bool $isSystem = null): array
   {
     $criteria = [];
     if (null !== $tenantId) {
       $criteria['tenantId'] = (string) $tenantId;
+    }
+    if (null !== $isSystem) {
+      $criteria['isSystem'] = $isSystem;
     }
 
     $records = $this->entityManager

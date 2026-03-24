@@ -78,6 +78,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
       name: $roleName,
       permissions: $permissions,
       isSystem: $command->isSystem,
+      description: $command->description ?? '',
     );
 
     $this->roleRepository->save($role);
@@ -89,6 +90,7 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
       permissions: $role->permissions(),
       isSystem: $role->isSystem(),
       createdAt: $role->createdAt(),
+      description: $role->description(),
     );
   }
   // #endregion

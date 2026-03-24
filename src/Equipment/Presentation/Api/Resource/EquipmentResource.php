@@ -204,7 +204,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         description: 'Marks the equipment as commissioned and operational.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment commissioned'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or equipment not assigned to a facility'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Equipment already decommissioned'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment not found'),
         ],
@@ -224,7 +225,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         description: 'Marks the equipment as under maintenance.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment put under maintenance'),
-          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or equipment not assigned to a facility'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Equipment already decommissioned'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Equipment not found'),
         ],

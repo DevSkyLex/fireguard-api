@@ -12,9 +12,15 @@ use Authorization\Application\UseCase\Query\Role\ListRoles\{ListRolesQuery, List
 use Authorization\Presentation\Api\Dto\Output\Permission\PermissionOutput;
 use Authorization\Presentation\Api\Dto\Output\Role\RoleOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 use function array_map;
 use function assert;
+use function filter_var;
+use function is_bool;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Provider ListRolesProvider.
@@ -65,7 +71,21 @@ final readonly class ListRolesProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
-    $query = new ListRolesQuery();
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $isSystem = null;
+    if (isset($filters['isSystem'])) {
+      $rawIsSystem = $filters['isSystem'];
+      $isSystem = is_bool($rawIsSystem)
+        ? $rawIsSystem
+        : filter_var($rawIsSystem, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+      if (null === $isSystem) {
+        throw new BadRequestHttpException('The isSystem filter must be a valid boolean.');
+      }
+    }
+
+    $query = new ListRolesQuery(isSystem: $isSystem);
     $result = $this->queryBus->ask(query: $query);
 
     assert($result instanceof ListRolesResult);

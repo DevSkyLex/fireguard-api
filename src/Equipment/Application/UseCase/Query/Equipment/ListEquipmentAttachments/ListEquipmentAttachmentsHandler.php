@@ -58,7 +58,6 @@ final readonly class ListEquipmentAttachmentsHandler implements QueryHandler
       $result[] = [
         'id' => (string) $attachment->id(),
         'fileName' => $attachment->fileName(),
-        'storagePath' => $attachment->storagePath(),
         'mimeType' => $attachment->mimeType(),
         'size' => $attachment->size(),
         'label' => $attachment->label(),

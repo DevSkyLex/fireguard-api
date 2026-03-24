@@ -124,7 +124,7 @@ final class CreateOrganizationHandlerTest extends TestCase
 
     self::assertCount(2, $savedRoles);
     self::assertSame([$ownerRoleId, $memberRoleId], [$savedRoles[0]['id'], $savedRoles[1]['id']]);
-    self::assertSame('owner', $savedRoles[0]['name']);
+    self::assertSame('admin', $savedRoles[0]['name']);
     self::assertSame(['organization.*'], $savedRoles[0]['permissions']);
     self::assertTrue($savedRoles[0]['isSystem']);
     self::assertSame('member', $savedRoles[1]['name']);

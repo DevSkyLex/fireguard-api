@@ -80,6 +80,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     self::assertSame('inspector', $result->name);
     self::assertSame(['organization.read', 'organization.members.read'], $result->permissions);
     self::assertFalse($result->isSystem);
+    self::assertSame('', $result->description);
 
     self::assertInstanceOf(OrganizationRole::class, $savedRole);
     self::assertSame(['organization.read', 'organization.members.read'], $savedRole->permissions());
@@ -129,6 +130,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       permissions: ['organization.read'],
       isSystem: false,
       createdAt: new DateTimeImmutable('-1 day'),
+      description: '',
     );
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

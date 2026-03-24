@@ -29,6 +29,21 @@ services:
   Inspection\Application\Port\Outbound\ChecklistRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository
 
+  Inspection\Application\Port\Outbound\EquipmentValidationPort:
+    alias: Equipment\Infrastructure\Adapter\Inspection\EquipmentValidationAdapter
+
+  Inspection\Application\Port\Outbound\FacilityValidationPort:
+    alias: Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter
+
+  Inspection\Application\Port\Outbound\ChecklistValidationPort:
+    alias: Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter
+
+  Equipment\Infrastructure\Adapter\Inspection\EquipmentValidationAdapter: ~
+
+  Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter: ~
+
+  Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter: ~
+
   # Command Handlers
   Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
     tags: ['messenger.message_handler']

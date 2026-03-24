@@ -15,6 +15,7 @@ use ApiPlatform\Metadata\{
 };
 use ApiPlatform\OpenApi\Model\{
   Operation,
+  Parameter,
   Response
 };
 use ArrayObject;
@@ -53,6 +54,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         summary: 'List all roles',
         description: 'Returns a paginated list of all roles with their associated permissions. Requires roles.read permission.',
         security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(name: 'isSystem', in: 'query', required: false, description: 'Filter by system role flag', schema: ['type' => 'boolean']),
+        ],
         responses: [
           HttpResponse::HTTP_OK => new Response(
             description: 'List of roles retrieved successfully',

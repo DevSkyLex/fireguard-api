@@ -71,6 +71,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       $existing->organization = $organization;
       $existing->name = $record->name;
       $existing->permissions = $record->permissions;
+      $existing->description = $record->description;
       $existing->isSystem = $record->isSystem;
     } else {
       $this->entityManager->persist($record);

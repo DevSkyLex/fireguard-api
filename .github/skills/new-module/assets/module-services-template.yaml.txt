@@ -1,0 +1,20 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  __MODULE__\Presentation\:
+    resource: '../../src/__MODULE__/Presentation'
+
+  __MODULE__\Infrastructure\Persistence\Doctrine\Repository\__REPOSITORY_CLASS__:
+    arguments:
+      $entityManager: '@__ENTITY_MANAGER_SERVICE__'
+
+  __MODULE__\Application\Port\Outbound\__REPOSITORY_PORT__:
+    alias: __MODULE__\Infrastructure\Persistence\Doctrine\Repository\__REPOSITORY_CLASS__
+
+  __MODULE__\Application\UseCase\Command\__AREA__\__USE_CASE__\__COMMAND_HANDLER__:
+    tags: ['messenger.message_handler']
+
+  __MODULE__\Application\UseCase\Query\__AREA__\__USE_CASE__\__QUERY_HANDLER__:
+    tags: ['messenger.message_handler']

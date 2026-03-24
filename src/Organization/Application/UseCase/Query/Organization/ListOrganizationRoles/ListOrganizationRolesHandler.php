@@ -59,6 +59,7 @@ final readonly class ListOrganizationRolesHandler implements QueryHandler
         permissions: $role->permissions(),
         isSystem: $role->isSystem(),
         createdAt: $role->createdAt(),
+        description: $role->description(),
       );
     }
 

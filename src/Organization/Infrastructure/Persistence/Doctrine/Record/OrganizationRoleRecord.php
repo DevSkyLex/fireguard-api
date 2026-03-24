@@ -57,6 +57,14 @@ class OrganizationRoleRecord
   public array $permissions = [];
 
   /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'text', options: ['default' => ''])]
+  public string $description = '';
+
+  /**
    * Property isSystem.
    *
    * @since 1.0.0

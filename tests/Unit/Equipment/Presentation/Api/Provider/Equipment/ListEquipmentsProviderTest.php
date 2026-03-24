@@ -16,6 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -296,6 +297,58 @@ final class ListEquipmentsProviderTest extends TestCase
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(2.0, $output->getTotalItems());
+  }
+
+  #[Test]
+  public function testProvidePassesSearchAndSortingToQuery(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441560';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441561');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with($user->getId(), $organizationId, 'organization.equipment.read')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListEquipmentsQuery $query): bool {
+        return 'sicli' === $query->search
+          && 'brand' === $query->sorting->field
+          && SortDirection::DESC === $query->sorting->direction
+          && 20 === $query->pagination->limit
+          && 20 === $query->pagination->offset;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 20, offset: 20));
+
+    $provider = new ListEquipmentsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->buildRequestStack(),
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => $organizationId],
+      context: [
+        'filters' => [
+          'page' => 2,
+          'itemsPerPage' => 20,
+          'search' => 'sicli',
+          'order' => ['brand' => 'desc'],
+        ],
+      ],
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

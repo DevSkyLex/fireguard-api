@@ -39,6 +39,7 @@ final class OrganizationRole
    * @param list<string> $permissions the role permissions
    * @param bool $isSystem whether the role is a system role
    * @param DateTimeImmutable $createdAt the creation timestamp
+   * @param string $description the role description
    */
   private function __construct(
     private OrganizationRoleId $id,
@@ -47,6 +48,7 @@ final class OrganizationRole
     array $permissions,
     private bool $isSystem,
     private DateTimeImmutable $createdAt,
+    private string $description = '',
   ) {
     $this->permissions = $permissions;
   }
@@ -65,6 +67,7 @@ final class OrganizationRole
    * @param OrganizationRoleName $name the role name
    * @param list<string> $permissions the role permissions
    * @param bool $isSystem whether the role is a system role
+   * @param string $description the role description
    *
    * @return self the created role aggregate
    */
@@ -74,6 +77,7 @@ final class OrganizationRole
     OrganizationRoleName $name,
     array $permissions,
     bool $isSystem = false,
+    string $description = '',
   ): self {
     return new self(
       id: $id,
@@ -82,6 +86,7 @@ final class OrganizationRole
       permissions: $permissions,
       isSystem: $isSystem,
       createdAt: new DateTimeImmutable(),
+      description: $description,
     );
   }
 
@@ -98,6 +103,7 @@ final class OrganizationRole
    * @param list<string> $permissions the role permissions
    * @param bool $isSystem whether the role is a system role
    * @param DateTimeImmutable $createdAt the creation timestamp
+   * @param string $description the role description
    *
    * @return self the reconstituted role aggregate
    */
@@ -108,8 +114,9 @@ final class OrganizationRole
     array $permissions,
     bool $isSystem,
     DateTimeImmutable $createdAt,
+    string $description = '',
   ): self {
-    return new self($id, $organizationId, $name, $permissions, $isSystem, $createdAt);
+    return new self($id, $organizationId, $name, $permissions, $isSystem, $createdAt, $description);
   }
 
   /**
@@ -208,6 +215,34 @@ final class OrganizationRole
   public function updatePermissions(array $permissions): void
   {
     $this->permissions = $permissions;
+  }
+
+  /**
+   * Method description.
+   *
+   * Returns the role description.
+   *
+   * @since 1.0.0
+   *
+   * @return string the role description
+   */
+  public function description(): string
+  {
+    return $this->description;
+  }
+
+  /**
+   * Method updateDescription.
+   *
+   * Updates the role description.
+   *
+   * @since 1.0.0
+   *
+   * @param string $description the new description
+   */
+  public function updateDescription(string $description): void
+  {
+    $this->description = $description;
   }
   // #endregion
 }

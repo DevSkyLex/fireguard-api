@@ -7,7 +7,7 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
+use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -127,6 +127,28 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
 
     return (int) $this->repository->count([
       'organization' => $organization,
+    ]);
+  }
+
+  /**
+   * Method countActiveByOrganizationId.
+   *
+   * Counts active (non-archived) facilities belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   *
+   * @return int the active facility count
+   */
+  public function countActiveByOrganizationId(FacilityOrganizationId $organizationId): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->repository->count([
+      'organization' => $organization,
+      'status' => FacilityStatus::ACTIVE->value,
     ]);
   }
 

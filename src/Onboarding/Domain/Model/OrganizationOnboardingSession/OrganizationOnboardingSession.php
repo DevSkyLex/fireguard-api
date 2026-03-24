@@ -540,6 +540,24 @@ final class OrganizationOnboardingSession
   }
 
   /**
+   * Method clearStepHistory.
+   *
+   * Clears the recorded step history when the session is reset to a new
+   * onboarding lifecycle (for example after the pinned organization vanished).
+   *
+   * @since 2.0.0
+   */
+  public function clearStepHistory(): void
+  {
+    if ([] === $this->stepHistory) {
+      return;
+    }
+
+    $this->stepHistory = [];
+    $this->touch();
+  }
+
+  /**
    * Method markStepSkipped.
    *
    * Records the step as voluntarily skipped and appends a history entry.

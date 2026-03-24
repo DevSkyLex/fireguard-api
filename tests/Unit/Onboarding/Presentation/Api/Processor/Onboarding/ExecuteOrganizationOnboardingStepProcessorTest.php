@@ -105,9 +105,8 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
-
-    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+    // Org created after the session starts (simulates user creating the org during onboarding).
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId, new DateTimeImmutable('2026-03-24T13:00:00+00:00'));
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -255,8 +254,14 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     );
   }
 
-  private function buildOrganizationResult(string $id, string $name, string $userId): GetOrganizationResult
-  {
+  private function buildOrganizationResult(
+    string $id,
+    string $name,
+    string $userId,
+    ?DateTimeImmutable $createdAt = null,
+  ): GetOrganizationResult {
+    $date = $createdAt ?? new DateTimeImmutable('+1 hour');
+
     return new GetOrganizationResult(
       id: $id,
       name: $name,
@@ -265,8 +270,8 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
       createdByUserId: $userId,
       status: 'active',
       isActive: true,
-      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      createdAt: $date,
+      updatedAt: $date,
     );
   }
 

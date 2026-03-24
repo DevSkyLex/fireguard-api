@@ -222,6 +222,10 @@ final class Equipment
    */
   public function assignToFacility(EquipmentFacilityId $facilityId, DateTimeImmutable $installedAt): void
   {
+    if (null !== $this->facilityId) {
+      throw new InvalidArgumentException('Equipment is already assigned to a facility. Unassign it first.');
+    }
+
     $this->facilityId = $facilityId;
     $this->installedAt = $installedAt;
     $this->touch();
@@ -257,6 +261,10 @@ final class Equipment
       throw EquipmentAlreadyDecommissionedException::withId((string) $this->id);
     }
 
+    if (null === $this->facilityId) {
+      throw new InvalidArgumentException('Equipment must be assigned to a facility before commissioning.');
+    }
+
     $this->commissionedAt = new DateTimeImmutable();
     $this->status = EquipmentStatus::OPERATIONAL;
     $this->touch();
@@ -273,6 +281,10 @@ final class Equipment
   {
     if (EquipmentStatus::DECOMMISSIONED === $this->status) {
       throw EquipmentAlreadyDecommissionedException::withId((string) $this->id);
+    }
+
+    if (null === $this->facilityId) {
+      throw new InvalidArgumentException('Equipment must be assigned to a facility before putting it under maintenance.');
     }
 
     $this->status = EquipmentStatus::UNDER_MAINTENANCE;

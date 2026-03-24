@@ -1,0 +1,108 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Processor\__AREA__;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProcessorInterface;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use __MODULE__\Application\UseCase\Command\__AREA__\__USE_CASE__\{__COMMAND_CLASS__, __RESULT_CLASS__};
+use __MODULE__\Presentation\Api\Dto\Input\__AREA__\__INPUT_CLASS__;
+use __MODULE__\Presentation\Api\Dto\Output\__AREA__\__OUTPUT_CLASS__;
+use InvalidArgumentException;
+use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+
+use function is_string;
+
+/**
+ * Processor __PROCESSOR_CLASS__.
+ *
+ * Keep request parsing and permission gates here, and push business rules into the handler.
+ *
+ * @category Processor
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ *
+ * @implements ProcessorInterface<__INPUT_CLASS__, __OUTPUT_CLASS__>
+ */
+final readonly class __PROCESSOR_CLASS__ implements ProcessorInterface
+{
+  // #region Constructor
+  public function __construct(
+    private CommandBusPort $commandBus,
+    private __AUTHORIZATION_PORT__ $authorization,
+    private Security $security,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method process.
+   *
+    * Example responsibility split:
+    * - validate authenticated user and URI variables here
+    * - dispatch command to the application layer
+    * - map the result to the output DTO
+   *
+    * @since 1.0.0
+    *
+   * @param mixed $data input DTO instance hydrated by API Platform
+    * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables URI variables extracted from the request
+   * @param array<string, mixed> $context processing context values
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): __OUTPUT_CLASS__
+  {
+    /** @var __INPUT_CLASS__ $data */
+    $user = $this->security->getUser();
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+
+    $scopeId = $uriVariables['__SCOPE_ID__'] ?? null;
+    if (!is_string($scopeId) || '' === $scopeId) {
+      throw new BadRequestHttpException('__SCOPE_ID__ URI parameter is required.');
+    }
+
+    if (!$this->authorization->__AUTHORIZATION_METHOD__($user->getId(), $scopeId, '__PERMISSION__')) {
+      throw new AccessDeniedHttpException('Missing __PERMISSION__ permission.');
+    }
+
+    try {
+      /** @var __RESULT_CLASS__ $result */
+      $result = $this->commandBus->dispatch(new __COMMAND_CLASS__(
+        __SCOPE_ID__: $scopeId,
+        __COMMAND_ARGUMENTS__
+      ));
+    } catch (InvalidArgumentException $exception) {
+      throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      throw $exception;
+    }
+
+    return $this->mapResult($result);
+  }
+
+  /**
+   * Method mapResult.
+   *
+   * Keep output mapping explicit so the public API shape stays easy to review.
+   *
+   * @since 1.0.0
+   */
+  private function mapResult(__RESULT_CLASS__ $result): __OUTPUT_CLASS__
+  {
+    $output = new __OUTPUT_CLASS__();
+    __OUTPUT_ASSIGNMENTS__
+
+    return $output;
+  }
+  // #endregion
+}
