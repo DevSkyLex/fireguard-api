@@ -22,6 +22,16 @@ use Shared\Application\Message\CommandHandler;
 final readonly class DeleteOrganizationHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteOrganizationHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
   ) {

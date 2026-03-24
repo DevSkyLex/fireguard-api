@@ -18,6 +18,21 @@ use Shared\Application\Message\CommandMessage;
 final readonly class UpsertOrganizationLegalProfileCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * UpsertOrganizationLegalProfileCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization ID
+   * @param string|null $countryCode the country code
+   * @param string $legalType the legal type
+   * @param string $legalName the legal name
+   * @param string|null $registrationNumber the registration number
+   * @param string|null $vatNumber the VAT number
+   */
   public function __construct(
     public string $organizationId,
     public ?string $countryCode,

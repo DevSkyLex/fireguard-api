@@ -20,6 +20,20 @@ use Shared\Application\Message\QueryMessage;
 final readonly class ListUserOrganizationsQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListUserOrganizationsQuery class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   * @param Pagination $pagination the pagination settings
+   * @param string|null $status the organization status filter
+   * @param string|null $search the search term
+   * @param Sorting $sorting the sorting settings
+   */
   public function __construct(
     public string $userId,
     public Pagination $pagination = new Pagination(),

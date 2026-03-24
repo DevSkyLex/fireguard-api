@@ -21,6 +21,17 @@ use Shared\Application\Message\QueryHandler;
 final readonly class ListOrganizationRolesHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListOrganizationRolesHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,

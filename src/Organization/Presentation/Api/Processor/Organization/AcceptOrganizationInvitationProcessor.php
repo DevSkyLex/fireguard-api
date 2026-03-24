@@ -33,12 +33,13 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
   /**
    * Constructor.
    *
-   * Initializes a new instance of the AcceptOrganizationInvitationProcessor class.
+   * Initializes a new instance of the
+   * AcceptOrganizationInvitationProcessor class.
    *
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
-   * @param Security $security the Symfony security service
+   * @param Security $security the security service
    */
   public function __construct(
     private CommandBusPort $commandBus,

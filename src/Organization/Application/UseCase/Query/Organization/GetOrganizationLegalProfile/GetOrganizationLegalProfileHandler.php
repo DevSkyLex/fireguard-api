@@ -28,6 +28,17 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetOrganizationLegalProfileHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * GetOrganizationLegalProfileHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationLegalProfileRepositoryPort $legalProfileRepository the legal profile repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationLegalProfileRepositoryPort $legalProfileRepository,

@@ -25,6 +25,17 @@ use Shared\Application\Message\CommandHandler;
 final readonly class DeleteOrganizationLegalProfileHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteOrganizationLegalProfileHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationLegalProfileRepositoryPort $legalProfileRepository the legal profile repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationLegalProfileRepositoryPort $legalProfileRepository,

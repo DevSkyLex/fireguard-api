@@ -19,6 +19,17 @@ use Shared\Application\Message\ResultMessage;
 final readonly class DeleteOrganizationResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteOrganizationResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization ID
+   * @param DateTimeImmutable $deletedAt the deletion date
+   */
   public function __construct(
     public string $organizationId,
     public DateTimeImmutable $deletedAt,

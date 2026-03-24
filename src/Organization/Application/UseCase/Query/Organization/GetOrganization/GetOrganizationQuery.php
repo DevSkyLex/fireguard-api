@@ -18,6 +18,16 @@ use Shared\Application\Message\QueryMessage;
 final readonly class GetOrganizationQuery implements QueryMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * GetOrganizationQuery class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization ID
+   */
   public function __construct(
     public string $organizationId,
   ) {

@@ -21,6 +21,20 @@ use Shared\Application\Message\QueryHandler;
 final readonly class GetOrganizationStatisticsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * GetOrganizationStatisticsHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository
+   * @param FacilityStatisticsPort $facilityStatistics the facility statistics port
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,

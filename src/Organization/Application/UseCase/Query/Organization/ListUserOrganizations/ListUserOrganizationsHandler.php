@@ -26,6 +26,17 @@ use function array_values;
 final readonly class ListUserOrganizationsHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListUserOrganizationsHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRepositoryPort $organizationRepository,

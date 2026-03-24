@@ -37,6 +37,17 @@ use function max;
 final readonly class ListUserOrganizationsProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListUserOrganizationsProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryBusPort $queryBus the query bus
+   * @param Security $security the security service
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,

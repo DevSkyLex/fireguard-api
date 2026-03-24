@@ -32,6 +32,17 @@ use Throwable;
 final readonly class CreateOrganizationProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * CreateOrganizationProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param Security $security the security service
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private Security $security,

@@ -26,11 +26,12 @@ final readonly class OrganizationAuthorizationService implements OrganizationAut
   /**
    * Constructor.
    *
-   * Initializes a new instance of the OrganizationAuthorizationService class.
+   * Initializes a new instance of the
+   * OrganizationAuthorizationService class.
    *
    * @since 1.0.0
    *
-   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,

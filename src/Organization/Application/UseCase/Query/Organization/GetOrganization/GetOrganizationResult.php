@@ -19,6 +19,25 @@ use Shared\Application\Message\ResultMessage;
 final readonly class GetOrganizationResult implements ResultMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * GetOrganizationResult class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $id the organization ID
+   * @param string $name the organization name
+   * @param string $slug the organization slug
+   * @param string $ownerUserId the owner user ID
+   * @param string $createdByUserId the creator user ID
+   * @param string $status the organization status
+   * @param bool $isActive whether the organization is active
+   * @param DateTimeImmutable $createdAt the creation date
+   * @param DateTimeImmutable $updatedAt the update date
+   * @param int $memberCount the member count
+   */
   public function __construct(
     public string $id,
     public string $name,

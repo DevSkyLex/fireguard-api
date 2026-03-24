@@ -41,6 +41,14 @@ final class OrganizationLegalProfileRequirementsOutput
   public OrganizationLegalFieldRequirementOutput $vatNumber;
 
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * OrganizationLegalProfileRequirementsOutput class.
+   *
+   * @since 1.0.0
+   */
   public function __construct()
   {
     $this->registrationNumber = new OrganizationLegalFieldRequirementOutput();

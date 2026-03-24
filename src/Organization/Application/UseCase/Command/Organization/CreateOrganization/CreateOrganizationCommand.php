@@ -18,6 +18,18 @@ use Shared\Application\Message\CommandMessage;
 final readonly class CreateOrganizationCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * CreateOrganizationCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $name the organization name
+   * @param string $ownerUserId the owner user ID
+   * @param string|null $slug the organization slug
+   */
   public function __construct(
     public string $name,
     public string $ownerUserId,

@@ -33,6 +33,18 @@ use function is_string;
 final readonly class AddOrganizationMemberProcessor implements ProcessorInterface
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * AddOrganizationMemberProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus
+   * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param Security $security the security service
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,

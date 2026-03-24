@@ -36,6 +36,17 @@ use function trim;
 final readonly class UpsertOrganizationLegalProfileHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * UpsertOrganizationLegalProfileHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationLegalProfileRepositoryPort $legalProfileRepository the legal profile repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationLegalProfileRepositoryPort $legalProfileRepository,

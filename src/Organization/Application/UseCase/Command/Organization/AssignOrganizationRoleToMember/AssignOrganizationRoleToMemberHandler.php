@@ -21,6 +21,17 @@ use Shared\Application\Message\CommandHandler;
 final readonly class AssignOrganizationRoleToMemberHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * AssignOrganizationRoleToMemberHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,

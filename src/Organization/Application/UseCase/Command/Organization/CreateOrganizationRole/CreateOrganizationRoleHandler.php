@@ -28,6 +28,18 @@ use function count;
 final readonly class CreateOrganizationRoleHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * CreateOrganizationRoleHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   * @param UuidFactory $uuidFactory the UUID factory
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
