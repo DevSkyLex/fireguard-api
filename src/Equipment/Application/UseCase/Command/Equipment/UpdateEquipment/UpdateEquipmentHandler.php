@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\UpdateEquipment;
 
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
-use Equipment\Domain\Exception\{EquipmentNotFoundException};
+use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
