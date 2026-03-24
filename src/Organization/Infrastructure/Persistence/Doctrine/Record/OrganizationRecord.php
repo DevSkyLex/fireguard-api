@@ -148,7 +148,7 @@ class OrganizationRecord
    *
    * @var Collection<int, TagRecord>
    */
-  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: TagRecord::class)]
+  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: TagRecord::class, cascade: ['remove'])]
   public Collection $tags;
 
   /**
@@ -156,7 +156,7 @@ class OrganizationRecord
    *
    * @var Collection<int, EquipmentRecord>
    */
-  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: EquipmentRecord::class)]
+  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: EquipmentRecord::class, cascade: ['remove'])]
   public Collection $equipment;
 
   /**
@@ -164,7 +164,7 @@ class OrganizationRecord
    *
    * @var Collection<int, ChecklistRecord>
    */
-  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: ChecklistRecord::class)]
+  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: ChecklistRecord::class, cascade: ['remove'])]
   public Collection $checklists;
 
   /**
@@ -172,7 +172,7 @@ class OrganizationRecord
    *
    * @var Collection<int, InspectionRecord>
    */
-  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: InspectionRecord::class)]
+  #[ORM\OneToMany(mappedBy: 'organization', targetEntity: InspectionRecord::class, cascade: ['remove'])]
   public Collection $inspections;
 
   /**
