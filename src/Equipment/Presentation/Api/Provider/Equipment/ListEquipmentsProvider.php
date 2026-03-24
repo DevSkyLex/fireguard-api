@@ -78,6 +78,9 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $facilityId = $request?->query->get('facilityId');
     $type = $request?->query->get('type');
     $status = $request?->query->get('status');
+    $brand = $request?->query->get('brand');
+    $model = $request?->query->get('model');
+    $subType = $request?->query->get('subType');
 
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
@@ -99,6 +102,9 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         facilityId: is_string($facilityId) && '' !== $facilityId ? $facilityId : null,
         type: is_string($type) && '' !== $type ? $type : null,
         status: is_string($status) && '' !== $status ? $status : null,
+        brand: is_string($brand) && '' !== $brand ? $brand : null,
+        model: is_string($model) && '' !== $model ? $model : null,
+        subType: is_string($subType) && '' !== $subType ? $subType : null,
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt'], 'createdAt'),

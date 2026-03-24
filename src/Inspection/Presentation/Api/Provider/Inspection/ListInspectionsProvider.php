@@ -18,14 +18,12 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Search\SearchExtractor;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
-use function array_slice;
-use function count;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -67,6 +65,10 @@ final readonly class ListInspectionsProvider implements ProviderInterface
     $facilityId = $request?->query->get('facilityId');
     $result = $request?->query->get('result');
     $status = $request?->query->get('status');
+    $performedAtFrom = $request?->query->get('performedAtFrom');
+    $performedAtTo = $request?->query->get('performedAtTo');
+    $inspectorUserId = $request?->query->get('inspectorUserId');
+    $checklistId = $request?->query->get('checklistId');
 
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
@@ -89,7 +91,13 @@ final readonly class ListInspectionsProvider implements ProviderInterface
         facilityId: is_string($facilityId) && '' !== $facilityId ? $facilityId : null,
         result: is_string($result) && '' !== $result ? $result : null,
         status: is_string($status) && '' !== $status ? $status : null,
+        performedAtFrom: is_string($performedAtFrom) && '' !== $performedAtFrom ? $performedAtFrom : null,
+        performedAtTo: is_string($performedAtTo) && '' !== $performedAtTo ? $performedAtTo : null,
+        inspectorUserId: is_string($inspectorUserId) && '' !== $inspectorUserId ? $inspectorUserId : null,
+        checklistId: is_string($checklistId) && '' !== $checklistId ? $checklistId : null,
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+        search: SearchExtractor::fromContext($context),
+        sorting: SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt'),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -107,21 +115,11 @@ final readonly class ListInspectionsProvider implements ProviderInterface
       $outputs[] = $this->mapResult($inspection);
     }
 
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['result', 'status', 'inspectorName', 'equipmentId']);
-
-    $total = count($outputs);
-
-    $sorting = SortingExtractor::fromContext($context, ['result', 'status', 'performedAt', 'createdAt'], 'createdAt');
-    $outputs = CollectionSorter::sort($outputs, $sorting);
-
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
-
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $total,
+      totalItems: (float) $queryResult->total,
     );
   }
 

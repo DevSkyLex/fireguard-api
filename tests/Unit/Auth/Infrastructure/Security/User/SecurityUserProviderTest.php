@@ -77,6 +77,7 @@ final class SecurityUserProviderTest extends TestCase
     $this->assertContains('ROLE_ADMIN', $user->getRoles());
     $this->assertContains('ROLE_MANAGER', $user->getRoles());
     $this->assertContains('ROLE_VERIFIED', $user->getRoles());
+    $this->assertNull($user->getTenantId());
   }
 
   #[Test]
@@ -246,6 +247,78 @@ final class SecurityUserProviderTest extends TestCase
 
     $this->assertTrue($provider->supportsClass(SecurityUser::class));
     $this->assertFalse($provider->supportsClass(stdClass::class));
+  }
+
+  #[Test]
+  public function testLoadUserByIdNormalizesEmptyStringTenantIdToNull(): void
+  {
+    $userView = new UserView(
+      id: 'user-123',
+      username: 'user',
+      email: 'user@example.com',
+      firstName: 'User',
+      lastName: 'Test',
+      avatarUrl: null,
+      status: 'active',
+      emailVerified: true,
+      tenantId: '',
+      createdAt: new DateTimeImmutable(),
+      lastLoginAt: null,
+      canLogin: true,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetUserResult(user: $userView));
+
+    /** @var AuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->method('getUserRoleNames')->willReturn([]);
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+    );
+
+    $user = $provider->loadUserById('user-123');
+
+    $this->assertNull($user->getTenantId());
+  }
+
+  #[Test]
+  public function testLoadUserByIdPropagatesTenantId(): void
+  {
+    $userView = new UserView(
+      id: 'user-123',
+      username: 'user',
+      email: 'user@example.com',
+      firstName: 'User',
+      lastName: 'Test',
+      avatarUrl: null,
+      status: 'active',
+      emailVerified: true,
+      tenantId: 'tenant-abc',
+      createdAt: new DateTimeImmutable(),
+      lastLoginAt: null,
+      canLogin: true,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetUserResult(user: $userView));
+
+    /** @var AuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->method('getUserRoleNames')->willReturn([]);
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+    );
+
+    $user = $provider->loadUserById('user-123');
+
+    $this->assertSame('tenant-abc', $user->getTenantId());
   }
 
   private function createUserView(bool $canLogin): UserView

@@ -111,5 +111,30 @@ final class SecurityUserTest extends TestCase
 
     $this->assertSame('hashed', $user->getPassword());
   }
+
+  #[Test]
+  public function testGetTenantIdReturnsNullWhenNotSet(): void
+  {
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hash',
+    );
+
+    $this->assertNull($user->getTenantId());
+  }
+
+  #[Test]
+  public function testGetTenantIdReturnsValue(): void
+  {
+    $user = new SecurityUser(
+      id: 'user-123',
+      email: 'user@example.com',
+      password: 'hash',
+      tenantId: 'tenant-abc',
+    );
+
+    $this->assertSame('tenant-abc', $user->getTenantId());
+  }
   // #endregion
 }

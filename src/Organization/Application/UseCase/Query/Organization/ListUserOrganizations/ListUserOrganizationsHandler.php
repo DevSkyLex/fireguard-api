@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListUserOrganizations;
 
+use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
+use ValueError;
 
 use function array_values;
-use function count;
 
 /**
  * UseCase ListUserOrganizationsHandler.
@@ -47,6 +48,12 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
    */
   public function __invoke(ListUserOrganizationsQuery $query): PaginatedResult
   {
+    try {
+      $status = null !== $query->status ? OrganizationStatus::from($query->status)->value : null;
+    } catch (ValueError $exception) {
+      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
     $memberships = $this->memberRepository->findByUserId($query->userId);
 
     $uniqueOrganizationIds = [];
@@ -59,9 +66,7 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       $uniqueOrganizationIds[$id] = OrganizationId::fromString($id);
     }
 
-    $total = count($uniqueOrganizationIds);
-
-    if (0 === $total) {
+    if ([] === $uniqueOrganizationIds) {
       return new PaginatedResult(
         items: [],
         total: 0,
@@ -70,7 +75,22 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       );
     }
 
-    $organizations = $this->organizationRepository->findByIds(array_values($uniqueOrganizationIds));
+    $organizationIds = array_values($uniqueOrganizationIds);
+
+    $organizations = $this->organizationRepository->findByIds(
+      $organizationIds,
+      $status,
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
+    );
+
+    $total = $this->organizationRepository->countByIds(
+      $organizationIds,
+      $status,
+      $query->search,
+    );
 
     $results = [];
     foreach ($organizations as $organization) {
@@ -91,8 +111,8 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
     return new PaginatedResult(
       items: $results,
       total: $total,
-      limit: $total,
-      offset: 0,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

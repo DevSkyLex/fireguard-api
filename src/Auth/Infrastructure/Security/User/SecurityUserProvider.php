@@ -89,6 +89,7 @@ final readonly class SecurityUserProvider implements UserProviderInterface
         roles: $roles,
         scopes: $scopes,
         isActive: $user->canLogin,
+        tenantId: ('' !== $user->tenantId && null !== $user->tenantId) ? $user->tenantId : null,
       );
     } catch (UserNotFoundException $exception) {
       throw $exception;

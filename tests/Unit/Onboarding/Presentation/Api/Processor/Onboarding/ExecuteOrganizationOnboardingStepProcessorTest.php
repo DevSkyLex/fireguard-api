@@ -106,7 +106,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
     // Org created after the session starts (simulates user creating the org during onboarding).
-    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId, new DateTimeImmutable('2026-03-24T13:00:00+00:00'));
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);

@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\User\Presentation\Api\Provider\User;
 
 use ApiPlatform\Metadata\GetCollection;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Domain\ValueObject\Email;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnauthorizedHttpException};
 use Tests\Helper\TestEventIdProvider;
+use User\Application\UseCase\Query\User\ListUsers\ListUsersQuery;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Presentation\Api\Provider\User\ListUsersProvider;
@@ -55,7 +60,13 @@ final class ListUsersProviderTest extends TestCase
       ->method('ask')
       ->willReturn($result);
 
-    $provider = new ListUsersProvider($queryBus);
+    $securityUser = new SecurityUser(id: 'admin-1', email: 'admin@example.com', password: '');
+    /** @var Security&MockObject $security */
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($securityUser);
+    $security->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(true);
+
+    $provider = new ListUsersProvider($queryBus, $security);
 
     $output = $provider->provide(new GetCollection());
 
@@ -63,6 +74,102 @@ final class ListUsersProviderTest extends TestCase
     self::assertCount(1, $items);
     self::assertSame('jdoe', $items[0]->username);
     self::assertSame('jdoe@example.com', $items[0]->email);
+  }
+
+  #[Test]
+  public function testProvidePassesSearchAndSortingToQuery(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListUsersQuery $query): bool {
+        return 'john' === $query->search
+          && 'username' === $query->sorting->field
+          && SortDirection::ASC === $query->sorting->direction;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $securityUser = new SecurityUser(id: 'admin-1', email: 'admin@example.com', password: '');
+    /** @var Security&MockObject $security */
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($securityUser);
+    $security->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(true);
+
+    $provider = new ListUsersProvider($queryBus, $security);
+
+    $result = $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: [],
+      context: ['filters' => ['search' => 'john', 'order' => ['username' => 'asc']]],
+    );
+
+    self::assertCount(0, iterator_to_array($result));
+  }
+
+  #[Test]
+  public function testProvidePassesTenantIdFromCaller(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListUsersQuery $query): bool {
+        return 'tenant-xyz' === $query->tenantId;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $securityUser = new SecurityUser(
+      id: 'tenant-user-1',
+      email: 'tenant@example.com',
+      password: '',
+      tenantId: 'tenant-xyz',
+    );
+    /** @var Security&MockObject $security */
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($securityUser);
+
+    $provider = new ListUsersProvider($queryBus, $security);
+
+    $result = $provider->provide(new GetCollection());
+
+    self::assertCount(0, iterator_to_array($result));
+  }
+
+  #[Test]
+  public function testProvideDeniesNullTenantIdWithoutSuperAdmin(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $securityUser = new SecurityUser(id: 'regular-1', email: 'regular@example.com', password: '');
+    /** @var Security&MockObject $security */
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($securityUser);
+    $security->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(false);
+
+    $provider = new ListUsersProvider($queryBus, $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenUnauthenticated(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    /** @var Security&MockObject $security */
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new ListUsersProvider($queryBus, $security);
+
+    $this->expectException(UnauthorizedHttpException::class);
+    $provider->provide(new GetCollection());
   }
   // #endregion
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace User\Application\UseCase\Query\User\ListUsers;
 
+use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -25,13 +27,12 @@ final readonly class ListUsersQuery implements QueryMessage
    * ListUsersQuery class.
    *
    * @since 1.0.0
-   *
-   * @param int $page the page number
-   * @param int $limit the limit per page
    */
   public function __construct(
-    public readonly int $page = 1,
-    public readonly int $limit = 10,
+    public readonly Pagination $pagination = new Pagination(),
+    public readonly ?string $search = null,
+    public readonly Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
+    public readonly ?string $tenantId = null,
   ) {
   }
   // #endregion

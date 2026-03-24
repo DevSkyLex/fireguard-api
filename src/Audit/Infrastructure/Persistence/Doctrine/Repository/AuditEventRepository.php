@@ -20,6 +20,7 @@ use function array_map;
 use function is_array;
 use function is_numeric;
 use function is_string;
+use function str_replace;
 
 /**
  * Repository AuditEventRepository.
@@ -222,7 +223,7 @@ final class AuditEventRepository implements AuditEventRepositoryPort
     $countQb->select('COUNT(a.id)');
     $total = (int) $countQb->getQuery()->getSingleScalarResult();
 
-    $qb->orderBy('a.occurredAt', 'DESC')
+    $qb->orderBy('a.' . $this->resolveSortField($criteria->sorting->field), $criteria->sorting->direction->value)
       ->setFirstResult($pagination->offset)
       ->setMaxResults($pagination->limit);
 
@@ -383,6 +384,24 @@ final class AuditEventRepository implements AuditEventRepositoryPort
     if ($criteria->to) {
       $qb->andWhere('a.occurredAt <= :to')->setParameter('to', $criteria->to);
     }
+
+    if ($criteria->search) {
+      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $criteria->search);
+      $qb->andWhere($qb->expr()->orX(
+        $qb->expr()->like('a.action', ':search'),
+        $qb->expr()->like('a.actorType', ':search'),
+        $qb->expr()->like('a.actorEmail', ':search'),
+      ))->setParameter('search', '%' . $escaped . '%');
+    }
+  }
+
+  private function resolveSortField(string $field): string
+  {
+    return match ($field) {
+      'action' => 'action',
+      'actorType' => 'actorType',
+      default => 'occurredAt',
+    };
   }
 
   /**

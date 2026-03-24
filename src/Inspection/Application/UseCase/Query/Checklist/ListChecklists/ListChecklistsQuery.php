@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Query\Checklist\ListChecklists;
 
 use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -23,6 +24,8 @@ final readonly class ListChecklistsQuery implements QueryMessage
     public string $organizationId,
     public ?string $status = null,
     public Pagination $pagination = new Pagination(),
+    public ?string $search = null,
+    public Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
   ) {
   }
   // #endregion

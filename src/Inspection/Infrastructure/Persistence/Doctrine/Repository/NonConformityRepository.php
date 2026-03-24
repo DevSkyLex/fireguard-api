@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 use function array_map;
+use function str_replace;
 
 final readonly class NonConformityRepository implements NonConformityRepositoryPort
 {
@@ -65,19 +67,18 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     NonConformityInspectionId $inspectionId,
     ?string $severity = null,
     ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
   ): array {
-    /** @var InspectionRecord $inspection */
-    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $inspectionId);
-    $criteria = ['inspection' => $inspection];
+    $qb = $this->createListQueryBuilder($inspectionId, $severity, $status, $search);
+    $qb->orderBy('r.' . $this->resolveSortField($sorting->field), $sorting->direction->value)
+      ->setFirstResult($offset)
+      ->setMaxResults($limit);
 
-    if (null !== $severity) {
-      $criteria['severity'] = $severity;
-    }
-    if (null !== $status) {
-      $criteria['status'] = $status;
-    }
-
-    $records = $this->repository->findBy($criteria, ['createdAt' => 'DESC']);
+    /** @var list<NonConformityRecord> $records */
+    $records = $qb->getQuery()->getResult();
 
     return array_map(
       static fn (NonConformityRecord $record): NonConformity => NonConformityMapper::toDomain($record),
@@ -85,12 +86,16 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     );
   }
 
-  public function countByInspectionId(NonConformityInspectionId $inspectionId): int
-  {
-    /** @var InspectionRecord $inspection */
-    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $inspectionId);
+  public function countByInspectionId(
+    NonConformityInspectionId $inspectionId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+  ): int {
+    $qb = $this->createListQueryBuilder($inspectionId, $severity, $status, $search);
+    $qb->select('COUNT(r.id)');
 
-    return $this->repository->count(['inspection' => $inspection]);
+    return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
   /**
@@ -126,5 +131,51 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     }
 
     return $counts;
+  }
+
+  private function createListQueryBuilder(
+    NonConformityInspectionId $inspectionId,
+    ?string $severity,
+    ?string $status,
+    ?string $search,
+  ): QueryBuilder {
+    /** @var InspectionRecord $inspection */
+    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $inspectionId);
+
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('r')
+      ->from(NonConformityRecord::class, 'r')
+      ->andWhere('r.inspection = :inspection')
+      ->setParameter('inspection', $inspection);
+
+    if (null !== $severity) {
+      $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+    }
+
+    if (null !== $status) {
+      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+      $qb->andWhere($qb->expr()->orX(
+        $qb->expr()->like('r.description', ':search'),
+        $qb->expr()->like('r.severity', ':search'),
+        $qb->expr()->like('r.status', ':search'),
+        $qb->expr()->like('r.notes', ':search'),
+      ))->setParameter('search', '%' . $escaped . '%');
+    }
+
+    return $qb;
+  }
+
+  private function resolveSortField(string $field): string
+  {
+    return match ($field) {
+      'severity' => 'severity',
+      'status' => 'status',
+      'dueAt' => 'dueAt',
+      default => 'createdAt',
+    };
   }
 }

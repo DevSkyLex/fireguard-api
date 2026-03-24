@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -224,6 +225,60 @@ final class ListInspectionsProviderTest extends TestCase
 
     self::assertInstanceOf(TraversablePaginator::class, $result);
     self::assertSame(0.0, $result->getTotalItems());
+  }
+
+  #[Test]
+  public function testProvidePassesExtendedFiltersSearchAndSorting(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInspectionsQuery $query): bool {
+        return self::ORG_ID === $query->organizationId
+          && '2026-01-01T00:00:00+00:00' === $query->performedAtFrom
+          && '2026-01-31T23:59:59+00:00' === $query->performedAtTo
+          && self::USER_ID === $query->inspectorUserId
+          && '550e8400-e29b-41d4-a716-446655440099' === $query->checklistId
+          && 'john' === $query->search
+          && 'performedAt' === $query->sorting->field
+          && SortDirection::DESC === $query->sorting->direction;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $request = new Request([
+      'performedAtFrom' => '2026-01-01T00:00:00+00:00',
+      'performedAtTo' => '2026-01-31T23:59:59+00:00',
+      'inspectorUserId' => self::USER_ID,
+      'checklistId' => '550e8400-e29b-41d4-a716-446655440099',
+    ]);
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $provider = new ListInspectionsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+      context: [
+        'filters' => [
+          'search' => 'john',
+          'order' => ['performedAt' => 'desc'],
+        ],
+      ],
+    );
   }
 
   #[Test]

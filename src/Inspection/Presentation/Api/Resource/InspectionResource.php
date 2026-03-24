@@ -63,6 +63,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           new Parameter(name: 'facilityId', in: 'query', description: 'Filter by facility', required: false, schema: ['type' => 'string']),
           new Parameter(name: 'result', in: 'query', description: 'Filter by result (pass, fail, partial)', required: false, schema: ['type' => 'string']),
           new Parameter(name: 'status', in: 'query', description: 'Filter by status (draft, submitted, closed)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'performedAtFrom', in: 'query', description: 'Filter inspections performed on or after this instant.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'performedAtTo', in: 'query', description: 'Filter inspections performed on or before this instant.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'inspectorUserId', in: 'query', description: 'Filter by inspector user identifier.', required: false, schema: ['type' => 'string', 'format' => 'uuid']),
+          new Parameter(name: 'checklistId', in: 'query', description: 'Filter by checklist identifier.', required: false, schema: ['type' => 'string', 'format' => 'uuid']),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Inspection list'),

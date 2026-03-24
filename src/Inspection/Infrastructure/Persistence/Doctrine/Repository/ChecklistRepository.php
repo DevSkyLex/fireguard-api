@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
 use Inspection\Domain\Model\Checklist\Checklist;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\ChecklistMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 use function array_map;
 use function in_array;
+use function str_replace;
 
 final readonly class ChecklistRepository implements ChecklistRepositoryPort
 {
@@ -107,16 +109,18 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
   public function findByOrganizationId(
     ChecklistOrganizationId $organizationId,
     ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
   ): array {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-    $criteria = ['organization' => $organization];
+    $qb = $this->createListQueryBuilder($organizationId, $status, $search);
+    $qb->orderBy('c.' . $this->resolveSortField($sorting->field), $sorting->direction->value)
+      ->setFirstResult($offset)
+      ->setMaxResults($limit);
 
-    if (null !== $status) {
-      $criteria['status'] = $status;
-    }
-
-    $records = $this->checklistRepository->findBy($criteria, ['createdAt' => 'DESC']);
+    /** @var list<ChecklistRecord> $records */
+    $records = $qb->getQuery()->getResult();
 
     return array_map(
       function (ChecklistRecord $record): Checklist {
@@ -129,5 +133,56 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
       },
       $records,
     );
+  }
+
+  public function countByOrganizationId(
+    ChecklistOrganizationId $organizationId,
+    ?string $status = null,
+    ?string $search = null,
+  ): int {
+    $qb = $this->createListQueryBuilder($organizationId, $status, $search);
+    $qb->select('COUNT(c.id)');
+
+    return (int) $qb->getQuery()->getSingleScalarResult();
+  }
+
+  private function createListQueryBuilder(
+    ChecklistOrganizationId $organizationId,
+    ?string $status,
+    ?string $search,
+  ): QueryBuilder {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('c')
+      ->from(ChecklistRecord::class, 'c')
+      ->andWhere('c.organization = :organization')
+      ->setParameter('organization', $organization);
+
+    if (null !== $status) {
+      $qb->andWhere('c.status = :status')->setParameter('status', $status);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+      $qb->andWhere($qb->expr()->orX(
+        $qb->expr()->like('c.name', ':search'),
+        $qb->expr()->like('c.version', ':search'),
+        $qb->expr()->like('c.status', ':search'),
+      ))->setParameter('search', '%' . $escaped . '%');
+    }
+
+    return $qb;
+  }
+
+  private function resolveSortField(string $field): string
+  {
+    return match ($field) {
+      'name' => 'name',
+      'version' => 'version',
+      'status' => 'status',
+      default => 'createdAt',
+    };
   }
 }

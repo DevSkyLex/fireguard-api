@@ -8,11 +8,14 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
+use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeInterface;
-use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Search\SearchExtractor;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, UnauthorizedHttpException};
 use User\Application\UseCase\Query\User\ListUsers\ListUsersQuery;
 use User\Domain\Model\User\User;
 use User\Presentation\Api\Dto\Output\User\UserOutput;
@@ -20,6 +23,7 @@ use User\Presentation\Api\Dto\Output\User\UserOutput;
 use function array_map;
 use function is_numeric;
 use function max;
+use function min;
 
 /**
  * Provider ListUsersProvider.
@@ -47,6 +51,7 @@ final readonly class ListUsersProvider implements ProviderInterface
    */
   public function __construct(
     private readonly QueryBusPort $queryBus,
+    private readonly Security $security,
   ) {
   }
   // #endregion
@@ -70,6 +75,16 @@ final readonly class ListUsersProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
   {
+    $caller = $this->security->getUser();
+    if (!$caller instanceof SecurityUser) {
+      throw new UnauthorizedHttpException('Bearer', 'Authentication required.');
+    }
+
+    $tenantId = $caller->getTenantId();
+    if (null === $tenantId && !$this->security->isGranted('ROLE_SUPER_ADMIN')) {
+      throw new AccessDeniedHttpException('Cross-tenant access requires elevated privileges.');
+    }
+
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
     $pageValue = $filters['page'] ?? 1;
@@ -79,10 +94,20 @@ final readonly class ListUsersProvider implements ProviderInterface
     $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
 
     $page = max(1, $page);
-    $itemsPerPage = max(1, $itemsPerPage);
+    $itemsPerPage = max(1, min(100, $itemsPerPage));
+
+    $offset = ($page - 1) * $itemsPerPage;
+
+    $search = SearchExtractor::fromContext($context);
+    $sorting = SortingExtractor::fromContext($context, ['username', 'email', 'firstName', 'lastName', 'status', 'createdAt'], 'createdAt');
 
     /** @var PaginatedResult<User> $result */
-    $result = $this->queryBus->ask(query: new ListUsersQuery(page: $page, limit: $itemsPerPage));
+    $result = $this->queryBus->ask(query: new ListUsersQuery(
+      pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+      search: $search,
+      sorting: $sorting,
+      tenantId: $tenantId,
+    ));
 
     $outputs = array_map(function (User $user) {
       $output = new UserOutput();
@@ -100,12 +125,6 @@ final readonly class ListUsersProvider implements ProviderInterface
 
       return $output;
     }, $result->items);
-
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['username', 'email', 'firstName', 'lastName', 'status']);
-
-    $sorting = SortingExtractor::fromContext($context, ['username', 'email', 'firstName', 'lastName', 'status', 'createdAt'], 'createdAt');
-    $outputs = CollectionSorter::sort($outputs, $sorting);
 
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),

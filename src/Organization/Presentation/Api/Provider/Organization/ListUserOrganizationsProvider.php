@@ -14,14 +14,13 @@ use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\Li
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Search\SearchExtractor;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-use function array_slice;
-use function count;
 use function is_numeric;
+use function is_string;
 use function max;
 
 /**
@@ -84,6 +83,9 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
     $result = $this->queryBus->ask(new ListUserOrganizationsQuery(
       userId: $user->getId(),
       pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+      status: isset($filters['status']) && is_string($filters['status']) && '' !== $filters['status'] ? $filters['status'] : null,
+      search: SearchExtractor::fromContext($context),
+      sorting: SortingExtractor::fromContext($context, ['name', 'slug', 'status', 'createdAt'], 'name'),
     ));
 
     $outputs = [];
@@ -102,21 +104,11 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $outputs[] = $output;
     }
 
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['name', 'slug', 'status']);
-
-    $total = count($outputs);
-
-    $sorting = SortingExtractor::fromContext($context, ['name', 'slug', 'status', 'memberCount', 'createdAt'], 'name');
-    $outputs = CollectionSorter::sort($outputs, $sorting);
-
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
-
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $total,
+      totalItems: (float) $result->total,
     );
   }
   // #endregion

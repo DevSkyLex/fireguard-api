@@ -6,6 +6,7 @@ namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port InspectionRepositoryPort.
@@ -55,6 +56,14 @@ interface InspectionRepositoryPort
    * @param ?string $facilityId optional facility filter
    * @param ?string $result optional result filter
    * @param ?string $status optional status filter
+   * @param ?string $performedAtFrom optional lower bound for performedAt
+   * @param ?string $performedAtTo optional upper bound for performedAt
+   * @param ?string $inspectorUserId optional inspector user filter
+   * @param ?string $checklistId optional checklist filter
+   * @param ?string $search optional text search applied before pagination
+   * @param Sorting $sorting requested sorting applied before pagination
+   * @param int $limit maximum number of results
+   * @param int $offset result offset
    *
    * @return list<Inspection> the inspection list
    */
@@ -64,6 +73,47 @@ interface InspectionRepositoryPort
     ?string $facilityId = null,
     ?string $result = null,
     ?string $status = null,
+    ?string $performedAtFrom = null,
+    ?string $performedAtTo = null,
+    ?string $inspectorUserId = null,
+    ?string $checklistId = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
   ): array;
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts inspections for an organization with optional filters.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $equipmentId optional equipment filter
+   * @param ?string $facilityId optional facility filter
+   * @param ?string $result optional result filter
+   * @param ?string $status optional status filter
+   * @param ?string $performedAtFrom optional lower bound for performedAt
+   * @param ?string $performedAtTo optional upper bound for performedAt
+   * @param ?string $inspectorUserId optional inspector user filter
+   * @param ?string $checklistId optional checklist filter
+   * @param ?string $search optional text search applied before counting
+   *
+   * @return int the inspection count
+   */
+  public function countByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $equipmentId = null,
+    ?string $facilityId = null,
+    ?string $result = null,
+    ?string $status = null,
+    ?string $performedAtFrom = null,
+    ?string $performedAtTo = null,
+    ?string $inspectorUserId = null,
+    ?string $checklistId = null,
+    ?string $search = null,
+  ): int;
   // #endregion
 }

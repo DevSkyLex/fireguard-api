@@ -20,7 +20,7 @@ Main goals:
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/api/organizations/{organizationId}/inspections` | Create inspection (starts as `draft`) |
-| GET | `/api/organizations/{organizationId}/inspections` | List inspections (filters: `equipmentId`, `facilityId`, `result`, `status`) |
+| GET | `/api/organizations/{organizationId}/inspections` | List inspections (filters: `equipmentId`, `facilityId`, `result`, `status`, `performedAtFrom`, `performedAtTo`, `inspectorUserId`, `checklistId`) |
 | GET | `/api/organizations/{organizationId}/inspections/{inspectionId}` | Get inspection |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/submit` | Submit inspection (`draft → submitted`) |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/close` | Close inspection (`submitted → closed`) |

@@ -6,6 +6,7 @@ namespace Organization\Application\Port\Outbound;
 
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\OrganizationId;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port OrganizationRepositoryPort.
@@ -46,15 +47,42 @@ interface OrganizationRepositoryPort
   /**
    * Method findByIds.
    *
-   * Finds organizations by a list of identifiers.
+   * Finds organizations by a list of identifiers with optional filters.
    *
    * @since 1.0.0
    *
    * @param list<OrganizationId> $ids the organization identifiers
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before pagination
+   * @param Sorting $sorting requested sorting applied before pagination
+   * @param int $limit maximum number of results
+   * @param int $offset result offset
    *
    * @return list<Organization> the matching organizations
    */
-  public function findByIds(array $ids): array;
+  public function findByIds(
+    array $ids,
+    ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array;
+
+  /**
+   * Method countByIds.
+   *
+   * Counts organizations by a list of identifiers with optional filters.
+   *
+   * @since 1.0.0
+   *
+   * @param list<OrganizationId> $ids the organization identifiers
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before counting
+   *
+   * @return int the matching organization count
+   */
+  public function countByIds(array $ids, ?string $status = null, ?string $search = null): int;
 
   /**
    * Method delete.

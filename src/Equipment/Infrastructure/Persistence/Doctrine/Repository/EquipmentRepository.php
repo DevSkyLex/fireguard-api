@@ -124,6 +124,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
@@ -134,6 +137,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $facilityId,
       $type,
       $status,
+      $brand,
+      $model,
+      $subType,
       $search,
     );
 
@@ -170,6 +176,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
   ): int {
     return (int) $this->createListQueryBuilder(
@@ -177,6 +186,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $facilityId,
       $type,
       $status,
+      $brand,
+      $model,
+      $subType,
       $search,
     )
       ->select('COUNT(e.id)')
@@ -189,6 +201,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId,
     ?string $type,
     ?string $status,
+    ?string $brand,
+    ?string $model,
+    ?string $subType,
     ?string $search,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
@@ -216,6 +231,24 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $queryBuilder
         ->andWhere('e.status = :status')
         ->setParameter('status', $status);
+    }
+
+    if (null !== $brand) {
+      $queryBuilder
+        ->andWhere('e.brand = :brand')
+        ->setParameter('brand', $brand);
+    }
+
+    if (null !== $model) {
+      $queryBuilder
+        ->andWhere('e.model = :model')
+        ->setParameter('model', $model);
+    }
+
+    if (null !== $subType) {
+      $queryBuilder
+        ->andWhere('e.subType = :subType')
+        ->setParameter('subType', $subType);
     }
 
     if (null !== $search && '' !== $search) {

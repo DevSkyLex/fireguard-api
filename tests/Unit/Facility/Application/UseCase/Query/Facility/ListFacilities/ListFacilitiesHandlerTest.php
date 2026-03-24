@@ -4,24 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 
-use DateTimeImmutable;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
+use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
-
-use function array_map;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 #[CoversClass(ListFacilitiesHandler::class)]
 final class ListFacilitiesHandlerTest extends TestCase
 {
   #[Test]
-  public function testInvokeFiltersArchivedFacilitiesWhenIncludeArchivedFalse(): void
+  public function testInvokePassesFiltersPaginationAndSortingToRepository(): void
   {
     $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441800');
 
@@ -32,81 +30,57 @@ final class ListFacilitiesHandlerTest extends TestCase
       name: new FacilityName('Active Site'),
     );
 
-    $archivedFacility = Facility::reconstitute(
-      id: new FacilityId('550e8400-e29b-41d4-a716-446655441802'),
-      organizationId: $organizationId,
-      type: FacilityType::BUILDING,
-      name: new FacilityName('Archived Building'),
-      status: FacilityStatus::ARCHIVED,
-      createdAt: new DateTimeImmutable(),
-      updatedAt: new DateTimeImmutable(),
-    );
-
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
       ->method('findByOrganizationId')
-      ->willReturn([$activeFacility, $archivedFacility]);
+      ->with(
+        $organizationId,
+        false,
+        'site',
+        'active',
+        '550e8400-e29b-41d4-a716-446655441803',
+        'SITE-001',
+        'hq',
+        new Sorting('createdAt', SortDirection::DESC),
+        15,
+        30,
+      )
+      ->willReturn([$activeFacility]);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        $organizationId,
+        false,
+        'site',
+        'active',
+        '550e8400-e29b-41d4-a716-446655441803',
+        'SITE-001',
+        'hq',
+      )
+      ->willReturn(4);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: (string) $organizationId,
       includeArchived: false,
+      pagination: new \Shared\Application\Contract\Pagination\Pagination(offset: 30, limit: 15),
+      type: 'site',
+      status: 'active',
+      parentFacilityId: '550e8400-e29b-41d4-a716-446655441803',
+      code: 'SITE-001',
+      search: 'hq',
+      sorting: new Sorting('createdAt', SortDirection::DESC),
     ));
 
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertCount(1, $result->items);
     self::assertSame('550e8400-e29b-41d4-a716-446655441801', $result->items[0]->facilityId);
     self::assertSame('active', $result->items[0]->status);
-    self::assertSame(1, $result->total);
-    self::assertSame(1, $result->limit);
-    self::assertSame(0, $result->offset);
-  }
-
-  #[Test]
-  public function testInvokeIncludesArchivedFacilitiesWhenIncludeArchivedTrue(): void
-  {
-    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441810');
-
-    $activeFacility = Facility::create(
-      id: new FacilityId('550e8400-e29b-41d4-a716-446655441811'),
-      organizationId: $organizationId,
-      type: FacilityType::ZONE,
-      name: new FacilityName('Zone A'),
-    );
-
-    $archivedFacility = Facility::reconstitute(
-      id: new FacilityId('550e8400-e29b-41d4-a716-446655441812'),
-      organizationId: $organizationId,
-      type: FacilityType::AREA,
-      name: new FacilityName('Area B'),
-      status: FacilityStatus::ARCHIVED,
-      createdAt: new DateTimeImmutable(),
-      updatedAt: new DateTimeImmutable(),
-    );
-
-    /** @var FacilityRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(FacilityRepositoryPort::class);
-    $repository->expects(self::once())
-      ->method('findByOrganizationId')
-      ->willReturn([$activeFacility, $archivedFacility]);
-
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
-
-    $result = $handler->__invoke(new ListFacilitiesQuery(
-      organizationId: (string) $organizationId,
-      includeArchived: true,
-    ));
-
-    self::assertCount(2, $result->items);
-
-    $statuses = array_map(static fn (GetFacilityResult $r): string => $r->status, $result->items);
-    self::assertContains('active', $statuses);
-    self::assertContains('archived', $statuses);
-    self::assertSame(2, $result->total);
-    self::assertSame(2, $result->limit);
-    self::assertSame(0, $result->offset);
+    self::assertSame(4, $result->total);
+    self::assertSame(15, $result->limit);
+    self::assertSame(30, $result->offset);
   }
 
   #[Test]
@@ -117,6 +91,9 @@ final class ListFacilitiesHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('findByOrganizationId')
       ->willReturn([]);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->willReturn(0);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
@@ -127,40 +104,40 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertEmpty($result->items);
     self::assertSame(0, $result->total);
-    self::assertSame(0, $result->limit);
+    self::assertSame(20, $result->limit);
     self::assertSame(0, $result->offset);
   }
 
   #[Test]
-  public function testInvokeDefaultsToExcludingArchived(): void
+  public function testInvokeThrowsWhenTypeIsInvalid(): void
   {
-    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441830');
-
-    $archivedFacility = Facility::reconstitute(
-      id: new FacilityId('550e8400-e29b-41d4-a716-446655441831'),
-      organizationId: $organizationId,
-      type: FacilityType::SITE,
-      name: new FacilityName('Old Site'),
-      status: FacilityStatus::ARCHIVED,
-      createdAt: new DateTimeImmutable(),
-      updatedAt: new DateTimeImmutable(),
-    );
-
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
-    $repository->method('findByOrganizationId')->willReturn([$archivedFacility]);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
-    // Default query: includeArchived defaults to false
-    $result = $handler->__invoke(new ListFacilitiesQuery(
-      organizationId: (string) $organizationId,
-    ));
+    $this->expectException(InvalidArgumentException::class);
 
-    self::assertEmpty($result->items);
-    self::assertSame(0, $result->total);
-    self::assertSame(0, $result->limit);
-    self::assertSame(0, $result->offset);
+    $handler->__invoke(new ListFacilitiesQuery(
+      organizationId: '550e8400-e29b-41d4-a716-446655441820',
+      type: 'campus',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenParentFacilityIdIsInvalid(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListFacilitiesQuery(
+      organizationId: '550e8400-e29b-41d4-a716-446655441830',
+      parentFacilityId: 'not-a-uuid',
+    ));
   }
 
   #[Test]
@@ -182,7 +159,8 @@ final class ListFacilitiesHandlerTest extends TestCase
 
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
-    $repository->method('findByOrganizationId')->willReturn([$facility]);
+    $repository->expects(self::once())->method('findByOrganizationId')->willReturn([$facility]);
+    $repository->expects(self::once())->method('countByOrganizationId')->willReturn(1);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
@@ -203,7 +181,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertSame('Wing B', $item->address);
     self::assertSame(['capacity' => 50], $item->metadata);
     self::assertSame(1, $result->total);
-    self::assertSame(1, $result->limit);
+    self::assertSame(20, $result->limit);
     self::assertSame(0, $result->offset);
   }
 }

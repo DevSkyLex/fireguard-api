@@ -57,6 +57,9 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $query->facilityId,
       $type,
       $status,
+      $query->brand,
+      $query->model,
+      $query->subType,
       $query->search,
       $query->sorting,
       $query->pagination->limit,
@@ -68,6 +71,9 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $query->facilityId,
       $type,
       $status,
+      $query->brand,
+      $query->model,
+      $query->subType,
       $query->search,
     );
 

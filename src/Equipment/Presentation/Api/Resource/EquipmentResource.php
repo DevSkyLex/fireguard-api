@@ -98,6 +98,27 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Filter by equipment status.',
             schema: ['type' => 'string'],
           ),
+          new Parameter(
+            name: 'brand',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact equipment brand.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'model',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact equipment model.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'subType',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact equipment subtype.',
+            schema: ['type' => 'string'],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment list retrieved'),

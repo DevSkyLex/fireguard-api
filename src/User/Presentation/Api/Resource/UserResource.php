@@ -106,6 +106,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       paginationEnabled: true,
       paginationClientItemsPerPage: true,
       paginationItemsPerPage: 30,
+      paginationMaximumItemsPerPage: 100,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
       security: "is_granted('users.read')",
       openapi: new Operation(

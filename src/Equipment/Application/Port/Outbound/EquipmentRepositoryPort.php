@@ -55,6 +55,9 @@ interface EquipmentRepositoryPort
    * @param ?string $facilityId optional facility filter
    * @param ?string $type optional type filter
    * @param ?string $status optional status filter
+   * @param ?string $brand optional brand filter
+   * @param ?string $model optional model filter
+   * @param ?string $subType optional subtype filter
    * @param ?string $search optional text search applied before pagination
    * @param Sorting $sorting requested sorting applied before pagination
    * @param int $limit maximum number of results
@@ -67,6 +70,9 @@ interface EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
@@ -84,6 +90,9 @@ interface EquipmentRepositoryPort
    * @param ?string $facilityId optional facility filter
    * @param ?string $type optional type filter
    * @param ?string $status optional status filter
+   * @param ?string $brand optional brand filter
+   * @param ?string $model optional model filter
+   * @param ?string $subType optional subtype filter
    * @param ?string $search optional text search applied before counting
    *
    * @return int the total count
@@ -93,6 +102,9 @@ interface EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
   ): int;
 

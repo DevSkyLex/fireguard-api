@@ -6,6 +6,7 @@ namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port NonConformityRepositoryPort.
@@ -60,6 +61,10 @@ interface NonConformityRepositoryPort
     NonConformityInspectionId $inspectionId,
     ?string $severity = null,
     ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
   ): array;
 
   /**
@@ -73,7 +78,12 @@ interface NonConformityRepositoryPort
    *
    * @return int the count
    */
-  public function countByInspectionId(NonConformityInspectionId $inspectionId): int;
+  public function countByInspectionId(
+    NonConformityInspectionId $inspectionId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+  ): int;
 
   /**
    * Method countsByInspectionIds.
