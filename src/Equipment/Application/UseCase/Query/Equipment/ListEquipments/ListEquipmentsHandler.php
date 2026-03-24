@@ -57,6 +57,8 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $query->facilityId,
       $type,
       $status,
+      $query->search,
+      $query->sorting,
       $query->pagination->limit,
       $query->pagination->offset,
     );
@@ -66,6 +68,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $query->facilityId,
       $type,
       $status,
+      $query->search,
     );
 
     $results = [];

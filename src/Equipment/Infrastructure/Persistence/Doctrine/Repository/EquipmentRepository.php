@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -13,11 +13,15 @@ use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Throwable;
 
+use function addcslashes;
 use function array_map;
+use function mb_strtolower;
 use function str_contains;
 use function strtolower;
+use function strtoupper;
 
 /**
  * Repository EquipmentRepository.
@@ -120,26 +124,35 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
   ): array {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-    $criteria = ['organization' => $organization];
+    $queryBuilder = $this->createListQueryBuilder(
+      $organizationId,
+      $facilityId,
+      $type,
+      $status,
+      $search,
+    );
 
-    if (null !== $facilityId) {
-      $criteria['facilityId'] = $facilityId;
-    }
+    $sortField = match ($sorting->field) {
+      'type' => 'e.type',
+      'status' => 'e.status',
+      'brand' => 'e.brand',
+      'model' => 'e.model',
+      default => 'e.createdAt',
+    };
 
-    if (null !== $type) {
-      $criteria['type'] = $type;
-    }
-
-    if (null !== $status) {
-      $criteria['status'] = $status;
-    }
-
-    $records = $this->repository->findBy($criteria, ['createdAt' => 'DESC'], $limit, $offset);
+    /** @var list<EquipmentRecord> $records */
+    $records = $queryBuilder
+      ->orderBy($sortField, strtoupper($sorting->direction->value))
+      ->addOrderBy('e.id', 'ASC')
+      ->setFirstResult($offset)
+      ->setMaxResults($limit)
+      ->getQuery()
+      ->getResult();
 
     return array_map(
       static fn (EquipmentRecord $record): Equipment => EquipmentMapper::toDomain($record),
@@ -157,24 +170,71 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $search = null,
   ): int {
+    return (int) $this->createListQueryBuilder(
+      $organizationId,
+      $facilityId,
+      $type,
+      $status,
+      $search,
+    )
+      ->select('COUNT(e.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
+  private function createListQueryBuilder(
+    EquipmentOrganizationId $organizationId,
+    ?string $facilityId,
+    ?string $type,
+    ?string $status,
+    ?string $search,
+  ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-    $criteria = ['organization' => $organization];
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select('e')
+      ->from(EquipmentRecord::class, 'e')
+      ->where('e.organization = :organization')
+      ->setParameter('organization', $organization);
 
     if (null !== $facilityId) {
-      $criteria['facilityId'] = $facilityId;
+      $queryBuilder
+        ->andWhere('e.facilityId = :facilityId')
+        ->setParameter('facilityId', $facilityId);
     }
 
     if (null !== $type) {
-      $criteria['type'] = $type;
+      $queryBuilder
+        ->andWhere('e.type = :type')
+        ->setParameter('type', $type);
     }
 
     if (null !== $status) {
-      $criteria['status'] = $status;
+      $queryBuilder
+        ->andWhere('e.status = :status')
+        ->setParameter('status', $status);
     }
 
-    return $this->repository->count($criteria);
+    if (null !== $search && '' !== $search) {
+      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
+
+      $queryBuilder
+        ->andWhere('(
+          LOWER(e.type) LIKE :search OR
+          LOWER(COALESCE(e.subType, \'\')) LIKE :search OR
+          LOWER(COALESCE(e.brand, \'\')) LIKE :search OR
+          LOWER(COALESCE(e.model, \'\')) LIKE :search OR
+          LOWER(COALESCE(e.serialNumber, \'\')) LIKE :search OR
+          LOWER(e.status) LIKE :search OR
+          LOWER(COALESCE(e.locationLabel, \'\')) LIKE :search
+        )')
+        ->setParameter('search', $normalizedSearch);
+    }
+
+    return $queryBuilder;
   }
 
   private function isDuplicateSerialNumberViolation(Throwable $exception): bool

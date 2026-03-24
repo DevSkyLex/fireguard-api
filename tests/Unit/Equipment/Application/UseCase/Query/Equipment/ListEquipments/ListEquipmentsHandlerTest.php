@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 #[CoversClass(ListEquipmentsHandler::class)]
 final class ListEquipmentsHandlerTest extends TestCase
@@ -149,6 +150,8 @@ final class ListEquipmentsHandlerTest extends TestCase
         null,
         null,
         null,
+        null,
+        self::equalTo(new Sorting('createdAt', SortDirection::ASC)),
         5,
         10,
       )
@@ -175,5 +178,53 @@ final class ListEquipmentsHandlerTest extends TestCase
 
     self::assertSame(5, $result->limit);
     self::assertSame(10, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokePassesSearchAndSortingToRepository(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(
+        self::anything(),
+        null,
+        null,
+        null,
+        'sicli',
+        self::equalTo(new Sorting('brand', SortDirection::DESC)),
+        10,
+        0,
+      )
+      ->willReturn([]);
+    $equipmentRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::anything(),
+        null,
+        null,
+        null,
+        'sicli',
+      )
+      ->willReturn(0);
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::once())
+      ->method('findTagsByEquipmentIds')
+      ->willReturn([]);
+
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+    );
+
+    $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(limit: 10, offset: 0),
+      search: 'sicli',
+      sorting: new Sorting('brand', SortDirection::DESC),
+    ));
   }
 }

@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
  * Test ListRolesProviderTest.
@@ -108,6 +109,25 @@ final class ListRolesProviderTest extends TestCase
     $result = $provider->provide(new GetCollection());
 
     self::assertCount(0, $result);
+  }
+
+  #[Test]
+  public function testProvideThrowsBadRequestWhenIsSystemFilterIsInvalid(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())
+      ->method('ask');
+
+    $provider = new ListRolesProvider($queryBus);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('The isSystem filter must be a valid boolean.');
+
+    $provider->provide(
+      operation: new GetCollection(),
+      context: ['filters' => ['isSystem' => 'foo']],
+    );
   }
   // #endregion
 }
