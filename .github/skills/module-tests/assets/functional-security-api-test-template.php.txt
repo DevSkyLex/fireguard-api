@@ -1,0 +1,92 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Functional\Api;
+
+use PHPUnit\Framework\Attributes\Test;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Test __API_TEST_CLASS__.
+ *
+ * @category Functional Tests
+ *
+ * @author __AUTHOR__
+ */
+final class __API_TEST_CLASS__ extends WebTestCase
+{
+  // #region Methods
+  /**
+   * Method testEndpointRequiresAuthentication.
+   *
+   * Tests that the endpoint requires authentication.
+   */
+  #[Test]
+  public function testEndpointRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('__HTTP_METHOD__', '__URI__');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN],
+      message: 'Expected 401 or 403 status code for unauthenticated request, got ' . $statusCode,
+    );
+  }
+
+  /**
+   * Method testEndpointExistsBehindAuthentication.
+   *
+   * Tests that the route exists and is not accidentally exposed as a 404.
+   */
+  #[Test]
+  public function testEndpointExistsBehindAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('__HTTP_METHOD__', '__URI__');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotSame(
+      expected: Response::HTTP_NOT_FOUND,
+      actual: $statusCode,
+      message: 'Security endpoint should exist and not return 404.',
+    );
+  }
+
+  /**
+   * Method testRateLimitedEndpointReturnsTooManyRequestsWhenApplicable.
+   *
+   * Tests the 429 contract only when the endpoint is protected by a limiter.
+   */
+  #[Test]
+  public function testRateLimitedEndpointReturnsTooManyRequestsWhenApplicable(): void
+  {
+    $client = static::createClient();
+
+    // Replace this placeholder with the calls needed to exhaust the configured limiter.
+    __RATE_LIMIT_SETUP__
+
+    $client->request(
+      method: '__RATE_LIMIT_METHOD__',
+      uri: '__RATE_LIMIT_URI__',
+      server: __RATE_LIMIT_SERVER__,
+      content: __RATE_LIMIT_CONTENT__,
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [Response::HTTP_TOO_MANY_REQUESTS, Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN],
+      message: 'Expected a denial or throttling response, got ' . $statusCode,
+    );
+  }
+  // #endregion
+}

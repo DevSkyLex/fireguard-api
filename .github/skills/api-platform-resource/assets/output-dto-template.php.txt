@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Dto\Output\__AREA__;
+
+use ApiPlatform\Metadata\ApiProperty;
+use __MODULE__\Presentation\Api\Serialization\__SERIALIZATION_GROUPS_CLASS__;
+use Symfony\Component\Serializer\Attribute\Groups;
+
+/**
+ * DTO __OUTPUT_CLASS__.
+ *
+ * Keep only externally readable fields here. Do not expose internal state that is not part of the API contract.
+ *
+ * @category DTO
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final class __OUTPUT_CLASS__
+{
+  // #region Properties
+  /**
+   * Property id.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::READ])]
+  #[ApiProperty(readable: true, writable: false, identifier: true)]
+  public string $id = '';
+
+  /**
+   * Property __SCOPE_ID_PROPERTY__.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $__SCOPE_ID_PROPERTY__ = '';
+
+  /**
+   * Property __FIELD_ONE_PROPERTY__.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $__FIELD_ONE_PROPERTY__ = '';
+
+  /**
+   * Property __FIELD_TWO_PROPERTY__.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $__FIELD_TWO_PROPERTY__ = null;
+
+  /**
+   * Property createdAt.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $createdAt = '';
+
+  /**
+   * Property updatedAt.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([__SERIALIZATION_GROUPS_CLASS__::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $updatedAt = '';
+  // #endregion
+}

@@ -1,0 +1,9 @@
+services:
+  __MODULE__\Application\UseCase\Command\__AREA__\__USE_CASE__\__COMMAND_HANDLER__:
+    tags: ['messenger.message_handler']
+
+  __MODULE__\Application\UseCase\Query\__AREA__\__USE_CASE__\__QUERY_HANDLER__:
+    tags: ['messenger.message_handler']
+
+  __MODULE__\Application\Port\Outbound\__REPOSITORY_PORT__:
+    alias: __MODULE__\Infrastructure\Persistence\Doctrine\Repository\__REPOSITORY_CLASS__

@@ -1,0 +1,105 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Provider\__AREA__;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProviderInterface;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use __MODULE__\Application\UseCase\Query\__AREA__\__USE_CASE__\{__QUERY_CLASS__, __RESULT_CLASS__};
+use __MODULE__\Presentation\Api\Dto\Output\__AREA__\__OUTPUT_CLASS__;
+use InvalidArgumentException;
+use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+
+use function is_string;
+
+/**
+ * Provider __PROVIDER_CLASS__.
+ *
+ * Keep filtering, permission checks, and query dispatch here. Leave business decisions to the query handler.
+ *
+ * @category Provider
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ *
+ * @implements ProviderInterface<__OUTPUT_CLASS__>
+ */
+final readonly class __PROVIDER_CLASS__ implements ProviderInterface
+{
+  // #region Constructor
+  public function __construct(
+    private QueryBusPort $queryBus,
+    private __AUTHORIZATION_PORT__ $authorization,
+    private Security $security,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method provide.
+   *
+   * Example responsibility split:
+   * - validate authenticated user and URI variables here
+   * - build the query contract for the application layer
+   * - map the returned result to the output DTO or paginator
+   *
+    * @since 1.0.0
+    *
+    * @param Operation $operation the API operation metadata
+   * @param array<string, mixed> $uriVariables URI variables extracted from the request
+   * @param array<string, mixed> $context provider context values
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
+  {
+    $user = $this->security->getUser();
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+
+    $scopeId = $uriVariables['__SCOPE_ID__'] ?? null;
+    if (!is_string($scopeId) || '' === $scopeId) {
+      throw new BadRequestHttpException('__SCOPE_ID__ URI parameter is required.');
+    }
+
+    if (!$this->authorization->__AUTHORIZATION_METHOD__($user->getId(), $scopeId, '__PERMISSION__')) {
+      throw new AccessDeniedHttpException('Missing __PERMISSION__ permission.');
+    }
+
+    try {
+      /** @var __RESULT_CLASS__ $result */
+      $result = $this->queryBus->ask(new __QUERY_CLASS__(
+        __SCOPE_ID__: $scopeId,
+        __QUERY_ARGUMENTS__
+      ));
+    } catch (InvalidArgumentException $exception) {
+      throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      throw $exception;
+    }
+
+    return $this->mapResult($result);
+  }
+
+  /**
+   * Method mapResult.
+   *
+   * Keep output mapping explicit so filters and serialization remain easy to reason about.
+   *
+   * @since 1.0.0
+   */
+  private function mapResult(__RESULT_CLASS__ $result): __OUTPUT_CLASS__
+  {
+    $output = new __OUTPUT_CLASS__();
+    __OUTPUT_ASSIGNMENTS__
+
+    return $output;
+  }
+  // #endregion
+}

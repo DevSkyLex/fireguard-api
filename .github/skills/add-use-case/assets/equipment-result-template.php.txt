@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\Command\__AREA__\__USE_CASE__;
+
+use DateTimeImmutable;
+use Shared\Application\Message\ResultMessage;
+
+/**
+ * UseCase __RESULT_CLASS__.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __RESULT_CLASS__ implements ResultMessage
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   */
+  public function __construct(
+    public string $id,
+    public string $__SCOPE_ID_PROPERTY__,
+    public string $__FIELD_ONE_PROPERTY__,
+    public ?string $__FIELD_TWO_PROPERTY__,
+    public DateTimeImmutable $createdAt,
+    public DateTimeImmutable $updatedAt,
+  ) {
+  }
+  // #endregion
+}

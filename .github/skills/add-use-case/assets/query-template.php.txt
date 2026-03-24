@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\Query\__AREA__\__USE_CASE__;
+
+/**
+ * Query __QUERY_CLASS__.
+ *
+ * Carries read-side input from Presentation to the application handler.
+ *
+ * @category Query
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __QUERY_CLASS__
+{
+  // #region Constructor
+  public function __construct(
+    public string $__SCOPE_ID_PROPERTY__,
+    public ?string $__FIELD_ONE_PROPERTY__ = null,
+    public ?string $__FIELD_TWO_PROPERTY__ = null,
+  ) {
+  }
+  // #endregion
+}

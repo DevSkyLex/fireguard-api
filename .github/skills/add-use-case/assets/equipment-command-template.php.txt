@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\Command\__AREA__\__USE_CASE__;
+
+use Shared\Application\Message\CommandMessage;
+
+/**
+ * UseCase __COMMAND_CLASS__.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __COMMAND_CLASS__ implements CommandMessage
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $__SCOPE_ID_PROPERTY__ the scope identifier
+   * @param string $__FIELD_ONE_PROPERTY__ the primary business value
+   * @param ?string $__FIELD_TWO_PROPERTY__ the optional secondary value
+   */
+  public function __construct(
+    public string $__SCOPE_ID_PROPERTY__,
+    public string $__FIELD_ONE_PROPERTY__,
+    public ?string $__FIELD_TWO_PROPERTY__ = null,
+  ) {
+  }
+  // #endregion
+}

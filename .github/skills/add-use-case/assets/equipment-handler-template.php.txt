@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\Command\__AREA__\__USE_CASE__;
+
+use __MODULE__\Application\Port\Outbound\__REPOSITORY_PORT__;
+use __MODULE__\Domain\Model\__AGGREGATE__\__AGGREGATE__;
+use __MODULE__\Domain\ValueObject\{__AGGREGATE_ID_CLASS__, __SCOPE_ID_CLASS__, __ENUM_OR_VALUE_OBJECT_CLASS__};
+use InvalidArgumentException;
+use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Message\CommandHandler;
+use Shared\Domain\Exception\InvalidValueException;
+use ValueError;
+
+/**
+ * UseCase __HANDLER_CLASS__.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __HANDLER_CLASS__ implements CommandHandler
+{
+  // #region Constructor
+  public function __construct(
+    private __REPOSITORY_PORT__ $repository,
+    private UuidFactory $uuidFactory,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Handles the corresponding use case execution.
+   *
+   * @since 1.0.0
+   *
+   * @param __COMMAND_CLASS__ $command the command payload
+   *
+   * @return __RESULT_CLASS__ the use case result
+   */
+  public function __invoke(__COMMAND_CLASS__ $command): __RESULT_CLASS__
+  {
+    try {
+      $scopeId = __SCOPE_ID_CLASS__::fromString($command->__SCOPE_ID_PROPERTY__);
+
+      /** @var __AGGREGATE_ID_CLASS__ $aggregateId */
+      $aggregateId = $this->uuidFactory->create(__AGGREGATE_ID_CLASS__::class);
+
+      $aggregate = __AGGREGATE__::create(
+        id: $aggregateId,
+        __SCOPE_ID_PROPERTY__: $scopeId,
+        __FIELD_ONE_PROPERTY__: __ENUM_OR_VALUE_OBJECT_CLASS__::from($command->__FIELD_ONE_PROPERTY__),
+        __FIELD_TWO_PROPERTY__: $command->__FIELD_TWO_PROPERTY__,
+      );
+    } catch (InvalidValueException|ValueError $exception) {
+      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    $this->repository->save($aggregate);
+
+    return new __RESULT_CLASS__(
+      id: (string) $aggregate->id(),
+      __SCOPE_ID_PROPERTY__: (string) $aggregate->__SCOPE_ID_ACCESSOR__(),
+      __FIELD_ONE_PROPERTY__: $aggregate->__FIELD_ONE_ACCESSOR__()->value,
+      __FIELD_TWO_PROPERTY__: $aggregate->__FIELD_TWO_ACCESSOR__(),
+      createdAt: $aggregate->createdAt(),
+      updatedAt: $aggregate->updatedAt(),
+    );
+  }
+
+  // #endregion
+}

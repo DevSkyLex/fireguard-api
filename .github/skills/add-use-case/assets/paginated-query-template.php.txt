@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Application\UseCase\Query\__AREA__\__USE_CASE__;
+
+use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Application\Message\QueryMessage;
+
+/**
+ * UseCase __QUERY_CLASS__.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final readonly class __QUERY_CLASS__ implements QueryMessage
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $__SCOPE_ID_PROPERTY__ the scope identifier
+   * @param ?string $__FILTER_ONE_PROPERTY__ the optional first filter
+   * @param ?string $__FILTER_TWO_PROPERTY__ the optional second filter
+   * @param Pagination $pagination the pagination contract
+   */
+  public function __construct(
+    public string $__SCOPE_ID_PROPERTY__,
+    public ?string $__FILTER_ONE_PROPERTY__ = null,
+    public ?string $__FILTER_TWO_PROPERTY__ = null,
+    public Pagination $pagination = new Pagination(),
+  ) {
+  }
+  // #endregion
+}

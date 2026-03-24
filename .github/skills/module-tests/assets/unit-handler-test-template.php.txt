@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\__MODULE__\Application\UseCase\__FLOW_TYPE__\__AREA__\__USE_CASE__;
+
+use __MODULE__\Application\Port\Outbound\__REPOSITORY_PORT__;
+use __MODULE__\Application\UseCase\__FLOW_TYPE__\__AREA__\__USE_CASE__\{__MESSAGE_CLASS__, __HANDLER_CLASS__, __RESULT_CLASS__};
+use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+
+#[CoversClass(__HANDLER_CLASS__::class)]
+final class __HANDLER_CLASS__Test extends TestCase
+{
+  #[Test]
+  public function testInvokeReturnsExpectedResultOnSuccess(): void
+  {
+    /** @var __REPOSITORY_PORT__&MockObject $repository */
+    $repository = $this->createMock(__REPOSITORY_PORT__::class);
+
+    $handler = new __HANDLER_CLASS__(
+      repository: $repository,
+    );
+
+    $result = $handler->__invoke(new __MESSAGE_CLASS__(
+      __MESSAGE_ARGUMENTS__
+    ));
+
+    self::assertInstanceOf(__RESULT_CLASS__::class, $result);
+    __SUCCESS_ASSERTIONS__
+  }
+
+  #[Test]
+  public function testInvokeThrowsOnInvalidInput(): void
+  {
+    /** @var __REPOSITORY_PORT__&MockObject $repository */
+    $repository = $this->createMock(__REPOSITORY_PORT__::class);
+
+    $handler = new __HANDLER_CLASS__(
+      repository: $repository,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('__EXPECTED_EXCEPTION_MESSAGE__');
+
+    $handler->__invoke(new __MESSAGE_CLASS__(
+      __INVALID_MESSAGE_ARGUMENTS__
+    ));
+  }
+}

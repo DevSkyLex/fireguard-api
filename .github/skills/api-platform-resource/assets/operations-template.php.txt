@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Operation;
+
+/**
+ * __OPERATIONS_CLASS__ operation names.
+ *
+ * Keep these constants stable once clients depend on them.
+ *
+ * @category Operation
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ */
+final class __OPERATIONS_CLASS__
+{
+  // #region Constants
+  /**
+   * Constant __CREATE_OPERATION__.
+   *
+   * @var string
+   */
+  public const string __CREATE_OPERATION__ = '__CREATE_OPERATION_NAME__';
+
+  /**
+   * Constant __LIST_OPERATION__.
+   *
+   * @var string
+   */
+  public const string __LIST_OPERATION__ = '__LIST_OPERATION_NAME__';
+
+  /**
+   * Constant __GET_OPERATION__.
+   *
+   * @var string
+   */
+  public const string __GET_OPERATION__ = '__GET_OPERATION_NAME__';
+
+  /**
+   * Constant __UPDATE_OPERATION__.
+   *
+   * @var string
+   */
+  public const string __UPDATE_OPERATION__ = '__UPDATE_OPERATION_NAME__';
+  // #endregion
+}

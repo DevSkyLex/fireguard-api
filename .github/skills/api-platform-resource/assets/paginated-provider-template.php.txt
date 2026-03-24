@@ -1,0 +1,130 @@
+<?php
+
+declare(strict_types=1);
+
+namespace __MODULE__\Presentation\Api\Provider\__AREA__;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
+use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use __MODULE__\Application\UseCase\Query\__AREA__\__USE_CASE__\{__ITEM_RESULT_CLASS__, __QUERY_CLASS__};
+use __MODULE__\Presentation\Api\Dto\Output\__AREA__\__OUTPUT_CLASS__;
+use InvalidArgumentException;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+
+use function is_numeric;
+use function is_string;
+use function max;
+
+/**
+ * Provider __PROVIDER_CLASS__.
+ *
+ * @category Provider
+ *
+ * @version 1.0.0
+ *
+ * @author __AUTHOR__
+ *
+ * @implements ProviderInterface<__OUTPUT_CLASS__>
+ */
+final readonly class __PROVIDER_CLASS__ implements ProviderInterface
+{
+  // #region Constructor
+  public function __construct(
+    private QueryBusPort $queryBus,
+    private __AUTHORIZATION_PORT__ $authorization,
+    private Security $security,
+    private RequestStack $requestStack,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method provide.
+   *
+   * @since 1.0.0
+   *
+   * @return TraversablePaginator<__OUTPUT_CLASS__>
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
+  {
+    $user = $this->security->getUser();
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+
+    $scopeId = $uriVariables['__SCOPE_ID__'] ?? null;
+    if (!is_string($scopeId) || '' === $scopeId) {
+      throw new BadRequestHttpException('__SCOPE_ID__ URI parameter is required.');
+    }
+
+    if (!$this->authorization->__AUTHORIZATION_METHOD__($user->getId(), $scopeId, '__PERMISSION__')) {
+      throw new AccessDeniedHttpException('Missing __PERMISSION__ permission.');
+    }
+
+    $request = $this->requestStack->getCurrentRequest();
+    $__FILTER_ONE_PROPERTY__ = $request?->query->get('__FILTER_ONE_QUERY_PARAM__');
+    $__FILTER_TWO_PROPERTY__ = $request?->query->get('__FILTER_TWO_QUERY_PARAM__');
+
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $pageValue = $filters['page'] ?? 1;
+    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
+
+    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
+    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
+
+    $page = max(1, $page);
+    $itemsPerPage = max(1, $itemsPerPage);
+
+    $offset = ($page - 1) * $itemsPerPage;
+
+    try {
+      /** @var PaginatedResult<__ITEM_RESULT_CLASS__> $result */
+      $result = $this->queryBus->ask(new __QUERY_CLASS__(
+        __SCOPE_ID__: $scopeId,
+        __FILTER_ONE_PROPERTY__: is_string($__FILTER_ONE_PROPERTY__) && '' !== $__FILTER_ONE_PROPERTY__ ? $__FILTER_ONE_PROPERTY__ : null,
+        __FILTER_TWO_PROPERTY__: is_string($__FILTER_TWO_PROPERTY__) && '' !== $__FILTER_TWO_PROPERTY__ ? $__FILTER_TWO_PROPERTY__ : null,
+        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+      ));
+    } catch (InvalidArgumentException $exception) {
+      throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      throw $exception;
+    }
+
+    $outputs = [];
+    foreach ($result->items as $item) {
+      $outputs[] = $this->mapResult($item);
+    }
+
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $page,
+      itemsPerPage: (float) $itemsPerPage,
+      totalItems: (float) $result->total,
+    );
+  }
+
+  /**
+   * Method mapResult.
+   *
+   * @since 1.0.0
+   */
+  private function mapResult(__ITEM_RESULT_CLASS__ $result): __OUTPUT_CLASS__
+  {
+    $output = new __OUTPUT_CLASS__();
+    __OUTPUT_ASSIGNMENTS__
+
+    return $output;
+  }
+  // #endregion
+}
