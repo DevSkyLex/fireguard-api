@@ -39,6 +39,15 @@ final class OrganizationStatisticsOutput
   public int $roleCount = 0;
 
   /**
+   * Property facilityCount.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $facilityCount = 0;
+
+  /**
    * Property activeFacilityCount.
    *
    * @since 1.0.0

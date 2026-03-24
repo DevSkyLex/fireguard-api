@@ -15,7 +15,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function array_map;
 use function count;
@@ -24,7 +24,7 @@ use function count;
 final class ListEquipmentTypesProviderTest extends TestCase
 {
   #[Test]
-  public function testProvideReturnsEmptyArrayWhenOrganizationIdMissing(): void
+  public function testProvideThrowsWhenOrganizationIdMissing(): void
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655440100');
 
@@ -39,9 +39,9 @@ final class ListEquipmentTypesProviderTest extends TestCase
       security: $security,
     );
 
-    $result = $provider->provide(new GetCollection(), []);
+    $this->expectException(BadRequestHttpException::class);
 
-    self::assertSame([], $result);
+    $provider->provide(new GetCollection(), []);
   }
 
   #[Test]

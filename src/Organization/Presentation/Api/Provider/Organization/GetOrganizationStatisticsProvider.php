@@ -78,6 +78,7 @@ final readonly class GetOrganizationStatisticsProvider implements ProviderInterf
     $output = new OrganizationStatisticsOutput();
     $output->memberCount = $result->memberCount;
     $output->roleCount = $result->roleCount;
+    $output->facilityCount = $result->activeFacilityCount;
     $output->activeFacilityCount = $result->activeFacilityCount;
     $output->pendingInvitationCount = $result->pendingInvitationCount;
 

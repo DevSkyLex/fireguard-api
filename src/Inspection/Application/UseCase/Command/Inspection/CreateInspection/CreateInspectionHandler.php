@@ -60,17 +60,17 @@ final readonly class CreateInspectionHandler implements CommandHandler
    */
   public function __invoke(CreateInspectionCommand $command): CreateInspectionResult
   {
-    $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
-
-    if (null !== $command->facilityId) {
-      $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
-    }
-
-    if (null !== $command->checklistId) {
-      $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
-    }
-
     try {
+      $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
+
+      if (null !== $command->facilityId) {
+        $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
+      }
+
+      if (null !== $command->checklistId) {
+        $this->checklistValidation->assertChecklistIsUsable($command->checklistId, $command->organizationId);
+      }
+
       $organizationId = InspectionOrganizationId::fromString($command->organizationId);
       $equipmentId = InspectionEquipmentId::fromString($command->equipmentId);
       $facilityId = null !== $command->facilityId ? InspectionFacilityId::fromString($command->facilityId) : null;

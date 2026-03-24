@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Domain\Exception\InvalidValueException;
 
 /**
  * Test CreateInspectionHandlerTest.
@@ -260,6 +261,50 @@ final class CreateInspectionHandlerTest extends TestCase
     $handler->__invoke(new CreateInspectionCommand(
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeNormalizesInvalidEquipmentValidationValue(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
+    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation->expects(self::once())
+      ->method('assertEquipmentExists')
+      ->willThrowException(InvalidValueException::because('Invalid UUID provided.'));
+
+    /** @var FacilityValidationPort&MockObject $facilityValidation */
+    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+
+    /** @var ChecklistValidationPort&MockObject $checklistValidation */
+    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+
+    $handler = new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid UUID provided.');
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: 'not-a-uuid',
       result: 'pass',
       performedAt: '2026-01-15T10:00:00+00:00',
       inspectorType: 'user',

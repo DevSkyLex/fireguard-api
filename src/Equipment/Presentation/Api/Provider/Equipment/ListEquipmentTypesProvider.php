@@ -12,7 +12,7 @@ use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentTypeOutput;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function is_string;
 
@@ -62,7 +62,7 @@ final readonly class ListEquipmentTypesProvider implements ProviderInterface
 
     $organizationId = $uriVariables['organizationId'] ?? null;
     if (!is_string($organizationId) || '' === $organizationId) {
-      return [];
+      throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.equipment.read')) {
