@@ -225,6 +225,68 @@ final class Inspection
   }
 
   /**
+   * Method edit.
+   *
+   * Updates a draft inspection.
+   *
+   * @since 1.0.0
+   */
+  public function edit(
+    ?InspectionEquipmentId $equipmentId = null,
+    ?InspectionFacilityId $facilityId = null,
+    ?InspectionChecklistId $checklistId = null,
+    ?InspectionResult $result = null,
+    ?DateTimeImmutable $performedAt = null,
+    ?string $notes = null,
+    ?string $signature = null,
+    bool $hasEquipmentId = false,
+    bool $hasFacilityId = false,
+    bool $hasChecklistId = false,
+    bool $hasResult = false,
+    bool $hasPerformedAt = false,
+    bool $hasNotes = false,
+    bool $hasSignature = false,
+  ): void {
+    if ($this->status->isClosed()) {
+      throw InspectionAlreadyClosedException::withId((string) $this->id);
+    }
+
+    if (!$this->status->isDraft()) {
+      throw InspectionAlreadySubmittedException::withId((string) $this->id);
+    }
+
+    if ($hasEquipmentId && null !== $equipmentId) {
+      $this->equipmentId = $equipmentId;
+    }
+
+    if ($hasFacilityId) {
+      $this->facilityId = $facilityId;
+    }
+
+    if ($hasChecklistId) {
+      $this->checklistId = $checklistId;
+    }
+
+    if ($hasResult && null !== $result) {
+      $this->result = $result;
+    }
+
+    if ($hasPerformedAt && null !== $performedAt) {
+      $this->performedAt = $performedAt;
+    }
+
+    if ($hasNotes) {
+      $this->notes = self::normalizeText($notes, 'notes', 5000);
+    }
+
+    if ($hasSignature) {
+      $this->signature = $signature;
+    }
+
+    $this->touch();
+  }
+
+  /**
    * Method id.
    *
    * @since 1.0.0

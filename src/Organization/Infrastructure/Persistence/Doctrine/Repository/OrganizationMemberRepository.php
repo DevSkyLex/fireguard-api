@@ -289,6 +289,40 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   }
 
   /**
+   * Method unassignRole.
+   *
+   * Removes a role assignment from a member.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationMemberId $memberId the member identifier
+   * @param OrganizationRoleId $roleId the role identifier to unassign
+   */
+  public function unassignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void
+  {
+    /** @var OrganizationMemberRecord|null $memberRecord */
+    $memberRecord = $this->memberRepository->find((string) $memberId);
+    /** @var OrganizationRoleRecord|null $roleRecord */
+    $roleRecord = $this->roleRepository->find((string) $roleId);
+
+    if (!$memberRecord instanceof OrganizationMemberRecord || !$roleRecord instanceof OrganizationRoleRecord) {
+      return;
+    }
+
+    $assignment = $this->memberRoleRepository->findOneBy([
+      'member' => $memberRecord,
+      'role' => $roleRecord,
+    ]);
+
+    if (!$assignment instanceof OrganizationMemberRoleRecord) {
+      return;
+    }
+
+    $this->entityManager->remove($assignment);
+    $this->entityManager->flush();
+  }
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts members belonging to an organization.

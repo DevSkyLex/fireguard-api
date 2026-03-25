@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
+use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, MaintenanceLogId};
 use InvalidArgumentException;
+use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
@@ -28,6 +30,8 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
+    private MaintenanceLogRepositoryPort $maintenanceLogRepository,
+    private UuidFactory $uuidFactory,
   ) {
   }
   // #endregion
@@ -53,9 +57,18 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
+    $wasAlreadyUnderMaintenance = EquipmentStatus::UNDER_MAINTENANCE === $equipment->status();
+
     $equipment->putUnderMaintenance();
 
     $this->equipmentRepository->save($equipment);
+
+    if (!$wasAlreadyUnderMaintenance) {
+      /** @var MaintenanceLogId $logId */
+      $logId = $this->uuidFactory->create(MaintenanceLogId::class);
+      $log = EquipmentMaintenanceLog::open($logId, $equipmentId, $organizationId);
+      $this->maintenanceLogRepository->save($log);
+    }
 
     $tags = $this->tagRepository->findByEquipmentId($equipmentId);
 

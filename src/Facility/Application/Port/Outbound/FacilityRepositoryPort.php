@@ -45,6 +45,36 @@ interface FacilityRepositoryPort
   public function findById(FacilityId $id): ?Facility;
 
   /**
+   * Method findChildren.
+   *
+   * Lists direct children for a facility.
+   *
+   * @return list<Facility>
+   */
+  public function findChildren(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+  ): array;
+
+  /**
+   * Method findDescendants.
+   *
+   * Lists all descendants for a facility.
+   *
+   * @return list<Facility>
+   */
+  public function findDescendants(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+  ): array;
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts facilities for an organization with optional filters.

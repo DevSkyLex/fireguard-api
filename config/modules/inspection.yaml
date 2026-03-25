@@ -48,6 +48,12 @@ services:
   Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Command\Inspection\EditInspection\EditInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\CancelInspection\CancelInspectionHandler:
+    tags: ['messenger.message_handler']
+
   Inspection\Application\UseCase\Command\Inspection\SubmitInspection\SubmitInspectionHandler:
     tags: ['messenger.message_handler']
 
@@ -74,6 +80,9 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\ListNonConformitiesHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityHandler:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistHandler:

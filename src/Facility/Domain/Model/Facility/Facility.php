@@ -245,6 +245,21 @@ final class Facility
   }
 
   /**
+   * Method restore.
+   *
+   * @since 1.0.0
+   */
+  public function restore(): void
+  {
+    if (FacilityStatus::ACTIVE === $this->status) {
+      return;
+    }
+
+    $this->status = FacilityStatus::ACTIVE;
+    $this->touch();
+  }
+
+  /**
    * Method id.
    *
    * @since 1.0.0

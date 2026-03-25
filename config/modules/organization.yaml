@@ -37,6 +37,15 @@ services:
   Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\InviteOrganizationMemberHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'

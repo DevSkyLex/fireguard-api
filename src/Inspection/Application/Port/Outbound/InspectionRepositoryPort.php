@@ -32,6 +32,17 @@ interface InspectionRepositoryPort
   public function save(Inspection $inspection): void;
 
   /**
+   * Method remove.
+   *
+   * Removes an inspection aggregate.
+   *
+   * @since 1.0.0
+   *
+   * @param Inspection $inspection the inspection aggregate
+   */
+  public function remove(Inspection $inspection): void;
+
+  /**
    * Method findById.
    *
    * Finds an inspection by identifier.

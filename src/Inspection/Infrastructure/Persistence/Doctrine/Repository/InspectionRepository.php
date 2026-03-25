@@ -61,6 +61,18 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $this->entityManager->flush();
   }
 
+  public function remove(Inspection $inspection): void
+  {
+    $record = $this->repository->find((string) $inspection->id());
+
+    if (!$record instanceof InspectionRecord) {
+      return;
+    }
+
+    $this->entityManager->remove($record);
+    $this->entityManager->flush();
+  }
+
   public function findById(InspectionId $id): ?Inspection
   {
     $record = $this->repository->find((string) $id);

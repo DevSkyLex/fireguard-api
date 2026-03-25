@@ -120,5 +120,19 @@ final class EquipmentOperations
    * @var string
    */
   public const string DELETE_ATTACHMENT = 'equipment_delete_attachment';
+
+  /**
+   * Constant LIST_TAGS.
+   *
+   * @var string
+   */
+  public const string LIST_TAGS = 'equipment_list_tags';
+
+  /**
+   * Constant LIST_MAINTENANCE_LOGS.
+   *
+   * @var string
+   */
+  public const string LIST_MAINTENANCE_LOGS = 'equipment_list_maintenance_logs';
   // #endregion
 }

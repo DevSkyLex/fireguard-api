@@ -12,6 +12,10 @@ final class InspectionOperations
 
   public const string GET_INSPECTION = 'inspection_get';
 
+  public const string EDIT_INSPECTION = 'inspection_edit';
+
+  public const string CANCEL_INSPECTION = 'inspection_cancel';
+
   public const string SUBMIT_INSPECTION = 'inspection_submit';
 
   public const string CLOSE_INSPECTION = 'inspection_close';
@@ -19,6 +23,8 @@ final class InspectionOperations
   public const string ADD_NON_CONFORMITY = 'inspection_add_non_conformity';
 
   public const string LIST_NON_CONFORMITIES = 'inspection_list_non_conformities';
+
+  public const string GET_NON_CONFORMITY = 'inspection_get_non_conformity';
 
   public const string UPDATE_NON_CONFORMITY_STATUS = 'inspection_update_non_conformity_status';
 

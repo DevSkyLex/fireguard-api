@@ -132,5 +132,33 @@ interface TagRepositoryPort
    * @param EquipmentId $equipmentId the equipment identifier
    */
   public function saveAndLinkToEquipment(Tag $tag, EquipmentId $equipmentId): void;
+
+  /**
+   * Method findByOrganizationId.
+   *
+   * Lists all tags in the organization catalog with optional search filter.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?string $search optional substring to filter tag names (case-insensitive)
+   *
+   * @return list<Tag> the matched tags ordered by name ascending
+   */
+  public function findByOrganizationId(EquipmentOrganizationId $organizationId, ?string $search = null): array;
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts all tags in the organization catalog with optional search filter.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   * @param ?string $search optional substring to filter tag names (case-insensitive)
+   *
+   * @return int the total count
+   */
+  public function countByOrganizationId(EquipmentOrganizationId $organizationId, ?string $search = null): int;
   // #endregion
 }

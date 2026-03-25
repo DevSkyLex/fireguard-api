@@ -31,6 +31,17 @@ interface OrganizationRoleRepositoryPort
   public function save(OrganizationRole $role): void;
 
   /**
+   * Method remove.
+   *
+   * Deletes an organization role aggregate and cascades member assignments.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRole $role the role aggregate to delete
+   */
+  public function remove(OrganizationRole $role): void;
+
+  /**
    * Method findById.
    *
    * Finds a role by identifier.

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\CommissionEquipment;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\CommissionEquipment\{CommissionEquipmentCommand, CommissionEquipmentHandler, CommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
+use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -52,6 +53,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
     );
 
     $result = $handler->__invoke(new CommissionEquipmentCommand(
@@ -78,6 +80,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -108,6 +111,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -139,6 +143,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentAlreadyDecommissionedException::class);
@@ -169,6 +174,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -178,6 +184,102 @@ final class CommissionEquipmentHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIP_ID,
     ));
+  }
+
+  #[Test]
+  public function testInvokeClosesMaintenanceLogWhenCommissioningFromUnderMaintenance(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(
+      EquipmentFacilityId::fromString(self::FACILITY_ID),
+      new DateTimeImmutable(),
+    );
+    $equipment->putUnderMaintenance();
+
+    $openLog = EquipmentMaintenanceLog::open(
+      id: MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655510001'),
+      equipmentId: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($equipment);
+    $equipmentRepository->expects(self::once())->method('save');
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
+    $maintenanceLogRepository = $this->createMock(MaintenanceLogRepositoryPort::class);
+    $maintenanceLogRepository->expects(self::once())
+      ->method('findOpenByEquipmentId')
+      ->willReturn($openLog);
+    $maintenanceLogRepository->expects(self::once())->method('save');
+
+    $handler = new CommissionEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceLogRepository: $maintenanceLogRepository,
+    );
+
+    $result = $handler->__invoke(new CommissionEquipmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertSame('operational', $result->status);
+    self::assertNotNull($openLog->completedAt());
+  }
+
+  #[Test]
+  public function testInvokeDoesNotTouchMaintenanceLogWhenNotUnderMaintenance(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(
+      EquipmentFacilityId::fromString(self::FACILITY_ID),
+      new DateTimeImmutable(),
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($equipment);
+    $equipmentRepository->expects(self::once())->method('save');
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
+    $maintenanceLogRepository = $this->createMock(MaintenanceLogRepositoryPort::class);
+    $maintenanceLogRepository->expects(self::never())->method('findOpenByEquipmentId');
+    $maintenanceLogRepository->expects(self::never())->method('save');
+
+    $handler = new CommissionEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceLogRepository: $maintenanceLogRepository,
+    );
+
+    $result = $handler->__invoke(new CommissionEquipmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertSame('operational', $result->status);
   }
   // #endregion
 }

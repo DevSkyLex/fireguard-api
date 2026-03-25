@@ -45,6 +45,12 @@ final class OrganizationOperations
 
   public const string ASSIGN_ORGANIZATION_ROLE_TO_MEMBER = 'assignOrganizationRoleToMember';
 
+  public const string REMOVE_ORGANIZATION_MEMBER = 'removeOrganizationMember';
+
+  public const string REMOVE_ORGANIZATION_ROLE_FROM_MEMBER = 'removeOrganizationRoleFromMember';
+
+  public const string DELETE_ORGANIZATION_ROLE = 'deleteOrganizationRole';
+
   public const string INVITE_ORGANIZATION_MEMBER = 'inviteOrganizationMember';
 
   public const string LIST_ORGANIZATION_INVITATIONS = 'listOrganizationInvitations';

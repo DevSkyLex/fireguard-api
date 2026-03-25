@@ -15,8 +15,11 @@ use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 use function addcslashes;
 use function array_map;
+use function count;
 use function mb_strtolower;
+use function str_contains;
 use function strtoupper;
+use function usort;
 
 /**
  * Repository FacilityRepository.
@@ -111,6 +114,74 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     }
 
     return FacilityMapper::toDomain($record);
+  }
+
+  public function findChildren(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+  ): array {
+    /** @var list<FacilityRecord> $records */
+    $records = $this->createChildQueryBuilder($organizationId, $facilityId, $includeArchived, $search)
+      ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
+      ->addOrderBy('f.id', 'ASC')
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
+      $records,
+    );
+  }
+
+  public function findDescendants(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+  ): array {
+    $pendingParentIds = [(string) $facilityId];
+    $records = [];
+    $seen = [];
+
+    while ([] !== $pendingParentIds) {
+      $nextParentIds = [];
+
+      foreach ($pendingParentIds as $parentId) {
+        $children = $this->findChildRecords($organizationId, $parentId);
+
+        foreach ($children as $child) {
+          if (isset($seen[$child->id])) {
+            continue;
+          }
+
+          $seen[$child->id] = true;
+          $nextParentIds[] = $child->id;
+
+          if (!$includeArchived && FacilityStatus::ARCHIVED->value === $child->status) {
+            continue;
+          }
+
+          if (!$this->matchesSearch($child, $search)) {
+            continue;
+          }
+
+          $records[] = $child;
+        }
+      }
+
+      $pendingParentIds = $nextParentIds;
+    }
+
+    $this->sortRecords($records, $sorting);
+
+    return array_map(
+      static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
+      $records,
+    );
   }
 
   /**
@@ -284,6 +355,92 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     }
 
     return $queryBuilder;
+  }
+
+  private function createChildQueryBuilder(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived,
+    ?string $search,
+  ): QueryBuilder {
+    return $this->createListQueryBuilder(
+      $organizationId,
+      $includeArchived,
+      null,
+      null,
+      (string) $facilityId,
+      null,
+      $search,
+    );
+  }
+
+  /**
+   * @return list<FacilityRecord>
+   */
+  private function findChildRecords(FacilityOrganizationId $organizationId, string $parentId): array
+  {
+    /** @var list<FacilityRecord> $records */
+    $records = $this->createListQueryBuilder(
+      $organizationId,
+      true,
+      null,
+      null,
+      $parentId,
+      null,
+      null,
+    )
+      ->getQuery()
+      ->getResult();
+
+    return $records;
+  }
+
+  private function matchesSearch(FacilityRecord $record, ?string $search): bool
+  {
+    if (null === $search || '' === $search) {
+      return true;
+    }
+
+    $normalizedSearch = mb_strtolower($search);
+    $haystack = [
+      mb_strtolower($record->name),
+      mb_strtolower($record->type),
+      mb_strtolower($record->status),
+      mb_strtolower($record->code ?? ''),
+      mb_strtolower($record->address ?? ''),
+    ];
+
+    foreach ($haystack as $value) {
+      if (str_contains($value, $normalizedSearch)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * @param list<FacilityRecord> $records
+   */
+  private function sortRecords(array &$records, Sorting $sorting): void
+  {
+    $direction = SortDirection::DESC === $sorting->direction ? -1 : 1;
+
+    usort($records, function (FacilityRecord $left, FacilityRecord $right) use ($direction, $sorting): int {
+      $comparison = match ($sorting->field) {
+        'type' => $left->type <=> $right->type,
+        'status' => $left->status <=> $right->status,
+        'createdAt' => $left->createdAt <=> $right->createdAt,
+        'code' => ($left->code ?? '') <=> ($right->code ?? ''),
+        default => $left->name <=> $right->name,
+      };
+
+      if (0 === $comparison) {
+        return $direction * ($left->id <=> $right->id);
+      }
+
+      return $direction * $comparison;
+    });
   }
 
   private function resolveSortField(string $field): string

@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Inspection\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
+use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
-use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
+use Inspection\Presentation\Api\Dto\Input\Inspection\{CreateInspectionInput, EditInspectionInput};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Operation\InspectionOperations;
 use Inspection\Presentation\Api\Processor\Inspection\{
+  CancelInspectionProcessor,
   CloseInspectionProcessor,
   CreateInspectionProcessor,
+  EditInspectionProcessor,
   SubmitInspectionProcessor
 };
 use Inspection\Presentation\Api\Provider\Inspection\{GetInspectionProvider, ListInspectionsProvider};
@@ -93,6 +95,28 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ],
       ),
     ),
+    new Patch(
+      name: InspectionOperations::EDIT_INSPECTION,
+      uriTemplate: '/{organizationId}/inspections/{inspectionId}',
+      input: EditInspectionInput::class,
+      output: InspectionOutput::class,
+      processor: EditInspectionProcessor::class,
+      denormalizationContext: ['groups' => [InspectionSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'Patch an inspection',
+        description: 'Partially updates a draft inspection.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Inspection updated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Inspection is no longer editable'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
     new Post(
       name: InspectionOperations::SUBMIT_INSPECTION,
       uriTemplate: '/{organizationId}/inspections/{inspectionId}/submit',
@@ -129,6 +153,28 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Inspection closed'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Inspection already closed'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Delete(
+      name: InspectionOperations::CANCEL_INSPECTION,
+      uriTemplate: '/{organizationId}/inspections/{inspectionId}',
+      input: false,
+      output: false,
+      read: false,
+      processor: CancelInspectionProcessor::class,
+      status: HttpResponse::HTTP_NO_CONTENT,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'Cancel an inspection',
+        description: 'Deletes a draft inspection.',
+        responses: [
+          HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Inspection cancelled'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Inspection is no longer cancellable'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
         ],
       ),

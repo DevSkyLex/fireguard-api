@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance;
 
 use DateTimeImmutable;
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\{PutUnderMaintenanceCommand, PutUnderMaintenanceHandler, PutUnderMaintenanceResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Factory\UuidFactory;
 
 #[CoversClass(PutUnderMaintenanceHandler::class)]
 final class PutUnderMaintenanceHandlerTest extends TestCase
@@ -49,9 +50,20 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $tagRepository = $this->createMock(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
+    /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
+    $maintenanceLogRepository = $this->createMock(MaintenanceLogRepositoryPort::class);
+    $maintenanceLogRepository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->method('create')
+      ->willReturn(MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $maintenanceLogRepository,
+      uuidFactory: $uuidFactory,
     );
 
     $result = $handler->__invoke(new PutUnderMaintenanceCommand(
@@ -77,6 +89,8 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      uuidFactory: $this->createMock(UuidFactory::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -108,6 +122,8 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      uuidFactory: $this->createMock(UuidFactory::class),
     );
 
     $this->expectException(EquipmentAlreadyDecommissionedException::class);
@@ -138,6 +154,8 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      uuidFactory: $this->createMock(UuidFactory::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -147,6 +165,50 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIP_ID,
     ));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotCreateNewLogWhenAlreadyUnderMaintenance(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(
+      EquipmentFacilityId::fromString(self::FACILITY_ID),
+      new DateTimeImmutable(),
+    );
+    $equipment->putUnderMaintenance();
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($equipment);
+    $equipmentRepository->expects(self::once())->method('save');
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
+    $maintenanceLogRepository = $this->createMock(MaintenanceLogRepositoryPort::class);
+    $maintenanceLogRepository->expects(self::never())->method('save');
+
+    $handler = new PutUnderMaintenanceHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceLogRepository: $maintenanceLogRepository,
+      uuidFactory: $this->createMock(UuidFactory::class),
+    );
+
+    $result = $handler->__invoke(new PutUnderMaintenanceCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertSame('under_maintenance', $result->status);
   }
   // #endregion
 }

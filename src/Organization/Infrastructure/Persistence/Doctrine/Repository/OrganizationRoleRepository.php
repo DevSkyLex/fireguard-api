@@ -219,5 +219,24 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
 
     return $roles;
   }
+
+  /**
+   * Method remove.
+   *
+   * Deletes an organization role and cascades member role assignments.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRole $role the role aggregate to delete
+   */
+  public function remove(OrganizationRole $role): void
+  {
+    $record = $this->repository->find((string) $role->id());
+
+    if ($record instanceof OrganizationRoleRecord) {
+      $this->entityManager->remove($record);
+      $this->entityManager->flush();
+    }
+  }
   // #endregion
 }

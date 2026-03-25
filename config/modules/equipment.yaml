@@ -18,6 +18,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Equipment\Infrastructure\Persistence\Doctrine\Repository\MaintenanceLogRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Equipment\Application\Port\Outbound\EquipmentRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository
 
@@ -26,6 +30,9 @@ services:
 
   Equipment\Application\Port\Outbound\AttachmentRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\AttachmentRepository
+
+  Equipment\Application\Port\Outbound\MaintenanceLogRepositoryPort:
+    alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\MaintenanceLogRepository
 
   Equipment\Application\Port\Outbound\FacilityValidationPort:
     alias: Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter
@@ -75,4 +82,10 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Equipment\ListEquipmentTypes\ListEquipmentTypesHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\ListMaintenanceLogsHandler:
+    tags: ['messenger.message_handler']
+
+  Equipment\Application\UseCase\Query\Tag\ListTags\ListTagsHandler:
     tags: ['messenger.message_handler']

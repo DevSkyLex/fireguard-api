@@ -107,6 +107,18 @@ interface OrganizationMemberRepositoryPort
   public function assignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void;
 
   /**
+   * Method unassignRole.
+   *
+   * Removes a role assignment from a member.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationMemberId $memberId the member identifier
+   * @param OrganizationRoleId $roleId the role identifier to unassign
+   */
+  public function unassignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void;
+
+  /**
    * Method findRoleIdsForMember.
    *
    * Returns role identifiers assigned to a member.

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Inspection\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, GetCollection, Patch, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Inspection\Presentation\Api\Dto\Input\NonConformity\{AddNonConformityInput, UpdateNonConformityStatusInput};
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Operation\InspectionOperations;
 use Inspection\Presentation\Api\Processor\NonConformity\{AddNonConformityProcessor, UpdateNonConformityStatusProcessor};
-use Inspection\Presentation\Api\Provider\NonConformity\ListNonConformitiesProvider;
+use Inspection\Presentation\Api\Provider\NonConformity\{GetNonConformityProvider, ListNonConformitiesProvider};
 use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -62,6 +62,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Get(
+      name: InspectionOperations::GET_NON_CONFORMITY,
+      uriTemplate: '/{organizationId}/inspections/{inspectionId}/non-conformities/{nonConformityId}',
+      input: false,
+      output: NonConformityOutput::class,
+      provider: GetNonConformityProvider::class,
+      normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'Get a non-conformity',
+        description: 'Retrieves one non-conformity for an inspection.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Non-conformity details'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Non-conformity not found'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
         ],
       ),
