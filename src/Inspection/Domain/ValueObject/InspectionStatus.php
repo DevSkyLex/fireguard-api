@@ -65,5 +65,14 @@ enum InspectionStatus: string
   {
     return self::SUBMITTED === $this;
   }
+
+  public function label(): string
+  {
+    return match ($this) {
+      self::DRAFT => 'Draft',
+      self::SUBMITTED => 'Submitted',
+      self::CLOSED => 'Closed',
+    };
+  }
   // #endregion
 }

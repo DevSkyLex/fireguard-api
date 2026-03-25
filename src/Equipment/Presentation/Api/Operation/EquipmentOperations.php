@@ -87,6 +87,13 @@ final class EquipmentOperations
   public const string LIST_EQUIPMENT_TYPES = 'equipment_types_list';
 
   /**
+   * Constant LIST_EQUIPMENT_STATUSES.
+   *
+   * @var string
+   */
+  public const string LIST_EQUIPMENT_STATUSES = 'equipment_statuses_list';
+
+  /**
    * Constant ADD_TAG_TO_EQUIPMENT.
    *
    * @var string

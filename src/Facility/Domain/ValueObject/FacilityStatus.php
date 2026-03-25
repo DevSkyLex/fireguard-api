@@ -28,5 +28,13 @@ enum FacilityStatus: string
   {
     return self::ACTIVE === $this;
   }
+
+  public function label(): string
+  {
+    return match ($this) {
+      self::ACTIVE => 'Active',
+      self::ARCHIVED => 'Archived',
+    };
+  }
   // #endregion
 }

@@ -22,6 +22,26 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 final class DeleteOrganizationRoleProcessorTest extends TestCase
 {
   #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new DeleteOrganizationRoleProcessor(
+      commandBus: $this->createMock(CommandBusPort::class),
+      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Delete(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'roleId' => '550e8400-e29b-41d4-a716-446655441411',
+    ]);
+  }
+
+  #[Test]
   public function testProcessThrowsWhenUriVariablesMissing(): void
   {
     $security = $this->createMock(Security::class);

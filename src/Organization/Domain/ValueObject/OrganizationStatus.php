@@ -39,5 +39,14 @@ enum OrganizationStatus: string
   {
     return self::ACTIVE === $this;
   }
+
+  public function label(): string
+  {
+    return match ($this) {
+      self::ACTIVE => 'Active',
+      self::SUSPENDED => 'Suspended',
+      self::ARCHIVED => 'Archived',
+    };
+  }
   // #endregion
 }

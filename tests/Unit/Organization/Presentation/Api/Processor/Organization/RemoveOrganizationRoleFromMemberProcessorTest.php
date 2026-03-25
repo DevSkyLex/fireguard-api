@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationRoleFromMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -20,6 +20,27 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 #[CoversClass(RemoveOrganizationRoleFromMemberProcessor::class)]
 final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
 {
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new RemoveOrganizationRoleFromMemberProcessor(
+      commandBus: $this->createMock(CommandBusPort::class),
+      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Delete(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+      'roleId' => '550e8400-e29b-41d4-a716-446655441411',
+    ]);
+  }
+
   #[Test]
   public function testProcessThrowsWhenUriVariablesMissing(): void
   {
@@ -149,6 +170,36 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(OrganizationMemberNotFoundException::withId('550e8400-e29b-41d4-a716-446655441412'));
+
+    $processor = new RemoveOrganizationRoleFromMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(null, new Delete(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+      'roleId' => '550e8400-e29b-41d4-a716-446655441411',
+    ]);
+  }
+
+  #[Test]
+  public function testProcessThrowsNotFoundWhenOrganizationAbsent(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441410'));
 
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,

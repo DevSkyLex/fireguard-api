@@ -30,5 +30,15 @@ enum OrganizationInvitationStatus: string
   {
     return self::PENDING === $this;
   }
+
+  public function label(): string
+  {
+    return match ($this) {
+      self::PENDING => 'Pending',
+      self::ACCEPTED => 'Accepted',
+      self::REVOKED => 'Revoked',
+      self::EXPIRED => 'Expired',
+    };
+  }
   // #endregion
 }
