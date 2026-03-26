@@ -13,6 +13,13 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
+/**
+ * Test ListOrganizationInvitationStatusesProviderTest.
+ *
+ * @category Unit Tests
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 #[CoversClass(ListOrganizationInvitationStatusesProvider::class)]
 final class ListOrganizationInvitationStatusesProviderTest extends TestCase
 {
@@ -60,6 +67,13 @@ final class ListOrganizationInvitationStatusesProviderTest extends TestCase
     self::assertSame('Expired', $output[3]->label);
   }
 
+  /**
+   * Method createSecurityUser.
+   *
+   * @since 1.0.0
+   *
+   * @param string $id the security user identifier
+   */
   private function createSecurityUser(string $id): SecurityUser
   {
     return new SecurityUser(

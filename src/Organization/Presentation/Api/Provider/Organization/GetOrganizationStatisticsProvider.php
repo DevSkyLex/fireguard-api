@@ -9,8 +9,10 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics\{GetOrganizationStatisticsQuery, GetOrganizationStatisticsResult};
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationStatisticsOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -30,6 +32,8 @@ use function is_string;
  */
 final readonly class GetOrganizationStatisticsProvider implements ProviderInterface
 {
+  use UnwrapsOrganizationQueryExceptions;
+
   // #region Constructor
   /**
    * Constructor.
@@ -82,15 +86,29 @@ final readonly class GetOrganizationStatisticsProvider implements ProviderInterf
 
     try {
       /** @var GetOrganizationStatisticsResult $result */
-      $result = $this->queryBus->ask(new GetOrganizationStatisticsQuery($organizationId));
+      $result = $this->queryBus->ask(new GetOrganizationStatisticsQuery($organizationId, $user->getId()));
+    } catch (OrganizationAccessDeniedException $exception) {
+      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
+      if ($accessDenied instanceof OrganizationAccessDeniedException) {
+        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if ($notFound instanceof OrganizationNotFoundException) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $output = new OrganizationStatisticsOutput();
     $output->memberCount = $result->memberCount;
     $output->roleCount = $result->roleCount;
-    $output->facilityCount = $result->activeFacilityCount;
+    $output->facilityCount = $result->facilityCount;
     $output->activeFacilityCount = $result->activeFacilityCount;
     $output->pendingInvitationCount = $result->pendingInvitationCount;
 

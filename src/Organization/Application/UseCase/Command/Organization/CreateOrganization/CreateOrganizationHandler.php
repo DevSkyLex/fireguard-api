@@ -7,6 +7,7 @@ namespace Organization\Application\UseCase\Command\Organization\CreateOrganizati
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -35,25 +36,6 @@ use function trim;
  */
 final readonly class CreateOrganizationHandler implements CommandHandler
 {
-  private const string OWNER_ROLE_NAME = 'admin';
-
-  private const string MEMBER_ROLE_NAME = 'member';
-
-  /**
-   * @var list<string>
-   */
-  private const array OWNER_PERMISSIONS = ['organization.*'];
-
-  /**
-   * @var list<string>
-   */
-  private const array MEMBER_PERMISSIONS = [
-    'organization.read',
-    'organization.members.read',
-    'organization.roles.read',
-    'organization.facilities.read',
-  ];
-
   // #region Constructor
   /**
    * Constructor.
@@ -123,8 +105,8 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     $ownerRole = OrganizationRole::create(
       id: $ownerRoleId,
       organizationId: $organizationId,
-      name: new OrganizationRoleName(self::OWNER_ROLE_NAME),
-      permissions: self::OWNER_PERMISSIONS,
+      name: new OrganizationRoleName(OrganizationSystemRoleCatalog::ADMIN),
+      permissions: OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::ADMIN),
       isSystem: true,
       description: 'Full administrator of the organization',
     );
@@ -132,8 +114,8 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     $memberRole = OrganizationRole::create(
       id: $memberRoleId,
       organizationId: $organizationId,
-      name: new OrganizationRoleName(self::MEMBER_ROLE_NAME),
-      permissions: self::MEMBER_PERMISSIONS,
+      name: new OrganizationRoleName(OrganizationSystemRoleCatalog::MEMBER),
+      permissions: OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::MEMBER),
       isSystem: true,
       description: 'Regular member of the organization',
     );

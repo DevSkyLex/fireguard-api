@@ -7,7 +7,7 @@ namespace Inspection\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Inspection\Application\Port\Outbound\NonConformityRepositoryPort;
 use Inspection\Domain\Model\NonConformity\NonConformity;
-use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId};
+use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId};
 use Inspection\Infrastructure\Persistence\Doctrine\Mapper\NonConformityMapper;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -131,6 +131,41 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     }
 
     return $counts;
+  }
+
+  public function countByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+  ): int {
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('COUNT(r.id)')
+      ->from(NonConformityRecord::class, 'r')
+      ->innerJoin('r.inspection', 'i')
+      ->innerJoin('i.organization', 'o')
+      ->andWhere('o.id = :organizationId')
+      ->setParameter('organizationId', (string) $organizationId);
+
+    if (null !== $severity) {
+      $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+    }
+
+    if (null !== $status) {
+      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+      $qb->andWhere($qb->expr()->orX(
+        $qb->expr()->like('r.description', ':search'),
+        $qb->expr()->like('r.severity', ':search'),
+        $qb->expr()->like('r.status', ':search'),
+        $qb->expr()->like('r.notes', ':search'),
+      ))->setParameter('search', '%' . $escaped . '%');
+    }
+
+    return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
   private function createListQueryBuilder(

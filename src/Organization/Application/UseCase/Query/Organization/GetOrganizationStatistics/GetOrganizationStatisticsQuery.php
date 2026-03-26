@@ -27,9 +27,11 @@ final readonly class GetOrganizationStatisticsQuery implements QueryMessage
    * @since 1.0.0
    *
    * @param string $organizationId the organization ID
+   * @param string $userId the authenticated user ID
    */
   public function __construct(
     public string $organizationId,
+    public string $userId,
   ) {
   }
   // #endregion

@@ -93,6 +93,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $performedAtFrom = null,
     ?string $performedAtTo = null,
     ?string $inspectorUserId = null,
+    ?string $inspectorType = null,
     ?string $checklistId = null,
     ?string $search = null,
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
@@ -109,6 +110,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       $performedAtFrom,
       $performedAtTo,
       $inspectorUserId,
+      $inspectorType,
       $checklistId,
       $search,
     )
@@ -134,6 +136,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $performedAtFrom = null,
     ?string $performedAtTo = null,
     ?string $inspectorUserId = null,
+    ?string $inspectorType = null,
     ?string $checklistId = null,
     ?string $search = null,
   ): int {
@@ -146,6 +149,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       $performedAtFrom,
       $performedAtTo,
       $inspectorUserId,
+      $inspectorType,
       $checklistId,
       $search,
     )
@@ -163,6 +167,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $performedAtFrom,
     ?string $performedAtTo,
     ?string $inspectorUserId,
+    ?string $inspectorType,
     ?string $checklistId,
     ?string $search,
   ): QueryBuilder {
@@ -215,6 +220,12 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       $queryBuilder
         ->andWhere('i.inspectorUserId = :inspectorUserId')
         ->setParameter('inspectorUserId', $inspectorUserId);
+    }
+
+    if (null !== $inspectorType) {
+      $queryBuilder
+        ->andWhere('i.inspectorType = :inspectorType')
+        ->setParameter('inspectorType', $inspectorType);
     }
 
     if (null !== $checklistId) {

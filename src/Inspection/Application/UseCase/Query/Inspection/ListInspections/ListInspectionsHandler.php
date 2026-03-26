@@ -79,6 +79,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
       $performedAtFrom?->format(DateTimeImmutable::ATOM),
       $performedAtTo?->format(DateTimeImmutable::ATOM),
       $inspectorUserId,
+      null,
       $checklistId,
       $query->search,
       $query->sorting,
@@ -95,6 +96,7 @@ final readonly class ListInspectionsHandler implements QueryHandler
       $performedAtFrom?->format(DateTimeImmutable::ATOM),
       $performedAtTo?->format(DateTimeImmutable::ATOM),
       $inspectorUserId,
+      null,
       $checklistId,
       $query->search,
     );

@@ -23,6 +23,10 @@ services:
   Inspection\Application\Port\Outbound\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
+  Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
+
+  Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
+
   Inspection\Application\Port\Outbound\NonConformityRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository
 

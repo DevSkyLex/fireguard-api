@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Domain\Model\NonConformity\NonConformity;
-use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId};
+use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
@@ -97,5 +97,26 @@ interface NonConformityRepositoryPort
    * @return array<string, int> map of inspectionId => count
    */
   public function countsByInspectionIds(array $inspectionIds): array;
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts non-conformities for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $severity optional severity filter
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before counting
+   *
+   * @return int the count
+   */
+  public function countByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+  ): int;
   // #endregion
 }

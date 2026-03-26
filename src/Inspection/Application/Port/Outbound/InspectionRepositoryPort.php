@@ -70,6 +70,7 @@ interface InspectionRepositoryPort
    * @param ?string $performedAtFrom optional lower bound for performedAt
    * @param ?string $performedAtTo optional upper bound for performedAt
    * @param ?string $inspectorUserId optional inspector user filter
+   * @param ?string $inspectorType optional inspector type filter
    * @param ?string $checklistId optional checklist filter
    * @param ?string $search optional text search applied before pagination
    * @param Sorting $sorting requested sorting applied before pagination
@@ -87,6 +88,7 @@ interface InspectionRepositoryPort
     ?string $performedAtFrom = null,
     ?string $performedAtTo = null,
     ?string $inspectorUserId = null,
+    ?string $inspectorType = null,
     ?string $checklistId = null,
     ?string $search = null,
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
@@ -109,6 +111,7 @@ interface InspectionRepositoryPort
    * @param ?string $performedAtFrom optional lower bound for performedAt
    * @param ?string $performedAtTo optional upper bound for performedAt
    * @param ?string $inspectorUserId optional inspector user filter
+   * @param ?string $inspectorType optional inspector type filter
    * @param ?string $checklistId optional checklist filter
    * @param ?string $search optional text search applied before counting
    *
@@ -123,6 +126,7 @@ interface InspectionRepositoryPort
     ?string $performedAtFrom = null,
     ?string $performedAtTo = null,
     ?string $inspectorUserId = null,
+    ?string $inspectorType = null,
     ?string $checklistId = null,
     ?string $search = null,
   ): int;

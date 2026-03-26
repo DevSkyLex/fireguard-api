@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics;
 
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{FacilityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 
@@ -36,6 +37,7 @@ final readonly class GetOrganizationStatisticsHandler implements QueryHandler
    * @param FacilityStatisticsPort $facilityStatistics the facility statistics port
    */
   public function __construct(
+    private OrganizationAuthorizationPort $authorization,
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
@@ -65,14 +67,20 @@ final readonly class GetOrganizationStatisticsHandler implements QueryHandler
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
+    if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.read')) {
+      throw OrganizationAccessDeniedException::missingPermission('organization.read');
+    }
+
     $memberCount = $this->memberRepository->countByOrganizationId($organizationId);
     $roleCount = $this->roleRepository->countByOrganizationId($organizationId);
     $pendingInvitationCount = $this->invitationRepository->countPendingByOrganizationId($organizationId);
+    $facilityCount = $this->facilityStatistics->countFacilities($query->organizationId);
     $activeFacilityCount = $this->facilityStatistics->countActiveFacilities($query->organizationId);
 
     return new GetOrganizationStatisticsResult(
       memberCount: $memberCount,
       roleCount: $roleCount,
+      facilityCount: $facilityCount,
       activeFacilityCount: $activeFacilityCount,
       pendingInvitationCount: $pendingInvitationCount,
     );

@@ -20,6 +20,19 @@ interface FacilityStatisticsPort
 {
   // #region Methods
   /**
+   * Method countFacilities.
+   *
+   * Counts all facilities for an organization, including archived ones.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the total facility count
+   */
+  public function countFacilities(string $organizationId): int;
+
+  /**
    * Method countActiveFacilities.
    *
    * Counts active (non-archived) facilities for an organization.
@@ -31,5 +44,18 @@ interface FacilityStatisticsPort
    * @return int the active facility count
    */
   public function countActiveFacilities(string $organizationId): int;
+
+  /**
+   * Method countFacilitiesByType.
+   *
+   * Counts facilities by type for an organization, including archived ones.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, int> map of facility type => count
+   */
+  public function countFacilitiesByType(string $organizationId): array;
   // #endregion
 }

@@ -27,12 +27,14 @@ final readonly class GetOrganizationStatisticsResult implements ResultMessage
    *
    * @param int $memberCount the total number of members
    * @param int $roleCount the total number of roles
+   * @param int $facilityCount the total number of facilities including archived ones
    * @param int $activeFacilityCount the total number of active facilities
    * @param int $pendingInvitationCount the number of pending invitations
    */
   public function __construct(
     public int $memberCount,
     public int $roleCount,
+    public int $facilityCount,
     public int $activeFacilityCount,
     public int $pendingInvitationCount,
   ) {

@@ -12,6 +12,15 @@ use Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitati
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
+/**
+ * Resource OrganizationInvitationStatusResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 #[ApiResource(
   shortName: 'OrganizationInvitationStatus',
   routePrefix: '/organizations',

@@ -25,6 +25,8 @@ services:
   Equipment\Application\Port\Outbound\EquipmentRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository
 
+  Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
+
   Equipment\Application\Port\Outbound\TagRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository
 

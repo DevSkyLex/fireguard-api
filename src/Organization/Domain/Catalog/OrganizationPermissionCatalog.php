@@ -67,6 +67,14 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.facilities.read', 'description' => 'View organization facilities'],
       ['name' => 'organization.facilities.write', 'description' => 'Manage organization facilities (create, update, archive, move)'],
 
+      // Equipment management
+      ['name' => 'organization.equipment.read', 'description' => 'View organization equipment and equipment dashboard statistics'],
+      ['name' => 'organization.equipment.write', 'description' => 'Manage organization equipment, assignments, lifecycle, tags, and attachments'],
+
+      // Inspection management
+      ['name' => 'organization.inspection.read', 'description' => 'View organization inspections, checklists, non-conformities, and inspection dashboard statistics'],
+      ['name' => 'organization.inspection.write', 'description' => 'Manage organization inspections, checklists, and non-conformities'],
+
       // Legal profile
       ['name' => 'organization.legal_profile.write', 'description' => 'Manage organization legal profile'],
 

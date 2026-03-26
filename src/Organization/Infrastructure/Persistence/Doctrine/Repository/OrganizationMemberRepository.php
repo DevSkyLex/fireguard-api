@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
@@ -381,7 +382,13 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
         continue;
       }
 
-      foreach ($assignment->role->permissions as $permission) {
+      $rolePermissions = OrganizationSystemRoleCatalog::mergePermissions(
+        roleName: $assignment->role->name,
+        permissions: $assignment->role->permissions,
+        isSystem: $assignment->role->isSystem,
+      );
+
+      foreach ($rolePermissions as $permission) {
         if (!in_array($permission, $permissions, true)) {
           $permissions[] = $permission;
         }

@@ -6,6 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationRoleMapper;
@@ -99,7 +100,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       return null;
     }
 
-    return OrganizationRoleMapper::toDomain($record);
+    return $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record));
   }
 
   /**
@@ -127,7 +128,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       return null;
     }
 
-    return OrganizationRoleMapper::toDomain($record);
+    return $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record));
   }
 
   /**
@@ -152,7 +153,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     ]);
 
     return array_map(
-      static fn (OrganizationRoleRecord $record): OrganizationRole => OrganizationRoleMapper::toDomain($record),
+      fn (OrganizationRoleRecord $record): OrganizationRole => $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record)),
       $records,
     );
   }
@@ -213,7 +214,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     $roles = [];
     foreach ($records as $record) {
       if ($record instanceof OrganizationRoleRecord) {
-        $roles[] = OrganizationRoleMapper::toDomain($record);
+        $roles[] = $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record));
       }
     }
 
@@ -237,6 +238,28 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       $this->entityManager->remove($record);
       $this->entityManager->flush();
     }
+  }
+
+  /**
+   * Method normalizeSystemRolePermissions.
+   *
+   * Ensures system roles expose the current canonical permission set.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRole $role the role aggregate
+   *
+   * @return OrganizationRole the normalized role aggregate
+   */
+  private function normalizeSystemRolePermissions(OrganizationRole $role): OrganizationRole
+  {
+    $role->updatePermissions(OrganizationSystemRoleCatalog::mergePermissions(
+      roleName: (string) $role->name(),
+      permissions: $role->permissions(),
+      isSystem: $role->isSystem(),
+    ));
+
+    return $role;
   }
   // #endregion
 }

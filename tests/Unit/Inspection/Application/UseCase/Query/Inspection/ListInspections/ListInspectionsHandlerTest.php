@@ -57,6 +57,7 @@ final class ListInspectionsHandlerTest extends TestCase
         '2026-01-01T00:00:00+00:00',
         '2026-01-31T23:59:59+00:00',
         '550e8400-e29b-41d4-a716-446655449004',
+        null,
         '550e8400-e29b-41d4-a716-446655449006',
         'john',
         new Sorting('performedAt', SortDirection::DESC),
@@ -75,6 +76,7 @@ final class ListInspectionsHandlerTest extends TestCase
         '2026-01-01T00:00:00+00:00',
         '2026-01-31T23:59:59+00:00',
         '550e8400-e29b-41d4-a716-446655449004',
+        null,
         '550e8400-e29b-41d4-a716-446655449006',
         'john',
       )

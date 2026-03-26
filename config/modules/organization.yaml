@@ -89,6 +89,21 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics\GetOrganizationStatisticsHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\GetOrganizationFacilityStatistics\GetOrganizationFacilityStatisticsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationMembershipStatistics\GetOrganizationMembershipStatisticsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationEquipmentStatistics\GetOrganizationEquipmentStatisticsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationInspectionStatistics\GetOrganizationInspectionStatisticsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationNonConformityStatistics\GetOrganizationNonConformityStatisticsHandler:
+    tags: ['messenger.message_handler']
+
   # Repositories
   Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository:
     arguments:
@@ -134,6 +149,15 @@ services:
 
   Organization\Application\Port\Outbound\FacilityStatisticsPort:
     alias: Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter
+
+  Organization\Application\Port\Outbound\EquipmentStatisticsPort:
+    alias: Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter
+
+  Organization\Application\Port\Outbound\InspectionStatisticsPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter
+
+  Organization\Application\Port\Outbound\NonConformityStatisticsPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter
 
   # Console Commands use #[AsCommand]
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~

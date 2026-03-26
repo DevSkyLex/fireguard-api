@@ -19,6 +19,109 @@ use function uniqid;
  */
 final class OrganizationFlowTest extends OAuth2WebTestCase
 {
+  public function testOrganizationStatisticsEndpointsExposeAuthorizedDashboardContracts(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $ownerEmail = 'organization-stats-owner-' . uniqid() . '@example.com';
+    $ownerPassword = 'OwnerPassword123!';
+
+    $this->createAndActivateUser($client, $ownerEmail, $ownerPassword);
+    $ownerToken = $this->loginAndGetUserAccessToken($client, $ownerEmail, $ownerPassword);
+    $organizationId = $this->createOrganization($client, $ownerToken, 'Organization Stats ' . uniqid());
+
+    $this->assertNotNull($organizationId, 'Organization should be created successfully.');
+
+    $summaryData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '');
+    $this->assertArrayHasKey('memberCount', $summaryData);
+    $this->assertArrayHasKey('roleCount', $summaryData);
+    $this->assertArrayHasKey('facilityCount', $summaryData);
+    $this->assertArrayHasKey('activeFacilityCount', $summaryData);
+    $this->assertArrayHasKey('pendingInvitationCount', $summaryData);
+
+    $facilityData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/facilities');
+    $this->assertArrayHasKey('totalCount', $facilityData);
+    $this->assertArrayHasKey('activeCount', $facilityData);
+    $this->assertArrayHasKey('archivedCount', $facilityData);
+    $this->assertArrayHasKey('countsByType', $facilityData);
+
+    $membershipData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/membership');
+    $this->assertArrayHasKey('memberCount', $membershipData);
+    $this->assertArrayHasKey('activeMemberCount', $membershipData);
+    $this->assertArrayHasKey('roleCount', $membershipData);
+    $this->assertArrayHasKey('systemRoleCount', $membershipData);
+    $this->assertArrayHasKey('invitationCount', $membershipData);
+
+    $equipmentData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/equipment');
+    $this->assertArrayHasKey('totalCount', $equipmentData);
+    $this->assertArrayHasKey('inStockCount', $equipmentData);
+    $this->assertArrayHasKey('operationalCount', $equipmentData);
+    $this->assertArrayHasKey('countsByType', $equipmentData);
+
+    $inspectionData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/inspections');
+    $this->assertArrayHasKey('totalCount', $inspectionData);
+    $this->assertArrayHasKey('draftCount', $inspectionData);
+    $this->assertArrayHasKey('passCount', $inspectionData);
+    $this->assertArrayHasKey('countsByInspectorType', $inspectionData);
+    $this->assertArrayHasKey('performedLast7DaysCount', $inspectionData);
+
+    $nonConformityData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/non-conformities');
+    $this->assertArrayHasKey('totalCount', $nonConformityData);
+    $this->assertArrayHasKey('openCount', $nonConformityData);
+    $this->assertArrayHasKey('doneCount', $nonConformityData);
+    $this->assertArrayHasKey('criticalSeverityCount', $nonConformityData);
+  }
+
+  public function testRestrictedMemberIsDeniedProtectedOrganizationStatisticsEndpoints(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $ownerEmail = 'organization-stats-owner-' . uniqid() . '@example.com';
+    $ownerPassword = 'OwnerPassword123!';
+    $memberEmail = 'organization-stats-member-' . uniqid() . '@example.com';
+    $memberPassword = 'MemberPassword123!';
+
+    $this->createAndActivateUser($client, $ownerEmail, $ownerPassword);
+    $this->createAndActivateUser($client, $memberEmail, $memberPassword);
+
+    $ownerToken = $this->loginAndGetUserAccessToken($client, $ownerEmail, $ownerPassword);
+    $organizationId = $this->createOrganization($client, $ownerToken, 'Restricted Organization Stats ' . uniqid());
+
+    $this->assertNotNull($organizationId, 'Organization should be created successfully.');
+
+    $memberUserId = $this->findUserIdByEmail($client, $memberEmail);
+    $this->assertNotNull($memberUserId, 'Created member user should exist in database.');
+
+    $memberId = $this->addOrganizationMember($client, $ownerToken, $organizationId, $memberUserId);
+    $this->assertNotNull($memberId, 'Organization member should be created successfully.');
+
+    $roleMap = $this->listOrganizationRolesByName($client, $ownerToken, $organizationId);
+    $defaultMemberRoleId = $roleMap['member'] ?? null;
+    $this->assertTrue(is_string($defaultMemberRoleId) && '' !== $defaultMemberRoleId, 'Default member role should be listed.');
+
+    $limitedRoleId = $this->createOrganizationRole(
+      client: $client,
+      token: $ownerToken,
+      organizationId: $organizationId,
+      roleName: 'limited_stats_' . uniqid(),
+      permissions: ['organization.read', 'organization.members.read'],
+    );
+
+    $this->removeRoleFromMember($client, $ownerToken, $organizationId, $memberId, $defaultMemberRoleId);
+    $this->assignRoleToMember($client, $ownerToken, $organizationId, $memberId, $limitedRoleId);
+
+    $memberToken = $this->loginAndGetUserAccessToken($client, $memberEmail, $memberPassword);
+
+    $summaryData = $this->requestOrganizationStatistics($client, $memberToken, $organizationId, '');
+    $this->assertArrayHasKey('memberCount', $summaryData);
+
+    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/facilities');
+    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/membership');
+    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/equipment');
+    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/inspections');
+    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/non-conformities');
+  }
+
   public function testCompleteOrganizationManagementFlow(): void
   {
     $client = static::createClientWithFixtures();
@@ -245,6 +348,35 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     );
   }
 
+  public function testOrganizationStatisticsEndpointsAreDeniedAcrossOrganizations(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $ownerOneEmail = 'organization-stats-owner-one-' . uniqid() . '@example.com';
+    $ownerOnePassword = 'OwnerOnePassword123!';
+    $ownerTwoEmail = 'organization-stats-owner-two-' . uniqid() . '@example.com';
+    $ownerTwoPassword = 'OwnerTwoPassword123!';
+
+    $this->createAndActivateUser($client, $ownerOneEmail, $ownerOnePassword);
+    $this->createAndActivateUser($client, $ownerTwoEmail, $ownerTwoPassword);
+
+    $ownerOneToken = $this->loginAndGetUserAccessToken($client, $ownerOneEmail, $ownerOnePassword);
+    $ownerTwoToken = $this->loginAndGetUserAccessToken($client, $ownerTwoEmail, $ownerTwoPassword);
+
+    $organizationOneId = $this->createOrganization($client, $ownerOneToken, 'Organization One ' . uniqid());
+    $organizationTwoId = $this->createOrganization($client, $ownerTwoToken, 'Organization Two ' . uniqid());
+
+    $this->assertNotNull($organizationOneId, 'First organization should be created successfully.');
+    $this->assertNotNull($organizationTwoId, 'Second organization should be created successfully.');
+
+    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '');
+    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/facilities');
+    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/membership');
+    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/equipment');
+    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/inspections');
+    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/non-conformities');
+  }
+
   public function testOrganizationEndpointsRequireAuthentication(): void
   {
     $client = static::createClientWithFixtures();
@@ -294,6 +426,24 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertTrue(is_string($token) && '' !== $token, 'Login response should contain access_token.');
 
     return $token;
+  }
+
+  private function createOrganization(KernelBrowser $client, string $token, string $name): ?string
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode(['name' => $name]) ?: '',
+    );
+
+    $data = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+
+    return $this->extractResourceId($data);
   }
 
   private function findUserIdByEmail(KernelBrowser $client, string $email): ?string
@@ -374,5 +524,178 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     }
 
     return false;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function requestOrganizationStatistics(KernelBrowser $client, string $token, string $organizationId, string $suffix): array
+  {
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/statistics' . $suffix,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $response->getStatusCode(),
+      'Organization statistics request should succeed. Response: ' . $response->getContent(),
+    );
+
+    return $this->decodeJsonResponse($response->getContent() ?: '{}');
+  }
+
+  private function assertOrganizationStatisticsDenied(KernelBrowser $client, string $token, string $organizationId, string $suffix): void
+  {
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/statistics' . $suffix,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_FORBIDDEN,
+      $response->getStatusCode(),
+      'Organization statistics request should be forbidden. Response: ' . $response->getContent(),
+    );
+  }
+
+  private function addOrganizationMember(KernelBrowser $client, string $token, string $organizationId, string $userId): ?string
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/members',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode(['userId' => $userId]) ?: '',
+    );
+
+    $response = $client->getResponse();
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Adding Organization member should succeed. Response: ' . $response->getContent(),
+    );
+
+    return $this->extractResourceId($this->decodeJsonResponse($response->getContent() ?: '{}'));
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function listOrganizationRolesByName(KernelBrowser $client, string $token, string $organizationId): array
+  {
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/roles',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $response->getStatusCode(),
+      'Listing Organization roles should succeed. Response: ' . $response->getContent(),
+    );
+
+    $roles = $this->getCollectionMembers($this->decodeJsonResponse($response->getContent() ?: '{}'));
+    $result = [];
+    foreach ($roles as $role) {
+      $roleName = $role['name'] ?? null;
+      $roleId = $this->extractResourceId($role);
+
+      if (is_string($roleName) && is_string($roleId) && '' !== $roleId) {
+        $result[$roleName] = $roleId;
+      }
+    }
+
+    return $result;
+  }
+
+  /**
+   * @param list<string> $permissions
+   */
+  private function createOrganizationRole(KernelBrowser $client, string $token, string $organizationId, string $roleName, array $permissions): string
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/roles',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode([
+        'name' => $roleName,
+        'permissions' => $permissions,
+      ]) ?: '',
+    );
+
+    $response = $client->getResponse();
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Creating Organization role should succeed. Response: ' . $response->getContent(),
+    );
+
+    $roleId = $this->extractResourceId($this->decodeJsonResponse($response->getContent() ?: '{}'));
+    $this->assertTrue(is_string($roleId) && '' !== $roleId, 'Organization role ID should be present in create response.');
+
+    return $roleId;
+  }
+
+  private function removeRoleFromMember(KernelBrowser $client, string $token, string $organizationId, string $memberId, string $roleId): void
+  {
+    $client->request(
+      method: 'DELETE',
+      uri: '/api/organizations/' . $organizationId . '/members/' . $memberId . '/roles/' . $roleId,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_NO_CONTENT,
+      $response->getStatusCode(),
+      'Removing role from member should succeed. Response: ' . $response->getContent(),
+    );
+  }
+
+  private function assignRoleToMember(KernelBrowser $client, string $token, string $organizationId, string $memberId, string $roleId): void
+  {
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . $organizationId . '/members/' . $memberId . '/roles',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+      content: json_encode(['roleId' => $roleId]) ?: '',
+    );
+
+    $response = $client->getResponse();
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_CREATED, Response::HTTP_OK],
+      'Assigning Organization role to member should succeed. Response: ' . $response->getContent(),
+    );
   }
 }
