@@ -32,4 +32,12 @@ services:
   Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort:
     class: Auth\Infrastructure\Adapter\Mfa\OtpModuleChallengeVerifierAdapter
 
+  app.doctrine_migrations.main_schema_filter_listener:
+    class: Doctrine\Bundle\MigrationsBundle\EventListener\SchemaFilterListener
+    arguments:
+      $configurationTableName: 'doctrine_migration_versions_main'
+    tags:
+      - { name: 'kernel.event_listener', event: 'console.command', method: 'onConsoleCommand' }
+      - { name: 'doctrine.dbal.schema_filter', connection: 'auth' }
+      - { name: 'doctrine.dbal.schema_filter', connection: 'main' }
 

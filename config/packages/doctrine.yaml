@@ -4,14 +4,10 @@ doctrine:
     connections:
       auth:
         url: "%env(resolve:AUTH_DATABASE_URL)%"
-        # Ignore Doctrine migration metadata during schema diff/validation.
-        schema_filter: "~^(?!(?:[^.]+\\.)?doctrine_migration_versions_auth$).*~"
         profiling_collect_backtrace: "%kernel.debug%"
         use_savepoints: true
       main:
         url: "%env(resolve:MAIN_DATABASE_URL)%"
-        # Ignore Doctrine migration metadata during schema diff/validation.
-        schema_filter: "~^(?!(?:[^.]+\\.)?doctrine_migration_versions_main$).*~"
         profiling_collect_backtrace: "%kernel.debug%"
         use_savepoints: true
   orm:
