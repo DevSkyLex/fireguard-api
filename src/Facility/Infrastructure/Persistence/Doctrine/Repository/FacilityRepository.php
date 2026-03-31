@@ -246,6 +246,33 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ]);
   }
 
+  public function countByTypeForOrganizationId(
+    FacilityOrganizationId $organizationId,
+    bool $includeArchived = false,
+  ): array {
+    /** @var list<array{type: string, facilityCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      $includeArchived,
+      null,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('f.type AS type, COUNT(f.id) AS facilityCount')
+      ->groupBy('f.type')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['type']] = (int) $row['facilityCount'];
+    }
+
+    return $counts;
+  }
+
   /**
    * Method findByOrganizationId.
    *

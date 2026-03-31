@@ -85,6 +85,17 @@ interface OrganizationInvitationRepositoryPort
   public function findByOrganizationId(OrganizationId $organizationId): array;
 
   /**
+   * Counts all invitations for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the invitation count
+   */
+  public function countByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
    * Method countPendingByOrganizationId.
    *
    * Counts pending invitations for an organization.
@@ -96,6 +107,17 @@ interface OrganizationInvitationRepositoryPort
    * @return int the pending invitation count
    */
   public function countPendingByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
+   * Counts invitations grouped by status for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of status => count
+   */
+  public function countByStatusForOrganizationId(OrganizationId $organizationId): array;
 
   /**
    * Method replaceRoleIds.

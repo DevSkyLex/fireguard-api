@@ -19,7 +19,7 @@ use function uniqid;
  */
 final class OrganizationFlowTest extends OAuth2WebTestCase
 {
-  public function testOrganizationStatisticsEndpointsExposeAuthorizedDashboardContracts(): void
+  public function testOrganizationDashboardEndpointsExposeAuthorizedDashboardContracts(): void
   {
     $client = static::createClientWithFixtures();
 
@@ -32,47 +32,52 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
 
     $this->assertNotNull($organizationId, 'Organization should be created successfully.');
 
-    $summaryData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '');
-    $this->assertArrayHasKey('memberCount', $summaryData);
-    $this->assertArrayHasKey('roleCount', $summaryData);
-    $this->assertArrayHasKey('facilityCount', $summaryData);
-    $this->assertArrayHasKey('activeFacilityCount', $summaryData);
-    $this->assertArrayHasKey('pendingInvitationCount', $summaryData);
+    $dashboardData = $this->requestOrganizationDashboard($client, $ownerToken, $organizationId);
+    $this->assertArrayHasKey('generatedAt', $dashboardData);
+    $this->assertArrayHasKey('period', $dashboardData);
+    $this->assertArrayHasKey('overview', $dashboardData);
+    $this->assertArrayHasKey('health', $dashboardData);
+    $this->assertArrayHasKey('alerts', $dashboardData);
+    $this->assertArrayHasKey('comparison', $dashboardData);
 
-    $facilityData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/facilities');
-    $this->assertArrayHasKey('totalCount', $facilityData);
-    $this->assertArrayHasKey('activeCount', $facilityData);
-    $this->assertArrayHasKey('archivedCount', $facilityData);
-    $this->assertArrayHasKey('countsByType', $facilityData);
+    $overview = $dashboardData['overview'] ?? null;
+    $this->assertTrue(is_array($overview), 'Dashboard overview should be an object.');
+    $this->assertArrayHasKey('members', $overview);
+    $this->assertArrayHasKey('roles', $overview);
+    $this->assertArrayHasKey('facilities', $overview);
+    $this->assertArrayHasKey('equipment', $overview);
+    $this->assertArrayHasKey('inspections', $overview);
+    $this->assertArrayHasKey('nonConformities', $overview);
+    $this->assertTrue(is_array($overview['members']['summary'] ?? null), 'Widget summaries should be exposed.');
+    $this->assertTrue(is_array($overview['facilities']['breakdowns'] ?? null), 'Normalized widget breakdowns should be exposed.');
+    $this->assertTrue(is_array($dashboardData['health']['metrics'] ?? null), 'Health metrics should be normalized.');
+    $this->assertArrayHasKey('trendMetrics', $dashboardData);
+    $this->assertTrue(is_array($dashboardData['trendMetrics'] ?? null), 'Front-ready trend metrics should be exposed.');
+    $this->assertSame('inspections_performed', $dashboardData['trendMetrics'][0]['metric'] ?? null);
+    $this->assertArrayNotHasKey('trends', $dashboardData);
+    $this->assertArrayNotHasKey('memberActivationRate', $dashboardData['health']);
+    $this->assertArrayNotHasKey('total', $overview['members']);
+    $this->assertArrayNotHasKey('byType', $overview['facilities']);
+    $this->assertArrayNotHasKey('current', $dashboardData['comparison']);
+    $this->assertArrayNotHasKey('previous', $dashboardData['comparison']);
+    $this->assertArrayNotHasKey('deltas', $dashboardData['comparison']);
 
-    $membershipData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/membership');
-    $this->assertArrayHasKey('memberCount', $membershipData);
-    $this->assertArrayHasKey('activeMemberCount', $membershipData);
-    $this->assertArrayHasKey('roleCount', $membershipData);
-    $this->assertArrayHasKey('systemRoleCount', $membershipData);
-    $this->assertArrayHasKey('invitationCount', $membershipData);
+    $inspectionsTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'inspections');
+    $this->assertSame('inspections_performed', $inspectionsTrendData['metric'] ?? null);
+    $this->assertArrayHasKey('series', $inspectionsTrendData);
+    $this->assertSame('Inspections performed', $inspectionsTrendData['display']['label'] ?? null);
+    $this->assertArrayHasKey('summary', $inspectionsTrendData);
 
-    $equipmentData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/equipment');
-    $this->assertArrayHasKey('totalCount', $equipmentData);
-    $this->assertArrayHasKey('inStockCount', $equipmentData);
-    $this->assertArrayHasKey('operationalCount', $equipmentData);
-    $this->assertArrayHasKey('countsByType', $equipmentData);
+    $openedTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'non-conformities-opened');
+    $this->assertSame('non_conformities_opened', $openedTrendData['metric'] ?? null);
+    $this->assertArrayHasKey('series', $openedTrendData);
 
-    $inspectionData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/inspections');
-    $this->assertArrayHasKey('totalCount', $inspectionData);
-    $this->assertArrayHasKey('draftCount', $inspectionData);
-    $this->assertArrayHasKey('passCount', $inspectionData);
-    $this->assertArrayHasKey('countsByInspectorType', $inspectionData);
-    $this->assertArrayHasKey('performedLast7DaysCount', $inspectionData);
-
-    $nonConformityData = $this->requestOrganizationStatistics($client, $ownerToken, $organizationId, '/non-conformities');
-    $this->assertArrayHasKey('totalCount', $nonConformityData);
-    $this->assertArrayHasKey('openCount', $nonConformityData);
-    $this->assertArrayHasKey('doneCount', $nonConformityData);
-    $this->assertArrayHasKey('criticalSeverityCount', $nonConformityData);
+    $resolvedTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'non-conformities-resolved');
+    $this->assertSame('non_conformities_resolved', $resolvedTrendData['metric'] ?? null);
+    $this->assertArrayHasKey('series', $resolvedTrendData);
   }
 
-  public function testRestrictedMemberIsDeniedProtectedOrganizationStatisticsEndpoints(): void
+  public function testRestrictedMemberIsDeniedProtectedOrganizationDashboardEndpoints(): void
   {
     $client = static::createClientWithFixtures();
 
@@ -112,14 +117,10 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
 
     $memberToken = $this->loginAndGetUserAccessToken($client, $memberEmail, $memberPassword);
 
-    $summaryData = $this->requestOrganizationStatistics($client, $memberToken, $organizationId, '');
-    $this->assertArrayHasKey('memberCount', $summaryData);
-
-    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/facilities');
-    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/membership');
-    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/equipment');
-    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/inspections');
-    $this->assertOrganizationStatisticsDenied($client, $memberToken, $organizationId, '/non-conformities');
+    $this->assertOrganizationDashboardDenied($client, $memberToken, $organizationId);
+    $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'inspections');
+    $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'non-conformities-opened');
+    $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'non-conformities-resolved');
   }
 
   public function testCompleteOrganizationManagementFlow(): void
@@ -348,7 +349,7 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     );
   }
 
-  public function testOrganizationStatisticsEndpointsAreDeniedAcrossOrganizations(): void
+  public function testOrganizationDashboardEndpointsAreDeniedAcrossOrganizations(): void
   {
     $client = static::createClientWithFixtures();
 
@@ -369,12 +370,10 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertNotNull($organizationOneId, 'First organization should be created successfully.');
     $this->assertNotNull($organizationTwoId, 'Second organization should be created successfully.');
 
-    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '');
-    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/facilities');
-    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/membership');
-    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/equipment');
-    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/inspections');
-    $this->assertOrganizationStatisticsDenied($client, $ownerOneToken, $organizationTwoId, '/non-conformities');
+    $this->assertOrganizationDashboardDenied($client, $ownerOneToken, $organizationTwoId);
+    $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'inspections');
+    $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'non-conformities-opened');
+    $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'non-conformities-resolved');
   }
 
   public function testOrganizationEndpointsRequireAuthentication(): void
@@ -529,11 +528,11 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
   /**
    * @return array<string, mixed>
    */
-  private function requestOrganizationStatistics(KernelBrowser $client, string $token, string $organizationId, string $suffix): array
+  private function requestOrganizationDashboard(KernelBrowser $client, string $token, string $organizationId): array
   {
     $client->request(
       method: 'GET',
-      uri: '/api/organizations/' . $organizationId . '/statistics' . $suffix,
+      uri: '/api/organizations/' . $organizationId . '/dashboard',
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -544,17 +543,41 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertSame(
       Response::HTTP_OK,
       $response->getStatusCode(),
-      'Organization statistics request should succeed. Response: ' . $response->getContent(),
+      'Organization dashboard request should succeed. Response: ' . $response->getContent(),
     );
 
     return $this->decodeJsonResponse($response->getContent() ?: '{}');
   }
 
-  private function assertOrganizationStatisticsDenied(KernelBrowser $client, string $token, string $organizationId, string $suffix): void
+  /**
+   * @return array<string, mixed>
+   */
+  private function requestOrganizationDashboardTrend(KernelBrowser $client, string $token, string $organizationId, string $metricPath): array
   {
     $client->request(
       method: 'GET',
-      uri: '/api/organizations/' . $organizationId . '/statistics' . $suffix,
+      uri: '/api/organizations/' . $organizationId . '/dashboard/trends/' . $metricPath,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $response->getStatusCode(),
+      'Organization dashboard trend request should succeed. Response: ' . $response->getContent(),
+    );
+
+    return $this->decodeJsonResponse($response->getContent() ?: '{}');
+  }
+
+  private function assertOrganizationDashboardDenied(KernelBrowser $client, string $token, string $organizationId): void
+  {
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/dashboard',
       server: [
         'HTTP_ACCEPT' => 'application/ld+json',
         'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
@@ -565,7 +588,26 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertSame(
       Response::HTTP_FORBIDDEN,
       $response->getStatusCode(),
-      'Organization statistics request should be forbidden. Response: ' . $response->getContent(),
+      'Organization dashboard request should be forbidden. Response: ' . $response->getContent(),
+    );
+  }
+
+  private function assertOrganizationDashboardTrendDenied(KernelBrowser $client, string $token, string $organizationId, string $metricPath): void
+  {
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId . '/dashboard/trends/' . $metricPath,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_FORBIDDEN,
+      $response->getStatusCode(),
+      'Organization dashboard trend request should be forbidden. Response: ' . $response->getContent(),
     );
   }
 

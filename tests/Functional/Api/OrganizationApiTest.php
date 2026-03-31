@@ -65,113 +65,80 @@ final class OrganizationApiTest extends WebTestCase
   }
 
   #[Test]
-  public function testGetOrganizationFacilityStatisticsRequiresAuthentication(): void
+  public function testGetOrganizationDashboardRequiresAuthentication(): void
   {
     $client = static::createClient();
 
-    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/statistics/facilities');
+    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/dashboard');
 
     $statusCode = $client->getResponse()->getStatusCode();
 
     self::assertNotEquals(
       expected: 404,
       actual: $statusCode,
-      message: 'GET /organizations/{organizationId}/statistics/facilities endpoint should exist (got 404)',
+      message: 'GET /organizations/{organizationId}/dashboard endpoint should exist (got 404)',
     );
 
     self::assertContains(
       needle: $statusCode,
       haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/statistics/facilities, got ' . $statusCode,
+      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/dashboard, got ' . $statusCode,
     );
   }
 
   #[Test]
-  public function testGetOrganizationMembershipStatisticsRequiresAuthentication(): void
+  public function testGetOrganizationDashboardTrendEndpointsRequireAuthentication(): void
   {
     $client = static::createClient();
 
-    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/statistics/membership');
+    $trendEndpoints = [
+      '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/inspections',
+      '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/non-conformities-opened',
+      '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/non-conformities-resolved',
+    ];
 
-    $statusCode = $client->getResponse()->getStatusCode();
+    foreach ($trendEndpoints as $endpoint) {
+      $client->request('GET', $endpoint);
 
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/{organizationId}/statistics/membership endpoint should exist (got 404)',
-    );
+      $statusCode = $client->getResponse()->getStatusCode();
 
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/statistics/membership, got ' . $statusCode,
-    );
+      self::assertNotEquals(
+        expected: 404,
+        actual: $statusCode,
+        message: 'Dashboard trend endpoint should exist (got 404): ' . $endpoint,
+      );
+
+      self::assertContains(
+        needle: $statusCode,
+        haystack: [401, 403],
+        message: 'Expected 401 or 403 for unauthenticated GET ' . $endpoint . ', got ' . $statusCode,
+      );
+    }
   }
 
   #[Test]
-  public function testGetOrganizationEquipmentStatisticsRequiresAuthentication(): void
+  public function testLegacyOrganizationStatisticsEndpointsAreRemoved(): void
   {
     $client = static::createClient();
 
-    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/statistics/equipment');
+    $legacyEndpoints = [
+      '/api/organizations/' . self::DUMMY_UUID . '/statistics',
+      '/api/organizations/' . self::DUMMY_UUID . '/statistics/facilities',
+      '/api/organizations/' . self::DUMMY_UUID . '/statistics/membership',
+      '/api/organizations/' . self::DUMMY_UUID . '/statistics/equipment',
+      '/api/organizations/' . self::DUMMY_UUID . '/statistics/inspections',
+      '/api/organizations/' . self::DUMMY_UUID . '/statistics/non-conformities',
+    ];
 
-    $statusCode = $client->getResponse()->getStatusCode();
+    foreach ($legacyEndpoints as $endpoint) {
+      $client->request('GET', $endpoint);
 
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/{organizationId}/statistics/equipment endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/statistics/equipment, got ' . $statusCode,
-    );
-  }
-
-  #[Test]
-  public function testGetOrganizationInspectionStatisticsRequiresAuthentication(): void
-  {
-    $client = static::createClient();
-
-    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/statistics/inspections');
-
-    $statusCode = $client->getResponse()->getStatusCode();
-
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/{organizationId}/statistics/inspections endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/statistics/inspections, got ' . $statusCode,
-    );
-  }
-
-  #[Test]
-  public function testGetOrganizationNonConformityStatisticsRequiresAuthentication(): void
-  {
-    $client = static::createClient();
-
-    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/statistics/non-conformities');
-
-    $statusCode = $client->getResponse()->getStatusCode();
-
-    self::assertNotEquals(
-      expected: 404,
-      actual: $statusCode,
-      message: 'GET /organizations/{organizationId}/statistics/non-conformities endpoint should exist (got 404)',
-    );
-
-    self::assertContains(
-      needle: $statusCode,
-      haystack: [401, 403],
-      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/statistics/non-conformities, got ' . $statusCode,
-    );
+      self::assertSame(
+        expected: 404,
+        actual: $client->getResponse()->getStatusCode(),
+        message: 'Legacy organization statistics endpoint should be removed: ' . $endpoint,
+      );
+    }
   }
 
   // #region Methods

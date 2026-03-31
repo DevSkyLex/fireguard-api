@@ -344,6 +344,17 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     ]);
   }
 
+  public function countActiveByOrganizationId(OrganizationId $organizationId): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->memberRepository->count([
+      'organization' => $organization,
+      'isActive' => true,
+    ]);
+  }
+
   /**
    * Method getPermissionNamesForUserInOrganization.
    *

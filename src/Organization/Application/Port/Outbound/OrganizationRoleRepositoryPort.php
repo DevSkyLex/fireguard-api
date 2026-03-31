@@ -95,6 +95,17 @@ interface OrganizationRoleRepositoryPort
   public function countByOrganizationId(OrganizationId $organizationId): int;
 
   /**
+   * Counts system roles belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the system role count
+   */
+  public function countSystemByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
    * Method findByIdsInOrganization.
    *
    * Finds roles by a scoped list of identifiers.

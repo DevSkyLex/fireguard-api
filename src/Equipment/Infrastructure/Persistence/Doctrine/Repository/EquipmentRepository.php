@@ -196,6 +196,58 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->getSingleScalarResult();
   }
 
+  public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array
+  {
+    /** @var list<array{status: string, equipmentCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('e.status AS status, COUNT(e.id) AS equipmentCount')
+      ->groupBy('e.status')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['status']] = (int) $row['equipmentCount'];
+    }
+
+    return $counts;
+  }
+
+  public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array
+  {
+    /** @var list<array{type: string, equipmentCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('e.type AS type, COUNT(e.id) AS equipmentCount')
+      ->groupBy('e.type')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['type']] = (int) $row['equipmentCount'];
+    }
+
+    return $counts;
+  }
+
   private function createListQueryBuilder(
     EquipmentOrganizationId $organizationId,
     ?string $facilityId,

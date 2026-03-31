@@ -86,22 +86,10 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\GetOrganizationLegalProfileHandler:
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics\GetOrganizationStatisticsHandler:
+  Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Query\Organization\GetOrganizationFacilityStatistics\GetOrganizationFacilityStatisticsHandler:
-    tags: ['messenger.message_handler']
-
-  Organization\Application\UseCase\Query\Organization\GetOrganizationMembershipStatistics\GetOrganizationMembershipStatisticsHandler:
-    tags: ['messenger.message_handler']
-
-  Organization\Application\UseCase\Query\Organization\GetOrganizationEquipmentStatistics\GetOrganizationEquipmentStatisticsHandler:
-    tags: ['messenger.message_handler']
-
-  Organization\Application\UseCase\Query\Organization\GetOrganizationInspectionStatistics\GetOrganizationInspectionStatisticsHandler:
-    tags: ['messenger.message_handler']
-
-  Organization\Application\UseCase\Query\Organization\GetOrganizationNonConformityStatistics\GetOrganizationNonConformityStatisticsHandler:
+  Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
     tags: ['messenger.message_handler']
 
   # Repositories

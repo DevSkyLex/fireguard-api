@@ -18,9 +18,9 @@ namespace Organization\Application\Port\Outbound;
 interface NonConformityStatisticsPort
 {
   /**
-   * Counts all non-conformities for an organization.
+   * Counts non-conformities for an organization with optional severity/status filters.
    */
-  public function countNonConformities(string $organizationId): int;
+  public function countNonConformities(string $organizationId, ?string $severity = null, ?string $status = null): int;
 
   /**
    * Returns non-conformity counts grouped by status.
@@ -35,4 +35,57 @@ interface NonConformityStatisticsPort
    * @return array<string, int> map of severity => count
    */
   public function countNonConformitiesBySeverity(string $organizationId): array;
+
+  /**
+   * Counts overdue open non-conformities for an organization.
+   */
+  public function countOverdueNonConformities(
+    string $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Counts non-conformities that were active at a given instant.
+   */
+  public function countActiveNonConformitiesAtDate(
+    string $organizationId,
+    string $at,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Returns non-conformity creation counts grouped by day for a period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countNonConformitiesCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Returns non-conformity resolution counts grouped by day for a period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countNonConformitiesResolvedByDay(
+    string $organizationId,
+    string $resolvedAtFrom,
+    string $resolvedAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts critical non-conformities that are still open or in progress.
+   */
+  public function countOpenCriticalNonConformities(string $organizationId, ?string $status = null): int;
 }

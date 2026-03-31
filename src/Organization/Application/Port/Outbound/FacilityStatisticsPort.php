@@ -27,10 +27,11 @@ interface FacilityStatisticsPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
+   * @param ?string $type optional facility type filter
    *
    * @return int the total facility count
    */
-  public function countFacilities(string $organizationId): int;
+  public function countFacilities(string $organizationId, ?string $type = null): int;
 
   /**
    * Method countActiveFacilities.
@@ -40,10 +41,11 @@ interface FacilityStatisticsPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
+   * @param ?string $type optional facility type filter
    *
    * @return int the active facility count
    */
-  public function countActiveFacilities(string $organizationId): int;
+  public function countActiveFacilities(string $organizationId, ?string $type = null): int;
 
   /**
    * Method countFacilitiesByType.

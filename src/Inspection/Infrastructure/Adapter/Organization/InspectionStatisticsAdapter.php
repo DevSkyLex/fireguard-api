@@ -27,56 +27,60 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
   ) {
   }
 
-  public function countInspections(string $organizationId): int
-  {
+  public function countInspections(
+    string $organizationId,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): int {
     return $this->inspectionRepository->countByOrganizationId(
       InspectionOrganizationId::fromString($organizationId),
+      result: $result,
+      status: $status,
+      inspectorType: $inspectorType,
     );
   }
 
   public function countInspectionsByStatus(string $organizationId): array
   {
-    $organizationIdVo = InspectionOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->inspectionRepository->countByStatusForOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (InspectionStatus::cases() as $status) {
-      $counts[$status->value] = $this->inspectionRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        status: $status->value,
-      );
+      $normalizedCounts[$status->value] = $counts[$status->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
 
   public function countInspectionsByResult(string $organizationId): array
   {
-    $organizationIdVo = InspectionOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->inspectionRepository->countByResultForOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (InspectionResult::cases() as $result) {
-      $counts[$result->value] = $this->inspectionRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        result: $result->value,
-      );
+      $normalizedCounts[$result->value] = $counts[$result->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
 
   public function countInspectionsByInspectorType(string $organizationId): array
   {
-    $organizationIdVo = InspectionOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->inspectionRepository->countByInspectorTypeForOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (InspectorType::cases() as $inspectorType) {
-      $counts[$inspectorType->value] = $this->inspectionRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        inspectorType: $inspectorType->value,
-      );
+      $normalizedCounts[$inspectorType->value] = $counts[$inspectorType->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
 
   public function countInspectionsPerformedSince(string $organizationId, string $performedAtFrom): int
@@ -84,6 +88,44 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     return $this->inspectionRepository->countByOrganizationId(
       organizationId: InspectionOrganizationId::fromString($organizationId),
       performedAtFrom: $performedAtFrom,
+    );
+  }
+
+  public function countInspectionsBetween(
+    string $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): int {
+    return $this->inspectionRepository->countByOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      result: $result,
+      status: $status,
+      performedAtFrom: $performedAtFrom,
+      performedAtTo: $performedAtTo,
+      inspectorType: $inspectorType,
+    );
+  }
+
+  public function countInspectionsPerformedByDay(
+    string $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $timeZone = null,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array {
+    return $this->inspectionRepository->countByPerformedDayForOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      performedAtFrom: $performedAtFrom,
+      performedAtTo: $performedAtTo,
+      timeZone: $timeZone,
+      status: $status,
+      result: $result,
+      inspectorType: $inspectorType,
     );
   }
 }

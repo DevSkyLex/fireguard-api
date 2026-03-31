@@ -18,9 +18,14 @@ namespace Organization\Application\Port\Outbound;
 interface InspectionStatisticsPort
 {
   /**
-   * Counts all inspections for an organization.
+   * Counts inspections for an organization with optional filters.
    */
-  public function countInspections(string $organizationId): int;
+  public function countInspections(
+    string $organizationId,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): int;
 
   /**
    * Returns inspection counts grouped by status.
@@ -47,4 +52,31 @@ interface InspectionStatisticsPort
    * Counts inspections performed from a given lower bound.
    */
   public function countInspectionsPerformedSince(string $organizationId, string $performedAtFrom): int;
+
+  /**
+   * Counts inspections for a bounded period with optional filters.
+   */
+  public function countInspectionsBetween(
+    string $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): int;
+
+  /**
+   * Returns inspection counts grouped by performed day for a period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countInspectionsPerformedByDay(
+    string $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $timeZone = null,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array;
 }

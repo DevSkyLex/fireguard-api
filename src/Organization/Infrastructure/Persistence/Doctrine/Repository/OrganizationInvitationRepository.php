@@ -319,13 +319,56 @@ final readonly class OrganizationInvitationRepository implements OrganizationInv
    */
   public function countPendingByOrganizationId(OrganizationId $organizationId): int
   {
+    return $this->countByStatusForOrganizationId($organizationId)['pending'] ?? 0;
+  }
+
+  public function countByOrganizationId(OrganizationId $organizationId): int
+  {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
 
     return (int) $this->invitationRepository->count([
       'organization' => $organization,
-      'status' => 'pending',
     ]);
+  }
+
+  public function countByStatusForOrganizationId(OrganizationId $organizationId): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $now = new DateTimeImmutable();
+
+    /** @var array{
+     *   pendingCount?: int|string|null,
+     *   acceptedCount?: int|string|null,
+     *   revokedCount?: int|string|null,
+     *   expiredCount?: int|string|null
+     * } $row
+     */
+    $row = $this->entityManager->createQueryBuilder()
+      ->select(
+        'SUM(CASE WHEN i.status = :pendingStatus AND i.expiresAt > :now THEN 1 ELSE 0 END) AS pendingCount',
+        'SUM(CASE WHEN i.status = :acceptedStatus THEN 1 ELSE 0 END) AS acceptedCount',
+        'SUM(CASE WHEN i.status = :revokedStatus THEN 1 ELSE 0 END) AS revokedCount',
+        'SUM(CASE WHEN i.status = :expiredStatus OR (i.status = :pendingStatus AND i.expiresAt <= :now) THEN 1 ELSE 0 END) AS expiredCount',
+      )
+      ->from(OrganizationInvitationRecord::class, 'i')
+      ->where('i.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->setParameter('pendingStatus', 'pending')
+      ->setParameter('acceptedStatus', 'accepted')
+      ->setParameter('revokedStatus', 'revoked')
+      ->setParameter('expiredStatus', 'expired')
+      ->setParameter('now', $now)
+      ->getQuery()
+      ->getSingleResult();
+
+    return [
+      'pending' => (int) ($row['pendingCount'] ?? 0),
+      'accepted' => (int) ($row['acceptedCount'] ?? 0),
+      'revoked' => (int) ($row['revokedCount'] ?? 0),
+      'expired' => (int) ($row['expiredCount'] ?? 0),
+    ];
   }
   // #endregion
 }

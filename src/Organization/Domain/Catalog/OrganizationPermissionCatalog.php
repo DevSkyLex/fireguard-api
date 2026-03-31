@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Organization\Domain\Catalog;
 
+use InvalidArgumentException;
+
 /**
  * OrganizationPermissionCatalog.
  *
@@ -18,6 +20,46 @@ namespace Organization\Domain\Catalog;
  */
 final class OrganizationPermissionCatalog
 {
+  /**
+   * Method dashboardReadDependencies.
+   *
+   * Returns the full permission set required to access the organization dashboard.
+   *
+   * @since 1.0.0
+   *
+   * @return list<string>
+   */
+  public static function dashboardReadDependencies(): array
+  {
+    return [
+      'organization.dashboard.read',
+      'organization.members.read',
+      'organization.roles.read',
+      'organization.facilities.read',
+      'organization.equipment.read',
+      'organization.inspection.read',
+    ];
+  }
+
+  /**
+   * Method dashboardTrendReadDependencies.
+   *
+   * Returns the permission set required to access a chart-level dashboard trend.
+   *
+   * @since 1.0.0
+   *
+   * @return list<string>
+   */
+  public static function dashboardTrendReadDependencies(string $metric): array
+  {
+    return match ($metric) {
+      'inspections_performed',
+      'non_conformities_opened',
+      'non_conformities_resolved' => ['organization.inspection.read'],
+      default => throw new InvalidArgumentException('Unsupported organization dashboard trend metric.'),
+    };
+  }
+
   /**
    * Method descriptionFor.
    *
@@ -54,6 +96,7 @@ final class OrganizationPermissionCatalog
     return [
       // Organization general
       ['name' => 'organization.read', 'description' => 'View organization details'],
+      ['name' => 'organization.dashboard.read', 'description' => 'View organization dashboard analytics and KPIs'],
 
       // Member management
       ['name' => 'organization.members.read', 'description' => 'View organization members'],

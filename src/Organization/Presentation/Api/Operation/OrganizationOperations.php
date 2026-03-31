@@ -33,17 +33,13 @@ final class OrganizationOperations
 
   public const string GET_ORGANIZATION = 'getOrganization';
 
-  public const string GET_ORGANIZATION_STATISTICS = 'getOrganizationStatistics';
+  public const string GET_ORGANIZATION_DASHBOARD = 'getOrganizationDashboard';
 
-  public const string GET_ORGANIZATION_FACILITY_STATISTICS = 'getOrganizationFacilityStatistics';
+  public const string GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND = 'getOrganizationDashboardInspectionsTrend';
 
-  public const string GET_ORGANIZATION_MEMBERSHIP_STATISTICS = 'getOrganizationMembershipStatistics';
+  public const string GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND = 'getOrganizationDashboardNonConformitiesOpenedTrend';
 
-  public const string GET_ORGANIZATION_EQUIPMENT_STATISTICS = 'getOrganizationEquipmentStatistics';
-
-  public const string GET_ORGANIZATION_INSPECTION_STATISTICS = 'getOrganizationInspectionStatistics';
-
-  public const string GET_ORGANIZATION_NON_CONFORMITY_STATISTICS = 'getOrganizationNonConformityStatistics';
+  public const string GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND = 'getOrganizationDashboardNonConformitiesResolvedTrend';
 
   public const string ADD_ORGANIZATION_MEMBER = 'addOrganizationMember';
 

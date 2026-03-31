@@ -27,40 +27,40 @@ final readonly class EquipmentStatisticsAdapter implements EquipmentStatisticsPo
   ) {
   }
 
-  public function countEquipment(string $organizationId): int
+  public function countEquipment(string $organizationId, ?string $type = null, ?string $status = null): int
   {
     return $this->equipmentRepository->countByOrganizationId(
       EquipmentOrganizationId::fromString($organizationId),
+      type: $type,
+      status: $status,
     );
   }
 
   public function countEquipmentByStatus(string $organizationId): array
   {
-    $organizationIdVo = EquipmentOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->equipmentRepository->countByStatusForOrganizationId(
+      EquipmentOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (EquipmentStatus::cases() as $status) {
-      $counts[$status->value] = $this->equipmentRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        status: $status->value,
-      );
+      $normalizedCounts[$status->value] = $counts[$status->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
 
   public function countEquipmentByType(string $organizationId): array
   {
-    $organizationIdVo = EquipmentOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->equipmentRepository->countByTypeForOrganizationId(
+      EquipmentOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (EquipmentType::cases() as $type) {
-      $counts[$type->value] = $this->equipmentRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        type: $type->value,
-      );
+      $normalizedCounts[$type->value] = $counts[$type->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
 }

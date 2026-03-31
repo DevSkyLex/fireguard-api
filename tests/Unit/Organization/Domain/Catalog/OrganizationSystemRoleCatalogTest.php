@@ -16,6 +16,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
   {
     self::assertSame([
       'organization.read',
+      'organization.dashboard.read',
       'organization.members.read',
       'organization.roles.read',
       'organization.facilities.read',
@@ -29,6 +30,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
   {
     self::assertSame([
       'organization.read',
+      'organization.dashboard.read',
       'organization.members.read',
       'organization.roles.read',
       'organization.facilities.read',
@@ -38,6 +40,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
       roleName: OrganizationSystemRoleCatalog::MEMBER,
       permissions: [
         'organization.read',
+        'organization.dashboard.read',
         'organization.members.read',
         'organization.roles.read',
         'organization.facilities.read',

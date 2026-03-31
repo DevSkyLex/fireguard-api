@@ -115,6 +115,21 @@ interface FacilityRepositoryPort
   public function countActiveByOrganizationId(FacilityOrganizationId $organizationId): int;
 
   /**
+   * Counts facilities grouped by type for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param bool $includeArchived whether archived facilities are included
+   *
+   * @return array<string, int> map of type => count
+   */
+  public function countByTypeForOrganizationId(
+    FacilityOrganizationId $organizationId,
+    bool $includeArchived = false,
+  ): array;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities for an organization with optional filters.

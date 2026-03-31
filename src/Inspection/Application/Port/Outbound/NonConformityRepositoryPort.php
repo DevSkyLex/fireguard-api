@@ -118,5 +118,72 @@ interface NonConformityRepositoryPort
     ?string $status = null,
     ?string $search = null,
   ): int;
+
+  /**
+   * Counts non-conformities grouped by status for an organization.
+   *
+   * @return array<string, int> map of status => count
+   */
+  public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts non-conformities grouped by severity for an organization.
+   *
+   * @return array<string, int> map of severity => count
+   */
+  public function countBySeverityForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts overdue open non-conformities for an organization.
+   */
+  public function countOverdueByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Counts non-conformities that were active at the given instant.
+   */
+  public function countActiveByOrganizationIdAtDate(
+    InspectionOrganizationId $organizationId,
+    string $at,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Counts non-conformities grouped by creation day for an organization and period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByCreatedDayForOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts non-conformities grouped by resolution day for an organization and period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByResolvedDayForOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $resolvedAtFrom,
+    string $resolvedAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts critical non-conformities that are still open or in progress.
+   */
+  public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int;
   // #endregion
 }

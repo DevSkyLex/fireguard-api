@@ -108,5 +108,27 @@ interface EquipmentRepositoryPort
     ?string $search = null,
   ): int;
 
+  /**
+   * Counts equipment grouped by status for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of status => count
+   */
+  public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array;
+
+  /**
+   * Counts equipment grouped by type for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of type => count
+   */
+  public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array;
+
   // #endregion
 }

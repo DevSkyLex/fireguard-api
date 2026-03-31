@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Facility\Infrastructure\Adapter\Organization;
 
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\ValueObject\{FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{FacilityOrganizationId, FacilityStatus, FacilityType};
 use Organization\Application\Port\Outbound\FacilityStatisticsPort;
 
 /**
@@ -33,21 +33,25 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
   /**
    * {@inheritDoc}
    */
-  public function countFacilities(string $organizationId): int
+  public function countFacilities(string $organizationId, ?string $type = null): int
   {
     return $this->facilityRepository->countByOrganizationId(
       organizationId: FacilityOrganizationId::fromString($organizationId),
       includeArchived: true,
+      type: $type,
     );
   }
 
   /**
    * {@inheritDoc}
    */
-  public function countActiveFacilities(string $organizationId): int
+  public function countActiveFacilities(string $organizationId, ?string $type = null): int
   {
-    return $this->facilityRepository->countActiveByOrganizationId(
-      FacilityOrganizationId::fromString($organizationId),
+    return $this->facilityRepository->countByOrganizationId(
+      organizationId: FacilityOrganizationId::fromString($organizationId),
+      includeArchived: false,
+      type: $type,
+      status: FacilityStatus::ACTIVE->value,
     );
   }
 
@@ -56,18 +60,17 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
    */
   public function countFacilitiesByType(string $organizationId): array
   {
-    $organizationIdVo = FacilityOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->facilityRepository->countByTypeForOrganizationId(
+      FacilityOrganizationId::fromString($organizationId),
+      includeArchived: true,
+    );
+    $normalizedCounts = [];
 
     foreach (FacilityType::cases() as $type) {
-      $counts[$type->value] = $this->facilityRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        includeArchived: true,
-        type: $type->value,
-      );
+      $normalizedCounts[$type->value] = $counts[$type->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
   // #endregion
 }

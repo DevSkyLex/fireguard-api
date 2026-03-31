@@ -145,6 +145,17 @@ interface OrganizationMemberRepositoryPort
   public function countByOrganizationId(OrganizationId $organizationId): int;
 
   /**
+   * Counts active members belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the active member count
+   */
+  public function countActiveByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
    * Method getPermissionNamesForUserInOrganization.
    *
    * Resolves effective permission names for a user in an organization.

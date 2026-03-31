@@ -14,6 +14,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_non_conformity_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_non_conformity_inspection_severity', columns: ['inspection_id', 'severity'])]
 #[ORM\Index(name: 'idx_non_conformity_inspection_status', columns: ['inspection_id', 'status'])]
+#[ORM\Index(name: 'idx_non_conformity_inspection_created_at', columns: ['inspection_id', 'created_at'])]
+#[ORM\Index(name: 'idx_non_conformity_inspection_resolved_at', columns: ['inspection_id', 'resolved_at'])]
+#[ORM\Index(name: 'idx_non_conformity_inspection_status_due_at', columns: ['inspection_id', 'status', 'due_at'])]
 class NonConformityRecord
 {
   #[ORM\Id]

@@ -37,6 +37,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
     $legacyMemberRole->name = 'member';
     $legacyMemberRole->permissions = [
       'organization.read',
+      'organization.dashboard.read',
       'organization.members.read',
       'organization.roles.read',
       'organization.facilities.read',
@@ -90,6 +91,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
 
     self::assertSame([
       'organization.read',
+      'organization.dashboard.read',
       'organization.members.read',
       'organization.roles.read',
       'organization.facilities.read',

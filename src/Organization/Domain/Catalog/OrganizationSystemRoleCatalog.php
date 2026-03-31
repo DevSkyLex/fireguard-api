@@ -41,6 +41,7 @@ final class OrganizationSystemRoleCatalog
       self::ADMIN => ['organization.*'],
       self::MEMBER => [
         'organization.read',
+        'organization.dashboard.read',
         'organization.members.read',
         'organization.roles.read',
         'organization.facilities.read',

@@ -130,5 +130,41 @@ interface InspectionRepositoryPort
     ?string $checklistId = null,
     ?string $search = null,
   ): int;
+
+  /**
+   * Counts inspections grouped by status for an organization.
+   *
+   * @return array<string, int> map of status => count
+   */
+  public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts inspections grouped by result for an organization.
+   *
+   * @return array<string, int> map of result => count
+   */
+  public function countByResultForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts inspections grouped by inspector type for an organization.
+   *
+   * @return array<string, int> map of inspector type => count
+   */
+  public function countByInspectorTypeForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts inspections grouped by performed day for an organization and period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByPerformedDayForOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $timeZone = null,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array;
   // #endregion
 }

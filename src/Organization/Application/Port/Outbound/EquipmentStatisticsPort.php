@@ -18,13 +18,15 @@ namespace Organization\Application\Port\Outbound;
 interface EquipmentStatisticsPort
 {
   /**
-   * Counts all equipment for an organization.
+   * Counts equipment for an organization with optional type/status filters.
    *
    * @param string $organizationId the organization identifier
+   * @param ?string $type optional type filter
+   * @param ?string $status optional status filter
    *
    * @return int the total equipment count
    */
-  public function countEquipment(string $organizationId): int;
+  public function countEquipment(string $organizationId, ?string $type = null, ?string $status = null): int;
 
   /**
    * Returns equipment counts grouped by status.

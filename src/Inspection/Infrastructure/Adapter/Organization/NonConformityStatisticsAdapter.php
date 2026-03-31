@@ -27,40 +27,112 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
   ) {
   }
 
-  public function countNonConformities(string $organizationId): int
+  public function countNonConformities(string $organizationId, ?string $severity = null, ?string $status = null): int
   {
     return $this->nonConformityRepository->countByOrganizationId(
       InspectionOrganizationId::fromString($organizationId),
+      severity: $severity,
+      status: $status,
     );
   }
 
   public function countNonConformitiesByStatus(string $organizationId): array
   {
-    $organizationIdVo = InspectionOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->nonConformityRepository->countByStatusForOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (NonConformityStatus::cases() as $status) {
-      $counts[$status->value] = $this->nonConformityRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        status: $status->value,
-      );
+      $normalizedCounts[$status->value] = $counts[$status->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
   }
 
   public function countNonConformitiesBySeverity(string $organizationId): array
   {
-    $organizationIdVo = InspectionOrganizationId::fromString($organizationId);
-    $counts = [];
+    $counts = $this->nonConformityRepository->countBySeverityForOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+    );
+    $normalizedCounts = [];
 
     foreach (NonConformitySeverity::cases() as $severity) {
-      $counts[$severity->value] = $this->nonConformityRepository->countByOrganizationId(
-        organizationId: $organizationIdVo,
-        severity: $severity->value,
-      );
+      $normalizedCounts[$severity->value] = $counts[$severity->value] ?? 0;
     }
 
-    return $counts;
+    return $normalizedCounts;
+  }
+
+  public function countOverdueNonConformities(
+    string $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int {
+    return $this->nonConformityRepository->countOverdueByOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      dueAtBefore: $dueAtBefore,
+      severity: $severity,
+      status: $status,
+    );
+  }
+
+  public function countActiveNonConformitiesAtDate(
+    string $organizationId,
+    string $at,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int {
+    return $this->nonConformityRepository->countActiveByOrganizationIdAtDate(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      at: $at,
+      severity: $severity,
+      status: $status,
+    );
+  }
+
+  public function countNonConformitiesCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    return $this->nonConformityRepository->countByCreatedDayForOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      createdAtFrom: $createdAtFrom,
+      createdAtTo: $createdAtTo,
+      timeZone: $timeZone,
+      severity: $severity,
+      status: $status,
+    );
+  }
+
+  public function countNonConformitiesResolvedByDay(
+    string $organizationId,
+    string $resolvedAtFrom,
+    string $resolvedAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    return $this->nonConformityRepository->countByResolvedDayForOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      resolvedAtFrom: $resolvedAtFrom,
+      resolvedAtTo: $resolvedAtTo,
+      timeZone: $timeZone,
+      severity: $severity,
+      status: $status,
+    );
+  }
+
+  public function countOpenCriticalNonConformities(string $organizationId, ?string $status = null): int
+  {
+    return $this->nonConformityRepository->countOpenCriticalByOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+      $status,
+    );
   }
 }
