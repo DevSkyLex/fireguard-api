@@ -27,6 +27,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function array_column;
 use function array_keys;
 use function implode;
 use function in_array;

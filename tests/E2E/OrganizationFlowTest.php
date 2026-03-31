@@ -750,4 +750,3 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     );
   }
 }
-
