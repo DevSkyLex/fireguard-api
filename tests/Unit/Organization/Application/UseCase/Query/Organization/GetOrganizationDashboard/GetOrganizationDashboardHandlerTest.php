@@ -196,8 +196,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
 
     /** @var array{
      *   members: array{total: int},
-     *   nonConformities: array{open: int},
-     *   equipment: array{operational: int}
+     *   invitations: array{byStatus: array{expired: int}},
+     *   facilities: array{byType: array{site: int}},
+     *   nonConformities: array{open: int, byStatus: array{open: int}, bySeverity: array{critical: int}},
+     *   equipment: array{operational: int, byStatus: array{operational: int}, byType: array{fire_extinguisher: int}},
+     *   inspections: array{byStatus: array{closed: int}, byResult: array{pass: int}, byInspectorType: array{user: int}}
      * } $overview
      */
     $overview = $result->overview;
@@ -1353,25 +1356,39 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       nonConformitySeverity: 'critical',
     ));
 
-    self::assertSame(4, $result->overview['facilities']['total']);
-    self::assertSame(4, $result->overview['facilities']['byType']['site']);
-    self::assertSame(0, $result->overview['facilities']['byType']['building']);
-    self::assertSame(5, $result->overview['equipment']['total']);
-    self::assertSame(5, $result->overview['equipment']['byStatus']['operational']);
-    self::assertSame(0, $result->overview['equipment']['byStatus']['decommissioned']);
-    self::assertSame(6, $result->overview['inspections']['total']);
-    self::assertSame(6, $result->overview['inspections']['byStatus']['closed']);
-    self::assertSame(6, $result->overview['inspections']['byResult']['pass']);
-    self::assertSame(6, $result->overview['inspections']['byInspectorType']['user']);
-    self::assertSame(4, $result->overview['nonConformities']['total']);
-    self::assertSame(4, $result->overview['nonConformities']['byStatus']['open']);
-    self::assertSame(4, $result->overview['nonConformities']['bySeverity']['critical']);
-    self::assertSame(100.0, $result->health['inspectionCompletionRate']);
-    self::assertSame(100.0, $result->health['inspectionPassRate']);
-    self::assertSame(50.0, $result->health['periodNonConformityResolutionRate']);
-    self::assertSame('previous_period', $result->comparison['mode']);
-    self::assertSame(2, $result->comparison['current']['inspectionsPerformed']);
-    self::assertSame(1, $result->comparison['previous']['inspectionsPerformed']);
+    /** @var array{
+     *   facilities: array{total: int, byType: array{site: int, building: int}},
+     *   equipment: array{total: int, byStatus: array{operational: int, decommissioned: int}},
+     *   inspections: array{total: int, byStatus: array{closed: int}, byResult: array{pass: int}, byInspectorType: array{user: int}},
+     *   nonConformities: array{total: int, byStatus: array{open: int}, bySeverity: array{critical: int}}
+     * } $overview */
+    $overview = $result->overview;
+
+    self::assertSame(4, $overview['facilities']['total']);
+    self::assertSame(4, $overview['facilities']['byType']['site']);
+    self::assertSame(0, $overview['facilities']['byType']['building']);
+    self::assertSame(5, $overview['equipment']['total']);
+    self::assertSame(5, $overview['equipment']['byStatus']['operational']);
+    self::assertSame(0, $overview['equipment']['byStatus']['decommissioned']);
+    self::assertSame(6, $overview['inspections']['total']);
+    self::assertSame(6, $overview['inspections']['byStatus']['closed']);
+    self::assertSame(6, $overview['inspections']['byResult']['pass']);
+    self::assertSame(6, $overview['inspections']['byInspectorType']['user']);
+    self::assertSame(4, $overview['nonConformities']['total']);
+    self::assertSame(4, $overview['nonConformities']['byStatus']['open']);
+    self::assertSame(4, $overview['nonConformities']['bySeverity']['critical']);
+
+    /** @var array{inspectionCompletionRate: float, inspectionPassRate: float, periodNonConformityResolutionRate: float} $health */
+    $health = $result->health;
+    self::assertSame(100.0, $health['inspectionCompletionRate']);
+    self::assertSame(100.0, $health['inspectionPassRate']);
+    self::assertSame(50.0, $health['periodNonConformityResolutionRate']);
+
+    /** @var array{mode: string, current: array{inspectionsPerformed: int}, previous: array{inspectionsPerformed: int}} $comparison */
+    $comparison = $result->comparison;
+    self::assertSame('previous_period', $comparison['mode']);
+    self::assertSame(2, $comparison['current']['inspectionsPerformed']);
+    self::assertSame(1, $comparison['previous']['inspectionsPerformed']);
   }
 
   #[Test]

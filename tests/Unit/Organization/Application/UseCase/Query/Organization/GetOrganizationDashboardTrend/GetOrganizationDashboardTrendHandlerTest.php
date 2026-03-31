@@ -290,9 +290,14 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       inspectorType: 'user',
     ));
 
-    self::assertSame(2, $result->summary['total']);
-    self::assertSame(1, $result->comparison['summary']['total']);
-    self::assertSame(100.0, $result->comparison['summary']['delta']);
+    /** @var array{total: int} $summary */
+    $summary = $result->summary;
+    /** @var array{mode: string, summary: array{total: int, delta: float}} $comparison */
+    $comparison = $result->comparison;
+
+    self::assertSame(2, $summary['total']);
+    self::assertSame(1, $comparison['summary']['total']);
+    self::assertSame(100.0, $comparison['summary']['delta']);
   }
 
   private function createOrganization(): Organization

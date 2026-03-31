@@ -513,10 +513,10 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * @param array<string, int> $counts
+   * @param array<int|string, int> $counts
    * @param list<BackedEnum> $cases
    *
-   * @return array<string, int>
+   * @return array<int|string, int>
    */
   private function normalizeBreakdown(array $counts, array $cases): array
   {
@@ -533,20 +533,22 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @param callable(string): int $resolver
    * @param ?int $selectedCount precomputed count for the selected bucket when the query already pins the grouped dimension
    *
-   * @return array<string, int>
+   * @return array<int|string, int>
    */
   private function buildFilteredBreakdown(array $cases, ?string $selectedValue, callable $resolver, ?int $selectedCount = null): array
   {
     $breakdown = [];
     foreach ($cases as $case) {
       $value = $case->value;
+      $resolvedValue = (string) $value;
+
       if (null !== $selectedValue) {
-        $breakdown[$value] = $selectedValue === $value ? ($selectedCount ?? (int) $resolver($value)) : 0;
+        $breakdown[$value] = $selectedValue === $value ? ($selectedCount ?? (int) $resolver($resolvedValue)) : 0;
 
         continue;
       }
 
-      $breakdown[$value] = (int) $resolver($value);
+      $breakdown[$value] = (int) $resolver($resolvedValue);
     }
 
     return $breakdown;
