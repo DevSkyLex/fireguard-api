@@ -27,7 +27,6 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
-use function array_column;
 use function array_keys;
 use function implode;
 use function in_array;
@@ -36,15 +35,11 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function lcfirst;
-use function preg_replace;
 use function sprintf;
-use function str_replace;
 use function str_starts_with;
 use function strtolower;
 use function substr;
 use function timezone_identifiers_list;
-use function trim;
-use function ucfirst;
 
 /**
  * Provider GetOrganizationDashboardProvider.
@@ -113,89 +108,12 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   private const int MAX_TREND_PERIOD_DAYS = 366;
 
   /**
-   * Constant WIDGET_LABELS.
-   *
-   * Defines human-friendly labels for known
-   * dashboard widgets.
-   *
-   * Values include:
-   * - 'members' => 'Members'
-   * - 'roles' => 'Roles'
-   * - 'invitations' => 'Invitations'
-   * - 'facilities' => 'Facilities'
-   * - 'equipment' => 'Equipment'
-   * - 'inspections' => 'Inspections'
-   * - 'nonConformities' => 'Non-conformities'
-   *
-   * @since 1.0.0
-   *
    * @var array<string, string>
    */
-  private const array WIDGET_LABELS = [
-    'members' => 'Members',
-    'roles' => 'Roles',
-    'invitations' => 'Invitations',
-    'facilities' => 'Facilities',
-    'equipment' => 'Equipment',
-    'inspections' => 'Inspections',
-    'nonConformities' => 'Non-conformities',
-  ];
-
-  /**
-   * Constant FACILITY_TYPES.
-   *
-   * Defines metadata for known trend metrics to support consistent
-   * labeling and description in the dashboard output.
-   *
-   * @since 1.0.0
-   *
-   * @var array<string, array{metric: string, label: string, description: string}>
-   */
-  private const array TREND_METRIC_METADATA = [
-    'inspectionsPerformed' => [
-      'metric' => 'inspections_performed',
-      'label' => 'Inspections performed',
-      'description' => 'Number of inspections performed over the selected period.',
-    ],
-    'nonConformitiesOpened' => [
-      'metric' => 'non_conformities_opened',
-      'label' => 'Non-conformities opened',
-      'description' => 'Number of non-conformities opened over the selected period.',
-    ],
-    'nonConformitiesResolved' => [
-      'metric' => 'non_conformities_resolved',
-      'label' => 'Non-conformities resolved',
-      'description' => 'Number of non-conformities resolved over the selected period.',
-    ],
-  ];
-
-  /**
-   * Constant ALERT_METADATA.
-   *
-   * Defines metadata for known alert codes to support consistent
-   * labeling and description in the dashboard output.
-   *
-   * @since 1.0.0
-   *
-   * @var array<string, array{label: string, description: string}>
-   */
-  private const array ALERT_METADATA = [
-    'critical_non_conformities_open' => [
-      'label' => 'Critical non-conformities open',
-      'description' => 'There are critical non-conformities that still need to be resolved.',
-    ],
-    'non_conformities_overdue' => [
-      'label' => 'Overdue non-conformities',
-      'description' => 'Some non-conformities are past their due date.',
-    ],
-    'expired_invitations' => [
-      'label' => 'Expired invitations',
-      'description' => 'Some organization invitations expired before being accepted.',
-    ],
-    'equipment_under_maintenance' => [
-      'label' => 'Equipment under maintenance',
-      'description' => 'Some equipment is temporarily unavailable because it is under maintenance.',
-    ],
+  private const array TREND_METRIC_KEYS = [
+    'inspectionsPerformed' => 'inspections_performed',
+    'nonConformitiesOpened' => 'non_conformities_opened',
+    'nonConformitiesResolved' => 'non_conformities_resolved',
   ];
   // endregion
 
@@ -677,16 +595,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method normalizeOverview.
+   * @param array<string, mixed> $overview
    *
-   * Normalizes the raw overview data from the dashboard query result into a structured format
-   * suitable for the API output contract.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $overview The raw overview data from the dashboard query result, expected to be an associative array
-   *
-   * @return array<string, array{key: string, label: string, summary: list<array{key: string, label: string, value: int}>, breakdowns: list<array{key: string, label: string, items: list<array{key: string, label: string, value: int}>}>}>
+   * @return array<string, array{summary: list<array{key: string, value: int}>, breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}>
    */
   private function normalizeOverview(array $overview): array
   {
@@ -706,7 +617,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
         if (is_int($entryValue)) {
           $summary[] = [
             'key' => $entryKey,
-            'label' => $this->humanizeKey($entryKey),
             'value' => $entryValue,
           ];
 
@@ -716,15 +626,12 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
         if (is_array($entryValue) && str_starts_with($entryKey, 'by')) {
           $breakdowns[] = [
             'key' => $this->normalizeBreakdownKey($entryKey),
-            'label' => $this->breakdownLabel($entryKey),
             'items' => $this->normalizeBreakdownItems($entryValue),
           ];
         }
       }
 
       $normalized[$widgetKey] = [
-        'key' => $widgetKey,
-        'label' => $this->widgetLabel($widgetKey),
         'summary' => $summary,
         'breakdowns' => $breakdowns,
       ];
@@ -734,18 +641,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method normalizeHealth.
+   * @param array<string, float> $health
    *
-   * Normalizes the raw health metrics from the dashboard query result into a structured format
-   * suitable for the API output contract.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, float> $health the raw health metrics from the dashboard query
-   *                                     result, expected to be an associative array of metric keys to float values
-   *
-   * @return array{metrics: list<array{key: string, label: string, value: float, unit: string}>} the normalized health
-   *                                                                                             metrics formatted for the API output contract, where each metric includes a key, human-friendly label, value, and unit
+   * @return array{metrics: list<array{key: string, value: float, unit: string}>}
    */
   private function normalizeHealth(array $health): array
   {
@@ -753,7 +651,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     foreach ($health as $metricKey => $value) {
       $metrics[] = [
         'key' => $metricKey,
-        'label' => $this->humanizeKey($metricKey),
         'value' => $value,
         'unit' => 'percent',
       ];
@@ -763,52 +660,24 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method normalizeAlerts.
+   * @param list<array{code: string, severity: string, count: int}> $alerts
    *
-   * Normalizes the raw alert data from the dashboard query
-   * result into a structured format suitable for the API output contract.
-   *
-   * @since 1.0.0
-   *
-   * @param list<array{code: string, severity: string, count: int}> $alerts The raw alert data from the
-   *                                                                        dashboard query result, expected to be a list of associative arrays
-   *
-   * @return list<array{code: string, severity: string, count: int, label: string, description: string}> the normalized
-   *                                                                                                     list of alerts formatted for the API output contract, where each alert includes its original code, severity, and
-   *                                                                                                     count, along with a human-friendly label and description derived from the code
+   * @return list<array{code: string, severity: string, count: int}>
    */
   private function normalizeAlerts(array $alerts): array
   {
-    $normalized = [];
-    foreach ($alerts as $alert) {
-      $code = $alert['code'];
-      $metadata = self::ALERT_METADATA[$code]
-        ?? ['label' => $this->humanizeKey($code), 'description' => ''];
-
-      $normalized[] = $alert + $metadata;
-    }
-
-    return $normalized;
+    return $alerts;
   }
 
   /**
-   * Method normalizeComparison.
-   *
-   * Normalizes the raw comparison data from the dashboard query result into a structured format
-   * suitable for the API output contract, including metrics and health comparisons.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $comparison the raw comparison data from the
-   *                                         dashboard query result, expected to include keys such as 'mode', 'from', 'to',
-   *                                         'current', 'previous', 'deltas', and 'health' with appropriate nested structures
+   * @param array<string, mixed> $comparison
    *
    * @return array{
    *   mode: string,
    *   from: ?string,
    *   to: ?string,
-   *   metrics: list<array{metric: string, label: string, description: string, current: ?int, previous: ?int, delta: ?float}>,
-   *   health: array{metrics: list<array{key: string, label: string, unit: string, current: ?float, previous: ?float, delta: ?float}>}
+   *   metrics: list<array{metric: string, current: ?int, previous: ?int, delta: ?float}>,
+   *   health: array{metrics: list<array{key: string, unit: string, current: ?float, previous: ?float, delta: ?float}>}
    * }
    */
   private function normalizeComparison(array $comparison): array
@@ -838,20 +707,10 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method buildTrendMetrics.
+   * @param array<string, list<array{bucket: string, value: int}>> $trends
+   * @param array<string, mixed> $comparison
    *
-   * Builds the trend metrics section of the dashboard output by combining the raw trend data with the comparison metrics.
-   * This method ensures that each trend metric includes its series data along with the corresponding comparison values
-   * for current, previous, and delta, based on the provided comparison mode.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, list<array{bucket: string, value: int}>> $trends the raw trend data from the dashboard
-   *                                                                       query result, expected to be an associative array where keys are metric identifiers and values are lists of bucketed data points
-   * @param array<string, mixed> $comparison the raw comparison data from the dashboard query
-   *                                         result, expected to include keys such as 'mode', 'current', 'previous', and 'deltas' with appropriate nested structures for metric values
-   *
-   * @return list<array{metric: string, label: string, description: string, summary: array{total: int, unit: string}, series: list<array{bucket: string, value: int}>, comparison: array{mode: string, current: ?int, previous: ?int, delta: ?float}}>
+   * @return list<array{metric: string, summary: array{total: int, unit: string}, series: list<array{bucket: string, value: int}>, comparison: array{mode: string, current: ?int, previous: ?int, delta: ?float}}>
    */
   private function buildTrendMetrics(array $trends, array $comparison): array
   {
@@ -861,8 +720,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $previous = $this->normalizeMixedMap($comparison['previous'] ?? []);
     $deltas = $this->normalizeMixedMap($comparison['deltas'] ?? []);
 
-    foreach (self::TREND_METRIC_METADATA as $legacyKey => $metadata) {
-      $metricKey = $metadata['metric'];
+    foreach (self::TREND_METRIC_KEYS as $legacyKey => $metricKey) {
       $series = [];
       if (isset($trends[$metricKey])) {
         $series = $trends[$metricKey];
@@ -872,8 +730,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
       $metrics[] = [
         'metric' => $metricKey,
-        'label' => $metadata['label'],
-        'description' => $metadata['description'],
         'summary' => [
           'total' => $this->sumTrendSeries($series),
           'unit' => 'count',
@@ -892,34 +748,18 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method buildComparisonMetrics.
+   * @param array<string, mixed> $current
+   * @param array<string, mixed> $previous
+   * @param array<string, mixed> $deltas
    *
-   * Builds the list of comparison metrics for the "previous_period" comparison mode by extracting the relevant metric values
-   * from the current, previous, and deltas maps in the comparison data. This method ensures that each metric includes
-   * its label and description from the metadata, along with the current, previous, and delta values.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $current the normalized "current" metric values from the
-   *                                      comparison data, expected to be an associative array of metric keys to mixed values
-   * @param array<string, mixed> $previous the normalized "previous" metric values from the
-   *                                       comparison data, expected to be an associative array of metric keys to mixed values
-   * @param array<string, mixed> $deltas the normalized "deltas" metric values from the
-   *                                     comparison data, expected to be an associative array of metric keys to mixed values
-   *
-   * @return list<array{metric: string, label: string, description: string, current: ?int, previous: ?int, delta: ?float}> the list
-   *                                                                                                                       of comparison metrics formatted for the API output contract, where each metric includes its identifier, label, description,
-   *                                                                                                                       and the current, previous, and delta values extracted from the comparison data
+   * @return list<array{metric: string, current: ?int, previous: ?int, delta: ?float}>
    */
   private function buildComparisonMetrics(array $current, array $previous, array $deltas): array
   {
     $metrics = [];
-    foreach (self::TREND_METRIC_METADATA as $legacyKey => $metadata) {
-      $metricKey = $metadata['metric'];
+    foreach (self::TREND_METRIC_KEYS as $legacyKey => $metricKey) {
       $metrics[] = [
         'metric' => $metricKey,
-        'label' => $metadata['label'],
-        'description' => $metadata['description'],
         'current' => $this->extractMetricIntValue($current, $legacyKey, $metricKey),
         'previous' => $this->extractMetricIntValue($previous, $legacyKey, $metricKey),
         'delta' => $this->extractMetricFloatValue($deltas, $legacyKey, $metricKey),
@@ -930,23 +770,11 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method buildHealthComparisonMetrics.
+   * @param array<string, float> $current
+   * @param array<string, float> $previous
+   * @param array<string, float> $deltas
    *
-   * Builds the list of health comparison metrics for the "previous_period"
-   * comparison mode by extracting the relevant metric values
-   * from the current, previous, and deltas maps in the comparison data.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, float> $current the normalized "current" health metric
-   *                                      values from the comparison data, expected to be an associative array of metric keys to float values
-   * @param array<string, float> $previous the normalized "previous"
-   *                                       health metric values from the comparison data, expected to be an associative array of metric keys to float values
-   * @param array<string, float> $deltas the normalized "deltas" health
-   *                                     metric values from the comparison data, expected to be an associative array of metric keys to float values
-   *
-   * @return list<array{key: string, label: string, unit: string, current: ?float, previous: ?float, delta: ?float}> The list
-   *                                                                                                                 of health comparison metrics formatted for the API output contract, where each metric includes its key, human-friendly label,
+   * @return list<array{key: string, unit: string, current: ?float, previous: ?float, delta: ?float}>
    */
   private function buildHealthComparisonMetrics(array $current, array $previous, array $deltas): array
   {
@@ -961,7 +789,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     foreach (array_keys($keys) as $key) {
       $metrics[] = [
         'key' => $key,
-        'label' => $this->humanizeKey($key),
         'unit' => 'percent',
         'current' => $current[$key] ?? null,
         'previous' => $previous[$key] ?? null,
@@ -973,20 +800,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method normalizeBreakdownItems.
+   * @param array<mixed, mixed> $breakdown
    *
-   * Normalizes the raw breakdown items from a widget breakdown in the overview section of the
-   * dashboard query result into a structured format suitable for the API output contract.
-   *
-   * @since 1.0.0
-   *
-   * @param array<mixed, mixed> $breakdown the raw breakdown data from a widget breakdown in
-   *                                       the overview section, expected to be an associative array where keys are breakdown item
-   *                                       identifiers and values are their corresponding integer values
-   *
-   * @return list<array{key: string, label: string, value: int}> The normalized list of breakdown
-   *                                                             items formatted for the API output contract, where each item includes its key, human-friendly
-   *                                                             label, and integer value. Non-string keys or non-integer values are ignored in the normalization process.
+   * @return list<array{key: string, value: int}>
    */
   private function normalizeBreakdownItems(array $breakdown): array
   {
@@ -998,7 +814,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
       $items[] = [
         'key' => $key,
-        'label' => $this->humanizeKey($key),
         'value' => $value,
       ];
     }
@@ -1023,42 +838,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   private function normalizeBreakdownKey(string $key): string
   {
     return str_starts_with($key, 'by') ? lcfirst(substr($key, 2)) : $key;
-  }
-
-  /**
-   * Method breakdownLabel.
-   *
-   * Generates a human-friendly label for a breakdown based on
-   * its key by normalizing the key and prefixing it with "By ".
-   *
-   * @since 1.0.0
-   *
-   * @param string $key The raw breakdown key from the overview data, which may start with "by" (e.g., "byFacilityType").
-   *
-   * @return string The human-friendly label for the breakdown (e.g., "By Facility Type").
-   */
-  private function breakdownLabel(string $key): string
-  {
-    return 'By ' . strtolower($this->humanizeKey($this->normalizeBreakdownKey($key)));
-  }
-
-  /**
-   * Method widgetLabel.
-   *
-   * Generates a human-friendly label for a widget based on its
-   * key by looking up predefined labels or normalizing the key if no
-   * predefined label exists.
-   *
-   * @since 1.0.0
-   *
-   * @param string $widgetKey The raw widget key from the overview data (e.g., "totalEmissions").
-   *
-   * @return string The human-friendly label for the widget (e.g., "Total Emissions"),
-   *                either from the predefined labels or generated by normalizing the key.
-   */
-  private function widgetLabel(string $widgetKey): string
-  {
-    return self::WIDGET_LABELS[$widgetKey] ?? $this->humanizeKey($widgetKey);
   }
 
   /**
@@ -1201,31 +980,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $total;
-  }
-
-  /**
-   * Method humanizeKey.
-   *
-   * Converts a raw key string into a human-friendly label by inserting spaces
-   * before capital letters, replacing underscores and dashes with spaces, and
-   * capitalizing the first letter of the resulting string.
-   *
-   * @since 1.0.0
-   *
-   * @param string $key The raw key string to humanize (e.g.,
-   *                    "totalEmissions", "emissions_delta_percent", "byFacility-Type").
-   *
-   * @return string The human-friendly label generated from the key
-   *                (e.g., "Total Emissions", "Emissions Delta Percent", "By Facility Type").
-   */
-  private function humanizeKey(string $key): string
-  {
-    $normalized = preg_replace('/(?<!^)[A-Z]/', ' $0', $key);
-    $normalized = is_string($normalized) ? $normalized : $key;
-    $normalized = str_replace(['_', '-'], ' ', $normalized);
-    $normalized = trim(strtolower($normalized));
-
-    return '' === $normalized ? $key : ucfirst($normalized);
   }
 
   /**

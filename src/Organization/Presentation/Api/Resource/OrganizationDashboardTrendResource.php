@@ -37,7 +37,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Get inspections trend',
-        description: 'Returns the inspections-performed trend as a single chart-ready series. The payload now also exposes a `display` block with a ready-to-render label and description. Use this endpoint when a chart needs its own independent period or granularity, separate from the aggregate `/dashboard` payload. Access requires `organization.inspection.read`.',
+        description: 'Returns the inspections-performed trend as a single chart-ready series. Use this endpoint when a chart needs its own independent period or granularity, separate from the aggregate `/dashboard` payload. Access requires `organization.inspection.read`.',
         parameters: [
           new Parameter(
             name: 'from',
@@ -109,7 +109,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Get non-conformities opened trend',
-        description: 'Returns the non-conformities-opened trend as a single chart-ready series. The payload now also exposes a `display` block with a ready-to-render label and description. Use this endpoint when a chart needs its own independent period or granularity, separate from the aggregate `/dashboard` payload. Access requires `organization.inspection.read`.',
+        description: 'Returns the non-conformities-opened trend as a single chart-ready series. Use this endpoint when a chart needs its own independent period or granularity, separate from the aggregate `/dashboard` payload. Access requires `organization.inspection.read`.',
         parameters: [
           new Parameter(
             name: 'from',
@@ -174,7 +174,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Get non-conformities resolved trend',
-        description: 'Returns the non-conformities-resolved trend as a single chart-ready series. The payload now also exposes a `display` block with a ready-to-render label and description. Use this endpoint when a chart needs its own independent period or granularity, separate from the aggregate `/dashboard` payload. Access requires `organization.inspection.read`.',
+        description: 'Returns the non-conformities-resolved trend as a single chart-ready series. Use this endpoint when a chart needs its own independent period or granularity, separate from the aggregate `/dashboard` payload. Access requires `organization.inspection.read`.',
         parameters: [
           new Parameter(
             name: 'from',

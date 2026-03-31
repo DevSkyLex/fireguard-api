@@ -145,20 +145,19 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $period = $output->period;
     self::assertSame('2026-03-01T00:00:00.500000+00:00', $period['from']);
     self::assertSame('week', $period['granularity']);
-    /** @var array{members: array{label: string, summary: list<array{key: string, label: string, value: int}>}, facilities: array{breakdowns: list<array{key: string, items: list<array{label: string, value: int}>}>}, equipment: array{breakdowns: list<array{key: string, items: list<array{label: string, value: int}>}>}, inspections: array{breakdowns: list<array{key: string, items: list<array{label: string, value: int}>}>}, nonConformities: array{breakdowns: list<array{key: string, items: list<array{label: string, value: int}>}>}} $overview */
+    /** @var array{members: array{summary: list<array{key: string, value: int}>}, facilities: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}, equipment: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}, inspections: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}, nonConformities: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}} $overview */
     $overview = $output->overview;
     /** @var array{metrics: list<array{key: string, value: float, unit: string}>} $health */
     $health = $output->health;
-    /** @var list<array{code: string, severity: string, count: int, label: string, description: string}> $alerts */
+    /** @var list<array{code: string, severity: string, count: int}> $alerts */
     $alerts = $output->alerts;
     /** @var array{mode: string, metrics: list<mixed>, health: array{metrics: list<mixed>}} $comparison */
     $comparison = $output->comparison;
 
-    self::assertSame('Members', $overview['members']['label']);
     self::assertSame('total', $overview['members']['summary'][0]['key']);
     self::assertSame(4, $overview['members']['summary'][0]['value']);
     self::assertSame('type', $overview['facilities']['breakdowns'][0]['key']);
-    self::assertSame('Site', $overview['facilities']['breakdowns'][0]['items'][0]['label']);
+    self::assertSame('site', $overview['facilities']['breakdowns'][0]['items'][0]['key']);
     self::assertSame(2, $overview['facilities']['breakdowns'][0]['items'][0]['value']);
     self::assertSame('status', $overview['equipment']['breakdowns'][0]['key']);
     self::assertSame(3, $overview['equipment']['breakdowns'][0]['items'][0]['value']);
@@ -172,12 +171,10 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     self::assertSame('periodInspectionCompletionRate', $health['metrics'][1]['key']);
     self::assertSame(50.0, $health['metrics'][1]['value']);
     self::assertSame('expired_invitations', $alerts[0]['code']);
-    self::assertSame('Expired invitations', $alerts[0]['label']);
     self::assertSame('none', $comparison['mode']);
     self::assertSame([], $comparison['metrics']);
     self::assertSame([], $comparison['health']['metrics']);
     self::assertSame('inspections_performed', $output->trendMetrics[0]['metric']);
-    self::assertSame('Inspections performed', $output->trendMetrics[0]['label']);
     self::assertSame(1, $output->trendMetrics[0]['summary']['total']);
     self::assertArrayNotHasKey('trends', get_object_vars($output));
     self::assertArrayNotHasKey('total', $overview['members']);

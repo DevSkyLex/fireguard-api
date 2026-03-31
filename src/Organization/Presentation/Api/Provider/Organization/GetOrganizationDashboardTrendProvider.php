@@ -58,24 +58,6 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   private const int MAX_TREND_PERIOD_DAYS = 366;
 
   /**
-   * @var array<string, array{label: string, description: string}>
-   */
-  private const array METRIC_METADATA = [
-    GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED => [
-      'label' => 'Inspections performed',
-      'description' => 'Number of inspections performed over the selected period.',
-    ],
-    GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED => [
-      'label' => 'Non-conformities opened',
-      'description' => 'Number of non-conformities opened over the selected period.',
-    ],
-    GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED => [
-      'label' => 'Non-conformities resolved',
-      'description' => 'Number of non-conformities resolved over the selected period.',
-    ],
-  ];
-
-  /**
    * @var array<string, string>
    */
   private const array OPERATION_METRICS = [
@@ -192,7 +174,6 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $output->summary = $this->normalizeSummary($result->summary);
     $output->series = $result->series;
     $output->comparison = $this->normalizeComparison($result->comparison);
-    $output->display = $this->buildDisplay($result->metric);
 
     return $output;
   }
@@ -464,17 +445,6 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
       'to' => $to,
       'summary' => $normalizedSummary,
       'series' => $series,
-    ];
-  }
-
-  /**
-   * @return array{label: string, description: string}
-   */
-  private function buildDisplay(string $metric): array
-  {
-    return self::METRIC_METADATA[$metric] ?? [
-      'label' => $metric,
-      'description' => '',
     ];
   }
 

@@ -84,10 +84,6 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     self::assertInstanceOf(OrganizationDashboardTrendOutput::class, $output);
     self::assertSame(GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED, $output->metric);
-    self::assertArrayHasKey('label', $output->display);
-    self::assertSame('Inspections performed', $output->display['label']);
-    self::assertArrayHasKey('description', $output->display);
-    self::assertSame('Number of inspections performed over the selected period.', $output->display['description']);
     self::assertSame(3, $output->summary['total']);
     self::assertSame('count', $output->summary['unit']);
     self::assertSame('2026-W09', $output->series[0]['bucket']);

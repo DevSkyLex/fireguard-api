@@ -48,24 +48,33 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertArrayHasKey('equipment', $overview);
     $this->assertArrayHasKey('inspections', $overview);
     $this->assertArrayHasKey('nonConformities', $overview);
-    $this->assertTrue(is_array($overview['members']['summary'] ?? null), 'Widget summaries should be exposed.');
-    $this->assertTrue(is_array($overview['facilities']['breakdowns'] ?? null), 'Normalized widget breakdowns should be exposed.');
-    $this->assertTrue(is_array($dashboardData['health']['metrics'] ?? null), 'Health metrics should be normalized.');
+    /** @var array{summary?: mixed} $members */
+    $members = is_array($overview['members'] ?? null) ? $overview['members'] : [];
+    /** @var array{breakdowns?: mixed} $facilities */
+    $facilities = is_array($overview['facilities'] ?? null) ? $overview['facilities'] : [];
+    /** @var array{metrics?: mixed} $health */
+    $health = is_array($dashboardData['health'] ?? null) ? $dashboardData['health'] : [];
+    /** @var list<array{metric?: string}> $trendMetrics */
+    $trendMetrics = is_array($dashboardData['trendMetrics'] ?? null) ? $dashboardData['trendMetrics'] : [];
+    /** @var array<string, mixed> $comparison */
+    $comparison = is_array($dashboardData['comparison'] ?? null) ? $dashboardData['comparison'] : [];
+
+    $this->assertTrue(is_array($members['summary'] ?? null), 'Widget summaries should be exposed.');
+    $this->assertTrue(is_array($facilities['breakdowns'] ?? null), 'Normalized widget breakdowns should be exposed.');
+    $this->assertTrue(is_array($health['metrics'] ?? null), 'Health metrics should be normalized.');
     $this->assertArrayHasKey('trendMetrics', $dashboardData);
-    $this->assertTrue(is_array($dashboardData['trendMetrics'] ?? null), 'Front-ready trend metrics should be exposed.');
-    $this->assertSame('inspections_performed', $dashboardData['trendMetrics'][0]['metric'] ?? null);
+    $this->assertSame('inspections_performed', $trendMetrics[0]['metric'] ?? null);
     $this->assertArrayNotHasKey('trends', $dashboardData);
-    $this->assertArrayNotHasKey('memberActivationRate', $dashboardData['health']);
-    $this->assertArrayNotHasKey('total', $overview['members']);
-    $this->assertArrayNotHasKey('byType', $overview['facilities']);
-    $this->assertArrayNotHasKey('current', $dashboardData['comparison']);
-    $this->assertArrayNotHasKey('previous', $dashboardData['comparison']);
-    $this->assertArrayNotHasKey('deltas', $dashboardData['comparison']);
+    $this->assertArrayNotHasKey('memberActivationRate', $health);
+    $this->assertArrayNotHasKey('total', $members);
+    $this->assertArrayNotHasKey('byType', $facilities);
+    $this->assertArrayNotHasKey('current', $comparison);
+    $this->assertArrayNotHasKey('previous', $comparison);
+    $this->assertArrayNotHasKey('deltas', $comparison);
 
     $inspectionsTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'inspections');
     $this->assertSame('inspections_performed', $inspectionsTrendData['metric'] ?? null);
     $this->assertArrayHasKey('series', $inspectionsTrendData);
-    $this->assertSame('Inspections performed', $inspectionsTrendData['display']['label'] ?? null);
     $this->assertArrayHasKey('summary', $inspectionsTrendData);
 
     $openedTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'non-conformities-opened');
@@ -741,3 +750,4 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     );
   }
 }
+
