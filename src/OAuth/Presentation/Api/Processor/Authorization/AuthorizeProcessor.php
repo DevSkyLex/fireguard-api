@@ -17,8 +17,10 @@ use OAuth\Infrastructure\OAuth2\League\Entity\User as LeagueUser;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request, RequestStack, Response};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Throwable;
 
 use function array_filter;
@@ -29,13 +31,17 @@ use function array_values;
 use function count;
 use function ctype_digit;
 use function explode;
+use function hash;
 use function in_array;
 use function is_array;
 use function is_string;
+use function max;
 use function parse_str;
 use function parse_url;
 use function preg_match;
+use function sprintf;
 use function strtoupper;
+use function substr;
 use function time;
 use function trim;
 use function urldecode;
@@ -79,6 +85,8 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     private RequestStack $requestStack,
     private AuthCodeRepositoryPort $authCodeRepository,
     private OidcUserProviderPort $oidcUserProvider,
+    #[Autowire(service: 'limiter.oauth_authorize')]
+    private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -112,6 +120,8 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
     if (null === $request) {
       throw new BadRequestHttpException(message: 'Request not found.');
     }
+
+    $this->enforceRateLimit($request);
 
     $pkceError = $this->validatePkceRequest($request);
     if (null !== $pkceError) {
@@ -326,6 +336,36 @@ final readonly class AuthorizeProcessor implements ProviderInterface, ProcessorI
       ],
       status: Response::HTTP_BAD_REQUEST,
     );
+  }
+
+  private function enforceRateLimit(Request $request): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $clientId = $this->readParam($request, 'client_id') ?? 'unknown';
+    $ipAddress = $request->getClientIp() ?? '127.0.0.1';
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($clientId, $ipAddress))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many authorization requests. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $clientId, string $ipAddress): string
+  {
+    $clientHash = hash('sha256', $clientId);
+    $ipHash = hash('sha256', $ipAddress);
+
+    return sprintf('oauth_authorize_%s_%s', substr($clientHash, 0, 16), substr($ipHash, 0, 16));
   }
 
   /**

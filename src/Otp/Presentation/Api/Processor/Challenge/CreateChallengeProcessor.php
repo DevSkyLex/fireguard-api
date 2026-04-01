@@ -14,10 +14,16 @@ use Otp\Presentation\Api\Dto\Input\Challenge\CreateChallengeInput;
 use Otp\Presentation\Api\Dto\Output\Challenge\ChallengeOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
+use function hash;
 use function max;
 use function method_exists;
+use function sprintf;
+use function substr;
+use function time;
 
 /**
  * Processor CreateChallengeProcessor.
@@ -42,6 +48,8 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
   public function __construct(
     private CommandBusPort $commandBus,
     private Security $security,
+    #[Autowire(service: 'limiter.otp_challenge_create')]
+    private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -65,6 +73,12 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
     if (null === $recipient) {
       throw new BadRequestHttpException('Recipient is required for this channel.');
     }
+
+    $this->enforceRateLimit(
+      userIdentifier: $userId,
+      purpose: $data->purpose,
+      channel: $data->channel,
+    );
 
     $command = new GenerateOtpCommand(
       userId: $userId,
@@ -119,6 +133,34 @@ final readonly class CreateChallengeProcessor implements ProcessorInterface
     }
 
     return null;
+  }
+
+  private function enforceRateLimit(string $userIdentifier, string $purpose, string $channel): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($userIdentifier, $purpose, $channel))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many OTP challenge creation requests. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $userIdentifier, string $purpose, string $channel): string
+  {
+    $userHash = hash('sha256', $userIdentifier);
+    $contextHash = hash('sha256', $purpose . '|' . $channel);
+
+    return sprintf('otp_challenge_create_%s_%s', substr($userHash, 0, 16), substr($contextHash, 0, 16));
   }
   // #endregion
 }

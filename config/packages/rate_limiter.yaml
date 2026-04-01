@@ -4,9 +4,17 @@ framework:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+    mfa_verify:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
     oauth_token:
       policy: 'sliding_window'
       limit: 20
+      interval: '1 minute'
+    oauth_authorize:
+      policy: 'sliding_window'
+      limit: 30
       interval: '1 minute'
     oauth_introspection:
       policy: 'sliding_window'
@@ -16,11 +24,39 @@ framework:
       policy: 'sliding_window'
       limit: 30
       interval: '1 minute'
+    oauth_consent_check:
+      policy: 'sliding_window'
+      limit: 60
+      interval: '1 minute'
+    oauth_consent_grant:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+    token_refresh:
+      policy: 'sliding_window'
+      limit: 20
+      interval: '1 minute'
+    password_reset_request:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
     password_reset:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+    password_reset_confirm:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
     mfa_resend:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+    otp_challenge_create:
+      policy: 'sliding_window'
+      limit: 10
+      interval: '1 minute'
+    otp_challenge_verify:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'

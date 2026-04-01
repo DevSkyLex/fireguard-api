@@ -17,8 +17,10 @@ use OAuth\Presentation\Api\Dto\Input\Consent\GrantConsentInput;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Throwable;
 
 use function array_filter;
@@ -26,11 +28,16 @@ use function array_map;
 use function array_unique;
 use function array_values;
 use function explode;
+use function hash;
 use function is_array;
 use function is_string;
+use function max;
 use function parse_str;
 use function parse_url;
 use function preg_match;
+use function sprintf;
+use function substr;
+use function time;
 use function trim;
 use function urldecode;
 
@@ -66,6 +73,8 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private Security $security,
     private AuthCodeRepositoryPort $authCodeRepository,
+    #[Autowire(service: 'limiter.oauth_consent_grant')]
+    private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -99,6 +108,8 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
         message: 'Authentication required',
       );
     }
+
+    $this->enforceRateLimit($securityUser->getId(), (string) $data->clientId);
 
     $approved = true === $data->approved;
     $scopes = $this->parseScopes($data->scope);
@@ -178,6 +189,34 @@ final readonly class GrantConsentProcessor implements ProcessorInterface
     $psrRequest = $psrRequest->withParsedBody($params);
 
     return $psrRequest;
+  }
+
+  private function enforceRateLimit(string $userId, string $clientId): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($userId, $clientId))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many consent submissions. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $userId, string $clientId): string
+  {
+    $userHash = hash('sha256', $userId);
+    $clientHash = hash('sha256', $clientId);
+
+    return sprintf('oauth_consent_grant_%s_%s', substr($userHash, 0, 16), substr($clientHash, 0, 16));
   }
 
   /**

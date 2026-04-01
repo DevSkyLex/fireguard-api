@@ -11,7 +11,16 @@ use Auth\Presentation\Api\Dto\Input\PasswordReset\RequestPasswordResetInput;
 use Auth\Presentation\Api\Dto\Output\PasswordReset\RequestPasswordResetOutput;
 use InvalidArgumentException;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+
+use function hash;
+use function max;
+use function sprintf;
+use function substr;
+use function time;
 
 /**
  * Processor RequestPasswordResetProcessor.
@@ -40,6 +49,8 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
   public function __construct(
     private CommandBusPort $commandBus,
     private RequestStack $requestStack,
+    #[Autowire(service: 'limiter.password_reset_request')]
+    private ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -64,6 +75,8 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
     $request = $this->requestStack->getCurrentRequest();
     $ipAddress = null !== $request ? ($request->getClientIp() ?? '127.0.0.1') : '127.0.0.1';
 
+    $this->enforceRateLimit($ipAddress);
+
     $command = new RequestPasswordResetCommand(
       email: $data->email ?? '',
       ipAddress: $ipAddress,
@@ -81,6 +94,33 @@ final readonly class RequestPasswordResetProcessor implements ProcessorInterface
       maxAttempts: $result->maxAttempts,
       canResendIn: $result->canResendIn,
     );
+  }
+
+  private function enforceRateLimit(string $ipAddress): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($ipAddress))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many password reset requests. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $ipAddress): string
+  {
+    $ipHash = hash('sha256', $ipAddress);
+
+    return sprintf('password_reset_request_%s', substr($ipHash, 0, 16));
   }
   // #endregion
 }

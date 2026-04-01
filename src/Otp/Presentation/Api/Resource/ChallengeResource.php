@@ -139,6 +139,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_GONE => new Response(
             description: 'Challenge expired or max attempts reached',
           ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many OTP verification attempts',
+          ),
         ],
       ),
     ),

@@ -15,7 +15,13 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
+
+use function hash;
+use function sprintf;
+use function substr;
 
 /**
  * Test RefreshTokenProcessorTest.
@@ -165,6 +171,68 @@ final class RefreshTokenProcessorTest extends TestCase
     $cookie = $request->attributes->get('_refresh_token_cookie');
     $this->assertInstanceOf(\Symfony\Component\HttpFoundation\Cookie::class, $cookie);
     $this->assertSame('refresh-new', $cookie->getValue());
+  }
+
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $request = new Request();
+    $request->cookies->set('refresh_token', 'refresh-token');
+    $request->server->set('REMOTE_ADDR', '127.0.0.1');
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    /** @var JwtTokenServicePort&MockObject $jwtService */
+    $jwtService = $this->createMock(JwtTokenServicePort::class);
+    $jwtService->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->with('refresh-token')
+      ->willReturn(['user_id' => 'user-123']);
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('user:user-123', '127.0.0.1'))->consume();
+
+    $cookieService = new RefreshTokenCookieService(
+      environment: 'test',
+      cookieBaseName: 'refresh_token',
+      lifetimeShort: 3600,
+      lifetimeLong: 7200,
+    );
+
+    $processor = new RefreshTokenProcessor(
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      cookieService: $cookieService,
+      jwtService: $jwtService,
+      rateLimiter: $rateLimiter,
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process(null, new Post());
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'token_refresh',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $identity, string $ipAddress): string
+  {
+    return sprintf(
+      'token_refresh_%s_%s',
+      substr(hash('sha256', $identity), 0, 16),
+      substr(hash('sha256', $ipAddress), 0, 16),
+    );
   }
   // #endregion
 }

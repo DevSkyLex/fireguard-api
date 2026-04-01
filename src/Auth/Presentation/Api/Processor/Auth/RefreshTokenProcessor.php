@@ -11,12 +11,19 @@ use Auth\Application\UseCase\Query\Session\RefreshToken\{RefreshTokenQuery, Refr
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 use function array_key_exists;
+use function hash;
 use function implode;
 use function is_array;
+use function max;
+use function sprintf;
+use function substr;
+use function time;
 
 /**
  * Processor RefreshTokenProcessor.
@@ -49,6 +56,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     private readonly RequestStack $requestStack,
     private readonly RefreshTokenCookieService $cookieService,
     private readonly JwtTokenServicePort $jwtService,
+    #[Autowire(service: 'limiter.token_refresh')]
+    private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -84,6 +93,8 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
         message: 'No refresh token provided',
       );
     }
+
+    $this->enforceRateLimit($refreshToken, $request->getClientIp() ?? '127.0.0.1');
 
     /**
      * Query result.
@@ -134,6 +145,44 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     }
 
     return $output;
+  }
+
+  private function enforceRateLimit(string $refreshToken, string $ipAddress): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($refreshToken, $ipAddress))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many refresh token requests. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $refreshToken, string $ipAddress): string
+  {
+    $identityHash = hash('sha256', $this->getRateLimitIdentity($refreshToken));
+    $ipHash = hash('sha256', $ipAddress);
+
+    return sprintf('token_refresh_%s_%s', substr($identityHash, 0, 16), substr($ipHash, 0, 16));
+  }
+
+  private function getRateLimitIdentity(string $refreshToken): string
+  {
+    $payload = $this->jwtService->decodeRefreshToken($refreshToken);
+    if (is_array($payload) && '' !== $payload['user_id']) {
+      return 'user:' . $payload['user_id'];
+    }
+
+    return 'token:' . $refreshToken;
   }
   // #endregion
 }

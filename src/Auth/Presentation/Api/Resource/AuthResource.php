@@ -86,6 +86,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid credentials - email or password incorrect',
           ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many authentication attempts',
+          ),
         ],
       ),
     ),
@@ -124,6 +127,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid or expired refresh token',
+          ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many refresh requests',
           ),
         ],
       ),
@@ -196,6 +202,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_BAD_REQUEST => new Response(
             description: 'Invalid OTP code',
+          ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many MFA verification attempts',
           ),
         ],
       ),

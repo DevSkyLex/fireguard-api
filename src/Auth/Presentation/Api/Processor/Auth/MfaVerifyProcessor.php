@@ -13,11 +13,17 @@ use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 use function ctype_digit;
+use function hash;
 use function implode;
+use function max;
+use function sprintf;
 use function strlen;
+use function substr;
+use function time;
 
 /**
  * Processor MfaVerifyProcessor.
@@ -51,6 +57,8 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     private readonly RefreshTokenCookieService $cookieService,
     #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
     private readonly int $otpCodeLength = 6,
+    #[Autowire(service: 'limiter.mfa_verify')]
+    private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -74,6 +82,9 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): LoginOutput
   {
     $request = $this->requestStack->getCurrentRequest();
+    $ipAddress = $request?->getClientIp() ?? '127.0.0.1';
+
+    $this->enforceRateLimit($data->preAuthToken, $ipAddress);
 
     if (!$this->isValidOtpCode($data->code)) {
       throw new BadRequestHttpException('Invalid code format.');
@@ -83,7 +94,7 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
     $command = new MfaVerifyCommand(
       preAuthToken: $data->preAuthToken,
       code: $data->code,
-      ipAddress: $request?->getClientIp(),
+      ipAddress: $ipAddress,
       userAgent: $request?->headers->get('User-Agent'),
     );
 
@@ -128,6 +139,34 @@ final readonly class MfaVerifyProcessor implements ProcessorInterface
   private function isValidOtpCode(string $code): bool
   {
     return strlen($code) === $this->otpCodeLength && ctype_digit($code);
+  }
+
+  private function enforceRateLimit(string $preAuthToken, string $ipAddress): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($preAuthToken, $ipAddress))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many MFA verification attempts. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $preAuthToken, string $ipAddress): string
+  {
+    $tokenHash = hash('sha256', $preAuthToken);
+    $ipHash = hash('sha256', $ipAddress);
+
+    return sprintf('mfa_verify_%s_%s', substr($tokenHash, 0, 16), substr($ipHash, 0, 16));
   }
   // #endregion
 }
