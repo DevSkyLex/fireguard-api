@@ -24,8 +24,6 @@ use function strtolower;
  *
  * @version 1.0.0
  *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- *
  * @implements ProviderInterface<OrganizationCountryOptionOutput>
  */
 final readonly class ListOrganizationCountriesProvider implements ProviderInterface

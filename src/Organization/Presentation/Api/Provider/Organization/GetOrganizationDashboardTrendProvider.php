@@ -7,7 +7,6 @@ namespace Organization\Presentation\Api\Provider\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
@@ -26,15 +25,21 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function filter_var;
 use function implode;
 use function in_array;
 use function is_array;
+use function is_bool;
 use function is_float;
 use function is_int;
 use function is_string;
 use function sprintf;
 use function strtolower;
 use function timezone_identifiers_list;
+use function trim;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Provider GetOrganizationDashboardTrendProvider.
@@ -51,12 +56,6 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
 {
   use UnwrapsOrganizationQueryExceptions;
 
-  private const string DEFAULT_DASHBOARD_TIME_ZONE = 'UTC';
-
-  private const int DEFAULT_TREND_PERIOD_DAYS = 30;
-
-  private const int MAX_TREND_PERIOD_DAYS = 366;
-
   /**
    * @var array<string, string>
    */
@@ -66,6 +65,18 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
   ];
 
+  /**
+   * Constructor.
+   *
+   * Initializes the provider with the query bus,
+   * authorization service, and current security context.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryBusPort $queryBus the query bus for dispatching trend queries
+   * @param OrganizationAuthorizationPort $authorization the organization authorization service
+   * @param Security $security the security service exposing the current user
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
@@ -108,22 +119,15 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
     $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
     $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
-    $referenceNow = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
-    $dashboardTimeZone = $this->resolveDashboardTimeZone(
-      requestedTimeZone: $requestedTimeZone,
-      periodFrom: $periodFrom,
-      periodTo: $periodTo,
-      fallbackNow: $referenceNow,
+
+    $this->assertMetricScopedFilters(
+      metric: $metric,
+      inspectionStatus: $inspectionStatus,
+      inspectionResult: $inspectionResult,
+      inspectorType: $inspectorType,
+      nonConformityStatus: $nonConformityStatus,
+      nonConformitySeverity: $nonConformitySeverity,
     );
-    [$effectivePeriodStart, $effectivePeriodEnd] = $this->resolveRequestedPeriod(
-      periodFrom: $periodFrom,
-      periodTo: $periodTo,
-      dashboardTimeZone: $dashboardTimeZone,
-      referenceNow: $referenceNow,
-    );
-    $this->assertSupportedPeriod($effectivePeriodStart, $effectivePeriodEnd);
-    $normalizedPeriodFrom = $periodFrom?->setTimezone($dashboardTimeZone);
-    $normalizedPeriodTo = $periodTo?->setTimezone($dashboardTimeZone);
 
     try {
       /** @var GetOrganizationDashboardTrendResult $result */
@@ -131,8 +135,8 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
         organizationId: $organizationId,
         userId: $user->getId(),
         metric: $metric,
-        periodFrom: null !== $normalizedPeriodFrom ? $this->formatIso8601($normalizedPeriodFrom) : null,
-        periodTo: null !== $normalizedPeriodTo ? $this->formatIso8601($normalizedPeriodTo) : null,
+        periodFrom: null !== $periodFrom ? $this->formatIso8601($periodFrom) : null,
+        periodTo: null !== $periodTo ? $this->formatIso8601($periodTo) : null,
         compareWithPreviousPeriod: $this->extractBooleanFilter($filters, 'compare', true),
         granularity: $this->extractGranularityFilter($filters),
         timeZone: $requestedTimeZone?->getName(),
@@ -204,6 +208,61 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   }
 
   /**
+   * Ensures only the filter family documented for the requested
+   * metric is accepted by the presentation layer.
+   *
+   * Inspection trends accept only inspection filters, while
+   * non-conformity trends accept only non-conformity filters.
+   *
+   * @throws BadRequestHttpException when a filter unsupported by the selected metric is provided
+   */
+  private function assertMetricScopedFilters(
+    string $metric,
+    ?string $inspectionStatus,
+    ?string $inspectionResult,
+    ?string $inspectorType,
+    ?string $nonConformityStatus,
+    ?string $nonConformitySeverity,
+  ): void {
+    if (GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED === $metric) {
+      $this->assertUnsupportedMetricFilters(
+        'inspection trend',
+        [
+          'nonConformityStatus' => $nonConformityStatus,
+          'nonConformitySeverity' => $nonConformitySeverity,
+        ],
+      );
+
+      return;
+    }
+
+    $this->assertUnsupportedMetricFilters(
+      'non-conformity trend',
+      [
+        'inspectionStatus' => $inspectionStatus,
+        'inspectionResult' => $inspectionResult,
+        'inspectorType' => $inspectorType,
+      ],
+    );
+  }
+
+  /**
+   * @param array<string, ?string> $filters
+   */
+  private function assertUnsupportedMetricFilters(string $metricLabel, array $filters): void
+  {
+    foreach ($filters as $name => $value) {
+      if (null !== $value) {
+        throw new BadRequestHttpException(sprintf(
+          'Filter "%s" is not supported for the %s.',
+          $name,
+          $metricLabel,
+        ));
+      }
+    }
+  }
+
+  /**
    * @return array<string, mixed>
    */
   private function normalizeFilters(mixed $filters): array
@@ -245,11 +304,36 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   private function extractBooleanFilter(array $filters, string $name, bool $default): bool
   {
     $value = $filters[$name] ?? null;
-    if (!is_string($value)) {
+    if (null === $value) {
       return $default;
     }
+    if (is_bool($value)) {
+      return $value;
+    }
+    if (!is_string($value)) {
+      throw new BadRequestHttpException(sprintf(
+        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        $name,
+      ));
+    }
 
-    return !in_array(strtolower($value), ['0', 'false', 'no', 'off'], true);
+    $value = trim($value);
+    if ('' === $value) {
+      throw new BadRequestHttpException(sprintf(
+        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        $name,
+      ));
+    }
+
+    $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if (null !== $parsed) {
+      return $parsed;
+    }
+
+    throw new BadRequestHttpException(sprintf(
+      'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+      $name,
+    ));
   }
 
   /**
@@ -311,83 +395,6 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     }
 
     return $value;
-  }
-
-  /**
-   * Resolves the trend timezone from the explicit filter or from the request bounds.
-   */
-  private function resolveDashboardTimeZone(
-    ?DateTimeZone $requestedTimeZone,
-    ?DateTimeImmutable $periodFrom,
-    ?DateTimeImmutable $periodTo,
-    DateTimeImmutable $fallbackNow,
-  ): DateTimeZone {
-    if ($requestedTimeZone instanceof DateTimeZone) {
-      return $requestedTimeZone;
-    }
-
-    if (
-      $periodFrom instanceof DateTimeImmutable
-      && $periodTo instanceof DateTimeImmutable
-      && $periodFrom->getTimezone()->getName() !== $periodTo->getTimezone()->getName()
-    ) {
-      throw new BadRequestHttpException('Mixed timezone offsets require the "timezone" filter.');
-    }
-
-    return $this->normalizeImplicitDashboardTimeZone(
-      $periodFrom?->getTimezone() ?? $periodTo?->getTimezone() ?? $fallbackNow->getTimezone(),
-      $periodFrom ?? $periodTo ?? $fallbackNow,
-    );
-  }
-
-  /**
-   * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
-   */
-  private function resolveRequestedPeriod(
-    ?DateTimeImmutable $periodFrom,
-    ?DateTimeImmutable $periodTo,
-    DateTimeZone $dashboardTimeZone,
-    DateTimeImmutable $referenceNow,
-  ): array {
-    $periodEnd = ($periodTo ?? $referenceNow)->setTimezone($dashboardTimeZone);
-    $periodStart = null !== $periodFrom
-      ? $periodFrom->setTimezone($dashboardTimeZone)
-      : $periodEnd->sub(new DateInterval('P' . (self::DEFAULT_TREND_PERIOD_DAYS - 1) . 'D'))->setTime(0, 0);
-
-    return [$periodStart, $periodEnd];
-  }
-
-  /**
-   * Normalizes an implicitly inferred timezone to an IANA identifier accepted by trend endpoints.
-   */
-  private function normalizeImplicitDashboardTimeZone(
-    DateTimeZone $timeZone,
-    DateTimeImmutable $reference,
-  ): DateTimeZone {
-    if (in_array($timeZone->getName(), timezone_identifiers_list(), true)) {
-      return $timeZone;
-    }
-
-    if (0 === $timeZone->getOffset($reference)) {
-      return new DateTimeZone('UTC');
-    }
-
-    throw new BadRequestHttpException('Non-UTC offset datetimes require the "timezone" filter.');
-  }
-
-  /**
-   * Validates trend period bounds and the maximum supported window size.
-   */
-  private function assertSupportedPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): void
-  {
-    if ($periodStart->getTimestamp() > $periodEnd->getTimestamp()) {
-      throw new BadRequestHttpException('The "from" datetime filter must be before or equal to "to".');
-    }
-
-    $periodLengthInDays = (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1;
-    if ($periodLengthInDays > self::MAX_TREND_PERIOD_DAYS) {
-      throw new BadRequestHttpException('Dashboard period cannot exceed 366 days.');
-    }
   }
 
   /**

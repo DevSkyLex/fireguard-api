@@ -12,11 +12,11 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-use function count;
+use function array_column;
 use function in_array;
 use function str_ends_with;
 
@@ -1392,13 +1392,119 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeThrowsWhenOrganizationNotFound(): void
+  #[DataProvider('resolvedNonConformityStatusProvider')]
+  public function testInvokeResolvedStatusFilterDoesNotCorruptUnresolvedNonConformityMetrics(string $status): void
   {
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::never())->method('hasPermission');
+    $authorization = $this->createDashboardAuthorizationMock();
 
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::once())->method('findById')->willReturn(null);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn(Organization::create(
+      id: OrganizationId::fromString(self::ORG_ID),
+      name: new OrganizationName('Dashboard Org'),
+      ownerUserId: '550e8400-e29b-41d4-a716-446655440199',
+    ));
+
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('countByOrganizationId')->willReturn(1);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn(1);
+
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('countByOrganizationId')->willReturn(1);
+    $roleRepository->method('countSystemByOrganizationId')->willReturn(1);
+
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->method('countByOrganizationId')->willReturn(0);
+    $invitationRepository->method('countByStatusForOrganizationId')->willReturn([]);
+
+    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->method('countFacilities')->willReturn(0);
+    $facilityStatistics->method('countActiveFacilities')->willReturn(0);
+    $facilityStatistics->method('countFacilitiesByType')->willReturn([]);
+
+    $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
+    $equipmentStatistics->method('countEquipment')->willReturn(0);
+    $equipmentStatistics->method('countEquipmentByStatus')->willReturn([]);
+    $equipmentStatistics->method('countEquipmentByType')->willReturn([]);
+
+    $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->method('countInspections')->willReturn(0);
+    $inspectionStatistics->method('countInspectionsByStatus')->willReturn([]);
+    $inspectionStatistics->method('countInspectionsByResult')->willReturn([]);
+    $inspectionStatistics->method('countInspectionsByInspectorType')->willReturn([]);
+    $inspectionStatistics->method('countInspectionsPerformedByDay')->willReturn([]);
+    $inspectionStatistics->method('countInspectionsBetween')->willReturn(0);
+
+    $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
+    $nonConformityStatistics->method('countNonConformities')->willReturn(3);
+    $nonConformityStatistics->method('countNonConformitiesCreatedByDay')->willReturn([]);
+    $nonConformityStatistics->method('countNonConformitiesResolvedByDay')->willReturn([]);
+    $nonConformityStatistics->method('countActiveNonConformitiesAtDate')->willReturn(0);
+
+    $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
+
+    $handler = new GetOrganizationDashboardHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      invitationRepository: $invitationRepository,
+      facilityStatistics: $facilityStatistics,
+      equipmentStatistics: $equipmentStatistics,
+      inspectionStatistics: $inspectionStatistics,
+      nonConformityStatistics: $nonConformityStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      compareWithPreviousPeriod: true,
+      nonConformityStatus: $status,
+    ));
+
+    /** @var array{nonConformities: array{overdue: int, criticalOpen: int}} $overview */
+    $overview = $result->overview;
+    $alertCodes = array_column($result->alerts, 'code');
+    self::assertNotContains('critical_non_conformities_open', $alertCodes);
+    self::assertNotContains('non_conformities_overdue', $alertCodes);
+    self::assertSame(0, $overview['nonConformities']['overdue']);
+    self::assertSame(0, $overview['nonConformities']['criticalOpen']);
+
+    /** @var array{inspectionCompletionRate: float, inspectionPassRate: float, periodNonConformityResolutionRate: float} $health */
+    $health = $result->health;
+    self::assertSame(0.0, $health['periodNonConformityResolutionRate']);
+
+    /** @var array{mode: string, health: array{current: array{nonConformityResolutionRate: float}, previous: array{nonConformityResolutionRate: float}, deltas: array{nonConformityResolutionRate: float}}} $comparison */
+    $comparison = $result->comparison;
+    self::assertSame('previous_period', $comparison['mode']);
+    self::assertSame(0.0, $comparison['health']['current']['nonConformityResolutionRate']);
+    self::assertSame(0.0, $comparison['health']['previous']['nonConformityResolutionRate']);
+    self::assertSame(0.0, $comparison['health']['deltas']['nonConformityResolutionRate']);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenOrganizationNotFound(): void
+  {
+    $authorizationChecked = false;
+
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('assertGrantedPermissions')
+      ->willReturnCallback(function (string $userId, string $organizationId, array $permissions) use (&$authorizationChecked): void {
+        self::assertSame(self::USER_ID, $userId);
+        self::assertSame(self::ORG_ID, $organizationId);
+        self::assertSame(OrganizationPermissionCatalog::dashboardReadDependencies(), $permissions);
+        $authorizationChecked = true;
+      });
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturnCallback(function () use (&$authorizationChecked) {
+        self::assertTrue($authorizationChecked);
+
+        return null;
+      });
 
     $handler = new GetOrganizationDashboardHandler(
       authorization: $authorization,
@@ -1423,13 +1529,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $authorization = $this->createDashboardAuthorizationMock(['organization.roles.read']);
 
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn(Organization::create(
-        id: OrganizationId::fromString(self::ORG_ID),
-        name: new OrganizationName('Dashboard Org'),
-        ownerUserId: '550e8400-e29b-41d4-a716-446655440199',
-      ));
+    $organizationRepository->expects(self::never())->method('findById');
 
     $handler = new GetOrganizationDashboardHandler(
       authorization: $authorization,
@@ -1452,26 +1552,32 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   /**
    * @param list<string> $deniedPermissions
    */
+  public static function resolvedNonConformityStatusProvider(): array
+  {
+    return [
+      'done' => ['done'],
+      'waived' => ['waived'],
+    ];
+  }
+
+  /**
+   * @param list<string> $deniedPermissions
+   */
   private function createDashboardAuthorizationMock(array $deniedPermissions = []): OrganizationAuthorizationPort
   {
-    $requiredPermissions = OrganizationPermissionCatalog::dashboardReadDependencies();
-    $expectedCalls = count($requiredPermissions);
-    foreach ($requiredPermissions as $index => $permission) {
-      if (in_array($permission, $deniedPermissions, true)) {
-        $expectedCalls = $index + 1;
-
-        break;
-      }
-    }
-
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::exactly($expectedCalls))
-      ->method('hasPermission')
-      ->willReturnCallback(static function (string $userId, string $organizationId, string $permission) use ($deniedPermissions): bool {
+    $authorization->expects(self::once())
+      ->method('assertGrantedPermissions')
+      ->willReturnCallback(static function (string $userId, string $organizationId, array $permissions) use ($deniedPermissions): void {
         self::assertSame(self::USER_ID, $userId);
         self::assertSame(self::ORG_ID, $organizationId);
+        self::assertSame(OrganizationPermissionCatalog::dashboardReadDependencies(), $permissions);
 
-        return !in_array($permission, $deniedPermissions, true);
+        foreach ($permissions as $permission) {
+          if (in_array($permission, $deniedPermissions, true)) {
+            throw OrganizationAccessDeniedException::missingPermission($permission);
+          }
+        }
       });
 
     return $authorization;

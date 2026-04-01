@@ -6,17 +6,22 @@ namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\{GetOrganizationDashboardTrendHandler, GetOrganizationDashboardTrendQuery, GetOrganizationDashboardTrendResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationDashboardTrendOutput;
 use Organization\Presentation\Api\Operation\OrganizationOperations;
 use Organization\Presentation\Api\Provider\Organization\GetOrganizationDashboardTrendProvider;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 use function count;
 use function in_array;
@@ -24,6 +29,27 @@ use function in_array;
 #[CoversClass(GetOrganizationDashboardTrendProvider::class)]
 final class GetOrganizationDashboardTrendProviderTest extends TestCase
 {
+  #[Test]
+  public function testProvideThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn(null);
+
+    $provider = new GetOrganizationDashboardTrendProvider(
+      queryBus: $this->createMock(QueryBusPort::class),
+      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+    );
+  }
+
   #[Test]
   public function testProvideMapsInspectionTrendPayloadAndExtractsFilters(): void
   {
@@ -228,6 +254,84 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideMapsWrappedTrendPermissionDenialToHttp403(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetOrganizationDashboardTrendQuery(
+        organizationId: '550e8400-e29b-41d4-a716-446655441610',
+        userId: '550e8400-e29b-41d4-a716-446655441600',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      )),
+      [OrganizationAccessDeniedException::missingPermission('organization.inspection.read')],
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetOrganizationDashboardTrendQuery::class))
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new GetOrganizationDashboardTrendProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsWrappedTrendOrganizationNotFoundToHttp404(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetOrganizationDashboardTrendQuery(
+        organizationId: '550e8400-e29b-41d4-a716-446655441610',
+        userId: '550e8400-e29b-41d4-a716-446655441600',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      )),
+      [OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441610')],
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetOrganizationDashboardTrendQuery::class))
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new GetOrganizationDashboardTrendProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+    );
+  }
+
+  #[Test]
   public function testProvideExtractsAnalyticsFiltersForTrendMetrics(): void
   {
     $security = $this->createMock(Security::class);
@@ -267,6 +371,87 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
   }
 
   #[Test]
+  #[DataProvider('metricScopedUnsupportedFilterProvider')]
+  public function testProvideThrowsWhenTrendReceivesUnsupportedMetricScopedFilters(
+    string $operationName,
+    array $filters,
+    string $expectedMessage,
+  ): void {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock(
+      requiredPermissions: OrganizationPermissionCatalog::dashboardTrendReadDependencies(match ($operationName) {
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND => GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+      }),
+    );
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage($expectedMessage);
+
+    $provider->provide(
+      new Get(name: $operationName),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => $filters],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsWrappedTrendInvalidArgumentToHttp400(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetOrganizationDashboardTrendQuery(
+        organizationId: '550e8400-e29b-41d4-a716-446655441610',
+        userId: '550e8400-e29b-41d4-a716-446655441600',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      )),
+      [new InvalidArgumentException('Mixed timezone offsets require the "timezone" filter.')],
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (GetOrganizationDashboardTrendQuery $query): bool {
+        return GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED === $query->metric
+          && '2026-03-29T00:00:00+01:00' === $query->periodFrom
+          && '2026-03-30T23:59:59+02:00' === $query->periodTo
+          && null === $query->timeZone;
+      }))
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new GetOrganizationDashboardTrendProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Mixed timezone offsets require the "timezone" filter.');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => [
+        'from' => '2026-03-29T00:00:00+01:00',
+        'to' => '2026-03-30T23:59:59+02:00',
+      ]],
+    );
+  }
+
+  #[Test]
   public function testProvideThrowsWhenTrendAnalyticsEnumFilterIsInvalid(): void
   {
     $security = $this->createMock(Security::class);
@@ -285,6 +470,190 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
       ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
       ['filters' => ['inspectionStatus' => 'broken']],
     );
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenTrendCompareFilterIsInvalidBoolean(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid "compare" filter.');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['compare' => 'maybe']],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenTrendCompareFilterIsEmptyString(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid "compare" filter.');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['compare' => '']],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenTrendCompareFilterIsNonScalar(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid "compare" filter.');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['compare' => ['maybe']]],
+    );
+  }
+
+  #[Test]
+  public function testProvideAcceptsNativeBooleanCompareFilterForTrend(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static fn (GetOrganizationDashboardTrendQuery $query): bool => true === $query->compareWithPreviousPeriod))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'previous_period', 'timezone' => 'UTC'],
+        summary: ['total' => 0],
+        series: [],
+        comparison: ['mode' => 'previous_period', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['compare' => true]],
+    );
+  }
+
+  #[Test]
+  public function testProvideAcceptsCompareAliasOffForTrend(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static fn (GetOrganizationDashboardTrendQuery $query): bool => false === $query->compareWithPreviousPeriod))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'none', 'timezone' => 'UTC'],
+        summary: ['total' => 0],
+        series: [],
+        comparison: ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['compare' => 'off']],
+    );
+  }
+
+  #[Test]
+  #[DataProvider('documentedStringCompareFilterProvider')]
+  public function testProvideAcceptsDocumentedStringCompareAliasesForTrend(string $compare, bool $expected): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static fn (GetOrganizationDashboardTrendQuery $query): bool => $expected === $query->compareWithPreviousPeriod))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => $expected ? 'previous_period' : 'none', 'timezone' => 'UTC'],
+        summary: ['total' => 0],
+        series: [],
+        comparison: ['mode' => $expected ? 'previous_period' : 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['compare' => $compare]],
+    );
+  }
+
+  public static function documentedStringCompareFilterProvider(): array
+  {
+    return [
+      'true string' => ['true', true],
+      'false string' => ['false', false],
+      'one alias' => ['1', true],
+      'zero alias' => ['0', false],
+      'yes alias' => ['yes', true],
+      'no alias' => ['no', false],
+      'on alias' => ['on', true],
+      'trimmed off alias' => [' off ', false],
+    ];
+  }
+
+  public static function metricScopedUnsupportedFilterProvider(): array
+  {
+    return [
+      'inspection trend rejects non-conformity status' => [
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND,
+        ['nonConformityStatus' => 'open'],
+        'Filter "nonConformityStatus" is not supported for the inspection trend.',
+      ],
+      'non-conformity trend rejects inspection status' => [
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND,
+        ['inspectionStatus' => 'closed'],
+        'Filter "inspectionStatus" is not supported for the non-conformity trend.',
+      ],
+    ];
   }
 
   private function createSecurityUser(string $id): SecurityUser

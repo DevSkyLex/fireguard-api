@@ -6,6 +6,7 @@ namespace Organization\Application\Service;
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\OrganizationId;
 
 use function count;
@@ -84,6 +85,40 @@ final readonly class OrganizationAuthorizationService implements OrganizationAut
       userId: $userId,
       organizationId: OrganizationId::fromString($organizationId),
     );
+  }
+
+  /**
+   * Method assertGrantedPermissions.
+   *
+   * Resolves the user's effective permissions once and asserts
+   * that each required permission is granted.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   * @param list<string> $permissions the permission names to assert
+   *
+   * @throws OrganizationAccessDeniedException when one of the required permissions is missing
+   *
+   * @return void Returns nothing. Throws when access must be denied.
+   */
+  public function assertGrantedPermissions(string $userId, string $organizationId, array $permissions): void
+  {
+    $grantedPermissions = $this->getUserPermissions($userId, $organizationId);
+    foreach ($permissions as $permission) {
+      $matched = false;
+      foreach ($grantedPermissions as $granted) {
+        if ($this->permissionMatches($granted, $permission)) {
+          $matched = true;
+
+          break;
+        }
+      }
+      if (!$matched) {
+        throw OrganizationAccessDeniedException::missingPermission($permission);
+      }
+    }
   }
 
   /**

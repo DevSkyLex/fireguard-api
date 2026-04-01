@@ -7,7 +7,6 @@ namespace Organization\Presentation\Api\Provider\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use Equipment\Domain\ValueObject\{EquipmentStatus, EquipmentType};
@@ -29,9 +28,11 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 
 use function array_column;
 use function array_keys;
+use function filter_var;
 use function implode;
 use function in_array;
 use function is_array;
+use function is_bool;
 use function is_float;
 use function is_int;
 use function is_string;
@@ -41,6 +42,10 @@ use function str_starts_with;
 use function strtolower;
 use function substr;
 use function timezone_identifiers_list;
+use function trim;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Provider GetOrganizationDashboardProvider.
@@ -48,8 +53,6 @@ use function timezone_identifiers_list;
  * @category Provider
  *
  * @version 1.0.0
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
  * @implements ProviderInterface<OrganizationDashboardOutput>
  */
@@ -71,43 +74,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   // #endregion
 
   // region Constants
-  /**
-   * Constant DEFAULT_DASHBOARD_TIME_ZONE.
-   *
-   * Defines the default timezone used for the dashboard
-   * when no explicit timezone is provided and when implicit
-   * inference from request bounds is not possible.
-   *
-   * @since 1.0.0
-   *
-   * @var string
-   */
-  private const string DEFAULT_DASHBOARD_TIME_ZONE = 'UTC';
-
-  /**
-   * Constant DEFAULT_TREND_PERIOD_DAYS.
-   *
-   * Defines the default number of days for the dashboard trend metrics
-   * period when no explicit "from" date is provided.
-   *
-   * @since 1.0.0
-   *
-   * @var int
-   */
-  private const int DEFAULT_TREND_PERIOD_DAYS = 30;
-
-  /**
-   * Constant MAX_TREND_PERIOD_DAYS.
-   *
-   * Defines the maximum allowed number of days for the
-   * dashboard trend metrics period.
-   *
-   * @since 1.0.0
-   *
-   * @var int
-   */
-  private const int MAX_TREND_PERIOD_DAYS = 366;
-
   /**
    * @var array<string, string>
    */
@@ -183,30 +149,14 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
     $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
     $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
-    $referenceNow = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
-    $dashboardTimeZone = $this->resolveDashboardTimeZone(
-      requestedTimeZone: $requestedTimeZone,
-      periodFrom: $periodFrom,
-      periodTo: $periodTo,
-      fallbackNow: $referenceNow,
-    );
-    [$effectivePeriodStart, $effectivePeriodEnd] = $this->resolveRequestedPeriod(
-      periodFrom: $periodFrom,
-      periodTo: $periodTo,
-      dashboardTimeZone: $dashboardTimeZone,
-      referenceNow: $referenceNow,
-    );
-    $this->assertSupportedPeriod($effectivePeriodStart, $effectivePeriodEnd);
-    $normalizedPeriodFrom = $periodFrom?->setTimezone($dashboardTimeZone);
-    $normalizedPeriodTo = $periodTo?->setTimezone($dashboardTimeZone);
 
     try {
       /** @var GetOrganizationDashboardResult $result */
       $result = $this->queryBus->ask(new GetOrganizationDashboardQuery(
         organizationId: $organizationId,
         userId: $user->getId(),
-        periodFrom: null !== $normalizedPeriodFrom ? $this->formatIso8601($normalizedPeriodFrom) : null,
-        periodTo: null !== $normalizedPeriodTo ? $this->formatIso8601($normalizedPeriodTo) : null,
+        periodFrom: null !== $periodFrom ? $this->formatIso8601($periodFrom) : null,
+        periodTo: null !== $periodTo ? $this->formatIso8601($periodTo) : null,
         compareWithPreviousPeriod: $this->extractBooleanFilter($filters, 'compare', true),
         granularity: $this->extractGranularityFilter($filters),
         timeZone: $requestedTimeZone?->getName(),
@@ -276,10 +226,14 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    */
   private function assertDashboardPermissions(string $userId, string $organizationId): void
   {
-    foreach (OrganizationPermissionCatalog::dashboardReadDependencies() as $permission) {
-      if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
-        throw new AccessDeniedHttpException(sprintf('Missing %s permission.', $permission));
-      }
+    try {
+      $this->authorization->assertGrantedPermissions(
+        $userId,
+        $organizationId,
+        OrganizationPermissionCatalog::dashboardReadDependencies(),
+      );
+    } catch (OrganizationAccessDeniedException $exception) {
+      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
     }
   }
 
@@ -343,42 +297,45 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method extractBooleanFilter.
-   *
-   * Extracts and normalizes a boolean filter from the normalized filters array.
-   * Accepts various string representations of boolean values and normalizes them to a boolean type.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $filters the normalized filters array
-   * @param string $name The name of the boolean filter to extract (e.g., 'compare').
-   * @param bool $default the default boolean value to return if the filter is not set or invalid
-   *
-   * @return bool The normalized boolean value of the filter, or the default if the filter is not set or invalid.
-   *              Recognizes '0', 'false', 'no', 'off' (case-insensitive) as false; all other non-empty strings are true.
+   * @param array<string, mixed> $filters
    */
   private function extractBooleanFilter(array $filters, string $name, bool $default): bool
   {
     $value = $filters[$name] ?? null;
-    if (!is_string($value)) {
+    if (null === $value) {
       return $default;
     }
+    if (is_bool($value)) {
+      return $value;
+    }
+    if (!is_string($value)) {
+      throw new BadRequestHttpException(sprintf(
+        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        $name,
+      ));
+    }
 
-    return !in_array(strtolower($value), ['0', 'false', 'no', 'off'], true);
+    $value = trim($value);
+    if ('' === $value) {
+      throw new BadRequestHttpException(sprintf(
+        'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+        $name,
+      ));
+    }
+
+    $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    if (null !== $parsed) {
+      return $parsed;
+    }
+
+    throw new BadRequestHttpException(sprintf(
+      'Invalid "%s" filter. Allowed values: true, false, 1, 0, yes, no, on, off.',
+      $name,
+    ));
   }
 
   /**
-   * Method extractGranularityFilter.
-   *
-   * Extracts and validates the 'granularity' filter from the normalized filters array.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $filters the normalized filters array
-   *
-   * @throws BadRequestHttpException if the provided granularity value is invalid
-   *
-   * @return string the validated granularity value, defaulting to 'day' if not set or empty
+   * @param array<string, mixed> $filters
    */
   private function extractGranularityFilter(array $filters): string
   {
@@ -396,19 +353,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method extractTimeZoneFilter.
-   *
-   * Extracts and validates the 'timezone' filter from the
-   * normalized filters array.
-   *
-   * @since 1.0.0
-   *
-   * @param array<string, mixed> $filters the normalized filters array
-   *
-   * @throws BadRequestHttpException if the provided timezone value is invalid
-   *                                 or not recognized as a valid IANA timezone
-   *
-   * @return DateTimeZone|null the DateTimeZone object representing the requested timezone, or null if not set
+   * @param array<string, mixed> $filters
    */
   private function extractTimeZoneFilter(array $filters): ?DateTimeZone
   {
@@ -429,13 +374,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * Method extractOptionalEnumFilter.
-   *
-   * Extracts and validates an optional enumerated filter
-   * from the normalized filters array.
-   *
-   * @since 1.0.0
-   *
    * @param array<string, mixed> $filters the normalized filters array
    * @param list<string> $allowedValues the list of allowed string values for the filter
    *
@@ -459,140 +397,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $value;
-  }
-
-  /**
-   * Method resolveDashboardTimeZone.
-   *
-   * Resolves the dashboard timezone from the explicit
-   * filter or from the request bounds.
-   *
-   * When no explicit timezone is provided, the method accepts only IANA timezone names
-   * inferred from the bounds or UTC-compatible offsets.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeZone|null $requestedTimeZone the explicitly requested timezone from the filters, if any
-   * @param DateTimeImmutable|null $periodFrom the parsed "from" date filter, if any
-   * @param DateTimeImmutable|null $periodTo the parsed "to" date filter, if any
-   * @param DateTimeImmutable $fallbackNow the current datetime to use as a fallback reference for implicit timezone inference
-   *
-   * @throws BadRequestHttpException if the provided timezone is invalid, or if implicit inference
-   *                                 fails due to mixed or non-UTC offsets without an explicit timezone
-   *
-   * @return DateTimeZone the resolved DateTimeZone object to be used for the dashboard query
-   */
-  private function resolveDashboardTimeZone(
-    ?DateTimeZone $requestedTimeZone,
-    ?DateTimeImmutable $periodFrom,
-    ?DateTimeImmutable $periodTo,
-    DateTimeImmutable $fallbackNow,
-  ): DateTimeZone {
-    if ($requestedTimeZone instanceof DateTimeZone) {
-      return $requestedTimeZone;
-    }
-
-    if (
-      $periodFrom instanceof DateTimeImmutable
-      && $periodTo instanceof DateTimeImmutable
-      && $periodFrom->getTimezone()->getName() !== $periodTo->getTimezone()->getName()
-    ) {
-      throw new BadRequestHttpException('Mixed timezone offsets require the "timezone" filter.');
-    }
-
-    return $this->normalizeImplicitDashboardTimeZone(
-      $periodFrom?->getTimezone() ?? $periodTo?->getTimezone() ?? $fallbackNow->getTimezone(),
-      $periodFrom ?? $periodTo ?? $fallbackNow,
-    );
-  }
-
-  /**
-   * Method resolveRequestedPeriod.
-   *
-   * Resolves the effective dashboard period start and end datetimes
-   * based on the provided filters and dashboard timezone.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable|null $periodFrom the parsed "from" date filter, if any
-   * @param DateTimeImmutable|null $periodTo the parsed "to" date filter, if any
-   * @param DateTimeZone $dashboardTimeZone the resolved dashboard timezone to apply to the period bounds
-   *
-   * @return array{0: DateTimeImmutable, 1: DateTimeImmutable} an array containing the effective period start
-   *                                                           and end datetimes, both set to the dashboard timezone
-   */
-  private function resolveRequestedPeriod(
-    ?DateTimeImmutable $periodFrom,
-    ?DateTimeImmutable $periodTo,
-    DateTimeZone $dashboardTimeZone,
-    DateTimeImmutable $referenceNow,
-  ): array {
-    $periodEnd = ($periodTo ?? $referenceNow)->setTimezone($dashboardTimeZone);
-    $periodStart = null !== $periodFrom
-      ? $periodFrom->setTimezone($dashboardTimeZone)
-      : $periodEnd->sub(new DateInterval('P' . (self::DEFAULT_TREND_PERIOD_DAYS - 1) . 'D'))->setTime(0, 0);
-
-    return [$periodStart, $periodEnd];
-  }
-
-  /**
-   * Method normalizeImplicitDashboardTimeZone.
-   *
-   * Normalizes an implicitly inferred timezone to an IANA
-   * identifier accepted by the dashboard contract.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeZone $timeZone the implicitly inferred timezone to normalize
-   * @param DateTimeImmutable $reference The reference datetime used to determine the offset of the
-   *
-   * @throws BadRequestHttpException if the inferred timezone is not a valid IANA identifier and cannot be normalized to UTC
-   *
-   * @return DateTimeZone the normalized DateTimeZone object, guaranteed
-   *                      to be a valid IANA timezone or UTC
-   */
-  private function normalizeImplicitDashboardTimeZone(
-    DateTimeZone $timeZone,
-    DateTimeImmutable $reference,
-  ): DateTimeZone {
-    if (in_array($timeZone->getName(), timezone_identifiers_list(), true)) {
-      return $timeZone;
-    }
-
-    if (0 === $timeZone->getOffset($reference)) {
-      return new DateTimeZone('UTC');
-    }
-
-    throw new BadRequestHttpException('Non-UTC offset datetimes require the "timezone" filter.');
-  }
-
-  /**
-   * Method assertSupportedPeriod.
-   *
-   * Validates dashboard period bounds and the maximum
-   * supported window size.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $periodStart the effective start datetime of the requested dashboard period
-   * @param DateTimeImmutable $periodEnd the effective end datetime of the requested dashboard period
-   *
-   * @throws BadRequestHttpException if the period start is after the period end,
-   *                                 or if the period length exceeds the maximum allowed days
-   *
-   * @return void Returns nothing. Throws an exception if the period is
-   *              invalid (start after end) or exceeds the maximum allowed length.
-   */
-  private function assertSupportedPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): void
-  {
-    if ($periodStart->getTimestamp() > $periodEnd->getTimestamp()) {
-      throw new BadRequestHttpException('The "from" datetime filter must be before or equal to "to".');
-    }
-
-    $periodLengthInDays = (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1;
-    if ($periodLengthInDays > self::MAX_TREND_PERIOD_DAYS) {
-      throw new BadRequestHttpException('Dashboard period cannot exceed 366 days.');
-    }
   }
 
   /**

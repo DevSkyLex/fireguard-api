@@ -22,6 +22,15 @@ use function max;
 use function round;
 use function timezone_identifiers_list;
 
+/**
+ * Handler for fetching organization dashboard trend data.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final readonly class GetOrganizationDashboardTrendHandler implements QueryHandler
 {
   public const string METRIC_INSPECTIONS_PERFORMED = 'inspections_performed';
@@ -36,6 +45,11 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
 
   private const int MAX_TREND_PERIOD_DAYS = 366;
 
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private OrganizationRepositoryPort $organizationRepository,
@@ -44,14 +58,22 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
   ) {
   }
 
+  /**
+   * Execute the dashboard trend query and return computed results.
+   *
+   * @since 1.0.0
+   */
   public function __invoke(GetOrganizationDashboardTrendQuery $query): GetOrganizationDashboardTrendResult
   {
     $metric = $this->assertSupportedMetric($query->metric);
+
+    $this->assertMetricPermissions($query->userId, $query->organizationId, $metric);
+
     $organization = $this->organizationRepository->findById(OrganizationId::fromString($query->organizationId));
     if (null === $organization) {
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
-    $this->assertMetricPermissions($query->userId, $query->organizationId, $metric);
+
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
     $periodFrom = DashboardDateTimeParser::parseNullable($query->periodFrom, 'from');
     $periodTo = DashboardDateTimeParser::parseNullable($query->periodTo, 'to');

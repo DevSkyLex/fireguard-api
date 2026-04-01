@@ -9,7 +9,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\{GetOrganizationDashboardTrendHandler, GetOrganizationDashboardTrendQuery, GetOrganizationDashboardTrendResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -153,9 +153,7 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $authorization = $this->createMetricAuthorizationMock(['organization.inspection.read']);
 
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
-    $organizationRepository->expects(self::once())
-      ->method('findById')
-      ->willReturn($this->createOrganization());
+    $organizationRepository->expects(self::never())->method('findById');
 
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
@@ -166,6 +164,46 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
 
     $this->expectException(OrganizationAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.inspection.read permission.');
+
+    $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenOrganizationNotFoundAfterPermissionCheck(): void
+  {
+    $authorizationChecked = false;
+
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with(self::USER_ID, self::ORG_ID, 'organization.inspection.read')
+      ->willReturnCallback(static function () use (&$authorizationChecked): bool {
+        $authorizationChecked = true;
+
+        return true;
+      });
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturnCallback(static function () use (&$authorizationChecked) {
+        self::assertTrue($authorizationChecked);
+
+        return null;
+      });
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
+      nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
+    );
+
+    $this->expectException(OrganizationNotFoundException::class);
 
     $handler->__invoke(new GetOrganizationDashboardTrendQuery(
       organizationId: self::ORG_ID,

@@ -12,16 +12,54 @@ use Organization\Presentation\Api\Dto\Output\Organization\OrganizationStatusOpti
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-/** @implements ProviderInterface<OrganizationStatusOptionOutput> */
+/**
+ * Provider ListOrganizationStatusesProvider.
+ *
+ * Returns the list of supported organization statuses
+ * for organization status selects.
+ *
+ * @category Provider
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ *
+ * @implements ProviderInterface<OrganizationStatusOptionOutput>
+ */
 final readonly class ListOrganizationStatusesProvider implements ProviderInterface
 {
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListOrganizationStatusesProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param Security $security the security service
+   */
   public function __construct(
     private Security $security,
   ) {
   }
+  // #endregion
 
+  // #region Methods
   /**
-   * @return list<OrganizationStatusOptionOutput>
+   * Method provide.
+   *
+   * Returns a list of organization status options for API consumers.
+   *
+   * @since 1.0.0
+   *
+   * @param Operation $operation the API operation context
+   * @param array<string, mixed> $uriVariables the URI variables from the request
+   * @param array<string, mixed> $context additional context for the provider
+   *
+   * @throws AccessDeniedHttpException if the user is not authenticated
+   *
+   * @return list<OrganizationStatusOptionOutput> a list of organization status options
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
   {
@@ -40,4 +78,5 @@ final readonly class ListOrganizationStatusesProvider implements ProviderInterfa
 
     return $outputs;
   }
+  // #endregion
 }
