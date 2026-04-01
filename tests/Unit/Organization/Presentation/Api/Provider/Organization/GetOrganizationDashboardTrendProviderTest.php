@@ -25,6 +25,7 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 use function count;
 use function in_array;
+use function sprintf;
 
 #[CoversClass(GetOrganizationDashboardTrendProvider::class)]
 final class GetOrganizationDashboardTrendProviderTest extends TestCase
@@ -370,6 +371,9 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     self::assertInstanceOf(OrganizationDashboardTrendOutput::class, $output);
   }
 
+  /**
+   * @param array<string, string> $filters
+   */
   #[Test]
   #[DataProvider('metricScopedUnsupportedFilterProvider')]
   public function testProvideThrowsWhenTrendReceivesUnsupportedMetricScopedFilters(
@@ -380,12 +384,15 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
+    $metric = match ($operationName) {
+      OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND => GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+      OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+      default => throw new InvalidArgumentException(sprintf('Unsupported dashboard trend operation "%s".', $operationName)),
+    };
+
     $authorization = $this->createMetricAuthorizationMock(
-      requiredPermissions: OrganizationPermissionCatalog::dashboardTrendReadDependencies(match ($operationName) {
-        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND => GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
-        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
-        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
-      }),
+      requiredPermissions: OrganizationPermissionCatalog::dashboardTrendReadDependencies($metric),
     );
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
@@ -626,6 +633,9 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     );
   }
 
+  /**
+   * @return array<string, array{0: string, 1: bool}>
+   */
   public static function documentedStringCompareFilterProvider(): array
   {
     return [
@@ -640,6 +650,9 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     ];
   }
 
+  /**
+   * @return array<string, array{0: string, 1: array<string, string>, 2: string}>
+   */
   public static function metricScopedUnsupportedFilterProvider(): array
   {
     return [

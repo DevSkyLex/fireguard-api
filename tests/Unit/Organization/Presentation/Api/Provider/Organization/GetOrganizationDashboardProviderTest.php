@@ -939,6 +939,9 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     );
   }
 
+  /**
+   * @return array<string, array{0: string, 1: bool}>
+   */
   public static function documentedStringCompareFilterProvider(): array
   {
     return [

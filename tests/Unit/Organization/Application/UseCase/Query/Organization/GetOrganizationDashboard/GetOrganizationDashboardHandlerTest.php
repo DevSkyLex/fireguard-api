@@ -1549,6 +1549,9 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $handler->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID));
   }
 
+  /**
+   * @return array<string, array{0: string}>
+   */
   public static function resolvedNonConformityStatusProvider(): array
   {
     return [
