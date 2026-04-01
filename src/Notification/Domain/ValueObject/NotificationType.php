@@ -28,6 +28,12 @@ final class NotificationType
   public const string CATEGORY_SYSTEM = 'system';
 
   public const string CATEGORY_ORGANIZATION = 'organization';
+
+  public const string CATEGORY_USER = 'user';
+
+  public const string CATEGORY_FACILITY = 'facility';
+
+  public const string CATEGORY_EQUIPMENT = 'equipment';
   // #endregion
 
   // #region System types
@@ -62,6 +68,37 @@ final class NotificationType
    * Sent to organization owners/admins when a new member joins.
    */
   public const string ORGANIZATION_MEMBER_JOINED = 'organization.member_joined';
+
+  /**
+   * Sent to a user when an admin grants organization access.
+   */
+  public const string ORGANIZATION_MEMBER_ADDED = 'organization.member_added';
+
+  /**
+   * Sent to a member when their organization access is removed.
+   */
+  public const string ORGANIZATION_MEMBER_REMOVED = 'organization.member_removed';
+  // #endregion
+
+  // #region User types
+  /**
+   * Sent to a user when their e-mail address is verified.
+   */
+  public const string USER_EMAIL_VERIFIED = 'user.email_verified';
+  // #endregion
+
+  // #region Facility types
+  /**
+   * Sent when a facility is archived.
+   */
+  public const string FACILITY_ARCHIVED = 'facility.archived';
+  // #endregion
+
+  // #region Equipment types
+  /**
+   * Sent when equipment is put under maintenance.
+   */
+  public const string EQUIPMENT_UNDER_MAINTENANCE = 'equipment.under_maintenance';
   // #endregion
 
   // #region Methods
@@ -81,6 +118,11 @@ final class NotificationType
       self::ORGANIZATION_INVITATION_ACCEPTED,
       self::ORGANIZATION_INVITATION_REVOKED,
       self::ORGANIZATION_MEMBER_JOINED,
+      self::ORGANIZATION_MEMBER_ADDED,
+      self::ORGANIZATION_MEMBER_REMOVED,
+      self::USER_EMAIL_VERIFIED,
+      self::FACILITY_ARCHIVED,
+      self::EQUIPMENT_UNDER_MAINTENANCE,
     ];
   }
 

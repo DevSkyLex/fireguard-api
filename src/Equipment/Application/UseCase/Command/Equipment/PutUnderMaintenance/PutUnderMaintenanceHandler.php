@@ -9,11 +9,19 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, MaintenanceLogId};
 use InvalidArgumentException;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\LoggerPort;
 use Shared\Domain\Exception\InvalidValueException;
+use Throwable;
 
 use function array_map;
+use function sprintf;
 
 /**
  * UseCase PutUnderMaintenanceHandler.
@@ -31,6 +39,9 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
+    private OrganizationRepositoryPort $organizationRepository,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
     private UuidFactory $uuidFactory,
   ) {
   }
@@ -71,6 +82,42 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
     }
 
     $tags = $this->tagRepository->findByEquipmentId($equipmentId);
+
+    if (!$wasAlreadyUnderMaintenance) {
+      $organization = $this->organizationRepository->findById(new OrganizationId((string) $organizationId));
+    } else {
+      $organization = null;
+    }
+
+    if (null !== $organization) {
+      $equipmentLabel = $equipment->locationLabel() ?? $equipment->type()->label();
+
+      try {
+        $this->notificationPort->send(new SendNotificationRequest(
+          type: NotificationType::EQUIPMENT_UNDER_MAINTENANCE,
+          subject: 'Equipment under maintenance',
+          body: sprintf('%s is now under maintenance.', $equipmentLabel),
+          channels: [NotificationChannel::MERCURE],
+          payload: [
+            'organizationId' => (string) $organizationId,
+            'equipmentId' => (string) $equipment->id(),
+            'facilityId' => $equipment->facilityId()?->__toString(),
+            'equipmentType' => $equipment->type()->value,
+            'equipmentLabel' => $equipmentLabel,
+            'status' => $equipment->status()->value,
+            'updatedAt' => $equipment->updatedAt()->format('c'),
+          ],
+          recipientUserId: $organization->ownerUserId(),
+        ));
+      } catch (Throwable $exception) {
+        $this->logger->warning('Equipment under maintenance notification dispatch failed.', [
+          'organizationId' => (string) $organizationId,
+          'equipmentId' => (string) $equipment->id(),
+          'recipientUserId' => $organization->ownerUserId(),
+          'error' => $exception->getMessage(),
+        ]);
+      }
+    }
 
     return new PutUnderMaintenanceResult(
       equipmentId: (string) $equipment->id(),

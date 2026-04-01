@@ -28,11 +28,13 @@ final readonly class AddOrganizationMemberCommand implements CommandMessage
    * @param string $organizationId the organization identifier
    * @param string $userId the user identifier
    * @param list<string> $roleIds the role identifiers to assign
+   * @param bool $sendMemberNotification whether to notify the member when access is granted by admin flow
    */
   public function __construct(
     public string $organizationId,
     public string $userId,
     public array $roleIds = [],
+    public bool $sendMemberNotification = true,
   ) {
   }
   // #endregion

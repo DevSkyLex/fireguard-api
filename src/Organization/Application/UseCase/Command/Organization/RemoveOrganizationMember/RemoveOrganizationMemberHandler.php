@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember;
 
+use DateTimeImmutable;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\LoggerPort;
+use Throwable;
+
+use function sprintf;
 
 /**
  * UseCase RemoveOrganizationMemberHandler.
@@ -34,6 +42,8 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
   ) {
   }
   // #endregion
@@ -66,8 +76,40 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
       throw OrganizationMemberNotFoundException::withId($command->memberId);
     }
 
+    if (!$member->isActive()) {
+      return new RemoveOrganizationMemberResult(
+        memberId: (string) $memberId,
+        organizationId: (string) $organizationId,
+      );
+    }
+
     $member->deactivate();
     $this->memberRepository->save($member);
+
+    $removedAt = new DateTimeImmutable();
+
+    try {
+      $this->notificationPort->send(new SendNotificationRequest(
+        type: NotificationType::ORGANIZATION_MEMBER_REMOVED,
+        subject: 'Organization access removed',
+        body: sprintf('Your access to %s has been removed.', (string) $organization->name()),
+        channels: [NotificationChannel::MERCURE],
+        payload: [
+          'organizationId' => (string) $organizationId,
+          'memberId' => (string) $memberId,
+          'organizationName' => (string) $organization->name(),
+          'removedAt' => $removedAt->format('c'),
+        ],
+        recipientUserId: $member->userId(),
+      ));
+    } catch (Throwable $exception) {
+      $this->logger->warning('Organization member removed notification dispatch failed.', [
+        'organizationId' => (string) $organizationId,
+        'memberId' => (string) $memberId,
+        'recipientUserId' => $member->userId(),
+        'error' => $exception->getMessage(),
+      ]);
+    }
 
     return new RemoveOrganizationMemberResult(
       memberId: (string) $memberId,
