@@ -8,9 +8,8 @@ use BackedEnum;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
-use Equipment\Domain\ValueObject\{EquipmentStatus, EquipmentType};
-use Facility\Domain\ValueObject\FacilityType;
-use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus, InspectorType, NonConformitySeverity, NonConformityStatus};
+use Equipment\Domain\ValueObject\EquipmentStatus;
+use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus, NonConformitySeverity, NonConformityStatus};
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
@@ -139,7 +138,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $generatedAt = $generatedAt->setTimezone($dashboardTimeZone);
     [$periodStart, $periodEnd] = $this->resolvePeriod($periodFrom, $periodTo, $generatedAt, $dashboardTimeZone);
     $this->assertSupportedPeriod($periodStart, $periodEnd);
-    $granularity = $this->resolveGranularity($query->granularity, $periodStart, $periodEnd);
     $comparisonPeriod = $query->compareWithPreviousPeriod ? $this->resolvePreviousPeriod($periodStart, $periodEnd) : null;
 
     $organizationId = OrganizationId::fromString($query->organizationId);
@@ -155,17 +153,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
 
     $facilityCount = $this->countFacilities($query->organizationId, $query->facilityType);
     $activeFacilityCount = $this->countActiveFacilities($query->organizationId, $query->facilityType);
-    $facilityCountsByType = null === $query->facilityType
-      ? $this->normalizeBreakdown(
-        $this->facilityStatistics->countFacilitiesByType($query->organizationId),
-        FacilityType::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        FacilityType::cases(),
-        $query->facilityType,
-        fn (string $type): int => $this->countFacilities($query->organizationId, $type),
-        $facilityCount,
-      );
 
     $equipmentTotalCount = $this->countEquipment($query->organizationId, $query->equipmentType, $query->equipmentStatus);
     $equipmentCountsByStatus = null === $query->equipmentType && null === $query->equipmentStatus
@@ -177,17 +164,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         EquipmentStatus::cases(),
         $query->equipmentStatus,
         fn (string $status): int => $this->countEquipment($query->organizationId, $query->equipmentType, $status),
-        $equipmentTotalCount,
-      );
-    $equipmentCountsByType = null === $query->equipmentType && null === $query->equipmentStatus
-      ? $this->normalizeBreakdown(
-        $this->equipmentStatistics->countEquipmentByType($query->organizationId),
-        EquipmentType::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        EquipmentType::cases(),
-        $query->equipmentType,
-        fn (string $type): int => $this->countEquipment($query->organizationId, $type, $query->equipmentStatus),
         $equipmentTotalCount,
       );
 
@@ -214,17 +190,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         fn (string $result): int => $this->countInspections($query->organizationId, $query->inspectionStatus, $result, $query->inspectorType),
         $inspectionTotalCount,
       );
-    $inspectionCountsByInspectorType = null === $query->inspectionStatus && null === $query->inspectionResult && null === $query->inspectorType
-      ? $this->normalizeBreakdown(
-        $this->inspectionStatistics->countInspectionsByInspectorType($query->organizationId),
-        InspectorType::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        InspectorType::cases(),
-        $query->inspectorType,
-        fn (string $inspectorType): int => $this->countInspections($query->organizationId, $query->inspectionStatus, $query->inspectionResult, $inspectorType),
-        $inspectionTotalCount,
-      );
 
     $nonConformityTotalCount = $this->countNonConformities($query->organizationId, $query->nonConformitySeverity, $query->nonConformityStatus);
     $nonConformityCountsByStatus = null === $query->nonConformitySeverity && null === $query->nonConformityStatus
@@ -236,17 +201,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         NonConformityStatus::cases(),
         $query->nonConformityStatus,
         fn (string $status): int => $this->countNonConformities($query->organizationId, $query->nonConformitySeverity, $status),
-        $nonConformityTotalCount,
-      );
-    $nonConformityCountsBySeverity = null === $query->nonConformitySeverity && null === $query->nonConformityStatus
-      ? $this->normalizeBreakdown(
-        $this->nonConformityStatistics->countNonConformitiesBySeverity($query->organizationId),
-        NonConformitySeverity::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        NonConformitySeverity::cases(),
-        $query->nonConformitySeverity,
-        fn (string $severity): int => $this->countNonConformities($query->organizationId, $severity, $query->nonConformityStatus),
         $nonConformityTotalCount,
       );
 
@@ -271,14 +225,13 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
 
     $periodStartFormatted = $this->formatIso8601($periodStart);
     $periodEndFormatted = $this->formatIso8601($periodEnd);
-    $currentInspectionTrendCounts = $this->countInspectionsPerformedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $currentNonConformityOpenedTrendCounts = $this->countNonConformitiesCreatedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->nonConformitySeverity, $query->nonConformityStatus);
-    $currentNonConformityResolvedTrendCounts = $this->countNonConformitiesResolvedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->nonConformitySeverity, $query->nonConformityStatus);
     $currentPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $periodStart, $periodEnd, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
+    $currentNonConformityOpenedCount = $this->countPeriodNonConformitiesCreated($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->nonConformitySeverity, $query->nonConformityStatus);
+    $currentNonConformityResolvedCount = $this->countPeriodNonConformitiesResolved($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->nonConformitySeverity, $query->nonConformityStatus);
     $currentPeriodHealth = [
       'inspectionCompletionRate' => $this->percentage($currentPeriodInspectionMetrics['closed'], $currentPeriodInspectionMetrics['total']),
       'inspectionPassRate' => $this->percentage($currentPeriodInspectionMetrics['pass'], $currentPeriodInspectionMetrics['pass'] + $currentPeriodInspectionMetrics['fail'] + $currentPeriodInspectionMetrics['partial']),
-      'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($query->organizationId, $periodStart, $currentNonConformityOpenedTrendCounts, $currentNonConformityResolvedTrendCounts, $query->nonConformitySeverity, $query->nonConformityStatus),
+      'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($query->organizationId, $periodStart, $currentNonConformityOpenedCount, $currentNonConformityResolvedCount, $query->nonConformitySeverity, $query->nonConformityStatus),
     ];
 
     $overview = [
@@ -298,13 +251,11 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'accepted' => $invitationCountsByStatus['accepted'] ?? 0,
         'revoked' => $invitationCountsByStatus['revoked'] ?? 0,
         'expired' => $invitationCountsByStatus['expired'] ?? 0,
-        'byStatus' => $invitationCountsByStatus,
       ],
       'facilities' => [
         'total' => $facilityCount,
         'active' => $activeFacilityCount,
         'archived' => max(0, $facilityCount - $activeFacilityCount),
-        'byType' => $facilityCountsByType,
       ],
       'equipment' => [
         'total' => $equipmentTotalCount,
@@ -312,8 +263,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'operational' => $operationalEquipmentCount,
         'underMaintenance' => $underMaintenanceEquipmentCount,
         'decommissioned' => $decommissionedEquipmentCount,
-        'byStatus' => $equipmentCountsByStatus,
-        'byType' => $equipmentCountsByType,
       ],
       'inspections' => [
         'total' => $inspectionTotalCount,
@@ -323,9 +272,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'pass' => $passInspectionCount,
         'fail' => $failInspectionCount,
         'partial' => $partialInspectionCount,
-        'byStatus' => $inspectionCountsByStatus,
-        'byResult' => $inspectionCountsByResult,
-        'byInspectorType' => $inspectionCountsByInspectorType,
       ],
       'nonConformities' => [
         'total' => $nonConformityTotalCount,
@@ -335,8 +281,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'waived' => $waivedNonConformityCount,
         'overdue' => $overdueNonConformityCount,
         'criticalOpen' => $openCriticalNonConformityCount,
-        'byStatus' => $nonConformityCountsByStatus,
-        'bySeverity' => $nonConformityCountsBySeverity,
       ],
     ];
     $health = ['memberActivationRate' => $this->percentage($activeMemberCount, $memberCount), 'inspectionCompletionRate' => $this->percentage($closedInspectionCount, $inspectionTotalCount), 'inspectionPassRate' => $this->percentage($passInspectionCount, $passInspectionCount + $failInspectionCount + $partialInspectionCount), 'equipmentAvailabilityRate' => $this->percentage($operationalEquipmentCount, max(0, $equipmentTotalCount - $decommissionedEquipmentCount)), 'nonConformityResolutionRate' => $this->percentage($doneNonConformityCount + $waivedNonConformityCount, $nonConformityTotalCount), 'periodInspectionCompletionRate' => $currentPeriodHealth['inspectionCompletionRate'], 'periodInspectionPassRate' => $currentPeriodHealth['inspectionPassRate'], 'periodNonConformityResolutionRate' => $currentPeriodHealth['nonConformityResolutionRate']];
@@ -353,9 +297,27 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     if ($underMaintenanceEquipmentCount > 0) {
       $alerts[] = ['code' => 'equipment_under_maintenance', 'severity' => 'medium', 'count' => $underMaintenanceEquipmentCount];
     }
-    $trends = ['inspectionsPerformed' => $this->normalizeSeries($periodStart, $periodEnd, $granularity, $currentInspectionTrendCounts), 'nonConformitiesOpened' => $this->normalizeSeries($periodStart, $periodEnd, $granularity, $currentNonConformityOpenedTrendCounts), 'nonConformitiesResolved' => $this->normalizeSeries($periodStart, $periodEnd, $granularity, $currentNonConformityResolvedTrendCounts)];
 
-    return new GetOrganizationDashboardResult(generatedAt: $generatedAtFormatted, period: ['from' => $periodStartFormatted, 'to' => $periodEndFormatted, 'granularity' => $granularity, 'comparison' => null !== $comparisonPeriod ? 'previous_period' : 'none', 'timezone' => $dashboardTimeZone->getName()], overview: $overview, health: $health, alerts: $alerts, trends: $trends, comparison: $this->buildComparison($query, $currentInspectionTrendCounts, $currentNonConformityOpenedTrendCounts, $currentNonConformityResolvedTrendCounts, $currentPeriodHealth, $comparisonPeriod));
+    return new GetOrganizationDashboardResult(
+      generatedAt: $generatedAtFormatted,
+      period: [
+        'from' => $periodStartFormatted,
+        'to' => $periodEndFormatted,
+        'comparison' => null !== $comparisonPeriod ? 'previous_period' : 'none',
+        'timezone' => $dashboardTimeZone->getName(),
+      ],
+      overview: $overview,
+      health: $health,
+      alerts: $alerts,
+      comparison: $this->buildComparison(
+        $query,
+        $currentPeriodInspectionMetrics['total'],
+        $currentNonConformityOpenedCount,
+        $currentNonConformityResolvedCount,
+        $currentPeriodHealth,
+        $comparisonPeriod,
+      ),
+    );
   }
 
   /**
@@ -516,35 +478,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * Method resolveGranularity.
-   *
-   * Determine the appropriate granularity for trend data aggregation
-   * based on the provided filter and period length.
-   *
-   * @since 1.0.0
-   *
-   * @param string $granularity the granularity filter provided in the query, which can be 'auto', 'day', 'week', or 'month'
-   * @param DateTimeImmutable $periodStart the start datetime of the period for which to determine granularity
-   * @param DateTimeImmutable $periodEnd the end datetime of the period for which to determine granularity
-   *
-   * @return string the resolved granularity to be used for trend data aggregation, which can
-   *                be 'day', 'week', or 'month'. If 'auto' is provided, the method determines the granularity based
-   *                on the period length: 'day' for periods up to 45 days, 'week' for periods up to 180 days,
-   *                and 'month' for longer periods.
-   */
-  private function resolveGranularity(string $granularity, DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): string
-  {
-    if ('auto' !== $granularity) {
-      return match ($granularity) {
-        'week', 'month' => $granularity, default => 'day'
-      };
-    }
-    $days = (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1;
-
-    return $days > 180 ? 'month' : ($days > 45 ? 'week' : 'day');
-  }
-
-  /**
    * Method resolvePreviousPeriod.
    *
    * Calculate the previous period's start and end datetimes based on the current
@@ -617,8 +550,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    *
    * @param string $organizationId the ID of the organization for which to calculate the resolution rate
    * @param DateTimeImmutable $periodStart the start datetime of the period for which to calculate the resolution rate
-   * @param array<string, int> $openedTrendCounts the counts of non-conformities opened during the period, indexed by date
-   * @param array<string, int> $resolvedTrendCounts the counts of non-conformities resolved during the period, indexed by date
    * @param string|null $severity an optional filter for non-conformity severity to include in the resolution rate calculation
    * @param string|null $status an optional filter for non-conformity status to include in the resolution rate calculation
    *
@@ -627,19 +558,19 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   private function buildNonConformityPeriodResolutionRate(
     string $organizationId,
     DateTimeImmutable $periodStart,
-    array $openedTrendCounts,
-    array $resolvedTrendCounts,
+    int $openedCount,
+    int $resolvedCount,
     ?string $severity = null,
     ?string $status = null,
   ): float {
     return $this->percentage(
-      $this->sumSeries($resolvedTrendCounts),
+      $resolvedCount,
       $this->countActiveNonConformitiesAtDate(
         $organizationId,
         $this->formatIso8601($periodStart),
         $severity,
         $status,
-      ) + $this->sumSeries($openedTrendCounts),
+      ) + $openedCount,
     );
   }
 
@@ -652,10 +583,9 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param GetOrganizationDashboardQuery $query the original dashboard query containing filters and parameters for the comparison
-   * @param array<string, int> $currentInspectionTrendCounts the counts of inspections performed
-   *                                                         during the current period, indexed by date
-   * @param array<string, int> $currentNonConformityOpenedTrendCounts the counts of non-conformities opened during the current period, indexed by date
-   * @param array<string, int> $currentNonConformityResolvedTrendCounts the counts of non-conformities resolved during the current period, indexed by date
+   * @param int $currentInspectionCount the number of inspections performed during the current period
+   * @param int $currentNonConformityOpenedCount the number of non-conformities opened during the current period
+   * @param int $currentNonConformityResolvedCount the number of non-conformities resolved during the current period
    * @param array<string, float> $currentPeriodHealth the health metrics for the current period, indexed by metric name
    * @param ?array{from: DateTimeImmutable, to: DateTimeImmutable} $comparisonPeriod the period to compare against, if any
    *
@@ -663,7 +593,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    *                              current and previous metrics, deltas, and health indicators. If no comparison period
    *                              is provided, the mode will be 'none' and metric values will be empty.
    */
-  private function buildComparison(GetOrganizationDashboardQuery $query, array $currentInspectionTrendCounts, array $currentNonConformityOpenedTrendCounts, array $currentNonConformityResolvedTrendCounts, array $currentPeriodHealth, ?array $comparisonPeriod): array
+  private function buildComparison(GetOrganizationDashboardQuery $query, int $currentInspectionCount, int $currentNonConformityOpenedCount, int $currentNonConformityResolvedCount, array $currentPeriodHealth, ?array $comparisonPeriod): array
   {
     if (null === $comparisonPeriod) {
       return ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]];
@@ -671,13 +601,12 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $from = $this->formatIso8601($comparisonPeriod['from']);
     $to = $this->formatIso8601($comparisonPeriod['to']);
     $comparisonTimeZone = $comparisonPeriod['from']->getTimezone()->getName();
-    $previousInspectionTrendCounts = $this->countInspectionsPerformedByDay($query->organizationId, $from, $to, $comparisonTimeZone, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $previousNonConformityOpenedTrendCounts = $this->countNonConformitiesCreatedByDay($query->organizationId, $from, $to, $comparisonTimeZone, $query->nonConformitySeverity, $query->nonConformityStatus);
-    $previousNonConformityResolvedTrendCounts = $this->countNonConformitiesResolvedByDay($query->organizationId, $from, $to, $comparisonTimeZone, $query->nonConformitySeverity, $query->nonConformityStatus);
+    $previousNonConformityOpenedCount = $this->countPeriodNonConformitiesCreated($query->organizationId, $from, $to, $comparisonTimeZone, $query->nonConformitySeverity, $query->nonConformityStatus);
+    $previousNonConformityResolvedCount = $this->countPeriodNonConformitiesResolved($query->organizationId, $from, $to, $comparisonTimeZone, $query->nonConformitySeverity, $query->nonConformityStatus);
     $previousPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $comparisonPeriod['from'], $comparisonPeriod['to'], $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $previousPeriodHealth = ['inspectionCompletionRate' => $this->percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => $this->percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($query->organizationId, $comparisonPeriod['from'], $previousNonConformityOpenedTrendCounts, $previousNonConformityResolvedTrendCounts, $query->nonConformitySeverity, $query->nonConformityStatus)];
-    $current = ['inspectionsPerformed' => $this->sumSeries($currentInspectionTrendCounts), 'nonConformitiesOpened' => $this->sumSeries($currentNonConformityOpenedTrendCounts), 'nonConformitiesResolved' => $this->sumSeries($currentNonConformityResolvedTrendCounts)];
-    $previous = ['inspectionsPerformed' => $this->sumSeries($previousInspectionTrendCounts), 'nonConformitiesOpened' => $this->sumSeries($previousNonConformityOpenedTrendCounts), 'nonConformitiesResolved' => $this->sumSeries($previousNonConformityResolvedTrendCounts)];
+    $previousPeriodHealth = ['inspectionCompletionRate' => $this->percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => $this->percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($query->organizationId, $comparisonPeriod['from'], $previousNonConformityOpenedCount, $previousNonConformityResolvedCount, $query->nonConformitySeverity, $query->nonConformityStatus)];
+    $current = ['inspectionsPerformed' => $currentInspectionCount, 'nonConformitiesOpened' => $currentNonConformityOpenedCount, 'nonConformitiesResolved' => $currentNonConformityResolvedCount];
+    $previous = ['inspectionsPerformed' => $previousPeriodInspectionMetrics['total'], 'nonConformitiesOpened' => $previousNonConformityOpenedCount, 'nonConformitiesResolved' => $previousNonConformityResolvedCount];
 
     return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => $this->relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'nonConformitiesOpened' => $this->relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => $this->relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => $this->relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
   }
@@ -738,136 +667,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   private function sumSeries(array $series): int
   {
     return (int) array_sum($series);
-  }
-
-  /**
-   * Method normalizeSeries.
-   *
-   * Normalize a series of counts into a list of buckets with values,
-   * ensuring that all buckets within the specified period and granularity
-   * are represented, even if their count is zero.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $periodStart the start datetime of the period for which to normalize the series
-   * @param DateTimeImmutable $periodEnd the end datetime of the period for which to normalize the series
-   * @param string $granularity the granularity for bucketing the series, which can be 'day', 'week',
-   *                            or 'month'. This determines how the buckets are identified and aggregated (e.g., daily buckets
-   *                            will be identified by 'Y-m-d', weekly buckets by 'o-\\WW', and monthly buckets by 'Y-m').
-   * @param array<string, int> $counts the original counts indexed by date strings in 'Y-m-d' format
-   *
-   * @return list<array{bucket: string, value: int}> the normalized series as a list of
-   *                                                 buckets with their corresponding values, where each bucket is a string
-   *                                                 identifier based on the specified granularity (e.g., '2024-01-01' for
-   *                                                 daily, '2024-W01' for weekly, '2024-01' for monthly) and value is
-   *                                                 the count for that bucket
-   */
-  private function normalizeSeries(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, string $granularity, array $counts): array
-  {
-    $series = $this->initializeSeriesBuckets($periodStart, $periodEnd, $granularity);
-    for ($cursor = $periodStart->setTime(0, 0), $lastDay = $periodEnd->setTime(0, 0); $cursor <= $lastDay; $cursor = $cursor->add(new DateInterval('P1D'))) {
-      $bucket = $this->bucketKeyForDate($cursor, $granularity);
-      $series[$bucket] += $counts[$cursor->format('Y-m-d')] ?? 0;
-    }
-    $normalized = [];
-    foreach ($series as $bucket => $value) {
-      $normalized[] = ['bucket' => $bucket, 'value' => $value];
-    }
-
-    return $normalized;
-  }
-
-  /**
-   * Method initializeSeriesBuckets.
-   *
-   * Initialize a series of buckets for a given period and granularity,
-   * setting initial counts to zero.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $periodStart the start datetime of the period for which to initialize buckets
-   * @param DateTimeImmutable $periodEnd the end datetime of the period for which to initialize buckets
-   * @param string $granularity the granularity for bucketing, which can be 'day', 'week', or 'month'. This determines how the buckets are identified
-   *                            (e.g., daily buckets will be identified by 'Y-m-d', weekly buckets by 'o-\\WW', and monthly buckets by 'Y-m').
-   *
-   * @return array<string, int> an associative array of bucket identifiers
-   *                            initialized to zero, where keys are bucket identifiers based on the
-   *                            specified granularity (e.g., '2024-01-01' for daily, '2024-W01' for weekly,
-   *                            '2024-01' for monthly) and values are initialized counts set to zero
-   */
-  private function initializeSeriesBuckets(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, string $granularity): array
-  {
-    $series = [];
-    for ($cursor = $this->bucketStartForDate($periodStart, $granularity), $lastBucket = $this->bucketStartForDate($periodEnd, $granularity); $cursor <= $lastBucket; $cursor = $this->advanceBucket($cursor, $granularity)) {
-      $series[$this->bucketKeyForDate($cursor, $granularity)] = 0;
-    }
-
-    return $series;
-  }
-
-  /**
-   * Method bucketStartForDate.
-   *
-   * Calculate the start datetime of the bucket for
-   * a given date and granularity.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $date the date for which to calculate the bucket start
-   * @param string $granularity the granularity for bucketing, which can be 'day', 'week',
-   *                            or 'month'. This determines how the bucket start is calculated (e.g., for 'week', the bucket
-   *                            starts on Monday of the week; for 'month', the bucket starts on the first day of the month).
-   *
-   * @return DateTimeImmutable the calculated start datetime of the bucket for the given date and granularity, with time set to 00:00:00
-   */
-  private function bucketStartForDate(DateTimeImmutable $date, string $granularity): DateTimeImmutable
-  {
-    return match ($granularity) {
-      'week' => $date->setISODate((int) $date->format('o'), (int) $date->format('W'))->setTime(0, 0), 'month' => $date->setDate((int) $date->format('Y'), (int) $date->format('m'), 1)->setTime(0, 0), default => $date->setTime(0, 0)
-    };
-  }
-
-  /**
-   * Method advanceBucket.
-   *
-   * Advance a bucket start datetime to the next bucket based
-   * on the specified granularity.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $bucketStart the start datetime of the current bucket
-   * @param string $granularity the granularity for bucketing, which can be 'day', 'week', or 'month'. This determines how the bucket is advanced (e.g., for 'week', it advances by 7 days; for 'month', it advances to the first day of the next month).
-   *
-   * @return DateTimeImmutable the calculated start datetime of the next bucket based on the specified granularity
-   */
-  private function advanceBucket(DateTimeImmutable $bucketStart, string $granularity): DateTimeImmutable
-  {
-    return match ($granularity) {
-      'week' => $bucketStart->add(new DateInterval('P7D')), 'month' => $bucketStart->add(new DateInterval('P1M')), default => $bucketStart->add(new DateInterval('P1D'))
-    };
-  }
-
-  /**
-   * Method bucketKeyForDate.
-   *
-   * Generate a bucket key string for a given date based
-   * on the specified granularity.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $date the date for which to generate the bucket key
-   * @param string $granularity the granularity for bucketing, which can be 'day', 'week', or 'month'.
-   *                            This determines the format of the bucket key (e.g., for 'week', the key is formatted as 'o-\\WW'; for
-   *                            'month', it is formatted as 'Y-m'; for 'day', it is formatted as 'Y-m-d').
-   *
-   * @return string the generated bucket key string for the given date and granularity,
-   *                formatted according to the specified granularity
-   */
-  private function bucketKeyForDate(DateTimeImmutable $date, string $granularity): string
-  {
-    return match ($granularity) {
-      'week' => $date->format('o-\\WW'), 'month' => $date->format('Y-m'), default => $date->format('Y-m-d')
-    };
   }
 
   /**
@@ -1098,28 +897,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * @return array<string, int>
-   */
-  private function countInspectionsPerformedByDay(string $organizationId, string $performedAtFrom, string $performedAtTo, ?string $timeZone = null, ?string $status = null, ?string $result = null, ?string $inspectorType = null): array
-  {
-    $arguments = [$organizationId, $performedAtFrom, $performedAtTo];
-    if (null !== $timeZone) {
-      $arguments['timeZone'] = $timeZone;
-    }
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-    if (null !== $result) {
-      $arguments['result'] = $result;
-    }
-    if (null !== $inspectorType) {
-      $arguments['inspectorType'] = $inspectorType;
-    }
-
-    return $this->inspectionStatistics->countInspectionsPerformedByDay(...$arguments);
-  }
-
-  /**
    * Method countNonConformities.
    *
    * Counts non-conformities for the organization with optional
@@ -1245,6 +1022,30 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return $this->nonConformityStatistics->countNonConformitiesResolvedByDay(...$arguments);
   }
 
+  private function countPeriodNonConformitiesCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $severity = null, ?string $status = null): int
+  {
+    return $this->sumSeries($this->countNonConformitiesCreatedByDay(
+      $organizationId,
+      $createdAtFrom,
+      $createdAtTo,
+      $timeZone,
+      $severity,
+      $status,
+    ));
+  }
+
+  private function countPeriodNonConformitiesResolved(string $organizationId, string $resolvedAtFrom, string $resolvedAtTo, string $timeZone, ?string $severity = null, ?string $status = null): int
+  {
+    return $this->sumSeries($this->countNonConformitiesResolvedByDay(
+      $organizationId,
+      $resolvedAtFrom,
+      $resolvedAtTo,
+      $timeZone,
+      $severity,
+      $status,
+    ));
+  }
+
   /**
    * Method countOpenCriticalNonConformities.
    *
@@ -1297,7 +1098,12 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     return match ($status) {
       NonConformityStatus::OPEN->value,
       NonConformityStatus::IN_PROGRESS->value => $status,
+      NonConformityStatus::DONE->value,
+      NonConformityStatus::WAIVED->value => false,
       default => false,
     };
+
   }
+
+  // #endregion
 }

@@ -50,24 +50,25 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertArrayHasKey('nonConformities', $overview);
     /** @var array{summary?: mixed} $members */
     $members = is_array($overview['members'] ?? null) ? $overview['members'] : [];
-    /** @var array{breakdowns?: mixed} $facilities */
+    /** @var array{summary?: mixed} $facilities */
     $facilities = is_array($overview['facilities'] ?? null) ? $overview['facilities'] : [];
     /** @var array{metrics?: mixed} $health */
     $health = is_array($dashboardData['health'] ?? null) ? $dashboardData['health'] : [];
-    /** @var list<array{metric?: string}> $trendMetrics */
-    $trendMetrics = is_array($dashboardData['trendMetrics'] ?? null) ? $dashboardData['trendMetrics'] : [];
-    /** @var array<string, mixed> $comparison */
+    /** @var array{metrics?: mixed, health?: mixed} $comparison */
     $comparison = is_array($dashboardData['comparison'] ?? null) ? $dashboardData['comparison'] : [];
+    /** @var array{metrics?: mixed} $comparisonHealth */
+    $comparisonHealth = is_array($comparison['health'] ?? null) ? $comparison['health'] : [];
 
     $this->assertTrue(is_array($members['summary'] ?? null), 'Widget summaries should be exposed.');
-    $this->assertTrue(is_array($facilities['breakdowns'] ?? null), 'Normalized widget breakdowns should be exposed.');
+    $this->assertTrue(is_array($facilities['summary'] ?? null), 'Widget summaries should be exposed.');
     $this->assertTrue(is_array($health['metrics'] ?? null), 'Health metrics should be normalized.');
-    $this->assertArrayHasKey('trendMetrics', $dashboardData);
-    $this->assertSame('inspections_performed', $trendMetrics[0]['metric'] ?? null);
+    $this->assertTrue(is_array($comparison['metrics'] ?? null), 'Comparison metrics should be normalized.');
+    $this->assertTrue(is_array($comparisonHealth['metrics'] ?? null), 'Comparison health metrics should be normalized.');
     $this->assertArrayNotHasKey('trends', $dashboardData);
+    $this->assertArrayNotHasKey('trendMetrics', $dashboardData);
     $this->assertArrayNotHasKey('memberActivationRate', $health);
     $this->assertArrayNotHasKey('total', $members);
-    $this->assertArrayNotHasKey('byType', $facilities);
+    $this->assertArrayNotHasKey('breakdowns', $facilities);
     $this->assertArrayNotHasKey('current', $comparison);
     $this->assertArrayNotHasKey('previous', $comparison);
     $this->assertArrayNotHasKey('deltas', $comparison);

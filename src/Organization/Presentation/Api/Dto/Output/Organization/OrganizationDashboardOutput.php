@@ -21,14 +21,14 @@ final class OrganizationDashboardOutput
   public string $generatedAt = '';
 
   /**
-   * @var array{from?: string, to?: string, granularity?: string, comparison?: string, timezone?: string}
+   * @var array{from?: string, to?: string, comparison?: string, timezone?: string}
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $period = [];
 
   /**
-   * @var array<string, array{summary: list<array{key: string, value: int}>, breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}>
+   * @var array<string, array{summary: list<array{key: string, value: int}>}>
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
@@ -47,13 +47,6 @@ final class OrganizationDashboardOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $alerts = [];
-
-  /**
-   * @var list<array{metric: string, summary: array{total: int, unit: string}, series: list<array{bucket: string, value: int}>, comparison: array{mode: string, current: ?int, previous: ?int, delta: ?float}}>
-   */
-  #[Groups([OrganizationSerializationGroup::READ])]
-  #[ApiProperty(readable: true, writable: false)]
-  public array $trendMetrics = [];
 
   /**
    * @var array{mode: string, from: ?string, to: ?string, metrics: list<array{metric: string, current: ?int, previous: ?int, delta: ?float}>, health: array{metrics: list<array{key: string, unit: string, current: ?float, previous: ?float, delta: ?float}>}}

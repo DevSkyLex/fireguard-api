@@ -22,10 +22,9 @@ final readonly class GetOrganizationDashboardResult implements ResultMessage
    *
    * @param string $generatedAt ISO 8601 generation datetime
    * @param array<string, string> $period dashboard period metadata
-   * @param array<string, mixed> $overview aggregated dashboard counts
+   * @param array<string, mixed> $overview aggregated dashboard KPI summaries
    * @param array<string, float> $health computed dashboard rates
    * @param list<array{code: string, severity: string, count: int}> $alerts dashboard alerts
-   * @param array<string, list<array{bucket: string, value: int}>> $trends dashboard time series
    * @param array<string, mixed> $comparison previous-period comparison metadata and deltas
    */
   public function __construct(
@@ -34,7 +33,6 @@ final readonly class GetOrganizationDashboardResult implements ResultMessage
     public array $overview,
     public array $health,
     public array $alerts,
-    public array $trends,
     public array $comparison,
   ) {
   }

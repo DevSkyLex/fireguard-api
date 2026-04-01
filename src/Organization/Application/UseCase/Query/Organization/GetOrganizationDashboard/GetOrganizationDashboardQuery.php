@@ -25,16 +25,15 @@ final readonly class GetOrganizationDashboardQuery implements QueryMessage
    * @param ?string $periodFrom optional lower bound for the dashboard period
    * @param ?string $periodTo optional upper bound for the dashboard period
    * @param bool $compareWithPreviousPeriod whether previous-period comparison is included
-   * @param string $granularity trend aggregation granularity (`day`, `week`, `month`, `auto`)
-   * @param ?string $timeZone optional IANA timezone used for bucket boundaries and period rendering; defaults to UTC when omitted and not implied by request bounds
+   * @param ?string $timeZone optional IANA timezone used for period rendering; defaults to UTC when omitted and not implied by request bounds
    * @param ?string $facilityType optional facility type filter applied to the facilities section
    * @param ?string $equipmentType optional equipment type filter applied to the equipment section
    * @param ?string $equipmentStatus optional equipment status filter applied to the equipment section
-   * @param ?string $inspectionStatus optional inspection status filter applied to inspection metrics and trends
-   * @param ?string $inspectionResult optional inspection result filter applied to inspection metrics and trends
-   * @param ?string $inspectorType optional inspector type filter applied to inspection metrics and trends
-   * @param ?string $nonConformityStatus optional non-conformity status filter applied to non-conformity metrics and trends
-   * @param ?string $nonConformitySeverity optional non-conformity severity filter applied to non-conformity metrics and trends
+   * @param ?string $inspectionStatus optional inspection status filter applied to inspection KPIs and period comparisons
+   * @param ?string $inspectionResult optional inspection result filter applied to inspection KPIs and period comparisons
+   * @param ?string $inspectorType optional inspector type filter applied to inspection KPIs and period comparisons
+   * @param ?string $nonConformityStatus optional non-conformity status filter applied to non-conformity KPIs and period comparisons
+   * @param ?string $nonConformitySeverity optional non-conformity severity filter applied to non-conformity KPIs and period comparisons
    */
   public function __construct(
     public string $organizationId,
@@ -42,7 +41,6 @@ final readonly class GetOrganizationDashboardQuery implements QueryMessage
     public ?string $periodFrom = null,
     public ?string $periodTo = null,
     public bool $compareWithPreviousPeriod = true,
-    public string $granularity = 'day',
     public ?string $timeZone = null,
     public ?string $facilityType = null,
     public ?string $equipmentType = null,

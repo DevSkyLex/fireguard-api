@@ -36,11 +36,7 @@ use function is_bool;
 use function is_float;
 use function is_int;
 use function is_string;
-use function lcfirst;
 use function sprintf;
-use function str_starts_with;
-use function strtolower;
-use function substr;
 use function timezone_identifiers_list;
 use function trim;
 
@@ -158,7 +154,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
         periodFrom: null !== $periodFrom ? $this->formatIso8601($periodFrom) : null,
         periodTo: null !== $periodTo ? $this->formatIso8601($periodTo) : null,
         compareWithPreviousPeriod: $this->extractBooleanFilter($filters, 'compare', true),
-        granularity: $this->extractGranularityFilter($filters),
         timeZone: $requestedTimeZone?->getName(),
         facilityType: $facilityType,
         equipmentType: $equipmentType,
@@ -206,7 +201,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $output->health = $normalizedHealth;
     $output->alerts = $normalizedAlerts;
     $output->comparison = $normalizedComparison;
-    $output->trendMetrics = $this->buildTrendMetrics($result->trends, $result->comparison);
 
     return $output;
   }
@@ -337,24 +331,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   /**
    * @param array<string, mixed> $filters
    */
-  private function extractGranularityFilter(array $filters): string
-  {
-    $value = $filters['granularity'] ?? null;
-    if (!is_string($value) || '' === $value) {
-      return 'day';
-    }
-
-    $normalized = strtolower($value);
-    if (!in_array($normalized, ['day', 'week', 'month', 'auto'], true)) {
-      throw new BadRequestHttpException('Invalid "granularity" filter. Allowed values: day, week, month, auto.');
-    }
-
-    return $normalized;
-  }
-
-  /**
-   * @param array<string, mixed> $filters
-   */
   private function extractTimeZoneFilter(array $filters): ?DateTimeZone
   {
     $value = $filters['timezone'] ?? null;
@@ -402,7 +378,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   /**
    * @param array<string, mixed> $overview
    *
-   * @return array<string, array{summary: list<array{key: string, value: int}>, breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}>
+   * @return array<string, array{summary: list<array{key: string, value: int}>}>
    */
   private function normalizeOverview(array $overview): array
   {
@@ -413,7 +389,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
       }
 
       $summary = [];
-      $breakdowns = [];
       foreach ($widgetData as $entryKey => $entryValue) {
         if (!is_string($entryKey)) {
           continue;
@@ -427,18 +402,10 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
           continue;
         }
-
-        if (is_array($entryValue) && str_starts_with($entryKey, 'by')) {
-          $breakdowns[] = [
-            'key' => $this->normalizeBreakdownKey($entryKey),
-            'items' => $this->normalizeBreakdownItems($entryValue),
-          ];
-        }
       }
 
       $normalized[$widgetKey] = [
         'summary' => $summary,
-        'breakdowns' => $breakdowns,
       ];
     }
 
@@ -512,47 +479,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   }
 
   /**
-   * @param array<string, list<array{bucket: string, value: int}>> $trends
-   * @param array<string, mixed> $comparison
-   *
-   * @return list<array{metric: string, summary: array{total: int, unit: string}, series: list<array{bucket: string, value: int}>, comparison: array{mode: string, current: ?int, previous: ?int, delta: ?float}}>
-   */
-  private function buildTrendMetrics(array $trends, array $comparison): array
-  {
-    $metrics = [];
-    $mode = is_string($comparison['mode'] ?? null) ? $comparison['mode'] : 'none';
-    $current = $this->normalizeMixedMap($comparison['current'] ?? []);
-    $previous = $this->normalizeMixedMap($comparison['previous'] ?? []);
-    $deltas = $this->normalizeMixedMap($comparison['deltas'] ?? []);
-
-    foreach (self::TREND_METRIC_KEYS as $legacyKey => $metricKey) {
-      $series = [];
-      if (isset($trends[$metricKey])) {
-        $series = $trends[$metricKey];
-      } elseif (isset($trends[$legacyKey])) {
-        $series = $trends[$legacyKey];
-      }
-
-      $metrics[] = [
-        'metric' => $metricKey,
-        'summary' => [
-          'total' => $this->sumTrendSeries($series),
-          'unit' => 'count',
-        ],
-        'series' => $series,
-        'comparison' => [
-          'mode' => $mode,
-          'current' => $this->extractMetricIntValue($current, $legacyKey, $metricKey),
-          'previous' => $this->extractMetricIntValue($previous, $legacyKey, $metricKey),
-          'delta' => $this->extractMetricFloatValue($deltas, $legacyKey, $metricKey),
-        ],
-      ];
-    }
-
-    return $metrics;
-  }
-
-  /**
    * @param array<string, mixed> $current
    * @param array<string, mixed> $previous
    * @param array<string, mixed> $deltas
@@ -602,47 +528,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $metrics;
-  }
-
-  /**
-   * @param array<mixed, mixed> $breakdown
-   *
-   * @return list<array{key: string, value: int}>
-   */
-  private function normalizeBreakdownItems(array $breakdown): array
-  {
-    $items = [];
-    foreach ($breakdown as $key => $value) {
-      if (!is_string($key) || !is_int($value)) {
-        continue;
-      }
-
-      $items[] = [
-        'key' => $key,
-        'value' => $value,
-      ];
-    }
-
-    return $items;
-  }
-
-  /**
-   * Method normalizeBreakdownKey.
-   *
-   * Normalizes a breakdown key from the raw overview data by
-   * removing any "by" prefix and converting it to camelCase.
-   *
-   * @since 1.0.0
-   *
-   * @param string $key The raw breakdown key from the overview data,
-   *                    which may start with "by" (e.g., "byFacilityType").
-   *
-   * @return string The normalized breakdown key with the "by"
-   *                prefix removed and converted to camelCase (e.g., "facilityType").
-   */
-  private function normalizeBreakdownKey(string $key): string
-  {
-    return str_starts_with($key, 'by') ? lcfirst(substr($key, 2)) : $key;
   }
 
   /**
@@ -762,29 +647,6 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $normalized;
-  }
-
-  /**
-   * Method sumTrendSeries.
-   *
-   * Sums the values of a trend series, which is a list of data points each containing a 'value' key with an integer value.
-   * This method iterates through the series and accumulates the total sum of the 'value' fields, returning the final total.
-   * The input series is expected to be a list of associative arrays, where each array has a 'bucket' key (string) and a 'value' key (integer).
-   *
-   * @since 1.0.0
-   *
-   * @param list<array{bucket: string, value: int}> $series
-   *
-   * @return int The total sum of the 'value' fields in the trend series. If the series is empty, returns 0.
-   */
-  private function sumTrendSeries(array $series): int
-  {
-    $total = 0;
-    foreach ($series as $point) {
-      $total += $point['value'];
-    }
-
-    return $total;
   }
 
   /**

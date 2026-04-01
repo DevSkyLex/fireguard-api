@@ -6,7 +6,6 @@ namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\{GetOrganizationDashboardQuery, GetOrganizationDashboardResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
@@ -50,9 +49,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   public function testProvideReturnsNullWhenOrganizationIdIsMissing(): void
   {
     $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
@@ -70,15 +67,11 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   public function testProvideThrowsWhenDashboardDependencyPermissionIsMissing(): void
   {
     $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock(['organization.equipment.read']);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $provider = new GetOrganizationDashboardProvider(
       queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $authorization,
+      authorization: $this->createDashboardAuthorizationMock(['organization.equipment.read']),
       security: $security,
     );
 
@@ -89,14 +82,10 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideMapsDashboardPayloadAndExtractsFilters(): void
+  public function testProvideMapsLightDashboardPayloadAndExtractsFilters(): void
   {
     $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
@@ -105,177 +94,88 @@ final class GetOrganizationDashboardProviderTest extends TestCase
         return '2026-03-01T00:00:00.500000+00:00' === $query->periodFrom
           && '2026-03-15T23:59:59.250000+00:00' === $query->periodTo
           && false === $query->compareWithPreviousPeriod
-          && 'week' === $query->granularity
-          && null === $query->timeZone;
+          && 'Europe/Paris' === $query->timeZone;
       }))
       ->willReturn(new GetOrganizationDashboardResult(
         generatedAt: '2026-03-29T10:00:00.125000+00:00',
         period: [
-          'from' => '2026-03-01T00:00:00.500000+00:00',
-          'to' => '2026-03-15T23:59:59.250000+00:00',
-          'granularity' => 'week',
-          'comparison' => 'none',
-          'timezone' => 'UTC',
+          'from' => '2026-03-01T01:00:00+01:00',
+          'to' => '2026-03-16T00:59:59+01:00',
+          'comparison' => 'previous_period',
+          'timezone' => 'Europe/Paris',
         ],
         overview: [
-          'members' => ['total' => 4],
-          'facilities' => ['byType' => ['site' => 2]],
-          'equipment' => ['byStatus' => ['operational' => 3]],
-          'inspections' => ['byStatus' => ['closed' => 1]],
-          'nonConformities' => ['bySeverity' => ['critical' => 1]],
+          'members' => ['total' => 4, 'active' => 3, 'inactive' => 1],
+          'facilities' => ['total' => 2, 'active' => 2, 'archived' => 0],
         ],
         health: [
           'memberActivationRate' => 75.0,
           'periodInspectionCompletionRate' => 50.0,
         ],
         alerts: [['code' => 'expired_invitations', 'severity' => 'medium', 'count' => 2]],
-        trends: ['inspectionsPerformed' => [['bucket' => '2026-W10', 'value' => 1]]],
         comparison: [
-          'mode' => 'none',
-          'current' => [],
-          'previous' => [],
-          'deltas' => [],
+          'mode' => 'previous_period',
+          'from' => '2026-02-14T01:00:00+01:00',
+          'to' => '2026-03-01T00:59:59+01:00',
+          'current' => ['inspectionsPerformed' => 8],
+          'previous' => ['inspectionsPerformed' => 4],
+          'deltas' => ['inspectionsPerformed' => 100.0],
           'health' => [
-            'current' => [],
-            'previous' => [],
-            'deltas' => [],
+            'current' => ['inspectionCompletionRate' => 50.0],
+            'previous' => ['inspectionCompletionRate' => 40.0],
+            'deltas' => ['inspectionCompletionRate' => 25.0],
           ],
         ],
       ));
 
     $provider = new GetOrganizationDashboardProvider(
       queryBus: $queryBus,
-      authorization: $authorization,
+      authorization: $this->createDashboardAuthorizationMock(),
       security: $security,
     );
 
     $output = $provider->provide(
       new Get(),
       ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['from' => '2026-03-01T00:00:00.500000+00:00', 'to' => '2026-03-15T23:59:59.250000+00:00', 'compare' => 'false', 'granularity' => 'week']],
+      ['filters' => [
+        'from' => '2026-03-01T00:00:00.500000+00:00',
+        'to' => '2026-03-15T23:59:59.250000+00:00',
+        'compare' => 'false',
+        'timezone' => 'Europe/Paris',
+      ]],
     );
 
     self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
+    /** @var array{from: string, to: string, comparison: string, timezone: string} $period */
+    $period = $output->period;
+
     self::assertSame('2026-03-29T10:00:00.125000+00:00', $output->generatedAt);
-    self::assertArrayHasKey('from', $output->period);
-    self::assertArrayHasKey('granularity', $output->period);
-    /** @var array{from: string, granularity: string} $period */
-    $period = $output->period;
-    self::assertSame('2026-03-01T00:00:00.500000+00:00', $period['from']);
-    self::assertSame('week', $period['granularity']);
-    /** @var array{members: array{summary: list<array{key: string, value: int}>}, facilities: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}, equipment: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}, inspections: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}, nonConformities: array{breakdowns: list<array{key: string, items: list<array{key: string, value: int}>}>}} $overview */
-    $overview = $output->overview;
-    /** @var array{metrics: list<array{key: string, value: float, unit: string}>} $health */
-    $health = $output->health;
-    /** @var list<array{code: string, severity: string, count: int}> $alerts */
-    $alerts = $output->alerts;
-    /** @var array{mode: string, metrics: list<mixed>, health: array{metrics: list<mixed>}} $comparison */
-    $comparison = $output->comparison;
-
-    self::assertSame('total', $overview['members']['summary'][0]['key']);
-    self::assertSame(4, $overview['members']['summary'][0]['value']);
-    self::assertSame('type', $overview['facilities']['breakdowns'][0]['key']);
-    self::assertSame('site', $overview['facilities']['breakdowns'][0]['items'][0]['key']);
-    self::assertSame(2, $overview['facilities']['breakdowns'][0]['items'][0]['value']);
-    self::assertSame('status', $overview['equipment']['breakdowns'][0]['key']);
-    self::assertSame(3, $overview['equipment']['breakdowns'][0]['items'][0]['value']);
-    self::assertSame('status', $overview['inspections']['breakdowns'][0]['key']);
-    self::assertSame(1, $overview['inspections']['breakdowns'][0]['items'][0]['value']);
-    self::assertSame('severity', $overview['nonConformities']['breakdowns'][0]['key']);
-    self::assertSame(1, $overview['nonConformities']['breakdowns'][0]['items'][0]['value']);
-    self::assertSame('memberActivationRate', $health['metrics'][0]['key']);
-    self::assertSame(75.0, $health['metrics'][0]['value']);
-    self::assertSame('percent', $health['metrics'][0]['unit']);
-    self::assertSame('periodInspectionCompletionRate', $health['metrics'][1]['key']);
-    self::assertSame(50.0, $health['metrics'][1]['value']);
-    self::assertSame('expired_invitations', $alerts[0]['code']);
-    self::assertSame('none', $comparison['mode']);
-    self::assertSame([], $comparison['metrics']);
-    self::assertSame([], $comparison['health']['metrics']);
-    self::assertSame('inspections_performed', $output->trendMetrics[0]['metric']);
-    self::assertSame(1, $output->trendMetrics[0]['summary']['total']);
-    self::assertArrayNotHasKey('trends', get_object_vars($output));
-    self::assertArrayNotHasKey('total', $overview['members']);
-    self::assertArrayNotHasKey('byType', $overview['facilities']);
-    self::assertArrayNotHasKey('memberActivationRate', $health);
-    self::assertArrayNotHasKey('current', $comparison);
-    self::assertArrayNotHasKey('previous', $comparison);
-    self::assertArrayNotHasKey('deltas', $comparison);
-  }
-
-  #[Test]
-  public function testProvideAcceptsAutoGranularityFilter(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
-        return 'auto' === $query->granularity;
-      }))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-29T10:00:00+00:00',
-        period: [
-          'from' => '2026-01-01T00:00:00+00:00',
-          'to' => '2026-03-31T23:59:59+00:00',
-          'granularity' => 'month',
-          'comparison' => 'none',
-        ],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => [['bucket' => '2026-01', 'value' => 1]]],
-        comparison: [
-          'mode' => 'none',
-          'current' => [],
-          'previous' => [],
-          'deltas' => [],
-          'health' => [
-            'current' => [],
-            'previous' => [],
-            'deltas' => [],
-          ],
-        ],
-      ));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $output = $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['granularity' => 'auto']],
-    );
-
-    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
-    self::assertArrayHasKey('granularity', $output->period);
-    /** @var array{granularity: string} $period */
-    $period = $output->period;
-    self::assertSame('month', $period['granularity']);
+    self::assertSame('Europe/Paris', $period['timezone']);
+    self::assertArrayNotHasKey('granularity', $period);
+    self::assertSame('total', $output->overview['members']['summary'][0]['key']);
+    self::assertSame(4, $output->overview['members']['summary'][0]['value']);
+    self::assertSame('active', $output->overview['members']['summary'][1]['key']);
+    self::assertArrayNotHasKey('breakdowns', $output->overview['facilities']);
+    self::assertSame('memberActivationRate', $output->health['metrics'][0]['key']);
+    self::assertSame(75.0, $output->health['metrics'][0]['value']);
+    self::assertSame('expired_invitations', $output->alerts[0]['code']);
+    self::assertSame('previous_period', $output->comparison['mode']);
+    self::assertSame('inspections_performed', $output->comparison['metrics'][0]['metric']);
+    self::assertSame(8, $output->comparison['metrics'][0]['current']);
+    self::assertSame('inspectionCompletionRate', $output->comparison['health']['metrics'][0]['key']);
+    self::assertArrayNotHasKey('trendMetrics', get_object_vars($output));
+    self::assertArrayNotHasKey('total', $output->overview['members']);
   }
 
   #[Test]
   public function testProvideThrowsWhenDatetimeFiltersAreInvalid(): void
   {
     $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $provider = new GetOrganizationDashboardProvider(
       queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $authorization,
+      authorization: $this->createDashboardAuthorizationMock(),
       security: $security,
     );
 
@@ -289,104 +189,10 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideThrowsWhenDatetimeFiltersAreChronologicallyInvalidAcrossTimezones(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
-        return '2026-03-01T09:30:00+01:00' === $query->periodFrom
-          && '2026-03-01T10:00:00+02:00' === $query->periodTo
-          && null === $query->timeZone;
-      }))
-      ->willThrowException(MessengerRuntimeException::wrap(new HandlerFailedException(
-        new Envelope(new GetOrganizationDashboardQuery(
-          organizationId: '550e8400-e29b-41d4-a716-446655441610',
-          userId: '550e8400-e29b-41d4-a716-446655441600',
-        )),
-        [new InvalidArgumentException('The "from" datetime filter must be before or equal to "to".')],
-      )));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('The "from" datetime filter must be before or equal to "to".');
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => [
-        'from' => '2026-03-01T09:30:00+01:00',
-        'to' => '2026-03-01T10:00:00+02:00',
-      ]],
-    );
-  }
-
-  #[Test]
-  public function testProvideThrowsWhenMixedOffsetsAreProvidedWithoutTimezone(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
-        return '2026-03-29T00:00:00+01:00' === $query->periodFrom
-          && '2026-03-30T23:59:59+02:00' === $query->periodTo
-          && null === $query->timeZone;
-      }))
-      ->willThrowException(MessengerRuntimeException::wrap(new HandlerFailedException(
-        new Envelope(new GetOrganizationDashboardQuery(
-          organizationId: '550e8400-e29b-41d4-a716-446655441610',
-          userId: '550e8400-e29b-41d4-a716-446655441600',
-        )),
-        [new InvalidArgumentException('Mixed timezone offsets require the "timezone" filter.')],
-      )));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Mixed timezone offsets require the "timezone" filter.');
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => [
-        'from' => '2026-03-29T00:00:00+01:00',
-        'to' => '2026-03-30T23:59:59+02:00',
-      ]],
-    );
-  }
-
-  #[Test]
   public function testProvideAcceptsTimezoneFilterForMixedOffsets(): void
   {
     $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
@@ -396,37 +202,18 @@ final class GetOrganizationDashboardProviderTest extends TestCase
           && '2026-03-30T23:59:59+02:00' === $query->periodTo
           && 'Europe/Paris' === $query->timeZone;
       }))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-30T10:00:00+02:00',
+      ->willReturn($this->createEmptyResult(
         period: [
           'from' => '2026-03-29T00:00:00+01:00',
           'to' => '2026-03-30T23:59:59+02:00',
-          'granularity' => 'day',
           'comparison' => 'previous_period',
           'timezone' => 'Europe/Paris',
-        ],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => [['bucket' => '2026-03-29', 'value' => 1]]],
-        comparison: [
-          'mode' => 'previous_period',
-          'from' => '2026-03-27T00:00:00+01:00',
-          'to' => '2026-03-28T23:59:59+01:00',
-          'current' => [],
-          'previous' => [],
-          'deltas' => [],
-          'health' => [
-            'current' => [],
-            'previous' => [],
-            'deltas' => [],
-          ],
         ],
       ));
 
     $provider = new GetOrganizationDashboardProvider(
       queryBus: $queryBus,
-      authorization: $authorization,
+      authorization: $this->createDashboardAuthorizationMock(),
       security: $security,
     );
 
@@ -441,282 +228,10 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     );
 
     self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
-    self::assertArrayHasKey('timezone', $output->period);
-    /** @var array{timezone: string} $period */
+    /** @var array{from: string, to: string, comparison: string, timezone: string} $period */
     $period = $output->period;
+
     self::assertSame('Europe/Paris', $period['timezone']);
-  }
-
-  #[Test]
-  public function testProvideAcceptsSingleExplicitBoundWithoutTimezoneFilter(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
-        return '2026-03-01T00:00:00+00:00' === $query->periodFrom
-          && null === $query->periodTo
-          && null === $query->timeZone;
-      }))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-30T10:00:00+00:00',
-        period: [
-          'from' => '2026-03-01T00:00:00+00:00',
-          'to' => '2026-03-30T10:00:00+00:00',
-          'granularity' => 'day',
-          'comparison' => 'previous_period',
-          'timezone' => 'UTC',
-        ],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => []],
-        comparison: [
-          'mode' => 'previous_period',
-          'from' => '2026-01-31T13:59:59+00:00',
-          'to' => '2026-03-01T23:59:59+00:00',
-          'current' => [],
-          'previous' => [],
-          'deltas' => [],
-          'health' => [
-            'current' => [],
-            'previous' => [],
-            'deltas' => [],
-          ],
-        ],
-      ));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $output = $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['from' => '2026-03-01T00:00:00+00:00']],
-    );
-
-    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
-    self::assertArrayHasKey('timezone', $output->period);
-    /** @var array{timezone: string} $period */
-    $period = $output->period;
-    self::assertSame('UTC', $period['timezone']);
-  }
-
-  #[Test]
-  public function testProvideRejectsSingleExplicitNonUtcOffsetWithoutTimezoneFilter(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
-        return '2026-03-01T00:00:00+01:00' === $query->periodFrom
-          && null === $query->periodTo
-          && null === $query->timeZone;
-      }))
-      ->willThrowException(MessengerRuntimeException::wrap(new HandlerFailedException(
-        new Envelope(new GetOrganizationDashboardQuery(
-          organizationId: '550e8400-e29b-41d4-a716-446655441610',
-          userId: '550e8400-e29b-41d4-a716-446655441600',
-        )),
-        [new InvalidArgumentException('Non-UTC offset datetimes require the "timezone" filter.')],
-      )));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Non-UTC offset datetimes require the "timezone" filter.');
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['from' => '2026-03-01T00:00:00+01:00']],
-    );
-  }
-
-  #[Test]
-  public function testProvideRejectsFixedOffsetTimezoneFilter(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(BadRequestHttpException::class);
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['timezone' => '+01:00']],
-    );
-  }
-
-  #[Test]
-  public function testProvideThrowsWhenRequestedPeriodExceedsSupportedRange(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
-        return '2025-01-01T00:00:00+00:00' === $query->periodFrom
-          && '2026-12-31T23:59:59+00:00' === $query->periodTo
-          && null === $query->timeZone;
-      }))
-      ->willThrowException(MessengerRuntimeException::wrap(new HandlerFailedException(
-        new Envelope(new GetOrganizationDashboardQuery(
-          organizationId: '550e8400-e29b-41d4-a716-446655441610',
-          userId: '550e8400-e29b-41d4-a716-446655441600',
-        )),
-        [new InvalidArgumentException('Dashboard period cannot exceed 366 days.')],
-      )));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Dashboard period cannot exceed 366 days.');
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => [
-        'from' => '2025-01-01T00:00:00+00:00',
-        'to' => '2026-12-31T23:59:59+00:00',
-      ]],
-    );
-  }
-
-  #[Test]
-  public function testProvideThrowsWhenGranularityFilterIsInvalid(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(BadRequestHttpException::class);
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['granularity' => 'quarter']],
-    );
-  }
-
-  #[Test]
-  public function testProvideMapsWrappedPermissionDenialToHttp403(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new GetOrganizationDashboardQuery('550e8400-e29b-41d4-a716-446655441610', '550e8400-e29b-41d4-a716-446655441600')),
-      [OrganizationAccessDeniedException::missingPermission('organization.dashboard.read')],
-    );
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetOrganizationDashboardQuery::class))
-      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(AccessDeniedHttpException::class);
-
-    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
-  }
-
-  #[Test]
-  public function testProvideMapsWrappedOrganizationNotFoundToHttp404(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())
-      ->method('getUser')
-      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-
-    $handlerFailure = new HandlerFailedException(
-      new Envelope(new GetOrganizationDashboardQuery('550e8400-e29b-41d4-a716-446655441610', '550e8400-e29b-41d4-a716-446655441600')),
-      [OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441610')],
-    );
-
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(GetOrganizationDashboardQuery::class))
-      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
-
-    $provider = new GetOrganizationDashboardProvider(
-      queryBus: $queryBus,
-      authorization: $authorization,
-      security: $security,
-    );
-
-    $this->expectException(NotFoundHttpException::class);
-
-    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
   }
 
   #[Test]
@@ -724,8 +239,6 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   {
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
 
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
@@ -740,22 +253,27 @@ final class GetOrganizationDashboardProviderTest extends TestCase
           && 'open' === $query->nonConformityStatus
           && 'critical' === $query->nonConformitySeverity;
       }))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-29T10:00:00+00:00',
-        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'none', 'timezone' => 'UTC'],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => []],
-        comparison: ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
-      ));
+      ->willReturn($this->createEmptyResult());
 
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
 
     $output = $provider->provide(
       new Get(),
       ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['facilityType' => 'site', 'equipmentType' => 'fire_extinguisher', 'equipmentStatus' => 'operational', 'inspectionStatus' => 'closed', 'inspectionResult' => 'pass', 'inspectorType' => 'user', 'nonConformityStatus' => 'open', 'nonConformitySeverity' => 'critical']],
+      ['filters' => [
+        'facilityType' => 'site',
+        'equipmentType' => 'fire_extinguisher',
+        'equipmentStatus' => 'operational',
+        'inspectionStatus' => 'closed',
+        'inspectionResult' => 'pass',
+        'inspectorType' => 'user',
+        'nonConformityStatus' => 'open',
+        'nonConformitySeverity' => 'critical',
+      ]],
     );
 
     self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
@@ -767,11 +285,14 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
-    $authorization = $this->createDashboardAuthorizationMock();
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
 
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
 
     $this->expectException(BadRequestHttpException::class);
 
@@ -788,11 +309,14 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
-    $authorization = $this->createDashboardAuthorizationMock();
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
 
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
 
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid "compare" filter.');
@@ -805,138 +329,85 @@ final class GetOrganizationDashboardProviderTest extends TestCase
   }
 
   #[Test]
-  public function testProvideThrowsWhenCompareFilterIsEmptyString(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Invalid "compare" filter.');
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['compare' => '']],
-    );
-  }
-
-  #[Test]
-  public function testProvideThrowsWhenCompareFilterIsNonScalar(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::never())->method('ask');
-
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
-
-    $this->expectException(BadRequestHttpException::class);
-    $this->expectExceptionMessage('Invalid "compare" filter.');
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['compare' => ['maybe']]],
-    );
-  }
-
-  #[Test]
-  public function testProvideAcceptsNativeBooleanCompareFilter(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static fn (GetOrganizationDashboardQuery $query): bool => true === $query->compareWithPreviousPeriod))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-29T10:00:00+00:00',
-        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'previous_period', 'timezone' => 'UTC'],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => []],
-        comparison: ['mode' => 'previous_period', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
-      ));
-
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['compare' => true]],
-    );
-  }
-
-  #[Test]
-  public function testProvideAcceptsCompareAliasOff(): void
-  {
-    $security = $this->createMock(Security::class);
-    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
-
-    $authorization = $this->createDashboardAuthorizationMock();
-    $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::callback(static fn (GetOrganizationDashboardQuery $query): bool => false === $query->compareWithPreviousPeriod))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-29T10:00:00+00:00',
-        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'none', 'timezone' => 'UTC'],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => []],
-        comparison: ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
-      ));
-
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
-
-    $provider->provide(
-      new Get(),
-      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
-      ['filters' => ['compare' => 'off']],
-    );
-  }
-
-  #[Test]
   #[DataProvider('documentedStringCompareFilterProvider')]
   public function testProvideAcceptsDocumentedStringCompareAliases(string $compare, bool $expected): void
   {
     $security = $this->createMock(Security::class);
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
-    $authorization = $this->createDashboardAuthorizationMock();
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::once())
       ->method('ask')
       ->with(self::callback(static fn (GetOrganizationDashboardQuery $query): bool => $expected === $query->compareWithPreviousPeriod))
-      ->willReturn(new GetOrganizationDashboardResult(
-        generatedAt: '2026-03-29T10:00:00+00:00',
-        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => $expected ? 'previous_period' : 'none', 'timezone' => 'UTC'],
-        overview: [],
-        health: [],
-        alerts: [],
-        trends: ['inspectionsPerformed' => []],
-        comparison: ['mode' => $expected ? 'previous_period' : 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
-      ));
+      ->willReturn($this->createEmptyResult(period: ['comparison' => $expected ? 'previous_period' : 'none']));
 
-    $provider = new GetOrganizationDashboardProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
 
     $provider->provide(
       new Get(),
       ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
       ['filters' => ['compare' => $compare]],
     );
+  }
+
+  #[Test]
+  public function testProvideMapsWrappedPermissionDenialToHttp403(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetOrganizationDashboardQuery('550e8400-e29b-41d4-a716-446655441610', '550e8400-e29b-41d4-a716-446655441600')),
+      [OrganizationAccessDeniedException::missingPermission('organization.dashboard.read')],
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetOrganizationDashboardQuery::class))
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+  }
+
+  #[Test]
+  public function testProvideMapsWrappedOrganizationNotFoundToHttp404(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetOrganizationDashboardQuery('550e8400-e29b-41d4-a716-446655441610', '550e8400-e29b-41d4-a716-446655441600')),
+      [OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441610')],
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(GetOrganizationDashboardQuery::class))
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
   }
 
   /**
@@ -954,6 +425,30 @@ final class GetOrganizationDashboardProviderTest extends TestCase
       'on alias' => ['on', true],
       'trimmed off alias' => [' off ', false],
     ];
+  }
+
+  /**
+   * @param array<string, string> $period
+   * @param array<string, array<string, int>> $overview
+   * @param array<string, float> $health
+   * @param list<array{code: string, severity: string, count: int}> $alerts
+   * @param array<string, mixed> $comparison
+   */
+  private function createEmptyResult(
+    array $period = ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'comparison' => 'none', 'timezone' => 'UTC'],
+    array $overview = [],
+    array $health = [],
+    array $alerts = [],
+    array $comparison = ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
+  ): GetOrganizationDashboardResult {
+    return new GetOrganizationDashboardResult(
+      generatedAt: '2026-03-29T10:00:00+00:00',
+      period: $period,
+      overview: $overview,
+      health: $health,
+      alerts: $alerts,
+      comparison: $comparison,
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser
