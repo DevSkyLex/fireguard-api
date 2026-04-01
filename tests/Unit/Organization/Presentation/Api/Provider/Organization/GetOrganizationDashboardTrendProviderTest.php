@@ -463,7 +463,7 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
 
-    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectException(BadRequestHttpException::class);
 
     $provider->provide(
       new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
@@ -484,7 +484,7 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
 
-    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid "compare" filter.');
 
     $provider->provide(
@@ -506,7 +506,7 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
 
-    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid "compare" filter.');
 
     $provider->provide(
@@ -528,7 +528,7 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
 
-    $this->expectException(\Symfony\Component\HttpKernel\Exception\BadRequestHttpException::class);
+    $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Invalid "compare" filter.');
 
     $provider->provide(

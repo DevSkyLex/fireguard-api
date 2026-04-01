@@ -1503,7 +1503,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       ->willReturnCallback(function () use (&$authorizationChecked) {
         self::assertTrue($authorizationChecked);
 
-        return null;
+
       });
 
     $handler = new GetOrganizationDashboardHandler(
@@ -1549,9 +1549,6 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $handler->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID));
   }
 
-  /**
-   * @param list<string> $deniedPermissions
-   */
   public static function resolvedNonConformityStatusProvider(): array
   {
     return [

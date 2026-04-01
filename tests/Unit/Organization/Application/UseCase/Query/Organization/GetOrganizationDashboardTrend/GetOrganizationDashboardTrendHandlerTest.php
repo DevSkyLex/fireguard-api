@@ -193,7 +193,7 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       ->willReturnCallback(static function () use (&$authorizationChecked) {
         self::assertTrue($authorizationChecked);
 
-        return null;
+
       });
 
     $handler = new GetOrganizationDashboardTrendHandler(
