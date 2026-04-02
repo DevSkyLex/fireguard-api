@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrga
 
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\{GetOrganizationDashboardTrendHandler, GetOrganizationDashboardTrendQuery, GetOrganizationDashboardTrendResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
@@ -61,6 +61,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $inspectionStatistics,
       nonConformityStatistics: $nonConformityStatistics,
     );
@@ -89,6 +91,132 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     self::assertSame('previous_period', $comparison['mode']);
     self::assertSame(1, $comparison['summary']['total']);
     self::assertSame(200.0, $comparison['summary']['delta']);
+  }
+
+  #[Test]
+  public function testInvokeReturnsEquipmentCreatedTrendWithComparisonAndFilters(): void
+  {
+    $authorization = $this->createMetricAuthorizationMock(
+      requiredPermissions: OrganizationPermissionCatalog::dashboardTrendReadDependencies(
+        GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+      ),
+    );
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($this->createOrganization());
+
+    $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
+    $equipmentStatistics->expects(self::exactly(2))
+      ->method('countEquipmentCreatedByDay')
+      ->willReturnCallback(static function (string $organizationId, string $from, string $to, ?string $timeZone = null, ?string $type = null, ?string $status = null): array {
+        self::assertSame(self::ORG_ID, $organizationId);
+        self::assertSame('UTC', $timeZone);
+        self::assertSame('fire_extinguisher', $type);
+        self::assertSame('operational', $status);
+
+        return match ($from) {
+          '2026-03-01T00:00:00+00:00' => ['2026-03-01' => 2, '2026-03-02' => 1],
+          '2026-02-27T00:00:00+00:00' => ['2026-02-27' => 1],
+          default => [],
+        };
+      });
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $equipmentStatistics,
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: true,
+      granularity: 'day',
+      timeZone: 'UTC',
+      equipmentType: 'fire_extinguisher',
+      equipmentStatus: 'operational',
+    ));
+
+    /** @var array{mode: string, summary: array{total: int, delta: float}} $comparison */
+    $comparison = $result->comparison;
+
+    self::assertSame(GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED, $result->metric);
+    self::assertSame(3, $result->summary['total']);
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 2],
+      ['bucket' => '2026-03-02', 'value' => 1],
+    ], $result->series);
+    self::assertSame('previous_period', $comparison['mode']);
+    self::assertSame(1, $comparison['summary']['total']);
+    self::assertSame(200.0, $comparison['summary']['delta']);
+  }
+
+  #[Test]
+  public function testInvokeReturnsFacilitiesCreatedTrendWithoutComparison(): void
+  {
+    $authorization = $this->createMetricAuthorizationMock(
+      requiredPermissions: OrganizationPermissionCatalog::dashboardTrendReadDependencies(
+        GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED,
+      ),
+    );
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($this->createOrganization());
+
+    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->expects(self::once())
+      ->method('countFacilitiesCreatedByDay')
+      ->with(
+        self::ORG_ID,
+        '2026-03-01T00:00:00+00:00',
+        '2026-03-03T23:59:59+00:00',
+        'UTC',
+        'site',
+      )
+      ->willReturn([
+        '2026-03-01' => 1,
+        '2026-03-03' => 1,
+      ]);
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $facilityStatistics,
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-03T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+      facilityType: 'site',
+    ));
+
+    self::assertSame(GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED, $result->metric);
+    self::assertSame(2, $result->summary['total']);
+    self::assertSame('none', $result->comparison['mode']);
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 1],
+      ['bucket' => '2026-03-02', 'value' => 0],
+      ['bucket' => '2026-03-03', 'value' => 1],
+    ], $result->series);
   }
 
   #[Test]
@@ -122,6 +250,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $inspectionStatistics,
       nonConformityStatistics: $nonConformityStatistics,
     );
@@ -158,6 +288,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
       nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
     );
@@ -199,6 +331,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
       nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
     );
@@ -239,6 +373,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $inspectionStatistics,
       nonConformityStatistics: $nonConformityStatistics,
     );
@@ -265,6 +401,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $this->createMock(OrganizationAuthorizationPort::class),
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
       nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
     );
@@ -310,6 +448,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $handler = new GetOrganizationDashboardTrendHandler(
       authorization: $authorization,
       organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
       inspectionStatistics: $inspectionStatistics,
       nonConformityStatistics: $nonConformityStatistics,
     );
@@ -345,6 +485,39 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       name: new OrganizationName('Dashboard Org'),
       ownerUserId: '550e8400-e29b-41d4-a716-446655440199',
     );
+  }
+
+  private function createInspectionStatisticsMock(): InspectionStatisticsPort
+  {
+    $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->expects(self::never())->method('countInspectionsPerformedByDay');
+
+    return $inspectionStatistics;
+  }
+
+  private function createNonConformityStatisticsMock(): NonConformityStatisticsPort
+  {
+    $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+
+    return $nonConformityStatistics;
+  }
+
+  private function createEquipmentStatisticsMock(): EquipmentStatisticsPort
+  {
+    $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
+    $equipmentStatistics->expects(self::never())->method('countEquipmentCreatedByDay');
+
+    return $equipmentStatistics;
+  }
+
+  private function createFacilityStatisticsMock(): FacilityStatisticsPort
+  {
+    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->expects(self::never())->method('countFacilitiesCreatedByDay');
+
+    return $facilityStatistics;
   }
 
   /**

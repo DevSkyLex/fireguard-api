@@ -119,6 +119,73 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideMapsEquipmentCreatedTrendPayloadAndExtractsFilters(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock(
+      requiredPermissions: OrganizationPermissionCatalog::dashboardTrendReadDependencies(
+        GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+      ),
+    );
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (GetOrganizationDashboardTrendQuery $query): bool {
+        return GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED === $query->metric
+          && '2026-03-01T00:00:00+00:00' === $query->periodFrom
+          && '2026-03-15T23:59:59+00:00' === $query->periodTo
+          && 'week' === $query->granularity
+          && 'fire_extinguisher' === $query->equipmentType
+          && 'operational' === $query->equipmentStatus
+          && null === $query->facilityType
+          && null === $query->inspectionStatus
+          && null === $query->nonConformityStatus;
+      }))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+        period: [
+          'from' => '2026-03-01T00:00:00+00:00',
+          'to' => '2026-03-15T23:59:59+00:00',
+          'granularity' => 'week',
+          'comparison' => 'none',
+          'timezone' => 'UTC',
+        ],
+        summary: ['total' => 4],
+        series: [['bucket' => '2026-W09', 'value' => 4]],
+        comparison: ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_EQUIPMENT_CREATED_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => [
+        'from' => '2026-03-01T00:00:00+00:00',
+        'to' => '2026-03-15T23:59:59+00:00',
+        'granularity' => 'week',
+        'equipmentType' => 'fire_extinguisher',
+        'equipmentStatus' => 'operational',
+      ]],
+    );
+
+    self::assertInstanceOf(OrganizationDashboardTrendOutput::class, $output);
+    self::assertSame(GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED, $output->metric);
+    self::assertSame(4, $output->summary['total']);
+    self::assertSame('2026-W09', $output->series[0]['bucket']);
+  }
+
+  #[Test]
   public function testProvideNormalizesTrendComparisonPayload(): void
   {
     $security = $this->createMock(Security::class);
@@ -386,6 +453,8 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
 
     $metric = match ($operationName) {
       OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND => GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      OrganizationOperations::GET_ORGANIZATION_DASHBOARD_EQUIPMENT_CREATED_TREND => GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+      OrganizationOperations::GET_ORGANIZATION_DASHBOARD_FACILITIES_CREATED_TREND => GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED,
       OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
       OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
       default => throw new InvalidArgumentException(sprintf('Unsupported dashboard trend operation "%s".', $operationName)),
@@ -660,6 +729,16 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
         OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND,
         ['nonConformityStatus' => 'open'],
         'Filter "nonConformityStatus" is not supported for the inspection trend.',
+      ],
+      'equipment trend rejects inspection status' => [
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_EQUIPMENT_CREATED_TREND,
+        ['inspectionStatus' => 'closed'],
+        'Filter "inspectionStatus" is not supported for the equipment-created trend.',
+      ],
+      'facilities trend rejects equipment type' => [
+        OrganizationOperations::GET_ORGANIZATION_DASHBOARD_FACILITIES_CREATED_TREND,
+        ['equipmentType' => 'fire_extinguisher'],
+        'Filter "equipmentType" is not supported for the facilities-created trend.',
       ],
       'non-conformity trend rejects inspection status' => [
         OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND,

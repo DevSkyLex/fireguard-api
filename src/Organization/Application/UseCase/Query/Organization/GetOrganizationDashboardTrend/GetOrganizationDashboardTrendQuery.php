@@ -28,6 +28,9 @@ final readonly class GetOrganizationDashboardTrendQuery implements QueryMessage
    * @param bool $compareWithPreviousPeriod whether previous-period comparison is included
    * @param string $granularity trend aggregation granularity (`day`, `week`, `month`, `auto`)
    * @param ?string $timeZone optional IANA timezone used for bucket boundaries and period rendering; defaults to UTC when omitted and not implied by request bounds
+   * @param ?string $facilityType optional facility type filter applied to facility trends
+   * @param ?string $equipmentType optional equipment type filter applied to equipment trends
+   * @param ?string $equipmentStatus optional equipment status filter applied to equipment trends
    * @param ?string $inspectionStatus optional inspection status filter applied to inspection trends
    * @param ?string $inspectionResult optional inspection result filter applied to inspection trends
    * @param ?string $inspectorType optional inspector type filter applied to inspection trends
@@ -43,6 +46,9 @@ final readonly class GetOrganizationDashboardTrendQuery implements QueryMessage
     public bool $compareWithPreviousPeriod = true,
     public string $granularity = 'day',
     public ?string $timeZone = null,
+    public ?string $facilityType = null,
+    public ?string $equipmentType = null,
+    public ?string $equipmentStatus = null,
     public ?string $inspectionStatus = null,
     public ?string $inspectionResult = null,
     public ?string $inspectorType = null,

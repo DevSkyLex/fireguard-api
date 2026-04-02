@@ -93,6 +93,8 @@ final class OrganizationApiTest extends WebTestCase
 
     $trendEndpoints = [
       '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/inspections',
+      '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/equipment-created',
+      '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/facilities-created',
       '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/non-conformities-opened',
       '/api/organizations/' . self::DUMMY_UUID . '/dashboard/trends/non-conformities-resolved',
     ];

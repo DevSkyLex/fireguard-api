@@ -72,5 +72,24 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
 
     return $normalizedCounts;
   }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function countFacilitiesCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+  ): array {
+    return $this->facilityRepository->countByCreatedDayForOrganizationId(
+      organizationId: FacilityOrganizationId::fromString($organizationId),
+      createdAtFrom: $createdAtFrom,
+      createdAtTo: $createdAtTo,
+      timeZone: $timeZone,
+      type: $type,
+    );
+  }
   // #endregion
 }

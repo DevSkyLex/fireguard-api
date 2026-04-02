@@ -9,7 +9,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
 use Organization\Application\Support\DashboardDateTimeParser;
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
@@ -35,6 +35,10 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
 {
   public const string METRIC_INSPECTIONS_PERFORMED = 'inspections_performed';
 
+  public const string METRIC_EQUIPMENT_CREATED = 'equipment_created';
+
+  public const string METRIC_FACILITIES_CREATED = 'facilities_created';
+
   public const string METRIC_NON_CONFORMITIES_OPENED = 'non_conformities_opened';
 
   public const string METRIC_NON_CONFORMITIES_RESOLVED = 'non_conformities_resolved';
@@ -53,6 +57,8 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
     private OrganizationRepositoryPort $organizationRepository,
+    private EquipmentStatisticsPort $equipmentStatistics,
+    private FacilityStatisticsPort $facilityStatistics,
     private InspectionStatisticsPort $inspectionStatistics,
     private NonConformityStatisticsPort $nonConformityStatistics,
   ) {
@@ -100,7 +106,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
 
   private function assertSupportedMetric(string $metric): string
   {
-    if (!in_array($metric, [self::METRIC_INSPECTIONS_PERFORMED, self::METRIC_NON_CONFORMITIES_OPENED, self::METRIC_NON_CONFORMITIES_RESOLVED], true)) {
+    if (!in_array($metric, [self::METRIC_INSPECTIONS_PERFORMED, self::METRIC_EQUIPMENT_CREATED, self::METRIC_FACILITIES_CREATED, self::METRIC_NON_CONFORMITIES_OPENED, self::METRIC_NON_CONFORMITIES_RESOLVED], true)) {
       throw new InvalidArgumentException('Unsupported dashboard trend metric.');
     }
 
@@ -194,6 +200,8 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
   {
     return match ($metric) {
       self::METRIC_INSPECTIONS_PERFORMED => $this->countInspectionsPerformedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType),
+      self::METRIC_EQUIPMENT_CREATED => $this->countEquipmentCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->equipmentType, $query->equipmentStatus),
+      self::METRIC_FACILITIES_CREATED => $this->countFacilitiesCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->facilityType),
       self::METRIC_NON_CONFORMITIES_OPENED => $this->countNonConformitiesCreatedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->nonConformitySeverity, $query->nonConformityStatus),
       self::METRIC_NON_CONFORMITIES_RESOLVED => $this->countNonConformitiesResolvedByDay($query->organizationId, $periodStart, $periodEnd, $timeZone, $query->nonConformitySeverity, $query->nonConformityStatus),
       default => throw new InvalidArgumentException('Unsupported dashboard trend metric.'),
@@ -320,6 +328,41 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     }
 
     return $this->inspectionStatistics->countInspectionsPerformedByDay(...$arguments);
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countEquipmentCreatedByDay(string $organizationId, string $createdAtFrom, string $createdAtTo, ?string $timeZone = null, ?string $type = null, ?string $status = null): array
+  {
+    $arguments = [$organizationId, $createdAtFrom, $createdAtTo];
+    if (null !== $timeZone) {
+      $arguments['timeZone'] = $timeZone;
+    }
+    if (null !== $type) {
+      $arguments['type'] = $type;
+    }
+    if (null !== $status) {
+      $arguments['status'] = $status;
+    }
+
+    return $this->equipmentStatistics->countEquipmentCreatedByDay(...$arguments);
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countFacilitiesCreatedByDay(string $organizationId, string $createdAtFrom, string $createdAtTo, ?string $timeZone = null, ?string $type = null): array
+  {
+    $arguments = [$organizationId, $createdAtFrom, $createdAtTo];
+    if (null !== $timeZone) {
+      $arguments['timeZone'] = $timeZone;
+    }
+    if (null !== $type) {
+      $arguments['type'] = $type;
+    }
+
+    return $this->facilityStatistics->countFacilitiesCreatedByDay(...$arguments);
   }
 
   /**

@@ -130,5 +130,19 @@ interface EquipmentRepositoryPort
    */
   public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array;
 
+  /**
+   * Counts equipment creations grouped by creation day for an organization.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByCreatedDayForOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array;
+
   // #endregion
 }

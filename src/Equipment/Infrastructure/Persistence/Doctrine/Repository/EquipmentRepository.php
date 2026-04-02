@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
+use Exception;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -13,7 +17,9 @@ use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function addcslashes;
@@ -51,6 +57,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
+    private string $storageTimeZone = 'UTC',
   ) {
     $this->repository = $this->entityManager->getRepository(EquipmentRecord::class);
   }
@@ -248,6 +256,55 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return $counts;
   }
 
+  public function countByCreatedDayForOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array {
+    $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $createdAtFrom);
+    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
+      return $this->countByCreatedDayForOrganizationIdPostgreSql(
+        organizationId: $organizationId,
+        createdAtFrom: $createdAtFrom,
+        createdAtTo: $createdAtTo,
+        bucketTimeZone: $bucketTimeZone,
+        type: $type,
+        status: $status,
+      );
+    }
+
+    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      null,
+      $type,
+      $status,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('e.createdAt AS createdAt')
+      ->andWhere('e.createdAt >= :createdAtFrom')
+      ->andWhere('e.createdAt <= :createdAtTo')
+      ->setParameter('createdAtFrom', $this->normalizeTimestampToStorageDateTime($createdAtFrom), Types::DATETIME_IMMUTABLE)
+      ->setParameter('createdAtTo', $this->normalizeTimestampToStorageDateTime($createdAtTo), Types::DATETIME_IMMUTABLE)
+      ->orderBy('e.createdAt', 'ASC')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $bucket = $this->reinterpretStorageDateTime($row['createdAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
+      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+    }
+
+    return $counts;
+  }
+
   private function createListQueryBuilder(
     EquipmentOrganizationId $organizationId,
     ?string $facilityId,
@@ -320,6 +377,98 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     }
 
     return $queryBuilder;
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countByCreatedDayForOrganizationIdPostgreSql(
+    EquipmentOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    DateTimeZone $bucketTimeZone,
+    ?string $type = null,
+    ?string $status = null,
+  ): array {
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS equipment_count
+        FROM equipment
+        WHERE organization_id = :organizationId
+          AND created_at >= :createdAtFrom
+          AND created_at <= :createdAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
+      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
+    ];
+
+    if (null !== $type) {
+      $sql .= "\n  AND type = :type";
+      $parameters['type'] = $type;
+    }
+
+    if (null !== $status) {
+      $sql .= "\n  AND status = :status";
+      $parameters['status'] = $status;
+    }
+
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, equipment_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['bucket']] = (int) $row['equipment_count'];
+    }
+
+    return $counts;
+  }
+
+  private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
+  {
+    if (null !== $timeZone && '' !== $timeZone) {
+      return new DateTimeZone($timeZone);
+    }
+
+    return new DateTimeImmutable($lowerBound)->getTimezone();
+  }
+
+  private function resolveStorageTimeZone(): DateTimeZone
+  {
+    try {
+      return new DateTimeZone($this->storageTimeZone);
+    } catch (Exception $exception) {
+      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+    }
+  }
+
+  private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
+  {
+    return new DateTimeImmutable($value)
+      ->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
+  {
+    return DateTimeImmutable::createFromFormat(
+      'Y-m-d H:i:s.u',
+      $value->format('Y-m-d H:i:s.u'),
+      $this->resolveStorageTimeZone(),
+    ) ?: $value->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
+  {
+    return (new DateTimeImmutable($value))
+      ->setTimezone($storageTimeZone)
+      ->format('Y-m-d H:i:s.u');
   }
 
   private function isDuplicateSerialNumberViolation(Throwable $exception): bool

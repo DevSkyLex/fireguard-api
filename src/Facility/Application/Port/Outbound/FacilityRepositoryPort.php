@@ -130,6 +130,19 @@ interface FacilityRepositoryPort
   ): array;
 
   /**
+   * Counts facilities grouped by creation day for an organization.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByCreatedDayForOrganizationId(
+    FacilityOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+  ): array;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities for an organization with optional filters.

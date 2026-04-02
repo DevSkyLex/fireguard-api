@@ -63,4 +63,22 @@ final readonly class EquipmentStatisticsAdapter implements EquipmentStatisticsPo
 
     return $normalizedCounts;
   }
+
+  public function countEquipmentCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array {
+    return $this->equipmentRepository->countByCreatedDayForOrganizationId(
+      organizationId: EquipmentOrganizationId::fromString($organizationId),
+      createdAtFrom: $createdAtFrom,
+      createdAtTo: $createdAtTo,
+      timeZone: $timeZone,
+      type: $type,
+      status: $status,
+    );
+  }
 }

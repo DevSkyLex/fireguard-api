@@ -45,4 +45,18 @@ interface EquipmentStatisticsPort
    * @return array<string, int> map of type => count
    */
   public function countEquipmentByType(string $organizationId): array;
+
+  /**
+   * Returns equipment creation counts grouped by day for a period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countEquipmentCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array;
 }

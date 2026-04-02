@@ -56,6 +56,8 @@ final class OrganizationPermissionCatalog
       'inspections_performed',
       'non_conformities_opened',
       'non_conformities_resolved' => ['organization.inspection.read'],
+      'equipment_created' => ['organization.equipment.read'],
+      'facilities_created' => ['organization.facilities.read'],
       default => throw new InvalidArgumentException('Unsupported organization dashboard trend metric.'),
     };
   }

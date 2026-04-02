@@ -37,6 +37,10 @@ final class OrganizationOperations
 
   public const string GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND = 'getOrganizationDashboardInspectionsTrend';
 
+  public const string GET_ORGANIZATION_DASHBOARD_EQUIPMENT_CREATED_TREND = 'getOrganizationDashboardEquipmentCreatedTrend';
+
+  public const string GET_ORGANIZATION_DASHBOARD_FACILITIES_CREATED_TREND = 'getOrganizationDashboardFacilitiesCreatedTrend';
+
   public const string GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND = 'getOrganizationDashboardNonConformitiesOpenedTrend';
 
   public const string GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND = 'getOrganizationDashboardNonConformitiesResolvedTrend';

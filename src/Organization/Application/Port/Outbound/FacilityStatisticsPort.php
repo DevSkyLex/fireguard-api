@@ -59,5 +59,18 @@ interface FacilityStatisticsPort
    * @return array<string, int> map of facility type => count
    */
   public function countFacilitiesByType(string $organizationId): array;
+
+  /**
+   * Returns facility creation counts grouped by day for a period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countFacilitiesCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+  ): array;
   // #endregion
 }

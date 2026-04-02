@@ -9,7 +9,9 @@ use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use DateTimeZone;
+use Equipment\Domain\ValueObject\{EquipmentStatus, EquipmentType};
 use Exception;
+use Facility\Domain\ValueObject\FacilityType;
 use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus, InspectorType, NonConformitySeverity, NonConformityStatus};
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -25,6 +27,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function array_column;
 use function filter_var;
 use function implode;
 use function in_array;
@@ -61,6 +64,8 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
    */
   private const array OPERATION_METRICS = [
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND => GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+    OrganizationOperations::GET_ORGANIZATION_DASHBOARD_EQUIPMENT_CREATED_TREND => GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+    OrganizationOperations::GET_ORGANIZATION_DASHBOARD_FACILITIES_CREATED_TREND => GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED,
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
   ];
@@ -114,6 +119,9 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $periodFrom = $this->extractDateFilter($filters, 'from');
     $periodTo = $this->extractDateFilter($filters, 'to');
     $requestedTimeZone = $this->extractTimeZoneFilter($filters);
+    $facilityType = $this->extractOptionalEnumFilter($filters, 'facilityType', FacilityType::values());
+    $equipmentType = $this->extractOptionalEnumFilter($filters, 'equipmentType', EquipmentType::values());
+    $equipmentStatus = $this->extractOptionalEnumFilter($filters, 'equipmentStatus', array_column(EquipmentStatus::cases(), 'value'));
     $inspectionStatus = $this->extractOptionalEnumFilter($filters, 'inspectionStatus', InspectionStatus::values());
     $inspectionResult = $this->extractOptionalEnumFilter($filters, 'inspectionResult', InspectionResult::values());
     $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
@@ -122,6 +130,9 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
 
     $this->assertMetricScopedFilters(
       metric: $metric,
+      facilityType: $facilityType,
+      equipmentType: $equipmentType,
+      equipmentStatus: $equipmentStatus,
       inspectionStatus: $inspectionStatus,
       inspectionResult: $inspectionResult,
       inspectorType: $inspectorType,
@@ -140,6 +151,9 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
         compareWithPreviousPeriod: $this->extractBooleanFilter($filters, 'compare', true),
         granularity: $this->extractGranularityFilter($filters),
         timeZone: $requestedTimeZone?->getName(),
+        facilityType: $facilityType,
+        equipmentType: $equipmentType,
+        equipmentStatus: $equipmentStatus,
         inspectionStatus: $inspectionStatus,
         inspectionResult: $inspectionResult,
         inspectorType: $inspectorType,
@@ -218,32 +232,61 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
    */
   private function assertMetricScopedFilters(
     string $metric,
+    ?string $facilityType,
+    ?string $equipmentType,
+    ?string $equipmentStatus,
     ?string $inspectionStatus,
     ?string $inspectionResult,
     ?string $inspectorType,
     ?string $nonConformityStatus,
     ?string $nonConformitySeverity,
   ): void {
-    if (GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED === $metric) {
-      $this->assertUnsupportedMetricFilters(
+    match ($metric) {
+      GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED => $this->assertUnsupportedMetricFilters(
         'inspection trend',
         [
+          'facilityType' => $facilityType,
+          'equipmentType' => $equipmentType,
+          'equipmentStatus' => $equipmentStatus,
           'nonConformityStatus' => $nonConformityStatus,
           'nonConformitySeverity' => $nonConformitySeverity,
         ],
-      );
-
-      return;
-    }
-
-    $this->assertUnsupportedMetricFilters(
-      'non-conformity trend',
-      [
-        'inspectionStatus' => $inspectionStatus,
-        'inspectionResult' => $inspectionResult,
-        'inspectorType' => $inspectorType,
-      ],
-    );
+      ),
+      GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED => $this->assertUnsupportedMetricFilters(
+        'equipment-created trend',
+        [
+          'facilityType' => $facilityType,
+          'inspectionStatus' => $inspectionStatus,
+          'inspectionResult' => $inspectionResult,
+          'inspectorType' => $inspectorType,
+          'nonConformityStatus' => $nonConformityStatus,
+          'nonConformitySeverity' => $nonConformitySeverity,
+        ],
+      ),
+      GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED => $this->assertUnsupportedMetricFilters(
+        'facilities-created trend',
+        [
+          'equipmentType' => $equipmentType,
+          'equipmentStatus' => $equipmentStatus,
+          'inspectionStatus' => $inspectionStatus,
+          'inspectionResult' => $inspectionResult,
+          'inspectorType' => $inspectorType,
+          'nonConformityStatus' => $nonConformityStatus,
+          'nonConformitySeverity' => $nonConformitySeverity,
+        ],
+      ),
+      default => $this->assertUnsupportedMetricFilters(
+        'non-conformity trend',
+        [
+          'facilityType' => $facilityType,
+          'equipmentType' => $equipmentType,
+          'equipmentStatus' => $equipmentStatus,
+          'inspectionStatus' => $inspectionStatus,
+          'inspectionResult' => $inspectionResult,
+          'inspectorType' => $inspectorType,
+        ],
+      ),
+    };
   }
 
   /**

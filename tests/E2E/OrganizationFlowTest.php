@@ -78,6 +78,14 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertArrayHasKey('series', $inspectionsTrendData);
     $this->assertArrayHasKey('summary', $inspectionsTrendData);
 
+    $equipmentCreatedTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'equipment-created');
+    $this->assertSame('equipment_created', $equipmentCreatedTrendData['metric'] ?? null);
+    $this->assertArrayHasKey('series', $equipmentCreatedTrendData);
+
+    $facilitiesCreatedTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'facilities-created');
+    $this->assertSame('facilities_created', $facilitiesCreatedTrendData['metric'] ?? null);
+    $this->assertArrayHasKey('series', $facilitiesCreatedTrendData);
+
     $openedTrendData = $this->requestOrganizationDashboardTrend($client, $ownerToken, $organizationId, 'non-conformities-opened');
     $this->assertSame('non_conformities_opened', $openedTrendData['metric'] ?? null);
     $this->assertArrayHasKey('series', $openedTrendData);
@@ -129,6 +137,8 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
 
     $this->assertOrganizationDashboardDenied($client, $memberToken, $organizationId);
     $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'inspections');
+    $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'equipment-created');
+    $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'facilities-created');
     $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'non-conformities-opened');
     $this->assertOrganizationDashboardTrendDenied($client, $memberToken, $organizationId, 'non-conformities-resolved');
   }
@@ -382,6 +392,8 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
 
     $this->assertOrganizationDashboardDenied($client, $ownerOneToken, $organizationTwoId);
     $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'inspections');
+    $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'equipment-created');
+    $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'facilities-created');
     $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'non-conformities-opened');
     $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'non-conformities-resolved');
   }
