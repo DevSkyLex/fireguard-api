@@ -109,6 +109,17 @@ interface EquipmentRepositoryPort
   ): int;
 
   /**
+   * Counts dashboard overview metrics for equipment in one query.
+   *
+   * @return array{total: int, in_stock: int, operational: int, under_maintenance: int, decommissioned: int}
+   */
+  public function countOverviewByOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    ?string $type = null,
+    ?string $status = null,
+  ): array;
+
+  /**
    * Counts equipment grouped by status for an organization.
    *
    * @since 1.0.0

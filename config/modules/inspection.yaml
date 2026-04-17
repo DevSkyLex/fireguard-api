@@ -94,3 +94,4 @@ services:
 
   Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsHandler:
     tags: ['messenger.message_handler']
+

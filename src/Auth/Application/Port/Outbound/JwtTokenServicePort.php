@@ -25,7 +25,7 @@ interface JwtTokenServicePort
    * @param array<string> $scopes the granted scopes
    * @param bool $rememberMe whether to use the long-lived refresh token TTL
    *
-   * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int}
+   * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int, access_token_id?: string, refresh_token_id?: string, refresh_token_expires_at?: int, remember_me?: bool}
    */
   public function generateTokens(string $userId, string $email, array $scopes = [], bool $rememberMe = true): array;
 

@@ -131,6 +131,7 @@ final class RefreshTokenProcessorTest extends TestCase
       tokenType: 'Bearer',
       expiresIn: 3600,
       scopes: ['READ', 'WRITE'],
+      rememberMe: true,
     );
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -141,10 +142,7 @@ final class RefreshTokenProcessorTest extends TestCase
 
     /** @var JwtTokenServicePort&MockObject $jwtService */
     $jwtService = $this->createMock(JwtTokenServicePort::class);
-    $jwtService->expects(self::once())
-      ->method('decodeRefreshToken')
-      ->with('refresh-new')
-      ->willReturn(['remember_me' => true]);
+    $jwtService->expects(self::never())->method('decodeRefreshToken');
 
     $cookieService = new RefreshTokenCookieService(
       environment: 'test',

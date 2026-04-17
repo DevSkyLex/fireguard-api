@@ -48,6 +48,13 @@ interface FacilityStatisticsPort
   public function countActiveFacilities(string $organizationId, ?string $type = null): int;
 
   /**
+   * Returns aggregate facility overview counts for dashboard cards.
+   *
+   * @return array{total: int, active: int}
+   */
+  public function countFacilityOverview(string $organizationId, ?string $type = null): array;
+
+  /**
    * Method countFacilitiesByType.
    *
    * Counts facilities by type for an organization, including archived ones.

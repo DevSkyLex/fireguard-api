@@ -42,7 +42,7 @@ final class OrganizationAuthorizationServiceTest extends TestCase
   {
     /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
-    $memberRepository->expects(self::exactly(2))
+    $memberRepository->expects(self::once())
       ->method('getPermissionNamesForUserInOrganization')
       ->willReturn(['organization.*']);
 
@@ -59,6 +59,30 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
       permission: 'organization.members.read',
     ));
+  }
+
+  #[Test]
+  public function testPermissionLookupIsCachedPerUserAndOrganization(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.dashboard.read', 'organization.members.read']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.dashboard.read',
+    ));
+
+    $service->assertGrantedPermissions(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permissions: ['organization.members.read'],
+    );
   }
 
   #[Test]

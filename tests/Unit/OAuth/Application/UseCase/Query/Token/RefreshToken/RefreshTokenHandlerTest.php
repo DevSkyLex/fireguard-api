@@ -241,6 +241,9 @@ final class RefreshTokenHandlerTest extends TestCase
         'refresh_token' => 'new-refresh-token',
         'token_type' => 'Bearer',
         'expires_in' => 3600,
+        'access_token_id' => 'access-id-new',
+        'refresh_token_id' => 'refresh-id-new',
+        'remember_me' => true,
       ]);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -267,6 +270,9 @@ final class RefreshTokenHandlerTest extends TestCase
     self::assertSame('access-token', $result->accessToken);
     self::assertSame('new-refresh-token', $result->refreshToken);
     self::assertSame(['openid', 'profile'], $result->scopes);
+    self::assertSame('access-id-new', $result->accessTokenId);
+    self::assertSame('refresh-id-new', $result->refreshTokenId);
+    self::assertTrue($result->rememberMe);
   }
 
   private function createUserView(bool $canLogin): UserView

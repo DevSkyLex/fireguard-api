@@ -18,6 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'access_tokens')]
+#[ORM\Index(name: 'idx_access_token_expiry', columns: ['expiry'])]
 final class AccessTokenRecord
 {
   // #region Properties

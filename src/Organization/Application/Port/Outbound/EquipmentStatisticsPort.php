@@ -29,6 +29,13 @@ interface EquipmentStatisticsPort
   public function countEquipment(string $organizationId, ?string $type = null, ?string $status = null): int;
 
   /**
+   * Returns aggregate equipment overview counts for dashboard cards.
+   *
+   * @return array{total: int, in_stock: int, operational: int, under_maintenance: int, decommissioned: int}
+   */
+  public function countEquipmentOverview(string $organizationId, ?string $type = null, ?string $status = null): array;
+
+  /**
    * Returns equipment counts grouped by status.
    *
    * @param string $organizationId the organization identifier

@@ -9,13 +9,13 @@ use DateTimeZone;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
-use Exception;
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Exception;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -202,6 +202,46 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->select('COUNT(e.id)')
       ->getQuery()
       ->getSingleScalarResult();
+  }
+
+  public function countOverviewByOrganizationId(EquipmentOrganizationId $organizationId, ?string $type = null, ?string $status = null): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(e.id) AS total',
+        'COALESCE(SUM(CASE WHEN e.status = :inStockStatus THEN 1 ELSE 0 END), 0) AS inStock',
+        'COALESCE(SUM(CASE WHEN e.status = :operationalStatus THEN 1 ELSE 0 END), 0) AS operational',
+        'COALESCE(SUM(CASE WHEN e.status = :underMaintenanceStatus THEN 1 ELSE 0 END), 0) AS underMaintenance',
+        'COALESCE(SUM(CASE WHEN e.status = :decommissionedStatus THEN 1 ELSE 0 END), 0) AS decommissioned',
+      )
+      ->from(EquipmentRecord::class, 'e')
+      ->where('e.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->setParameter('inStockStatus', 'in_stock')
+      ->setParameter('operationalStatus', 'operational')
+      ->setParameter('underMaintenanceStatus', 'under_maintenance')
+      ->setParameter('decommissionedStatus', 'decommissioned');
+
+    if (null !== $type) {
+      $queryBuilder->andWhere('e.type = :type')->setParameter('type', $type);
+    }
+    if (null !== $status) {
+      $queryBuilder->andWhere('e.status = :status')->setParameter('status', $status);
+    }
+
+    /** @var array{total?: int|string|null, inStock?: int|string|null, operational?: int|string|null, underMaintenance?: int|string|null, decommissioned?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'in_stock' => (int) ($row['inStock'] ?? 0),
+      'operational' => (int) ($row['operational'] ?? 0),
+      'under_maintenance' => (int) ($row['underMaintenance'] ?? 0),
+      'decommissioned' => (int) ($row['decommissioned'] ?? 0),
+    ];
   }
 
   public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array
@@ -466,7 +506,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
 
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
-    return (new DateTimeImmutable($value))
+    return new DateTimeImmutable($value)
       ->setTimezone($storageTimeZone)
       ->format('Y-m-d H:i:s.u');
   }

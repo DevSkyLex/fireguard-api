@@ -28,6 +28,18 @@ interface InspectionStatisticsPort
   ): int;
 
   /**
+   * Returns aggregate inspection overview counts for dashboard cards.
+   *
+   * @return array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int}
+   */
+  public function countInspectionOverview(
+    string $organizationId,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array;
+
+  /**
    * Returns inspection counts grouped by status.
    *
    * @return array<string, int> map of status => count
@@ -64,6 +76,20 @@ interface InspectionStatisticsPort
     ?string $result = null,
     ?string $inspectorType = null,
   ): int;
+
+  /**
+   * Returns aggregate inspection counts for a bounded dashboard period.
+   *
+   * @return array{total: int, closed: int, pass: int, fail: int, partial: int}
+   */
+  public function countInspectionPeriodMetrics(
+    string $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array;
 
   /**
    * Returns inspection counts grouped by performed day for a period.

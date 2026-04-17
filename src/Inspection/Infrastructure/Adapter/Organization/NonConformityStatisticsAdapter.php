@@ -36,6 +36,30 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     );
   }
 
+  public function countNonConformityOverview(
+    string $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    /** @var array<string, int> $overview */
+    $overview = $this->nonConformityRepository->countOverviewByOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      dueAtBefore: $dueAtBefore,
+      severity: $severity,
+      status: $status,
+    );
+
+    foreach (NonConformityStatus::cases() as $case) {
+      if (!isset($overview[$case->value])) {
+        $overview[$case->value] = 0;
+      }
+    }
+
+    /** @var array{total: int, open: int, in_progress: int, done: int, waived: int, overdue: int, critical_open: int} $overview */
+    return $overview;
+  }
+
   public function countNonConformitiesByStatus(string $organizationId): array
   {
     $counts = $this->nonConformityRepository->countByStatusForOrganizationId(
@@ -87,6 +111,24 @@ final readonly class NonConformityStatisticsAdapter implements NonConformityStat
     return $this->nonConformityRepository->countActiveByOrganizationIdAtDate(
       organizationId: InspectionOrganizationId::fromString($organizationId),
       at: $at,
+      severity: $severity,
+      status: $status,
+    );
+  }
+
+  public function countNonConformityPeriodMetrics(
+    string $organizationId,
+    string $periodFrom,
+    string $periodTo,
+    string $activeAt,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    return $this->nonConformityRepository->countPeriodMetricsByOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      periodFrom: $periodFrom,
+      periodTo: $periodTo,
+      activeAt: $activeAt,
       severity: $severity,
       status: $status,
     );

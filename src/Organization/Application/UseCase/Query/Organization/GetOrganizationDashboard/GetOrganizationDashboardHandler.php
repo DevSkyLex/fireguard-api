@@ -8,8 +8,6 @@ use BackedEnum;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
-use Equipment\Domain\ValueObject\EquipmentStatus;
-use Inspection\Domain\ValueObject\{InspectionResult, InspectionStatus, NonConformitySeverity, NonConformityStatus};
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
@@ -60,6 +58,18 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @var int
    */
   private const int DEFAULT_TREND_PERIOD_DAYS = 30;
+
+  /**
+   * Constant STORAGE_TIME_ZONE.
+   *
+   * Internal persistence timezone used for timestamp-without-time-zone
+   * organization member records.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  private const string STORAGE_TIME_ZONE = 'UTC';
 
   /**
    * Constant MAX_TREND_PERIOD_DAYS.
@@ -151,88 +161,54 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       OrganizationInvitationStatus::cases(),
     );
 
-    $facilityCount = $this->countFacilities($query->organizationId, $query->facilityType);
-    $activeFacilityCount = $this->countActiveFacilities($query->organizationId, $query->facilityType);
-
-    $equipmentTotalCount = $this->countEquipment($query->organizationId, $query->equipmentType, $query->equipmentStatus);
-    $equipmentCountsByStatus = null === $query->equipmentType && null === $query->equipmentStatus
-      ? $this->normalizeBreakdown(
-        $this->equipmentStatistics->countEquipmentByStatus($query->organizationId),
-        EquipmentStatus::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        EquipmentStatus::cases(),
-        $query->equipmentStatus,
-        fn (string $status): int => $this->countEquipment($query->organizationId, $query->equipmentType, $status),
-        $equipmentTotalCount,
-      );
-
-    $inspectionTotalCount = $this->countInspections($query->organizationId, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $inspectionCountsByStatus = null === $query->inspectionStatus && null === $query->inspectionResult && null === $query->inspectorType
-      ? $this->normalizeBreakdown(
-        $this->inspectionStatistics->countInspectionsByStatus($query->organizationId),
-        InspectionStatus::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        InspectionStatus::cases(),
-        $query->inspectionStatus,
-        fn (string $status): int => $this->countInspections($query->organizationId, $status, $query->inspectionResult, $query->inspectorType),
-        $inspectionTotalCount,
-      );
-    $inspectionCountsByResult = null === $query->inspectionStatus && null === $query->inspectionResult && null === $query->inspectorType
-      ? $this->normalizeBreakdown(
-        $this->inspectionStatistics->countInspectionsByResult($query->organizationId),
-        InspectionResult::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        InspectionResult::cases(),
-        $query->inspectionResult,
-        fn (string $result): int => $this->countInspections($query->organizationId, $query->inspectionStatus, $result, $query->inspectorType),
-        $inspectionTotalCount,
-      );
-
-    $nonConformityTotalCount = $this->countNonConformities($query->organizationId, $query->nonConformitySeverity, $query->nonConformityStatus);
-    $nonConformityCountsByStatus = null === $query->nonConformitySeverity && null === $query->nonConformityStatus
-      ? $this->normalizeBreakdown(
-        $this->nonConformityStatistics->countNonConformitiesByStatus($query->organizationId),
-        NonConformityStatus::cases(),
-      )
-      : $this->buildFilteredBreakdown(
-        NonConformityStatus::cases(),
-        $query->nonConformityStatus,
-        fn (string $status): int => $this->countNonConformities($query->organizationId, $query->nonConformitySeverity, $status),
-        $nonConformityTotalCount,
-      );
-
     $generatedAtFormatted = $this->formatIso8601($generatedAt);
-    $overdueNonConformityCount = $this->countOverdueNonConformities($query->organizationId, $generatedAtFormatted, $query->nonConformitySeverity, $query->nonConformityStatus);
-    $openCriticalNonConformityCount = $this->countOpenCriticalNonConformities($query->organizationId, $query->nonConformitySeverity, $query->nonConformityStatus);
+    $facilityOverview = $this->facilityStatistics->countFacilityOverview($query->organizationId, $query->facilityType);
+    $equipmentOverview = $this->equipmentStatistics->countEquipmentOverview($query->organizationId, $query->equipmentType, $query->equipmentStatus);
+    $inspectionOverview = $this->inspectionStatistics->countInspectionOverview($query->organizationId, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
+    $nonConformityOverview = $this->nonConformityStatistics->countNonConformityOverview($query->organizationId, $generatedAtFormatted, $query->nonConformitySeverity, $query->nonConformityStatus);
 
-    $draftInspectionCount = $inspectionCountsByStatus['draft'] ?? 0;
-    $submittedInspectionCount = $inspectionCountsByStatus['submitted'] ?? 0;
-    $closedInspectionCount = $inspectionCountsByStatus['closed'] ?? 0;
-    $passInspectionCount = $inspectionCountsByResult['pass'] ?? 0;
-    $failInspectionCount = $inspectionCountsByResult['fail'] ?? 0;
-    $partialInspectionCount = $inspectionCountsByResult['partial'] ?? 0;
-    $inStockEquipmentCount = $equipmentCountsByStatus['in_stock'] ?? 0;
-    $operationalEquipmentCount = $equipmentCountsByStatus['operational'] ?? 0;
-    $underMaintenanceEquipmentCount = $equipmentCountsByStatus['under_maintenance'] ?? 0;
-    $decommissionedEquipmentCount = $equipmentCountsByStatus['decommissioned'] ?? 0;
-    $openNonConformityCount = $nonConformityCountsByStatus['open'] ?? 0;
-    $inProgressNonConformityCount = $nonConformityCountsByStatus['in_progress'] ?? 0;
-    $doneNonConformityCount = $nonConformityCountsByStatus['done'] ?? 0;
-    $waivedNonConformityCount = $nonConformityCountsByStatus['waived'] ?? 0;
+    $facilityCount = $facilityOverview['total'];
+    $activeFacilityCount = $facilityOverview['active'];
+    $equipmentTotalCount = $equipmentOverview['total'];
+    $inStockEquipmentCount = $equipmentOverview['in_stock'];
+    $operationalEquipmentCount = $equipmentOverview['operational'];
+    $underMaintenanceEquipmentCount = $equipmentOverview['under_maintenance'];
+    $decommissionedEquipmentCount = $equipmentOverview['decommissioned'];
+    $inspectionTotalCount = $inspectionOverview['total'];
+    $draftInspectionCount = $inspectionOverview['draft'];
+    $submittedInspectionCount = $inspectionOverview['submitted'];
+    $closedInspectionCount = $inspectionOverview['closed'];
+    $passInspectionCount = $inspectionOverview['pass'];
+    $failInspectionCount = $inspectionOverview['fail'];
+    $partialInspectionCount = $inspectionOverview['partial'];
+    $nonConformityTotalCount = $nonConformityOverview['total'];
+    $openNonConformityCount = $nonConformityOverview['open'];
+    $inProgressNonConformityCount = $nonConformityOverview['in_progress'];
+    $doneNonConformityCount = $nonConformityOverview['done'];
+    $waivedNonConformityCount = $nonConformityOverview['waived'];
+    $overdueNonConformityCount = $nonConformityOverview['overdue'];
+    $openCriticalNonConformityCount = $nonConformityOverview['critical_open'];
 
     $periodStartFormatted = $this->formatIso8601($periodStart);
     $periodEndFormatted = $this->formatIso8601($periodEnd);
     $currentPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $periodStart, $periodEnd, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $currentNonConformityOpenedCount = $this->countPeriodNonConformitiesCreated($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->nonConformitySeverity, $query->nonConformityStatus);
-    $currentNonConformityResolvedCount = $this->countPeriodNonConformitiesResolved($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->nonConformitySeverity, $query->nonConformityStatus);
+    $currentNonConformityPeriodMetrics = $this->buildNonConformityPeriodMetrics($query->organizationId, $periodStart, $periodEnd, $query->nonConformitySeverity, $query->nonConformityStatus);
+    $currentNonConformityOpenedCount = $currentNonConformityPeriodMetrics['opened'];
+    $currentNonConformityResolvedCount = $currentNonConformityPeriodMetrics['resolved'];
     $currentPeriodHealth = [
       'inspectionCompletionRate' => $this->percentage($currentPeriodInspectionMetrics['closed'], $currentPeriodInspectionMetrics['total']),
       'inspectionPassRate' => $this->percentage($currentPeriodInspectionMetrics['pass'], $currentPeriodInspectionMetrics['pass'] + $currentPeriodInspectionMetrics['fail'] + $currentPeriodInspectionMetrics['partial']),
-      'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($query->organizationId, $periodStart, $currentNonConformityOpenedCount, $currentNonConformityResolvedCount, $query->nonConformitySeverity, $query->nonConformityStatus),
+      'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($currentNonConformityOpenedCount, $currentNonConformityResolvedCount, $currentNonConformityPeriodMetrics['activeAtStart']),
     ];
+    $currentFacilityCreatedCount = null !== $comparisonPeriod
+      ? $this->countPeriodFacilitiesCreated($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->facilityType)
+      : 0;
+    $currentMemberJoinedCount = null !== $comparisonPeriod
+      ? $this->countMembersJoinedBetween($organizationId, $periodStart, $periodEnd)
+      : 0;
+    $currentEquipmentCreatedCount = null !== $comparisonPeriod
+      ? $this->countPeriodEquipmentCreated($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->equipmentType, $query->equipmentStatus)
+      : 0;
 
     $overview = [
       'members' => [
@@ -312,6 +288,9 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       comparison: $this->buildComparison(
         $query,
         $currentPeriodInspectionMetrics['total'],
+        $currentFacilityCreatedCount,
+        $currentMemberJoinedCount,
+        $currentEquipmentCreatedCount,
         $currentNonConformityOpenedCount,
         $currentNonConformityResolvedCount,
         $currentPeriodHealth,
@@ -525,53 +504,44 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     ?string $result = null,
     ?string $inspectorType = null,
   ): array {
-    $from = $this->formatIso8601($periodStart);
-    $to = $this->formatIso8601($periodEnd);
-
-    $total = $this->countInspectionsBetween($organizationId, $from, $to, $status, $result, $inspectorType);
-
-    return [
-      'total' => $total,
-      'closed' => 'closed' === $status ? $total : (null !== $status ? 0 : $this->countInspectionsBetween($organizationId, $from, $to, 'closed', $result, $inspectorType)),
-      'pass' => 'pass' === $result ? $total : (null !== $result ? 0 : $this->countInspectionsBetween($organizationId, $from, $to, $status, 'pass', $inspectorType)),
-      'fail' => 'fail' === $result ? $total : (null !== $result ? 0 : $this->countInspectionsBetween($organizationId, $from, $to, $status, 'fail', $inspectorType)),
-      'partial' => 'partial' === $result ? $total : (null !== $result ? 0 : $this->countInspectionsBetween($organizationId, $from, $to, $status, 'partial', $inspectorType)),
-    ];
+    return $this->inspectionStatistics->countInspectionPeriodMetrics(
+      $organizationId,
+      $this->formatIso8601($periodStart),
+      $this->formatIso8601($periodEnd),
+      $status,
+      $result,
+      $inspectorType,
+    );
   }
 
   /**
-   * Method buildNonConformityPeriodResolutionRate.
-   *
-   * Calculate the non-conformity resolution rate for a given period based
-   * on the counts of opened and resolved non-conformities, as well as
-   * the active non-conformities at the start of the period.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the ID of the organization for which to calculate the resolution rate
-   * @param DateTimeImmutable $periodStart the start datetime of the period for which to calculate the resolution rate
-   * @param string|null $severity an optional filter for non-conformity severity to include in the resolution rate calculation
-   * @param string|null $status an optional filter for non-conformity status to include in the resolution rate calculation
-   *
-   * @return float the calculated non-conformity resolution rate for the specified period and filters
+   * @return array{opened: int, resolved: int, activeAtStart: int}
    */
-  private function buildNonConformityPeriodResolutionRate(
+  private function buildNonConformityPeriodMetrics(
     string $organizationId,
     DateTimeImmutable $periodStart,
-    int $openedCount,
-    int $resolvedCount,
+    DateTimeImmutable $periodEnd,
     ?string $severity = null,
     ?string $status = null,
-  ): float {
-    return $this->percentage(
-      $resolvedCount,
-      $this->countActiveNonConformitiesAtDate(
-        $organizationId,
-        $this->formatIso8601($periodStart),
-        $severity,
-        $status,
-      ) + $openedCount,
+  ): array {
+    $periodStartFormatted = $this->formatIso8601($periodStart);
+
+    return $this->nonConformityStatistics->countNonConformityPeriodMetrics(
+      $organizationId,
+      $periodStartFormatted,
+      $this->formatIso8601($periodEnd),
+      $periodStartFormatted,
+      $severity,
+      $status,
     );
+  }
+
+  private function buildNonConformityPeriodResolutionRate(
+    int $openedCount,
+    int $resolvedCount,
+    int $activeAtStartCount,
+  ): float {
+    return $this->percentage($resolvedCount, $activeAtStartCount + $openedCount);
   }
 
   /**
@@ -584,6 +554,9 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    *
    * @param GetOrganizationDashboardQuery $query the original dashboard query containing filters and parameters for the comparison
    * @param int $currentInspectionCount the number of inspections performed during the current period
+   * @param int $currentFacilityCreatedCount the number of facilities created during the current period
+   * @param int $currentMemberJoinedCount the number of members who joined during the current period
+   * @param int $currentEquipmentCreatedCount the number of equipment records created during the current period
    * @param int $currentNonConformityOpenedCount the number of non-conformities opened during the current period
    * @param int $currentNonConformityResolvedCount the number of non-conformities resolved during the current period
    * @param array<string, float> $currentPeriodHealth the health metrics for the current period, indexed by metric name
@@ -593,7 +566,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    *                              current and previous metrics, deltas, and health indicators. If no comparison period
    *                              is provided, the mode will be 'none' and metric values will be empty.
    */
-  private function buildComparison(GetOrganizationDashboardQuery $query, int $currentInspectionCount, int $currentNonConformityOpenedCount, int $currentNonConformityResolvedCount, array $currentPeriodHealth, ?array $comparisonPeriod): array
+  private function buildComparison(GetOrganizationDashboardQuery $query, int $currentInspectionCount, int $currentFacilityCreatedCount, int $currentMemberJoinedCount, int $currentEquipmentCreatedCount, int $currentNonConformityOpenedCount, int $currentNonConformityResolvedCount, array $currentPeriodHealth, ?array $comparisonPeriod): array
   {
     if (null === $comparisonPeriod) {
       return ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]];
@@ -601,14 +574,33 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $from = $this->formatIso8601($comparisonPeriod['from']);
     $to = $this->formatIso8601($comparisonPeriod['to']);
     $comparisonTimeZone = $comparisonPeriod['from']->getTimezone()->getName();
-    $previousNonConformityOpenedCount = $this->countPeriodNonConformitiesCreated($query->organizationId, $from, $to, $comparisonTimeZone, $query->nonConformitySeverity, $query->nonConformityStatus);
-    $previousNonConformityResolvedCount = $this->countPeriodNonConformitiesResolved($query->organizationId, $from, $to, $comparisonTimeZone, $query->nonConformitySeverity, $query->nonConformityStatus);
+    $comparisonOrganizationId = OrganizationId::fromString($query->organizationId);
+    $previousFacilityCreatedCount = $this->countPeriodFacilitiesCreated($query->organizationId, $from, $to, $comparisonTimeZone, $query->facilityType);
+    $previousMemberJoinedCount = $this->countMembersJoinedBetween($comparisonOrganizationId, $comparisonPeriod['from'], $comparisonPeriod['to']);
+    $previousEquipmentCreatedCount = $this->countPeriodEquipmentCreated($query->organizationId, $from, $to, $comparisonTimeZone, $query->equipmentType, $query->equipmentStatus);
+    $previousNonConformityPeriodMetrics = $this->buildNonConformityPeriodMetrics($query->organizationId, $comparisonPeriod['from'], $comparisonPeriod['to'], $query->nonConformitySeverity, $query->nonConformityStatus);
+    $previousNonConformityOpenedCount = $previousNonConformityPeriodMetrics['opened'];
+    $previousNonConformityResolvedCount = $previousNonConformityPeriodMetrics['resolved'];
     $previousPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $comparisonPeriod['from'], $comparisonPeriod['to'], $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
-    $previousPeriodHealth = ['inspectionCompletionRate' => $this->percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => $this->percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($query->organizationId, $comparisonPeriod['from'], $previousNonConformityOpenedCount, $previousNonConformityResolvedCount, $query->nonConformitySeverity, $query->nonConformityStatus)];
-    $current = ['inspectionsPerformed' => $currentInspectionCount, 'nonConformitiesOpened' => $currentNonConformityOpenedCount, 'nonConformitiesResolved' => $currentNonConformityResolvedCount];
-    $previous = ['inspectionsPerformed' => $previousPeriodInspectionMetrics['total'], 'nonConformitiesOpened' => $previousNonConformityOpenedCount, 'nonConformitiesResolved' => $previousNonConformityResolvedCount];
+    $previousPeriodHealth = ['inspectionCompletionRate' => $this->percentage($previousPeriodInspectionMetrics['closed'], $previousPeriodInspectionMetrics['total']), 'inspectionPassRate' => $this->percentage($previousPeriodInspectionMetrics['pass'], $previousPeriodInspectionMetrics['pass'] + $previousPeriodInspectionMetrics['fail'] + $previousPeriodInspectionMetrics['partial']), 'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($previousNonConformityOpenedCount, $previousNonConformityResolvedCount, $previousNonConformityPeriodMetrics['activeAtStart'])];
+    $current = [
+      'inspectionsPerformed' => $currentInspectionCount,
+      'facilitiesCreated' => $currentFacilityCreatedCount,
+      'membersJoined' => $currentMemberJoinedCount,
+      'equipmentCreated' => $currentEquipmentCreatedCount,
+      'nonConformitiesOpened' => $currentNonConformityOpenedCount,
+      'nonConformitiesResolved' => $currentNonConformityResolvedCount,
+    ];
+    $previous = [
+      'inspectionsPerformed' => $previousPeriodInspectionMetrics['total'],
+      'facilitiesCreated' => $previousFacilityCreatedCount,
+      'membersJoined' => $previousMemberJoinedCount,
+      'equipmentCreated' => $previousEquipmentCreatedCount,
+      'nonConformitiesOpened' => $previousNonConformityOpenedCount,
+      'nonConformitiesResolved' => $previousNonConformityResolvedCount,
+    ];
 
-    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => $this->relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'nonConformitiesOpened' => $this->relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => $this->relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => $this->relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
+    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => $this->relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'facilitiesCreated' => $this->relativeDelta($current['facilitiesCreated'], $previous['facilitiesCreated']), 'membersJoined' => $this->relativeDelta($current['membersJoined'], $previous['membersJoined']), 'equipmentCreated' => $this->relativeDelta($current['equipmentCreated'], $previous['equipmentCreated']), 'nonConformitiesOpened' => $this->relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => $this->relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => $this->relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
   }
 
   /**
@@ -720,108 +712,41 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * Method buildFilteredBreakdown.
-   *
-   * Build a breakdown of counts by enum cases, applying a filter to select a
-   * specific case if provided. If a selected value is given, only that case will have
-   * its count resolved using the provided resolver, while all other cases will be set to zero.
-   * If no selected value is provided, all cases will have their counts resolved using the resolver.
-   *
-   * @since 1.0.0
-   *
-   * @param list<BackedEnum> $cases a list of enum cases to include in the breakdown,
-   *                                where each case is a backed enum instance
-   * @param string|null $selectedValue an optional value to filter the breakdown by,
-   *                                   which corresponds to one of the enum case values
-   * @param callable(string):int $resolver a callable function that takes a resolved case value
-   *                                       as input and returns the count for that case
-   * @param int|null $selectedCount an optional pre-resolved count for the
-   *                                selected case, which can be provided to avoid calling the resolver if the count is already known
-   *
-   * @return array<int|string, int> an associative array where keys are enum case values and values are
-   *                                the corresponding counts, with only the selected case having its count resolved
-   *                                by the resolver (or using the provided selectedCount) and all other cases set to
-   *                                zero if a selectedValue is given; if no selectedValue is provided, all cases will
-   *                                have their counts resolved by the resolver
+   * @return array<string, int>
    */
-  private function buildFilteredBreakdown(array $cases, ?string $selectedValue, callable $resolver, ?int $selectedCount = null): array
+  private function countFacilitiesCreatedByDay(string $organizationId, string $createdAtFrom, string $createdAtTo, ?string $timeZone = null, ?string $type = null): array
   {
-    /** @var array<int|string, int> $breakdown */
-    $breakdown = [];
-    foreach ($cases as $case) {
-      /** @var BackedEnum $case */
-      $value = $case->value;
-      $resolvedValue = (string) $value;
-
-      if (null !== $selectedValue) {
-        if ($selectedValue === $value) {
-          $breakdown[$value] = $selectedCount ?? $resolver($resolvedValue);
-        } else {
-          $breakdown[$value] = 0;
-        }
-
-        continue;
-      }
-
-      $breakdown[$value] = $resolver($resolvedValue);
+    $arguments = [$organizationId, $createdAtFrom, $createdAtTo];
+    if (null !== $timeZone) {
+      $arguments['timeZone'] = $timeZone;
+    }
+    if (null !== $type) {
+      $arguments['type'] = $type;
     }
 
-    return $breakdown;
+    return $this->facilityStatistics->countFacilitiesCreatedByDay(...$arguments);
+  }
+
+  private function countPeriodFacilitiesCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $type = null): int
+  {
+    return $this->sumSeries($this->countFacilitiesCreatedByDay(
+      $organizationId,
+      $createdAtFrom,
+      $createdAtTo,
+      $timeZone,
+      $type,
+    ));
   }
 
   /**
-   * Method countFacilities.
-   *
-   * Counts facilities for the organization, optionally
-   * restricted to a single facility type.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string|null $type the optional facility type filter
-   *
-   * @return int the total matching facilities
+   * @return array<string, int>
    */
-  private function countFacilities(string $organizationId, ?string $type = null): int
+  private function countEquipmentCreatedByDay(string $organizationId, string $createdAtFrom, string $createdAtTo, ?string $timeZone = null, ?string $type = null, ?string $status = null): array
   {
-    return null === $type ? $this->facilityStatistics->countFacilities($organizationId) : $this->facilityStatistics->countFacilities($organizationId, $type);
-  }
-
-  /**
-   * Method countActiveFacilities.
-   *
-   * Counts active facilities for the organization, optionally
-   * restricted to a single facility type.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string|null $type the optional facility type filter
-   *
-   * @return int the total matching active facilities
-   */
-  private function countActiveFacilities(string $organizationId, ?string $type = null): int
-  {
-    return null === $type ? $this->facilityStatistics->countActiveFacilities($organizationId) : $this->facilityStatistics->countActiveFacilities($organizationId, $type);
-  }
-
-  /**
-   * Method countEquipment.
-   *
-   * Counts organization equipment with optional type
-   * and status filters.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string|null $type the optional equipment type filter
-   * @param string|null $status the optional equipment status filter
-   *
-   * @return int the total matching equipment count
-   */
-  private function countEquipment(string $organizationId, ?string $type = null, ?string $status = null): int
-  {
-    $arguments = [$organizationId];
+    $arguments = [$organizationId, $createdAtFrom, $createdAtTo];
+    if (null !== $timeZone) {
+      $arguments['timeZone'] = $timeZone;
+    }
     if (null !== $type) {
       $arguments['type'] = $type;
     }
@@ -829,280 +754,33 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       $arguments['status'] = $status;
     }
 
-    return $this->equipmentStatistics->countEquipment(...$arguments);
+    return $this->equipmentStatistics->countEquipmentCreatedByDay(...$arguments);
   }
 
-  /**
-   * Method countInspections.
-   *
-   * Counts inspections for the organization with optional
-   * status, result, and inspector filters.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string|null $status the optional inspection status filter
-   * @param string|null $result the optional inspection result filter
-   * @param string|null $inspectorType the optional inspector type filter
-   *
-   * @return int the total matching inspections
-   */
-  private function countInspections(string $organizationId, ?string $status = null, ?string $result = null, ?string $inspectorType = null): int
+  private function countPeriodEquipmentCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $type = null, ?string $status = null): int
   {
-    $arguments = [$organizationId];
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-    if (null !== $result) {
-      $arguments['result'] = $result;
-    }
-    if (null !== $inspectorType) {
-      $arguments['inspectorType'] = $inspectorType;
-    }
-
-    return $this->inspectionStatistics->countInspections(...$arguments);
-  }
-
-  /**
-   * Method countInspectionsBetween.
-   *
-   * Counts inspections performed inside the requested period
-   * with optional inspection filters.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string $performedAtFrom the inclusive lower performed-at bound
-   * @param string $performedAtTo the inclusive upper performed-at bound
-   * @param string|null $status the optional inspection status filter
-   * @param string|null $result the optional inspection result filter
-   * @param string|null $inspectorType the optional inspector type filter
-   *
-   * @return int the total matching inspections in the period
-   */
-  private function countInspectionsBetween(string $organizationId, string $performedAtFrom, string $performedAtTo, ?string $status = null, ?string $result = null, ?string $inspectorType = null): int
-  {
-    $arguments = [$organizationId, $performedAtFrom, $performedAtTo];
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-    if (null !== $result) {
-      $arguments['result'] = $result;
-    }
-    if (null !== $inspectorType) {
-      $arguments['inspectorType'] = $inspectorType;
-    }
-
-    return $this->inspectionStatistics->countInspectionsBetween(...$arguments);
-  }
-
-  /**
-   * Method countNonConformities.
-   *
-   * Counts non-conformities for the organization with optional
-   * severity and status filters.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string|null $severity the optional severity filter
-   * @param string|null $status the optional status filter
-   *
-   * @return int the total matching non-conformities
-   */
-  private function countNonConformities(string $organizationId, ?string $severity = null, ?string $status = null): int
-  {
-    $arguments = [$organizationId];
-    if (null !== $severity) {
-      $arguments['severity'] = $severity;
-    }
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-
-    return $this->nonConformityStatistics->countNonConformities(...$arguments);
-  }
-
-  /**
-   * Method countOverdueNonConformities.
-   *
-   * Counts overdue non-conformities while forcing the status
-   * scope to unresolved values only.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string $dueAtBefore the inclusive due-date upper bound
-   * @param string|null $severity the optional severity filter
-   * @param string|null $status the optional requested status filter
-   *
-   * @return int the total matching overdue unresolved non-conformities
-   */
-  private function countOverdueNonConformities(string $organizationId, string $dueAtBefore, ?string $severity = null, ?string $status = null): int
-  {
-    $unresolvedStatus = $this->resolveUnresolvedNonConformityStatus($status);
-    if (false === $unresolvedStatus) {
-      return 0;
-    }
-
-    $arguments = [$organizationId, $dueAtBefore];
-    if (null !== $severity) {
-      $arguments['severity'] = $severity;
-    }
-    if (null !== $unresolvedStatus) {
-      $arguments['status'] = $unresolvedStatus;
-    }
-
-    return $this->nonConformityStatistics->countOverdueNonConformities(...$arguments);
-  }
-
-  /**
-   * Method countActiveNonConformitiesAtDate.
-   *
-   * Counts active non-conformities at a specific point in time
-   * with optional severity and status filters.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string $at the reference timestamp
-   * @param string|null $severity the optional severity filter
-   * @param string|null $status the optional status filter
-   *
-   * @return int the total matching active non-conformities
-   */
-  private function countActiveNonConformitiesAtDate(string $organizationId, string $at, ?string $severity = null, ?string $status = null): int
-  {
-    $arguments = [$organizationId, $at];
-    if (null !== $severity) {
-      $arguments['severity'] = $severity;
-    }
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-
-    return $this->nonConformityStatistics->countActiveNonConformitiesAtDate(...$arguments);
-  }
-
-  /**
-   * @return array<string, int>
-   */
-  private function countNonConformitiesCreatedByDay(string $organizationId, string $createdAtFrom, string $createdAtTo, ?string $timeZone = null, ?string $severity = null, ?string $status = null): array
-  {
-    $arguments = [$organizationId, $createdAtFrom, $createdAtTo];
-    if (null !== $timeZone) {
-      $arguments['timeZone'] = $timeZone;
-    }
-    if (null !== $severity) {
-      $arguments['severity'] = $severity;
-    }
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-
-    return $this->nonConformityStatistics->countNonConformitiesCreatedByDay(...$arguments);
-  }
-
-  /**
-   * @return array<string, int>
-   */
-  private function countNonConformitiesResolvedByDay(string $organizationId, string $resolvedAtFrom, string $resolvedAtTo, ?string $timeZone = null, ?string $severity = null, ?string $status = null): array
-  {
-    $arguments = [$organizationId, $resolvedAtFrom, $resolvedAtTo];
-    if (null !== $timeZone) {
-      $arguments['timeZone'] = $timeZone;
-    }
-    if (null !== $severity) {
-      $arguments['severity'] = $severity;
-    }
-    if (null !== $status) {
-      $arguments['status'] = $status;
-    }
-
-    return $this->nonConformityStatistics->countNonConformitiesResolvedByDay(...$arguments);
-  }
-
-  private function countPeriodNonConformitiesCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $severity = null, ?string $status = null): int
-  {
-    return $this->sumSeries($this->countNonConformitiesCreatedByDay(
+    return $this->sumSeries($this->countEquipmentCreatedByDay(
       $organizationId,
       $createdAtFrom,
       $createdAtTo,
       $timeZone,
-      $severity,
+      $type,
       $status,
     ));
   }
 
-  private function countPeriodNonConformitiesResolved(string $organizationId, string $resolvedAtFrom, string $resolvedAtTo, string $timeZone, ?string $severity = null, ?string $status = null): int
+  private function countMembersJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int
   {
-    return $this->sumSeries($this->countNonConformitiesResolvedByDay(
+    return $this->memberRepository->countJoinedBetween(
       $organizationId,
-      $resolvedAtFrom,
-      $resolvedAtTo,
-      $timeZone,
-      $severity,
-      $status,
-    ));
+      $this->normalizeMemberTimestampForStorage($joinedAtFrom),
+      $this->normalizeMemberTimestampForStorage($joinedAtTo),
+    );
   }
 
-  /**
-   * Method countOpenCriticalNonConformities.
-   *
-   * Counts open critical non-conformities while discarding
-   * incompatible severity or resolved-status filters.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the organization identifier
-   * @param string|null $severity the optional severity filter
-   * @param string|null $status the optional requested status filter
-   *
-   * @return int the total matching open critical non-conformities
-   */
-  private function countOpenCriticalNonConformities(string $organizationId, ?string $severity = null, ?string $status = null): int
+  private function normalizeMemberTimestampForStorage(DateTimeImmutable $value): DateTimeImmutable
   {
-    if (null !== $severity && NonConformitySeverity::CRITICAL->value !== $severity) {
-      return 0;
-    }
-
-    $unresolvedStatus = $this->resolveUnresolvedNonConformityStatus($status);
-    if (false === $unresolvedStatus) {
-      return 0;
-    }
-
-    return null === $unresolvedStatus
-      ? $this->nonConformityStatistics->countOpenCriticalNonConformities($organizationId)
-      : $this->nonConformityStatistics->countOpenCriticalNonConformities($organizationId, $unresolvedStatus);
-  }
-
-  /**
-   * Method resolveUnresolvedNonConformityStatus.
-   *
-   * Narrows an optional non-conformity status filter to the unresolved
-   * values accepted by overdue and critical-open indicators.
-   *
-   * @since 1.0.0
-   *
-   * @param string|null $status the optional requested non-conformity status
-   *
-   * @return string|false|null the unresolved status to forward, null when unfiltered,
-   *                           or false when the requested status is resolved and should yield zero
-   */
-  private function resolveUnresolvedNonConformityStatus(?string $status): string|false|null
-  {
-    if (null === $status) {
-      return null;
-    }
-
-    return match ($status) {
-      NonConformityStatus::OPEN->value,
-      NonConformityStatus::IN_PROGRESS->value => $status,
-      NonConformityStatus::DONE->value,
-      NonConformityStatus::WAIVED->value => false,
-      default => false,
-    };
-
+    return $value->setTimezone(new DateTimeZone(self::STORAGE_TIME_ZONE));
   }
 
   // #endregion

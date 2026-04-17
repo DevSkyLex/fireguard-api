@@ -28,6 +28,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 
 use function array_column;
 use function array_keys;
+use function array_shift;
+use function explode;
 use function filter_var;
 use function implode;
 use function in_array;
@@ -37,8 +39,10 @@ use function is_float;
 use function is_int;
 use function is_string;
 use function sprintf;
+use function str_contains;
 use function timezone_identifiers_list;
 use function trim;
+use function ucfirst;
 
 use const FILTER_NULL_ON_FAILURE;
 use const FILTER_VALIDATE_BOOLEAN;
@@ -71,13 +75,63 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
   // region Constants
   /**
+   * @var list<array{source: string, metric: string, key: string, label: string}>
+   */
+  private const array COMPARISON_CARD_DEFINITIONS = [
+    [
+      'source' => 'inspectionsPerformed',
+      'metric' => 'inspections_performed',
+      'key' => 'inspections',
+      'label' => 'Inspections',
+    ],
+    [
+      'source' => 'facilitiesCreated',
+      'metric' => 'facilities_created',
+      'key' => 'facilities',
+      'label' => 'Facilities',
+    ],
+    [
+      'source' => 'membersJoined',
+      'metric' => 'members_joined',
+      'key' => 'members',
+      'label' => 'Members',
+    ],
+    [
+      'source' => 'equipmentCreated',
+      'metric' => 'equipment_created',
+      'key' => 'equipment',
+      'label' => 'Equipment',
+    ],
+    [
+      'source' => 'nonConformitiesOpened',
+      'metric' => 'non_conformities_opened',
+      'key' => 'nonConformitiesOpened',
+      'label' => 'Non-Conformities Opened',
+    ],
+    [
+      'source' => 'nonConformitiesResolved',
+      'metric' => 'non_conformities_resolved',
+      'key' => 'nonConformitiesResolved',
+      'label' => 'Non-Conformities Resolved',
+    ],
+  ];
+
+  /**
    * @var array<string, string>
    */
-  private const array TREND_METRIC_KEYS = [
-    'inspectionsPerformed' => 'inspections_performed',
-    'nonConformitiesOpened' => 'non_conformities_opened',
-    'nonConformitiesResolved' => 'non_conformities_resolved',
+  private const array OVERVIEW_PRIMARY_KEYS = [
+    'members' => 'total',
+    'roles' => 'total',
+    'invitations' => 'pending',
+    'facilities' => 'total',
+    'equipment' => 'operational',
+    'inspections' => 'closed',
+    'nonConformities' => 'open',
   ];
+
+  private const string HEALTH_UNIT_PERCENT = 'percent';
+
+  private const float HEALTH_PERCENT_MAX = 100.0;
   // endregion
 
   // #region Constructor
@@ -145,6 +199,11 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
     $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
     $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
+    $overviewPrimaryMetricKeys = $this->resolveOverviewPrimaryMetricKeys(
+      equipmentStatus: $equipmentStatus,
+      inspectionStatus: $inspectionStatus,
+      nonConformityStatus: $nonConformityStatus,
+    );
 
     try {
       /** @var GetOrganizationDashboardResult $result */
@@ -189,7 +248,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
       throw $exception;
     }
 
-    $normalizedOverview = $this->normalizeOverview($result->overview);
+    $normalizedOverview = $this->normalizeOverview($result->overview, $overviewPrimaryMetricKeys);
     $normalizedHealth = $this->normalizeHealth($result->health);
     $normalizedAlerts = $this->normalizeAlerts($result->alerts);
     $normalizedComparison = $this->normalizeComparison($result->comparison);
@@ -377,10 +436,11 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
   /**
    * @param array<string, mixed> $overview
+   * @param array<string, string> $primaryMetricKeys
    *
-   * @return array<string, array{summary: list<array{key: string, value: int}>}>
+   * @return array<string, array{summary: list<array{key: string, value: int}>, primary: ?array{key: string, value: int}}>
    */
-  private function normalizeOverview(array $overview): array
+  private function normalizeOverview(array $overview, array $primaryMetricKeys = []): array
   {
     $normalized = [];
     foreach ($overview as $widgetKey => $widgetData) {
@@ -406,6 +466,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
       $normalized[$widgetKey] = [
         'summary' => $summary,
+        'primary' => $this->resolveOverviewPrimaryMetric($widgetKey, $summary, $primaryMetricKeys[$widgetKey] ?? null),
       ];
     }
 
@@ -415,7 +476,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
   /**
    * @param array<string, float> $health
    *
-   * @return array{metrics: list<array{key: string, value: float, unit: string}>}
+   * @return array{metrics: list<array{key: string, value: float, unit: string, max: ?float}>}
    */
   private function normalizeHealth(array $health): array
   {
@@ -424,7 +485,8 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
       $metrics[] = [
         'key' => $metricKey,
         'value' => $value,
-        'unit' => 'percent',
+        'unit' => self::HEALTH_UNIT_PERCENT,
+        'max' => self::HEALTH_PERCENT_MAX,
       ];
     }
 
@@ -448,8 +510,8 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    *   mode: string,
    *   from: ?string,
    *   to: ?string,
-   *   metrics: list<array{metric: string, current: ?int, previous: ?int, delta: ?float}>,
-   *   health: array{metrics: list<array{key: string, unit: string, current: ?float, previous: ?float, delta: ?float}>}
+   *   metrics: list<array{key: string, metric: string, label: string, value: ?string, current: ?int, previous: ?int, delta: ?float, direction: ?string}>,
+   *   health: array{metrics: list<array{key: string, unit: string, max: ?float, current: ?float, previous: ?float, delta: ?float, direction: ?string}>}
    * }
    */
   private function normalizeComparison(array $comparison): array
@@ -483,17 +545,28 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * @param array<string, mixed> $previous
    * @param array<string, mixed> $deltas
    *
-   * @return list<array{metric: string, current: ?int, previous: ?int, delta: ?float}>
+   * @return list<array{key: string, metric: string, label: string, value: ?string, current: ?int, previous: ?int, delta: ?float, direction: ?string}>
    */
   private function buildComparisonMetrics(array $current, array $previous, array $deltas): array
   {
     $metrics = [];
-    foreach (self::TREND_METRIC_KEYS as $legacyKey => $metricKey) {
+    foreach (self::COMPARISON_CARD_DEFINITIONS as $definition) {
+      $sourceKey = $definition['source'];
+      $metricKey = $definition['metric'];
+      $currentValue = $this->extractMetricIntValue($current, $sourceKey, $metricKey);
+      $previousValue = $this->extractMetricIntValue($previous, $sourceKey, $metricKey);
+      $delta = $this->extractMetricFloatValue($deltas, $sourceKey, $metricKey);
+      $difference = null !== $currentValue && null !== $previousValue ? $currentValue - $previousValue : null;
+
       $metrics[] = [
+        'key' => $definition['key'],
         'metric' => $metricKey,
-        'current' => $this->extractMetricIntValue($current, $legacyKey, $metricKey),
-        'previous' => $this->extractMetricIntValue($previous, $legacyKey, $metricKey),
-        'delta' => $this->extractMetricFloatValue($deltas, $legacyKey, $metricKey),
+        'label' => $definition['label'],
+        'value' => $this->formatSignedMetricDifference($difference),
+        'current' => $currentValue,
+        'previous' => $previousValue,
+        'delta' => $delta,
+        'direction' => $this->resolveDirection(null !== $difference ? (float) $difference : $delta),
       ];
     }
 
@@ -505,7 +578,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    * @param array<string, float> $previous
    * @param array<string, float> $deltas
    *
-   * @return list<array{key: string, unit: string, current: ?float, previous: ?float, delta: ?float}>
+   * @return list<array{key: string, unit: string, max: ?float, current: ?float, previous: ?float, delta: ?float, direction: ?string}>
    */
   private function buildHealthComparisonMetrics(array $current, array $previous, array $deltas): array
   {
@@ -518,16 +591,108 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
 
     $metrics = [];
     foreach (array_keys($keys) as $key) {
+      $delta = $deltas[$key] ?? null;
+
       $metrics[] = [
         'key' => $key,
-        'unit' => 'percent',
+        'unit' => self::HEALTH_UNIT_PERCENT,
+        'max' => self::HEALTH_PERCENT_MAX,
         'current' => $current[$key] ?? null,
         'previous' => $previous[$key] ?? null,
-        'delta' => $deltas[$key] ?? null,
+        'delta' => $delta,
+        'direction' => $this->resolveDirection($delta),
       ];
     }
 
     return $metrics;
+  }
+
+  /**
+   * @param list<array{key: string, value: int}> $summary
+   *
+   * @return ?array{key: string, value: int}
+   */
+  private function resolveOverviewPrimaryMetric(string $widgetKey, array $summary, ?string $overrideKey = null): ?array
+  {
+    $preferredKey = $overrideKey ?? self::OVERVIEW_PRIMARY_KEYS[$widgetKey] ?? null;
+
+    if (null !== $preferredKey) {
+      foreach ($summary as $entry) {
+        if ($entry['key'] === $preferredKey) {
+          return $entry;
+        }
+      }
+    }
+
+    return $summary[0] ?? null;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function resolveOverviewPrimaryMetricKeys(?string $equipmentStatus, ?string $inspectionStatus, ?string $nonConformityStatus): array
+  {
+    $keys = [];
+
+    if (null !== $equipmentStatus) {
+      $keys['equipment'] = $this->camelizeOverviewMetricKey($equipmentStatus);
+    }
+
+    if (null !== $inspectionStatus) {
+      $keys['inspections'] = $this->camelizeOverviewMetricKey($inspectionStatus);
+    }
+
+    if (null !== $nonConformityStatus) {
+      $keys['nonConformities'] = $this->camelizeOverviewMetricKey($nonConformityStatus);
+    }
+
+    return $keys;
+  }
+
+  private function camelizeOverviewMetricKey(string $value): string
+  {
+    if (!str_contains($value, '_')) {
+      return $value;
+    }
+
+    $segments = explode('_', $value);
+    $normalized = (string) array_shift($segments);
+
+    foreach ($segments as $segment) {
+      $normalized .= ucfirst($segment);
+    }
+
+    return $normalized;
+  }
+
+  private function resolveDirection(?float $delta): ?string
+  {
+    if (null === $delta) {
+      return null;
+    }
+
+    if ($delta > 0.0) {
+      return 'up';
+    }
+
+    if ($delta < 0.0) {
+      return 'down';
+    }
+
+    return 'stable';
+  }
+
+  private function formatSignedMetricDifference(?int $difference): ?string
+  {
+    if (null === $difference) {
+      return null;
+    }
+
+    if (0 === $difference) {
+      return '0';
+    }
+
+    return sprintf('%+d', $difference);
   }
 
   /**

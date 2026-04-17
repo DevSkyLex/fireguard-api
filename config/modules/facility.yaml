@@ -44,3 +44,4 @@ services:
 
   # Console Commands use #[AsCommand]
   Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~
+

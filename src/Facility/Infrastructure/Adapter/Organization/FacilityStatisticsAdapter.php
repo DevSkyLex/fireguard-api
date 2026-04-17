@@ -55,6 +55,14 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
     );
   }
 
+  public function countFacilityOverview(string $organizationId, ?string $type = null): array
+  {
+    return $this->facilityRepository->countOverviewByOrganizationId(
+      organizationId: FacilityOrganizationId::fromString($organizationId),
+      type: $type,
+    );
+  }
+
   /**
    * {@inheritDoc}
    */

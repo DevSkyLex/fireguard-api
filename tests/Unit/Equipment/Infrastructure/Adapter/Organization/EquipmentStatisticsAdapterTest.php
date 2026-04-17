@@ -17,6 +17,31 @@ final class EquipmentStatisticsAdapterTest extends TestCase
   private const string ORG_ID = '550e8400-e29b-41d4-a716-446655440001';
 
   #[Test]
+  public function testCountEquipmentOverviewNormalizesMissingStatusesToZero(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countOverviewByOrganizationId')
+      ->with(
+        self::callback(static fn (EquipmentOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        'fire_extinguisher',
+        'operational',
+      )
+      ->willReturn(['total' => 5, 'operational' => 5]);
+
+    $adapter = new EquipmentStatisticsAdapter($repository);
+
+    self::assertSame([
+      'total' => 5,
+      'operational' => 5,
+      'in_stock' => 0,
+      'under_maintenance' => 0,
+      'decommissioned' => 0,
+    ], $adapter->countEquipmentOverview(self::ORG_ID, 'fire_extinguisher', 'operational'));
+  }
+
+  #[Test]
   public function testCountEquipmentByStatusNormalizesMissingStatusesToZero(): void
   {
     /** @var EquipmentRepositoryPort&MockObject $repository */

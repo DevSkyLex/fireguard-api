@@ -91,3 +91,4 @@ services:
 
   Equipment\Application\UseCase\Query\Tag\ListTags\ListTagsHandler:
     tags: ['messenger.message_handler']
+

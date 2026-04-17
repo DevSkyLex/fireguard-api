@@ -37,6 +37,9 @@ final class TokenRefreshAdapterTest extends TestCase
         tokenType: 'Bearer',
         expiresIn: 3600,
         scopes: ['OPENID'],
+        accessTokenId: 'access-id',
+        refreshTokenId: 'refresh-id',
+        rememberMe: true,
       ));
 
     $adapter = new TokenRefreshAdapter($queryBus);
@@ -47,6 +50,9 @@ final class TokenRefreshAdapterTest extends TestCase
     self::assertTrue($result->success);
     self::assertSame('user-1', $result->userId);
     self::assertSame(['OPENID'], $result->scopes);
+    self::assertSame('access-id', $result->accessTokenId);
+    self::assertSame('refresh-id', $result->refreshTokenId);
+    self::assertTrue($result->rememberMe);
   }
 
   #[Test]

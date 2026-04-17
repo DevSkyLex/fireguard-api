@@ -21,8 +21,13 @@ use function explode;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class OrganizationAuthorizationService implements OrganizationAuthorizationPort
+final class OrganizationAuthorizationService implements OrganizationAuthorizationPort
 {
+  /**
+   * @var array<string, list<string>>
+   */
+  private array $permissionCache = [];
+
   // #region Constructor
   /**
    * Constructor.
@@ -35,7 +40,7 @@ final readonly class OrganizationAuthorizationService implements OrganizationAut
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    */
   public function __construct(
-    private OrganizationMemberRepositoryPort $memberRepository,
+    private readonly OrganizationMemberRepositoryPort $memberRepository,
   ) {
   }
   // #endregion
@@ -81,7 +86,12 @@ final readonly class OrganizationAuthorizationService implements OrganizationAut
    */
   public function getUserPermissions(string $userId, string $organizationId): array
   {
-    return $this->memberRepository->getPermissionNamesForUserInOrganization(
+    $cacheKey = $userId . '|' . $organizationId;
+    if (isset($this->permissionCache[$cacheKey])) {
+      return $this->permissionCache[$cacheKey];
+    }
+
+    return $this->permissionCache[$cacheKey] = $this->memberRepository->getPermissionNamesForUserInOrganization(
       userId: $userId,
       organizationId: OrganizationId::fromString($organizationId),
     );

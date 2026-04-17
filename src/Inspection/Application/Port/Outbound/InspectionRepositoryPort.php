@@ -132,6 +132,18 @@ interface InspectionRepositoryPort
   ): int;
 
   /**
+   * Counts dashboard overview metrics for inspections in one query.
+   *
+   * @return array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int}
+   */
+  public function countOverviewByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array;
+
+  /**
    * Counts inspections grouped by status for an organization.
    *
    * @return array<string, int> map of status => count
@@ -162,6 +174,20 @@ interface InspectionRepositoryPort
     string $performedAtFrom,
     string $performedAtTo,
     ?string $timeZone = null,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array;
+
+  /**
+   * Counts dashboard period inspection metrics in one query.
+   *
+   * @return array{total: int, closed: int, pass: int, fail: int, partial: int}
+   */
+  public function countPeriodMetricsByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
     ?string $status = null,
     ?string $result = null,
     ?string $inspectorType = null,

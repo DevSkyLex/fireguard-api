@@ -62,6 +62,9 @@ final readonly class TokenRefreshAdapter implements TokenRefreshPort
       tokenType: $result->tokenType,
       expiresIn: $result->expiresIn,
       scopes: $result->scopes,
+      accessTokenId: $result->accessTokenId,
+      refreshTokenId: $result->refreshTokenId,
+      rememberMe: $result->rememberMe,
     );
   }
   // #endregion

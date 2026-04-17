@@ -104,7 +104,7 @@ class ClientFixtures extends Fixture implements FixtureGroupInterface
    */
   public static function getGroups(): array
   {
-    return ['client', 'default'];
+    return ['client', 'auth-seed'];
   }
 
   /**

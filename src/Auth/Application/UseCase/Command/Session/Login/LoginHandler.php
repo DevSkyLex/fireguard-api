@@ -16,8 +16,10 @@ use Shared\Application\Port\Outbound\{EventDispatcherPort, RateLimiterPort};
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
+use function array_key_exists;
 use function hash;
 use function is_array;
+use function is_string;
 use function sprintf;
 use function strtolower;
 use function substr;
@@ -220,18 +222,21 @@ final readonly class LoginHandler implements CommandHandler
    *
    * @param LoginCommand $command the login command
    * @param string $userId the user ID
-   * @param array{access_token: string, refresh_token: string} $tokens issued tokens
+   * @param array{access_token: string, refresh_token: string, access_token_id?: string, refresh_token_id?: string} $tokens issued tokens
    *
    * @return void no return value
    */
   private function recordSession(LoginCommand $command, string $userId, array $tokens): void
   {
-    $refreshPayload = $this->tokenService->decodeRefreshToken($tokens['refresh_token']);
-    $accessTokenId = null;
-    $refreshTokenId = null;
-    if (is_array($refreshPayload)) {
-      $accessTokenId = $refreshPayload['access_token_id'];
-      $refreshTokenId = $refreshPayload['refresh_token_id'];
+    $accessTokenId = $this->getTokenIdentifier($tokens, 'access_token_id');
+    $refreshTokenId = $this->getTokenIdentifier($tokens, 'refresh_token_id');
+
+    if (null === $accessTokenId || null === $refreshTokenId) {
+      $refreshPayload = $this->tokenService->decodeRefreshToken($tokens['refresh_token']);
+      if (is_array($refreshPayload)) {
+        $accessTokenId = $refreshPayload['access_token_id'];
+        $refreshTokenId = $refreshPayload['refresh_token_id'];
+      }
     }
 
     $ipAddress = $command->ipAddress ?? '127.0.0.1';
@@ -249,6 +254,18 @@ final readonly class LoginHandler implements CommandHandler
     } catch (Throwable) {
       // Best-effort session tracking; login must not fail.
     }
+  }
+
+  /**
+   * @param array<string, mixed> $tokens issued tokens
+   */
+  private function getTokenIdentifier(array $tokens, string $key): ?string
+  {
+    if (!array_key_exists($key, $tokens) || !is_string($tokens[$key]) || '' === $tokens[$key]) {
+      return null;
+    }
+
+    return $tokens[$key];
   }
 
   /**

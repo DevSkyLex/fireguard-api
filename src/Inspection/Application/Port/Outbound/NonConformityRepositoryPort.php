@@ -120,6 +120,18 @@ interface NonConformityRepositoryPort
   ): int;
 
   /**
+   * Counts dashboard overview metrics for non-conformities in one query.
+   *
+   * @return array{total: int, open: int, in_progress: int, done: int, waived: int, overdue: int, critical_open: int}
+   */
+  public function countOverviewByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
    * Counts non-conformities grouped by status for an organization.
    *
    * @return array<string, int> map of status => count
@@ -177,6 +189,20 @@ interface NonConformityRepositoryPort
     string $resolvedAtFrom,
     string $resolvedAtTo,
     ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts dashboard period non-conformity metrics in one query.
+   *
+   * @return array{opened: int, resolved: int, activeAtStart: int}
+   */
+  public function countPeriodMetricsByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $periodFrom,
+    string $periodTo,
+    string $activeAt,
     ?string $severity = null,
     ?string $status = null,
   ): array;

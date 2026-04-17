@@ -355,6 +355,24 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     ]);
   }
 
+  public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->memberRepository
+      ->createQueryBuilder('organizationMember')
+      ->select('COUNT(organizationMember.id)')
+      ->where('organizationMember.organization = :organization')
+      ->andWhere('organizationMember.joinedAt >= :joinedAtFrom')
+      ->andWhere('organizationMember.joinedAt <= :joinedAtTo')
+      ->setParameter('organization', $organization)
+      ->setParameter('joinedAtFrom', $joinedAtFrom)
+      ->setParameter('joinedAtTo', $joinedAtTo)
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
   /**
    * Method getPermissionNamesForUserInOrganization.
    *

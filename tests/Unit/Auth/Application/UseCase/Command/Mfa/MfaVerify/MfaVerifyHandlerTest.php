@@ -135,14 +135,10 @@ final class MfaVerifyHandlerTest extends TestCase
         'refresh_token' => 'refresh',
         'token_type' => 'Bearer',
         'expires_in' => 3600,
-      ]);
-    $jwt->expects(self::once())
-      ->method('decodeRefreshToken')
-      ->with('refresh')
-      ->willReturn([
         'access_token_id' => 'access-id',
         'refresh_token_id' => 'refresh-id',
       ]);
+    $jwt->expects(self::never())->method('decodeRefreshToken');
 
     /** @var ChallengeVerifierPort&MockObject $verifier */
     $verifier = $this->createMock(ChallengeVerifierPort::class);

@@ -12,7 +12,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
  * API output returned by the aggregate organization dashboard endpoint.
  *
  * The payload is front-oriented but presentation-agnostic: stable keys, values,
- * iterable collections, and no UI wording meant to replace frontend pipes.
+ * iterable collections, and fixed comparison-card labels for the default KPI set.
  */
 final class OrganizationDashboardOutput
 {
@@ -28,14 +28,14 @@ final class OrganizationDashboardOutput
   public array $period = [];
 
   /**
-   * @var array<string, array{summary: list<array{key: string, value: int}>}>
+   * @var array<string, array{summary: list<array{key: string, value: int}>, primary: ?array{key: string, value: int}}>
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $overview = [];
 
   /**
-   * @var array{metrics: list<array{key: string, value: float, unit: string}>}
+   * @var array{metrics: list<array{key: string, value: float, unit: string, max: ?float}>}
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
@@ -49,7 +49,7 @@ final class OrganizationDashboardOutput
   public array $alerts = [];
 
   /**
-   * @var array{mode: string, from: ?string, to: ?string, metrics: list<array{metric: string, current: ?int, previous: ?int, delta: ?float}>, health: array{metrics: list<array{key: string, unit: string, current: ?float, previous: ?float, delta: ?float}>}}
+   * @var array{mode: string, from: ?string, to: ?string, metrics: list<array{key: string, metric: string, label: string, value: ?string, current: ?int, previous: ?int, delta: ?float, direction: ?string}>, health: array{metrics: list<array{key: string, unit: string, max: ?float, current: ?float, previous: ?float, delta: ?float, direction: ?string}>}}
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]

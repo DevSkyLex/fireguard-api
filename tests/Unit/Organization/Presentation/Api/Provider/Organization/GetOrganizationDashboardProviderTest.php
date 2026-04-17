@@ -117,9 +117,30 @@ final class GetOrganizationDashboardProviderTest extends TestCase
           'mode' => 'previous_period',
           'from' => '2026-02-14T01:00:00+01:00',
           'to' => '2026-03-01T00:59:59+01:00',
-          'current' => ['inspectionsPerformed' => 8],
-          'previous' => ['inspectionsPerformed' => 4],
-          'deltas' => ['inspectionsPerformed' => 100.0],
+          'current' => [
+            'inspectionsPerformed' => 8,
+            'facilitiesCreated' => 3,
+            'membersJoined' => 4,
+            'equipmentCreated' => 6,
+            'nonConformitiesOpened' => 2,
+            'nonConformitiesResolved' => 1,
+          ],
+          'previous' => [
+            'inspectionsPerformed' => 4,
+            'facilitiesCreated' => 2,
+            'membersJoined' => 1,
+            'equipmentCreated' => 5,
+            'nonConformitiesOpened' => 1,
+            'nonConformitiesResolved' => 0,
+          ],
+          'deltas' => [
+            'inspectionsPerformed' => 100.0,
+            'facilitiesCreated' => 50.0,
+            'membersJoined' => 300.0,
+            'equipmentCreated' => 20.0,
+            'nonConformitiesOpened' => 100.0,
+            'nonConformitiesResolved' => 100.0,
+          ],
           'health' => [
             'current' => ['inspectionCompletionRate' => 50.0],
             'previous' => ['inspectionCompletionRate' => 40.0],
@@ -154,17 +175,264 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     self::assertArrayNotHasKey('granularity', $period);
     self::assertSame('total', $output->overview['members']['summary'][0]['key']);
     self::assertSame(4, $output->overview['members']['summary'][0]['value']);
+    $membersPrimary = $output->overview['members']['primary'];
+    self::assertNotNull($membersPrimary);
+    self::assertSame('total', $membersPrimary['key']);
+    self::assertSame(4, $membersPrimary['value']);
     self::assertSame('active', $output->overview['members']['summary'][1]['key']);
     self::assertArrayNotHasKey('breakdowns', $output->overview['facilities']);
+    $facilitiesPrimary = $output->overview['facilities']['primary'];
+    self::assertNotNull($facilitiesPrimary);
+    self::assertSame('total', $facilitiesPrimary['key']);
+    self::assertSame(2, $facilitiesPrimary['value']);
     self::assertSame('memberActivationRate', $output->health['metrics'][0]['key']);
     self::assertSame(75.0, $output->health['metrics'][0]['value']);
+    self::assertSame('percent', $output->health['metrics'][0]['unit']);
+    self::assertSame(100.0, $output->health['metrics'][0]['max']);
     self::assertSame('expired_invitations', $output->alerts[0]['code']);
     self::assertSame('previous_period', $output->comparison['mode']);
+    self::assertSame('inspections', $output->comparison['metrics'][0]['key']);
     self::assertSame('inspections_performed', $output->comparison['metrics'][0]['metric']);
+    self::assertSame('Inspections', $output->comparison['metrics'][0]['label']);
+    self::assertSame('+4', $output->comparison['metrics'][0]['value']);
     self::assertSame(8, $output->comparison['metrics'][0]['current']);
+    self::assertSame('up', $output->comparison['metrics'][0]['direction']);
+    self::assertSame('facilities', $output->comparison['metrics'][1]['key']);
+    self::assertSame('facilities_created', $output->comparison['metrics'][1]['metric']);
+    self::assertSame('Facilities', $output->comparison['metrics'][1]['label']);
+    self::assertSame('+1', $output->comparison['metrics'][1]['value']);
+    self::assertSame(3, $output->comparison['metrics'][1]['current']);
+    self::assertSame(2, $output->comparison['metrics'][1]['previous']);
+    self::assertSame(50.0, $output->comparison['metrics'][1]['delta']);
+    self::assertSame('up', $output->comparison['metrics'][1]['direction']);
+    self::assertSame('members', $output->comparison['metrics'][2]['key']);
+    self::assertSame('members_joined', $output->comparison['metrics'][2]['metric']);
+    self::assertSame('Members', $output->comparison['metrics'][2]['label']);
+    self::assertSame('+3', $output->comparison['metrics'][2]['value']);
+    self::assertSame(4, $output->comparison['metrics'][2]['current']);
+    self::assertSame(1, $output->comparison['metrics'][2]['previous']);
+    self::assertSame(300.0, $output->comparison['metrics'][2]['delta']);
+    self::assertSame('up', $output->comparison['metrics'][2]['direction']);
+    self::assertSame('equipment', $output->comparison['metrics'][3]['key']);
+    self::assertSame('equipment_created', $output->comparison['metrics'][3]['metric']);
+    self::assertSame('Equipment', $output->comparison['metrics'][3]['label']);
+    self::assertSame('+1', $output->comparison['metrics'][3]['value']);
+    self::assertSame(6, $output->comparison['metrics'][3]['current']);
+    self::assertSame(5, $output->comparison['metrics'][3]['previous']);
+    self::assertSame(20.0, $output->comparison['metrics'][3]['delta']);
+    self::assertSame('up', $output->comparison['metrics'][3]['direction']);
+    self::assertSame('nonConformitiesOpened', $output->comparison['metrics'][4]['key']);
+    self::assertSame('non_conformities_opened', $output->comparison['metrics'][4]['metric']);
+    self::assertSame('Non-Conformities Opened', $output->comparison['metrics'][4]['label']);
+    self::assertSame('+1', $output->comparison['metrics'][4]['value']);
+    self::assertSame(2, $output->comparison['metrics'][4]['current']);
+    self::assertSame(1, $output->comparison['metrics'][4]['previous']);
+    self::assertSame(100.0, $output->comparison['metrics'][4]['delta']);
+    self::assertSame('up', $output->comparison['metrics'][4]['direction']);
+    self::assertSame('nonConformitiesResolved', $output->comparison['metrics'][5]['key']);
+    self::assertSame('non_conformities_resolved', $output->comparison['metrics'][5]['metric']);
+    self::assertSame('Non-Conformities Resolved', $output->comparison['metrics'][5]['label']);
+    self::assertSame('+1', $output->comparison['metrics'][5]['value']);
+    self::assertSame(1, $output->comparison['metrics'][5]['current']);
+    self::assertSame(0, $output->comparison['metrics'][5]['previous']);
+    self::assertSame(100.0, $output->comparison['metrics'][5]['delta']);
+    self::assertSame('up', $output->comparison['metrics'][5]['direction']);
     self::assertSame('inspectionCompletionRate', $output->comparison['health']['metrics'][0]['key']);
+    self::assertSame('percent', $output->comparison['health']['metrics'][0]['unit']);
+    self::assertSame(100.0, $output->comparison['health']['metrics'][0]['max']);
+    self::assertSame('up', $output->comparison['health']['metrics'][0]['direction']);
     self::assertArrayNotHasKey('trendMetrics', get_object_vars($output));
     self::assertArrayNotHasKey('total', $output->overview['members']);
+  }
+
+  #[Test]
+  public function testProvideFallsBackToFirstPrimaryMetricAndMapsDirectionVariants(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn($this->createEmptyResult(
+        period: [
+          'from' => '2026-03-01T00:00:00+00:00',
+          'to' => '2026-03-31T23:59:59+00:00',
+          'comparison' => 'previous_period',
+          'timezone' => 'UTC',
+        ],
+        overview: [
+          'roles' => ['custom' => 1],
+          'invitations' => ['accepted' => 1, 'pending' => 2],
+        ],
+        health: [
+          'memberActivationRate' => 100.0,
+        ],
+        comparison: [
+          'mode' => 'previous_period',
+          'from' => '2026-01-30T00:00:00+00:00',
+          'to' => '2026-02-28T23:59:59+00:00',
+          'current' => [
+            'inspectionsPerformed' => 5,
+            'facilitiesCreated' => 1,
+            'membersJoined' => 0,
+            'equipmentCreated' => 3,
+            'nonConformitiesOpened' => 1,
+            'nonConformitiesResolved' => 0,
+          ],
+          'previous' => [
+            'inspectionsPerformed' => 5,
+            'facilitiesCreated' => 2,
+            'membersJoined' => 0,
+            'equipmentCreated' => 1,
+            'nonConformitiesOpened' => 2,
+            'nonConformitiesResolved' => 1,
+          ],
+          'deltas' => [
+            'inspectionsPerformed' => 0.0,
+            'facilitiesCreated' => -50.0,
+            'equipmentCreated' => 200.0,
+            'nonConformitiesOpened' => -50.0,
+            'nonConformitiesResolved' => -100.0,
+          ],
+          'health' => [
+            'current' => [
+              'memberActivationRate' => 100.0,
+              'inspectionCompletionRate' => 75.0,
+              'periodInspectionCompletionRate' => 75.0,
+            ],
+            'previous' => [
+              'memberActivationRate' => 100.0,
+              'inspectionCompletionRate' => 80.0,
+              'periodInspectionCompletionRate' => 80.0,
+            ],
+            'deltas' => [
+              'memberActivationRate' => 0.0,
+              'inspectionCompletionRate' => -6.25,
+            ],
+          ],
+        ],
+      ));
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $output = $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+
+    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
+    $rolesPrimary = $output->overview['roles']['primary'];
+    self::assertNotNull($rolesPrimary);
+    self::assertSame('custom', $rolesPrimary['key']);
+    self::assertSame(1, $rolesPrimary['value']);
+    $invitationsPrimary = $output->overview['invitations']['primary'];
+    self::assertNotNull($invitationsPrimary);
+    self::assertSame('pending', $invitationsPrimary['key']);
+    self::assertSame(2, $invitationsPrimary['value']);
+
+    $comparisonMetrics = [];
+    foreach ($output->comparison['metrics'] as $metric) {
+      $comparisonMetrics[$metric['key']] = $metric;
+    }
+
+    self::assertSame('stable', $comparisonMetrics['inspections']['direction']);
+    self::assertSame('0', $comparisonMetrics['inspections']['value']);
+    self::assertSame('down', $comparisonMetrics['facilities']['direction']);
+    self::assertSame('-1', $comparisonMetrics['facilities']['value']);
+    self::assertSame('stable', $comparisonMetrics['members']['direction']);
+    self::assertSame('0', $comparisonMetrics['members']['value']);
+    self::assertSame('up', $comparisonMetrics['equipment']['direction']);
+    self::assertSame('+2', $comparisonMetrics['equipment']['value']);
+    self::assertSame('down', $comparisonMetrics['nonConformitiesOpened']['direction']);
+    self::assertSame('-1', $comparisonMetrics['nonConformitiesOpened']['value']);
+    self::assertSame('down', $comparisonMetrics['nonConformitiesResolved']['direction']);
+    self::assertSame('-1', $comparisonMetrics['nonConformitiesResolved']['value']);
+
+    $comparisonHealthMetrics = [];
+    foreach ($output->comparison['health']['metrics'] as $metric) {
+      $comparisonHealthMetrics[$metric['key']] = $metric;
+    }
+
+    self::assertSame('stable', $comparisonHealthMetrics['memberActivationRate']['direction']);
+    self::assertSame('down', $comparisonHealthMetrics['inspectionCompletionRate']['direction']);
+    self::assertNull($comparisonHealthMetrics['periodInspectionCompletionRate']['direction']);
+  }
+
+  #[Test]
+  public function testProvideUsesSelectedStatusFiltersAsOverviewPrimaryMetrics(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (GetOrganizationDashboardQuery $query): bool {
+        return 'in_stock' === $query->equipmentStatus
+          && 'submitted' === $query->inspectionStatus
+          && 'in_progress' === $query->nonConformityStatus;
+      }))
+      ->willReturn($this->createEmptyResult(
+        overview: [
+          'equipment' => [
+            'total' => 1,
+            'inStock' => 1,
+            'operational' => 0,
+            'underMaintenance' => 0,
+            'decommissioned' => 0,
+          ],
+          'inspections' => [
+            'total' => 4,
+            'draft' => 0,
+            'submitted' => 4,
+            'closed' => 0,
+            'pass' => 0,
+            'fail' => 2,
+            'partial' => 2,
+          ],
+          'nonConformities' => [
+            'total' => 3,
+            'open' => 0,
+            'inProgress' => 3,
+            'done' => 0,
+            'waived' => 0,
+            'overdue' => 1,
+            'criticalOpen' => 0,
+          ],
+        ],
+      ));
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $output = $provider->provide(
+      new Get(),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => [
+        'equipmentStatus' => 'in_stock',
+        'inspectionStatus' => 'submitted',
+        'nonConformityStatus' => 'in_progress',
+      ]],
+    );
+
+    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
+    $equipmentPrimary = $output->overview['equipment']['primary'];
+    self::assertNotNull($equipmentPrimary);
+    self::assertSame('inStock', $equipmentPrimary['key']);
+    self::assertSame(1, $equipmentPrimary['value']);
+    $inspectionsPrimary = $output->overview['inspections']['primary'];
+    self::assertNotNull($inspectionsPrimary);
+    self::assertSame('submitted', $inspectionsPrimary['key']);
+    self::assertSame(4, $inspectionsPrimary['value']);
+    $nonConformitiesPrimary = $output->overview['nonConformities']['primary'];
+    self::assertNotNull($nonConformitiesPrimary);
+    self::assertSame('inProgress', $nonConformitiesPrimary['key']);
+    self::assertSame(3, $nonConformitiesPrimary['value']);
   }
 
   #[Test]

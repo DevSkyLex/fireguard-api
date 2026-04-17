@@ -30,12 +30,9 @@ final class RefreshTokenHandlerTest extends TestCase
   {
     /** @var JwtTokenServicePort&MockObject $jwt */
     $jwt = $this->createMock(JwtTokenServicePort::class);
-    $jwt->expects(self::exactly(2))
+    $jwt->expects(self::once())
       ->method('decodeRefreshToken')
-      ->willReturnOnConsecutiveCalls(
-        ['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access'],
-        ['refresh_token_id' => 'new-refresh', 'access_token_id' => 'new-access'],
-      );
+      ->willReturn(['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access']);
 
     $result = new RefreshTokenResult(
       success: true,
@@ -44,6 +41,8 @@ final class RefreshTokenHandlerTest extends TestCase
       tokenType: 'Bearer',
       expiresIn: 3600,
       scopes: ['READ'],
+      accessTokenId: 'new-access',
+      refreshTokenId: 'new-refresh',
     );
 
     /** @var TokenRefreshPort&MockObject $refresh */
@@ -195,12 +194,9 @@ final class RefreshTokenHandlerTest extends TestCase
   {
     /** @var JwtTokenServicePort&MockObject $jwt */
     $jwt = $this->createMock(JwtTokenServicePort::class);
-    $jwt->expects(self::exactly(2))
+    $jwt->expects(self::once())
       ->method('decodeRefreshToken')
-      ->willReturnOnConsecutiveCalls(
-        ['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access'],
-        ['refresh_token_id' => 'new-refresh', 'access_token_id' => 'new-access'],
-      );
+      ->willReturn(['refresh_token_id' => 'current-refresh', 'access_token_id' => 'current-access']);
 
     $result = new RefreshTokenResult(
       success: true,
@@ -209,6 +205,8 @@ final class RefreshTokenHandlerTest extends TestCase
       tokenType: 'Bearer',
       expiresIn: 3600,
       scopes: ['READ'],
+      accessTokenId: 'new-access',
+      refreshTokenId: 'new-refresh',
     );
 
     /** @var TokenRefreshPort&MockObject $refresh */

@@ -41,6 +41,35 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     );
   }
 
+  public function countInspectionOverview(
+    string $organizationId,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array {
+    /** @var array<string, int> $overview */
+    $overview = $this->inspectionRepository->countOverviewByOrganizationId(
+      InspectionOrganizationId::fromString($organizationId),
+      status: $status,
+      result: $result,
+      inspectorType: $inspectorType,
+    );
+
+    foreach (InspectionStatus::cases() as $case) {
+      if (!isset($overview[$case->value])) {
+        $overview[$case->value] = 0;
+      }
+    }
+    foreach (InspectionResult::cases() as $case) {
+      if (!isset($overview[$case->value])) {
+        $overview[$case->value] = 0;
+      }
+    }
+
+    /** @var array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int} $overview */
+    return $overview;
+  }
+
   public function countInspectionsByStatus(string $organizationId): array
   {
     $counts = $this->inspectionRepository->countByStatusForOrganizationId(
@@ -105,6 +134,24 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
       status: $status,
       performedAtFrom: $performedAtFrom,
       performedAtTo: $performedAtTo,
+      inspectorType: $inspectorType,
+    );
+  }
+
+  public function countInspectionPeriodMetrics(
+    string $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array {
+    return $this->inspectionRepository->countPeriodMetricsByOrganizationId(
+      organizationId: InspectionOrganizationId::fromString($organizationId),
+      performedAtFrom: $performedAtFrom,
+      performedAtTo: $performedAtTo,
+      status: $status,
+      result: $result,
       inspectorType: $inspectorType,
     );
   }

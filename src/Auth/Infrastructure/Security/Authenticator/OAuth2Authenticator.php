@@ -43,6 +43,8 @@ use function substr;
  */
 final class OAuth2Authenticator extends AbstractAuthenticator
 {
+  private const ACCESS_TOKEN_USE_AUTH_SESSION = 'auth_session';
+
   // #region Properties
   /**
    * Property jwtConfig.
@@ -151,8 +153,11 @@ final class OAuth2Authenticator extends AbstractAuthenticator
         );
       }
 
-      // First, try to find token in database (OAuth2 tokens)
-      $accessToken = $this->accessTokenLookup->find($tokenId);
+      $accessToken = null;
+      if (self::ACCESS_TOKEN_USE_AUTH_SESSION !== $claims->get('_fireguard_token_use', null)) {
+        // OAuth2 tokens must keep database-backed revocation and expiry checks.
+        $accessToken = $this->accessTokenLookup->find($tokenId);
+      }
 
       if ($accessToken instanceof AccessTokenStatus) {
         // OAuth2 flow: validate from database

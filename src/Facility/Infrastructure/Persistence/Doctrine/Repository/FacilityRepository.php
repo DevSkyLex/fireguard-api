@@ -254,6 +254,34 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ]);
   }
 
+  public function countOverviewByOrganizationId(FacilityOrganizationId $organizationId, ?string $type = null): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(f.id) AS total',
+        'COALESCE(SUM(CASE WHEN f.status = :activeStatus THEN 1 ELSE 0 END), 0) AS active',
+      )
+      ->from(FacilityRecord::class, 'f')
+      ->where('f.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
+
+    if (null !== $type) {
+      $queryBuilder->andWhere('f.type = :type')->setParameter('type', $type);
+    }
+
+    /** @var array{total?: int|string|null, active?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'active' => (int) ($row['active'] ?? 0),
+    ];
+  }
+
   public function countByTypeForOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
@@ -616,7 +644,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
 
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
-    return (new DateTimeImmutable($value))
+    return new DateTimeImmutable($value)
       ->setTimezone($storageTimeZone)
       ->format('Y-m-d H:i:s.u');
   }

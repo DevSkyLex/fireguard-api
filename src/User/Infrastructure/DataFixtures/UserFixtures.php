@@ -10,7 +10,7 @@ use Shared\Domain\ValueObject\{Email, TenantId};
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use User\Domain\Model\User\User;
-use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 
 use function password_hash;
@@ -47,7 +47,7 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
   // #region Methods
   public static function getGroups(): array
   {
-    return ['user', 'default'];
+    return ['user', 'auth-seed'];
   }
 
   public function load(ObjectManager $manager): void
@@ -62,6 +62,8 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
       password: password_hash('Admin123!', PASSWORD_BCRYPT),
     );
     $adminRecord = $this->userMapper->toRecord($adminUser);
+    $adminRecord->status = UserStatus::ACTIVE->value;
+    $adminRecord->emailVerified = true;
     $manager->persist($adminRecord);
     $this->addReference(self::ADMIN_USER_REFERENCE, $adminRecord);
 
@@ -75,6 +77,8 @@ class UserFixtures extends Fixture implements FixtureGroupInterface
       password: password_hash('Test123!', PASSWORD_BCRYPT),
     );
     $testRecord = $this->userMapper->toRecord($testUser);
+    $testRecord->status = UserStatus::ACTIVE->value;
+    $testRecord->emailVerified = true;
     $manager->persist($testRecord);
     $this->addReference(self::TEST_USER_REFERENCE, $testRecord);
 

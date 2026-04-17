@@ -127,10 +127,12 @@ final readonly class RefreshTokenProcessor implements ProcessorInterface
     $output->scope = implode(' ', $result->scopes);
 
     if (null !== $result->refreshToken) {
-      $rememberMe = false;
-      $payload = $this->jwtService->decodeRefreshToken($result->refreshToken);
-      if (is_array($payload) && array_key_exists('remember_me', $payload)) {
-        $rememberMe = $payload['remember_me'];
+      $rememberMe = $result->rememberMe ?? false;
+      if (null === $result->rememberMe) {
+        $payload = $this->jwtService->decodeRefreshToken($result->refreshToken);
+        if (is_array($payload) && array_key_exists('remember_me', $payload)) {
+          $rememberMe = $payload['remember_me'];
+        }
       }
 
       $cookie = $this->cookieService->createCookie(

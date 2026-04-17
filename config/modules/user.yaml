@@ -64,6 +64,3 @@ services:
   User\Infrastructure\Console\DeleteUserConsoleCommand: ~
   User\Infrastructure\Console\ListUsersCommand: ~
 
-  # DataFixtures
-  User\Infrastructure\DataFixtures\UserFixtures:
-    tags: ['doctrine.fixture.orm']

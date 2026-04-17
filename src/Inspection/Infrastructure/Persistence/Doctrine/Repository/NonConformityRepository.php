@@ -176,6 +176,56 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
 
+  public function countOverviewByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(r.id) AS total',
+        'COALESCE(SUM(CASE WHEN r.status = :openStatus THEN 1 ELSE 0 END), 0) AS openCount',
+        'COALESCE(SUM(CASE WHEN r.status = :inProgressStatus THEN 1 ELSE 0 END), 0) AS inProgressCount',
+        'COALESCE(SUM(CASE WHEN r.status = :doneStatus THEN 1 ELSE 0 END), 0) AS doneCount',
+        'COALESCE(SUM(CASE WHEN r.status = :waivedStatus THEN 1 ELSE 0 END), 0) AS waivedCount',
+        'COALESCE(SUM(CASE WHEN r.dueAt IS NOT NULL AND r.dueAt < :dueAtBefore AND r.status IN (:openStatuses) THEN 1 ELSE 0 END), 0) AS overdueCount',
+        'COALESCE(SUM(CASE WHEN r.severity = :criticalSeverity AND r.status IN (:openStatuses) THEN 1 ELSE 0 END), 0) AS criticalOpenCount',
+      )
+      ->from(NonConformityRecord::class, 'r')
+      ->innerJoin('r.inspection', 'i')
+      ->innerJoin('i.organization', 'o')
+      ->where('o.id = :organizationId')
+      ->setParameter('organizationId', (string) $organizationId)
+      ->setParameter('openStatus', 'open')
+      ->setParameter('inProgressStatus', 'in_progress')
+      ->setParameter('doneStatus', 'done')
+      ->setParameter('waivedStatus', 'waived')
+      ->setParameter('openStatuses', ['open', 'in_progress'])
+      ->setParameter('criticalSeverity', 'critical')
+      ->setParameter('dueAtBefore', $this->normalizeTimestampToStorageDateTime($dueAtBefore), Types::DATETIME_IMMUTABLE);
+
+    if (null !== $severity) {
+      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+    }
+    if (null !== $status) {
+      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+    }
+
+    /** @var array{total?: int|string|null, openCount?: int|string|null, inProgressCount?: int|string|null, doneCount?: int|string|null, waivedCount?: int|string|null, overdueCount?: int|string|null, criticalOpenCount?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'open' => (int) ($row['openCount'] ?? 0),
+      'in_progress' => (int) ($row['inProgressCount'] ?? 0),
+      'done' => (int) ($row['doneCount'] ?? 0),
+      'waived' => (int) ($row['waivedCount'] ?? 0),
+      'overdue' => (int) ($row['overdueCount'] ?? 0),
+      'critical_open' => (int) ($row['criticalOpenCount'] ?? 0),
+    ];
+  }
+
   public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{status: string, nonConformityCount: int|string}> $rows */
@@ -387,6 +437,55 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     }
 
     return $counts;
+  }
+
+  public function countPeriodMetricsByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $periodFrom,
+    string $periodTo,
+    string $activeAt,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array {
+    $periodFromDate = $this->normalizeTimestampToStorageDateTime($periodFrom);
+    $periodToDate = $this->normalizeTimestampToStorageDateTime($periodTo);
+    $activeAtDate = $this->normalizeTimestampToStorageDateTime($activeAt);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COALESCE(SUM(CASE WHEN r.createdAt >= :periodFrom AND r.createdAt <= :periodTo THEN 1 ELSE 0 END), 0) AS openedCount',
+        'COALESCE(SUM(CASE WHEN r.resolvedAt IS NOT NULL AND r.resolvedAt >= :periodFrom AND r.resolvedAt <= :periodTo THEN 1 ELSE 0 END), 0) AS resolvedCount',
+        'COALESCE(SUM(CASE WHEN r.createdAt < :activeAt AND (r.resolvedAt IS NULL OR r.resolvedAt > :activeAt) THEN 1 ELSE 0 END), 0) AS activeAtStartCount',
+      )
+      ->from(NonConformityRecord::class, 'r')
+      ->innerJoin('r.inspection', 'i')
+      ->innerJoin('i.organization', 'o')
+      ->where('o.id = :organizationId')
+      ->andWhere('(
+        (r.createdAt >= :periodFrom AND r.createdAt <= :periodTo) OR
+        (r.resolvedAt IS NOT NULL AND r.resolvedAt >= :periodFrom AND r.resolvedAt <= :periodTo) OR
+        (r.createdAt < :activeAt AND (r.resolvedAt IS NULL OR r.resolvedAt > :activeAt))
+      )')
+      ->setParameter('organizationId', (string) $organizationId)
+      ->setParameter('periodFrom', $periodFromDate, Types::DATETIME_IMMUTABLE)
+      ->setParameter('periodTo', $periodToDate, Types::DATETIME_IMMUTABLE)
+      ->setParameter('activeAt', $activeAtDate, Types::DATETIME_IMMUTABLE);
+
+    if (null !== $severity) {
+      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+    }
+    if (null !== $status) {
+      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+    }
+
+    /** @var array{openedCount?: int|string|null, resolvedCount?: int|string|null, activeAtStartCount?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'opened' => (int) ($row['openedCount'] ?? 0),
+      'resolved' => (int) ($row['resolvedCount'] ?? 0),
+      'activeAtStart' => (int) ($row['activeAtStartCount'] ?? 0),
+    ];
   }
 
   public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int

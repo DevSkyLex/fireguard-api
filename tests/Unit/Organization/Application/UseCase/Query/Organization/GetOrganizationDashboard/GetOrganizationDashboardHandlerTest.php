@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard;
 
+use DateTimeImmutable;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
@@ -35,6 +36,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('countByOrganizationId')->willReturn(12);
     $memberRepository->method('countActiveByOrganizationId')->willReturn(9);
+    $memberRepository->expects(self::exactly(2))->method('countJoinedBetween')->willReturnOnConsecutiveCalls(2, 1);
 
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->method('countByOrganizationId')->willReturn(5);
@@ -50,72 +52,87 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ]);
 
     $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
-    $facilityStatistics->method('countFacilities')->willReturn(7);
-    $facilityStatistics->method('countActiveFacilities')->willReturn(6);
+    $facilityStatistics->method('countFacilityOverview')->willReturn(['total' => 7, 'active' => 6]);
+    $facilityStatistics->expects(self::never())->method('countFacilities');
+    $facilityStatistics->expects(self::never())->method('countActiveFacilities');
     $facilityStatistics->expects(self::never())->method('countFacilitiesByType');
+    $facilityStatistics->expects(self::exactly(2))->method('countFacilitiesCreatedByDay')->willReturnOnConsecutiveCalls(
+      ['2026-03-01' => 3],
+      ['2026-02-01' => 2],
+    );
 
     $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
-    $equipmentStatistics->method('countEquipment')->willReturn(20);
-    $equipmentStatistics->method('countEquipmentByStatus')->willReturn([
+    $equipmentStatistics->method('countEquipmentOverview')->willReturn([
+      'total' => 20,
       'in_stock' => 2,
       'operational' => 14,
       'under_maintenance' => 3,
       'decommissioned' => 1,
     ]);
+    $equipmentStatistics->expects(self::never())->method('countEquipment');
+    $equipmentStatistics->expects(self::never())->method('countEquipmentByStatus');
     $equipmentStatistics->expects(self::never())->method('countEquipmentByType');
+    $equipmentStatistics->expects(self::exactly(2))->method('countEquipmentCreatedByDay')->willReturnOnConsecutiveCalls(
+      ['2026-03-01' => 4],
+      ['2026-02-01' => 1],
+    );
 
     $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
-    $inspectionStatistics->method('countInspections')->willReturn(10);
-    $inspectionStatistics->method('countInspectionsByStatus')->willReturn([
+    $inspectionStatistics->method('countInspectionOverview')->willReturn([
+      'total' => 10,
       'draft' => 1,
       'submitted' => 2,
       'closed' => 7,
-    ]);
-    $inspectionStatistics->method('countInspectionsByResult')->willReturn([
       'pass' => 5,
       'fail' => 1,
       'partial' => 1,
     ]);
+    $inspectionStatistics->expects(self::never())->method('countInspections');
+    $inspectionStatistics->expects(self::never())->method('countInspectionsByStatus');
+    $inspectionStatistics->expects(self::never())->method('countInspectionsByResult');
     $inspectionStatistics->expects(self::never())->method('countInspectionsByInspectorType');
-    $inspectionStatistics->expects(self::exactly(10))->method('countInspectionsBetween')
+    $inspectionStatistics->expects(self::exactly(2))->method('countInspectionPeriodMetrics')
       ->willReturnCallback(static function (
         string $organizationId,
         string $performedAtFrom,
         string $performedAtTo,
         ?string $status = null,
         ?string $result = null,
-      ): int {
+        ?string $inspectorType = null,
+      ): array {
         self::assertSame(self::ORG_ID, $organizationId);
         self::assertNotSame('', $performedAtFrom);
         self::assertNotSame('', $performedAtTo);
+        self::assertNull($status);
+        self::assertNull($result);
+        self::assertNull($inspectorType);
 
-        return match (true) {
-          'closed' === $status => 2,
-          'pass' === $result => 2,
-          'fail' === $result => 1,
-          'partial' === $result => 0,
-          default => 3,
-        };
+        return ['total' => 3, 'closed' => 2, 'pass' => 2, 'fail' => 1, 'partial' => 0];
       });
 
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
-    $nonConformityStatistics->method('countNonConformities')->willReturn(9);
-    $nonConformityStatistics->method('countNonConformitiesByStatus')->willReturn([
+    $nonConformityStatistics->method('countNonConformityOverview')->willReturn([
+      'total' => 9,
       'open' => 3,
       'in_progress' => 2,
       'done' => 3,
       'waived' => 1,
+      'overdue' => 2,
+      'critical_open' => 1,
     ]);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
-    $nonConformityStatistics->method('countOverdueNonConformities')->willReturn(2);
-    $nonConformityStatistics->method('countOpenCriticalNonConformities')->willReturn(1);
-    $nonConformityStatistics->expects(self::exactly(2))->method('countNonConformitiesCreatedByDay')->willReturn([
-      '2026-03-01' => 1,
+    $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countActiveNonConformitiesAtDate');
+    $nonConformityStatistics->expects(self::exactly(2))->method('countNonConformityPeriodMetrics')->willReturn([
+      'opened' => 1,
+      'resolved' => 1,
+      'activeAtStart' => 1,
     ]);
-    $nonConformityStatistics->expects(self::exactly(2))->method('countNonConformitiesResolvedByDay')->willReturn([
-      '2026-03-02' => 1,
-    ]);
-    $nonConformityStatistics->expects(self::exactly(2))->method('countActiveNonConformitiesAtDate')->willReturn(1);
 
     $handler = $this->createHandler(
       organizationRepository: $organizationRepository,
@@ -159,10 +176,18 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
      *   mode: string,
      *   current: array{
      *     inspectionsPerformed: int,
+     *     facilitiesCreated: int,
+     *     membersJoined: int,
+     *     equipmentCreated: int,
      *     nonConformitiesOpened: int,
      *     nonConformitiesResolved: int
      *   },
-     *   previous: array{inspectionsPerformed: int},
+     *   previous: array{
+     *     inspectionsPerformed: int,
+     *     facilitiesCreated: int,
+     *     membersJoined: int,
+     *     equipmentCreated: int
+     *   },
      *   health: array{
      *     current: array{nonConformityResolutionRate: float},
      *     deltas: array{nonConformityResolutionRate: float}
@@ -191,6 +216,12 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertSame('previous_period', $comparison['mode']);
     self::assertSame(3, $comparison['current']['inspectionsPerformed']);
     self::assertSame(3, $comparison['previous']['inspectionsPerformed']);
+    self::assertSame(3, $comparison['current']['facilitiesCreated']);
+    self::assertSame(2, $comparison['previous']['facilitiesCreated']);
+    self::assertSame(2, $comparison['current']['membersJoined']);
+    self::assertSame(1, $comparison['previous']['membersJoined']);
+    self::assertSame(4, $comparison['current']['equipmentCreated']);
+    self::assertSame(1, $comparison['previous']['equipmentCreated']);
     self::assertSame(1, $comparison['current']['nonConformitiesOpened']);
     self::assertSame(1, $comparison['current']['nonConformitiesResolved']);
     self::assertSame(50.0, $comparison['health']['current']['nonConformityResolutionRate']);
@@ -204,21 +235,29 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $organizationRepository = $this->createOrganizationRepository();
 
     $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
-    $inspectionStatistics->method('countInspections')->willReturn(0);
-    $inspectionStatistics->method('countInspectionsByStatus')->willReturn([]);
-    $inspectionStatistics->method('countInspectionsByResult')->willReturn([]);
+    $inspectionStatistics->method('countInspectionOverview')->willReturn(['total' => 0, 'draft' => 0, 'submitted' => 0, 'closed' => 0, 'pass' => 0, 'fail' => 0, 'partial' => 0]);
+    $inspectionStatistics->expects(self::never())->method('countInspections');
+    $inspectionStatistics->expects(self::never())->method('countInspectionsByStatus');
+    $inspectionStatistics->expects(self::never())->method('countInspectionsByResult');
     $inspectionStatistics->expects(self::never())->method('countInspectionsByInspectorType');
-    $inspectionStatistics->expects(self::exactly(5))->method('countInspectionsBetween')->willReturn(0);
+    $inspectionStatistics->expects(self::once())->method('countInspectionPeriodMetrics')->willReturn(['total' => 0, 'closed' => 0, 'pass' => 0, 'fail' => 0, 'partial' => 0]);
 
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
-    $nonConformityStatistics->method('countNonConformities')->willReturn(0);
-    $nonConformityStatistics->method('countNonConformitiesByStatus')->willReturn([]);
+    $nonConformityStatistics->method('countNonConformityOverview')->willReturn(['total' => 0, 'open' => 0, 'in_progress' => 0, 'done' => 0, 'waived' => 0, 'overdue' => 0, 'critical_open' => 0]);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
-    $nonConformityStatistics->method('countOverdueNonConformities')->willReturn(0);
-    $nonConformityStatistics->method('countOpenCriticalNonConformities')->willReturn(0);
-    $nonConformityStatistics->expects(self::once())->method('countNonConformitiesCreatedByDay')->willReturn([]);
-    $nonConformityStatistics->expects(self::once())->method('countNonConformitiesResolvedByDay')->willReturn([]);
-    $nonConformityStatistics->expects(self::once())->method('countActiveNonConformitiesAtDate')->with(self::ORG_ID, '2026-03-01T00:00:00.500000+00:00')->willReturn(0);
+    $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countActiveNonConformitiesAtDate');
+    $nonConformityStatistics->expects(self::once())->method('countNonConformityPeriodMetrics')->with(
+      self::ORG_ID,
+      '2026-03-01T00:00:00.500000+00:00',
+      '2026-03-03T23:59:59.250000+00:00',
+      '2026-03-01T00:00:00.500000+00:00',
+    )->willReturn(['opened' => 0, 'resolved' => 0, 'activeAtStart' => 0]);
 
     $handler = $this->createHandler(
       organizationRepository: $organizationRepository,
@@ -253,8 +292,8 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   {
     $handler = $this->createHandler(
       organizationRepository: $this->createOrganizationRepository(),
-      inspectionStatistics: $this->createZeroInspectionStatistics(10),
-      nonConformityStatistics: $this->createZeroNonConformityStatistics(2, 2, 2),
+      inspectionStatistics: $this->createZeroInspectionStatistics(2),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(2),
     );
 
     $result = $handler->__invoke(new GetOrganizationDashboardQuery(
@@ -271,12 +310,61 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeNormalizesMemberComparisonBoundsToUtcStorageTimezone(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('countByOrganizationId')->willReturn(0);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn(0);
+
+    $memberJoinedBetweenCalls = 0;
+    $memberRepository->expects(self::exactly(2))
+      ->method('countJoinedBetween')
+      ->willReturnCallback(static function (OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to) use (&$memberJoinedBetweenCalls): int {
+        self::assertSame(self::ORG_ID, (string) $organizationId);
+
+        if (0 === $memberJoinedBetweenCalls) {
+          self::assertSame('2026-03-31T22:00:00+00:00', $from->format('c'));
+          self::assertSame('2026-04-01T21:59:59+00:00', $to->format('c'));
+        } else {
+          self::assertSame('2026-03-30T22:00:00+00:00', $from->format('c'));
+          self::assertSame('2026-03-31T21:59:59+00:00', $to->format('c'));
+        }
+
+        ++$memberJoinedBetweenCalls;
+
+        return 0 === $memberJoinedBetweenCalls % 2 ? 2 : 1;
+      });
+
+    $handler = $this->createHandler(
+      organizationRepository: $this->createOrganizationRepository(),
+      memberRepository: $memberRepository,
+      inspectionStatistics: $this->createZeroInspectionStatistics(2),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(2),
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      periodFrom: '2026-04-01T00:00:00+02:00',
+      periodTo: '2026-04-01T23:59:59+02:00',
+      compareWithPreviousPeriod: true,
+      timeZone: 'Europe/Paris',
+    ));
+
+    /** @var array{current: array{membersJoined: int}, previous: array{membersJoined: int}} $comparison */
+    $comparison = $result->comparison;
+
+    self::assertSame(1, $comparison['current']['membersJoined']);
+    self::assertSame(2, $comparison['previous']['membersJoined']);
+  }
+
+  #[Test]
   public function testInvokeAcceptsSingleExplicitBoundWithoutTimezone(): void
   {
     $handler = $this->createHandler(
       organizationRepository: $this->createOrganizationRepository(),
-      inspectionStatistics: $this->createZeroInspectionStatistics(5),
-      nonConformityStatistics: $this->createZeroNonConformityStatistics(1, 1, 1),
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
     );
 
     $result = $handler->__invoke(new GetOrganizationDashboardQuery(
@@ -313,6 +401,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('countByOrganizationId')->willReturn(2);
     $memberRepository->method('countActiveByOrganizationId')->willReturn(1);
+    $memberRepository->expects(self::exactly(2))->method('countJoinedBetween')->willReturnCallback(static function (OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to): int {
+      self::assertSame(self::ORG_ID, (string) $organizationId);
+
+      return '2026-03-01T00:00:00+00:00' === $from->format('c') && '2026-03-03T23:59:59+00:00' === $to->format('c') ? 2 : 1;
+    });
 
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->method('countByOrganizationId')->willReturn(1);
@@ -323,76 +416,99 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $invitationRepository->method('countByStatusForOrganizationId')->willReturn([]);
 
     $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
-    $facilityStatistics->expects(self::once())->method('countFacilities')->willReturnCallback(static function (string $organizationId, ?string $type = null): int {
+    $facilityStatistics->expects(self::once())->method('countFacilityOverview')->willReturnCallback(static function (string $organizationId, ?string $type = null): array {
       self::assertSame(self::ORG_ID, $organizationId);
       self::assertSame('site', $type);
 
-      return 4;
+      return ['total' => 4, 'active' => 3];
     });
-    $facilityStatistics->expects(self::once())->method('countActiveFacilities')->with(self::ORG_ID, 'site')->willReturn(3);
+    $facilityStatistics->expects(self::never())->method('countFacilities');
+    $facilityStatistics->expects(self::never())->method('countActiveFacilities');
     $facilityStatistics->expects(self::never())->method('countFacilitiesByType');
+    $facilityStatistics->expects(self::exactly(2))->method('countFacilitiesCreatedByDay')->willReturnCallback(static function (string $organizationId, string $from, string $to, ?string $timeZone = null, ?string $type = null): array {
+      self::assertSame(self::ORG_ID, $organizationId);
+      self::assertSame('UTC', $timeZone);
+      self::assertSame('site', $type);
+
+      return '2026-03-01T00:00:00+00:00' === $from && '2026-03-03T23:59:59+00:00' === $to
+        ? ['2026-03-02' => 2]
+        : ['2026-02-27' => 1];
+    });
 
     $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
-    $equipmentStatistics->expects(self::once())->method('countEquipment')->willReturnCallback(static function (string $organizationId, ?string $type = null, ?string $status = null): int {
+    $equipmentStatistics->expects(self::once())->method('countEquipmentOverview')->willReturnCallback(static function (string $organizationId, ?string $type = null, ?string $status = null): array {
       self::assertSame(self::ORG_ID, $organizationId);
       self::assertSame('fire_extinguisher', $type);
       self::assertSame('operational', $status);
 
-      return 5;
+      return ['total' => 5, 'in_stock' => 0, 'operational' => 5, 'under_maintenance' => 0, 'decommissioned' => 0];
     });
+    $equipmentStatistics->expects(self::never())->method('countEquipment');
     $equipmentStatistics->expects(self::never())->method('countEquipmentByStatus');
     $equipmentStatistics->expects(self::never())->method('countEquipmentByType');
+    $equipmentStatistics->expects(self::exactly(2))->method('countEquipmentCreatedByDay')->willReturnCallback(static function (string $organizationId, string $from, string $to, ?string $timeZone = null, ?string $type = null, ?string $status = null): array {
+      self::assertSame(self::ORG_ID, $organizationId);
+      self::assertSame('UTC', $timeZone);
+      self::assertSame('fire_extinguisher', $type);
+      self::assertSame('operational', $status);
+
+      return '2026-03-01T00:00:00+00:00' === $from && '2026-03-03T23:59:59+00:00' === $to
+        ? ['2026-03-03' => 3]
+        : ['2026-02-28' => 1];
+    });
 
     $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
-    $inspectionStatistics->expects(self::once())->method('countInspections')->willReturnCallback(static function (string $organizationId, ?string $status = null, ?string $result = null, ?string $inspectorType = null): int {
+    $inspectionStatistics->expects(self::once())->method('countInspectionOverview')->willReturnCallback(static function (string $organizationId, ?string $status = null, ?string $result = null, ?string $inspectorType = null): array {
       self::assertSame(self::ORG_ID, $organizationId);
       self::assertSame('closed', $status);
       self::assertSame('pass', $result);
       self::assertSame('user', $inspectorType);
 
-      return 6;
+      return ['total' => 6, 'draft' => 0, 'submitted' => 0, 'closed' => 6, 'pass' => 6, 'fail' => 0, 'partial' => 0];
     });
+    $inspectionStatistics->expects(self::never())->method('countInspections');
     $inspectionStatistics->expects(self::never())->method('countInspectionsByStatus');
     $inspectionStatistics->expects(self::never())->method('countInspectionsByResult');
     $inspectionStatistics->expects(self::never())->method('countInspectionsByInspectorType');
-    $inspectionStatistics->expects(self::exactly(2))->method('countInspectionsBetween')->willReturnCallback(static function (string $organizationId, string $performedAtFrom, string $performedAtTo, ?string $status = null, ?string $result = null, ?string $inspectorType = null): int {
+    $inspectionStatistics->expects(self::exactly(2))->method('countInspectionPeriodMetrics')->willReturnCallback(static function (string $organizationId, string $performedAtFrom, string $performedAtTo, ?string $status = null, ?string $result = null, ?string $inspectorType = null): array {
       self::assertSame(self::ORG_ID, $organizationId);
       self::assertSame('closed', $status);
       self::assertSame('pass', $result);
       self::assertSame('user', $inspectorType);
 
-      return '2026-03-01T00:00:00+00:00' === $performedAtFrom ? 2 : 1;
+      $total = '2026-03-01T00:00:00+00:00' === $performedAtFrom ? 2 : 1;
+
+      return ['total' => $total, 'closed' => $total, 'pass' => $total, 'fail' => 0, 'partial' => 0];
     });
 
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
-    $nonConformityStatistics->expects(self::once())->method('countNonConformities')->willReturnCallback(static function (string $organizationId, ?string $severity = null, ?string $status = null): int {
+    $nonConformityStatistics->expects(self::once())->method('countNonConformityOverview')->willReturnCallback(static function (string $organizationId, string $dueAtBefore, ?string $severity = null, ?string $status = null): array {
       self::assertSame(self::ORG_ID, $organizationId);
+      self::assertNotSame('', $dueAtBefore);
       self::assertSame('critical', $severity);
       self::assertSame('open', $status);
 
-      return 4;
+      return ['total' => 4, 'open' => 4, 'in_progress' => 0, 'done' => 0, 'waived' => 0, 'overdue' => 1, 'critical_open' => 2];
     });
+    $nonConformityStatistics->expects(self::never())->method('countNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
-    $nonConformityStatistics->expects(self::once())->method('countOverdueNonConformities')->with(self::ORG_ID, self::isString(), 'critical', 'open')->willReturn(1);
-    $nonConformityStatistics->expects(self::once())->method('countOpenCriticalNonConformities')->with(self::ORG_ID, 'open')->willReturn(2);
-    $nonConformityStatistics->expects(self::exactly(2))->method('countNonConformitiesCreatedByDay')->willReturnCallback(static function (string $organizationId, string $from, string $to, ?string $timeZone = null, ?string $severity = null, ?string $status = null): array {
+    $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countActiveNonConformitiesAtDate');
+    $nonConformityStatistics->expects(self::exactly(2))->method('countNonConformityPeriodMetrics')->willReturnCallback(static function (string $organizationId, string $from, string $to, string $activeAt, ?string $severity = null, ?string $status = null): array {
       self::assertSame(self::ORG_ID, $organizationId);
-      self::assertSame('UTC', $timeZone);
+      self::assertSame($from, $activeAt);
+      self::assertNotSame('', $to);
       self::assertSame('critical', $severity);
       self::assertSame('open', $status);
 
-      return '2026-03-01T00:00:00+00:00' === $from ? ['2026-03-01' => 1] : [];
-    });
-    $nonConformityStatistics->expects(self::exactly(2))->method('countNonConformitiesResolvedByDay')->willReturnCallback(static function (string $organizationId, string $from, string $to, ?string $timeZone = null, ?string $severity = null, ?string $status = null): array {
-      self::assertSame(self::ORG_ID, $organizationId);
-      self::assertSame('UTC', $timeZone);
-      self::assertSame('critical', $severity);
-      self::assertSame('open', $status);
+      $isCurrent = '2026-03-01T00:00:00+00:00' === $from;
 
-      return '2026-03-01T00:00:00+00:00' === $from ? ['2026-03-02' => 1] : ['2026-02-28' => 1];
+      return ['opened' => $isCurrent ? 1 : 0, 'resolved' => 1, 'activeAtStart' => 1];
     });
-    $nonConformityStatistics->expects(self::exactly(2))->method('countActiveNonConformitiesAtDate')->with(self::ORG_ID, self::isString(), 'critical', 'open')->willReturn(1);
 
     $handler = $this->createHandler(
       organizationRepository: $organizationRepository,
@@ -439,8 +555,9 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $health = $result->health;
     /** @var array{
      *   mode: string,
-     *   current: array{inspectionsPerformed: int},
-     *   previous: array{inspectionsPerformed: int}
+     *   current: array{inspectionsPerformed: int, facilitiesCreated: int, membersJoined: int, equipmentCreated: int},
+     *   previous: array{inspectionsPerformed: int, facilitiesCreated: int, membersJoined: int, equipmentCreated: int},
+     *   deltas: array{facilitiesCreated: float, membersJoined: float, equipmentCreated: float}
      * } $comparison
      */
     $comparison = $result->comparison;
@@ -460,6 +577,15 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertSame('previous_period', $comparison['mode']);
     self::assertSame(2, $comparison['current']['inspectionsPerformed']);
     self::assertSame(1, $comparison['previous']['inspectionsPerformed']);
+    self::assertSame(2, $comparison['current']['facilitiesCreated']);
+    self::assertSame(1, $comparison['previous']['facilitiesCreated']);
+    self::assertSame(2, $comparison['current']['membersJoined']);
+    self::assertSame(1, $comparison['previous']['membersJoined']);
+    self::assertSame(3, $comparison['current']['equipmentCreated']);
+    self::assertSame(1, $comparison['previous']['equipmentCreated']);
+    self::assertSame(100.0, $comparison['deltas']['facilitiesCreated']);
+    self::assertSame(100.0, $comparison['deltas']['membersJoined']);
+    self::assertSame(200.0, $comparison['deltas']['equipmentCreated']);
   }
 
   #[Test]
@@ -468,16 +594,19 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   {
     $organizationRepository = $this->createOrganizationRepository();
 
-    $inspectionStatistics = $this->createZeroInspectionStatistics(10);
+    $inspectionStatistics = $this->createZeroInspectionStatistics(2);
 
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
-    $nonConformityStatistics->method('countNonConformities')->willReturn(3);
+    $nonConformityStatistics->method('countNonConformityOverview')->willReturn(['total' => 3, 'open' => 0, 'in_progress' => 0, 'done' => 'done' === $status ? 3 : 0, 'waived' => 'waived' === $status ? 3 : 0, 'overdue' => 0, 'critical_open' => 0]);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformities');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
     $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
-    $nonConformityStatistics->method('countNonConformitiesCreatedByDay')->willReturn([]);
-    $nonConformityStatistics->method('countNonConformitiesResolvedByDay')->willReturn([]);
-    $nonConformityStatistics->method('countActiveNonConformitiesAtDate')->willReturn(0);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countActiveNonConformitiesAtDate');
+    $nonConformityStatistics->method('countNonConformityPeriodMetrics')->willReturn(['opened' => 0, 'resolved' => 0, 'activeAtStart' => 0]);
 
     $handler = $this->createHandler(
       organizationRepository: $organizationRepository,
@@ -621,6 +750,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('countByOrganizationId')->willReturn(0);
     $memberRepository->method('countActiveByOrganizationId')->willReturn(0);
+    $memberRepository->method('countJoinedBetween')->willReturn(0);
 
     return $memberRepository;
   }
@@ -660,8 +790,10 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   private function createZeroFacilityStatistics(): FacilityStatisticsPort
   {
     $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->method('countFacilityOverview')->willReturn(['total' => 0, 'active' => 0]);
     $facilityStatistics->method('countFacilities')->willReturn(0);
     $facilityStatistics->method('countActiveFacilities')->willReturn(0);
+    $facilityStatistics->method('countFacilitiesCreatedByDay')->willReturn([]);
 
     return $facilityStatistics;
   }
@@ -672,8 +804,10 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   private function createZeroEquipmentStatistics(): EquipmentStatisticsPort
   {
     $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
+    $equipmentStatistics->method('countEquipmentOverview')->willReturn(['total' => 0, 'in_stock' => 0, 'operational' => 0, 'under_maintenance' => 0, 'decommissioned' => 0]);
     $equipmentStatistics->method('countEquipment')->willReturn(0);
     $equipmentStatistics->method('countEquipmentByStatus')->willReturn([]);
+    $equipmentStatistics->method('countEquipmentCreatedByDay')->willReturn([]);
 
     return $equipmentStatistics;
   }
@@ -681,14 +815,15 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   /**
    * @return InspectionStatisticsPort&MockObject
    */
-  private function createZeroInspectionStatistics(int $betweenCallCount): InspectionStatisticsPort
+  private function createZeroInspectionStatistics(int $periodMetricCallCount): InspectionStatisticsPort
   {
     $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->method('countInspectionOverview')->willReturn(['total' => 0, 'draft' => 0, 'submitted' => 0, 'closed' => 0, 'pass' => 0, 'fail' => 0, 'partial' => 0]);
     $inspectionStatistics->method('countInspections')->willReturn(0);
     $inspectionStatistics->method('countInspectionsByStatus')->willReturn([]);
     $inspectionStatistics->method('countInspectionsByResult')->willReturn([]);
     $inspectionStatistics->expects(self::never())->method('countInspectionsByInspectorType');
-    $inspectionStatistics->expects(self::exactly($betweenCallCount))->method('countInspectionsBetween')->willReturn(0);
+    $inspectionStatistics->expects(self::exactly($periodMetricCallCount))->method('countInspectionPeriodMetrics')->willReturn(['total' => 0, 'closed' => 0, 'pass' => 0, 'fail' => 0, 'partial' => 0]);
 
     return $inspectionStatistics;
   }
@@ -696,17 +831,19 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   /**
    * @return NonConformityStatisticsPort&MockObject
    */
-  private function createZeroNonConformityStatistics(int $createdByDayCalls, int $resolvedByDayCalls, int $activeAtDateCalls): NonConformityStatisticsPort
+  private function createZeroNonConformityStatistics(int $periodMetricCallCount): NonConformityStatisticsPort
   {
     $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
+    $nonConformityStatistics->method('countNonConformityOverview')->willReturn(['total' => 0, 'open' => 0, 'in_progress' => 0, 'done' => 0, 'waived' => 0, 'overdue' => 0, 'critical_open' => 0]);
     $nonConformityStatistics->method('countNonConformities')->willReturn(0);
     $nonConformityStatistics->method('countNonConformitiesByStatus')->willReturn([]);
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
     $nonConformityStatistics->method('countOverdueNonConformities')->willReturn(0);
     $nonConformityStatistics->method('countOpenCriticalNonConformities')->willReturn(0);
-    $nonConformityStatistics->expects(self::exactly($createdByDayCalls))->method('countNonConformitiesCreatedByDay')->willReturn([]);
-    $nonConformityStatistics->expects(self::exactly($resolvedByDayCalls))->method('countNonConformitiesResolvedByDay')->willReturn([]);
-    $nonConformityStatistics->expects(self::exactly($activeAtDateCalls))->method('countActiveNonConformitiesAtDate')->willReturn(0);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+    $nonConformityStatistics->expects(self::never())->method('countActiveNonConformitiesAtDate');
+    $nonConformityStatistics->expects(self::exactly($periodMetricCallCount))->method('countNonConformityPeriodMetrics')->willReturn(['opened' => 0, 'resolved' => 0, 'activeAtStart' => 0]);
 
     return $nonConformityStatistics;
   }
@@ -731,7 +868,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       facilityStatistics: $facilityStatistics ?? $this->createZeroFacilityStatistics(),
       equipmentStatistics: $equipmentStatistics ?? $this->createZeroEquipmentStatistics(),
       inspectionStatistics: $inspectionStatistics ?? $this->createZeroInspectionStatistics(0),
-      nonConformityStatistics: $nonConformityStatistics ?? $this->createZeroNonConformityStatistics(0, 0, 0),
+      nonConformityStatistics: $nonConformityStatistics ?? $this->createZeroNonConformityStatistics(0),
     );
   }
 }

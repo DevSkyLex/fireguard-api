@@ -291,7 +291,11 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
    ```bash
    make migrate-all
    ```
-4. Start the application using your preferred Symfony runtime:
+4. Optionally load the shared sample seed data in `dev` or `test`:
+  ```bash
+  make seed-fixtures
+  ```
+5. Start the application using your preferred Symfony runtime:
    ```bash
    php -S 127.0.0.1:8000 -t public
    ```
@@ -333,9 +337,12 @@ Other Docker commands:
 | `make migrate-auth` | Apply auth database migrations |
 | `make migrate-main` | Apply main database migrations |
 | `make migrate-all` | Apply auth + main migrations |
+| `make seed-fixtures` | Load the repository seed fixtures into both databases safely |
 | `make coverage` | Run tests with code coverage (text output) |
 | `make coverage-html` | Run tests with HTML coverage report |
 | `make mutation` | Run mutation testing with Infection |
+
+Use `make seed-fixtures` or `php bin/console app:fixtures:load` for seeded sample data in `dev` and `test`. The command purges then reloads both databases in a coordinated two-pass load. Avoid `doctrine:fixtures:load` directly in this repository because auth and business fixtures target different entity managers.
 
 ## Testing
 

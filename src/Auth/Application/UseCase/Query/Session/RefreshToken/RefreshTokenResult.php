@@ -33,6 +33,9 @@ final readonly class RefreshTokenResult implements ResultMessage
    * @param int $expiresIn the token expiration time in seconds
    * @param list<string> $scopes the granted scopes
    * @param string|null $errorMessage error message if failed
+   * @param string|null $accessTokenId the generated access token identifier
+   * @param string|null $refreshTokenId the generated refresh token identifier
+   * @param bool|null $rememberMe whether the new refresh token is persistent
    */
   public function __construct(
     public bool $success,
@@ -43,6 +46,9 @@ final readonly class RefreshTokenResult implements ResultMessage
     public int $expiresIn = 0,
     public array $scopes = [],
     public ?string $errorMessage = null,
+    public ?string $accessTokenId = null,
+    public ?string $refreshTokenId = null,
+    public ?bool $rememberMe = null,
   ) {
   }
   // #endregion

@@ -189,11 +189,17 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertArrayHasKey('refresh_token', $tokens);
     $this->assertArrayHasKey('token_type', $tokens);
     $this->assertArrayHasKey('expires_in', $tokens);
+    $this->assertArrayHasKey('access_token_id', $tokens);
+    $this->assertArrayHasKey('refresh_token_id', $tokens);
+    $this->assertArrayHasKey('refresh_token_expires_at', $tokens);
+    $this->assertArrayHasKey('remember_me', $tokens);
 
     $this->assertEquals('Bearer', $tokens['token_type']);
     $this->assertEquals(3600, $tokens['expires_in']);
     $this->assertNotEmpty($tokens['access_token']);
     $this->assertNotEmpty($tokens['refresh_token']);
+    $this->assertNotEmpty($tokens['access_token_id'] ?? null);
+    $this->assertNotEmpty($tokens['refresh_token_id'] ?? null);
   }
 
   /**
@@ -424,6 +430,7 @@ final class JwtTokenServiceTest extends TestCase
     $this->assertEquals('https://test.example.com', $payload['iss']);
     $this->assertEquals('user-claims', $payload['sub']);
     $this->assertEquals(['OPENID', 'EMAIL'], $payload['scopes']);
+    $this->assertSame('auth_session', $payload['_fireguard_token_use'] ?? null);
     $this->assertArrayNotHasKey('email', $payload, 'Email claim should be omitted when includeEmailClaim=false');
     $this->assertArrayNotHasKey('roles', $payload, 'Roles claim should be omitted when includeRbacClaims=false');
     $this->assertArrayNotHasKey('permissions', $payload, 'Permissions claim should be omitted when includeRbacClaims=false');

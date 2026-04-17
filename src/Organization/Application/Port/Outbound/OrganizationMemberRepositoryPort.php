@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\Port\Outbound;
 
+use DateTimeImmutable;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 
@@ -154,6 +155,19 @@ interface OrganizationMemberRepositoryPort
    * @return int the active member count
    */
   public function countActiveByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
+   * Counts members who joined during the requested period.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param DateTimeImmutable $joinedAtFrom the inclusive lower joined-at bound
+   * @param DateTimeImmutable $joinedAtTo the inclusive upper joined-at bound
+   *
+   * @return int the joined member count for the period
+   */
+  public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int;
 
   /**
    * Method getPermissionNamesForUserInOrganization.

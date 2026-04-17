@@ -115,6 +115,16 @@ interface FacilityRepositoryPort
   public function countActiveByOrganizationId(FacilityOrganizationId $organizationId): int;
 
   /**
+   * Counts dashboard overview metrics for facilities in one query.
+   *
+   * @return array{total: int, active: int}
+   */
+  public function countOverviewByOrganizationId(
+    FacilityOrganizationId $organizationId,
+    ?string $type = null,
+  ): array;
+
+  /**
    * Counts facilities grouped by type for an organization.
    *
    * @since 1.0.0

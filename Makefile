@@ -21,7 +21,7 @@ ENV_PREFIX = APP_CACHE_DIR="$(APP_CACHE_DIR)" APP_LOG_DIR="$(APP_LOG_DIR)"
 XDEBUG_PREFIX = XDEBUG_MODE=coverage
 endif
 
-.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 phpunit:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --testdox
@@ -61,6 +61,10 @@ migrate-main:
 
 # Apply all database migrations
 migrate-all: migrate-auth migrate-main
+
+# Load repository seed fixtures into auth and main databases safely
+seed-fixtures:
+	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
 test: cs-lint phpstan deptrac lint phpunit-fast
 

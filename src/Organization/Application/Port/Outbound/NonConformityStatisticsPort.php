@@ -23,6 +23,18 @@ interface NonConformityStatisticsPort
   public function countNonConformities(string $organizationId, ?string $severity = null, ?string $status = null): int;
 
   /**
+   * Returns aggregate non-conformity overview counts for dashboard cards and alerts.
+   *
+   * @return array{total: int, open: int, in_progress: int, done: int, waived: int, overdue: int, critical_open: int}
+   */
+  public function countNonConformityOverview(
+    string $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
    * Returns non-conformity counts grouped by status.
    *
    * @return array<string, int> map of status => count
@@ -55,6 +67,20 @@ interface NonConformityStatisticsPort
     ?string $severity = null,
     ?string $status = null,
   ): int;
+
+  /**
+   * Returns aggregate non-conformity counts for a bounded dashboard period.
+   *
+   * @return array{opened: int, resolved: int, activeAtStart: int}
+   */
+  public function countNonConformityPeriodMetrics(
+    string $organizationId,
+    string $periodFrom,
+    string $periodTo,
+    string $activeAt,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
 
   /**
    * Returns non-conformity creation counts grouped by day for a period.

@@ -166,6 +166,59 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->getSingleScalarResult();
   }
 
+  public function countOverviewByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(i.id) AS total',
+        'COALESCE(SUM(CASE WHEN i.status = :draftStatus THEN 1 ELSE 0 END), 0) AS draft',
+        'COALESCE(SUM(CASE WHEN i.status = :submittedStatus THEN 1 ELSE 0 END), 0) AS submitted',
+        'COALESCE(SUM(CASE WHEN i.status = :closedStatus THEN 1 ELSE 0 END), 0) AS closed',
+        'COALESCE(SUM(CASE WHEN i.result = :passResult THEN 1 ELSE 0 END), 0) AS pass',
+        'COALESCE(SUM(CASE WHEN i.result = :failResult THEN 1 ELSE 0 END), 0) AS fail',
+        'COALESCE(SUM(CASE WHEN i.result = :partialResult THEN 1 ELSE 0 END), 0) AS partial',
+      )
+      ->from(InspectionRecord::class, 'i')
+      ->where('i.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->setParameter('draftStatus', 'draft')
+      ->setParameter('submittedStatus', 'submitted')
+      ->setParameter('closedStatus', 'closed')
+      ->setParameter('passResult', 'pass')
+      ->setParameter('failResult', 'fail')
+      ->setParameter('partialResult', 'partial');
+
+    if (null !== $status) {
+      $queryBuilder->andWhere('i.status = :status')->setParameter('status', $status);
+    }
+    if (null !== $result) {
+      $queryBuilder->andWhere('i.result = :result')->setParameter('result', $result);
+    }
+    if (null !== $inspectorType) {
+      $queryBuilder->andWhere('i.inspectorType = :inspectorType')->setParameter('inspectorType', $inspectorType);
+    }
+
+    /** @var array{total?: int|string|null, draft?: int|string|null, submitted?: int|string|null, closed?: int|string|null, pass?: int|string|null, fail?: int|string|null, partial?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'draft' => (int) ($row['draft'] ?? 0),
+      'submitted' => (int) ($row['submitted'] ?? 0),
+      'closed' => (int) ($row['closed'] ?? 0),
+      'pass' => (int) ($row['pass'] ?? 0),
+      'fail' => (int) ($row['fail'] ?? 0),
+      'partial' => (int) ($row['partial'] ?? 0),
+    ];
+  }
+
   public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{status: string, inspectionCount: int|string}> $rows */
@@ -301,6 +354,59 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     }
 
     return $counts;
+  }
+
+  public function countPeriodMetricsByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $performedAtFrom,
+    string $performedAtTo,
+    ?string $status = null,
+    ?string $result = null,
+    ?string $inspectorType = null,
+  ): array {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(i.id) AS total',
+        'COALESCE(SUM(CASE WHEN i.status = :closedStatus THEN 1 ELSE 0 END), 0) AS closed',
+        'COALESCE(SUM(CASE WHEN i.result = :passResult THEN 1 ELSE 0 END), 0) AS pass',
+        'COALESCE(SUM(CASE WHEN i.result = :failResult THEN 1 ELSE 0 END), 0) AS fail',
+        'COALESCE(SUM(CASE WHEN i.result = :partialResult THEN 1 ELSE 0 END), 0) AS partial',
+      )
+      ->from(InspectionRecord::class, 'i')
+      ->where('i.organization = :organization')
+      ->andWhere('i.performedAt >= :performedAtFrom')
+      ->andWhere('i.performedAt <= :performedAtTo')
+      ->setParameter('organization', $organization)
+      ->setParameter('performedAtFrom', $this->normalizeTimestampToStorageDateTime($performedAtFrom), Types::DATETIME_IMMUTABLE)
+      ->setParameter('performedAtTo', $this->normalizeTimestampToStorageDateTime($performedAtTo), Types::DATETIME_IMMUTABLE)
+      ->setParameter('closedStatus', 'closed')
+      ->setParameter('passResult', 'pass')
+      ->setParameter('failResult', 'fail')
+      ->setParameter('partialResult', 'partial');
+
+    if (null !== $status) {
+      $queryBuilder->andWhere('i.status = :status')->setParameter('status', $status);
+    }
+    if (null !== $result) {
+      $queryBuilder->andWhere('i.result = :result')->setParameter('result', $result);
+    }
+    if (null !== $inspectorType) {
+      $queryBuilder->andWhere('i.inspectorType = :inspectorType')->setParameter('inspectorType', $inspectorType);
+    }
+
+    /** @var array{total?: int|string|null, closed?: int|string|null, pass?: int|string|null, fail?: int|string|null, partial?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'closed' => (int) ($row['closed'] ?? 0),
+      'pass' => (int) ($row['pass'] ?? 0),
+      'fail' => (int) ($row['fail'] ?? 0),
+      'partial' => (int) ($row['partial'] ?? 0),
+    ];
   }
 
   private function createListQueryBuilder(
