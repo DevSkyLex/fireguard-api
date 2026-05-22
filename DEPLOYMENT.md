@@ -56,7 +56,7 @@ php -r "echo bin2hex(random_bytes(32)) . PHP_EOL;"
 openssl rand -hex 64
 ```
 
-Utilise de preference des secrets hexadecimaux. Si une valeur contient `$`, Docker Compose tente de l'interpreter comme une variable; regenere une valeur sans `$`, entoure la valeur avec des quotes simples, ou echappe chaque `$` en `$$`.
+Utilise de preference des secrets hexadecimaux. Dans ce workflow, le `.env` de production est charge par `/bin/sh` via Ansible, donc le shell peut interpreter `$VAR`, `$(...)` et les backticks. Si une valeur contient ces caracteres ou syntaxes, regenere une valeur sans metacaracteres shell ou entoure-la avec des quotes simples.
 
 Utilise des mots de passe PostgreSQL URL-encodes dans `AUTH_DATABASE_URL` et `MAIN_DATABASE_URL` si les mots de passe contiennent `@`, `/`, `#`, `?`, `&` ou `%`.
 
