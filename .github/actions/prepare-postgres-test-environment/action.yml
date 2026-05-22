@@ -13,6 +13,12 @@ inputs:
   postgres-service-id:
     description: Service container identifier for the PostgreSQL job service
     required: true
+  auth-database-url:
+    description: Doctrine auth database URL used during test environment preparation
+    required: true
+  main-database-url:
+    description: Doctrine main database URL used during test environment preparation
+    required: true
 
 runs:
   using: composite
@@ -38,6 +44,9 @@ runs:
 
     - name: Install dependencies
       shell: bash
+      env:
+        AUTH_DATABASE_URL: ${{ inputs.auth-database-url }}
+        MAIN_DATABASE_URL: ${{ inputs.main-database-url }}
       run: composer install --prefer-dist --no-progress
 
     - name: Prepare test artifacts
@@ -56,12 +65,18 @@ runs:
 
     - name: Run database migrations
       shell: bash
+      env:
+        AUTH_DATABASE_URL: ${{ inputs.auth-database-url }}
+        MAIN_DATABASE_URL: ${{ inputs.main-database-url }}
       run: |
         php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
         php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
 
     - name: Validate Doctrine schema
       shell: bash
+      env:
+        AUTH_DATABASE_URL: ${{ inputs.auth-database-url }}
+        MAIN_DATABASE_URL: ${{ inputs.main-database-url }}
       run: |
         php bin/console doctrine:schema:validate --env=test --em=auth
         php bin/console doctrine:schema:validate --env=test --em=main

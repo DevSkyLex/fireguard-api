@@ -109,6 +109,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage-driver: pcov
           postgres-service-id: ${{ job.services.postgres.id }}
+          auth-database-url: ${{ env.AUTH_DATABASE_URL }}
+          main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
       - name: Run unit and architecture tests with coverage
         run: |
@@ -160,6 +162,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage-driver: pcov
           postgres-service-id: ${{ job.services.postgres.id }}
+          auth-database-url: ${{ env.AUTH_DATABASE_URL }}
+          main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
       - name: Run integration and functional tests with coverage
         run: |
@@ -213,6 +217,8 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
           postgres-service-id: ${{ job.services.postgres.id }}
+          auth-database-url: ${{ env.AUTH_DATABASE_URL }}
+          main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
       - name: Run end-to-end flow tests
         run: vendor/bin/phpunit --testsuite="E2E Tests" --no-coverage
