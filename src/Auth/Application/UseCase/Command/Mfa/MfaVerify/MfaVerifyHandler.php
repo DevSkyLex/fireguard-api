@@ -11,8 +11,8 @@ use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use Shared\Application\Message\CommandHandler;
 use Throwable;
 
-use function array_key_exists;
 use function array_filter;
+use function array_key_exists;
 use function array_values;
 use function is_array;
 use function is_bool;

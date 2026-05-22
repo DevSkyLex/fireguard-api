@@ -386,8 +386,10 @@ make sonar-scan
 GitHub Actions workflows are configured for:
 - **CI** (`.github/workflows/ci.yml`): Code style, PHPStan, Deptrac, tests, security audit
 - **Release** (`.github/workflows/release.yml`): Docker image build and GitHub release creation
+- **VPS deployment** (`.github/workflows/deploy-vps.yml`): CI, Docker image build, GHCR push, SSH deployment to a Docker Compose VPS stack
 
 The CI pipeline runs on every push and pull request to `main` and `develop` branches.
+See `DEPLOYMENT_VPS.md` for VPS setup, required GitHub secrets, and rollback notes.
 
 ## Operations
 
@@ -400,7 +402,6 @@ Security-sensitive configuration and guidance is documented in `SECURITY.md`.
 ## License
 
 This project is proprietary. See internal licensing guidance for distribution and use.
-
 
 
 

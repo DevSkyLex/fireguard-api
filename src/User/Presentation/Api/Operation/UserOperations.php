@@ -72,6 +72,17 @@ final class UserOperations
   public const string GET = 'user_get';
 
   /**
+   * Constant GET_CURRENT_PROFILE.
+   *
+   * Get current authenticated user profile operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string GET_CURRENT_PROFILE = 'user_get_current_profile';
+
+  /**
    * Constant LIST.
    *
    * List users operation name.
@@ -160,6 +171,7 @@ final class UserOperations
   public const array ALL = [
     self::CREATE,
     self::GET,
+    self::GET_CURRENT_PROFILE,
     self::LIST,
     self::LIST_STATUSES,
     self::UPDATE,

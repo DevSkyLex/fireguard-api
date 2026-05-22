@@ -33,6 +33,8 @@ final class OrganizationOperations
 
   public const string GET_ORGANIZATION = 'getOrganization';
 
+  public const string GET_CURRENT_ORGANIZATION_MEMBER_PROFILE = 'getCurrentOrganizationMemberProfile';
+
   public const string GET_ORGANIZATION_DASHBOARD = 'getOrganizationDashboard';
 
   public const string GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND = 'getOrganizationDashboardInspectionsTrend';

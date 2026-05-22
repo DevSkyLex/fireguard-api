@@ -1,0 +1,285 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  preflight:
+    name: Preflight
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  build:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    needs: preflight
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-ref: ${{ steps.image.outputs.ref }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Select deployed image
+        id: image
+        run: echo "ref=${REGISTRY}/${IMAGE_NAME}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      IMAGE_REF: ${{ needs.build.outputs.image-ref }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || '/opt/fireguard-sso-api' }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
+      VPS_HEALTHCHECK_URL: ${{ secrets.VPS_HEALTHCHECK_URL }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME || github.actor }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
+
+    steps:
+      - name: Checkout deployment files
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$VPS_SSH_KEY"
+          test -n "$VPS_ENV_FILE"
+          test -n "$IMAGE_REF"
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare deployment bundle
+        run: |
+          mkdir -p .deploy
+          cp compose.prod.yaml .deploy/compose.yaml
+          printf '%s\n' "$VPS_ENV_FILE" > .deploy/.env
+          awk -v image="$IMAGE_REF" '
+            BEGIN { replaced = 0 }
+            /^FIREGUARD_IMAGE=/ {
+              print "FIREGUARD_IMAGE=" image
+              replaced = 1
+              next
+            }
+            { print }
+            END {
+              if (replaced == 0) {
+                print "FIREGUARD_IMAGE=" image
+              }
+            }
+          ' .deploy/.env > .deploy/.env.tmp
+          mv .deploy/.env.tmp .deploy/.env
+
+      - name: Copy deployment files
+        run: |
+          remote="${VPS_USER}@${VPS_HOST}"
+          ssh -p "$VPS_PORT" "$remote" "mkdir -p '$VPS_APP_DIR'"
+          scp -P "$VPS_PORT" .deploy/compose.yaml .deploy/.env "$remote:$VPS_APP_DIR/"
+
+      - name: Log in to GHCR on VPS
+        run: |
+          remote="${VPS_USER}@${VPS_HOST}"
+          printf '%s' "$GHCR_TOKEN" | ssh -p "$VPS_PORT" "$remote" "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
+
+      - name: Run deployment
+        run: |
+          remote="${VPS_USER}@${VPS_HOST}"
+          ssh -p "$VPS_PORT" "$remote" "cd '$VPS_APP_DIR' && HEALTHCHECK_URL='$VPS_HEALTHCHECK_URL' sh -se" <<'REMOTE'
+          COMPOSE_FILE="compose.yaml"
+          HEALTHCHECK_RETRIES="${HEALTHCHECK_RETRIES:-30}"
+          HEALTHCHECK_DELAY_SECONDS="${HEALTHCHECK_DELAY_SECONDS:-5}"
+
+          log() {
+            printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
+          }
+
+          docker_compose() {
+            docker compose -f "$COMPOSE_FILE" "$@"
+          }
+
+          run_console() {
+            docker_compose run --rm app php bin/console "$@" --env=prod
+          }
+
+          wait_for_postgres() {
+            service="$1"
+            user="$2"
+            database="$3"
+
+            log "Waiting for ${service}."
+            i=1
+            while [ "$i" -le 30 ]; do
+              if docker_compose exec -T "$service" pg_isready -U "$user" -d "$database" >/dev/null 2>&1; then
+                return 0
+              fi
+              i=$((i + 1))
+              sleep 2
+            done
+
+            printf 'Database service did not become ready: %s\n' "$service" >&2
+            exit 1
+          }
+
+          backup_database() {
+            service="$1"
+            user="$2"
+            database="$3"
+            prefix="$4"
+            timestamp="$5"
+            output_dir="backups/${timestamp}"
+
+            mkdir -p "$output_dir"
+            log "Backing up ${database}."
+            docker_compose exec -T "$service" pg_dump -U "$user" -d "$database" -Fc > "${output_dir}/${prefix}.dump"
+          }
+
+          wait_for_http_health() {
+            if [ -n "${HEALTHCHECK_URL:-}" ]; then
+              log "Waiting for public application health at ${HEALTHCHECK_URL}."
+            else
+              log "Waiting for internal application health."
+            fi
+
+            i=1
+            while [ "$i" -le "$HEALTHCHECK_RETRIES" ]; do
+              if [ -n "${HEALTHCHECK_URL:-}" ]; then
+                if curl -fsS "$HEALTHCHECK_URL" >/dev/null; then
+                  log "Application is healthy."
+                  return 0
+                fi
+              else
+                if docker_compose exec -T app curl -fsS http://localhost:8000/api/health >/dev/null; then
+                  log "Application is healthy."
+                  return 0
+                fi
+              fi
+
+              i=$((i + 1))
+              sleep "$HEALTHCHECK_DELAY_SECONDS"
+            done
+
+            log "Application health check failed. Recent app logs:"
+            docker_compose logs --tail=120 app >&2
+            exit 1
+          }
+
+          test -f "$COMPOSE_FILE"
+          test -f .env
+
+          set -a
+          . ./.env
+          set +a
+
+          if [ -z "${FIREGUARD_IMAGE:-}" ]; then
+            printf 'FIREGUARD_IMAGE is required.\n' >&2
+            exit 1
+          fi
+
+          timestamp="$(date -u '+%Y%m%d%H%M%S')"
+
+          log "Ensuring Traefik network exists."
+          docker network inspect traefik_proxy >/dev/null 2>&1 || docker network create traefik_proxy
+
+          log "Generating JWT keys if missing."
+          mkdir -p jwt
+          if [ ! -f jwt/private.key ] || [ ! -f jwt/public.key ]; then
+            openssl genrsa -out jwt/private.key 4096
+            openssl rsa -in jwt/private.key -pubout -out jwt/public.key
+          fi
+          chmod 600 jwt/private.key
+          chmod 644 jwt/public.key
+
+          log "Pulling images."
+          docker_compose pull
+
+          log "Starting dependencies."
+          docker_compose up -d auth_database main_database redis mercure
+          wait_for_postgres auth_database "$POSTGRES_AUTH_USER" "$POSTGRES_AUTH_DB"
+          wait_for_postgres main_database "$POSTGRES_MAIN_USER" "$POSTGRES_MAIN_DB"
+
+          backup_database auth_database "$POSTGRES_AUTH_USER" "$POSTGRES_AUTH_DB" auth "$timestamp"
+          backup_database main_database "$POSTGRES_MAIN_USER" "$POSTGRES_MAIN_DB" main "$timestamp"
+
+          log "Running auth migrations."
+          run_console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
+
+          log "Running main migrations."
+          run_console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
+
+          log "Clearing production cache."
+          run_console cache:clear --no-warmup
+          run_console cache:warmup
+
+          log "Synchronizing permissions."
+          run_console app:authz:sync-permissions --update-roles --no-interaction
+
+          log "Starting application."
+          docker_compose up -d app
+          wait_for_http_health
+
+          log "Deployment completed."
+          docker_compose ps
+          REMOTE

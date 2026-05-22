@@ -43,8 +43,6 @@ use const FILTER_VALIDATE_BOOL;
  */
 final class JwtTokenAdapter implements JwtTokenServicePort
 {
-  private const ACCESS_TOKEN_USE_AUTH_SESSION = 'auth_session';
-
   // #region Traits
   /**
    * Trait CryptTrait.
@@ -56,6 +54,8 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    * @see CryptTrait
    */
   use CryptTrait;
+
+  private const ACCESS_TOKEN_USE_AUTH_SESSION = 'auth_session';
   // #endregion
 
   // #region Properties
