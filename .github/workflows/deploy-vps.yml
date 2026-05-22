@@ -84,12 +84,12 @@ jobs:
     env:
       IMAGE_REF: ${{ needs.build.outputs.image-ref }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
-      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_PORT: ${{ vars.VPS_PORT || '22' }}
       VPS_USER: ${{ secrets.VPS_USER }}
-      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || '/opt/fireguard-sso-api' }}
+      VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/opt/fireguard-sso-api' }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      VPS_HEALTHCHECK_URL: ${{ secrets.VPS_HEALTHCHECK_URL }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME || github.actor }}
+      VPS_HEALTHCHECK_URL: ${{ vars.VPS_HEALTHCHECK_URL }}
+      GHCR_USERNAME: ${{ vars.GHCR_USERNAME || github.actor }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
 
     steps:

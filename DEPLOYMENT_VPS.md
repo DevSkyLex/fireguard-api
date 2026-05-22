@@ -26,20 +26,25 @@ docker network inspect traefik_proxy >/dev/null 2>&1 || docker network create tr
 
 Le compose n'expose pas de port public pour l'API. Traefik doit etre connecte au reseau Docker externe `traefik_proxy` et publie `https://api.fireguard.valentin-fortin.pro` pour Symfony et `https://mercure.api.fireguard.valentin-fortin.pro` pour Mercure.
 
-## Secrets GitHub
+## Configuration GitHub
 
-Configurer ces secrets dans `Settings > Secrets and variables > Actions`:
+Configurer ces secrets dans `Settings > Secrets and variables > Actions > Secrets`:
 
 | Secret | Exemple | Description |
 | --- | --- | --- |
 | `VPS_HOST` | `203.0.113.10` | IP ou DNS du VPS |
-| `VPS_PORT` | `22` | Port SSH, optionnel |
 | `VPS_USER` | `deploy` | Utilisateur SSH |
 | `VPS_SSH_KEY` | cle privee OpenSSH | Cle autorisee dans `~/.ssh/authorized_keys` sur le VPS |
+| `GHCR_TOKEN` | PAT `read:packages` | Optionnel si le `GITHUB_TOKEN` du repo suffit |
+
+Configurer ces variables dans `Settings > Secrets and variables > Actions > Variables`:
+
+| Variable | Exemple | Description |
+| --- | --- | --- |
+| `VPS_PORT` | `22` | Port SSH, optionnel |
 | `VPS_APP_DIR` | `/opt/fireguard-sso-api` | Dossier de deploiement, optionnel |
 | `VPS_HEALTHCHECK_URL` | `https://api.fireguard.valentin-fortin.pro/api/health` | Recommande pour verifier Traefik; sinon le workflow teste l'API depuis le conteneur |
 | `GHCR_USERNAME` | ton user GitHub | Optionnel |
-| `GHCR_TOKEN` | PAT `read:packages` | Optionnel si le `GITHUB_TOKEN` du repo suffit |
 
 Le fichier `.env` de production reste sur le VPS dans `VPS_APP_DIR`. Il doit etre shell-compatible. Garde les URLs de base de donnees entre quotes.
 
