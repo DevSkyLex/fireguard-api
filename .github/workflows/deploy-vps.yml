@@ -1,8 +1,6 @@
 name: Deploy VPS
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -15,7 +13,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   preflight:
@@ -47,11 +44,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve Docker image name
+        id: image_name
+        run: |
+          image_name="${GITHUB_REPOSITORY,,}"
+          echo "name=${REGISTRY}/${image_name}" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image_name.outputs.name }}
           tags: |
             type=sha,format=short
             type=ref,event=branch
@@ -70,7 +73,9 @@ jobs:
 
       - name: Select deployed image
         id: image
-        run: echo "ref=${REGISTRY}/${IMAGE_NAME}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          image_name="${{ steps.image_name.outputs.name }}"
+          echo "ref=${image_name}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy to VPS

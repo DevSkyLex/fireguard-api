@@ -5,7 +5,7 @@
 
   vars:
     fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/opt/fireguard-sso-api', true) }}"
-    fireguard_image: "{{ lookup('env', 'IMAGE_REF') }}"
+    fireguard_image: "{{ lookup('env', 'IMAGE_REF') | lower }}"
     fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
     fireguard_compose_file: compose.yaml
     fireguard_env_file: "{{ fireguard_app_dir }}/.env"
