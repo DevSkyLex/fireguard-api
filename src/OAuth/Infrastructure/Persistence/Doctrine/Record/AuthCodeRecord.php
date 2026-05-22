@@ -19,7 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'auth_codes')]
 #[ORM\Index(name: 'idx_auth_code_expiry', columns: ['expiry'])]
-final class AuthCodeRecord
+class AuthCodeRecord
 {
   // #region Properties
   /**

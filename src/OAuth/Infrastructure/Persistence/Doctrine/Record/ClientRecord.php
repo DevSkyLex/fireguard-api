@@ -20,7 +20,7 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'clients')]
-final class ClientRecord
+class ClientRecord
 {
   // #region Properties
   /**

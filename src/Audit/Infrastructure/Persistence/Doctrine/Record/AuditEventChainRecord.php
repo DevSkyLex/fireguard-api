@@ -18,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'audit_event_chains')]
-final class AuditEventChainRecord
+class AuditEventChainRecord
 {
   // #region Properties
   /**

@@ -25,6 +25,9 @@
 .env.local
 .env.*.local
 
+# Runtime secrets
+/config/jwt/
+
 # Documentation
 *.md
 !README.md

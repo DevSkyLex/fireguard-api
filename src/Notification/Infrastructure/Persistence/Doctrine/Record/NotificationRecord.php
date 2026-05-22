@@ -22,7 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_notifications_recipient_email', columns: ['recipient_email'])]
 #[ORM\Index(name: 'idx_notifications_created_at', columns: ['created_at'])]
 #[ORM\Index(name: 'idx_notifications_user_read', columns: ['recipient_user_id', 'is_read'])]
-final class NotificationRecord
+class NotificationRecord
 {
   // #region Properties
   /**

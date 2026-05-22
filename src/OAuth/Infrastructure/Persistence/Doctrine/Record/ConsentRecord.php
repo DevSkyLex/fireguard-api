@@ -22,7 +22,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'consents')]
 #[ORM\UniqueConstraint(name: 'uniq_user_client', columns: ['user_id', 'client_id'])]
 #[ORM\Index(name: 'idx_consent_user', columns: ['user_id'])]
-final class ConsentRecord
+class ConsentRecord
 {
   // #region Properties
   /**

@@ -29,7 +29,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_audit_client_id', columns: ['client_id'])]
 #[ORM\Index(name: 'idx_audit_tenant_id', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_audit_ip_hash', columns: ['ip_hash'])]
-final class AuditEventRecord
+class AuditEventRecord
 {
   // #region Properties
   /**
