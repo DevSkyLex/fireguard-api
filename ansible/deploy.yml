@@ -59,7 +59,7 @@
         dest: "{{ fireguard_app_dir }}/{{ fireguard_compose_file }}"
         mode: "0644"
 
-    - name: Update deployed image in production env file
+    - name: Record deployed image in production env file
       ansible.builtin.lineinfile:
         path: "{{ fireguard_env_file }}"
         regexp: ^FIREGUARD_IMAGE=
