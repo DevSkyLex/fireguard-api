@@ -46,7 +46,7 @@ Configurer ces variables dans `Settings > Secrets and variables > Actions > Vari
 | `VPS_HEALTHCHECK_URL` | `https://api.fireguard.valentin-fortin.pro/api/health` | Recommande pour verifier Traefik; sinon le workflow teste l'API depuis le conteneur |
 | `GHCR_USERNAME` | ton user GitHub | Optionnel |
 
-Le fichier `.env` de production reste sur le VPS dans `VPS_APP_DIR`. Il doit etre shell-compatible. Garde les URLs de base de donnees entre quotes.
+Le fichier `.env` de production reste sur le VPS dans `VPS_APP_DIR`. Il doit etre shell-compatible. Garde les URLs de base de donnees entre quotes. Ne mets pas `FIREGUARD_IMAGE` a la main: Ansible ajoute ou remplace cette ligne avec l'image GHCR construite par GitHub Actions.
 
 Generer les secrets applicatifs:
 
@@ -60,7 +60,7 @@ Utilise des mots de passe PostgreSQL URL-encodes dans `AUTH_DATABASE_URL` et `MA
 
 ## Premier deploiement
 
-1. Creer `/opt/fireguard-sso-api/.env` sur le VPS a partir de `.env.example`, remplacer tous les `change_me_*`, verifier les domaines publics et les origines CORS.
+1. Creer `/opt/fireguard-sso-api/.env` sur le VPS a partir de `.env.example`, remplacer tous les `change_me_*`, verifier les domaines publics et les origines CORS. Ne pas ajouter de valeur factice pour `FIREGUARD_IMAGE`.
 2. Proteger le fichier: `chmod 600 /opt/fireguard-sso-api/.env`.
 3. Verifier que la branche de production est `main`.
 4. Lancer `Deploy VPS` manuellement depuis GitHub Actions ou pousser sur `main`.

@@ -389,7 +389,7 @@ GitHub Actions workflows are configured for:
 - **VPS deployment** (`.github/workflows/deploy-vps.yml`): CI, Docker image build, GHCR push, Ansible deployment to a Docker Compose VPS stack
 
 The CI pipeline runs on every push and pull request to `main` and `develop` branches.
-See `DEPLOYMENT_VPS.md` for VPS setup, required GitHub secrets, and rollback notes.
+See `DEPLOYMENT.md` for VPS setup, required GitHub secrets, and rollback notes.
 
 ## Operations
 
