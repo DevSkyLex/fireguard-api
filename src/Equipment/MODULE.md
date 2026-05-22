@@ -17,7 +17,7 @@ Main goals:
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/api/organizations/{organizationId}/equipment` | Create equipment |
-| GET | `/api/organizations/{organizationId}/equipment` | List equipment (filters: `facilityId`, `type`, `status`) |
+| GET | `/api/organizations/{organizationId}/equipment` | List equipment (filters: `facilityId`, `type`, `status`, `brand`, `model`, `subType`) |
 | GET | `/api/organizations/{organizationId}/equipment/{equipmentId}` | Get equipment |
 | PATCH | `/api/organizations/{organizationId}/equipment/{equipmentId}` | Update equipment fields |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/assign` | Assign to a facility |

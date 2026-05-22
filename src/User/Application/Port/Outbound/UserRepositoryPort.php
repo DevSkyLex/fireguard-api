@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace User\Application\Port\Outbound;
 
+use Shared\Application\Contract\Sorting\Sorting;
 use Shared\Domain\ValueObject\Email;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{UserId, Username};
@@ -119,5 +120,12 @@ interface UserRepositoryPort
    * @return array<User> the list of users
    */
   public function findAll(): array;
+
+  /**
+   * @return list<User>
+   */
+  public function findFiltered(?string $search, Sorting $sorting, int $limit, int $offset, ?string $tenantId = null): array;
+
+  public function countFiltered(?string $search, ?string $tenantId = null): int;
   // #endregion
 }

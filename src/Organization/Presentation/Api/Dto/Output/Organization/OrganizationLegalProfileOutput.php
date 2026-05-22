@@ -104,6 +104,14 @@ final class OrganizationLegalProfileOutput
   public string $updatedAt = '';
 
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * OrganizationLegalProfileOutput class.
+   *
+   * @since 1.0.0
+   */
   public function __construct()
   {
     $this->requirements = new OrganizationLegalProfileRequirementsOutput();

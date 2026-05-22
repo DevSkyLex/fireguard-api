@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember;
+
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Shared\Application\Message\CommandHandler;
+
+/**
+ * UseCase RemoveOrganizationRoleFromMemberHandler.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class RemoveOrganizationRoleFromMemberHandler implements CommandHandler
+{
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * RemoveOrganizationRoleFromMemberHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository port
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
+   */
+  public function __construct(
+    private OrganizationRepositoryPort $organizationRepository,
+    private OrganizationMemberRepositoryPort $memberRepository,
+    private OrganizationRoleRepositoryPort $roleRepository,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method __invoke.
+   *
+   * Removes a role assignment from a member.
+   *
+   * @since 1.0.0
+   *
+   * @param RemoveOrganizationRoleFromMemberCommand $command the command payload
+   *
+   * @return RemoveOrganizationRoleFromMemberResult the use case result
+   */
+  public function __invoke(RemoveOrganizationRoleFromMemberCommand $command): RemoveOrganizationRoleFromMemberResult
+  {
+    $organizationId = OrganizationId::fromString($command->organizationId);
+    $organization = $this->organizationRepository->findById($organizationId);
+
+    if (null === $organization) {
+      throw OrganizationNotFoundException::withId($command->organizationId);
+    }
+
+    $memberId = OrganizationMemberId::fromString($command->memberId);
+    $member = $this->memberRepository->findById($memberId);
+
+    if (null === $member || (string) $member->organizationId() !== (string) $organizationId) {
+      throw OrganizationMemberNotFoundException::withId($command->memberId);
+    }
+
+    $roleId = OrganizationRoleId::fromString($command->roleId);
+    $role = $this->roleRepository->findById($roleId);
+
+    if (null === $role || (string) $role->organizationId() !== (string) $organizationId) {
+      throw OrganizationRoleNotFoundException::withId($command->roleId);
+    }
+
+    $this->memberRepository->unassignRole($memberId, $roleId);
+
+    return new RemoveOrganizationRoleFromMemberResult(
+      memberId: (string) $memberId,
+      organizationId: (string) $organizationId,
+      roleId: (string) $roleId,
+    );
+  }
+  // #endregion
+}

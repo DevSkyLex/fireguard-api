@@ -13,13 +13,19 @@ use Otp\Presentation\Api\Dto\Output\Challenge\VerifyOtpOutput;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, TooManyRequestsHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Throwable;
 
 use function ctype_digit;
+use function hash;
 use function is_string;
+use function max;
+use function sprintf;
 use function strlen;
+use function substr;
+use function time;
 
 /**
  * Processor VerifyOtpProcessor.
@@ -45,6 +51,8 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     #[Autowire('%env(int:OTP_CODE_LENGTH)%')]
     private readonly int $otpCodeLength = 6,
+    #[Autowire(service: 'limiter.otp_challenge_verify')]
+    private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -61,6 +69,8 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
     if (!is_string($otpId) && !is_string($challengeToken)) {
       throw new NotFoundHttpException('OTP ID or challenge token is required.');
     }
+
+    $this->enforceRateLimit(is_string($challengeToken) ? $challengeToken : $otpId);
 
     if (!$this->isValidOtpCode($data->code)) {
       throw new BadRequestHttpException('Invalid code format.');
@@ -134,6 +144,33 @@ final readonly class VerifyOtpProcessor implements ProcessorInterface
   private function isValidOtpCode(string $code): bool
   {
     return strlen($code) === $this->otpCodeLength && ctype_digit($code);
+  }
+
+  private function enforceRateLimit(?string $identifier): void
+  {
+    if (null === $this->rateLimiter || null === $identifier || '' === $identifier) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($identifier))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many OTP verification attempts. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $identifier): string
+  {
+    $identifierHash = hash('sha256', $identifier);
+
+    return sprintf('otp_challenge_verify_%s', substr($identifierHash, 0, 16));
   }
   // #endregion
 }

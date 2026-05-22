@@ -23,6 +23,10 @@ services:
   Inspection\Application\Port\Outbound\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
+  Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
+
+  Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
+
   Inspection\Application\Port\Outbound\NonConformityRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository
 
@@ -46,6 +50,12 @@ services:
 
   # Command Handlers
   Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\EditInspection\EditInspectionHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Inspection\CancelInspection\CancelInspectionHandler:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Command\Inspection\SubmitInspection\SubmitInspectionHandler:
@@ -76,8 +86,12 @@ services:
   Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\ListNonConformitiesHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityHandler:
+    tags: ['messenger.message_handler']
+
   Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistHandler:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsHandler:
     tags: ['messenger.message_handler']
+

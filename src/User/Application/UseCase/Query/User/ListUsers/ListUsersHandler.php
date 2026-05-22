@@ -8,11 +8,6 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User\User;
 
-use function array_slice;
-use function count;
-
-use const COUNT_NORMAL;
-
 /**
  * Handler ListUsersHandler.
  *
@@ -55,17 +50,20 @@ final readonly class ListUsersHandler implements \Shared\Application\Message\Que
    */
   public function __invoke(ListUsersQuery $query): PaginatedResult
   {
-
-    $users = $this->userRepository->findAll();
-    $total = count(value: $users, mode: COUNT_NORMAL);
-    $offset = ($query->page - 1) * $query->limit;
-    $paged = array_slice($users, $offset, $query->limit);
+    $users = $this->userRepository->findFiltered(
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
+      $query->tenantId,
+    );
+    $total = $this->userRepository->countFiltered($query->search, $query->tenantId);
 
     return new PaginatedResult(
-      items: $paged,
+      items: $users,
       total: $total,
-      limit: $query->limit,
-      offset: $offset,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
 }

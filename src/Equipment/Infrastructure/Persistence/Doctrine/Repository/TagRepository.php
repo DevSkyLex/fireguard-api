@@ -279,5 +279,62 @@ final readonly class TagRepository implements TagRepositoryPort
       }
     });
   }
+
+  /**
+   * Method findByOrganizationId.
+   *
+   * @since 1.0.0
+   */
+  public function findByOrganizationId(EquipmentOrganizationId $organizationId, ?string $search = null): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $qb = $this->entityManager->createQueryBuilder();
+    $qb
+      ->select('t')
+      ->from(TagRecord::class, 't')
+      ->where('t.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->orderBy('t.name', 'ASC');
+
+    if (null !== $search && '' !== $search) {
+      $qb
+        ->andWhere('LOWER(t.name) LIKE LOWER(:search)')
+        ->setParameter('search', '%' . $search . '%');
+    }
+
+    /** @var list<TagRecord> $records */
+    $records = $qb->getQuery()->getResult();
+
+    return array_map(
+      static fn (TagRecord $record): Tag => TagMapper::toDomain($record),
+      $records,
+    );
+  }
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * @since 1.0.0
+   */
+  public function countByOrganizationId(EquipmentOrganizationId $organizationId, ?string $search = null): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+    $qb = $this->entityManager->createQueryBuilder();
+    $qb
+      ->select('COUNT(t.id)')
+      ->from(TagRecord::class, 't')
+      ->where('t.organization = :organization')
+      ->setParameter('organization', $organization);
+
+    if (null !== $search && '' !== $search) {
+      $qb
+        ->andWhere('LOWER(t.name) LIKE LOWER(:search)')
+        ->setParameter('search', '%' . $search . '%');
+    }
+
+    return (int) $qb->getQuery()->getSingleScalarResult();
+  }
   // #endregion
 }

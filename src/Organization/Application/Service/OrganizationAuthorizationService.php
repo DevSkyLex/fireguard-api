@@ -6,6 +6,7 @@ namespace Organization\Application\Service;
 
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\OrganizationId;
 
 use function count;
@@ -20,20 +21,26 @@ use function explode;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class OrganizationAuthorizationService implements OrganizationAuthorizationPort
+final class OrganizationAuthorizationService implements OrganizationAuthorizationPort
 {
+  /**
+   * @var array<string, list<string>>
+   */
+  private array $permissionCache = [];
+
   // #region Constructor
   /**
    * Constructor.
    *
-   * Initializes a new instance of the OrganizationAuthorizationService class.
+   * Initializes a new instance of the
+   * OrganizationAuthorizationService class.
    *
    * @since 1.0.0
    *
-   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    */
   public function __construct(
-    private OrganizationMemberRepositoryPort $memberRepository,
+    private readonly OrganizationMemberRepositoryPort $memberRepository,
   ) {
   }
   // #endregion
@@ -79,10 +86,49 @@ final readonly class OrganizationAuthorizationService implements OrganizationAut
    */
   public function getUserPermissions(string $userId, string $organizationId): array
   {
-    return $this->memberRepository->getPermissionNamesForUserInOrganization(
+    $cacheKey = $userId . '|' . $organizationId;
+    if (isset($this->permissionCache[$cacheKey])) {
+      return $this->permissionCache[$cacheKey];
+    }
+
+    return $this->permissionCache[$cacheKey] = $this->memberRepository->getPermissionNamesForUserInOrganization(
       userId: $userId,
       organizationId: OrganizationId::fromString($organizationId),
     );
+  }
+
+  /**
+   * Method assertGrantedPermissions.
+   *
+   * Resolves the user's effective permissions once and asserts
+   * that each required permission is granted.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   * @param list<string> $permissions the permission names to assert
+   *
+   * @throws OrganizationAccessDeniedException when one of the required permissions is missing
+   *
+   * @return void Returns nothing. Throws when access must be denied.
+   */
+  public function assertGrantedPermissions(string $userId, string $organizationId, array $permissions): void
+  {
+    $grantedPermissions = $this->getUserPermissions($userId, $organizationId);
+    foreach ($permissions as $permission) {
+      $matched = false;
+      foreach ($grantedPermissions as $granted) {
+        if ($this->permissionMatches($granted, $permission)) {
+          $matched = true;
+
+          break;
+        }
+      }
+      if (!$matched) {
+        throw OrganizationAccessDeniedException::missingPermission($permission);
+      }
+    }
   }
 
   /**

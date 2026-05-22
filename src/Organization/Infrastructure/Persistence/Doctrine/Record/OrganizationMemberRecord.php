@@ -23,6 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_organization_member_user', columns: ['user_id'])]
 #[ORM\Index(name: 'idx_organization_member_organization_active', columns: ['organization_id', 'is_active'])]
 #[ORM\Index(name: 'idx_organization_member_user_active', columns: ['user_id', 'is_active'])]
+#[ORM\Index(name: 'idx_organization_member_organization_joined_at', columns: ['organization_id', 'joined_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_organization_user_member', columns: ['organization_id', 'user_id'])]
 class OrganizationMemberRecord
 {

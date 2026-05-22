@@ -31,6 +31,18 @@ use function is_string;
 final readonly class GetOrganizationProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * GetOrganizationProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryBusPort $queryBus the query bus
+   * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param Security $security the security service
+   */
   public function __construct(
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,

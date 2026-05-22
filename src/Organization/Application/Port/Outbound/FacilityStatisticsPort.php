@@ -20,6 +20,20 @@ interface FacilityStatisticsPort
 {
   // #region Methods
   /**
+   * Method countFacilities.
+   *
+   * Counts all facilities for an organization, including archived ones.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $type optional facility type filter
+   *
+   * @return int the total facility count
+   */
+  public function countFacilities(string $organizationId, ?string $type = null): int;
+
+  /**
    * Method countActiveFacilities.
    *
    * Counts active (non-archived) facilities for an organization.
@@ -27,9 +41,43 @@ interface FacilityStatisticsPort
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
+   * @param ?string $type optional facility type filter
    *
    * @return int the active facility count
    */
-  public function countActiveFacilities(string $organizationId): int;
+  public function countActiveFacilities(string $organizationId, ?string $type = null): int;
+
+  /**
+   * Returns aggregate facility overview counts for dashboard cards.
+   *
+   * @return array{total: int, active: int}
+   */
+  public function countFacilityOverview(string $organizationId, ?string $type = null): array;
+
+  /**
+   * Method countFacilitiesByType.
+   *
+   * Counts facilities by type for an organization, including archived ones.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return array<string, int> map of facility type => count
+   */
+  public function countFacilitiesByType(string $organizationId): array;
+
+  /**
+   * Returns facility creation counts grouped by day for a period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countFacilitiesCreatedByDay(
+    string $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+  ): array;
   // #endregion
 }

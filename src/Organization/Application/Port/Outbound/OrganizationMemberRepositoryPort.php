@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\Port\Outbound;
 
+use DateTimeImmutable;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 
@@ -107,6 +108,18 @@ interface OrganizationMemberRepositoryPort
   public function assignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void;
 
   /**
+   * Method unassignRole.
+   *
+   * Removes a role assignment from a member.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationMemberId $memberId the member identifier
+   * @param OrganizationRoleId $roleId the role identifier to unassign
+   */
+  public function unassignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void;
+
+  /**
    * Method findRoleIdsForMember.
    *
    * Returns role identifiers assigned to a member.
@@ -131,6 +144,30 @@ interface OrganizationMemberRepositoryPort
    * @return int the member count
    */
   public function countByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
+   * Counts active members belonging to an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return int the active member count
+   */
+  public function countActiveByOrganizationId(OrganizationId $organizationId): int;
+
+  /**
+   * Counts members who joined during the requested period.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param DateTimeImmutable $joinedAtFrom the inclusive lower joined-at bound
+   * @param DateTimeImmutable $joinedAtTo the inclusive upper joined-at bound
+   *
+   * @return int the joined member count for the period
+   */
+  public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int;
 
   /**
    * Method getPermissionNamesForUserInOrganization.

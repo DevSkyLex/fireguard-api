@@ -24,8 +24,6 @@ use function strtolower;
  *
  * @version 1.0.0
  *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- *
  * @implements ProviderInterface<OrganizationCountryOptionOutput>
  */
 final readonly class ListOrganizationCountriesProvider implements ProviderInterface
@@ -45,6 +43,16 @@ final readonly class ListOrganizationCountriesProvider implements ProviderInterf
   // #endregion
 
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListOrganizationCountriesProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param Security $security the security service
+   */
   public function __construct(
     private Security $security,
   ) {

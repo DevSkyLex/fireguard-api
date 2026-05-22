@@ -17,6 +17,8 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_inspection_result', columns: ['result'])]
 #[ORM\Index(name: 'idx_inspection_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_inspection_organization_equipment', columns: ['organization_id', 'equipment_id'])]
+#[ORM\Index(name: 'idx_inspection_organization_performed_at', columns: ['organization_id', 'performed_at'])]
+#[ORM\Index(name: 'idx_inspection_organization_inspector_type_performed_at', columns: ['organization_id', 'inspector_type', 'performed_at'])]
 #[ORM\Index(name: 'idx_inspection_organization_result', columns: ['organization_id', 'result'])]
 #[ORM\Index(name: 'idx_inspection_organization_status', columns: ['organization_id', 'status'])]
 class InspectionRecord

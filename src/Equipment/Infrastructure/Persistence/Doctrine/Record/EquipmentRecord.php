@@ -26,6 +26,8 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_equipment_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_equipment_organization_type', columns: ['organization_id', 'type'])]
 #[ORM\Index(name: 'idx_equipment_organization_status', columns: ['organization_id', 'status'])]
+#[ORM\Index(name: 'idx_equipment_organization_type_status', columns: ['organization_id', 'type', 'status'])]
+#[ORM\Index(name: 'idx_equipment_organization_created_at', columns: ['organization_id', 'created_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_equipment_organization_serial', columns: ['organization_id', 'serial_number'])]
 class EquipmentRecord
 {

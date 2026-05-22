@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Organization\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, GetCollection, Post};
-use ApiPlatform\OpenApi\Model\Operation;
+use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Post};
+use ApiPlatform\OpenApi\Model\{Operation, Response};
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Operation\OrganizationOperations;
-use Organization\Presentation\Api\Processor\Organization\AddOrganizationMemberProcessor;
+use Organization\Presentation\Api\Processor\Organization\{AddOrganizationMemberProcessor, RemoveOrganizationMemberProcessor};
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationMembersProvider;
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Resource OrganizationMemberResource.
@@ -57,6 +58,26 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
         tags: ['Organization Members'],
         summary: 'List Organization members',
         description: 'Lists Organization members and assigned roles.',
+      ),
+    ),
+    new Delete(
+      name: OrganizationOperations::REMOVE_ORGANIZATION_MEMBER,
+      uriTemplate: '/{organizationId}/members/{memberId}',
+      read: false,
+      input: false,
+      output: false,
+      processor: RemoveOrganizationMemberProcessor::class,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization Members'],
+        summary: 'Remove Organization member',
+        description: 'Deactivates an organization member. The membership record is retained for audit purposes.',
+        responses: [
+          HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Member removed'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or member not found'),
+        ],
       ),
     ),
   ],

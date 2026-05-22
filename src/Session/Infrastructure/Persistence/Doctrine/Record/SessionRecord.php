@@ -22,6 +22,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'sessions')]
 #[ORM\Index(name: 'idx_session_user_id', columns: ['user_id'])]
 #[ORM\Index(name: 'idx_session_user_active', columns: ['user_id', 'revoked_at'])]
+#[ORM\Index(name: 'idx_session_access_token_id', columns: ['access_token_id'])]
+#[ORM\Index(name: 'idx_session_refresh_token_id', columns: ['refresh_token_id'])]
 final class SessionRecord
 {
   // #region Properties

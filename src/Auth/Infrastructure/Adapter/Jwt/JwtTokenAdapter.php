@@ -54,6 +54,8 @@ final class JwtTokenAdapter implements JwtTokenServicePort
    * @see CryptTrait
    */
   use CryptTrait;
+
+  private const ACCESS_TOKEN_USE_AUTH_SESSION = 'auth_session';
   // #endregion
 
   // #region Properties
@@ -169,6 +171,7 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       ->relatedTo($userId)
       ->issuedAt($now)
       ->expiresAt($accessTokenExpiry)
+      ->withClaim('_fireguard_token_use', self::ACCESS_TOKEN_USE_AUTH_SESSION)
       ->withClaim('scopes', $scopes);
 
     if ($this->includeEmailClaim && '' !== trim($email)) {
@@ -200,6 +203,10 @@ final class JwtTokenAdapter implements JwtTokenServicePort
       'refresh_token' => $this->encrypt($refreshTokenPayload),
       'token_type' => 'Bearer',
       'expires_in' => $this->accessTokenTtl,
+      'access_token_id' => $accessTokenId,
+      'refresh_token_id' => $refreshTokenId,
+      'refresh_token_expires_at' => $refreshTokenExpiry->getTimestamp(),
+      'remember_me' => $rememberMe,
     ];
   }
 

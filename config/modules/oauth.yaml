@@ -138,10 +138,6 @@ services:
   OAuth\Infrastructure\Console\Command\Client\DeleteClientCommand: ~
   OAuth\Infrastructure\Console\Command\Token\GenerateTokenCommand: ~
 
-  # DataFixtures
-  OAuth\Infrastructure\DataFixtures\ClientFixtures:
-    tags: ['doctrine.fixture.orm']
-
   # Event Subscribers
   OAuth\Infrastructure\EventSubscriber\EventLogSubscriber: ~
   OAuth\Presentation\Api\EventSubscriber\OAuthErrorSubscriber: ~

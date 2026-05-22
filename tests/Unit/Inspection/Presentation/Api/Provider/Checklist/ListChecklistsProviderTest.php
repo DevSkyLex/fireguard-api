@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -271,6 +272,46 @@ final class ListChecklistsProviderTest extends TestCase
       operation: new GetCollection(),
       uriVariables: ['organizationId' => self::ORG_ID],
     );
+  }
+
+  #[Test]
+  public function testProvidePassesSearchAndSortingToQuery(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListChecklistsQuery $query): bool {
+        return 'fire' === $query->search
+          && 'name' === $query->sorting->field
+          && SortDirection::ASC === $query->sorting->direction;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    $provider = new ListChecklistsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $result = $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+      context: ['filters' => ['search' => 'fire', 'order' => ['name' => 'asc']]],
+    );
+
+    self::assertSame(0.0, $result->getTotalItems());
   }
 
   private function createSecurityUser(): SecurityUser

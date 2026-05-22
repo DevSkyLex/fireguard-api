@@ -15,7 +15,13 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
+
+use function hash;
+use function sprintf;
+use function substr;
 
 /**
  * Test CheckConsentProviderTest.
@@ -173,6 +179,38 @@ final class CheckConsentProviderTest extends TestCase
     self::assertFalse($output->hasConsent);
   }
 
+  #[Test]
+  public function testProvideThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser());
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/oauth2/consent',
+      method: 'GET',
+      parameters: [
+        'client_id' => 'client-123',
+      ],
+    ));
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('user-123', 'client-123'))->consume();
+
+    $provider = new CheckConsentProvider(
+      security: $security,
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      rateLimiter: $rateLimiter,
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $provider->provide(operation: $this->createMock(Operation::class));
+  }
+
   private function createSecurityUser(): SecurityUser
   {
     return new SecurityUser(
@@ -182,6 +220,28 @@ final class CheckConsentProviderTest extends TestCase
       roles: ['ROLE_USER'],
       scopes: ['openid'],
       isActive: true,
+    );
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'oauth_consent_check',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $userId, string $clientId): string
+  {
+    return sprintf(
+      'oauth_consent_check_%s_%s',
+      substr(hash('sha256', $userId), 0, 16),
+      substr(hash('sha256', $clientId), 0, 16),
     );
   }
   // #endregion

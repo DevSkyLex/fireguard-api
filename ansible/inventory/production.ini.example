@@ -1,0 +1,2 @@
+[fireguard_vps]
+fireguard ansible_host=203.0.113.10 ansible_user=deploy ansible_port=22 ansible_python_interpreter=/usr/bin/python3

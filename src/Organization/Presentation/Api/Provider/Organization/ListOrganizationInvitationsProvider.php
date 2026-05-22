@@ -44,13 +44,14 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
   /**
    * Constructor.
    *
-   * Initializes a new instance of the ListOrganizationInvitationsProvider class.
+   * Initializes a new instance of the
+   * ListOrganizationInvitationsProvider class.
    *
    * @since 1.0.0
    *
    * @param QueryBusPort $queryBus the query bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param Security $security the Symfony security service
+   * @param Security $security the security service
    */
   public function __construct(
     private QueryBusPort $queryBus,

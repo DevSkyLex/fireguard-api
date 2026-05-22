@@ -24,9 +24,13 @@ use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Request, RequestStack, Response};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
+use function hash;
 use function json_decode;
+use function sprintf;
 use function strlen;
 use function substr;
 
@@ -1515,6 +1519,39 @@ final class AuthorizeProcessorTest extends TestCase
     $processor->provide(operation: $this->createMock(Operation::class));
   }
 
+  #[Test]
+  public function testProvideThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'client_id' => 'client-123',
+      ],
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('client-123', '127.0.0.1'))->consume();
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $this->createMock(AuthorizationServer::class),
+      security: $this->createSecurityMock(null),
+      queryBus: $this->createMock(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      rateLimiter: $rateLimiter,
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->provide(operation: $this->createMock(Operation::class));
+  }
+
   /**
    * @return AuthorizationServer&\PHPUnit\Framework\MockObject\MockObject
    */
@@ -1566,6 +1603,28 @@ final class AuthorizeProcessorTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     return $security;
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'oauth_authorize',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $clientId, string $ipAddress): string
+  {
+    return sprintf(
+      'oauth_authorize_%s_%s',
+      substr(hash('sha256', $clientId), 0, 16),
+      substr(hash('sha256', $ipAddress), 0, 16),
+    );
   }
 
   private function createStream(

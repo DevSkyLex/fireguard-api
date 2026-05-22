@@ -22,11 +22,13 @@ final readonly class ListOrganizationInvitationsQuery implements QueryMessage
   /**
    * Constructor.
    *
-   * Initializes a new instance of the ListOrganizationInvitationsQuery class.
+   * Initializes a new instance of the
+   * ListOrganizationInvitationsQuery class.
    *
    * @since 1.0.0
    *
-   * @param string $organizationId the organization identifier
+   * @param string $organizationId the organization ID
+   * @param Pagination $pagination the pagination settings
    */
   public function __construct(
     public string $organizationId,

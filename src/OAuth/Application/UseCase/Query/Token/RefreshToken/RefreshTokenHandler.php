@@ -12,7 +12,9 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
+use function array_key_exists;
 use function is_bool;
+use function is_string;
 
 /**
  * Handler RefreshTokenHandler.
@@ -107,6 +109,9 @@ final readonly class RefreshTokenHandler implements QueryHandler
       tokenType: $tokens['token_type'],
       expiresIn: $tokens['expires_in'],
       scopes: $scopes,
+      accessTokenId: $this->getTokenIdentifier($tokens, 'access_token_id'),
+      refreshTokenId: $this->getTokenIdentifier($tokens, 'refresh_token_id'),
+      rememberMe: $rememberMe,
     );
   }
 
@@ -166,6 +171,18 @@ final readonly class RefreshTokenHandler implements QueryHandler
     $rememberMe = $payload['remember_me'] ?? null;
 
     return is_bool($rememberMe) ? $rememberMe : false;
+  }
+
+  /**
+   * @param array<string, mixed> $tokens issued tokens
+   */
+  private function getTokenIdentifier(array $tokens, string $key): ?string
+  {
+    if (!array_key_exists($key, $tokens) || !is_string($tokens[$key]) || '' === $tokens[$key]) {
+      return null;
+    }
+
+    return $tokens[$key];
   }
   // #endregion
 }

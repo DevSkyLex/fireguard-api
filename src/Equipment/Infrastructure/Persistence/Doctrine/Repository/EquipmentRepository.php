@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
@@ -12,8 +15,11 @@ use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\EquipmentMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
+use Exception;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function addcslashes;
@@ -51,6 +57,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
+    private string $storageTimeZone = 'UTC',
   ) {
     $this->repository = $this->entityManager->getRepository(EquipmentRecord::class);
   }
@@ -124,6 +132,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
@@ -134,6 +145,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $facilityId,
       $type,
       $status,
+      $brand,
+      $model,
+      $subType,
       $search,
     );
 
@@ -170,6 +184,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
   ): int {
     return (int) $this->createListQueryBuilder(
@@ -177,6 +194,9 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       $facilityId,
       $type,
       $status,
+      $brand,
+      $model,
+      $subType,
       $search,
     )
       ->select('COUNT(e.id)')
@@ -184,11 +204,155 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->getSingleScalarResult();
   }
 
+  public function countOverviewByOrganizationId(EquipmentOrganizationId $organizationId, ?string $type = null, ?string $status = null): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(e.id) AS total',
+        'COALESCE(SUM(CASE WHEN e.status = :inStockStatus THEN 1 ELSE 0 END), 0) AS inStock',
+        'COALESCE(SUM(CASE WHEN e.status = :operationalStatus THEN 1 ELSE 0 END), 0) AS operational',
+        'COALESCE(SUM(CASE WHEN e.status = :underMaintenanceStatus THEN 1 ELSE 0 END), 0) AS underMaintenance',
+        'COALESCE(SUM(CASE WHEN e.status = :decommissionedStatus THEN 1 ELSE 0 END), 0) AS decommissioned',
+      )
+      ->from(EquipmentRecord::class, 'e')
+      ->where('e.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->setParameter('inStockStatus', 'in_stock')
+      ->setParameter('operationalStatus', 'operational')
+      ->setParameter('underMaintenanceStatus', 'under_maintenance')
+      ->setParameter('decommissionedStatus', 'decommissioned');
+
+    if (null !== $type) {
+      $queryBuilder->andWhere('e.type = :type')->setParameter('type', $type);
+    }
+    if (null !== $status) {
+      $queryBuilder->andWhere('e.status = :status')->setParameter('status', $status);
+    }
+
+    /** @var array{total?: int|string|null, inStock?: int|string|null, operational?: int|string|null, underMaintenance?: int|string|null, decommissioned?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'in_stock' => (int) ($row['inStock'] ?? 0),
+      'operational' => (int) ($row['operational'] ?? 0),
+      'under_maintenance' => (int) ($row['underMaintenance'] ?? 0),
+      'decommissioned' => (int) ($row['decommissioned'] ?? 0),
+    ];
+  }
+
+  public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array
+  {
+    /** @var list<array{status: string, equipmentCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('e.status AS status, COUNT(e.id) AS equipmentCount')
+      ->groupBy('e.status')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['status']] = (int) $row['equipmentCount'];
+    }
+
+    return $counts;
+  }
+
+  public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array
+  {
+    /** @var list<array{type: string, equipmentCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('e.type AS type, COUNT(e.id) AS equipmentCount')
+      ->groupBy('e.type')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['type']] = (int) $row['equipmentCount'];
+    }
+
+    return $counts;
+  }
+
+  public function countByCreatedDayForOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array {
+    $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $createdAtFrom);
+    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
+      return $this->countByCreatedDayForOrganizationIdPostgreSql(
+        organizationId: $organizationId,
+        createdAtFrom: $createdAtFrom,
+        createdAtTo: $createdAtTo,
+        bucketTimeZone: $bucketTimeZone,
+        type: $type,
+        status: $status,
+      );
+    }
+
+    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      null,
+      $type,
+      $status,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('e.createdAt AS createdAt')
+      ->andWhere('e.createdAt >= :createdAtFrom')
+      ->andWhere('e.createdAt <= :createdAtTo')
+      ->setParameter('createdAtFrom', $this->normalizeTimestampToStorageDateTime($createdAtFrom), Types::DATETIME_IMMUTABLE)
+      ->setParameter('createdAtTo', $this->normalizeTimestampToStorageDateTime($createdAtTo), Types::DATETIME_IMMUTABLE)
+      ->orderBy('e.createdAt', 'ASC')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $bucket = $this->reinterpretStorageDateTime($row['createdAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
+      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+    }
+
+    return $counts;
+  }
+
   private function createListQueryBuilder(
     EquipmentOrganizationId $organizationId,
     ?string $facilityId,
     ?string $type,
     ?string $status,
+    ?string $brand,
+    ?string $model,
+    ?string $subType,
     ?string $search,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
@@ -218,6 +382,24 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
         ->setParameter('status', $status);
     }
 
+    if (null !== $brand) {
+      $queryBuilder
+        ->andWhere('e.brand = :brand')
+        ->setParameter('brand', $brand);
+    }
+
+    if (null !== $model) {
+      $queryBuilder
+        ->andWhere('e.model = :model')
+        ->setParameter('model', $model);
+    }
+
+    if (null !== $subType) {
+      $queryBuilder
+        ->andWhere('e.subType = :subType')
+        ->setParameter('subType', $subType);
+    }
+
     if (null !== $search && '' !== $search) {
       $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
 
@@ -235,6 +417,98 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     }
 
     return $queryBuilder;
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countByCreatedDayForOrganizationIdPostgreSql(
+    EquipmentOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    DateTimeZone $bucketTimeZone,
+    ?string $type = null,
+    ?string $status = null,
+  ): array {
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS equipment_count
+        FROM equipment
+        WHERE organization_id = :organizationId
+          AND created_at >= :createdAtFrom
+          AND created_at <= :createdAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
+      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
+    ];
+
+    if (null !== $type) {
+      $sql .= "\n  AND type = :type";
+      $parameters['type'] = $type;
+    }
+
+    if (null !== $status) {
+      $sql .= "\n  AND status = :status";
+      $parameters['status'] = $status;
+    }
+
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, equipment_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['bucket']] = (int) $row['equipment_count'];
+    }
+
+    return $counts;
+  }
+
+  private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
+  {
+    if (null !== $timeZone && '' !== $timeZone) {
+      return new DateTimeZone($timeZone);
+    }
+
+    return new DateTimeImmutable($lowerBound)->getTimezone();
+  }
+
+  private function resolveStorageTimeZone(): DateTimeZone
+  {
+    try {
+      return new DateTimeZone($this->storageTimeZone);
+    } catch (Exception $exception) {
+      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+    }
+  }
+
+  private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
+  {
+    return new DateTimeImmutable($value)
+      ->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
+  {
+    return DateTimeImmutable::createFromFormat(
+      'Y-m-d H:i:s.u',
+      $value->format('Y-m-d H:i:s.u'),
+      $this->resolveStorageTimeZone(),
+    ) ?: $value->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
+  {
+    return new DateTimeImmutable($value)
+      ->setTimezone($storageTimeZone)
+      ->format('Y-m-d H:i:s.u');
   }
 
   private function isDuplicateSerialNumberViolation(Throwable $exception): bool

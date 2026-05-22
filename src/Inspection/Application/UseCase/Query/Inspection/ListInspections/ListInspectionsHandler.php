@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Inspection\ListInspections;
 
+use DateTimeImmutable;
+use Exception;
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
-use Inspection\Domain\ValueObject\{InspectionOrganizationId, InspectionResult, InspectionStatus};
+use Inspection\Domain\ValueObject\{
+  InspectionChecklistId,
+  InspectionEquipmentId,
+  InspectionFacilityId,
+  InspectionOrganizationId,
+  InspectionResult,
+  InspectionStatus
+};
 use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
+use Shared\Domain\ValueObject\Uuid;
 use ValueError;
-
-use function count;
 
 /**
  * UseCase ListInspectionsHandler.
@@ -46,18 +54,51 @@ final readonly class ListInspectionsHandler implements QueryHandler
   {
     try {
       $organizationId = InspectionOrganizationId::fromString($query->organizationId);
+      $equipmentId = null !== $query->equipmentId ? (string) InspectionEquipmentId::fromString($query->equipmentId) : null;
+      $facilityId = null !== $query->facilityId ? (string) InspectionFacilityId::fromString($query->facilityId) : null;
       $result = null !== $query->result ? InspectionResult::from($query->result)->value : null;
       $status = null !== $query->status ? InspectionStatus::from($query->status)->value : null;
-    } catch (InvalidValueException|ValueError $exception) {
+      $performedAtFrom = null !== $query->performedAtFrom ? new DateTimeImmutable($query->performedAtFrom) : null;
+      $performedAtTo = null !== $query->performedAtTo ? new DateTimeImmutable($query->performedAtTo) : null;
+      $inspectorUserId = null !== $query->inspectorUserId ? (string) new Uuid($query->inspectorUserId) : null;
+      $checklistId = null !== $query->checklistId ? (string) InspectionChecklistId::fromString($query->checklistId) : null;
+    } catch (InvalidValueException|ValueError|Exception $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    if (null !== $performedAtFrom && null !== $performedAtTo && $performedAtFrom > $performedAtTo) {
+      throw new InvalidArgumentException('performedAtFrom cannot be after performedAtTo.');
     }
 
     $inspections = $this->inspectionRepository->findByOrganizationId(
       $organizationId,
-      $query->equipmentId,
-      $query->facilityId,
+      $equipmentId,
+      $facilityId,
       $result,
       $status,
+      $performedAtFrom?->format(DateTimeImmutable::ATOM),
+      $performedAtTo?->format(DateTimeImmutable::ATOM),
+      $inspectorUserId,
+      null,
+      $checklistId,
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
+    );
+
+    $total = $this->inspectionRepository->countByOrganizationId(
+      $organizationId,
+      $equipmentId,
+      $facilityId,
+      $result,
+      $status,
+      $performedAtFrom?->format(DateTimeImmutable::ATOM),
+      $performedAtTo?->format(DateTimeImmutable::ATOM),
+      $inspectorUserId,
+      null,
+      $checklistId,
+      $query->search,
     );
 
     $results = [];
@@ -92,13 +133,11 @@ final readonly class ListInspectionsHandler implements QueryHandler
       );
     }
 
-    $total = count($results);
-
     return new PaginatedResult(
       items: $results,
       total: $total,
-      limit: $total,
-      offset: 0,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

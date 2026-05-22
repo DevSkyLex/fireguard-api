@@ -39,6 +39,10 @@ services:
     tags:
       - { name: messenger.message_handler, handles: User\Application\UseCase\Query\User\ListUsers\ListUsersQuery }
 
+  User\Application\UseCase\Query\User\GetCurrentUserProfile\GetCurrentUserProfileHandler:
+    tags:
+      - { name: messenger.message_handler, handles: User\Application\UseCase\Query\User\GetCurrentUserProfile\GetCurrentUserProfileQuery }
+
   User\Application\EventHandler\UserCreatedEventHandler:
     tags: ['messenger.message_handler']
 
@@ -56,6 +60,7 @@ services:
   User\Presentation\Api\Processor\User\VerifyUserEmailProcessor: ~
   User\Presentation\Api\Provider\User\UserProvider: ~
   User\Presentation\Api\Provider\User\ListUsersProvider: ~
+  User\Presentation\Api\Provider\User\GetCurrentUserProfileProvider: ~
   User\Presentation\Api\Controller\User\GetUserAvatarController: ~
   User\Infrastructure\Image\AvatarResizer: ~
 
@@ -64,6 +69,3 @@ services:
   User\Infrastructure\Console\DeleteUserConsoleCommand: ~
   User\Infrastructure\Console\ListUsersCommand: ~
 
-  # DataFixtures
-  User\Infrastructure\DataFixtures\UserFixtures:
-    tags: ['doctrine.fixture.orm']

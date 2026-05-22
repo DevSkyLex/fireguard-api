@@ -246,6 +246,34 @@ Example registration (config/modules/<module>.yaml):
 - Use Symfony Validator constraints and custom validators for complex rules.
 - Centralize error mapping via EventSubscriber when needed.
 
+### Reference Catalog Endpoints
+
+Use dedicated reference catalog resources for UI selects only when the API contract benefits from exposing them explicitly.
+
+Preferred categories:
+
+- `Static contract`: stable enum-like values with no scope, permission, or contextual metadata. Do not create an endpoint by default when OpenAPI or a shared contract is sufficient.
+- `Reference catalog`: read-only lists meant for selects, filters, or lightweight UI metadata. Expose these as dedicated `GetCollection` resources under the owning module.
+- `Business resource`: real domain collections with lifecycle, relationships, search, pagination, or write behavior. Keep these as normal resources, not as simplified option endpoints.
+
+Use a reference catalog resource when at least one of these is true:
+
+- the frontend should not hard-code the values
+- labels or display metadata belong to the backend contract
+- values may evolve without a frontend redeploy
+- the list depends on permissions, tenant, organization, country, or another context
+- the response needs more than a bare string list
+
+Guidelines for reference catalogs:
+
+- prefer module-local routes such as `/facilities/statuses`, `/inspections/results`, `/organizations/legal-types`
+- avoid generic utility endpoints such as `/options`, `/lookups`, `/metadata/selects`, or aggregated multi-list payloads by default
+- keep providers thin; they may read directly from enums or registries when the list is static
+- use a minimal output contract such as `value` and `label`, and add metadata only when the frontend really needs it
+- keep resource-level security as the coarse gate and add explicit permission or scope checks in providers whenever the list is contextual
+
+This keeps select data explicit and documented without degrading real business resources into generic option feeds.
+
 Checklist for each endpoint:
 - Resource with proper route and security.
 - Operation constant and metadata.

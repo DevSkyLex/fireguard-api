@@ -24,8 +24,12 @@ use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
+use function hash;
+use function sprintf;
 use function strlen;
 use function substr;
 
@@ -709,6 +713,33 @@ final class GrantConsentProcessorTest extends TestCase
     self::assertNull($method->invoke($processor, '<input name=\"state\" value=\"xyz\" />'));
   }
 
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser());
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('user-123', 'client-123'))->consume();
+
+    $processor = new GrantConsentProcessor(
+      authorizationServer: $this->createMock(AuthorizationServer::class),
+      commandBus: $this->createMock(CommandBusPort::class),
+      security: $security,
+      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      rateLimiter: $rateLimiter,
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process(
+      data: $this->createInput(approved: true),
+      operation: $this->createMock(Operation::class),
+    );
+  }
+
   private function createSecurityUser(): SecurityUser
   {
     return new SecurityUser(
@@ -735,6 +766,28 @@ final class GrantConsentProcessorTest extends TestCase
     $input->approved = $approved;
 
     return $input;
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'oauth_consent_grant',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $userId, string $clientId): string
+  {
+    return sprintf(
+      'oauth_consent_grant_%s_%s',
+      substr(hash('sha256', $userId), 0, 16),
+      substr(hash('sha256', $clientId), 0, 16),
+    );
   }
 
   private function createStream(

@@ -37,6 +37,7 @@ final readonly class SecurityUser implements UserInterface, PasswordAuthenticate
    * @param list<string> $roles the user roles
    * @param list<string> $scopes the OAuth2 scopes
    * @param bool $isActive whether the user is active
+   * @param string|null $tenantId the tenant ID (null for global/system users)
    */
   public function __construct(
     private string $id,
@@ -45,6 +46,7 @@ final readonly class SecurityUser implements UserInterface, PasswordAuthenticate
     private array $roles = ['ROLE_USER'],
     private array $scopes = [],
     private bool $isActive = true,
+    private ?string $tenantId = null,
   ) {
   }
   // #endregion
@@ -157,6 +159,20 @@ final readonly class SecurityUser implements UserInterface, PasswordAuthenticate
   public function isActive(): bool
   {
     return $this->isActive;
+  }
+
+  /**
+   * Method getTenantId.
+   *
+   * Get the tenant ID. Returns null for global/system users.
+   *
+   * @since 1.0.0
+   *
+   * @return string|null the tenant ID, or null for global users
+   */
+  public function getTenantId(): ?string
+  {
+    return $this->tenantId;
   }
 
   /**

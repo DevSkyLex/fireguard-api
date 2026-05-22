@@ -55,6 +55,9 @@ interface EquipmentRepositoryPort
    * @param ?string $facilityId optional facility filter
    * @param ?string $type optional type filter
    * @param ?string $status optional status filter
+   * @param ?string $brand optional brand filter
+   * @param ?string $model optional model filter
+   * @param ?string $subType optional subtype filter
    * @param ?string $search optional text search applied before pagination
    * @param Sorting $sorting requested sorting applied before pagination
    * @param int $limit maximum number of results
@@ -67,6 +70,9 @@ interface EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
     Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
     int $limit = 20,
@@ -84,6 +90,9 @@ interface EquipmentRepositoryPort
    * @param ?string $facilityId optional facility filter
    * @param ?string $type optional type filter
    * @param ?string $status optional status filter
+   * @param ?string $brand optional brand filter
+   * @param ?string $model optional model filter
+   * @param ?string $subType optional subtype filter
    * @param ?string $search optional text search applied before counting
    *
    * @return int the total count
@@ -93,8 +102,58 @@ interface EquipmentRepositoryPort
     ?string $facilityId = null,
     ?string $type = null,
     ?string $status = null,
+    ?string $brand = null,
+    ?string $model = null,
+    ?string $subType = null,
     ?string $search = null,
   ): int;
+
+  /**
+   * Counts dashboard overview metrics for equipment in one query.
+   *
+   * @return array{total: int, in_stock: int, operational: int, under_maintenance: int, decommissioned: int}
+   */
+  public function countOverviewByOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    ?string $type = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts equipment grouped by status for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of status => count
+   */
+  public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array;
+
+  /**
+   * Counts equipment grouped by type for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of type => count
+   */
+  public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array;
+
+  /**
+   * Counts equipment creations grouped by creation day for an organization.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByCreatedDayForOrganizationId(
+    EquipmentOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+    ?string $status = null,
+  ): array;
 
   // #endregion
 }

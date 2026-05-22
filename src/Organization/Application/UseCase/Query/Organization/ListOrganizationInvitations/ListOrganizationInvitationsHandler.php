@@ -28,12 +28,13 @@ final readonly class ListOrganizationInvitationsHandler implements QueryHandler
   /**
    * Constructor.
    *
-   * Initializes a new instance of the ListOrganizationInvitationsHandler class.
+   * Initializes a new instance of the
+   * ListOrganizationInvitationsHandler class.
    *
    * @since 1.0.0
    *
-   * @param OrganizationRepositoryPort $organizationRepository the organization repository port
-   * @param OrganizationInvitationRepositoryPort $invitationRepository the invitation repository port
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,

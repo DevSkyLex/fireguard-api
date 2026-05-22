@@ -6,6 +6,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationRoleMapper;
@@ -99,7 +100,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       return null;
     }
 
-    return OrganizationRoleMapper::toDomain($record);
+    return $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record));
   }
 
   /**
@@ -127,7 +128,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
       return null;
     }
 
-    return OrganizationRoleMapper::toDomain($record);
+    return $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record));
   }
 
   /**
@@ -152,7 +153,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     ]);
 
     return array_map(
-      static fn (OrganizationRoleRecord $record): OrganizationRole => OrganizationRoleMapper::toDomain($record),
+      fn (OrganizationRoleRecord $record): OrganizationRole => $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record)),
       $records,
     );
   }
@@ -175,6 +176,17 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
 
     return (int) $this->repository->count([
       'organization' => $organization,
+    ]);
+  }
+
+  public function countSystemByOrganizationId(OrganizationId $organizationId): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->repository->count([
+      'organization' => $organization,
+      'isSystem' => true,
     ]);
   }
 
@@ -213,11 +225,52 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     $roles = [];
     foreach ($records as $record) {
       if ($record instanceof OrganizationRoleRecord) {
-        $roles[] = OrganizationRoleMapper::toDomain($record);
+        $roles[] = $this->normalizeSystemRolePermissions(OrganizationRoleMapper::toDomain($record));
       }
     }
 
     return $roles;
+  }
+
+  /**
+   * Method remove.
+   *
+   * Deletes an organization role and cascades member role assignments.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRole $role the role aggregate to delete
+   */
+  public function remove(OrganizationRole $role): void
+  {
+    $record = $this->repository->find((string) $role->id());
+
+    if ($record instanceof OrganizationRoleRecord) {
+      $this->entityManager->remove($record);
+      $this->entityManager->flush();
+    }
+  }
+
+  /**
+   * Method normalizeSystemRolePermissions.
+   *
+   * Ensures system roles expose the current canonical permission set.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRole $role the role aggregate
+   *
+   * @return OrganizationRole the normalized role aggregate
+   */
+  private function normalizeSystemRolePermissions(OrganizationRole $role): OrganizationRole
+  {
+    $role->updatePermissions(OrganizationSystemRoleCatalog::mergePermissions(
+      roleName: (string) $role->name(),
+      permissions: $role->permissions(),
+      isSystem: $role->isSystem(),
+    ));
+
+    return $role;
   }
   // #endregion
 }

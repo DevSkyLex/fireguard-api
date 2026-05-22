@@ -13,8 +13,6 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
-use function count;
-
 /**
  * UseCase ListChecklistsHandler.
  *
@@ -53,6 +51,10 @@ final readonly class ListChecklistsHandler implements QueryHandler
     $checklists = $this->checklistRepository->findByOrganizationId(
       $organizationId,
       $status,
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
     );
 
     $results = [];
@@ -82,13 +84,13 @@ final readonly class ListChecklistsHandler implements QueryHandler
       );
     }
 
-    $total = count($results);
+    $total = $this->checklistRepository->countByOrganizationId($organizationId, $status, $query->search);
 
     return new PaginatedResult(
       items: $results,
       total: $total,
-      limit: $total,
-      offset: 0,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

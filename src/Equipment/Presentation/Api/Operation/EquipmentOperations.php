@@ -87,6 +87,13 @@ final class EquipmentOperations
   public const string LIST_EQUIPMENT_TYPES = 'equipment_types_list';
 
   /**
+   * Constant LIST_EQUIPMENT_STATUSES.
+   *
+   * @var string
+   */
+  public const string LIST_EQUIPMENT_STATUSES = 'equipment_statuses_list';
+
+  /**
    * Constant ADD_TAG_TO_EQUIPMENT.
    *
    * @var string
@@ -120,5 +127,19 @@ final class EquipmentOperations
    * @var string
    */
   public const string DELETE_ATTACHMENT = 'equipment_delete_attachment';
+
+  /**
+   * Constant LIST_TAGS.
+   *
+   * @var string
+   */
+  public const string LIST_TAGS = 'equipment_list_tags';
+
+  /**
+   * Constant LIST_MAINTENANCE_LOGS.
+   *
+   * @var string
+   */
+  public const string LIST_MAINTENANCE_LOGS = 'equipment_list_maintenance_logs';
   // #endregion
 }

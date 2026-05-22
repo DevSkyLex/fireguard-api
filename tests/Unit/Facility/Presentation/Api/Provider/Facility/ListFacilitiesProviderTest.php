@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -142,6 +143,68 @@ final class ListFacilitiesProviderTest extends TestCase
 
     $items = iterator_to_array($outputs);
     self::assertCount(0, $items);
+  }
+
+  #[Test]
+  public function testProvidePassesFiltersSearchAndSortingToQuery(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441212';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441213');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with($user->getId(), $organizationId, 'organization.facilities.read')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListFacilitiesQuery $query) use ($organizationId): bool {
+        return $organizationId === $query->organizationId
+          && 'building' === $query->type
+          && 'active' === $query->status
+          && '550e8400-e29b-41d4-a716-446655441214' === $query->parentFacilityId
+          && 'BLD-A' === $query->code
+          && 'alpha' === $query->search
+          && 'createdAt' === $query->sorting->field
+          && SortDirection::DESC === $query->sorting->direction;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $request = new Request();
+    $request->query->set('type', 'building');
+    $request->query->set('status', 'active');
+    $request->query->set('parentFacilityId', '550e8400-e29b-41d4-a716-446655441214');
+    $request->query->set('code', 'BLD-A');
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $provider = new ListFacilitiesProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => $organizationId],
+      context: [
+        'filters' => [
+          'search' => 'alpha',
+          'order' => ['createdAt' => 'desc'],
+        ],
+      ],
+    );
   }
 
   #[Test]

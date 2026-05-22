@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace User\Application\EventHandler;
 
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
 use Shared\Application\Port\Outbound\LoggerPort;
+use Throwable;
 use User\Domain\Event\UserEmailVerifiedEvent;
 
 /**
@@ -29,6 +33,7 @@ final readonly class UserEmailVerifiedEventHandler
    * @param LoggerPort $logger the logger
    */
   public function __construct(
+    private NotificationPort $notificationPort,
     private LoggerPort $logger,
   ) {
   }
@@ -46,6 +51,29 @@ final readonly class UserEmailVerifiedEventHandler
    */
   public function __invoke(UserEmailVerifiedEvent $event): void
   {
+    $verifiedAt = $event->occurredAt->format('c');
+
+    try {
+      $this->notificationPort->send(new SendNotificationRequest(
+        type: NotificationType::USER_EMAIL_VERIFIED,
+        subject: 'Your email has been verified',
+        body: 'Your email address has been verified successfully.',
+        channels: [NotificationChannel::MERCURE],
+        payload: [
+          'verifiedAt' => $verifiedAt,
+        ],
+        recipientUserId: $event->userId,
+      ));
+    } catch (Throwable $exception) {
+      $this->logger->warning(
+        message: 'Failed to send user email verified notification.',
+        context: [
+          'user_id' => $event->userId,
+          'error' => $exception->getMessage(),
+        ],
+      );
+    }
+
     $this->logger->info(
       message: 'User email verified',
       context: [

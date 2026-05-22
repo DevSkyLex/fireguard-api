@@ -4,15 +4,28 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use DateTimeImmutable;
+use DateTimeZone;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
+use Exception;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use RuntimeException;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
+use function addcslashes;
 use function array_map;
+use function count;
+use function mb_strtolower;
+use function str_contains;
+use function strtoupper;
+use function usort;
 
 /**
  * Repository FacilityRepository.
@@ -44,6 +57,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
+    #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
+    private string $storageTimeZone = 'UTC',
   ) {
     $this->repository = $this->entityManager->getRepository(FacilityRecord::class);
   }
@@ -109,25 +124,112 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return FacilityMapper::toDomain($record);
   }
 
+  public function findChildren(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+  ): array {
+    /** @var list<FacilityRecord> $records */
+    $records = $this->createChildQueryBuilder($organizationId, $facilityId, $includeArchived, $search)
+      ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
+      ->addOrderBy('f.id', 'ASC')
+      ->getQuery()
+      ->getResult();
+
+    return array_map(
+      static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
+      $records,
+    );
+  }
+
+  public function findDescendants(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+  ): array {
+    $pendingParentIds = [(string) $facilityId];
+    $records = [];
+    $seen = [];
+
+    while ([] !== $pendingParentIds) {
+      $nextParentIds = [];
+
+      foreach ($pendingParentIds as $parentId) {
+        $children = $this->findChildRecords($organizationId, $parentId);
+
+        foreach ($children as $child) {
+          if (isset($seen[$child->id])) {
+            continue;
+          }
+
+          $seen[$child->id] = true;
+          $nextParentIds[] = $child->id;
+
+          if (!$includeArchived && FacilityStatus::ARCHIVED->value === $child->status) {
+            continue;
+          }
+
+          if (!$this->matchesSearch($child, $search)) {
+            continue;
+          }
+
+          $records[] = $child;
+        }
+      }
+
+      $pendingParentIds = $nextParentIds;
+    }
+
+    $this->sortRecords($records, $sorting);
+
+    return array_map(
+      static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
+      $records,
+    );
+  }
+
   /**
    * Method countByOrganizationId.
    *
-   * Counts facilities belonging to an organization.
+   * Counts facilities for an organization with optional filters.
    *
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param bool $includeArchived whether archived facilities are included by default when no explicit status filter is provided
+   * @param ?string $type optional type filter
+   * @param ?string $status optional status filter
+   * @param ?string $parentFacilityId optional parent facility filter
+   * @param ?string $code optional exact code filter
+   * @param ?string $search optional text search applied before counting
    *
-   * @return int the facility count
+   * @return int the facilities count
    */
-  public function countByOrganizationId(FacilityOrganizationId $organizationId): int
-  {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-
-    return (int) $this->repository->count([
-      'organization' => $organization,
-    ]);
+  public function countByOrganizationId(
+    FacilityOrganizationId $organizationId,
+    bool $includeArchived = false,
+    ?string $type = null,
+    ?string $status = null,
+    ?string $parentFacilityId = null,
+    ?string $code = null,
+    ?string $search = null,
+  ): int {
+    return (int) $this->createListQueryBuilder(
+      $organizationId,
+      $includeArchived,
+      $type,
+      $status,
+      $parentFacilityId,
+      $code,
+      $search,
+    )
+      ->select('COUNT(f.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
   }
 
   /**
@@ -152,6 +254,107 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ]);
   }
 
+  public function countOverviewByOrganizationId(FacilityOrganizationId $organizationId, ?string $type = null): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select(
+        'COUNT(f.id) AS total',
+        'COALESCE(SUM(CASE WHEN f.status = :activeStatus THEN 1 ELSE 0 END), 0) AS active',
+      )
+      ->from(FacilityRecord::class, 'f')
+      ->where('f.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
+
+    if (null !== $type) {
+      $queryBuilder->andWhere('f.type = :type')->setParameter('type', $type);
+    }
+
+    /** @var array{total?: int|string|null, active?: int|string|null} $row */
+    $row = $queryBuilder->getQuery()->getSingleResult();
+
+    return [
+      'total' => (int) ($row['total'] ?? 0),
+      'active' => (int) ($row['active'] ?? 0),
+    ];
+  }
+
+  public function countByTypeForOrganizationId(
+    FacilityOrganizationId $organizationId,
+    bool $includeArchived = false,
+  ): array {
+    /** @var list<array{type: string, facilityCount: int|string}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      $includeArchived,
+      null,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('f.type AS type, COUNT(f.id) AS facilityCount')
+      ->groupBy('f.type')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['type']] = (int) $row['facilityCount'];
+    }
+
+    return $counts;
+  }
+
+  public function countByCreatedDayForOrganizationId(
+    FacilityOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $type = null,
+  ): array {
+    $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $createdAtFrom);
+    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
+      return $this->countByCreatedDayForOrganizationIdPostgreSql(
+        organizationId: $organizationId,
+        createdAtFrom: $createdAtFrom,
+        createdAtTo: $createdAtTo,
+        bucketTimeZone: $bucketTimeZone,
+        type: $type,
+      );
+    }
+
+    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
+    $rows = $this->createListQueryBuilder(
+      $organizationId,
+      true,
+      $type,
+      null,
+      null,
+      null,
+      null,
+    )
+      ->select('f.createdAt AS createdAt')
+      ->andWhere('f.createdAt >= :createdAtFrom')
+      ->andWhere('f.createdAt <= :createdAtTo')
+      ->setParameter('createdAtFrom', $this->normalizeTimestampToStorageDateTime($createdAtFrom), Types::DATETIME_IMMUTABLE)
+      ->setParameter('createdAtTo', $this->normalizeTimestampToStorageDateTime($createdAtTo), Types::DATETIME_IMMUTABLE)
+      ->orderBy('f.createdAt', 'ASC')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $bucket = $this->reinterpretStorageDateTime($row['createdAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
+      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+    }
+
+    return $counts;
+  }
+
   /**
    * Method findByOrganizationId.
    *
@@ -163,19 +366,287 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    *
    * @return list<Facility> the facilities
    */
-  public function findByOrganizationId(FacilityOrganizationId $organizationId): array
-  {
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-    $records = $this->repository->findBy(
-      ['organization' => $organization],
-      ['name' => 'ASC'],
-    );
+  public function findByOrganizationId(
+    FacilityOrganizationId $organizationId,
+    bool $includeArchived = false,
+    ?string $type = null,
+    ?string $status = null,
+    ?string $parentFacilityId = null,
+    ?string $code = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array {
+    /** @var list<FacilityRecord> $records */
+    $records = $this->createListQueryBuilder(
+      $organizationId,
+      $includeArchived,
+      $type,
+      $status,
+      $parentFacilityId,
+      $code,
+      $search,
+    )
+      ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
+      ->addOrderBy('f.id', 'ASC')
+      ->setFirstResult($offset)
+      ->setMaxResults($limit)
+      ->getQuery()
+      ->getResult();
 
     return array_map(
       static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
       $records,
     );
+  }
+
+  private function createListQueryBuilder(
+    FacilityOrganizationId $organizationId,
+    bool $includeArchived,
+    ?string $type,
+    ?string $status,
+    ?string $parentFacilityId,
+    ?string $code,
+    ?string $search,
+  ): QueryBuilder {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select('f')
+      ->from(FacilityRecord::class, 'f')
+      ->where('f.organization = :organization')
+      ->setParameter('organization', $organization);
+
+    if (null === $status && !$includeArchived) {
+      $queryBuilder
+        ->andWhere('f.status = :activeStatus')
+        ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
+    }
+
+    if (null !== $type) {
+      $queryBuilder
+        ->andWhere('f.type = :type')
+        ->setParameter('type', $type);
+    }
+
+    if (null !== $status) {
+      $queryBuilder
+        ->andWhere('f.status = :status')
+        ->setParameter('status', $status);
+    }
+
+    if (null !== $parentFacilityId) {
+      $queryBuilder
+        ->andWhere('IDENTITY(f.parentFacility) = :parentFacilityId')
+        ->setParameter('parentFacilityId', $parentFacilityId);
+    }
+
+    if (null !== $code) {
+      $queryBuilder
+        ->andWhere('f.code = :code')
+        ->setParameter('code', $code);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
+
+      $queryBuilder
+        ->andWhere('(
+          LOWER(f.name) LIKE :search OR
+          LOWER(f.type) LIKE :search OR
+          LOWER(COALESCE(f.code, \'\')) LIKE :search OR
+          LOWER(f.status) LIKE :search OR
+          LOWER(COALESCE(f.address, \'\')) LIKE :search
+        )')
+        ->setParameter('search', $normalizedSearch);
+    }
+
+    return $queryBuilder;
+  }
+
+  private function createChildQueryBuilder(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived,
+    ?string $search,
+  ): QueryBuilder {
+    return $this->createListQueryBuilder(
+      $organizationId,
+      $includeArchived,
+      null,
+      null,
+      (string) $facilityId,
+      null,
+      $search,
+    );
+  }
+
+  /**
+   * @return list<FacilityRecord>
+   */
+  private function findChildRecords(FacilityOrganizationId $organizationId, string $parentId): array
+  {
+    /** @var list<FacilityRecord> $records */
+    $records = $this->createListQueryBuilder(
+      $organizationId,
+      true,
+      null,
+      null,
+      $parentId,
+      null,
+      null,
+    )
+      ->getQuery()
+      ->getResult();
+
+    return $records;
+  }
+
+  private function matchesSearch(FacilityRecord $record, ?string $search): bool
+  {
+    if (null === $search || '' === $search) {
+      return true;
+    }
+
+    $normalizedSearch = mb_strtolower($search);
+    $haystack = [
+      mb_strtolower($record->name),
+      mb_strtolower($record->type),
+      mb_strtolower($record->status),
+      mb_strtolower($record->code ?? ''),
+      mb_strtolower($record->address ?? ''),
+    ];
+
+    foreach ($haystack as $value) {
+      if (str_contains($value, $normalizedSearch)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * @param list<FacilityRecord> $records
+   */
+  private function sortRecords(array &$records, Sorting $sorting): void
+  {
+    $direction = SortDirection::DESC === $sorting->direction ? -1 : 1;
+
+    usort($records, function (FacilityRecord $left, FacilityRecord $right) use ($direction, $sorting): int {
+      $comparison = match ($sorting->field) {
+        'type' => $left->type <=> $right->type,
+        'status' => $left->status <=> $right->status,
+        'createdAt' => $left->createdAt <=> $right->createdAt,
+        'code' => ($left->code ?? '') <=> ($right->code ?? ''),
+        default => $left->name <=> $right->name,
+      };
+
+      if (0 === $comparison) {
+        return $direction * ($left->id <=> $right->id);
+      }
+
+      return $direction * $comparison;
+    });
+  }
+
+  private function resolveSortField(string $field): string
+  {
+    return match ($field) {
+      'type' => 'f.type',
+      'status' => 'f.status',
+      'createdAt' => 'f.createdAt',
+      'code' => 'f.code',
+      default => 'f.name',
+    };
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countByCreatedDayForOrganizationIdPostgreSql(
+    FacilityOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    DateTimeZone $bucketTimeZone,
+    ?string $type = null,
+  ): array {
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS facility_count
+        FROM facilities
+        WHERE organization_id = :organizationId
+          AND created_at >= :createdAtFrom
+          AND created_at <= :createdAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
+      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
+    ];
+
+    if (null !== $type) {
+      $sql .= "\n  AND type = :type";
+      $parameters['type'] = $type;
+    }
+
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, facility_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['bucket']] = (int) $row['facility_count'];
+    }
+
+    return $counts;
+  }
+
+  private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
+  {
+    if (null !== $timeZone && '' !== $timeZone) {
+      return new DateTimeZone($timeZone);
+    }
+
+    return new DateTimeImmutable($lowerBound)->getTimezone();
+  }
+
+  private function resolveStorageTimeZone(): DateTimeZone
+  {
+    try {
+      return new DateTimeZone($this->storageTimeZone);
+    } catch (Exception $exception) {
+      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+    }
+  }
+
+  private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
+  {
+    return new DateTimeImmutable($value)
+      ->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
+  {
+    return DateTimeImmutable::createFromFormat(
+      'Y-m-d H:i:s.u',
+      $value->format('Y-m-d H:i:s.u'),
+      $this->resolveStorageTimeZone(),
+    ) ?: $value->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
+  {
+    return new DateTimeImmutable($value)
+      ->setTimezone($storageTimeZone)
+      ->format('Y-m-d H:i:s.u');
   }
   // #endregion
 }

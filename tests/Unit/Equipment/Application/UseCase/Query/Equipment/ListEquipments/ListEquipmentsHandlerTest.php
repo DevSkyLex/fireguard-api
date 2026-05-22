@@ -151,6 +151,9 @@ final class ListEquipmentsHandlerTest extends TestCase
         null,
         null,
         null,
+        null,
+        null,
+        null,
         self::equalTo(new Sorting('createdAt', SortDirection::ASC)),
         5,
         10,
@@ -158,6 +161,7 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->willReturn([]);
     $equipmentRepository->expects(self::once())
       ->method('countByOrganizationId')
+      ->with(self::anything(), null, null, null, null, null, null, null)
       ->willReturn(0);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
@@ -192,6 +196,9 @@ final class ListEquipmentsHandlerTest extends TestCase
         null,
         null,
         null,
+        null,
+        null,
+        null,
         'sicli',
         self::equalTo(new Sorting('brand', SortDirection::DESC)),
         10,
@@ -202,6 +209,9 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('countByOrganizationId')
       ->with(
         self::anything(),
+        null,
+        null,
+        null,
         null,
         null,
         null,
@@ -225,6 +235,61 @@ final class ListEquipmentsHandlerTest extends TestCase
       pagination: new Pagination(limit: 10, offset: 0),
       search: 'sicli',
       sorting: new Sorting('brand', SortDirection::DESC),
+    ));
+  }
+
+  #[Test]
+  public function testInvokePassesBrandModelAndSubTypeFiltersToRepository(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(
+        self::anything(),
+        null,
+        null,
+        null,
+        'Sicli',
+        'ABC-9',
+        'CO2',
+        null,
+        self::equalTo(new Sorting('createdAt', SortDirection::ASC)),
+        10,
+        0,
+      )
+      ->willReturn([]);
+    $equipmentRepository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::anything(),
+        null,
+        null,
+        null,
+        'Sicli',
+        'ABC-9',
+        'CO2',
+        null,
+      )
+      ->willReturn(0);
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::once())
+      ->method('findTagsByEquipmentIds')
+      ->willReturn([]);
+
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+    );
+
+    $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(limit: 10, offset: 0),
+      brand: 'Sicli',
+      model: 'ABC-9',
+      subType: 'CO2',
     ));
   }
 }

@@ -30,5 +30,22 @@ enum OrganizationInvitationStatus: string
   {
     return self::PENDING === $this;
   }
+
+  /**
+   * Method label.
+   *
+   * Returns the human-readable label for the invitation status.
+   *
+   * @since 1.0.0
+   */
+  public function label(): string
+  {
+    return match ($this) {
+      self::PENDING => 'Pending',
+      self::ACCEPTED => 'Accepted',
+      self::REVOKED => 'Revoked',
+      self::EXPIRED => 'Expired',
+    };
+  }
   // #endregion
 }

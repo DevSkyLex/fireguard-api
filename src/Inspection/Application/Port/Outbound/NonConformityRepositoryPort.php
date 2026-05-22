@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Domain\Model\NonConformity\NonConformity;
-use Inspection\Domain\ValueObject\{NonConformityId, NonConformityInspectionId};
+use Inspection\Domain\ValueObject\{InspectionOrganizationId, NonConformityId, NonConformityInspectionId};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port NonConformityRepositoryPort.
@@ -60,6 +61,10 @@ interface NonConformityRepositoryPort
     NonConformityInspectionId $inspectionId,
     ?string $severity = null,
     ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
   ): array;
 
   /**
@@ -73,7 +78,12 @@ interface NonConformityRepositoryPort
    *
    * @return int the count
    */
-  public function countByInspectionId(NonConformityInspectionId $inspectionId): int;
+  public function countByInspectionId(
+    NonConformityInspectionId $inspectionId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+  ): int;
 
   /**
    * Method countsByInspectionIds.
@@ -87,5 +97,119 @@ interface NonConformityRepositoryPort
    * @return array<string, int> map of inspectionId => count
    */
   public function countsByInspectionIds(array $inspectionIds): array;
+
+  /**
+   * Method countByOrganizationId.
+   *
+   * Counts non-conformities for an organization.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $severity optional severity filter
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before counting
+   *
+   * @return int the count
+   */
+  public function countByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+  ): int;
+
+  /**
+   * Counts dashboard overview metrics for non-conformities in one query.
+   *
+   * @return array{total: int, open: int, in_progress: int, done: int, waived: int, overdue: int, critical_open: int}
+   */
+  public function countOverviewByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts non-conformities grouped by status for an organization.
+   *
+   * @return array<string, int> map of status => count
+   */
+  public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts non-conformities grouped by severity for an organization.
+   *
+   * @return array<string, int> map of severity => count
+   */
+  public function countBySeverityForOrganizationId(InspectionOrganizationId $organizationId): array;
+
+  /**
+   * Counts overdue open non-conformities for an organization.
+   */
+  public function countOverdueByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $dueAtBefore,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Counts non-conformities that were active at the given instant.
+   */
+  public function countActiveByOrganizationIdAtDate(
+    InspectionOrganizationId $organizationId,
+    string $at,
+    ?string $severity = null,
+    ?string $status = null,
+  ): int;
+
+  /**
+   * Counts non-conformities grouped by creation day for an organization and period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByCreatedDayForOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $createdAtFrom,
+    string $createdAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts non-conformities grouped by resolution day for an organization and period.
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countByResolvedDayForOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $resolvedAtFrom,
+    string $resolvedAtTo,
+    ?string $timeZone = null,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts dashboard period non-conformity metrics in one query.
+   *
+   * @return array{opened: int, resolved: int, activeAtStart: int}
+   */
+  public function countPeriodMetricsByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    string $periodFrom,
+    string $periodTo,
+    string $activeAt,
+    ?string $severity = null,
+    ?string $status = null,
+  ): array;
+
+  /**
+   * Counts critical non-conformities that are still open or in progress.
+   */
+  public function countOpenCriticalByOrganizationId(InspectionOrganizationId $organizationId, ?string $status = null): int;
   // #endregion
 }

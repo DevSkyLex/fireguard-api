@@ -144,6 +144,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_BAD_REQUEST => new Response(
             description: 'Invalid authorization request.',
           ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many authorization requests',
+          ),
         ],
       ),
     ),
@@ -204,6 +207,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid client credentials or unauthorized grant type',
           ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many token requests',
+          ),
         ],
       ),
     ),
@@ -238,6 +244,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid client credentials',
+          ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many revocation requests',
           ),
         ],
       ),
@@ -276,6 +285,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Invalid client credentials',
+          ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many introspection requests',
           ),
         ],
       ),
@@ -355,6 +367,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Missing or invalid access token',
           ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many consent checks',
+          ),
         ],
       ),
     ),
@@ -384,6 +399,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Authentication required.',
+          ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many consent submissions',
           ),
         ],
       ),

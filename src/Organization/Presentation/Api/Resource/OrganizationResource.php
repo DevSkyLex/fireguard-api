@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Organization\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
-use ApiPlatform\OpenApi\Model\{Operation, Response};
+use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Operation\OrganizationOperations;
@@ -62,6 +62,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Organization'],
         summary: 'List user Organizations',
         description: 'Lists Organizations where the authenticated user is a member.',
+        parameters: [
+          new Parameter(
+            name: 'status',
+            in: 'query',
+            required: false,
+            description: 'Filter by organization status.',
+            schema: ['type' => 'string', 'enum' => ['active', 'suspended', 'archived']],
+          ),
+        ],
       ),
     ),
     new Get(

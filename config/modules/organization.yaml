@@ -37,6 +37,15 @@ services:
   Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\InviteOrganizationMemberHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
@@ -77,7 +86,13 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\GetOrganizationLegalProfileHandler:
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Query\Organization\GetOrganizationStatistics\GetOrganizationStatisticsHandler:
+  Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\GetCurrentOrganizationMemberProfileHandler:
     tags: ['messenger.message_handler']
 
   # Repositories
@@ -126,6 +141,16 @@ services:
   Organization\Application\Port\Outbound\FacilityStatisticsPort:
     alias: Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter
 
+  Organization\Application\Port\Outbound\EquipmentStatisticsPort:
+    alias: Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter
+
+  Organization\Application\Port\Outbound\InspectionStatisticsPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter
+
+  Organization\Application\Port\Outbound\NonConformityStatisticsPort:
+    alias: Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter
+
   # Console Commands use #[AsCommand]
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~
   Organization\Infrastructure\Console\AddOrganizationAdminConsoleCommand: ~
+

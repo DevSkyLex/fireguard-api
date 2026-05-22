@@ -26,6 +26,17 @@ use function count;
 final readonly class UpdateOrganizationRoleHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * UpdateOrganizationRoleHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,

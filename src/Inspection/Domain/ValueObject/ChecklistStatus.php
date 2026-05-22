@@ -44,5 +44,13 @@ enum ChecklistStatus: string
   {
     return self::ARCHIVED === $this;
   }
+
+  public function label(): string
+  {
+    return match ($this) {
+      self::ACTIVE => 'Active',
+      self::ARCHIVED => 'Archived',
+    };
+  }
   // #endregion
 }

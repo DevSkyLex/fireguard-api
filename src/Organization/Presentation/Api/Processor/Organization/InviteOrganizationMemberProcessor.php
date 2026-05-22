@@ -36,13 +36,14 @@ final readonly class InviteOrganizationMemberProcessor implements ProcessorInter
   /**
    * Constructor.
    *
-   * Initializes a new instance of the InviteOrganizationMemberProcessor class.
+   * Initializes a new instance of the
+   * InviteOrganizationMemberProcessor class.
    *
    * @since 1.0.0
    *
    * @param CommandBusPort $commandBus the command bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
-   * @param Security $security the Symfony security service
+   * @param Security $security the security service
    */
   public function __construct(
     private CommandBusPort $commandBus,

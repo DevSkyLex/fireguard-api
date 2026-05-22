@@ -1,0 +1,252 @@
+---
+- name: Deploy Fireguard API to VPS
+  hosts: fireguard_vps
+  gather_facts: false
+
+  vars:
+    fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/opt/fireguard-sso-api', true) }}"
+    fireguard_image: "{{ lookup('env', 'IMAGE_REF') }}"
+    fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
+    fireguard_compose_file: compose.yaml
+    fireguard_env_file: "{{ fireguard_app_dir }}/.env"
+    fireguard_traefik_network: traefik_proxy
+    fireguard_healthcheck_retries: 30
+    fireguard_healthcheck_delay: 5
+    fireguard_deployment_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%d%H%M%S') }}"
+    ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') | default('', true) }}"
+    ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') | default('', true) }}"
+
+  pre_tasks:
+    - name: Validate required deployment image
+      ansible.builtin.assert:
+        that:
+          - fireguard_image is defined
+          - fireguard_image | length > 0
+        fail_msg: fireguard_image is required.
+
+    - name: Validate Docker Compose is available
+      ansible.builtin.command: docker compose version
+      changed_when: false
+
+    - name: Validate curl is available
+      ansible.builtin.command: curl --version
+      changed_when: false
+
+    - name: Validate OpenSSL is available
+      ansible.builtin.command: openssl version
+      changed_when: false
+
+  tasks:
+    - name: Ensure application directory exists
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check production env file exists on VPS
+      ansible.builtin.stat:
+        path: "{{ fireguard_env_file }}"
+      register: fireguard_env_stat
+
+    - name: Stop if production env file is missing
+      ansible.builtin.fail:
+        msg: "Missing {{ fireguard_env_file }}. Create it manually on the VPS before deploying."
+      when: not fireguard_env_stat.stat.exists
+
+    - name: Copy production Docker Compose file
+      ansible.builtin.copy:
+        src: ../compose.prod.yaml
+        dest: "{{ fireguard_app_dir }}/{{ fireguard_compose_file }}"
+        mode: "0644"
+
+    - name: Update deployed image in production env file
+      ansible.builtin.lineinfile:
+        path: "{{ fireguard_env_file }}"
+        regexp: ^FIREGUARD_IMAGE=
+        line: "FIREGUARD_IMAGE={{ fireguard_image }}"
+        create: false
+        mode: "0600"
+
+    - name: Ensure production env file permissions are private
+      ansible.builtin.file:
+        path: "{{ fireguard_env_file }}"
+        mode: "0600"
+
+    - name: Check Traefik Docker network
+      ansible.builtin.command: "docker network inspect {{ fireguard_traefik_network }}"
+      register: fireguard_traefik_network_check
+      changed_when: false
+      failed_when: false
+
+    - name: Create Traefik Docker network
+      ansible.builtin.command: "docker network create {{ fireguard_traefik_network }}"
+      when: fireguard_traefik_network_check.rc != 0
+
+    - name: Ensure JWT key directory exists
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}/jwt"
+        state: directory
+        mode: "0755"
+
+    - name: Check JWT private key
+      ansible.builtin.stat:
+        path: "{{ fireguard_app_dir }}/jwt/private.key"
+      register: fireguard_jwt_private_key
+
+    - name: Generate JWT private key
+      ansible.builtin.command: "openssl genrsa -out {{ fireguard_app_dir }}/jwt/private.key 4096"
+      when: not fireguard_jwt_private_key.stat.exists
+
+    - name: Check JWT public key
+      ansible.builtin.stat:
+        path: "{{ fireguard_app_dir }}/jwt/public.key"
+      register: fireguard_jwt_public_key
+
+    - name: Generate JWT public key
+      ansible.builtin.command: "openssl rsa -in {{ fireguard_app_dir }}/jwt/private.key -pubout -out {{ fireguard_app_dir }}/jwt/public.key"
+      when: not fireguard_jwt_public_key.stat.exists
+
+    - name: Set JWT private key permissions
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}/jwt/private.key"
+        mode: "0644"
+
+    - name: Set JWT public key permissions
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}/jwt/public.key"
+        mode: "0644"
+
+    - name: Log in to GHCR on VPS
+      ansible.builtin.command:
+        cmd: "docker login ghcr.io -u {{ ghcr_username }} --password-stdin"
+        stdin: "{{ ghcr_token }}"
+      no_log: true
+      when:
+        - ghcr_username | length > 0
+        - ghcr_token | length > 0
+
+    - name: Pull Docker images
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} pull"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Start dependency services
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} up -d auth_database main_database redis mercure"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Wait for auth database
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        docker compose -f {{ fireguard_compose_file }} exec -T auth_database pg_isready -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      register: fireguard_auth_db_ready
+      changed_when: false
+      retries: 30
+      delay: 2
+      until: fireguard_auth_db_ready.rc == 0
+
+    - name: Wait for main database
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        docker compose -f {{ fireguard_compose_file }} exec -T main_database pg_isready -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      register: fireguard_main_db_ready
+      changed_when: false
+      retries: 30
+      delay: 2
+      until: fireguard_main_db_ready.rc == 0
+
+    - name: Create deployment backup directory
+      ansible.builtin.file:
+        path: "{{ fireguard_app_dir }}/backups/{{ fireguard_deployment_timestamp }}"
+        state: directory
+        mode: "0750"
+
+    - name: Back up auth database
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        docker compose -f {{ fireguard_compose_file }} exec -T auth_database pg_dump -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -Fc > backups/{{ fireguard_deployment_timestamp }}/auth.dump
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+
+    - name: Back up main database
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        docker compose -f {{ fireguard_compose_file }} exec -T main_database pg_dump -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -Fc > backups/{{ fireguard_deployment_timestamp }}/main.dump
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+
+    - name: Run auth migrations
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Run main migrations
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Clear production cache
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console cache:clear --no-warmup --env=prod"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Warm production cache
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console cache:warmup --env=prod"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Synchronize RBAC permissions
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Start application service
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} up -d app"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Wait for public application health
+      ansible.builtin.uri:
+        url: "{{ fireguard_healthcheck_url }}"
+        method: GET
+        status_code: 200
+        return_content: false
+      delegate_to: localhost
+      register: fireguard_public_health
+      retries: "{{ fireguard_healthcheck_retries }}"
+      delay: "{{ fireguard_healthcheck_delay }}"
+      until: fireguard_public_health.status == 200
+      when: fireguard_healthcheck_url | length > 0
+
+    - name: Wait for internal application health
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} exec -T app curl -fsS http://localhost:8000/api/health"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      register: fireguard_internal_health
+      changed_when: false
+      retries: "{{ fireguard_healthcheck_retries }}"
+      delay: "{{ fireguard_healthcheck_delay }}"
+      until: fireguard_internal_health.rc == 0
+      when: fireguard_healthcheck_url | length == 0
+
+    - name: Show deployment services
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} ps"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      changed_when: false

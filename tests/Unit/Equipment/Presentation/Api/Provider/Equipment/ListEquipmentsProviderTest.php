@@ -351,6 +351,57 @@ final class ListEquipmentsProviderTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testProvidePassesBrandModelAndSubTypeFiltersToQuery(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441562';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441563');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with($user->getId(), $organizationId, 'organization.equipment.read')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListEquipmentsQuery $query) use ($organizationId): bool {
+        return $organizationId === $query->organizationId
+          && 'Sicli' === $query->brand
+          && 'ABC-9' === $query->model
+          && 'CO2' === $query->subType;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $request = new Request();
+    $request->query->set('brand', 'Sicli');
+    $request->query->set('model', 'ABC-9');
+    $request->query->set('subType', 'CO2');
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $provider = new ListEquipmentsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => $organizationId],
+    );
+  }
+
   private function createSecurityUser(string $id): SecurityUser
   {
     return new SecurityUser(

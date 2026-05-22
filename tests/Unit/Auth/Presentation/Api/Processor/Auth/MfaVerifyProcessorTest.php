@@ -16,7 +16,13 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
+
+use function hash;
+use function sprintf;
+use function substr;
 
 /**
  * Test MfaVerifyProcessorTest.
@@ -221,6 +227,61 @@ final class MfaVerifyProcessorTest extends TestCase
     $cookie = $request->attributes->get('_refresh_token_cookie');
     $this->assertInstanceOf(\Symfony\Component\HttpFoundation\Cookie::class, $cookie);
     $this->assertSame('refresh', $cookie->getValue());
+  }
+
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $request = new Request();
+    $request->server->set('REMOTE_ADDR', '127.0.0.1');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('pre-auth', '127.0.0.1'))->consume();
+
+    $handler = new MfaVerifyHandler(
+      jwtService: $this->createMock(JwtTokenServicePort::class),
+      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
+      sessionTracking: $this->createMock(SessionTrackingPort::class),
+    );
+
+    $processor = new MfaVerifyProcessor(
+      handler: $handler,
+      requestStack: $requestStack,
+      cookieService: $this->createMock(RefreshTokenCookieService::class),
+      rateLimiter: $rateLimiter,
+    );
+
+    $input = new MfaVerifyInput();
+    $input->preAuthToken = 'pre-auth';
+    $input->code = '123456';
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'mfa_verify',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $preAuthToken, string $ipAddress): string
+  {
+    return sprintf(
+      'mfa_verify_%s_%s',
+      substr(hash('sha256', $preAuthToken), 0, 16),
+      substr(hash('sha256', $ipAddress), 0, 16),
+    );
   }
   // #endregion
 }

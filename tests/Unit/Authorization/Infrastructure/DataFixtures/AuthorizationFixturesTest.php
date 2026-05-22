@@ -22,7 +22,7 @@ final class AuthorizationFixturesTest extends TestCase
   #[Test]
   public function testGetGroupsReturnsAuthorizationGroup(): void
   {
-    self::assertSame(['authorization'], AuthorizationFixtures::getGroups());
+    self::assertSame(['authorization', 'auth-seed'], AuthorizationFixtures::getGroups());
   }
   // #endregion
 }

@@ -32,6 +32,24 @@ interface OrganizationAuthorizationPort
   public function hasPermission(string $userId, string $organizationId, string $permission): bool;
 
   /**
+   * Method assertGrantedPermissions.
+   *
+   * Resolves the user's effective permissions once and asserts that every
+   * required permission is granted. Throws on the first missing permission,
+   * preserving fail-closed behavior while avoiding repeated DB round-trips.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   * @param list<string> $permissions the permission names to check
+   *
+   * @throws \Organization\Domain\Exception\OrganizationAccessDeniedException
+   *                                                                          when any of the required permissions is not granted
+   */
+  public function assertGrantedPermissions(string $userId, string $organizationId, array $permissions): void;
+
+  /**
    * Method getUserPermissions.
    *
    * Returns every effective permission for a user in an organization.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Application\Port\Outbound;
 
+use DateTimeImmutable;
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\ValueObject\NotificationId;
 
@@ -56,6 +57,8 @@ interface NotificationRepositoryPort
    * @param int $limit max number of results
    * @param string|null $type exact type filter (e.g. `organization.invitation`)
    * @param string|null $category category prefix filter (e.g. `organization`)
+   * @param DateTimeImmutable|null $hideReadBefore hides read notifications older than this cutoff for selected categories
+   * @param list<string> $hiddenReadCategories category prefixes subject to read-history masking
    *
    * @return list<Notification> the notifications
    */
@@ -65,6 +68,8 @@ interface NotificationRepositoryPort
     int $limit = 50,
     ?string $type = null,
     ?string $category = null,
+    ?DateTimeImmutable $hideReadBefore = null,
+    array $hiddenReadCategories = [],
   ): array;
   // #endregion
 }

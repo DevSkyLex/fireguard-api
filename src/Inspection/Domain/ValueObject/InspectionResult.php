@@ -55,5 +55,14 @@ enum InspectionResult: string
   {
     return self::FAIL === $this;
   }
+
+  public function label(): string
+  {
+    return match ($this) {
+      self::PASS => 'Pass',
+      self::FAIL => 'Fail',
+      self::PARTIAL => 'Partial',
+    };
+  }
   // #endregion
 }

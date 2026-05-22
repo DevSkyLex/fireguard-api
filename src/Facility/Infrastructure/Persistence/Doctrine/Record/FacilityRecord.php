@@ -25,6 +25,8 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_facility_type', columns: ['type'])]
 #[ORM\Index(name: 'idx_facility_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_facility_organization_type', columns: ['organization_id', 'type'])]
+#[ORM\Index(name: 'idx_facility_organization_status_type', columns: ['organization_id', 'status', 'type'])]
+#[ORM\Index(name: 'idx_facility_organization_created_at', columns: ['organization_id', 'created_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_facility_organization_code', columns: ['organization_id', 'code'])]
 class FacilityRecord
 {

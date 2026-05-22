@@ -16,8 +16,14 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\Security\Core\User\UserInterface;
+
+use function hash;
+use function sprintf;
+use function substr;
 
 /**
  * Test CreateChallengeProcessorTest.
@@ -215,6 +221,71 @@ final class CreateChallengeProcessorTest extends TestCase
     self::assertSame('token-2', $output->token);
     self::assertSame('sms', $output->channel);
     self::assertSame('****5678', $output->maskedRecipient);
+  }
+
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $user = new class () implements UserInterface {
+      public function getUserIdentifier(): string
+      {
+        return 'user-4';
+      }
+
+      public function getRoles(): array
+      {
+        return [];
+      }
+
+      public function eraseCredentials(): void
+      {
+      }
+    };
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('user-4', 'login', 'email'))->consume();
+
+    $processor = new CreateChallengeProcessor(
+      commandBus: $this->createMock(CommandBusPort::class),
+      security: $security,
+      rateLimiter: $rateLimiter,
+    );
+
+    $input = new CreateChallengeInput();
+    $input->purpose = 'login';
+    $input->channel = 'email';
+    $input->recipient = 'user@example.com';
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'otp_challenge_create',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $userIdentifier, string $purpose, string $channel): string
+  {
+    return sprintf(
+      'otp_challenge_create_%s_%s',
+      substr(hash('sha256', $userIdentifier), 0, 16),
+      substr(hash('sha256', $purpose . '|' . $channel), 0, 16),
+    );
   }
   // #endregion
 }

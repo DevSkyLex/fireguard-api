@@ -1,0 +1,152 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      REDIS_URL: redis://redis:6379
+      MERCURE_URL: http://mercure/.well-known/mercure
+    networks:
+      - default
+      - traefik_proxy
+    volumes:
+      - app_var:/var/www/html/var
+      - ./jwt:/var/www/html/config/jwt:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # API Symfony
+      - "traefik.http.routers.fireguard-api.rule=Host(`api.fireguard.valentin-fortin.pro`)"
+      - "traefik.http.routers.fireguard-api.entrypoints=websecure"
+      - "traefik.http.routers.fireguard-api.tls=true"
+      - "traefik.http.routers.fireguard-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.fireguard-api.priority=10"
+      - "traefik.http.services.fireguard-api.loadbalancer.server.port=8000"
+    depends_on:
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mercure:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+  auth_database:
+    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_AUTH_DB:?Set POSTGRES_AUTH_DB}
+      POSTGRES_USER: ${POSTGRES_AUTH_USER:?Set POSTGRES_AUTH_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_AUTH_PASSWORD:?Set POSTGRES_AUTH_PASSWORD}
+    volumes:
+      - auth_database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d \"$${POSTGRES_DB}\" -U \"$${POSTGRES_USER}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    labels:
+      - "traefik.enable=false"
+    logging: *default-logging
+
+  main_database:
+    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_MAIN_DB:?Set POSTGRES_MAIN_DB}
+      POSTGRES_USER: ${POSTGRES_MAIN_USER:?Set POSTGRES_MAIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_MAIN_PASSWORD:?Set POSTGRES_MAIN_PASSWORD}
+    volumes:
+      - main_database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d \"$${POSTGRES_DB}\" -U \"$${POSTGRES_USER}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    labels:
+      - "traefik.enable=false"
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=false"
+    logging: *default-logging
+
+  mercure:
+    image: dunglas/mercure:latest
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ":80"
+      MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:?Set MERCURE_JWT_SECRET}
+      MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:?Set MERCURE_JWT_SECRET}
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins ${MERCURE_CORS_ORIGINS:-*}
+    networks:
+      - default
+      - traefik_proxy
+    volumes:
+      - mercure_data:/data
+      - mercure_config:/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+
+      # Mercure
+      - "traefik.http.routers.fireguard-mercure.rule=Host(`mercure.api.fireguard.valentin-fortin.pro`)"
+      - "traefik.http.routers.fireguard-mercure.entrypoints=websecure"
+      - "traefik.http.routers.fireguard-mercure.tls=true"
+      - "traefik.http.routers.fireguard-mercure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.fireguard-mercure.priority=20"
+      - "traefik.http.services.fireguard-mercure.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+
+volumes:
+  app_var:
+  auth_database_data:
+  main_database_data:
+  redis_data:
+  mercure_data:
+  mercure_config:
+
+networks:
+  traefik_proxy:
+    external: true
+    name: traefik_proxy

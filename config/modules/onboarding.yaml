@@ -26,3 +26,4 @@ services:
     alias: Onboarding\Application\Service\OrganizationOnboardingFlowService
 
   Onboarding\Infrastructure\EventSubscriber\OnboardingNotificationSubscriber: ~
+

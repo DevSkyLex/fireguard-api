@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
+use Shared\Application\Contract\Sorting\Sorting;
 use Shared\Domain\ValueObject\Email;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User\User;
@@ -13,6 +14,7 @@ use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 use function array_map;
+use function str_replace;
 
 /**
  * Repository UserRepository.
@@ -120,5 +122,66 @@ final readonly class UserRepository implements UserRepositoryPort
       fn (UserRecord $record) => $this->mapper->toDomain($record),
       $records,
     );
+  }
+
+  public function findFiltered(?string $search, Sorting $sorting, int $limit, int $offset, ?string $tenantId = null): array
+  {
+    $qb = $this->createListQueryBuilder($search, $tenantId);
+    $qb->orderBy('u.' . $this->resolveSortField($sorting->field), $sorting->direction->value)
+      ->setFirstResult($offset)
+      ->setMaxResults($limit);
+
+    /** @var list<UserRecord> $records */
+    $records = $qb->getQuery()->getResult();
+
+    return array_map(
+      fn (UserRecord $record) => $this->mapper->toDomain($record),
+      $records,
+    );
+  }
+
+  public function countFiltered(?string $search, ?string $tenantId = null): int
+  {
+    $qb = $this->createListQueryBuilder($search, $tenantId);
+    $qb->select('COUNT(u.id)');
+
+    return (int) $qb->getQuery()->getSingleScalarResult();
+  }
+
+  private function createListQueryBuilder(?string $search, ?string $tenantId = null): QueryBuilder
+  {
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('u')
+      ->from(UserRecord::class, 'u');
+
+    if (null !== $tenantId && '' !== $tenantId) {
+      $qb->andWhere('u.tenantId = :tenantId')
+        ->setParameter('tenantId', $tenantId);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+      $qb->andWhere($qb->expr()->orX(
+        $qb->expr()->like('u.username', ':search'),
+        $qb->expr()->like('u.email', ':search'),
+        $qb->expr()->like('u.firstName', ':search'),
+        $qb->expr()->like('u.lastName', ':search'),
+        $qb->expr()->like('u.status', ':search'),
+      ))->setParameter('search', '%' . $escaped . '%');
+    }
+
+    return $qb;
+  }
+
+  private function resolveSortField(string $field): string
+  {
+    return match ($field) {
+      'username' => 'username',
+      'email' => 'email',
+      'firstName' => 'firstName',
+      'lastName' => 'lastName',
+      'status' => 'status',
+      default => 'createdAt',
+    };
   }
 }

@@ -18,7 +18,7 @@ Main goals:
 | --- | --- | --- |
 | GET | `/api/facilities/types` | List facility types for selects |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
-| GET | `/api/organizations/{organizationId}/facilities` | List facilities (`includeArchived` optional query param, default `false`) |
+| GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `code`) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility |
 | PATCH | `/api/organizations/{organizationId}/facilities/{facilityId}` | Update a facility |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/archive` | Archive a facility |

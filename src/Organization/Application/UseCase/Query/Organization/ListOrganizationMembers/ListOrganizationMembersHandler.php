@@ -24,6 +24,17 @@ use function count;
 final readonly class ListOrganizationMembersHandler implements QueryHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListOrganizationMembersHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,

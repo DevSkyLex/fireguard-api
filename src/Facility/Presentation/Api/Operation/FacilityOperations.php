@@ -31,6 +31,13 @@ final class FacilityOperations
   public const string LIST_FACILITY_TYPES = 'facility_type_list';
 
   /**
+   * Constant LIST_FACILITY_STATUSES.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_STATUSES = 'facility_status_list';
+
+  /**
    * Constant LIST_FACILITIES.
    *
    * @var string
@@ -45,6 +52,20 @@ final class FacilityOperations
   public const string GET_FACILITY = 'facility_get';
 
   /**
+   * Constant LIST_FACILITY_CHILDREN.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_CHILDREN = 'facility_list_children';
+
+  /**
+   * Constant LIST_FACILITY_DESCENDANTS.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_DESCENDANTS = 'facility_list_descendants';
+
+  /**
    * Constant UPDATE_FACILITY.
    *
    * @var string
@@ -57,6 +78,13 @@ final class FacilityOperations
    * @var string
    */
   public const string ARCHIVE_FACILITY = 'facility_archive';
+
+  /**
+   * Constant RESTORE_FACILITY.
+   *
+   * @var string
+   */
+  public const string RESTORE_FACILITY = 'facility_restore';
 
   /**
    * Constant MOVE_FACILITY.

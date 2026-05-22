@@ -35,5 +35,24 @@ final class OrganizationMemberNotFoundException extends RuntimeException
   {
     return new self(sprintf('Organization member with ID "%s" not found.', $id));
   }
+
+  /**
+   * Creates an exception for a missing membership resolved by user and organization.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   *
+   * @return self the exception instance
+   */
+  public static function forUserInOrganization(string $userId, string $organizationId): self
+  {
+    return new self(sprintf(
+      'Organization member for user "%s" in organization "%s" not found.',
+      $userId,
+      $organizationId,
+    ));
+  }
   // #endregion
 }

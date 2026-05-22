@@ -12,6 +12,7 @@ use Shared\Application\Message\CommandHandler;
 use Throwable;
 
 use function array_filter;
+use function array_key_exists;
 use function array_values;
 use function is_array;
 use function is_bool;
@@ -135,18 +136,21 @@ final readonly class MfaVerifyHandler implements CommandHandler
    *
    * @param MfaVerifyCommand $command the MFA command
    * @param string $userId the user ID
-   * @param array{access_token: string, refresh_token: string} $tokens issued tokens
+   * @param array{access_token: string, refresh_token: string, access_token_id?: string, refresh_token_id?: string} $tokens issued tokens
    *
    * @return void no return value
    */
   private function recordSession(MfaVerifyCommand $command, string $userId, array $tokens, bool $rememberMe): void
   {
-    $refreshPayload = $this->jwtService->decodeRefreshToken($tokens['refresh_token']);
-    $accessTokenId = null;
-    $refreshTokenId = null;
-    if (is_array($refreshPayload)) {
-      $accessTokenId = $refreshPayload['access_token_id'];
-      $refreshTokenId = $refreshPayload['refresh_token_id'];
+    $accessTokenId = $this->getTokenIdentifier($tokens, 'access_token_id');
+    $refreshTokenId = $this->getTokenIdentifier($tokens, 'refresh_token_id');
+
+    if (null === $accessTokenId || null === $refreshTokenId) {
+      $refreshPayload = $this->jwtService->decodeRefreshToken($tokens['refresh_token']);
+      if (is_array($refreshPayload)) {
+        $accessTokenId = $refreshPayload['access_token_id'];
+        $refreshTokenId = $refreshPayload['refresh_token_id'];
+      }
     }
 
     $ipAddress = $command->ipAddress ?? '127.0.0.1';
@@ -164,6 +168,18 @@ final readonly class MfaVerifyHandler implements CommandHandler
     } catch (Throwable) {
       // Best-effort session tracking; MFA verification must not fail.
     }
+  }
+
+  /**
+   * @param array<string, mixed> $tokens issued tokens
+   */
+  private function getTokenIdentifier(array $tokens, string $key): ?string
+  {
+    if (!array_key_exists($key, $tokens) || !is_string($tokens[$key]) || '' === $tokens[$key]) {
+      return null;
+    }
+
+    return $tokens[$key];
   }
   // #endregion
 }

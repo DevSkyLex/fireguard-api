@@ -38,9 +38,20 @@ JWT keys:
 
 Rate limiters are defined in `config/packages/rate_limiter.yaml`:
 - `login`
+- `mfa_verify`
 - `oauth_token`
+- `oauth_authorize`
 - `oauth_introspection`
 - `oauth_revocation`
+- `oauth_consent_check`
+- `oauth_consent_grant`
+- `token_refresh`
+- `password_reset_request`
+- `password_reset`
+- `password_reset_confirm`
+- `mfa_resend`
+- `otp_challenge_create`
+- `otp_challenge_verify`
 
 Tune limits to match threat models and expected traffic. In test environments, limits may be overridden for determinism.
 

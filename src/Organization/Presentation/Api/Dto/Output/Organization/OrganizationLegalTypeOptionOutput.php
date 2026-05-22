@@ -59,6 +59,14 @@ final class OrganizationLegalTypeOptionOutput
   public OrganizationLegalProfileRequirementsOutput $requirements;
 
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * OrganizationLegalTypeOptionOutput class.
+   *
+   * @since 1.0.0
+   */
   public function __construct()
   {
     $this->requirements = new OrganizationLegalProfileRequirementsOutput();

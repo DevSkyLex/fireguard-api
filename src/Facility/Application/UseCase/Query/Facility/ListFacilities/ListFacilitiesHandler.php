@@ -6,13 +6,12 @@ namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
-use Facility\Domain\ValueObject\FacilityOrganizationId;
+use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
-
-use function count;
+use ValueError;
 
 /**
  * UseCase ListFacilitiesHandler.
@@ -48,18 +47,41 @@ final readonly class ListFacilitiesHandler implements QueryHandler
   {
     try {
       $organizationId = FacilityOrganizationId::fromString($query->organizationId);
-    } catch (InvalidValueException $exception) {
+      $type = null !== $query->type ? FacilityType::from($query->type)->value : null;
+      $status = null !== $query->status ? FacilityStatus::from($query->status)->value : null;
+      $parentFacilityId = null !== $query->parentFacilityId
+        ? (string) FacilityId::fromString($query->parentFacilityId)
+        : null;
+    } catch (InvalidValueException|ValueError $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $facilities = $this->facilityRepository->findByOrganizationId($organizationId);
+    $facilities = $this->facilityRepository->findByOrganizationId(
+      $organizationId,
+      $query->includeArchived,
+      $type,
+      $status,
+      $parentFacilityId,
+      $query->code,
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
+    );
+
+    $total = $this->facilityRepository->countByOrganizationId(
+      $organizationId,
+      $query->includeArchived,
+      $type,
+      $status,
+      $parentFacilityId,
+      $query->code,
+      $query->search,
+    );
+
     $results = [];
 
     foreach ($facilities as $facility) {
-      if (!$query->includeArchived && !$facility->status()->isActive()) {
-        continue;
-      }
-
       $results[] = new GetFacilityResult(
         facilityId: (string) $facility->id(),
         organizationId: (string) $facility->organizationId(),
@@ -75,13 +97,11 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       );
     }
 
-    $total = count($results);
-
     return new PaginatedResult(
       items: $results,
       total: $total,
-      limit: $total,
-      offset: 0,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

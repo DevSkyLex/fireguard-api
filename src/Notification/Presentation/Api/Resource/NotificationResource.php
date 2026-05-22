@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'List notifications',
-        description: 'Returns notifications for the authenticated user.',
+        description: 'Returns notifications for the authenticated user. Read notifications from low-value categories may be omitted from the default list after a retention delay.',
         security: [['bearerAuth' => []]],
         parameters: [
           new Parameter(

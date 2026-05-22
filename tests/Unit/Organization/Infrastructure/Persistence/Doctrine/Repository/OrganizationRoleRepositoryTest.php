@@ -17,6 +17,65 @@ use PHPUnit\Framework\TestCase;
 final class OrganizationRoleRepositoryTest extends TestCase
 {
   #[Test]
+  public function testFindByOrganizationIdCompletesLegacySystemRolePermissions(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440711';
+
+    $organization = new OrganizationRecord();
+    $organization->id = $organizationId;
+
+    $legacyMemberRole = new OrganizationRoleRecord();
+    $legacyMemberRole->id = '550e8400-e29b-41d4-a716-446655440712';
+    $legacyMemberRole->organization = $organization;
+    $legacyMemberRole->name = 'member';
+    $legacyMemberRole->permissions = [
+      'organization.read',
+      'organization.dashboard.read',
+      'organization.members.read',
+      'organization.roles.read',
+      'organization.facilities.read',
+    ];
+    $legacyMemberRole->description = 'Legacy member role';
+    $legacyMemberRole->isSystem = true;
+    $legacyMemberRole->createdAt = new DateTimeImmutable('2026-03-01T10:00:00+00:00');
+
+    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository->expects(self::once())
+      ->method('findBy')
+      ->with(
+        ['organization' => $organization],
+        ['name' => 'ASC'],
+      )
+      ->willReturn([$legacyMemberRole]);
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->expects(self::once())
+      ->method('getRepository')
+      ->with(OrganizationRoleRecord::class)
+      ->willReturn($doctrineRepository);
+    $entityManager->expects(self::once())
+      ->method('getReference')
+      ->with(OrganizationRecord::class, $organizationId)
+      ->willReturn($organization);
+
+    $repository = new OrganizationRoleRepository($entityManager);
+
+    $roles = $repository->findByOrganizationId(OrganizationId::fromString($organizationId));
+
+    self::assertCount(1, $roles);
+    self::assertSame('member', (string) $roles[0]->name());
+    self::assertSame([
+      'organization.read',
+      'organization.dashboard.read',
+      'organization.members.read',
+      'organization.roles.read',
+      'organization.facilities.read',
+      'organization.equipment.read',
+      'organization.inspection.read',
+    ], $roles[0]->permissions());
+  }
+
+  #[Test]
   public function testSaveUpdatesExistingRecordDescription(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655440701';

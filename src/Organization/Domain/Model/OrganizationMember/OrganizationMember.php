@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Domain\Model\OrganizationMember;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 
 /**
@@ -49,7 +50,7 @@ final class OrganizationMember
       organizationId: $organizationId,
       userId: $userId,
       isActive: true,
-      joinedAt: new DateTimeImmutable(),
+      joinedAt: new DateTimeImmutable('now', new DateTimeZone('UTC')),
     );
   }
 

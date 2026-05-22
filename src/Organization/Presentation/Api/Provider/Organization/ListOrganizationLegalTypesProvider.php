@@ -29,6 +29,17 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 final readonly class ListOrganizationLegalTypesProvider implements ProviderInterface
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * ListOrganizationLegalTypesProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param Security $security the security service
+   * @param RequestStack $requestStack the request stack
+   */
   public function __construct(
     private Security $security,
     private RequestStack $requestStack,

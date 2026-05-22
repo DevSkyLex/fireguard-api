@@ -70,6 +70,9 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_BAD_REQUEST => new Response(
             description: 'Invalid request - missing or invalid email',
           ),
+          HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
+            description: 'Too many password reset requests',
+          ),
         ],
       ),
     ),
@@ -136,7 +139,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Invalid or expired token/code',
           ),
           HttpResponse::HTTP_TOO_MANY_REQUESTS => new Response(
-            description: 'Maximum verification attempts exceeded',
+            description: 'Too many password reset confirmation attempts or maximum verification attempts exceeded',
           ),
         ],
       ),

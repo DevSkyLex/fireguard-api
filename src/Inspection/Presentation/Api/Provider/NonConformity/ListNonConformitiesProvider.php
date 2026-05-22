@@ -18,14 +18,12 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Search\SearchExtractor;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
-use function array_slice;
-use function count;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -81,6 +79,9 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
 
     $offset = ($page - 1) * $itemsPerPage;
 
+    $search = SearchExtractor::fromContext($context);
+    $sorting = SortingExtractor::fromContext($context, ['severity', 'status', 'dueAt', 'createdAt'], 'createdAt');
+
     try {
       /** @var PaginatedResult<NonConformityResult> $queryResult */
       $queryResult = $this->queryBus->ask(new ListNonConformitiesQuery(
@@ -89,6 +90,8 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
         severity: is_string($severity) && '' !== $severity ? $severity : null,
         status: is_string($status) && '' !== $status ? $status : null,
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+        search: $search,
+        sorting: $sorting,
       ));
     } catch (InspectionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -112,21 +115,11 @@ final readonly class ListNonConformitiesProvider implements ProviderInterface
       $outputs[] = $this->mapResult($nc);
     }
 
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['description', 'severity', 'status', 'notes']);
-
-    $total = count($outputs);
-
-    $sorting = SortingExtractor::fromContext($context, ['severity', 'status', 'dueAt', 'createdAt'], 'createdAt');
-    $outputs = CollectionSorter::sort($outputs, $sorting);
-
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
-
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $total,
+      totalItems: (float) $queryResult->total,
     );
   }
 

@@ -22,7 +22,7 @@ final class ClientFixturesTest extends TestCase
   #[Test]
   public function testGetGroupsReturnsOAuthGroup(): void
   {
-    self::assertSame(['client', 'default'], ClientFixtures::getGroups());
+    self::assertSame(['client', 'auth-seed'], ClientFixtures::getGroups());
   }
   // #endregion
 }

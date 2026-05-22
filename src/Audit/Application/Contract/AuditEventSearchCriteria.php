@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Audit\Application\Contract;
 
 use DateTimeImmutable;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Criteria AuditEventSearchCriteria.
@@ -49,6 +50,8 @@ final readonly class AuditEventSearchCriteria
     public ?string $actorEmailHash = null,
     public ?DateTimeImmutable $from = null,
     public ?DateTimeImmutable $to = null,
+    public ?string $search = null,
+    public Sorting $sorting = new Sorting('occurredAt', SortDirection::DESC),
   ) {
   }
 }

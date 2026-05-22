@@ -6,11 +6,16 @@ namespace Organization\Application\UseCase\Command\Organization\RevokeOrganizati
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Throwable;
+use User\Application\Port\Outbound\UserRepositoryPort;
 
 /**
  * UseCase RevokeOrganizationInvitationHandler.
@@ -36,6 +41,9 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
+    private UserRepositoryPort $userRepository,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
   ) {
   }
@@ -102,7 +110,59 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       );
     });
 
+    $existingUser = $this->userRepository->findByEmail($invitation->email());
+    $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
+    $channels = [NotificationChannel::EMAIL];
+
+    if (null !== $recipientUserId) {
+      $channels[] = NotificationChannel::MERCURE;
+    }
+
+    $notification = null;
+
+    try {
+      $notification = $this->notificationPort->send(new SendNotificationRequest(
+        type: NotificationType::ORGANIZATION_INVITATION_REVOKED,
+        subject: 'Invitation revoked',
+        body: 'Your organization invitation has been revoked.',
+        channels: $channels,
+        payload: [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'revokedAt' => $now->format('c'),
+        ],
+        recipientUserId: $recipientUserId,
+        recipientEmail: (string) $invitation->email(),
+      ));
+    } catch (Throwable $exception) {
+      $this->logger->warning('Invitation revoked notification dispatch failed.', [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'recipientUserId' => $recipientUserId,
+        'recipientEmail' => (string) $invitation->email(),
+        'error' => $exception->getMessage(),
+      ]);
+    }
+
+    if (null !== $notification && !$this->isEmailDelivered($notification)) {
+      $this->logger->warning('Invitation revoked email delivery failed.', [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'recipientUserId' => $recipientUserId,
+        'recipientEmail' => (string) $invitation->email(),
+      ]);
+    }
+
     return $result;
+  }
+
+  private function isEmailDelivered(?SentNotification $notification): bool
+  {
+    if (null === $notification) {
+      return false;
+    }
+
+    return true === ($notification->channelDelivery[NotificationChannel::EMAIL->value] ?? false);
   }
   // #endregion
 }

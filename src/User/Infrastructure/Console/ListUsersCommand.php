@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Console;
 
-use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -72,10 +72,10 @@ final class ListUsersCommand extends Command
 
     $limit = is_numeric($limitRaw) ? (int) $limitRaw : 50;
     $page = is_numeric($pageRaw) ? (int) $pageRaw : 1;
+    $offset = ($page - 1) * $limit;
 
     $query = new ListUsersQuery(
-      page: $page,
-      limit: $limit,
+      pagination: new Pagination(offset: $offset, limit: $limit),
     );
 
     /** @var PaginatedResult<User> $result */

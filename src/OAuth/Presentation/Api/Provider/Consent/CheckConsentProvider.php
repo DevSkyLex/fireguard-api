@@ -11,10 +11,17 @@ use OAuth\Application\UseCase\Query\Consent\CheckConsent\{CheckConsentQuery, Che
 use OAuth\Presentation\Api\Dto\Output\Consent\CheckConsentOutput;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 
 use function explode;
+use function hash;
+use function max;
+use function sprintf;
+use function substr;
+use function time;
 
 /**
  * Provider CheckConsentProvider.
@@ -46,6 +53,8 @@ final readonly class CheckConsentProvider implements ProviderInterface
     private readonly Security $security,
     private readonly QueryBusPort $queryBus,
     private readonly RequestStack $requestStack,
+    #[Autowire(service: 'limiter.oauth_consent_check')]
+    private readonly ?RateLimiterFactory $rateLimiter = null,
   ) {
   }
   // #endregion
@@ -93,6 +102,8 @@ final readonly class CheckConsentProvider implements ProviderInterface
       );
     }
 
+    $this->enforceRateLimit($user->getId(), $clientId);
+
     $requestedScopes = !empty($scope)
       ? explode(' ', $scope)
       : [];
@@ -114,5 +125,33 @@ final readonly class CheckConsentProvider implements ProviderInterface
       missingScopes: $result->missingScopes,
       requiresConsentScreen: $result->requiresConsentScreen,
     );
+  }
+
+  private function enforceRateLimit(string $userId, string $clientId): void
+  {
+    if (null === $this->rateLimiter) {
+      return;
+    }
+
+    $limit = $this->rateLimiter->create($this->getRateLimitKey($userId, $clientId))->consume();
+    if ($limit->isAccepted()) {
+      return;
+    }
+
+    $retryAfter = $limit->getRetryAfter();
+    $seconds = max(0, $retryAfter->getTimestamp() - time());
+
+    throw new TooManyRequestsHttpException(
+      $seconds,
+      sprintf('Too many consent checks. Please try again in %d seconds.', $seconds),
+    );
+  }
+
+  private function getRateLimitKey(string $userId, string $clientId): string
+  {
+    $userHash = hash('sha256', $userId);
+    $clientHash = hash('sha256', $clientId);
+
+    return sprintf('oauth_consent_check_%s_%s', substr($userHash, 0, 16), substr($clientHash, 0, 16));
   }
 }

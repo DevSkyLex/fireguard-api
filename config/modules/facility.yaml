@@ -24,6 +24,9 @@ services:
   Facility\Application\UseCase\Command\Facility\ArchiveFacility\ArchiveFacilityHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Command\Facility\RestoreFacility\RestoreFacilityHandler:
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
     tags: ['messenger.message_handler']
 
@@ -33,5 +36,12 @@ services:
   Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Query\Facility\GetFacilityChildren\GetFacilityChildrenHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\Facility\GetFacilityDescendants\GetFacilityDescendantsHandler:
+    tags: ['messenger.message_handler']
+
   # Console Commands use #[AsCommand]
   Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~
+

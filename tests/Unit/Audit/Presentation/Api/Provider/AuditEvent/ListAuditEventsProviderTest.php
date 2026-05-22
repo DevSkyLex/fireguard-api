@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
 
 use function iterator_to_array;
@@ -120,6 +121,34 @@ final class ListAuditEventsProviderTest extends TestCase
     $result = $provider->provide(new GetCollection(), [], ['filters' => $filters]);
 
     self::assertInstanceOf(TraversablePaginator::class, $result);
+  }
+
+  #[Test]
+  public function testProvidePassesSearchAndSortingToCriteria(): void
+  {
+    $paginated = new PaginatedResult(items: [], total: 0, limit: 30, offset: 0);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(function (ListAuditEventsQuery $query): bool {
+        return 'login' === $query->criteria->search
+          && 'action' === $query->criteria->sorting->field
+          && SortDirection::ASC === $query->criteria->sorting->direction;
+      }))
+      ->willReturn($paginated);
+
+    $provider = new ListAuditEventsProvider(queryBus: $queryBus);
+
+    $result = $provider->provide(
+      new GetCollection(),
+      [],
+      ['filters' => ['search' => 'login', 'order' => ['action' => 'asc']]],
+    );
+
+    self::assertInstanceOf(TraversablePaginator::class, $result);
+    self::assertSame(0.0, $result->getTotalItems());
   }
   // #endregion
 }

@@ -96,13 +96,23 @@ final readonly class RefreshTokenHandler implements QueryHandler
       return;
     }
 
-    $newPayload = $this->jwtService->decodeRefreshToken($result->refreshToken);
-    if (!is_array($newPayload)) {
-      return;
-    }
+    $newAccessTokenId = $result->accessTokenId;
+    $newRefreshTokenId = $result->refreshTokenId;
 
-    $newAccessTokenId = $newPayload['access_token_id'];
-    $newRefreshTokenId = $newPayload['refresh_token_id'];
+    if (
+      null === $newAccessTokenId
+      || '' === $newAccessTokenId
+      || null === $newRefreshTokenId
+      || '' === $newRefreshTokenId
+    ) {
+      $newPayload = $this->jwtService->decodeRefreshToken($result->refreshToken);
+      if (!is_array($newPayload)) {
+        return;
+      }
+
+      $newAccessTokenId = $newPayload['access_token_id'];
+      $newRefreshTokenId = $newPayload['refresh_token_id'];
+    }
 
     if ('' === $newAccessTokenId || '' === $newRefreshTokenId) {
       return;

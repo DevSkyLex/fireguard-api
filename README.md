@@ -291,7 +291,11 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
    ```bash
    make migrate-all
    ```
-4. Start the application using your preferred Symfony runtime:
+4. Optionally load the shared sample seed data in `dev` or `test`:
+  ```bash
+  make seed-fixtures
+  ```
+5. Start the application using your preferred Symfony runtime:
    ```bash
    php -S 127.0.0.1:8000 -t public
    ```
@@ -333,9 +337,12 @@ Other Docker commands:
 | `make migrate-auth` | Apply auth database migrations |
 | `make migrate-main` | Apply main database migrations |
 | `make migrate-all` | Apply auth + main migrations |
+| `make seed-fixtures` | Load the repository seed fixtures into both databases safely |
 | `make coverage` | Run tests with code coverage (text output) |
 | `make coverage-html` | Run tests with HTML coverage report |
 | `make mutation` | Run mutation testing with Infection |
+
+Use `make seed-fixtures` or `php bin/console app:fixtures:load` for seeded sample data in `dev` and `test`. The command purges then reloads both databases in a coordinated two-pass load. Avoid `doctrine:fixtures:load` directly in this repository because auth and business fixtures target different entity managers.
 
 ## Testing
 
@@ -379,8 +386,10 @@ make sonar-scan
 GitHub Actions workflows are configured for:
 - **CI** (`.github/workflows/ci.yml`): Code style, PHPStan, Deptrac, tests, security audit
 - **Release** (`.github/workflows/release.yml`): Docker image build and GitHub release creation
+- **VPS deployment** (`.github/workflows/deploy-vps.yml`): CI, Docker image build, GHCR push, Ansible deployment to a Docker Compose VPS stack
 
 The CI pipeline runs on every push and pull request to `main` and `develop` branches.
+See `DEPLOYMENT_VPS.md` for VPS setup, required GitHub secrets, and rollback notes.
 
 ## Operations
 
@@ -393,8 +402,6 @@ Security-sensitive configuration and guidance is documented in `SECURITY.md`.
 ## License
 
 This project is proprietary. See internal licensing guidance for distribution and use.
-
-
 
 
 

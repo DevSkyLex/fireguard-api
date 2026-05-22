@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListUserOrganizations;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery};
 use Organization\Domain\Model\Organization\Organization;
@@ -13,7 +14,8 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 use function count;
 
@@ -73,19 +75,44 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::once())
       ->method('findByIds')
-      ->with(self::callback(static function (array $ids) use ($organizationId): bool {
-        return 1 === count($ids)
-          && $ids[0] instanceof OrganizationId
-          && $organizationId === (string) $ids[0];
-      }))
+      ->with(
+        self::callback(static function (array $ids) use ($organizationId): bool {
+          return 1 === count($ids)
+            && $ids[0] instanceof OrganizationId
+            && $organizationId === (string) $ids[0];
+        }),
+        'active',
+        'nantes',
+        new Sorting('createdAt', SortDirection::DESC),
+        10,
+        5,
+      )
       ->willReturn([$organization]);
+    $organizationRepository->expects(self::once())
+      ->method('countByIds')
+      ->with(
+        self::callback(static function (array $ids) use ($organizationId): bool {
+          return 1 === count($ids)
+            && $ids[0] instanceof OrganizationId
+            && $organizationId === (string) $ids[0];
+        }),
+        'active',
+        'nantes',
+      )
+      ->willReturn(1);
 
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
     );
 
-    $result = $handler->__invoke(new ListUserOrganizationsQuery($userId));
+    $result = $handler->__invoke(new ListUserOrganizationsQuery(
+      $userId,
+      new Pagination(offset: 5, limit: 10),
+      'active',
+      'nantes',
+      new Sorting('createdAt', SortDirection::DESC),
+    ));
 
     self::assertInstanceOf(PaginatedResult::class, $result);
     self::assertCount(1, $result->items);
@@ -93,8 +120,8 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     self::assertSame('Fireguard Nantes', $result->items[0]->name);
     self::assertSame(2, $result->items[0]->memberCount);
     self::assertSame(1, $result->total);
-    self::assertSame(1, $result->limit);
-    self::assertSame(0, $result->offset);
+    self::assertSame(10, $result->limit);
+    self::assertSame(5, $result->offset);
   }
 
   #[Test]
@@ -109,6 +136,7 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::never())->method('findByIds');
+    $organizationRepository->expects(self::never())->method('countByIds');
 
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
@@ -122,5 +150,22 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     self::assertSame(0, $result->total);
     self::assertSame(20, $result->limit);
     self::assertSame(0, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenStatusIsInvalid(): void
+  {
+    $handler = new ListUserOrganizationsHandler(
+      memberRepository: $this->createMock(OrganizationMemberRepositoryPort::class),
+      organizationRepository: $this->createMock(OrganizationRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListUserOrganizationsQuery(
+      '550e8400-e29b-41d4-a716-446655440800',
+      new Pagination(),
+      'disabled',
+    ));
   }
 }

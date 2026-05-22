@@ -7,7 +7,12 @@ namespace App\Tests\E2E;
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
+use Facility\Infrastructure\DataFixtures\FacilityFixtures;
+use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
+use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
+use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -63,25 +68,50 @@ abstract class OAuth2WebTestCase extends WebTestCase
   {
     $container = $client->getContainer();
 
-    /** @var EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.auth_entity_manager');
+    /** @var EntityManagerInterface $authEntityManager */
+    $authEntityManager = $container->get('doctrine.orm.auth_entity_manager');
 
-    // Load fixtures using proper executor with reference repository
-    $loader = new Loader();
+    $authLoader = new Loader();
 
     /** @var ClientFixtures $clientFixtures */
     $clientFixtures = $container->get(ClientFixtures::class);
     /** @var UserFixtures $userFixtures */
     $userFixtures = $container->get(UserFixtures::class);
 
-    $loader->addFixture($clientFixtures);
-    $loader->addFixture($userFixtures);
+    $authLoader->addFixture($clientFixtures);
+    $authLoader->addFixture($userFixtures);
 
-    $executor = new ORMExecutor($entityManager);
+    $authExecutor = new ORMExecutor($authEntityManager);
     // Append mode avoids purge; each test is isolated by transaction rollback.
-    $executor->execute($loader->getFixtures(), true);
+    $authExecutor->execute($authLoader->getFixtures(), true);
+    $authEntityManager->clear();
 
-    $entityManager->clear();
+    /** @var EntityManagerInterface $mainEntityManager */
+    $mainEntityManager = $container->get('doctrine.orm.main_entity_manager');
+
+    $mainLoader = new Loader();
+    /** @var OrganizationFixtures $organizationFixtures */
+    $organizationFixtures = $container->get(OrganizationFixtures::class);
+    /** @var FacilityFixtures $facilityFixtures */
+    $facilityFixtures = $container->get(FacilityFixtures::class);
+    /** @var EquipmentFixtures $equipmentFixtures */
+    $equipmentFixtures = $container->get(EquipmentFixtures::class);
+    /** @var InspectionFixtures $inspectionFixtures */
+    $inspectionFixtures = $container->get(InspectionFixtures::class);
+    /** @var OnboardingFixtures $onboardingFixtures */
+    $onboardingFixtures = $container->get(OnboardingFixtures::class);
+
+    $mainLoader->addFixture($organizationFixtures);
+    $mainLoader->addFixture($onboardingFixtures);
+    $mainLoader->addFixture($facilityFixtures);
+    $mainLoader->addFixture($equipmentFixtures);
+    $mainLoader->addFixture($inspectionFixtures);
+
+    $executor = new ORMExecutor($mainEntityManager);
+    // Append mode avoids purge; each test is isolated by transaction rollback.
+    $executor->execute($mainLoader->getFixtures(), true);
+
+    $mainEntityManager->clear();
   }
 
   /**

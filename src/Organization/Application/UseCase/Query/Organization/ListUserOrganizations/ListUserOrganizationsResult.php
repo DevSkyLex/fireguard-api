@@ -22,7 +22,8 @@ final readonly class ListUserOrganizationsResult implements ResultMessage
   /**
    * Constructor.
    *
-   * Initializes a new instance of the ListUserOrganizationsResult class.
+   * Initializes a new instance of the
+   * ListUserOrganizationsResult class.
    *
    * @since 1.0.0
    *

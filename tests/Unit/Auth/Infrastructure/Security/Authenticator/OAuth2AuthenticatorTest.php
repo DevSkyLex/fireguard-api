@@ -238,6 +238,43 @@ final class OAuth2AuthenticatorTest extends TestCase
   }
 
   #[Test]
+  public function testAuthenticateSkipsAccessTokenLookupForInternalLoginJwt(): void
+  {
+    $lookup = $this->createMock(AccessTokenLookupPort::class);
+    $lookup->expects(self::never())->method('find');
+
+    $authenticator = $this->createAuthenticator($lookup);
+    $token = $this->buildRsaToken(scopes: ['read', 'write'], fireguardTokenUse: 'auth_session');
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $token);
+
+    $passport = $authenticator->authenticate($request);
+    $user = $passport->getUser();
+
+    self::assertInstanceOf(SecurityUser::class, $user);
+    self::assertSame(['read', 'write'], $user->getScopes());
+  }
+
+  #[Test]
+  public function testAuthenticateRejectsInvalidInternalLoginJwtWithoutDatabaseLookup(): void
+  {
+    $lookup = $this->createMock(AccessTokenLookupPort::class);
+    $lookup->expects(self::never())->method('find');
+
+    $authenticator = $this->createAuthenticator($lookup);
+    $token = $this->buildHmacToken(fireguardTokenUse: 'auth_session');
+
+    $request = new Request();
+    $request->headers->set('Authorization', 'Bearer ' . $token);
+
+    $this->expectException(CustomUserMessageAuthenticationException::class);
+    $this->expectExceptionMessage('Invalid token signature');
+
+    $authenticator->authenticate($request);
+  }
+
+  #[Test]
   public function testAuthenticateRejectsInvalidSignature(): void
   {
     $lookup = $this->createMock(AccessTokenLookupPort::class);
@@ -379,6 +416,7 @@ final class OAuth2AuthenticatorTest extends TestCase
     bool $includeSub = true,
     array $scopes = [],
     ?DateTimeImmutable $expiresAt = null,
+    ?string $fireguardTokenUse = null,
   ): string {
     $config = Configuration::forAsymmetricSigner(
       signer: new Sha256(),
@@ -403,14 +441,20 @@ final class OAuth2AuthenticatorTest extends TestCase
       $builder = $builder->withClaim('scopes', $scopes);
     }
 
+    if (null !== $fireguardTokenUse) {
+      $builder = $builder->withClaim('_fireguard_token_use', $fireguardTokenUse);
+    }
+
     return $builder->getToken($config->signer(), $config->signingKey())->toString();
   }
 
   /**
    * @param non-empty-string $secret
    */
-  private function buildHmacToken(string $secret = 'secret-secret-secret-secret-secret-1234'): string
-  {
+  private function buildHmacToken(
+    string $secret = 'secret-secret-secret-secret-secret-1234',
+    ?string $fireguardTokenUse = null,
+  ): string {
     $config = Configuration::forSymmetricSigner(
       signer: new HmacSha256(),
       key: InMemory::plainText($secret),
@@ -422,6 +466,10 @@ final class OAuth2AuthenticatorTest extends TestCase
       ->expiresAt($now->modify('+1 hour'))
       ->identifiedBy('token-123')
       ->relatedTo('user-123');
+
+    if (null !== $fireguardTokenUse) {
+      $builder = $builder->withClaim('_fireguard_token_use', $fireguardTokenUse);
+    }
 
     return $builder->getToken($config->signer(), $config->signingKey())->toString();
   }

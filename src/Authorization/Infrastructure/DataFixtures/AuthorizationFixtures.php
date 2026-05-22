@@ -75,7 +75,7 @@ class AuthorizationFixtures extends Fixture implements FixtureGroupInterface
    */
   public static function getGroups(): array
   {
-    return ['authorization'];
+    return ['authorization', 'auth-seed'];
   }
 
   /**

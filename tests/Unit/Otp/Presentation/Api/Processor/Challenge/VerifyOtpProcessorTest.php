@@ -17,9 +17,15 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyRequestsHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
+
+use function hash;
+use function sprintf;
+use function substr;
 
 /**
  * Test VerifyOtpProcessorTest.
@@ -167,6 +173,43 @@ final class VerifyOtpProcessorTest extends TestCase
     $this->expectException(MessengerRuntimeException::class);
 
     $processor->process($input, new Post(), ['id' => 'otp-3']);
+  }
+
+  #[Test]
+  public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
+  {
+    $input = new VerifyOtpInput();
+    $input->code = '123456';
+
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+    $rateLimiter->create($this->createRateLimitKey('token-9'))->consume();
+
+    $processor = new VerifyOtpProcessor(
+      commandBus: $this->createMock(CommandBusPort::class),
+      rateLimiter: $rateLimiter,
+    );
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process($input, new Post(), ['token' => 'token-9']);
+  }
+
+  private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'otp_challenge_verify',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
+  }
+
+  private function createRateLimitKey(string $identifier): string
+  {
+    return sprintf('otp_challenge_verify_%s', substr(hash('sha256', $identifier), 0, 16));
   }
   // #endregion
 }

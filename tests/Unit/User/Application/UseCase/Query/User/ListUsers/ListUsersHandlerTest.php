@@ -7,6 +7,8 @@ namespace Tests\Unit\User\Application\UseCase\Query\User\ListUsers;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -52,17 +54,43 @@ final class ListUsersHandlerTest extends TestCase
     /** @var UserRepositoryPort&MockObject $repository */
     $repository = $this->createMock(UserRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findAll')
+      ->method('findFiltered')
+      ->with(null, new Sorting('createdAt', SortDirection::ASC), 10, 0, null)
       ->willReturn($users);
+    $repository->expects(self::once())
+      ->method('countFiltered')
+      ->with(null, null)
+      ->willReturn(2);
 
     $handler = new ListUsersHandler($repository);
 
-    $result = $handler->__invoke(new ListUsersQuery(page: 1, limit: 10));
+    $result = $handler->__invoke(new ListUsersQuery(pagination: new Pagination(offset: 0, limit: 10)));
 
     self::assertCount(2, $result->items);
     self::assertSame(2, $result->total);
     self::assertSame(10, $result->limit);
     self::assertSame(0, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokePassesTenantIdToRepository(): void
+  {
+    /** @var UserRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(UserRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findFiltered')
+      ->with(null, new Sorting('createdAt', SortDirection::ASC), 20, 0, 'tenant-abc')
+      ->willReturn([]);
+    $repository->expects(self::once())
+      ->method('countFiltered')
+      ->with(null, 'tenant-abc')
+      ->willReturn(0);
+
+    $handler = new ListUsersHandler($repository);
+    $result = $handler->__invoke(new ListUsersQuery(tenantId: 'tenant-abc'));
+
+    self::assertCount(0, $result->items);
+    self::assertSame(0, $result->total);
   }
   // #endregion
 }

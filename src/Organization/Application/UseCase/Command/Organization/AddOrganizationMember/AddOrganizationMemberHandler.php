@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\AddOrganizationMember;
 
 use InvalidArgumentException;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
@@ -19,6 +23,7 @@ use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
+use function sprintf;
 
 /**
  * UseCase AddOrganizationMemberHandler.
@@ -53,6 +58,8 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private UserRepositoryPort $userRepository,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
   ) {
@@ -100,11 +107,14 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       throw OrganizationRoleNotFoundException::withId('one-or-more-role-ids');
     }
 
+    $shouldNotifyMember = false;
+
     /** @var AddOrganizationMemberResult $result */
     $result = $this->transactionManager->transactional(function () use (
       $organizationId,
       $command,
       $roles,
+      &$shouldNotifyMember,
     ): AddOrganizationMemberResult {
       $member = $this->memberRepository->findByOrganizationAndUser($organizationId, $command->userId);
 
@@ -117,9 +127,11 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
           userId: $command->userId,
         );
         $this->memberRepository->save($member);
+        $shouldNotifyMember = true;
       } elseif (!$member->isActive()) {
         $member->activate();
         $this->memberRepository->save($member);
+        $shouldNotifyMember = true;
       }
 
       foreach ($roles as $role) {
@@ -137,6 +149,35 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         joinedAt: $member->joinedAt(),
       );
     });
+
+    if (!$command->sendMemberNotification || !$shouldNotifyMember) {
+      return $result;
+    }
+
+    try {
+      $this->notificationPort->send(new SendNotificationRequest(
+        type: NotificationType::ORGANIZATION_MEMBER_ADDED,
+        subject: sprintf('You have been added to %s', (string) $organization->name()),
+        body: sprintf('You now have access to %s.', (string) $organization->name()),
+        channels: [NotificationChannel::EMAIL, NotificationChannel::MERCURE],
+        payload: [
+          'organizationId' => (string) $organizationId,
+          'memberId' => $result->memberId,
+          'organizationName' => (string) $organization->name(),
+          'roleIds' => $result->roleIds,
+          'joinedAt' => $result->joinedAt->format('c'),
+        ],
+        recipientUserId: $command->userId,
+        recipientEmail: (string) $user->email(),
+      ));
+    } catch (Throwable $exception) {
+      $this->logger->warning('Organization member added notification dispatch failed.', [
+        'organizationId' => (string) $organizationId,
+        'memberId' => $result->memberId,
+        'recipientUserId' => $command->userId,
+        'error' => $exception->getMessage(),
+      ]);
+    }
 
     return $result;
   }

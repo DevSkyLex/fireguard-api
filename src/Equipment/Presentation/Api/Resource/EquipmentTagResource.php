@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Equipment\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Delete, Post};
-use ApiPlatform\OpenApi\Model\{Operation, Response};
+use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Post};
+use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Equipment\Presentation\Api\Dto\Input\Equipment\AddTagInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\TagOutput;
 use Equipment\Presentation\Api\Operation\EquipmentOperations;
 use Equipment\Presentation\Api\Processor\Equipment\{AddTagToEquipmentProcessor, RemoveTagFromEquipmentProcessor};
+use Equipment\Presentation\Api\Provider\Tag\ListTagsProvider;
 use Equipment\Presentation\Api\Serialization\EquipmentSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -27,6 +28,37 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   routePrefix: '/organizations',
   description: 'Tags associated with equipment items.',
   operations: [
+    new GetCollection(
+      name: EquipmentOperations::LIST_TAGS,
+      uriTemplate: '/{organizationId}/equipment/tags',
+      input: false,
+      output: TagOutput::class,
+      provider: ListTagsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
+      normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Equipment'],
+        summary: 'List tag catalog',
+        description: 'Lists all tags available in the organization catalog. Supports optional search for typeahead.',
+        parameters: [
+          new Parameter(
+            name: 'search',
+            in: 'query',
+            required: false,
+            description: 'Filter tags by name (case-insensitive substring match).',
+            schema: ['type' => 'string'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Tag catalog retrieved'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
     new Post(
       name: EquipmentOperations::ADD_TAG_TO_EQUIPMENT,
       uriTemplate: '/{organizationId}/equipment/{equipmentId}/tags',

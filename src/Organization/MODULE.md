@@ -22,8 +22,15 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/legal-types` | List legal types for selects |
 | GET | `/api/organizations/{organizationId}/legal-profile` | Get organization legal profile |
 | PUT | `/api/organizations/{organizationId}/legal-profile` | Create/update organization legal profile |
-| GET | `/api/organizations` | List Organizations for current user |
+| GET | `/api/organizations` | List Organizations for current user (filter: `status`) |
 | GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`) |
+| GET | `/api/organizations/{organizationId}/me` | Get the authenticated active member profile with resolved roles and effective permissions |
+| GET | `/api/organizations/{organizationId}/dashboard` | Get lightweight Organization overview KPIs for cards. `overview`, `alerts`, and non-`period*` KPIs are snapshots at `generatedAt`; `comparison` and `period*` KPIs follow `from`/`to` (filters: `from`, `to`, `compare`, `timezone`). Use dedicated `/dashboard/trends/*` endpoints for chart series. Requires `organization.dashboard.read` plus members/roles/facilities/equipment/inspection read permissions. |
+| GET | `/api/organizations/{organizationId}/dashboard/trends/inspections` | Get the inspections-performed series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters. Requires `organization.inspection.read`. |
+| GET | `/api/organizations/{organizationId}/dashboard/trends/equipment-created` | Get the equipment-created series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus `equipmentType` and `equipmentStatus`. Requires `organization.equipment.read`. |
+| GET | `/api/organizations/{organizationId}/dashboard/trends/facilities-created` | Get the facilities-created series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus `facilityType`. Requires `organization.facilities.read`. |
+| GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-opened` | Get the non-conformities-opened series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters. Requires `organization.inspection.read`. |
+| GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters. Requires `organization.inspection.read`. |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
 | GET | `/api/organizations/{organizationId}/members` | List Organization members |
 | POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |

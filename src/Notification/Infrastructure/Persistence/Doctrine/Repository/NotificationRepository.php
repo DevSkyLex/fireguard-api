@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Infrastructure\Persistence\Doctrine\Repository;
 
+use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Domain\Model\Notification\Notification;
@@ -12,7 +13,9 @@ use Notification\Infrastructure\Persistence\Doctrine\Mapper\NotificationMapper;
 use Notification\Infrastructure\Persistence\Doctrine\Record\NotificationRecord;
 
 use function array_map;
+use function implode;
 use function min;
+use function sprintf;
 
 /**
  * Repository NotificationRepository.
@@ -92,6 +95,8 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
     int $limit = 50,
     ?string $type = null,
     ?string $category = null,
+    ?DateTimeImmutable $hideReadBefore = null,
+    array $hiddenReadCategories = [],
   ): array {
     $qb = $this->entityManager->createQueryBuilder()
       ->select('n')
@@ -109,6 +114,23 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
       $qb->andWhere('n.type = :type')->setParameter('type', $type);
     } elseif (null !== $category) {
       $qb->andWhere('n.type LIKE :categoryPrefix')->setParameter('categoryPrefix', $category . '.%');
+    }
+
+    if (!$onlyUnread && null !== $hideReadBefore && [] !== $hiddenReadCategories) {
+      $nonMaskedCategoryConditions = [];
+
+      foreach ($hiddenReadCategories as $index => $hiddenReadCategory) {
+        $parameterName = 'hiddenReadCategoryPrefix' . $index;
+        $nonMaskedCategoryConditions[] = sprintf('n.type NOT LIKE :%s', $parameterName);
+        $qb->setParameter($parameterName, $hiddenReadCategory . '.%');
+      }
+
+      $qb
+        ->andWhere(sprintf(
+          '(n.isRead = false OR n.readAt IS NULL OR n.readAt >= :hideReadBefore OR (%s))',
+          implode(' AND ', $nonMaskedCategoryConditions),
+        ))
+        ->setParameter('hideReadBefore', $hideReadBefore);
     }
 
     /** @var list<NotificationRecord> $records */

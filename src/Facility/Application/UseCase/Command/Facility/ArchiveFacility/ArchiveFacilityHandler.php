@@ -9,10 +9,17 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\LoggerPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
+use function sprintf;
 use function str_contains;
 use function strtolower;
 
@@ -30,6 +37,9 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
   // #region Constructor
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private OrganizationRepositoryPort $organizationRepository,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
   ) {
   }
   // #endregion
@@ -61,6 +71,8 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
       throw FacilityNotFoundException::withId($command->facilityId);
     }
 
+    $wasAlreadyArchived = 'archived' === $facility->status()->value;
+
     $facility->archive();
 
     try {
@@ -71,6 +83,38 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
       }
 
       throw $exception;
+    }
+
+    if (!$wasAlreadyArchived) {
+      $organization = $this->organizationRepository->findById(new OrganizationId((string) $organizationId));
+    } else {
+      $organization = null;
+    }
+
+    if (null !== $organization) {
+      try {
+        $this->notificationPort->send(new SendNotificationRequest(
+          type: NotificationType::FACILITY_ARCHIVED,
+          subject: 'Facility archived',
+          body: sprintf('Facility %s has been archived.', (string) $facility->name()),
+          channels: [NotificationChannel::MERCURE],
+          payload: [
+            'organizationId' => (string) $organizationId,
+            'facilityId' => (string) $facility->id(),
+            'facilityName' => (string) $facility->name(),
+            'facilityType' => $facility->type()->value,
+            'archivedAt' => $facility->updatedAt()->format('c'),
+          ],
+          recipientUserId: $organization->ownerUserId(),
+        ));
+      } catch (Throwable $exception) {
+        $this->logger->warning('Facility archived notification dispatch failed.', [
+          'organizationId' => (string) $organizationId,
+          'facilityId' => (string) $facility->id(),
+          'recipientUserId' => $organization->ownerUserId(),
+          'error' => $exception->getMessage(),
+        ]);
+      }
     }
 
     return new ArchiveFacilityResult(

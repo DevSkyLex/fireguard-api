@@ -6,6 +6,7 @@ namespace Inspection\Application\Port\Outbound;
 
 use Inspection\Domain\Model\Checklist\Checklist;
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port ChecklistRepositoryPort.
@@ -58,6 +59,16 @@ interface ChecklistRepositoryPort
   public function findByOrganizationId(
     ChecklistOrganizationId $organizationId,
     ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
   ): array;
+
+  public function countByOrganizationId(
+    ChecklistOrganizationId $organizationId,
+    ?string $status = null,
+    ?string $search = null,
+  ): int;
   // #endregion
 }

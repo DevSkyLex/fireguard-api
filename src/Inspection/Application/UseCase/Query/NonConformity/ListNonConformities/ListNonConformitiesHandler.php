@@ -13,8 +13,6 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
-use function count;
-
 /**
  * UseCase ListNonConformitiesHandler.
  *
@@ -63,6 +61,10 @@ final readonly class ListNonConformitiesHandler implements QueryHandler
       NonConformityInspectionId::fromString($query->inspectionId),
       $severity,
       $status,
+      $query->search,
+      $query->sorting,
+      $query->pagination->limit,
+      $query->pagination->offset,
     );
 
     $results = [];
@@ -82,13 +84,18 @@ final readonly class ListNonConformitiesHandler implements QueryHandler
       );
     }
 
-    $total = count($results);
+    $total = $this->nonConformityRepository->countByInspectionId(
+      NonConformityInspectionId::fromString($query->inspectionId),
+      $severity,
+      $status,
+      $query->search,
+    );
 
     return new PaginatedResult(
       items: $results,
       total: $total,
-      limit: $total,
-      offset: 0,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
     );
   }
   // #endregion

@@ -6,13 +6,19 @@ namespace Organization\Application\UseCase\Command\Organization\AcceptOrganizati
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Port\Inbound\NotificationPort;
+use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
+use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Throwable;
 
 use function hash;
+use function sprintf;
 use function strtolower;
 use function trim;
 
@@ -41,7 +47,10 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
+    private OrganizationRepositoryPort $organizationRepository,
     private AddOrganizationMemberHandler $addOrganizationMemberHandler,
+    private NotificationPort $notificationPort,
+    private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
   ) {
   }
@@ -105,6 +114,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
         organizationId: (string) $invitation->organizationId(),
         userId: $command->userId,
         roleIds: $roleIds,
+        sendMemberNotification: false,
       ));
 
       $invitation->accept($command->userId, $now);
@@ -120,6 +130,60 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
         joinedAt: $memberResult->joinedAt,
       );
     });
+
+    try {
+      $this->notificationPort->send(new SendNotificationRequest(
+        type: NotificationType::ORGANIZATION_INVITATION_ACCEPTED,
+        subject: 'Invitation accepted',
+        body: sprintf('%s accepted your organization invitation.', $authenticatedEmail),
+        channels: [NotificationChannel::MERCURE],
+        payload: [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'acceptedUserId' => $command->userId,
+          'acceptedEmail' => $authenticatedEmail,
+          'acceptedAt' => $now->format('c'),
+        ],
+        recipientUserId: $invitation->invitedByUserId(),
+      ));
+    } catch (Throwable $exception) {
+      $this->logger->warning('Invitation accepted notification dispatch failed.', [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'recipientUserId' => $invitation->invitedByUserId(),
+        'error' => $exception->getMessage(),
+      ]);
+    }
+
+    $organization = $this->organizationRepository->findById(new OrganizationId((string) $invitation->organizationId()));
+    $ownerUserId = $organization?->ownerUserId();
+
+    if (null !== $organization && null !== $ownerUserId && $ownerUserId !== $command->userId && $ownerUserId !== $invitation->invitedByUserId()) {
+      try {
+        $this->notificationPort->send(new SendNotificationRequest(
+          type: NotificationType::ORGANIZATION_MEMBER_JOINED,
+          subject: 'New member joined your organization',
+          body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
+          channels: [NotificationChannel::MERCURE],
+          payload: [
+            'organizationId' => (string) $invitation->organizationId(),
+            'invitationId' => (string) $invitation->id(),
+            'memberId' => $result->memberId,
+            'joinedUserId' => $command->userId,
+            'joinedEmail' => $authenticatedEmail,
+            'joinedAt' => $result->joinedAt->format('c'),
+          ],
+          recipientUserId: $ownerUserId,
+        ));
+      } catch (Throwable $exception) {
+        $this->logger->warning('Member joined notification dispatch failed.', [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'recipientUserId' => $ownerUserId,
+          'error' => $exception->getMessage(),
+        ]);
+      }
+    }
 
     return $result;
   }

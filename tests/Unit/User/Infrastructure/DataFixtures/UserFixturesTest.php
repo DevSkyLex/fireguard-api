@@ -22,7 +22,7 @@ final class UserFixturesTest extends TestCase
   #[Test]
   public function testGetGroupsReturnsUserGroup(): void
   {
-    self::assertSame(['user', 'default'], UserFixtures::getGroups());
+    self::assertSame(['user', 'auth-seed'], UserFixtures::getGroups());
   }
   // #endregion
 }

@@ -18,6 +18,16 @@ use Shared\Application\Message\CommandMessage;
 final readonly class DeleteOrganizationCommand implements CommandMessage
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the
+   * DeleteOrganizationCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization ID
+   */
   public function __construct(
     public string $organizationId,
   ) {

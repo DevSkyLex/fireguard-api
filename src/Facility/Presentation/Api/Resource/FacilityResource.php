@@ -17,9 +17,10 @@ use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
   CreateFacilityProcessor,
   MoveFacilityProcessor,
+  RestoreFacilityProcessor,
   UpdateFacilityProcessor
 };
-use Facility\Presentation\Api\Provider\Facility\{GetFacilityProvider, ListFacilitiesProvider};
+use Facility\Presentation\Api\Provider\Facility\{GetFacilityProvider, ListFacilitiesProvider, ListFacilityChildrenProvider, ListFacilityDescendantsProvider};
 use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -82,6 +83,34 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'When true, archived facilities are included. Default: false.',
             schema: ['type' => 'boolean', 'default' => false],
           ),
+          new Parameter(
+            name: 'type',
+            in: 'query',
+            required: false,
+            description: 'Filter by facility type.',
+            schema: ['type' => 'string', 'enum' => ['site', 'building', 'floor', 'zone', 'area']],
+          ),
+          new Parameter(
+            name: 'status',
+            in: 'query',
+            required: false,
+            description: 'Filter by facility status.',
+            schema: ['type' => 'string', 'enum' => ['active', 'archived']],
+          ),
+          new Parameter(
+            name: 'parentFacilityId',
+            in: 'query',
+            required: false,
+            description: 'Filter by direct parent facility identifier.',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+          new Parameter(
+            name: 'code',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact facility code.',
+            schema: ['type' => 'string'],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facilities retrieved'),
@@ -104,6 +133,56 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         description: 'Returns one facility by identifier for the target organization.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility retrieved'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+        ],
+      ),
+    ),
+    new GetCollection(
+      name: FacilityOperations::LIST_FACILITY_CHILDREN,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/children',
+      input: false,
+      output: FacilityOutput::class,
+      provider: ListFacilityChildrenProvider::class,
+      paginationEnabled: false,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'List facility children',
+        description: 'Lists direct children for one facility.',
+        parameters: [
+          new Parameter(name: 'includeArchived', in: 'query', required: false, description: 'When true, archived children are included.', schema: ['type' => 'boolean', 'default' => false]),
+          new Parameter(name: 'search', in: 'query', required: false, description: 'Text search across child facilities.', schema: ['type' => 'string']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Facility children retrieved'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+        ],
+      ),
+    ),
+    new GetCollection(
+      name: FacilityOperations::LIST_FACILITY_DESCENDANTS,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/descendants',
+      input: false,
+      output: FacilityOutput::class,
+      provider: ListFacilityDescendantsProvider::class,
+      paginationEnabled: false,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'List facility descendants',
+        description: 'Lists all descendants for one facility.',
+        parameters: [
+          new Parameter(name: 'includeArchived', in: 'query', required: false, description: 'When true, archived descendants are included.', schema: ['type' => 'boolean', 'default' => false]),
+          new Parameter(name: 'search', in: 'query', required: false, description: 'Text search across descendant facilities.', schema: ['type' => 'string']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Facility descendants retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
@@ -147,6 +226,26 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility archived'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+        ],
+      ),
+    ),
+    new Patch(
+      name: FacilityOperations::RESTORE_FACILITY,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/restore',
+      input: false,
+      output: FacilityOutput::class,
+      processor: RestoreFacilityProcessor::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Restore facility',
+        description: 'Restores an archived facility.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Facility restored'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or parent state'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
         ],

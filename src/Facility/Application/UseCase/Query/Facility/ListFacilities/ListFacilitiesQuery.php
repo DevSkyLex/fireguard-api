@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
 use Shared\Application\Contract\Pagination\Pagination;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -23,6 +24,12 @@ final readonly class ListFacilitiesQuery implements QueryMessage
     public string $organizationId,
     public bool $includeArchived = false,
     public Pagination $pagination = new Pagination(),
+    public ?string $type = null,
+    public ?string $status = null,
+    public ?string $parentFacilityId = null,
+    public ?string $code = null,
+    public ?string $search = null,
+    public Sorting $sorting = new Sorting('name', SortDirection::ASC),
   ) {
   }
   // #endregion

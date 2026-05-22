@@ -82,10 +82,6 @@ services:
   Authorization\Infrastructure\Security\Voter\RoleVoter:
     tags: ['security.voter']
 
-  # DataFixtures
-  Authorization\Infrastructure\DataFixtures\AuthorizationFixtures:
-    tags: ['doctrine.fixture.orm']
-
   # Console Commands
   Authorization\Infrastructure\Console\AssignRoleCommand:
     tags: ['console.command']

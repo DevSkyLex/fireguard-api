@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
@@ -289,6 +290,40 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   }
 
   /**
+   * Method unassignRole.
+   *
+   * Removes a role assignment from a member.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationMemberId $memberId the member identifier
+   * @param OrganizationRoleId $roleId the role identifier to unassign
+   */
+  public function unassignRole(OrganizationMemberId $memberId, OrganizationRoleId $roleId): void
+  {
+    /** @var OrganizationMemberRecord|null $memberRecord */
+    $memberRecord = $this->memberRepository->find((string) $memberId);
+    /** @var OrganizationRoleRecord|null $roleRecord */
+    $roleRecord = $this->roleRepository->find((string) $roleId);
+
+    if (!$memberRecord instanceof OrganizationMemberRecord || !$roleRecord instanceof OrganizationRoleRecord) {
+      return;
+    }
+
+    $assignment = $this->memberRoleRepository->findOneBy([
+      'member' => $memberRecord,
+      'role' => $roleRecord,
+    ]);
+
+    if (!$assignment instanceof OrganizationMemberRoleRecord) {
+      return;
+    }
+
+    $this->entityManager->remove($assignment);
+    $this->entityManager->flush();
+  }
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts members belonging to an organization.
@@ -307,6 +342,35 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return (int) $this->memberRepository->count([
       'organization' => $organization,
     ]);
+  }
+
+  public function countActiveByOrganizationId(OrganizationId $organizationId): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->memberRepository->count([
+      'organization' => $organization,
+      'isActive' => true,
+    ]);
+  }
+
+  public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return (int) $this->memberRepository
+      ->createQueryBuilder('organizationMember')
+      ->select('COUNT(organizationMember.id)')
+      ->where('organizationMember.organization = :organization')
+      ->andWhere('organizationMember.joinedAt >= :joinedAtFrom')
+      ->andWhere('organizationMember.joinedAt <= :joinedAtTo')
+      ->setParameter('organization', $organization)
+      ->setParameter('joinedAtFrom', $joinedAtFrom)
+      ->setParameter('joinedAtTo', $joinedAtTo)
+      ->getQuery()
+      ->getSingleScalarResult();
   }
 
   /**
@@ -347,7 +411,13 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
         continue;
       }
 
-      foreach ($assignment->role->permissions as $permission) {
+      $rolePermissions = OrganizationSystemRoleCatalog::mergePermissions(
+        roleName: $assignment->role->name,
+        permissions: $assignment->role->permissions,
+        isSystem: $assignment->role->isSystem,
+      );
+
+      foreach ($rolePermissions as $permission) {
         if (!in_array($permission, $permissions, true)) {
           $permissions[] = $permission;
         }

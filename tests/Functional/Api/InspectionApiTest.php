@@ -20,6 +20,116 @@ final class InspectionApiTest extends WebTestCase
 {
   private const string DUMMY_UUID = '550e8400-e29b-41d4-a716-446655440000';
 
+  #[Test]
+  public function testListInspectionResultsRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/inspections/results');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /inspections/results endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /inspections/results, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testListInspectionStatusesRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/inspections/statuses');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /inspections/statuses endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /inspections/statuses, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testListInspectorTypesRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/inspections/inspector-types');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /inspections/inspector-types endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /inspections/inspector-types, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testListChecklistStatusesRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/checklists/statuses');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /checklists/statuses endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /checklists/statuses, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testListNonConformityStatusesRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/non-conformities/statuses');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /non-conformities/statuses endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /non-conformities/statuses, got ' . $statusCode,
+    );
+  }
+
   // #region Methods
 
   // -------------------------------------------------------------------------
@@ -263,6 +373,144 @@ final class InspectionApiTest extends WebTestCase
       needle: $statusCode,
       haystack: [401, 403],
       message: 'Expected 401 or 403 for unauthenticated GET /checklists/{id}, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testArchiveChecklistRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/organizations/' . self::DUMMY_UUID . '/checklists/' . self::DUMMY_UUID . '/archive',
+      server: ['CONTENT_TYPE' => 'application/json'],
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'POST /checklists/{id}/archive endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated POST /checklists/{id}/archive, got ' . $statusCode,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Edit and cancel inspection endpoints
+  // -------------------------------------------------------------------------
+
+  #[Test]
+  public function testEditInspectionRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . self::DUMMY_UUID . '/inspections/' . self::DUMMY_UUID,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
+      content: (string) json_encode(['notes' => 'updated']),
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'PATCH /inspections/{id} endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated PATCH /inspections/{id}, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testCancelInspectionRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      'DELETE',
+      '/api/organizations/' . self::DUMMY_UUID . '/inspections/' . self::DUMMY_UUID,
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'DELETE /inspections/{id} endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated DELETE /inspections/{id}, got ' . $statusCode,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Non-conformity status and detail endpoints
+  // -------------------------------------------------------------------------
+
+  #[Test]
+  public function testGetNonConformityRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      'GET',
+      '/api/organizations/' . self::DUMMY_UUID . '/inspections/' . self::DUMMY_UUID . '/non-conformities/' . self::DUMMY_UUID,
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /non-conformities/{id} endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /non-conformities/{id}, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testUpdateNonConformityStatusRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . self::DUMMY_UUID . '/inspections/' . self::DUMMY_UUID . '/non-conformities/' . self::DUMMY_UUID . '/status',
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
+      content: (string) json_encode(['status' => 'in_progress']),
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'PATCH /non-conformities/{id}/status endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated PATCH /non-conformities/{id}/status, got ' . $statusCode,
     );
   }
   // #endregion

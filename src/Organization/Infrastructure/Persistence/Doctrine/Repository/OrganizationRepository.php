@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\OrganizationId;
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
+use function addcslashes;
 use function array_map;
 use function is_array;
+use function mb_strtolower;
+use function strtoupper;
 
 /**
  * Repository OrganizationRepository.
@@ -112,18 +116,25 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
    *
    * @return list<Organization> the matching organizations
    */
-  public function findByIds(array $ids): array
-  {
+  public function findByIds(
+    array $ids,
+    ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array {
     if ([] === $ids) {
       return [];
     }
 
     $rawIds = array_map(static fn (OrganizationId $id): string => (string) $id, $ids);
 
-    $records = $this->repository->createQueryBuilder('o')
-      ->where('o.id IN (:ids)')
-      ->setParameter('ids', $rawIds)
-      ->orderBy('o.name', 'ASC')
+    $records = $this->createListQueryBuilder($rawIds, $status, $search)
+      ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
+      ->addOrderBy('o.id', 'ASC')
+      ->setFirstResult($offset)
+      ->setMaxResults($limit)
       ->getQuery()
       ->getResult();
 
@@ -139,6 +150,20 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
     }
 
     return $organizations;
+  }
+
+  public function countByIds(array $ids, ?string $status = null, ?string $search = null): int
+  {
+    if ([] === $ids) {
+      return 0;
+    }
+
+    $rawIds = array_map(static fn (OrganizationId $id): string => (string) $id, $ids);
+
+    return (int) $this->createListQueryBuilder($rawIds, $status, $search)
+      ->select('COUNT(o.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
   }
 
   /**
@@ -177,6 +202,46 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       $this->entityManager->remove($record);
       $this->entityManager->flush();
     }
+  }
+
+  /**
+   * @param list<string> $rawIds
+   */
+  private function createListQueryBuilder(array $rawIds, ?string $status, ?string $search): QueryBuilder
+  {
+    $queryBuilder = $this->repository->createQueryBuilder('o')
+      ->where('o.id IN (:ids)')
+      ->setParameter('ids', $rawIds);
+
+    if (null !== $status) {
+      $queryBuilder
+        ->andWhere('o.status = :status')
+        ->setParameter('status', $status);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
+
+      $queryBuilder
+        ->andWhere('(
+          LOWER(o.name) LIKE :search OR
+          LOWER(o.slug) LIKE :search OR
+          LOWER(o.status) LIKE :search
+        )')
+        ->setParameter('search', $normalizedSearch);
+    }
+
+    return $queryBuilder;
+  }
+
+  private function resolveSortField(string $field): string
+  {
+    return match ($field) {
+      'slug' => 'o.slug',
+      'status' => 'o.status',
+      'createdAt' => 'o.createdAt',
+      default => 'o.name',
+    };
   }
   // #endregion
 }

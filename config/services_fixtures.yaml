@@ -1,0 +1,36 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: false
+
+  User\Infrastructure\DataFixtures\UserFixtures:
+    tags:
+      - { name: 'app.seed_fixture.auth' }
+
+  Authorization\Infrastructure\DataFixtures\AuthorizationFixtures:
+    tags:
+      - { name: 'app.seed_fixture.auth' }
+
+  OAuth\Infrastructure\DataFixtures\ClientFixtures:
+    tags:
+      - { name: 'app.seed_fixture.auth' }
+
+  Organization\Infrastructure\DataFixtures\OrganizationFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Onboarding\Infrastructure\DataFixtures\OnboardingFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Facility\Infrastructure\DataFixtures\FacilityFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Equipment\Infrastructure\DataFixtures\EquipmentFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Inspection\Infrastructure\DataFixtures\InspectionFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }

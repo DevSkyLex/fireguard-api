@@ -106,6 +106,11 @@ Implication:
 
 - Email-only notifications (without `recipientUserId`) are persisted for audit,
   but are not returned by `/api/notifications`.
+- `GET /api/notifications` also masks older read notifications from low-value
+  categories (`user`, `facility`, `equipment`) after 30 days. This is a list
+  visibility rule only: notifications are not deleted by this behavior, and
+  `GET /api/notifications/{id}` can still return a notification that no longer
+  appears in the default list.
 
 ## Architecture
 

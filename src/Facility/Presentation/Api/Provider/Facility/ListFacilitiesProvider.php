@@ -17,16 +17,14 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Search\SearchExtractor;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
-use function array_slice;
-use function count;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -76,6 +74,10 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
 
     $request = $this->requestStack->getCurrentRequest();
     $includeArchived = $request?->query->getBoolean('includeArchived', false) ?? false;
+    $type = $request?->query->get('type');
+    $status = $request?->query->get('status');
+    $parentFacilityId = $request?->query->get('parentFacilityId');
+    $code = $request?->query->get('code');
 
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
@@ -96,6 +98,12 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
         organizationId: $organizationId,
         includeArchived: $includeArchived,
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+        type: is_string($type) && '' !== $type ? $type : null,
+        status: is_string($status) && '' !== $status ? $status : null,
+        parentFacilityId: is_string($parentFacilityId) && '' !== $parentFacilityId ? $parentFacilityId : null,
+        code: is_string($code) && '' !== $code ? $code : null,
+        search: SearchExtractor::fromContext($context),
+        sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'code'], 'name'),
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -113,21 +121,11 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
       $outputs[] = $this->mapResult($facility);
     }
 
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['name', 'type', 'code', 'status', 'address']);
-
-    $total = count($outputs);
-
-    $sorting = SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt'], 'name');
-    $outputs = CollectionSorter::sort($outputs, $sorting);
-
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
-
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
       currentPage: (float) $page,
       itemsPerPage: (float) $itemsPerPage,
-      totalItems: (float) $total,
+      totalItems: (float) $result->total,
     );
   }
 
