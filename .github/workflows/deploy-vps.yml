@@ -110,175 +110,19 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Prepare deployment bundle
+      - name: Install Ansible
+        run: |
+          python3 -m pip install --user ansible-core
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Write Ansible inventory
         run: |
           mkdir -p .deploy
-          cp compose.prod.yaml .deploy/compose.yaml
+          {
+            echo "[fireguard_vps]"
+            echo "fireguard ansible_host=${VPS_HOST} ansible_user=${VPS_USER} ansible_port=${VPS_PORT} ansible_ssh_private_key_file=$HOME/.ssh/id_ed25519 ansible_python_interpreter=/usr/bin/python3"
+          } > .deploy/inventory.ini
 
-      - name: Copy deployment files
+      - name: Run Ansible deployment
         run: |
-          remote="${VPS_USER}@${VPS_HOST}"
-          ssh -p "$VPS_PORT" "$remote" "mkdir -p '$VPS_APP_DIR'"
-          scp -P "$VPS_PORT" .deploy/compose.yaml "$remote:$VPS_APP_DIR/"
-
-      - name: Log in to GHCR on VPS
-        run: |
-          remote="${VPS_USER}@${VPS_HOST}"
-          printf '%s' "$GHCR_TOKEN" | ssh -p "$VPS_PORT" "$remote" "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
-
-      - name: Run deployment
-        run: |
-          remote="${VPS_USER}@${VPS_HOST}"
-          ssh -p "$VPS_PORT" "$remote" "cd '$VPS_APP_DIR' && IMAGE_REF='$IMAGE_REF' HEALTHCHECK_URL='$VPS_HEALTHCHECK_URL' sh -se" <<'REMOTE'
-          COMPOSE_FILE="compose.yaml"
-          HEALTHCHECK_RETRIES="${HEALTHCHECK_RETRIES:-30}"
-          HEALTHCHECK_DELAY_SECONDS="${HEALTHCHECK_DELAY_SECONDS:-5}"
-
-          log() {
-            printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
-          }
-
-          docker_compose() {
-            docker compose -f "$COMPOSE_FILE" "$@"
-          }
-
-          run_console() {
-            docker_compose run --rm app php bin/console "$@" --env=prod
-          }
-
-          wait_for_postgres() {
-            service="$1"
-            user="$2"
-            database="$3"
-
-            log "Waiting for ${service}."
-            i=1
-            while [ "$i" -le 30 ]; do
-              if docker_compose exec -T "$service" pg_isready -U "$user" -d "$database" >/dev/null 2>&1; then
-                return 0
-              fi
-              i=$((i + 1))
-              sleep 2
-            done
-
-            printf 'Database service did not become ready: %s\n' "$service" >&2
-            exit 1
-          }
-
-          backup_database() {
-            service="$1"
-            user="$2"
-            database="$3"
-            prefix="$4"
-            timestamp="$5"
-            output_dir="backups/${timestamp}"
-
-            mkdir -p "$output_dir"
-            log "Backing up ${database}."
-            docker_compose exec -T "$service" pg_dump -U "$user" -d "$database" -Fc > "${output_dir}/${prefix}.dump"
-          }
-
-          wait_for_http_health() {
-            if [ -n "${HEALTHCHECK_URL:-}" ]; then
-              log "Waiting for public application health at ${HEALTHCHECK_URL}."
-            else
-              log "Waiting for internal application health."
-            fi
-
-            i=1
-            while [ "$i" -le "$HEALTHCHECK_RETRIES" ]; do
-              if [ -n "${HEALTHCHECK_URL:-}" ]; then
-                if curl -fsS "$HEALTHCHECK_URL" >/dev/null; then
-                  log "Application is healthy."
-                  return 0
-                fi
-              else
-                if docker_compose exec -T app curl -fsS http://localhost:8000/api/health >/dev/null; then
-                  log "Application is healthy."
-                  return 0
-                fi
-              fi
-
-              i=$((i + 1))
-              sleep "$HEALTHCHECK_DELAY_SECONDS"
-            done
-
-            log "Application health check failed. Recent app logs:"
-            docker_compose logs --tail=120 app >&2
-            exit 1
-          }
-
-          test -f "$COMPOSE_FILE"
-          test -f .env
-
-          awk -v image="$IMAGE_REF" '
-            BEGIN { replaced = 0 }
-            /^FIREGUARD_IMAGE=/ {
-              print "FIREGUARD_IMAGE=" image
-              replaced = 1
-              next
-            }
-            { print }
-            END {
-              if (replaced == 0) {
-                print "FIREGUARD_IMAGE=" image
-              }
-            }
-          ' .env > .env.tmp
-          mv .env.tmp .env
-          chmod 600 .env
-
-          set -a
-          . ./.env
-          set +a
-
-          if [ -z "${FIREGUARD_IMAGE:-}" ]; then
-            printf 'FIREGUARD_IMAGE is required.\n' >&2
-            exit 1
-          fi
-
-          timestamp="$(date -u '+%Y%m%d%H%M%S')"
-
-          log "Ensuring Traefik network exists."
-          docker network inspect traefik_proxy >/dev/null 2>&1 || docker network create traefik_proxy
-
-          log "Generating JWT keys if missing."
-          mkdir -p jwt
-          if [ ! -f jwt/private.key ] || [ ! -f jwt/public.key ]; then
-            openssl genrsa -out jwt/private.key 4096
-            openssl rsa -in jwt/private.key -pubout -out jwt/public.key
-          fi
-          chmod 600 jwt/private.key
-          chmod 644 jwt/public.key
-
-          log "Pulling images."
-          docker_compose pull
-
-          log "Starting dependencies."
-          docker_compose up -d auth_database main_database redis mercure
-          wait_for_postgres auth_database "$POSTGRES_AUTH_USER" "$POSTGRES_AUTH_DB"
-          wait_for_postgres main_database "$POSTGRES_MAIN_USER" "$POSTGRES_MAIN_DB"
-
-          backup_database auth_database "$POSTGRES_AUTH_USER" "$POSTGRES_AUTH_DB" auth "$timestamp"
-          backup_database main_database "$POSTGRES_MAIN_USER" "$POSTGRES_MAIN_DB" main "$timestamp"
-
-          log "Running auth migrations."
-          run_console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction
-
-          log "Running main migrations."
-          run_console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction
-
-          log "Clearing production cache."
-          run_console cache:clear --no-warmup
-          run_console cache:warmup
-
-          log "Synchronizing permissions."
-          run_console app:authz:sync-permissions --update-roles --no-interaction
-
-          log "Starting application."
-          docker_compose up -d app
-          wait_for_http_health
-
-          log "Deployment completed."
-          docker_compose ps
-          REMOTE
+          ansible-playbook -i .deploy/inventory.ini ansible/deploy.yml

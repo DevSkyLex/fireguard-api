@@ -1,16 +1,18 @@
 # Deploiement VPS
 
-Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, PostgreSQL, Redis, Mercure et Traefik. GitHub Actions construit l'image Docker, la pousse sur GHCR, copie la configuration sur le VPS, lance les sauvegardes, applique les migrations, synchronise les permissions RBAC et verifie `/api/health`.
+Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, PostgreSQL, Redis, Mercure et Traefik. GitHub Actions construit l'image Docker, la pousse sur GHCR, puis lance Ansible pour deployer sur le VPS, sauvegarder les bases, appliquer les migrations, synchroniser les permissions RBAC et verifier `/api/health`.
 
 ## Fichiers ajoutes
 
-- `.github/workflows/deploy-vps.yml`: workflow CI, build, push GHCR, deploiement SSH.
+- `.github/workflows/deploy-vps.yml`: workflow CI, build, push GHCR, puis execution Ansible.
+- `ansible/deploy.yml`: playbook de deploiement VPS.
+- `ansible/inventory/production.ini.example`: exemple d'inventaire manuel.
 - `compose.prod.yaml`: stack Docker Compose de production pour le VPS.
 - `.env.example`: base pour construire le `.env` de production conserve sur le VPS.
 
 ## Prerequis VPS
 
-Installer Docker Engine, le plugin Docker Compose, `curl`, `openssl` et `bash`/`sh`. L'utilisateur SSH utilise par GitHub Actions doit pouvoir executer `docker`.
+Installer Docker Engine, le plugin Docker Compose, `python3`, `curl`, `openssl` et `bash`/`sh`. L'utilisateur SSH utilise par GitHub Actions doit pouvoir executer `docker`.
 
 Exemple de preparation:
 
@@ -18,6 +20,7 @@ Exemple de preparation:
 sudo mkdir -p /opt/fireguard-sso-api
 sudo chown "$USER:$USER" /opt/fireguard-sso-api
 docker compose version
+python3 --version
 docker network inspect traefik_proxy >/dev/null 2>&1 || docker network create traefik_proxy
 ```
 
@@ -58,6 +61,24 @@ Utilise des mots de passe PostgreSQL URL-encodes dans `AUTH_DATABASE_URL` et `MA
 4. Lancer `Deploy VPS` manuellement depuis GitHub Actions ou pousser sur `main`.
 
 Le workflow genere automatiquement `jwt/private.key` et `jwt/public.key` dans `VPS_APP_DIR` au premier deploiement. Ne supprime pas ce dossier, sinon tous les tokens signes avec l'ancienne cle deviennent invalides.
+
+## Ansible
+
+Le workflow installe `ansible-core` sur le runner GitHub et genere un inventaire temporaire avec les secrets `VPS_HOST`, `VPS_PORT`, `VPS_USER` et `VPS_SSH_KEY`.
+
+Execution locale possible depuis une machine qui a Ansible:
+
+```bash
+ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml
+```
+
+Dans ce cas, exporte au minimum l'image a deployer:
+
+```bash
+export IMAGE_REF=ghcr.io/owner/fireguard-sso-api:sha-xxxxxxx
+export VPS_APP_DIR=/opt/fireguard-sso-api
+export VPS_HEALTHCHECK_URL=https://api.fireguard.valentin-fortin.pro/api/health
+```
 
 ## Traefik
 
