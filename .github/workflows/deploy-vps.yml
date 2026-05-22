@@ -88,7 +88,6 @@ jobs:
       VPS_USER: ${{ secrets.VPS_USER }}
       VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || '/opt/fireguard-sso-api' }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      VPS_ENV_FILE: ${{ secrets.VPS_ENV_FILE }}
       VPS_HEALTHCHECK_URL: ${{ secrets.VPS_HEALTHCHECK_URL }}
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME || github.actor }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
@@ -102,7 +101,6 @@ jobs:
           test -n "$VPS_HOST"
           test -n "$VPS_USER"
           test -n "$VPS_SSH_KEY"
-          test -n "$VPS_ENV_FILE"
           test -n "$IMAGE_REF"
 
       - name: Configure SSH
@@ -116,28 +114,12 @@ jobs:
         run: |
           mkdir -p .deploy
           cp compose.prod.yaml .deploy/compose.yaml
-          printf '%s\n' "$VPS_ENV_FILE" > .deploy/.env
-          awk -v image="$IMAGE_REF" '
-            BEGIN { replaced = 0 }
-            /^FIREGUARD_IMAGE=/ {
-              print "FIREGUARD_IMAGE=" image
-              replaced = 1
-              next
-            }
-            { print }
-            END {
-              if (replaced == 0) {
-                print "FIREGUARD_IMAGE=" image
-              }
-            }
-          ' .deploy/.env > .deploy/.env.tmp
-          mv .deploy/.env.tmp .deploy/.env
 
       - name: Copy deployment files
         run: |
           remote="${VPS_USER}@${VPS_HOST}"
           ssh -p "$VPS_PORT" "$remote" "mkdir -p '$VPS_APP_DIR'"
-          scp -P "$VPS_PORT" .deploy/compose.yaml .deploy/.env "$remote:$VPS_APP_DIR/"
+          scp -P "$VPS_PORT" .deploy/compose.yaml "$remote:$VPS_APP_DIR/"
 
       - name: Log in to GHCR on VPS
         run: |
@@ -147,7 +129,7 @@ jobs:
       - name: Run deployment
         run: |
           remote="${VPS_USER}@${VPS_HOST}"
-          ssh -p "$VPS_PORT" "$remote" "cd '$VPS_APP_DIR' && HEALTHCHECK_URL='$VPS_HEALTHCHECK_URL' sh -se" <<'REMOTE'
+          ssh -p "$VPS_PORT" "$remote" "cd '$VPS_APP_DIR' && IMAGE_REF='$IMAGE_REF' HEALTHCHECK_URL='$VPS_HEALTHCHECK_URL' sh -se" <<'REMOTE'
           COMPOSE_FILE="compose.yaml"
           HEALTHCHECK_RETRIES="${HEALTHCHECK_RETRIES:-30}"
           HEALTHCHECK_DELAY_SECONDS="${HEALTHCHECK_DELAY_SECONDS:-5}"
@@ -228,6 +210,23 @@ jobs:
 
           test -f "$COMPOSE_FILE"
           test -f .env
+
+          awk -v image="$IMAGE_REF" '
+            BEGIN { replaced = 0 }
+            /^FIREGUARD_IMAGE=/ {
+              print "FIREGUARD_IMAGE=" image
+              replaced = 1
+              next
+            }
+            { print }
+            END {
+              if (replaced == 0) {
+                print "FIREGUARD_IMAGE=" image
+              }
+            }
+          ' .env > .env.tmp
+          mv .env.tmp .env
+          chmod 600 .env
 
           set -a
           . ./.env

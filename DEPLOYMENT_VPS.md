@@ -6,7 +6,7 @@ Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, PostgreSQL, Re
 
 - `.github/workflows/deploy-vps.yml`: workflow CI, build, push GHCR, deploiement SSH.
 - `compose.prod.yaml`: stack Docker Compose de production pour le VPS.
-- `.env.example`: base pour construire le secret `VPS_ENV_FILE`.
+- `.env.example`: base pour construire le `.env` de production conserve sur le VPS.
 
 ## Prerequis VPS
 
@@ -34,12 +34,11 @@ Configurer ces secrets dans `Settings > Secrets and variables > Actions`:
 | `VPS_USER` | `deploy` | Utilisateur SSH |
 | `VPS_SSH_KEY` | cle privee OpenSSH | Cle autorisee dans `~/.ssh/authorized_keys` sur le VPS |
 | `VPS_APP_DIR` | `/opt/fireguard-sso-api` | Dossier de deploiement, optionnel |
-| `VPS_ENV_FILE` | contenu env de production | Variables de production completes |
 | `VPS_HEALTHCHECK_URL` | `https://api.fireguard.valentin-fortin.pro/api/health` | Recommande pour verifier Traefik; sinon le workflow teste l'API depuis le conteneur |
 | `GHCR_USERNAME` | ton user GitHub | Optionnel |
 | `GHCR_TOKEN` | PAT `read:packages` | Optionnel si le `GITHUB_TOKEN` du repo suffit |
 
-`VPS_ENV_FILE` doit etre un fichier env shell-compatible. Garde les URLs de base de donnees entre quotes.
+Le fichier `.env` de production reste sur le VPS dans `VPS_APP_DIR`. Il doit etre shell-compatible. Garde les URLs de base de donnees entre quotes.
 
 Generer les secrets applicatifs:
 
@@ -53,8 +52,8 @@ Utilise des mots de passe PostgreSQL URL-encodes dans `AUTH_DATABASE_URL` et `MA
 
 ## Premier deploiement
 
-1. Construire le contenu `VPS_ENV_FILE`, remplacer tous les `change_me_*`, verifier les domaines publics et les origines CORS.
-2. Coller le contenu complet dans le secret `VPS_ENV_FILE`.
+1. Creer `/opt/fireguard-sso-api/.env` sur le VPS a partir de `.env.example`, remplacer tous les `change_me_*`, verifier les domaines publics et les origines CORS.
+2. Proteger le fichier: `chmod 600 /opt/fireguard-sso-api/.env`.
 3. Verifier que la branche de production est `main`.
 4. Lancer `Deploy VPS` manuellement depuis GitHub Actions ou pousser sur `main`.
 
@@ -76,7 +75,7 @@ traefik.http.routers.fireguard-mercure.rule: Host(`mercure.api.fireguard.valenti
 traefik.http.services.fireguard-mercure.loadbalancer.server.port: 80
 ```
 
-Dans `VPS_ENV_FILE`, expose Mercure avec:
+Dans le `.env` du VPS, expose Mercure avec:
 
 ```env
 MERCURE_PUBLIC_URL=https://mercure.api.fireguard.valentin-fortin.pro/.well-known/mercure
