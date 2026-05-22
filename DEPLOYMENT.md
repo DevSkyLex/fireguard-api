@@ -65,7 +65,7 @@ Utilise des mots de passe PostgreSQL URL-encodes dans `AUTH_DATABASE_URL` et `MA
 1. Creer `/opt/fireguard-sso-api/.env` sur le VPS a partir de `.env.example`, remplacer tous les `change_me_*`, verifier les domaines publics et les origines CORS. Ne pas ajouter de valeur factice pour `FIREGUARD_IMAGE`.
 2. Proteger le fichier: `chmod 600 /opt/fireguard-sso-api/.env`.
 3. Verifier que la branche de production est `main`.
-4. Lancer `Deploy VPS` manuellement depuis GitHub Actions.
+4. Lancer `Deploy VPS` manuellement depuis GitHub Actions ou pousser sur `main`.
 
 Le workflow genere automatiquement `jwt/private.key` et `jwt/public.key` dans `VPS_APP_DIR` au premier deploiement. Ne supprime pas ce dossier, sinon tous les tokens signes avec l'ancienne cle deviennent invalides.
 
