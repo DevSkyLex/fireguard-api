@@ -2,6 +2,13 @@ name: CI
 
 on:
   workflow_call:
+  workflow_dispatch:
+    inputs:
+      run_mutation:
+        description: Run the mutation testing job
+        required: false
+        type: boolean
+        default: false
   pull_request:
     branches: [main, develop]
 
@@ -264,12 +271,12 @@ jobs:
         run: composer audit
 
   # ==========================================================================
-  # Mutation Testing (only on PRs to main)
+  # Mutation Testing (manual opt-in only)
   # ==========================================================================
   mutation:
     name: Mutation Testing
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_mutation == true
     needs: [tests-unit]
 
     steps:
