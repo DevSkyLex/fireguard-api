@@ -21,7 +21,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_onboarding_org_session_user', columns: ['user_id'])]
 #[ORM\Index(name: 'idx_onboarding_org_session_state', columns: ['state'])]
 #[ORM\Index(name: 'idx_onboarding_org_session_target_org', columns: ['target_organization_id'])]
-final class OrganizationOnboardingSessionRecord
+class OrganizationOnboardingSessionRecord
 {
   // #region Properties
   /**

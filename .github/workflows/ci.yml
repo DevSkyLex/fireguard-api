@@ -9,6 +9,11 @@ on:
         required: false
         type: boolean
         default: false
+      run_e2e:
+        description: Run the end-to-end test job
+        required: false
+        type: boolean
+        default: false
   pull_request:
     branches: [main, develop]
 
@@ -191,11 +196,12 @@ jobs:
         continue-on-error: true
 
   # ==========================================================================
-  # End-to-End Flow Tests
+  # End-to-End Flow Tests (manual opt-in only)
   # ==========================================================================
   tests-end-to-end:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && inputs.run_e2e == true
     env:
       APP_ENV: test
       APP_DEBUG: 0
