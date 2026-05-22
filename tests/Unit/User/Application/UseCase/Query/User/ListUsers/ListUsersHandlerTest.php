@@ -7,7 +7,7 @@ namespace Tests\Unit\User\Application\UseCase\Query\User\ListUsers;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Contract\Pagination\{Pagination};
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;

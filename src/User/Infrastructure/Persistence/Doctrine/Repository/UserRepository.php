@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace User\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
-use Shared\Application\Contract\Sorting\{Sorting};
+use Shared\Application\Contract\Sorting\Sorting;
 use Shared\Domain\ValueObject\Email;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User\User;
