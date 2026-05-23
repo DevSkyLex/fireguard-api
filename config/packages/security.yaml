@@ -19,6 +19,11 @@ security:
       pattern: ^/api/docs
       security: false
 
+    # Health check endpoint (no authentication required)
+    api_health:
+      pattern: ^/api/health$
+      security: false
+
     # Public OAuth2 endpoints (no authentication required)
     oauth2_public:
       pattern: ^/api/(oauth2/token|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/password/reset)
@@ -47,6 +52,7 @@ security:
   # Note: Only the *first* access control that matches will be used
   access_control:
     # Public endpoints
+    - { path: ^/api/health$, roles: PUBLIC_ACCESS }
     - { path: ^/api/oauth2/token$, roles: PUBLIC_ACCESS }
     - { path: ^/api/oauth2/logout$, roles: PUBLIC_ACCESS }
     - { path: ^/api/oauth2/authorize$, roles: ROLE_USER }
