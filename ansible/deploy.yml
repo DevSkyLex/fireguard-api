@@ -180,6 +180,30 @@
       delay: 2
       until: fireguard_main_db_ready.rc == 0
 
+    - name: Synchronize auth database role password
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        escaped_password=$(printf '%s' "$POSTGRES_AUTH_PASSWORD" | sed "s/'/''/g")
+        docker compose -f {{ fireguard_compose_file }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -c "ALTER USER \"$POSTGRES_AUTH_USER\" WITH PASSWORD '$escaped_password';"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      no_log: true
+
+    - name: Synchronize main database role password
+      ansible.builtin.shell: |
+        set -a
+        . ./{{ fireguard_env_file | basename }}
+        set +a
+        escaped_password=$(printf '%s' "$POSTGRES_MAIN_PASSWORD" | sed "s/'/''/g")
+        docker compose -f {{ fireguard_compose_file }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -c "ALTER USER \"$POSTGRES_MAIN_USER\" WITH PASSWORD '$escaped_password';"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+        executable: /bin/sh
+      no_log: true
+
     - name: Create deployment backup directory
       ansible.builtin.file:
         path: "{{ fireguard_app_dir }}/backups/{{ fireguard_deployment_timestamp }}"
