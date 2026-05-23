@@ -24,7 +24,7 @@ python3 --version
 docker network inspect traefik_proxy >/dev/null 2>&1 || docker network create traefik_proxy
 ```
 
-Le compose n'expose pas de port public pour l'API. Traefik doit etre connecte au reseau Docker externe `traefik_proxy` et publie `https://api.fireguard.valentin-fortin.pro` pour Symfony et `https://mercure.api.fireguard.valentin-fortin.pro` pour Mercure.
+Le compose n'expose pas de port public pour l'API. Traefik doit etre connecte au reseau Docker externe `traefik_proxy` et publie `https://api.fireguard.valentin-fortin.pro` pour Symfony et `https://mercure.fireguard.valentin-fortin.pro` pour Mercure.
 
 ## Configuration GitHub
 
@@ -99,14 +99,14 @@ traefik.http.services.fireguard-api.loadbalancer.server.port: 8000
 Mercure est route sur le sous-domaine dedie:
 
 ```yaml
-traefik.http.routers.fireguard-mercure.rule: Host(`mercure.api.fireguard.valentin-fortin.pro`)
+traefik.http.routers.fireguard-mercure.rule: Host(`mercure.fireguard.valentin-fortin.pro`)
 traefik.http.services.fireguard-mercure.loadbalancer.server.port: 80
 ```
 
 Dans le `.env` du VPS, expose Mercure avec:
 
 ```env
-MERCURE_PUBLIC_URL=https://mercure.api.fireguard.valentin-fortin.pro/.well-known/mercure
+MERCURE_PUBLIC_URL=https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
 ```
 
 Le reseau externe doit deja exister sur le VPS:

@@ -124,7 +124,7 @@ services:
       - "traefik.docker.network=traefik_proxy"
 
       # Mercure
-      - "traefik.http.routers.fireguard-mercure.rule=Host(`mercure.api.fireguard.valentin-fortin.pro`)"
+      - "traefik.http.routers.fireguard-mercure.rule=Host(`mercure.fireguard.valentin-fortin.pro`)"
       - "traefik.http.routers.fireguard-mercure.entrypoints=websecure"
       - "traefik.http.routers.fireguard-mercure.tls=true"
       - "traefik.http.routers.fireguard-mercure.tls.certresolver=letsencrypt"
