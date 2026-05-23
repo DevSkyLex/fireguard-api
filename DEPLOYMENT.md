@@ -44,6 +44,7 @@ Configurer ces variables dans `Settings > Secrets and variables > Actions > Vari
 | `VPS_PORT` | `22` | Port SSH, optionnel |
 | `VPS_APP_DIR` | `/opt/fireguard-sso-api` | Dossier de deploiement, optionnel |
 | `VPS_HEALTHCHECK_URL` | `https://api.fireguard.valentin-fortin.pro/api/health` | Recommande pour verifier Traefik; sinon le workflow teste l'API depuis le conteneur |
+| `VPS_HEALTHCHECK_VALIDATE_CERTS` | `true` | Validation TLS du healthcheck public |
 | `GHCR_USERNAME` | ton user GitHub | Optionnel |
 
 Le fichier `.env` de production reste sur le VPS dans `VPS_APP_DIR`. Il doit etre shell-compatible. Garde les URLs de base de donnees entre quotes. Ne mets pas `FIREGUARD_IMAGE` a la main: Ansible ajoute ou remplace cette ligne avec l'image GHCR construite par GitHub Actions.
