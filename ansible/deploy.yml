@@ -185,8 +185,13 @@
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
-        escaped_password=$(printf '%s' "$POSTGRES_AUTH_PASSWORD" | sed "s/'/''/g")
-        docker compose -f {{ fireguard_compose_file }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -c "ALTER USER \"$POSTGRES_AUTH_USER\" WITH PASSWORD '$escaped_password';"
+        doctrine_user=$(python3 -c 'import os, urllib.parse; print(urllib.parse.unquote(urllib.parse.urlsplit(os.environ["AUTH_DATABASE_URL"]).username or ""))')
+        doctrine_password=$(python3 -c 'import os, urllib.parse; print(urllib.parse.unquote(urllib.parse.urlsplit(os.environ["AUTH_DATABASE_URL"]).password or ""))')
+        test -n "$doctrine_user"
+        test -n "$doctrine_password"
+        escaped_user=$(printf '%s' "$doctrine_user" | sed 's/"/""/g')
+        escaped_password=$(printf '%s' "$doctrine_password" | sed "s/'/''/g")
+        docker compose -f {{ fireguard_compose_file }} exec -T auth_database psql -U "$POSTGRES_AUTH_USER" -d "$POSTGRES_AUTH_DB" -c "ALTER USER \"$escaped_user\" WITH PASSWORD '$escaped_password';"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
@@ -197,8 +202,13 @@
         set -a
         . ./{{ fireguard_env_file | basename }}
         set +a
-        escaped_password=$(printf '%s' "$POSTGRES_MAIN_PASSWORD" | sed "s/'/''/g")
-        docker compose -f {{ fireguard_compose_file }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -c "ALTER USER \"$POSTGRES_MAIN_USER\" WITH PASSWORD '$escaped_password';"
+        doctrine_user=$(python3 -c 'import os, urllib.parse; print(urllib.parse.unquote(urllib.parse.urlsplit(os.environ["MAIN_DATABASE_URL"]).username or ""))')
+        doctrine_password=$(python3 -c 'import os, urllib.parse; print(urllib.parse.unquote(urllib.parse.urlsplit(os.environ["MAIN_DATABASE_URL"]).password or ""))')
+        test -n "$doctrine_user"
+        test -n "$doctrine_password"
+        escaped_user=$(printf '%s' "$doctrine_user" | sed 's/"/""/g')
+        escaped_password=$(printf '%s' "$doctrine_password" | sed "s/'/''/g")
+        docker compose -f {{ fireguard_compose_file }} exec -T main_database psql -U "$POSTGRES_MAIN_USER" -d "$POSTGRES_MAIN_DB" -c "ALTER USER \"$escaped_user\" WITH PASSWORD '$escaped_password';"
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
