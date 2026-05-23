@@ -98,6 +98,7 @@ jobs:
       VPS_APP_DIR: ${{ vars.VPS_APP_DIR || '/opt/fireguard-sso-api' }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       VPS_HEALTHCHECK_URL: ${{ vars.VPS_HEALTHCHECK_URL }}
+      VPS_HEALTHCHECK_VALIDATE_CERTS: ${{ vars.VPS_HEALTHCHECK_VALIDATE_CERTS || 'true' }}
       GHCR_USERNAME: ${{ vars.GHCR_USERNAME || github.actor }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN || github.token }}
 

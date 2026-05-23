@@ -7,6 +7,7 @@
     fireguard_app_dir: "{{ lookup('env', 'VPS_APP_DIR') | default('/opt/fireguard-sso-api', true) }}"
     fireguard_image: "{{ lookup('env', 'IMAGE_REF') | lower }}"
     fireguard_healthcheck_url: "{{ lookup('env', 'VPS_HEALTHCHECK_URL') | default('', true) }}"
+    fireguard_healthcheck_validate_certs: "{{ lookup('env', 'VPS_HEALTHCHECK_VALIDATE_CERTS') | default('true', true) | bool }}"
     fireguard_compose_file: compose.yaml
     fireguard_env_file: "{{ fireguard_app_dir }}/.env"
     fireguard_traefik_network: traefik_proxy
@@ -275,6 +276,7 @@
         url: "{{ fireguard_healthcheck_url }}"
         method: GET
         status_code: 200
+        validate_certs: "{{ fireguard_healthcheck_validate_certs }}"
         return_content: false
       delegate_to: localhost
       register: fireguard_public_health
