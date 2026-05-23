@@ -23,7 +23,9 @@ jobs:
     steps:
       - name: Ensure managed labels exist
         uses: actions/github-script@v8
+        continue-on-error: true
         with:
+          github-token: ${{ github.token }}
           script: |
             const managedLabels = [
               { name: 'area:github', color: '0e8a16', description: 'GitHub workflows, templates, or repository automation' },
@@ -75,14 +77,17 @@ jobs:
 
       - name: Apply path-based labels
         uses: actions/labeler@v6
+        continue-on-error: true
         with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token: ${{ github.token }}
           configuration-path: .github/labeler.yml
           sync-labels: true
 
       - name: Apply size and state labels
         uses: actions/github-script@v8
+        continue-on-error: true
         with:
+          github-token: ${{ github.token }}
           script: |
             const pr = context.payload.pull_request;
             const currentLabels = pr.labels.map((label) => label.name);
