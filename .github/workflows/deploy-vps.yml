@@ -1,6 +1,8 @@
 name: Deploy VPS
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths-ignore:
@@ -29,6 +31,7 @@ jobs:
     name: Build & Push Image
     runs-on: ubuntu-latest
     needs: preflight
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
@@ -86,6 +89,7 @@ jobs:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name != 'pull_request'
     environment: production
     permissions:
       contents: read
