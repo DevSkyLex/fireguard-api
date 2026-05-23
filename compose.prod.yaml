@@ -31,6 +31,7 @@ services:
       - "traefik.http.routers.fireguard-api.tls=true"
       - "traefik.http.routers.fireguard-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.fireguard-api.priority=10"
+      - "traefik.http.routers.fireguard-api.service=fireguard-api"
       - "traefik.http.services.fireguard-api.loadbalancer.server.port=8000"
     depends_on:
       auth_database:
@@ -129,6 +130,7 @@ services:
       - "traefik.http.routers.fireguard-mercure.tls=true"
       - "traefik.http.routers.fireguard-mercure.tls.certresolver=letsencrypt"
       - "traefik.http.routers.fireguard-mercure.priority=20"
+      - "traefik.http.routers.fireguard-mercure.service=fireguard-mercure"
       - "traefik.http.services.fireguard-mercure.loadbalancer.server.port=80"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthz"]
