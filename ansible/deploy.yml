@@ -271,6 +271,16 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
 
+    - name: Wait for internal application health
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} exec -T app curl -fsS http://localhost:8000/api/health"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      register: fireguard_internal_health
+      changed_when: false
+      retries: "{{ fireguard_healthcheck_retries }}"
+      delay: "{{ fireguard_healthcheck_delay }}"
+      until: fireguard_internal_health.rc == 0
+
     - name: Wait for public application health
       ansible.builtin.uri:
         url: "{{ fireguard_healthcheck_url }}"
@@ -284,17 +294,6 @@
       delay: "{{ fireguard_healthcheck_delay }}"
       until: fireguard_public_health.status == 200
       when: fireguard_healthcheck_url | length > 0
-
-    - name: Wait for internal application health
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} exec -T app curl -fsS http://localhost:8000/api/health"
-      args:
-        chdir: "{{ fireguard_app_dir }}"
-      register: fireguard_internal_health
-      changed_when: false
-      retries: "{{ fireguard_healthcheck_retries }}"
-      delay: "{{ fireguard_healthcheck_delay }}"
-      until: fireguard_internal_health.rc == 0
-      when: fireguard_healthcheck_url | length == 0
 
     - name: Show deployment services
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} ps"
