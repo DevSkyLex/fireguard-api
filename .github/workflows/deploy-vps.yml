@@ -1,6 +1,9 @@
 name: Deploy VPS
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 concurrency:
