@@ -16,6 +16,7 @@ api_platform:
       persistAuthorization: true
   mapping:
     paths:
+      - '%kernel.project_dir%/src/Shared/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Auth/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/OAuth/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/User/Presentation/Api/Resource'
