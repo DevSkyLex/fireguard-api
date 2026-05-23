@@ -12,7 +12,7 @@
     fireguard_traefik_network: traefik_proxy
     fireguard_healthcheck_retries: 30
     fireguard_healthcheck_delay: 5
-    fireguard_deployment_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%d%H%M%S') }}"
+    fireguard_deployment_timestamp: ""
     ghcr_username: "{{ lookup('env', 'GHCR_USERNAME') | default('', true) }}"
     ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') | default('', true) }}"
 
@@ -35,6 +35,21 @@
     - name: Validate OpenSSL is available
       ansible.builtin.command: openssl version
       changed_when: false
+
+    - name: Compute deployment timestamp once
+      ansible.builtin.set_fact:
+        fireguard_deployment_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%d%H%M%S') }}"
+      run_once: true
+      when: fireguard_deployment_timestamp | length == 0
+
+    - name: Propagate deployment timestamp to all hosts
+      ansible.builtin.set_fact:
+        fireguard_deployment_timestamp: "{{ hostvars[ansible_play_hosts_all[0]].fireguard_deployment_timestamp }}"
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      loop: "{{ ansible_play_hosts_all }}"
+      run_once: true
+      when: fireguard_deployment_timestamp | length == 0
 
   tasks:
     - name: Ensure application directory exists
