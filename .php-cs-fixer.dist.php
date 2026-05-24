@@ -3,6 +3,7 @@
 $finder = (new PhpCsFixer\Finder())
 	->in(__DIR__)
 	->exclude(['var', 'vendor', 'public', 'migrations'])
+	->notPath('config/reference.php')
 ;
 	
 return (new PhpCsFixer\Config())

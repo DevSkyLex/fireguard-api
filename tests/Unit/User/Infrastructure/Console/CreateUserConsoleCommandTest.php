@@ -43,7 +43,7 @@ final class CreateUserConsoleCommandTest extends TestCase
           && 'Test' === $command->firstName
           && 'User' === $command->lastName;
       }))
-      ->willReturn($this->createMock(ResultMessage::class));
+      ->willReturn($this->createStub(ResultMessage::class));
 
     $command = $this->createCommand($commandBus);
     $tester = new CommandTester($command);
@@ -73,7 +73,7 @@ final class CreateUserConsoleCommandTest extends TestCase
           && 'PromptPassword123!' === $command->password
           && 'prompt@example.com' === $command->username;
       }))
-      ->willReturn($this->createMock(ResultMessage::class));
+      ->willReturn($this->createStub(ResultMessage::class));
 
     $command = $this->createCommand($commandBus, [
       'PromptPassword123!',
@@ -119,7 +119,7 @@ final class CreateUserConsoleCommandTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $command = new CreateUserConsoleCommand(commandBus: $commandBus);
-    $input = $this->createMock(InputInterface::class);
+    $input = $this->createStub(InputInterface::class);
     $input->method('getArgument')->willReturnMap([
       ['email', null],
       ['password', null],
@@ -142,7 +142,7 @@ final class CreateUserConsoleCommandTest extends TestCase
         return 'prompt@example.com' === $command->email
           && 'ValidPass123' === $command->password;
       }))
-      ->willReturn($this->createMock(ResultMessage::class));
+      ->willReturn($this->createStub(ResultMessage::class));
 
     $command = $this->createCommand($commandBus, [
       '',

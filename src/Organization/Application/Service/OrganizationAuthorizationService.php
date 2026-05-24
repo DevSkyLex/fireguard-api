@@ -8,6 +8,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\OrganizationId;
+use Symfony\Contracts\Service\ResetInterface;
 
 use function count;
 use function explode;
@@ -21,7 +22,7 @@ use function explode;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class OrganizationAuthorizationService implements OrganizationAuthorizationPort
+final class OrganizationAuthorizationService implements OrganizationAuthorizationPort, ResetInterface
 {
   /**
    * @var array<string, list<string>>
@@ -129,6 +130,11 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
         throw OrganizationAccessDeniedException::missingPermission($permission);
       }
     }
+  }
+
+  public function reset(): void
+  {
+    $this->permissionCache = [];
   }
 
   /**

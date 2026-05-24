@@ -14,6 +14,8 @@ services:
       APP_ENV: prod
       APP_DEBUG: "0"
       APP_RUNTIME: Symfony\Component\Runtime\SymfonyRuntime
+      FRANKENPHP_CONFIG: ${FRANKENPHP_CONFIG:-}
+      FRANKENPHP_LOOP_MAX: ${FRANKENPHP_LOOP_MAX:-500}
       SERVER_NAME: ":8000"
       SERVER_ROOT: public/
       REDIS_URL: redis://redis:6379

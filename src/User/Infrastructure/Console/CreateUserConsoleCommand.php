@@ -161,8 +161,8 @@ HELP
       $question = new Question('Password: ');
       $question->setHidden(true);
       $question->setHiddenFallback(false);
-      $question->setValidator(function (?string $value): string {
-        if (null === $value || '' === trim($value)) {
+      $question->setValidator(function (mixed $value): string {
+        if (!is_string($value) || '' === trim($value)) {
           throw new RuntimeException('Password cannot be empty');
         }
         if (strlen($value) < 8) {
