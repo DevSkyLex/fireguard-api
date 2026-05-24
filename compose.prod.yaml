@@ -113,7 +113,7 @@ services:
       MERCURE_PUBLISHER_JWT_KEY: ${MERCURE_JWT_SECRET:?Set MERCURE_JWT_SECRET}
       MERCURE_SUBSCRIBER_JWT_KEY: ${MERCURE_JWT_SECRET:?Set MERCURE_JWT_SECRET}
       MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins ${MERCURE_CORS_ORIGINS:-*}
+        cors_origins ${MERCURE_CORS_ORIGINS:?Set MERCURE_CORS_ORIGINS}
     networks:
       - default
       - traefik_proxy
