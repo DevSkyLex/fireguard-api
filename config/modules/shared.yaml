@@ -63,6 +63,8 @@ services:
   # Health Check Adapter configuration
   Shared\Infrastructure\Adapter\Doctrine\HealthCheckAdapter:
     arguments:
+      $authConnection: '@doctrine.dbal.auth_connection'
+      $mainConnection: '@doctrine.dbal.main_connection'
       $cache: '@cache.app'
 
   Shared\Application\UseCase\Query\Health\HealthCheckHandler:

@@ -1,78 +1,85 @@
 # syntax=docker/dockerfile:1
 
 # =============================================================================
-# Base PHP image with common extensions
+# Base FrankenPHP image with common extensions
 # =============================================================================
-FROM php:8.4-cli-alpine AS base
+ARG FRANKENPHP_IMAGE=dunglas/frankenphp:1-php8.4-bookworm
+FROM ${FRANKENPHP_IMAGE} AS base
 
 # Install system dependencies
-RUN apk add --no-cache \
-    git \
-    curl \
-    libpq-dev \
-    icu-dev \
-    libzip-dev \
-    linux-headers \
-    $PHPIZE_DEPS
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install \
+RUN install-php-extensions \
     pdo_pgsql \
     intl \
     opcache \
     zip \
-    bcmath
+    bcmath \
+    redis
 
-# Install PCOV for code coverage (faster than Xdebug)
-RUN pecl install pcov && docker-php-ext-enable pcov
-
-# Install Redis extension
-RUN pecl install redis && docker-php-ext-enable redis
-
-# Configure OPcache
-RUN echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
+# Configure PHP and OPcache
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && echo "opcache.enable=1" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.enable_cli=1" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.memory_consumption=256" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.interned_strings_buffer=16" >> /usr/local/etc/php/conf.d/opcache.ini \
     && echo "opcache.max_accelerated_files=20000" >> /usr/local/etc/php/conf.d/opcache.ini \
-    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini
+    && echo "opcache.validate_timestamps=0" >> /usr/local/etc/php/conf.d/opcache.ini \
+    && echo "expose_php=Off" >> /usr/local/etc/php/conf.d/prod.ini \
+    && echo "display_errors=Off" >> /usr/local/etc/php/conf.d/prod.ini \
+    && echo "log_errors=On" >> /usr/local/etc/php/conf.d/prod.ini \
+    && echo "error_log=/dev/stderr" >> /usr/local/etc/php/conf.d/prod.ini \
+    && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/prod.ini
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+# Traefik terminates TLS; FrankenPHP serves HTTP internally on a non-privileged port.
+ENV SERVER_NAME=:8000
+ENV SERVER_ROOT=public/
+
+# Create app user and writable runtime directories.
+RUN groupadd -g 1000 app \
+    && useradd -u 1000 -g app -s /bin/sh -m app \
+    && mkdir -p var/cache var/log /data/caddy /config/caddy \
+    && chown -R app:app /var/www/html /data /config \
+    && (setcap -r /usr/local/bin/frankenphp || true)
+
 # =============================================================================
 # Development image
 # =============================================================================
 FROM base AS dev
 
-# Enable OPcache timestamp validation for development
+# Install PCOV for code coverage and Xdebug for debugging.
+RUN install-php-extensions pcov xdebug
+
+# Enable OPcache timestamp validation for development.
 RUN echo "opcache.validate_timestamps=1" >> /usr/local/etc/php/conf.d/opcache-dev.ini
 
-# Install Xdebug for debugging (optional, PCOV is used for coverage)
-RUN pecl install xdebug && docker-php-ext-enable xdebug
-
-# Configure Xdebug
+# Configure Xdebug.
 RUN echo "xdebug.mode=off" >> /usr/local/etc/php/conf.d/xdebug.ini \
     && echo "xdebug.start_with_request=trigger" >> /usr/local/etc/php/conf.d/xdebug.ini \
     && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/xdebug.ini \
     && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/xdebug.ini
 
-# Create app user
-RUN addgroup -g 1000 app && adduser -u 1000 -G app -s /bin/sh -D app
-
-# Set permissions
+# Set permissions.
 RUN mkdir -p var/cache var/log var/coverage var/infection \
     && chown -R app:app /var/www/html
 
 USER app
 
-# Expose PHP built-in server port
 EXPOSE 8000
 
-# Default command: start PHP built-in server
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]
 
 # =============================================================================
 # Production dependencies
@@ -86,44 +93,32 @@ RUN composer install \
     --no-scripts \
     --no-autoloader \
     --prefer-dist \
-    --no-progress
+    --no-progress \
+    --no-interaction
 
 COPY . .
 
-RUN composer dump-autoload --optimize --classmap-authoritative
+RUN composer dump-autoload --optimize --classmap-authoritative --no-dev
 
 # =============================================================================
 # Production image
 # =============================================================================
 FROM base AS prod
 
-# Create app user
-RUN addgroup -g 1000 app && adduser -u 1000 -G app -s /bin/sh -D app
-
-# Copy application code
+# Copy application code.
 COPY --chown=app:app . .
 COPY --from=vendor --chown=app:app /var/www/html/vendor vendor
 
-# Set production PHP settings
-RUN echo "expose_php=Off" >> /usr/local/etc/php/conf.d/prod.ini \
-    && echo "display_errors=Off" >> /usr/local/etc/php/conf.d/prod.ini \
-    && echo "log_errors=On" >> /usr/local/etc/php/conf.d/prod.ini \
-    && echo "error_log=/dev/stderr" >> /usr/local/etc/php/conf.d/prod.ini \
-    && echo "memory_limit=256M" >> /usr/local/etc/php/conf.d/prod.ini
-
-# Create required directories
+# Create required directories.
 RUN mkdir -p var/cache var/log \
-    && chown -R app:app var
+    && chown -R app:app var /data /config \
+    && (setcap -r /usr/local/bin/frankenphp || true)
 
 USER app
 
-# Warm up cache
-RUN php bin/console cache:warmup --env=prod
-
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8000/api/health || exit 1
 
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+CMD ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]

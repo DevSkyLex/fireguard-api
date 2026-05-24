@@ -13,6 +13,8 @@ services:
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
+      SERVER_NAME: ":8000"
+      SERVER_ROOT: public/
       REDIS_URL: redis://redis:6379
       MERCURE_URL: http://mercure/.well-known/mercure
     networks:
@@ -20,7 +22,7 @@ services:
       - traefik_proxy
     volumes:
       - app_var:/var/www/html/var
-      - ./jwt:/var/www/html/config/jwt:ro
+      - jwt_keys:/var/www/html/config/jwt:ro
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_proxy"
@@ -50,6 +52,30 @@ services:
       start_period: 30s
     security_opt:
       - no-new-privileges:true
+    logging: *default-logging
+
+  jwt_init:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    profiles: ["tools"]
+    user: "0:0"
+    working_dir: /var/www/html
+    entrypoint: ["sh", "-lc"]
+    command: >
+      set -eu;
+      mkdir -p config/jwt;
+      if [ ! -s config/jwt/private.key ]; then
+        openssl genrsa -out config/jwt/private.key 4096;
+      fi;
+      if [ ! -s config/jwt/public.key ]; then
+        openssl rsa -in config/jwt/private.key -pubout -out config/jwt/public.key;
+      fi;
+      chown 1000:1000 config/jwt/private.key config/jwt/public.key;
+      chmod 0400 config/jwt/private.key;
+      chmod 0444 config/jwt/public.key;
+    volumes:
+      - jwt_keys:/var/www/html/config/jwt
+    labels:
+      - "traefik.enable=false"
     logging: *default-logging
 
   auth_database:
@@ -142,6 +168,7 @@ services:
 
 volumes:
   app_var:
+  jwt_keys:
   auth_database_data:
   main_database_data:
   redis_data:

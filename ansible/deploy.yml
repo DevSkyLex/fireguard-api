@@ -33,10 +33,6 @@
       ansible.builtin.command: curl --version
       changed_when: false
 
-    - name: Validate OpenSSL is available
-      ansible.builtin.command: openssl version
-      changed_when: false
-
     - name: Compute deployment timestamp once
       ansible.builtin.set_fact:
         fireguard_deployment_timestamp: "{{ lookup('pipe', 'date -u +%Y%m%d%H%M%S') }}"
@@ -98,40 +94,6 @@
       ansible.builtin.command: "docker network create {{ fireguard_traefik_network }}"
       when: fireguard_traefik_network_check.rc != 0
 
-    - name: Ensure JWT key directory exists
-      ansible.builtin.file:
-        path: "{{ fireguard_app_dir }}/jwt"
-        state: directory
-        mode: "0755"
-
-    - name: Check JWT private key
-      ansible.builtin.stat:
-        path: "{{ fireguard_app_dir }}/jwt/private.key"
-      register: fireguard_jwt_private_key
-
-    - name: Generate JWT private key
-      ansible.builtin.command: "openssl genrsa -out {{ fireguard_app_dir }}/jwt/private.key 4096"
-      when: not fireguard_jwt_private_key.stat.exists
-
-    - name: Check JWT public key
-      ansible.builtin.stat:
-        path: "{{ fireguard_app_dir }}/jwt/public.key"
-      register: fireguard_jwt_public_key
-
-    - name: Generate JWT public key
-      ansible.builtin.command: "openssl rsa -in {{ fireguard_app_dir }}/jwt/private.key -pubout -out {{ fireguard_app_dir }}/jwt/public.key"
-      when: not fireguard_jwt_public_key.stat.exists
-
-    - name: Set JWT private key permissions
-      ansible.builtin.file:
-        path: "{{ fireguard_app_dir }}/jwt/private.key"
-        mode: "0644"
-
-    - name: Set JWT public key permissions
-      ansible.builtin.file:
-        path: "{{ fireguard_app_dir }}/jwt/public.key"
-        mode: "0644"
-
     - name: Log in to GHCR on VPS
       ansible.builtin.command:
         cmd: "docker login ghcr.io -u {{ ghcr_username }} --password-stdin"
@@ -143,6 +105,11 @@
 
     - name: Pull Docker images
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} pull"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
+    - name: Initialize JWT key volume
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} --profile tools run --rm jwt_init"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
@@ -240,6 +207,14 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
         executable: /bin/sh
+
+    - name: Stop application service before schema changes
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} stop app"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+      register: fireguard_stop_app
+      changed_when: fireguard_stop_app.rc == 0
+      failed_when: false
 
     - name: Run auth migrations
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod"

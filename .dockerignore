@@ -21,9 +21,10 @@
 /var/coverage
 /var/infection
 
-# Environment files (use Docker env instead)
-.env.local
-.env.*.local
+# Environment files (use Docker/host env instead)
+.env
+.env.*
+!.env.example
 
 # Runtime secrets
 /config/jwt/
