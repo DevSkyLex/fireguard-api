@@ -1,6 +1,6 @@
 # Deploiement VPS
 
-Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, PostgreSQL, Redis, Mercure et Traefik. GitHub Actions construit l'image Docker, la pousse sur GHCR, puis lance Ansible pour deployer sur le VPS, sauvegarder les bases, appliquer les migrations, synchroniser les permissions RBAC et verifier `/api/health`.
+Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, FrankenPHP, PostgreSQL, Redis, Mercure et Traefik. GitHub Actions construit l'image Docker, la pousse sur GHCR, puis lance Ansible pour deployer sur le VPS, sauvegarder les bases, appliquer les migrations, synchroniser les permissions RBAC et verifier `/api/health`.
 
 ## Fichiers ajoutes
 
@@ -12,7 +12,7 @@ Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, PostgreSQL, Re
 
 ## Prerequis VPS
 
-Installer Docker Engine, le plugin Docker Compose, `python3`, `curl`, `openssl` et `bash`/`sh`. L'utilisateur SSH utilise par GitHub Actions doit pouvoir executer `docker`.
+Installer Docker Engine, le plugin Docker Compose, `python3`, `curl` et `bash`/`sh`. L'utilisateur SSH utilise par GitHub Actions doit pouvoir executer `docker`.
 
 Exemple de preparation:
 
@@ -63,12 +63,12 @@ Utilise des mots de passe PostgreSQL URL-encodes dans `AUTH_DATABASE_URL` et `MA
 
 ## Premier deploiement
 
-1. Creer `/opt/fireguard-sso-api/.env` sur le VPS a partir de `.env.example`, remplacer tous les `change_me_*`, verifier les domaines publics et les origines CORS. Ne pas ajouter de valeur factice pour `FIREGUARD_IMAGE`.
+1. Creer `/opt/fireguard-sso-api/.env` sur le VPS a partir de `.env.example`, remplacer tous les `change_me_*`, verifier les domaines publics, `REDIS_URL=redis://redis:6379` et les origines CORS. Ne pas ajouter de valeur factice pour `FIREGUARD_IMAGE`.
 2. Proteger le fichier: `chmod 600 /opt/fireguard-sso-api/.env`.
 3. Verifier que la branche de production est `main`.
 4. Lancer `Deploy VPS` manuellement depuis GitHub Actions ou pousser sur `main`.
 
-Le workflow genere automatiquement `jwt/private.key` et `jwt/public.key` dans `VPS_APP_DIR` au premier deploiement. Ne supprime pas ce dossier, sinon tous les tokens signes avec l'ancienne cle deviennent invalides.
+Le workflow genere automatiquement `private.key` et `public.key` dans le volume Docker `jwt_keys` au premier deploiement. Ne supprime pas ce volume, sinon tous les tokens signes avec l'ancienne cle deviennent invalides.
 
 ## Ansible
 
@@ -104,10 +104,11 @@ traefik.http.routers.fireguard-mercure.rule: Host(`mercure.fireguard.valentin-fo
 traefik.http.services.fireguard-mercure.loadbalancer.server.port: 80
 ```
 
-Dans le `.env` du VPS, expose Mercure avec:
+Dans le `.env` du VPS, expose Mercure et Redis avec:
 
 ```env
 CORS_ALLOW_ORIGIN='^https://app\.fireguard\.valentin-fortin\.pro$'
+REDIS_URL=redis://redis:6379
 MERCURE_PUBLIC_URL=https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
 MERCURE_CORS_ORIGINS=https://app.fireguard.valentin-fortin.pro
 ```

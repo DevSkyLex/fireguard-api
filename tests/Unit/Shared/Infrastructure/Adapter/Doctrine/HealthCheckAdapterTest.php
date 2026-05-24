@@ -23,14 +23,19 @@ final class HealthCheckAdapterTest extends TestCase
   #[Test]
   public function testCheckDatabaseReturnsTrue(): void
   {
-    $connection = $this->createMock(Connection::class);
-    $connection->expects(self::once())
+    $authConnection = $this->createMock(Connection::class);
+    $authConnection->expects(self::once())
+      ->method('executeQuery')
+      ->with('SELECT 1');
+
+    $mainConnection = $this->createMock(Connection::class);
+    $mainConnection->expects(self::once())
       ->method('executeQuery')
       ->with('SELECT 1');
 
     $cache = $this->createMock(CacheItemPoolInterface::class);
 
-    $adapter = new HealthCheckAdapter($connection, $cache);
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
 
     self::assertTrue($adapter->checkDatabase());
   }
@@ -38,14 +43,38 @@ final class HealthCheckAdapterTest extends TestCase
   #[Test]
   public function testCheckDatabaseReturnsFalseOnException(): void
   {
-    $connection = $this->createMock(Connection::class);
-    $connection->expects(self::once())
+    $authConnection = $this->createMock(Connection::class);
+    $authConnection->expects(self::once())
       ->method('executeQuery')
       ->willThrowException(new Exception('Connection failed'));
 
+    $mainConnection = $this->createMock(Connection::class);
+    $mainConnection->expects(self::never())
+      ->method('executeQuery');
+
     $cache = $this->createMock(CacheItemPoolInterface::class);
 
-    $adapter = new HealthCheckAdapter($connection, $cache);
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
+
+    self::assertFalse($adapter->checkDatabase());
+  }
+
+  #[Test]
+  public function testCheckDatabaseReturnsFalseWhenMainConnectionFails(): void
+  {
+    $authConnection = $this->createMock(Connection::class);
+    $authConnection->expects(self::once())
+      ->method('executeQuery')
+      ->with('SELECT 1');
+
+    $mainConnection = $this->createMock(Connection::class);
+    $mainConnection->expects(self::once())
+      ->method('executeQuery')
+      ->willThrowException(new Exception('Main connection failed'));
+
+    $cache = $this->createMock(CacheItemPoolInterface::class);
+
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
 
     self::assertFalse($adapter->checkDatabase());
   }
@@ -53,7 +82,8 @@ final class HealthCheckAdapterTest extends TestCase
   #[Test]
   public function testCheckCacheReturnsTrue(): void
   {
-    $connection = $this->createMock(Connection::class);
+    $authConnection = $this->createMock(Connection::class);
+    $mainConnection = $this->createMock(Connection::class);
 
     $cacheItem = $this->createMock(CacheItemInterface::class);
     $cacheItem->method('isHit')->willReturn(true);
@@ -66,7 +96,7 @@ final class HealthCheckAdapterTest extends TestCase
     $cache->method('save')->willReturn(true);
     $cache->method('deleteItem')->willReturn(true);
 
-    $adapter = new HealthCheckAdapter($connection, $cache);
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
 
     self::assertTrue($adapter->checkCache());
   }
@@ -74,13 +104,14 @@ final class HealthCheckAdapterTest extends TestCase
   #[Test]
   public function testCheckCacheReturnsFalseOnException(): void
   {
-    $connection = $this->createMock(Connection::class);
+    $authConnection = $this->createMock(Connection::class);
+    $mainConnection = $this->createMock(Connection::class);
 
     $cache = $this->createMock(CacheItemPoolInterface::class);
     $cache->method('getItem')
       ->willThrowException(new Exception('Cache unavailable'));
 
-    $adapter = new HealthCheckAdapter($connection, $cache);
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
 
     self::assertFalse($adapter->checkCache());
   }
@@ -88,7 +119,8 @@ final class HealthCheckAdapterTest extends TestCase
   #[Test]
   public function testCheckCacheReturnsFalseWhenItemNotHit(): void
   {
-    $connection = $this->createMock(Connection::class);
+    $authConnection = $this->createMock(Connection::class);
+    $mainConnection = $this->createMock(Connection::class);
 
     $cacheItem = $this->createMock(CacheItemInterface::class);
     $cacheItem->method('isHit')->willReturn(false);
@@ -100,7 +132,7 @@ final class HealthCheckAdapterTest extends TestCase
     $cache->method('save')->willReturn(true);
     $cache->method('deleteItem')->willReturn(true);
 
-    $adapter = new HealthCheckAdapter($connection, $cache);
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
 
     self::assertFalse($adapter->checkCache());
   }
@@ -108,7 +140,8 @@ final class HealthCheckAdapterTest extends TestCase
   #[Test]
   public function testCheckCacheReturnsFalseWhenValueMismatch(): void
   {
-    $connection = $this->createMock(Connection::class);
+    $authConnection = $this->createMock(Connection::class);
+    $mainConnection = $this->createMock(Connection::class);
 
     $cacheItem = $this->createMock(CacheItemInterface::class);
     $cacheItem->method('isHit')->willReturn(true);
@@ -121,7 +154,7 @@ final class HealthCheckAdapterTest extends TestCase
     $cache->method('save')->willReturn(true);
     $cache->method('deleteItem')->willReturn(true);
 
-    $adapter = new HealthCheckAdapter($connection, $cache);
+    $adapter = new HealthCheckAdapter($authConnection, $mainConnection, $cache);
 
     self::assertFalse($adapter->checkCache());
   }

@@ -27,7 +27,8 @@ final readonly class HealthCheckAdapter implements HealthCheckPort
 {
   // #region Constructor
   public function __construct(
-    private Connection $connection,
+    private Connection $authConnection,
+    private Connection $mainConnection,
     private CacheItemPoolInterface $cache,
   ) {
   }
@@ -40,7 +41,8 @@ final readonly class HealthCheckAdapter implements HealthCheckPort
   public function checkDatabase(): bool
   {
     try {
-      $this->connection->executeQuery('SELECT 1');
+      $this->authConnection->executeQuery('SELECT 1');
+      $this->mainConnection->executeQuery('SELECT 1');
 
       return true;
     } catch (Throwable) {
