@@ -25,7 +25,7 @@ final class RefreshTokenRepositoryAdapterTest extends TestCase
   public function testGetNewRefreshTokenReturnsEntity(): void
   {
     $adapter = new RefreshTokenRepositoryAdapter(
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
     );
 
     $entity = $adapter->getNewRefreshToken();

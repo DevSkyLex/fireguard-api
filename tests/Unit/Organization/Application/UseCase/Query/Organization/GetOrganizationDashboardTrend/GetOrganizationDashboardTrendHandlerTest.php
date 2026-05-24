@@ -290,8 +290,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       equipmentStatistics: $this->createEquipmentStatisticsMock(),
       facilityStatistics: $this->createFacilityStatisticsMock(),
-      inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
-      nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
+      inspectionStatistics: $this->createStub(InspectionStatisticsPort::class),
+      nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
     );
 
     $this->expectException(OrganizationAccessDeniedException::class);
@@ -333,8 +333,8 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       equipmentStatistics: $this->createEquipmentStatisticsMock(),
       facilityStatistics: $this->createFacilityStatisticsMock(),
-      inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
-      nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
+      inspectionStatistics: $this->createStub(InspectionStatisticsPort::class),
+      nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -399,12 +399,12 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     $organizationRepository->expects(self::never())->method('findById');
 
     $handler = new GetOrganizationDashboardTrendHandler(
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       organizationRepository: $organizationRepository,
       equipmentStatistics: $this->createEquipmentStatisticsMock(),
       facilityStatistics: $this->createFacilityStatisticsMock(),
-      inspectionStatistics: $this->createMock(InspectionStatisticsPort::class),
-      nonConformityStatistics: $this->createMock(NonConformityStatisticsPort::class),
+      inspectionStatistics: $this->createStub(InspectionStatisticsPort::class),
+      nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

@@ -121,7 +121,7 @@ final class SecurityUserProviderTest extends TestCase
       ->method('ask')
       ->willReturn(new GetUserResult(user: null));
 
-    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization = $this->createStub(AuthorizationPort::class);
 
     $provider = new SecurityUserProvider(
       queryBus: $queryBus,
@@ -141,7 +141,7 @@ final class SecurityUserProviderTest extends TestCase
       ->method('ask')
       ->willThrowException(new RuntimeException('boom'));
 
-    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization = $this->createStub(AuthorizationPort::class);
 
     $provider = new SecurityUserProvider(
       queryBus: $queryBus,
@@ -187,12 +187,12 @@ final class SecurityUserProviderTest extends TestCase
   public function testRefreshUserThrowsForUnsupportedUser(): void
   {
     $provider = new SecurityUserProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorizationService: $this->createMock(AuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorizationService: $this->createStub(AuthorizationPort::class),
     );
 
     $this->expectException(UnsupportedUserException::class);
-    $provider->refreshUser($this->createMock(\Symfony\Component\Security\Core\User\UserInterface::class));
+    $provider->refreshUser($this->createStub(\Symfony\Component\Security\Core\User\UserInterface::class));
   }
 
   #[Test]
@@ -241,8 +241,8 @@ final class SecurityUserProviderTest extends TestCase
   public function testSupportsClassReturnsTrueForSecurityUser(): void
   {
     $provider = new SecurityUserProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorizationService: $this->createMock(AuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorizationService: $this->createStub(AuthorizationPort::class),
     );
 
     $this->assertTrue($provider->supportsClass(SecurityUser::class));
@@ -267,12 +267,10 @@ final class SecurityUserProviderTest extends TestCase
       canLogin: true,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetUserResult(user: $userView));
 
-    /** @var AuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);
 
     $provider = new SecurityUserProvider(
@@ -303,12 +301,10 @@ final class SecurityUserProviderTest extends TestCase
       canLogin: true,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetUserResult(user: $userView));
 
-    /** @var AuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')->willReturn([]);
 
     $provider = new SecurityUserProvider(

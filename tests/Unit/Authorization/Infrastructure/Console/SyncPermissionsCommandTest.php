@@ -37,7 +37,7 @@ final class SyncPermissionsCommandTest extends TestCase
       ->method('findOneBy')
       ->willReturn(null);
 
-    $roleRepo = $this->createMock(EntityRepository::class);
+    $roleRepo = $this->createStub(EntityRepository::class);
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->method('getRepository')
@@ -69,7 +69,7 @@ final class SyncPermissionsCommandTest extends TestCase
       $definitionMap[$definition['name']] = $definition['description'];
     }
 
-    $permissionRepo = $this->createMock(EntityRepository::class);
+    $permissionRepo = $this->createStub(EntityRepository::class);
     $permissionRepo->method('findOneBy')
       ->willReturnCallback(static function (array $criteria) use ($definitionMap): ?PermissionRecord {
         $name = $criteria['name'] ?? '';
@@ -92,7 +92,7 @@ final class SyncPermissionsCommandTest extends TestCase
     $superAdmin = $this->createRole('super_admin');
     $admin = $this->createRole('admin');
 
-    $roleRepo = $this->createMock(EntityRepository::class);
+    $roleRepo = $this->createStub(EntityRepository::class);
     $roleRepo->method('findOneBy')
       ->willReturnCallback(static function (array $criteria) use ($superAdmin, $admin): ?RoleRecord {
         return match ($criteria['name'] ?? '') {
@@ -135,7 +135,7 @@ final class SyncPermissionsCommandTest extends TestCase
     $definitionCount = count($definitions);
     $callCount = 0;
 
-    $permissionRepo = $this->createMock(EntityRepository::class);
+    $permissionRepo = $this->createStub(EntityRepository::class);
     $permissionRepo->method('findOneBy')
       ->willReturnCallback(function (array $criteria) use (&$callCount, $definitionCount, $definitionDescriptions): ?PermissionRecord {
         ++$callCount;
@@ -158,7 +158,7 @@ final class SyncPermissionsCommandTest extends TestCase
 
     $adminRole = $this->createRole('admin');
 
-    $roleRepo = $this->createMock(EntityRepository::class);
+    $roleRepo = $this->createStub(EntityRepository::class);
     $roleRepo->method('findOneBy')
       ->willReturnCallback(static function (array $criteria) use ($adminRole): ?RoleRecord {
         return 'admin' === ($criteria['name'] ?? null) ? $adminRole : null;

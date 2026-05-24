@@ -30,11 +30,10 @@ final class ListFacilityChildrenProviderTest extends TestCase
     $organizationId = '550e8400-e29b-41d4-a716-446655441290';
     $facilityId = '550e8400-e29b-41d4-a716-446655441291';
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441292'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -77,15 +76,13 @@ final class ListFacilityChildrenProviderTest extends TestCase
   #[Test]
   public function testProvideMapsWrappedNotFoundToHttp404(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441294'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap(
       FacilityNotFoundException::withId('550e8400-e29b-41d4-a716-446655441295'),
     ));

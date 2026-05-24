@@ -40,7 +40,7 @@ final class ListTenantsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListTenantsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 
@@ -52,7 +52,7 @@ final class ListTenantsProviderTest extends TestCase
   #[Test]
   public function testProvideMapsTenants(): void
   {
-    $user = $this->createMock(UserInterface::class);
+    $user = $this->createStub(UserInterface::class);
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
       ->method('getUser')

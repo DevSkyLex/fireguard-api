@@ -28,14 +28,14 @@ final class DeleteTenantProcessorTest extends TestCase
   public function testProcessThrowsWhenIdIsNotString(): void
   {
     $processor = new DeleteTenantProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
 
     $processor->process(
       data: null,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => []],
     );
   }
@@ -55,7 +55,7 @@ final class DeleteTenantProcessorTest extends TestCase
 
     $processor->process(
       data: null,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => 'tenant-123'],
     );
   }

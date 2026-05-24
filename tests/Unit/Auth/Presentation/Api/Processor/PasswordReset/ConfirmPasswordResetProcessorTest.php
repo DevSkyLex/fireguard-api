@@ -113,7 +113,7 @@ final class ConfirmPasswordResetProcessorTest extends TestCase
     $rateLimiter->create($this->createRateLimitKey('challenge-123', '127.0.0.1'))->consume();
 
     $processor = new ConfirmPasswordResetProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $rateLimiter,
     );

@@ -37,8 +37,8 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListEquipmentAttachmentsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -55,7 +55,7 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655459010');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -87,11 +87,10 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655459011');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -102,8 +101,7 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
       [EquipmentNotFoundException::withId(self::EQUIP_ID)],
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -126,11 +124,10 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655459012');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -159,11 +156,10 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655459013');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $attachmentId = '550e8400-e29b-41d4-a716-446655459099';

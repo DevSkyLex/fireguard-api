@@ -24,12 +24,12 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUnauthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $processor = new DeleteOrganizationRoleProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -44,12 +44,12 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUriVariablesMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     $processor = new DeleteOrganizationRoleProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -61,7 +61,7 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenPermissionIsMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -72,7 +72,7 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
       ->willReturn(false);
 
     $processor = new DeleteOrganizationRoleProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
       security: $security,
     );
@@ -88,7 +88,7 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessDispatchesCommandAndReturnsNull(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -123,15 +123,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsNotFoundWhenRoleAbsent(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(OrganizationRoleNotFoundException::withId('550e8400-e29b-41d4-a716-446655441411'));
 
@@ -152,15 +150,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsBadRequestWhenSystemRole(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(new InvalidArgumentException('System roles cannot be deleted.'));
 
@@ -181,15 +177,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsNotFoundWhenOrganizationAbsent(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441410'));
 

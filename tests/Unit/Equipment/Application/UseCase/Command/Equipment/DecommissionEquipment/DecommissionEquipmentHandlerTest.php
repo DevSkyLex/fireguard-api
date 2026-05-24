@@ -37,8 +37,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new DecommissionEquipmentHandler(
@@ -63,8 +62,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn(null);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new DecommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
@@ -93,8 +91,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new DecommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
@@ -124,8 +121,7 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new DecommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,

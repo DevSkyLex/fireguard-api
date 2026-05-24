@@ -18,7 +18,7 @@ final class ListUserStatusesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenUnauthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $provider = new ListUserStatusesProvider($security);
@@ -31,7 +31,7 @@ final class ListUserStatusesProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsSupportedUserStatuses(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
       new SecurityUser(id: 'admin-1', email: 'admin@example.com', password: ''),
     );

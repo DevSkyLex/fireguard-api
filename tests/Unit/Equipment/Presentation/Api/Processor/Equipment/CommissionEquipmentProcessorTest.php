@@ -34,7 +34,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655456010');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -67,11 +67,10 @@ final class CommissionEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655456011');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -79,8 +78,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
       [EquipmentNotFoundException::withId(self::EQUIP_ID)],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -104,11 +102,10 @@ final class CommissionEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655456012');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -116,8 +113,7 @@ final class CommissionEquipmentProcessorTest extends TestCase
       [EquipmentAlreadyDecommissionedException::withId(self::EQUIP_ID)],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -141,17 +137,15 @@ final class CommissionEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655456013');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $now = new DateTimeImmutable('2026-03-15T10:00:00+00:00');
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willReturn(new CommissionEquipmentResult(
       equipmentId: self::EQUIP_ID,
       organizationId: self::ORG_ID,

@@ -43,6 +43,8 @@ final class UpdatePermissionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenIdMissing(): void
   {
+    $this->commandBus->expects($this->never())->method(self::anything());
+
     $this->expectException(PermissionNotFoundException::class);
 
     $this->processor->process(new PermissionInput(), new Put(), ['id' => null]);

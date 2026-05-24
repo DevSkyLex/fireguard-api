@@ -41,12 +41,12 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenNotAuthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $provider = new ListNonConformitiesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: new RequestStack(),
     );
@@ -62,12 +62,12 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenUriVariablesMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $provider = new ListNonConformitiesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: new RequestStack(),
     );
@@ -83,15 +83,14 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenPermissionDenied(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(false);
 
     $provider = new ListNonConformitiesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
       requestStack: new RequestStack(),
@@ -108,11 +107,10 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsPaginatedNonConformities(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $now = new DateTimeImmutable('2026-01-15T10:00:00+00:00');
@@ -178,11 +176,10 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvidePassesFiltersFromRequest(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -219,15 +216,13 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsNotFoundWhenInspectionMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(
       InspectionNotFoundException::withId(self::INSP_ID),
     );
@@ -253,15 +248,13 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideUnwrapsNotFoundFromMessengerException(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(
       MessengerRuntimeException::wrap(InspectionNotFoundException::withId(self::INSP_ID)),
     );
@@ -287,15 +280,13 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsBadRequestOnInvalidArgument(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(new InvalidArgumentException('Invalid severity.'));
 
     $requestStack = new RequestStack();
@@ -319,11 +310,10 @@ final class ListNonConformitiesProviderTest extends TestCase
   #[Test]
   public function testProvidePassesSearchAndSortingToQuery(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */

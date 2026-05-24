@@ -23,7 +23,7 @@ final class NonConformityRepositoryTest extends TestCase
   public function testCountOverdueByOrganizationIdNormalizesDateFilterToConfiguredStorageTimezone(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440001');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
     $query = $this->createMock(Query::class);
     $query->expects(self::once())->method('getSingleScalarResult')->willReturn('0');
 
@@ -152,7 +152,7 @@ final class NonConformityRepositoryTest extends TestCase
   public function testCountByCreatedDayForOrganizationIdReinterpretsHydratedDatetimesUsingConfiguredStorageTimezone(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440061');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('sqlite');
@@ -199,7 +199,7 @@ final class NonConformityRepositoryTest extends TestCase
   public function testCountByCreatedDayForOrganizationIdPreservesMicrosecondsOnPostgreSqlBounds(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440062');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('postgresql');
@@ -246,7 +246,7 @@ final class NonConformityRepositoryTest extends TestCase
   public function testCountByCreatedDayForOrganizationIdPostgreSqlAppliesOptionalFiltersInSql(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440063');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('postgresql');
@@ -300,7 +300,7 @@ final class NonConformityRepositoryTest extends TestCase
   public function testCountByResolvedDayForOrganizationIdPostgreSqlAppliesOptionalFiltersInSql(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440064');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('postgresql');

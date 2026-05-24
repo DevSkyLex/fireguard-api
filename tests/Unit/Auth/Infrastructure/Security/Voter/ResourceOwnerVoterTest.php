@@ -44,7 +44,7 @@ final class ResourceOwnerVoterTest extends TestCase
       password: 'hash',
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::OWNER]);
@@ -73,7 +73,7 @@ final class ResourceOwnerVoterTest extends TestCase
       password: 'hash',
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::VIEW_OWN]);
@@ -95,8 +95,8 @@ final class ResourceOwnerVoterTest extends TestCase
       }
     };
 
-    $token = $this->createMock(TokenInterface::class);
-    $token->method('getUser')->willReturn($this->createMock(UserInterface::class));
+    $token = $this->createStub(TokenInterface::class);
+    $token->method('getUser')->willReturn($this->createStub(UserInterface::class));
 
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::EDIT_OWN]);
 
@@ -126,7 +126,7 @@ final class ResourceOwnerVoterTest extends TestCase
       password: 'hash',
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::DELETE_OWN]);
@@ -157,7 +157,7 @@ final class ResourceOwnerVoterTest extends TestCase
       password: 'hash',
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::OWNER]);
@@ -183,7 +183,7 @@ final class ResourceOwnerVoterTest extends TestCase
       password: 'hash',
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, $subject, [ResourceOwnerVoter::OWNER]);
@@ -202,7 +202,7 @@ final class ResourceOwnerVoterTest extends TestCase
       password: 'hash',
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, 'not-object', [ResourceOwnerVoter::OWNER]);

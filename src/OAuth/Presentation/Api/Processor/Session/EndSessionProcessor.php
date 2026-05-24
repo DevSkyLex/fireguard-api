@@ -277,7 +277,9 @@ final readonly class EndSessionProcessor implements ProviderInterface, Processor
 
   private function readParam(Request $request, string $key): ?string
   {
-    $value = $request->get($key);
+    $value = $request->attributes->get($key)
+      ?? $request->query->get($key)
+      ?? $request->request->get($key);
     if (!is_string($value)) {
       return null;
     }

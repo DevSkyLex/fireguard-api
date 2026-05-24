@@ -79,7 +79,7 @@ final class AddPermissionToRoleHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $permissionRepository = $this->createMock(PermissionRepositoryPort::class);
+    $permissionRepository = $this->createStub(PermissionRepositoryPort::class);
 
     $handler = new AddPermissionToRoleHandler(
       roleRepository: $roleRepository,

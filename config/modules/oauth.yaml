@@ -4,8 +4,8 @@ services:
     autoconfigure: true
 
   # OAuth Module - Validators
-  OAuth\Presentation\Api\Validator\ValidScopes\ValidScopes\ValidScopesValidator: ~
-  OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUri\ValidRedirectUriValidator: ~
+  OAuth\Presentation\Api\Validator\ValidScopes\ValidScopesValidator: ~
+  OAuth\Presentation\Api\Validator\ValidRedirectUri\ValidRedirectUriValidator: ~
 
   # UseCases - Auto-register
   OAuth\Application\UseCase\:

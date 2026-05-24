@@ -729,11 +729,11 @@ final class JwtTokenServiceTest extends TestCase
     ));
 
     $roleAssignmentRepository = $this->createMock(RoleAssignmentRepositoryPort::class);
-    $roleAssignmentRepository->method('findRolesForSubject')
+    $roleAssignmentRepository->expects(self::atLeastOnce())->method('findRolesForSubject')
       ->with(SubjectType::USER, 'user-roles')
       ->willReturn([$role]);
 
-    $cache = $this->createMock(CachePort::class);
+    $cache = $this->createStub(CachePort::class);
     $cache->method('get')->willReturn(null);
 
     $authorizationService = new AuthorizationService($roleAssignmentRepository, $cache);

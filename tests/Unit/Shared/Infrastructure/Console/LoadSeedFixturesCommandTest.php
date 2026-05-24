@@ -9,7 +9,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ObjectManager;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Infrastructure\Console\LoadSeedFixturesCommand;
@@ -167,14 +167,14 @@ final class LoadSeedFixturesCommandTest extends TestCase
   }
 
   /**
-   * @return array{0: EntityManagerInterface&MockObject, 1: Connection&MockObject}
+   * @return array{0: EntityManagerInterface&Stub, 1: Connection&MockObject}
    */
   private function createEntityManagerWithConnection(): array
   {
     $connection = $this->createMock(Connection::class);
     $connection->method('isTransactionActive')->willReturn(true);
 
-    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('getConnection')->willReturn($connection);
 
     return [$entityManager, $connection];

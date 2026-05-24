@@ -85,14 +85,14 @@ final class TenantFilterTest extends TestCase
 
   private function createFilter(): TenantFilter
   {
-    $connection = $this->createMock(Connection::class);
+    $connection = $this->createStub(Connection::class);
     $connection->method('quote')
       ->willReturnCallback(static fn (string $value): string => "'" . $value . "'");
 
-    $filters = $this->createMock(FilterCollection::class);
+    $filters = $this->createStub(FilterCollection::class);
     $filters->method('setFiltersStateDirty');
 
-    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager = $this->createStub(EntityManagerInterface::class);
     $entityManager->method('getConnection')
       ->willReturn($connection);
     $entityManager->method('getFilters')

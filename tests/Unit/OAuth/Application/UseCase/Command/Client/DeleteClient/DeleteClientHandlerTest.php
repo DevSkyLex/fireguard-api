@@ -110,7 +110,7 @@ final class DeleteClientHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $eventBus = $this->createMock(EventBusPort::class);
+    $eventBus = $this->createStub(EventBusPort::class);
 
     $command = new DeleteClientCommand(clientId: $clientId);
 

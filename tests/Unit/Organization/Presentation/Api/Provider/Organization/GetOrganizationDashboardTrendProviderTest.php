@@ -37,8 +37,8 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     $security->expects(self::once())->method('getUser')->willReturn(null);
 
     $provider = new GetOrganizationDashboardTrendProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -254,7 +254,7 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     $authorization = $this->createMetricAuthorizationMock(['organization.inspection.read']);
 
     $provider = new GetOrganizationDashboardTrendProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );

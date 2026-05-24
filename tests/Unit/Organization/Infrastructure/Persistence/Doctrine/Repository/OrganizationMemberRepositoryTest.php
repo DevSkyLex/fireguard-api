@@ -67,7 +67,7 @@ final class OrganizationMemberRepositoryTest extends TestCase
       ->with(['member' => $memberRecord])
       ->willReturn([$assignment]);
 
-    $roleRepository = $this->createMock(EntityRepository::class);
+    $roleRepository = $this->createStub(EntityRepository::class);
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::exactly(3))

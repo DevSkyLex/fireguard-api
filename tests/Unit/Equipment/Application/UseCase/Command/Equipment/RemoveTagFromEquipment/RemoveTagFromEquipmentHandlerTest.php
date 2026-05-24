@@ -32,8 +32,7 @@ final class RemoveTagFromEquipmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
@@ -60,8 +59,7 @@ final class RemoveTagFromEquipmentHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenEquipmentNotFound(): void
   {
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn(null);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
@@ -91,8 +89,7 @@ final class RemoveTagFromEquipmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */

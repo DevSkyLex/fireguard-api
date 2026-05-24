@@ -130,8 +130,8 @@ final class UpdateTenantHandlerTest extends TestCase
 
     $handler = new UpdateTenantHandler(
       tenantRepository: $repository,
-      uuidFactory: $this->createMock(UuidFactory::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(TenantNotFoundException::class);

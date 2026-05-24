@@ -34,7 +34,7 @@ final class DeleteAttachmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655454010');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -71,11 +71,10 @@ final class DeleteAttachmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655454011');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -87,8 +86,7 @@ final class DeleteAttachmentProcessorTest extends TestCase
       [EquipmentNotFoundException::withId(self::EQUIP_ID)],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -116,11 +114,10 @@ final class DeleteAttachmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655454012');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -132,8 +129,7 @@ final class DeleteAttachmentProcessorTest extends TestCase
       [AttachmentNotFoundException::withId(self::ATTACHMENT_ID)],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -161,11 +157,10 @@ final class DeleteAttachmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655454013');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var CommandBusPort&MockObject $commandBus */

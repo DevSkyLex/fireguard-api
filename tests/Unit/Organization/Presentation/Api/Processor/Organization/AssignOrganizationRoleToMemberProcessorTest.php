@@ -25,12 +25,12 @@ final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUriVariablesMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     $processor = new AssignOrganizationRoleToMemberProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -45,7 +45,7 @@ final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenPermissionIsMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -56,7 +56,7 @@ final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
       ->willReturn(false);
 
     $processor = new AssignOrganizationRoleToMemberProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
       security: $security,
     );

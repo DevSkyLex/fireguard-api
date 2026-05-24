@@ -33,15 +33,15 @@ final class UpdateClientProcessorTest extends TestCase
   public function testProcessThrowsWhenIdIsNotString(): void
   {
     $processor = new UpdateClientProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
 
     $processor->process(
       data: new ClientInput(),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => []],
     );
   }
@@ -90,7 +90,7 @@ final class UpdateClientProcessorTest extends TestCase
 
     $output = $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => 'client-123'],
     );
 

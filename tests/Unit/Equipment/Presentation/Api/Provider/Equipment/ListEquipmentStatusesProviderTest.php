@@ -29,7 +29,7 @@ final class ListEquipmentStatusesProviderTest extends TestCase
       ->willReturn($user);
 
     $provider = new ListEquipmentStatusesProvider(
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -47,7 +47,7 @@ final class ListEquipmentStatusesProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListEquipmentStatusesProvider(
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 

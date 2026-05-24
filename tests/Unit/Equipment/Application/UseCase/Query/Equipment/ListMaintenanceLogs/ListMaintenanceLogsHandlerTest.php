@@ -29,8 +29,8 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnInvalidEquipmentId(): void
   {
     $handler = new ListMaintenanceLogsHandler(
-      equipmentRepository: $this->createMock(EquipmentRepositoryPort::class),
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -46,8 +46,8 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnInvalidOrganizationId(): void
   {
     $handler = new ListMaintenanceLogsHandler(
-      equipmentRepository: $this->createMock(EquipmentRepositoryPort::class),
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -70,7 +70,7 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
 
     $handler = new ListMaintenanceLogsHandler(
       equipmentRepository: $equipmentRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -91,13 +91,12 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     $handler = new ListMaintenanceLogsHandler(
       equipmentRepository: $equipmentRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -118,8 +117,7 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
@@ -162,12 +160,10 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
-    /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
-    $maintenanceLogRepository = $this->createMock(MaintenanceLogRepositoryPort::class);
+    $maintenanceLogRepository = $this->createStub(MaintenanceLogRepositoryPort::class);
     $maintenanceLogRepository->method('countByEquipmentId')->willReturn(1);
     $maintenanceLogRepository->method('findByEquipmentId')->willReturn([$log]);
 

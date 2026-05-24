@@ -48,15 +48,14 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new GetUserResult($this->buildUserView('user@example.com')));
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
       queryBus: $queryBus,
-      logger: $this->createMock(LoggerInterface::class),
+      logger: $this->createStub(LoggerInterface::class),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
@@ -76,15 +75,14 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       ->willReturn($this->makeSentNotification());
 
     // GetUserResult with user = null → email cannot be resolved
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new GetUserResult(null));
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
       queryBus: $queryBus,
-      logger: $this->createMock(LoggerInterface::class),
+      logger: $this->createStub(LoggerInterface::class),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
@@ -103,8 +101,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willThrowException(new RuntimeException('User not found'));
 
@@ -124,13 +121,11 @@ final class OnboardingNotificationSubscriberTest extends TestCase
   #[Test]
   public function testNotificationFailureIsCaughtAndLogged(): void
   {
-    /** @var NotificationPort&MockObject $notificationPort */
-    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort = $this->createStub(NotificationPort::class);
     $notificationPort->method('send')
       ->willThrowException(new RuntimeException('Notification delivery failed'));
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new GetUserResult($this->buildUserView()));
 
@@ -164,15 +159,14 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       }))
       ->willReturn($this->makeSentNotification());
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new GetUserResult($this->buildUserView()));
 
     $subscriber = new OnboardingNotificationSubscriber(
       notificationPort: $notificationPort,
       queryBus: $queryBus,
-      logger: $this->createMock(LoggerInterface::class),
+      logger: $this->createStub(LoggerInterface::class),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());

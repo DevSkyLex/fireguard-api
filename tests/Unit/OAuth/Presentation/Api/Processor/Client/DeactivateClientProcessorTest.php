@@ -30,15 +30,15 @@ final class DeactivateClientProcessorTest extends TestCase
   public function testProcessThrowsWhenIdIsNotString(): void
   {
     $processor = new DeactivateClientProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
 
     $processor->process(
       data: null,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => null],
     );
   }
@@ -68,7 +68,7 @@ final class DeactivateClientProcessorTest extends TestCase
 
     $output = $processor->process(
       data: null,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => 'client-123'],
     );
 

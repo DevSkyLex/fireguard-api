@@ -15,7 +15,6 @@ use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutp
 use Onboarding\Presentation\Api\Processor\Onboarding\ExecuteOrganizationOnboardingStepProcessor;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Factory\UuidFactory;
@@ -91,25 +90,21 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
     // Org created after the session starts (simulates user creating the org during onboarding).
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [$orgResult], total: 1, limit: 1, offset: 0));
 
     $input = new ExecuteOrganizationOnboardingStepInput();
@@ -147,21 +142,17 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new ExecuteOrganizationOnboardingStepInput();
@@ -197,21 +188,17 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new ExecuteOrganizationOnboardingStepInput();
@@ -245,12 +232,12 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     ?EventDispatcherInterface $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
     return new OrganizationOnboardingFlowService(
-      sessionRepository: $sessionRepository ?? $this->createMock(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createMock(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createMock(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createMock(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createMock(TransactionManagerPort::class),
-      eventDispatcher: $eventDispatcher ?? $this->createMock(EventDispatcherInterface::class),
+      sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
+      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
+      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
     );
   }
 

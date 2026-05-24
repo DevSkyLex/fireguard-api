@@ -58,9 +58,9 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     $processor = new UploadUserAvatarProcessor(
       requestStack: $requestStack,
-      avatarResizer: $this->createMock(AvatarResizer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $result = $processor->process(null, new Post(), ['id' => 'user-1']);
@@ -77,9 +77,9 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     $processor = new UploadUserAvatarProcessor(
       requestStack: $requestStack,
-      avatarResizer: $this->createMock(AvatarResizer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $this->expectException(UnprocessableEntityHttpException::class);
@@ -108,9 +108,9 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     $processor = new UploadUserAvatarProcessor(
       requestStack: $requestStack,
-      avatarResizer: $this->createMock(AvatarResizer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $this->expectException(UnprocessableEntityHttpException::class);
@@ -201,20 +201,18 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new GetUserResult(user: null));
 
-    /** @var AvatarResizer&MockObject $resizer */
-    $resizer = $this->createMock(AvatarResizer::class);
+    $resizer = $this->createStub(AvatarResizer::class);
     $resizer->method('delete');
     $resizer->method('resize');
 
     $processor = new UploadUserAvatarProcessor(
       requestStack: $requestStack,
       avatarResizer: $resizer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
     );
 
@@ -235,9 +233,9 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     return new UploadUserAvatarProcessor(
       requestStack: $requestStack,
-      avatarResizer: $this->createMock(AvatarResizer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
   }
 

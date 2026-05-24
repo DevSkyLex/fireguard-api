@@ -34,7 +34,7 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655452010');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -67,11 +67,10 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655452011');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -83,8 +82,7 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
       [EquipmentNotFoundException::withId(self::EQUIP_ID)],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -108,11 +106,10 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655452012');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -124,8 +121,7 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
       [TagNotFoundException::withId(self::TAG_ID)],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -149,11 +145,10 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655452013');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var CommandBusPort&MockObject $commandBus */

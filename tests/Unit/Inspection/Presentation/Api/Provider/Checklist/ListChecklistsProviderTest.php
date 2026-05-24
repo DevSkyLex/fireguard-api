@@ -39,12 +39,12 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenNotAuthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $provider = new ListChecklistsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: new RequestStack(),
     );
@@ -60,12 +60,12 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenOrganizationIdMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $provider = new ListChecklistsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: new RequestStack(),
     );
@@ -81,15 +81,14 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenPermissionDenied(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(false);
 
     $provider = new ListChecklistsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
       requestStack: new RequestStack(),
@@ -106,11 +105,10 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsPaginatedChecklists(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $now = new DateTimeImmutable('2026-01-15T10:00:00+00:00');
@@ -172,11 +170,10 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvidePassesStatusFilterFromRequest(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -211,15 +208,13 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsBadRequestOnInvalidArgument(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(new InvalidArgumentException('Invalid status.'));
 
     $requestStack = new RequestStack();
@@ -243,15 +238,13 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvideUnwrapsBadRequestFromMessengerException(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(
       MessengerRuntimeException::wrap(new InvalidArgumentException('Invalid status.')),
     );
@@ -277,11 +270,10 @@ final class ListChecklistsProviderTest extends TestCase
   #[Test]
   public function testProvidePassesSearchAndSortingToQuery(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */

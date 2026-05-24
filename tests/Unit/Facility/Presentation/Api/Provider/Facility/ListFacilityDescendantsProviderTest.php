@@ -27,11 +27,10 @@ final class ListFacilityDescendantsProviderTest extends TestCase
     $organizationId = '550e8400-e29b-41d4-a716-446655441300';
     $facilityId = '550e8400-e29b-41d4-a716-446655441301';
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441302'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */

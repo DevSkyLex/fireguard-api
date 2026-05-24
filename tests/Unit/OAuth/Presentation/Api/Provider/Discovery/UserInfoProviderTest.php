@@ -38,13 +38,13 @@ final class UserInfoProviderTest extends TestCase
 
     $provider = new UserInfoProvider(
       security: $security,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
-      claimsBuilder: $this->createMock(OidcClaimsBuilderInterface::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
+      claimsBuilder: $this->createStub(OidcClaimsBuilderInterface::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -57,13 +57,13 @@ final class UserInfoProviderTest extends TestCase
 
     $provider = new UserInfoProvider(
       security: $security,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
-      claimsBuilder: $this->createMock(OidcClaimsBuilderInterface::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
+      claimsBuilder: $this->createStub(OidcClaimsBuilderInterface::class),
     );
 
     $this->expectException(HttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -84,12 +84,12 @@ final class UserInfoProviderTest extends TestCase
     $provider = new UserInfoProvider(
       security: $security,
       oidcUserProvider: $oidcUserProvider,
-      claimsBuilder: $this->createMock(OidcClaimsBuilderInterface::class),
+      claimsBuilder: $this->createStub(OidcClaimsBuilderInterface::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -143,7 +143,7 @@ final class UserInfoProviderTest extends TestCase
       claimsBuilder: $claimsBuilder,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(UserInfoOutput::class, $output);
     self::assertSame('user-123', $output->sub);
@@ -198,7 +198,7 @@ final class UserInfoProviderTest extends TestCase
       claimsBuilder: $claimsBuilder,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('user-123', $output->sub);
     self::assertNull($output->name);
@@ -248,7 +248,7 @@ final class UserInfoProviderTest extends TestCase
     $this->expectException(UnauthorizedHttpException::class);
     $this->expectExceptionMessage('Failed to get user info: boom');
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   /**

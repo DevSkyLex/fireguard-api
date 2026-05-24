@@ -29,8 +29,8 @@ final class ListEquipmentsHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnInvalidOrganizationId(): void
   {
     $handler = new ListEquipmentsHandler(
-      equipmentRepository: $this->createMock(EquipmentRepositoryPort::class),
-      tagRepository: $this->createMock(TagRepositoryPort::class),
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -44,8 +44,8 @@ final class ListEquipmentsHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnInvalidType(): void
   {
     $handler = new ListEquipmentsHandler(
-      equipmentRepository: $this->createMock(EquipmentRepositoryPort::class),
-      tagRepository: $this->createMock(TagRepositoryPort::class),
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

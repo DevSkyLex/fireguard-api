@@ -44,9 +44,9 @@ final class ScopeRepositoryAdapterTest extends TestCase
   public function testFinalizeScopesReturnsInput(): void
   {
     $adapter = new ScopeRepositoryAdapter();
-    $scope = $this->createMock(ScopeEntityInterface::class);
+    $scope = $this->createStub(ScopeEntityInterface::class);
 
-    $result = $adapter->finalizeScopes([$scope], 'authorization_code', $this->createMock(\League\OAuth2\Server\Entities\ClientEntityInterface::class));
+    $result = $adapter->finalizeScopes([$scope], 'authorization_code', $this->createStub(\League\OAuth2\Server\Entities\ClientEntityInterface::class));
 
     self::assertSame([$scope], $result);
   }

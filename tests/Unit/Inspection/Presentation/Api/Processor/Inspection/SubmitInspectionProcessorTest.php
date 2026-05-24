@@ -34,13 +34,13 @@ final class SubmitInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenNotAuthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $processor = new SubmitInspectionProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -56,13 +56,13 @@ final class SubmitInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUriVariablesMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $processor = new SubmitInspectionProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -78,16 +78,15 @@ final class SubmitInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenPermissionDenied(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(false);
 
     $processor = new SubmitInspectionProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );
@@ -104,11 +103,10 @@ final class SubmitInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessDispatchesCommandAndReturnsOutput(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
@@ -218,20 +216,18 @@ final class SubmitInspectionProcessorTest extends TestCase
 
   private function makeAuthorizedProcessor(Throwable $commandException): SubmitInspectionProcessor
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException($commandException);
 
     return new SubmitInspectionProcessor(
       commandBus: $commandBus,
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );

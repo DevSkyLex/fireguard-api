@@ -18,7 +18,7 @@ final class ListNonConformityStatusesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenNotAuthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $provider = new ListNonConformityStatusesProvider($security);
@@ -31,7 +31,7 @@ final class ListNonConformityStatusesProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsSupportedNonConformityStatuses(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $provider = new ListNonConformityStatusesProvider($security);

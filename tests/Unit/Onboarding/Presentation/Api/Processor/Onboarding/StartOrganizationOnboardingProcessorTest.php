@@ -59,12 +59,10 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn('550e8400-e29b-41d4-a716-446655440299');
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new StartOrganizationOnboardingInput();
@@ -104,12 +102,10 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn('550e8400-e29b-41d4-a716-446655440298');
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $input = new StartOrganizationOnboardingInput();
@@ -139,12 +135,12 @@ final class StartOrganizationOnboardingProcessorTest extends TestCase
     ?EventDispatcherInterface $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
     return new OrganizationOnboardingFlowService(
-      sessionRepository: $sessionRepository ?? $this->createMock(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createMock(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createMock(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createMock(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createMock(TransactionManagerPort::class),
-      eventDispatcher: $eventDispatcher ?? $this->createMock(EventDispatcherInterface::class),
+      sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
+      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
+      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
     );
   }
 

@@ -162,7 +162,7 @@ final class CreateOrganizationHandlerTest extends TestCase
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
-      uuidFactory: $this->createMock(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
     );
 
@@ -219,7 +219,6 @@ final class CreateOrganizationHandlerTest extends TestCase
 
     $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
     $transactionManager = $this->createMock(TransactionManagerPort::class);
     $transactionManager->expects(self::once())
       ->method('transactional')

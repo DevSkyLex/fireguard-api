@@ -35,8 +35,7 @@ final class DeleteAttachmentHandlerTest extends TestCase
     );
     $attachment = $this->buildAttachment();
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -68,8 +67,7 @@ final class DeleteAttachmentHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenEquipmentNotFound(): void
   {
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn(null);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -104,8 +102,7 @@ final class DeleteAttachmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -151,8 +148,7 @@ final class DeleteAttachmentHandlerTest extends TestCase
       label: null,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */

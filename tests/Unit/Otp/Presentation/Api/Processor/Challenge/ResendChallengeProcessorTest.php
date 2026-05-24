@@ -11,7 +11,6 @@ use Otp\Application\UseCase\Command\Challenge\ResendChallenge\{ResendChallengeCo
 use Otp\Presentation\Api\Dto\Output\Challenge\ChallengeOutput;
 use Otp\Presentation\Api\Processor\Challenge\ResendChallengeProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -37,10 +36,10 @@ final class ResendChallengeProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenTokenMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
 
     $processor = new ResendChallengeProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 
@@ -58,7 +57,7 @@ final class ResendChallengeProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new ResendChallengeProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 
@@ -91,7 +90,6 @@ final class ResendChallengeProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($user);
 
-    /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
@@ -146,7 +144,6 @@ final class ResendChallengeProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($user);
 
-    /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
@@ -186,7 +183,6 @@ final class ResendChallengeProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($user);
 
-    /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')
@@ -231,7 +227,6 @@ final class ResendChallengeProcessorTest extends TestCase
       ['handler' => OtpNotFoundException::forIdentifier('token-5')],
     );
 
-    /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')

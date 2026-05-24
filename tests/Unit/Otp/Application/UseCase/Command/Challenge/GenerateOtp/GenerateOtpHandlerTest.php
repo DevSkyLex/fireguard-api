@@ -72,7 +72,7 @@ final class GenerateOtpHandlerTest extends TestCase
   {
     $otpId = '123e4567-e89b-12d3-a456-426614174000';
 
-    $repository = $this->createMock(OtpRepositoryPort::class);
+    $repository = $this->createStub(OtpRepositoryPort::class);
 
     $notifier = $this->createMock(OtpNotifierPort::class);
     $notifier->expects(self::never())->method('send');

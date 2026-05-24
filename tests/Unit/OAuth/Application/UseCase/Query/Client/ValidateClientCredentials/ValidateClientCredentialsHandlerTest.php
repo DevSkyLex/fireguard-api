@@ -109,7 +109,7 @@ final class ValidateClientCredentialsHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $hashing = $this->createMock(HashingPort::class);
+    $hashing = $this->createStub(HashingPort::class);
 
     $query = new ValidateClientCredentialsQuery(clientId: $clientId, clientSecret: 'secret');
 

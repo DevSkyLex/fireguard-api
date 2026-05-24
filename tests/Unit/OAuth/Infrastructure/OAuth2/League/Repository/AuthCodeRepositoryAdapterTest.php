@@ -25,7 +25,7 @@ final class AuthCodeRepositoryAdapterTest extends TestCase
   public function testGetNewAuthCodeReturnsEntity(): void
   {
     $adapter = new AuthCodeRepositoryAdapter(
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $entity = $adapter->getNewAuthCode();

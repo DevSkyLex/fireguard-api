@@ -34,8 +34,8 @@ final class ListEquipmentTypesProviderTest extends TestCase
       ->willReturn($user);
 
     $provider = new ListEquipmentTypesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -53,8 +53,8 @@ final class ListEquipmentTypesProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListEquipmentTypesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -82,7 +82,7 @@ final class ListEquipmentTypesProviderTest extends TestCase
       ->willReturn(false);
 
     $provider = new ListEquipmentTypesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );

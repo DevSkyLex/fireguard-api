@@ -18,7 +18,7 @@ final class ListInspectorTypesProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenNotAuthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $provider = new ListInspectorTypesProvider($security);
@@ -31,7 +31,7 @@ final class ListInspectorTypesProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsSupportedInspectorTypes(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
     $provider = new ListInspectorTypesProvider($security);

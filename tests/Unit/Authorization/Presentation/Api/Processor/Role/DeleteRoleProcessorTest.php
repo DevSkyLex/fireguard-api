@@ -41,6 +41,8 @@ final class DeleteRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenIdMissing(): void
   {
+    $this->commandBus->expects($this->never())->method(self::anything());
+
     $this->expectException(RoleNotFoundException::class);
 
     $this->processor->process(null, new Delete(), ['id' => null]);

@@ -34,7 +34,7 @@ final class UpdateRoleHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $permissionRepository = $this->createMock(PermissionRepositoryPort::class);
+    $permissionRepository = $this->createStub(PermissionRepositoryPort::class);
 
     $handler = new UpdateRoleHandler(
       roleRepository: $roleRepository,

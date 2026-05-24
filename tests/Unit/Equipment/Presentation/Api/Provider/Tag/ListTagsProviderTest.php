@@ -39,8 +39,8 @@ final class ListTagsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListTagsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $this->buildRequestStack(),
     );
@@ -58,12 +58,12 @@ final class ListTagsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460010');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     $provider = new ListTagsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $this->buildRequestStack(),
     );
@@ -81,7 +81,7 @@ final class ListTagsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460011');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -114,11 +114,10 @@ final class ListTagsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460012');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
@@ -126,8 +125,7 @@ final class ListTagsProviderTest extends TestCase
       [new InvalidArgumentException('Invalid organization id.')],
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
 
@@ -151,11 +149,10 @@ final class ListTagsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460013');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -186,11 +183,10 @@ final class ListTagsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460014');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     $tagId = '550e8400-e29b-41d4-a716-446655460099';
@@ -240,11 +236,10 @@ final class ListTagsProviderTest extends TestCase
   {
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460015');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var QueryBusPort&MockObject $queryBus */

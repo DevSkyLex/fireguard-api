@@ -30,11 +30,10 @@ final class RestoreFacilityProcessorTest extends TestCase
     $facilityId = '550e8400-e29b-41d4-a716-446655441261';
     $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441262');
 
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var CommandBusPort&MockObject $commandBus */
@@ -101,15 +100,13 @@ final class RestoreFacilityProcessorTest extends TestCase
 
   private function makeProcessor(Throwable $exception): RestoreFacilityProcessor
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441282'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException($exception);
 
     return new RestoreFacilityProcessor(

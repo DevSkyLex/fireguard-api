@@ -127,8 +127,8 @@ final class RegenerateClientSecretHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $hashing = $this->createMock(HashingPort::class);
-    $eventBus = $this->createMock(EventBusPort::class);
+    $hashing = $this->createStub(HashingPort::class);
+    $eventBus = $this->createStub(EventBusPort::class);
 
     $command = new RegenerateClientSecretCommand(clientId: $clientId);
 

@@ -27,7 +27,7 @@ final class ListTagsHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnInvalidOrganizationId(): void
   {
     $handler = new ListTagsHandler(
-      tagRepository: $this->createMock(TagRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -73,8 +73,7 @@ final class ListTagsHandlerTest extends TestCase
       name: 'extinguisher',
     );
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('countByOrganizationId')->willReturn(1);
     $tagRepository->method('findByOrganizationId')->willReturn([$tag]);
 
@@ -107,8 +106,7 @@ final class ListTagsHandlerTest extends TestCase
       );
     }
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('countByOrganizationId')->willReturn(5);
     $tagRepository->method('findByOrganizationId')->willReturn($tags);
 

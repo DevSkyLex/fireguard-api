@@ -42,13 +42,13 @@ final class CheckConsentProviderTest extends TestCase
 
     $provider = new CheckConsentProvider(
       security: $security,
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: new RequestStack(),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -64,13 +64,13 @@ final class CheckConsentProviderTest extends TestCase
 
     $provider = new CheckConsentProvider(
       security: $security,
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
     );
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -83,13 +83,13 @@ final class CheckConsentProviderTest extends TestCase
 
     $provider = new CheckConsentProvider(
       security: $security,
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: new RequestStack(),
     );
 
     $this->expectException(BadRequestHttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -128,7 +128,7 @@ final class CheckConsentProviderTest extends TestCase
       requestStack: $requestStack,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(CheckConsentOutput::class, $output);
     self::assertTrue($output->hasConsent);
@@ -174,7 +174,7 @@ final class CheckConsentProviderTest extends TestCase
       requestStack: $requestStack,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertFalse($output->hasConsent);
   }
@@ -201,14 +201,14 @@ final class CheckConsentProviderTest extends TestCase
 
     $provider = new CheckConsentProvider(
       security: $security,
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $rateLimiter,
     );
 
     $this->expectException(TooManyRequestsHttpException::class);
 
-    $provider->provide(operation: $this->createMock(Operation::class));
+    $provider->provide(operation: $this->createStub(Operation::class));
   }
 
   private function createSecurityUser(): SecurityUser

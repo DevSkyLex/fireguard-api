@@ -87,11 +87,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock(null),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -155,11 +155,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
       oidcUserProvider: $oidcUserProvider,
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_UNAUTHORIZED, actual: $response->getStatusCode());
@@ -207,11 +207,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock(null),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -267,11 +267,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_FORBIDDEN, actual: $response->getStatusCode());
@@ -319,11 +319,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock(null),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -339,17 +339,17 @@ final class AuthorizeProcessorTest extends TestCase
     $requestStack = new RequestStack();
 
     $processor = new AuthorizeProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
       security: $this->createSecurityMock(null),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -372,13 +372,13 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock(null),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -406,13 +406,13 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock(null),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -441,13 +441,13 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock(null),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
@@ -477,13 +477,13 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock($this->createSecurityUser()),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
@@ -532,13 +532,13 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($securityUser),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -564,13 +564,13 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock($this->createSecurityUser()),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
   }
@@ -598,15 +598,15 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock($this->createSecurityUser()),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -656,10 +656,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   /**
@@ -700,11 +700,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_UNAUTHORIZED, actual: $response->getStatusCode());
@@ -766,10 +766,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: Response::class, actual: $response);
     self::assertSame(expected: Response::HTTP_FOUND, actual: $response->getStatusCode());
@@ -831,10 +831,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: Response::class, actual: $response);
   }
@@ -899,10 +899,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: Response::class, actual: $response);
   }
@@ -950,13 +950,13 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
     $response = $processor->process(
       data: null,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
@@ -1002,11 +1002,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
   }
@@ -1054,11 +1054,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
       oidcUserProvider: $oidcUserProvider,
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
   }
@@ -1106,11 +1106,11 @@ final class AuthorizeProcessorTest extends TestCase
       security: $this->createSecurityMock($this->createSecurityUser()),
       queryBus: $queryBus,
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
       oidcUserProvider: $oidcUserProvider,
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
   }
@@ -1147,13 +1147,13 @@ final class AuthorizeProcessorTest extends TestCase
     $processor = new AuthorizeProcessor(
       authorizationServer: $authorizationServer,
       security: $this->createSecurityMock($securityUser),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
   }
@@ -1203,10 +1203,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1254,10 +1254,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1305,10 +1305,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1358,10 +1358,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1411,10 +1411,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1462,10 +1462,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1513,10 +1513,10 @@ final class AuthorizeProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       authCodeRepository: $authCodeRepository,
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
     );
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   #[Test]
@@ -1538,18 +1538,18 @@ final class AuthorizeProcessorTest extends TestCase
     $rateLimiter->create($this->createRateLimitKey('client-123', '127.0.0.1'))->consume();
 
     $processor = new AuthorizeProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
       security: $this->createSecurityMock(null),
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
-      oidcUserProvider: $this->createMock(OidcUserProviderPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
       rateLimiter: $rateLimiter,
     );
 
     $this->expectException(TooManyRequestsHttpException::class);
 
-    $processor->provide(operation: $this->createMock(Operation::class));
+    $processor->provide(operation: $this->createStub(Operation::class));
   }
 
   /**
@@ -1599,7 +1599,7 @@ final class AuthorizeProcessorTest extends TestCase
 
   private function createSecurityMock(?SecurityUser $user): Security
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     return $security;

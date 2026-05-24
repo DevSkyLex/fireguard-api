@@ -41,10 +41,10 @@ final class RefreshTokenProcessorTest extends TestCase
   public function testProcessReturnsNullWhenNoRequest(): void
   {
     $processor = new RefreshTokenProcessor(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
-      jwtService: $this->createMock(JwtTokenServicePort::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
+      jwtService: $this->createStub(JwtTokenServicePort::class),
     );
 
     $this->assertNull($processor->process(null, new Post()));
@@ -60,10 +60,10 @@ final class RefreshTokenProcessorTest extends TestCase
     $requestStack->push(new Request());
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
-      jwtService: $this->createMock(JwtTokenServicePort::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
+      jwtService: $this->createStub(JwtTokenServicePort::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
@@ -99,7 +99,7 @@ final class RefreshTokenProcessorTest extends TestCase
       queryBus: $queryBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
-      jwtService: $this->createMock(JwtTokenServicePort::class),
+      jwtService: $this->createStub(JwtTokenServicePort::class),
     );
 
     try {
@@ -199,7 +199,7 @@ final class RefreshTokenProcessorTest extends TestCase
     );
 
     $processor = new RefreshTokenProcessor(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       cookieService: $cookieService,
       jwtService: $jwtService,

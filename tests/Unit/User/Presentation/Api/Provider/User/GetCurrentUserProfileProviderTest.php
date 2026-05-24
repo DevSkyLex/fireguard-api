@@ -82,7 +82,7 @@ final class GetCurrentUserProfileProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new GetCurrentUserProfileProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 

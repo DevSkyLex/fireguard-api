@@ -29,7 +29,7 @@ final class GetRoleProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsNullWhenIdMissing(): void
   {
-    $provider = new GetRoleProvider($this->createMock(QueryBusPort::class));
+    $provider = new GetRoleProvider($this->createStub(QueryBusPort::class));
 
     $result = $provider->provide(new Get(), ['id' => null]);
 

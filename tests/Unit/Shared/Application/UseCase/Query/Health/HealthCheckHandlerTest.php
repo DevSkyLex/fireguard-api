@@ -23,7 +23,7 @@ final class HealthCheckHandlerTest extends TestCase
   #[Test]
   public function testHealthyWhenAllDependenciesAreUp(): void
   {
-    $healthCheckPort = $this->createMock(HealthCheckPort::class);
+    $healthCheckPort = $this->createStub(HealthCheckPort::class);
     $healthCheckPort->method('checkDatabase')->willReturn(true);
     $healthCheckPort->method('checkCache')->willReturn(true);
 
@@ -39,7 +39,7 @@ final class HealthCheckHandlerTest extends TestCase
   #[Test]
   public function testDegradedWhenCacheIsDown(): void
   {
-    $healthCheckPort = $this->createMock(HealthCheckPort::class);
+    $healthCheckPort = $this->createStub(HealthCheckPort::class);
     $healthCheckPort->method('checkDatabase')->willReturn(true);
     $healthCheckPort->method('checkCache')->willReturn(false);
 
@@ -54,7 +54,7 @@ final class HealthCheckHandlerTest extends TestCase
   #[Test]
   public function testUnhealthyWhenDatabaseIsDown(): void
   {
-    $healthCheckPort = $this->createMock(HealthCheckPort::class);
+    $healthCheckPort = $this->createStub(HealthCheckPort::class);
     $healthCheckPort->method('checkDatabase')->willReturn(false);
     $healthCheckPort->method('checkCache')->willReturn(true);
 
@@ -69,7 +69,7 @@ final class HealthCheckHandlerTest extends TestCase
   #[Test]
   public function testUnhealthyWhenBothAreDown(): void
   {
-    $healthCheckPort = $this->createMock(HealthCheckPort::class);
+    $healthCheckPort = $this->createStub(HealthCheckPort::class);
     $healthCheckPort->method('checkDatabase')->willReturn(false);
     $healthCheckPort->method('checkCache')->willReturn(false);
 

@@ -57,15 +57,12 @@ final class ArchiveFacilityHandlerTest extends TestCase
       ->method('save')
       ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
     $organizationRepository->expects(self::never())->method('findById');
 
-    /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
 
-    /** @var LoggerPort&MockObject $logger */
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 

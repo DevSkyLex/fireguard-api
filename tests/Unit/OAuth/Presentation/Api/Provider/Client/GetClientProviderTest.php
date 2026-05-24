@@ -51,7 +51,7 @@ final class GetClientProviderTest extends TestCase
       ->with(self::isInstanceOf(GetClientQuery::class))
       ->willReturn($result);
 
-    $operation = $this->createMock(Operation::class);
+    $operation = $this->createStub(Operation::class);
 
     $provider = new GetClientProvider(queryBus: $queryBus);
 
@@ -82,7 +82,7 @@ final class GetClientProviderTest extends TestCase
       ->method('ask')
       ->willThrowException(new EntityNotFoundException('Client not found'));
 
-    $operation = $this->createMock(Operation::class);
+    $operation = $this->createStub(Operation::class);
 
     $provider = new GetClientProvider(queryBus: $queryBus);
 
@@ -103,7 +103,7 @@ final class GetClientProviderTest extends TestCase
     $provider = new GetClientProvider(queryBus: $queryBus);
 
     $output = $provider->provide(
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       uriVariables: ['id' => ['not-string']],
     );
 

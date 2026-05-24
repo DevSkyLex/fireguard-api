@@ -59,7 +59,7 @@ final class ListClientsProviderTest extends TestCase
     $provider = new ListClientsProvider(queryBus: $queryBus);
 
     $result = $provider->provide(
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
       context: [
         'filters' => [
           'page' => '2',

@@ -155,6 +155,15 @@ final class IssueTokenHandlerTest extends TestCase
       expiresIn: 3600,
     );
 
+    $this->expectNoCalls(
+      $this->authCodeRepository,
+      $this->idTokenIssuer,
+      $this->oidcUserProvider,
+      $this->claimsBuilder,
+      $this->refreshTokenRepository,
+      $this->accessTokenRepository,
+    );
+
     $this->authorizationServer
       ->expects($this->once())
       ->method('issueAccessToken')
@@ -198,6 +207,15 @@ final class IssueTokenHandlerTest extends TestCase
       grantType: 'invalid_grant',
       clientId: 'client_id',
       clientSecret: 'client_secret',
+    );
+
+    $this->expectNoCalls(
+      $this->authCodeRepository,
+      $this->idTokenIssuer,
+      $this->oidcUserProvider,
+      $this->claimsBuilder,
+      $this->refreshTokenRepository,
+      $this->accessTokenRepository,
     );
 
     $this->authorizationServer
@@ -271,6 +289,8 @@ final class IssueTokenHandlerTest extends TestCase
       'email' => 'test@example.com',
       'email_verified' => true,
     ];
+
+    $this->expectNoCalls($this->refreshTokenRepository, $this->accessTokenRepository);
 
     $this->authorizationServer
       ->expects(self::once())
@@ -377,6 +397,8 @@ final class IssueTokenHandlerTest extends TestCase
       'email_verified' => true,
     ];
 
+    $this->expectNoCalls($this->authCodeRepository);
+
     $this->authorizationServer
       ->expects(self::once())
       ->method('issueAccessToken')
@@ -470,6 +492,8 @@ final class IssueTokenHandlerTest extends TestCase
       isRevoked: false,
     );
 
+    $this->expectNoCalls($this->refreshTokenRepository, $this->accessTokenRepository);
+
     $this->authorizationServer
       ->expects(self::once())
       ->method('issueAccessToken')
@@ -549,6 +573,8 @@ final class IssueTokenHandlerTest extends TestCase
       authTime: new DateTimeImmutable('@1700000000'),
     );
 
+    $this->expectNoCalls($this->refreshTokenRepository, $this->accessTokenRepository);
+
     $this->authorizationServer
       ->expects(self::once())
       ->method('issueAccessToken')
@@ -616,6 +642,12 @@ final class IssueTokenHandlerTest extends TestCase
       expiryDateTime: new DateTimeImmutable('+1 hour'),
       accessTokenIdentifier: 'access-token-id',
       clientIdentifier: new OAuthClientIdentifier('client-id'),
+    );
+
+    $this->expectNoCalls(
+      $this->authCodeRepository,
+      $this->oidcUserProvider,
+      $this->claimsBuilder,
     );
 
     $this->authorizationServer
@@ -686,6 +718,13 @@ final class IssueTokenHandlerTest extends TestCase
       isRevoked: false,
     );
 
+    $this->expectNoCalls(
+      $this->idTokenIssuer,
+      $this->claimsBuilder,
+      $this->refreshTokenRepository,
+      $this->accessTokenRepository,
+    );
+
     $this->authorizationServer
       ->expects(self::once())
       ->method('issueAccessToken')
@@ -710,6 +749,13 @@ final class IssueTokenHandlerTest extends TestCase
     $this->expectException(AuthorizationException::class);
 
     ($this->handler)($command);
+  }
+
+  private function expectNoCalls(MockObject ...$mocks): void
+  {
+    foreach ($mocks as $mock) {
+      $mock->expects(self::never())->method(self::anything());
+    }
   }
   // #endregion
 }

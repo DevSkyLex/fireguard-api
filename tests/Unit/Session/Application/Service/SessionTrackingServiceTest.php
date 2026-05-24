@@ -39,10 +39,10 @@ final class SessionTrackingServiceTest extends TestCase
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
       updateSessionTokensHandler: new UpdateSessionTokensHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
       revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
     );
 
@@ -67,10 +67,10 @@ final class SessionTrackingServiceTest extends TestCase
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
       updateSessionTokensHandler: new UpdateSessionTokensHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
       revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
     );
 
@@ -93,14 +93,14 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
       updateSessionTokensHandler: new UpdateSessionTokensHandler(
         sessionRepository: $repository,
       ),
       revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
     );
 
@@ -116,14 +116,14 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
       updateSessionTokensHandler: new UpdateSessionTokensHandler(
         sessionRepository: $repository,
       ),
       revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
     );
 
@@ -141,11 +141,11 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
       updateSessionTokensHandler: new UpdateSessionTokensHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
       revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
         sessionRepository: $repository,
@@ -171,11 +171,11 @@ final class SessionTrackingServiceTest extends TestCase
 
     $service = new SessionTrackingService(
       createSessionHandler: new CreateSessionHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
         uuidFactory: $this->createUuidFactory('123e4567-e89b-12d3-a456-426614174000'),
       ),
       updateSessionTokensHandler: new UpdateSessionTokensHandler(
-        sessionRepository: $this->createMock(SessionRepositoryPort::class),
+        sessionRepository: $this->createStub(SessionRepositoryPort::class),
       ),
       revokeSessionByTokenHandler: new RevokeSessionByTokenHandler(
         sessionRepository: $repository,

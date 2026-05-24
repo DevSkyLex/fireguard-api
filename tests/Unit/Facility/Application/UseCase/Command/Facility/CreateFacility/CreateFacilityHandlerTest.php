@@ -69,7 +69,6 @@ final class CreateFacilityHandlerTest extends TestCase
       ->method('save')
       ->willThrowException(new UniqueConstraintViolationException($driverException, null));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::once())
       ->method('create')

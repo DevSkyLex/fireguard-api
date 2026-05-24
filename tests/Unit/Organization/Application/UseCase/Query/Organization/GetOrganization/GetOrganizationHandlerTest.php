@@ -66,8 +66,7 @@ final class GetOrganizationHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
 
     $handler = new GetOrganizationHandler($organizationRepository, $memberRepository);
 

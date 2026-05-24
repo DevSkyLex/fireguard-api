@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\OrganizationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Contracts\Service\ResetInterface;
 
 #[CoversClass(OrganizationAuthorizationService::class)]
 final class OrganizationAuthorizationServiceTest extends TestCase
@@ -83,6 +84,36 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
       permissions: ['organization.members.read'],
     );
+  }
+
+  #[Test]
+  public function testResetClearsPermissionCache(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::exactly(2))
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturnOnConsecutiveCalls(
+        ['organization.read'],
+        ['organization.manage'],
+      );
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertInstanceOf(ResetInterface::class, $service);
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.read',
+    ));
+
+    $service->reset();
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.manage',
+    ));
   }
 
   #[Test]

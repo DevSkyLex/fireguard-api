@@ -31,8 +31,8 @@ final class MessengerCommandBusAdapterTest extends TestCase
   #[Test]
   public function testDispatchSuccess(): void
   {
-    $command = $this->createMock(CommandMessage::class);
-    $result = $this->createMock(ResultMessage::class);
+    $command = $this->createStub(CommandMessage::class);
+    $result = $this->createStub(ResultMessage::class);
     $handledStamp = new HandledStamp($result, 'handler');
     $envelope = new Envelope($command, [$handledStamp]);
 
@@ -49,7 +49,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
   #[Test]
   public function testDispatchThrowsMessengerRuntimeException(): void
   {
-    $command = $this->createMock(CommandMessage::class);
+    $command = $this->createStub(CommandMessage::class);
     $exception = new Exception('Dispatch error');
 
     $this->messageBus->expects($this->once())
@@ -64,7 +64,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
   #[Test]
   public function testDispatchThrowsNoHandlerResultExceptionWhenNoStamp(): void
   {
-    $command = $this->createMock(CommandMessage::class);
+    $command = $this->createStub(CommandMessage::class);
     $envelope = new Envelope($command); // No HandledStamp
 
     $this->messageBus->expects($this->once())
@@ -79,7 +79,7 @@ final class MessengerCommandBusAdapterTest extends TestCase
   #[Test]
   public function testDispatchThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
   {
-    $command = $this->createMock(CommandMessage::class);
+    $command = $this->createStub(CommandMessage::class);
     $handledStamp = new HandledStamp('not-a-result-message', 'handler');
     $envelope = new Envelope($command, [$handledStamp]);
 

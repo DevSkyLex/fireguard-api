@@ -52,17 +52,17 @@ final class GrantConsentProcessorTest extends TestCase
   public function testProcessThrowsWhenDataInvalid(): void
   {
     $processor = new GrantConsentProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      security: $this->createMock(Security::class),
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $this->createStub(Security::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(
       data: 'invalid',
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -75,17 +75,17 @@ final class GrantConsentProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new GrantConsentProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
 
     $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -153,7 +153,7 @@ final class GrantConsentProcessorTest extends TestCase
 
     $response = $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(Response::class, $response);
@@ -175,14 +175,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $response = $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -203,14 +203,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $response = $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(JsonResponse::class, $response);
@@ -234,7 +234,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($securityUser);
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -243,14 +243,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $response = $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(JsonResponse::class, $response);
@@ -265,7 +265,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -282,12 +282,12 @@ final class GrantConsentProcessorTest extends TestCase
       authorizationServer: $authorizationServer,
       commandBus: $commandBus,
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $response = $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
@@ -301,7 +301,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -317,14 +317,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $response = $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(Response::class, $response);
@@ -338,7 +338,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -350,14 +350,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $response = $processor->process(
       data: $this->createInput(approved: false),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -378,7 +378,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($securityUser);
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -412,7 +412,7 @@ final class GrantConsentProcessorTest extends TestCase
 
     $response = $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertSame(Response::HTTP_FOUND, $response->getStatusCode());
@@ -429,7 +429,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -444,14 +444,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -466,7 +466,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -481,14 +481,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -503,7 +503,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -518,14 +518,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -540,7 +540,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -557,14 +557,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -579,7 +579,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -596,14 +596,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -618,7 +618,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -633,14 +633,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -655,7 +655,7 @@ final class GrantConsentProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser());
 
-    $authorizationRequest = $this->createMock(AuthorizationRequestInterface::class);
+    $authorizationRequest = $this->createStub(AuthorizationRequestInterface::class);
 
     $authorizationServer = $this->createMock(AuthorizationServer::class);
     $authorizationServer->expects(self::once())
@@ -670,14 +670,14 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor = new GrantConsentProcessor(
       authorizationServer: $authorizationServer,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       authCodeRepository: $authCodeRepository,
     );
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -685,10 +685,10 @@ final class GrantConsentProcessorTest extends TestCase
   public function testExtractCodeFromFormPostBodyReturnsNullWhenEmpty(): void
   {
     $processor = new GrantConsentProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      security: $this->createMock(Security::class),
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $this->createStub(Security::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $method = new ReflectionMethod(GrantConsentProcessor::class, 'extractCodeFromFormPostBody');
@@ -701,10 +701,10 @@ final class GrantConsentProcessorTest extends TestCase
   public function testExtractCodeFromFormPostBodyReturnsNullWhenCodeMissing(): void
   {
     $processor = new GrantConsentProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      security: $this->createMock(Security::class),
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $this->createStub(Security::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
     );
 
     $method = new ReflectionMethod(GrantConsentProcessor::class, 'extractCodeFromFormPostBody');
@@ -725,10 +725,10 @@ final class GrantConsentProcessorTest extends TestCase
     $rateLimiter->create($this->createRateLimitKey('user-123', 'client-123'))->consume();
 
     $processor = new GrantConsentProcessor(
-      authorizationServer: $this->createMock(AuthorizationServer::class),
-      commandBus: $this->createMock(CommandBusPort::class),
+      authorizationServer: $this->createStub(AuthorizationServer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
-      authCodeRepository: $this->createMock(AuthCodeRepositoryPort::class),
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
       rateLimiter: $rateLimiter,
     );
 
@@ -736,7 +736,7 @@ final class GrantConsentProcessorTest extends TestCase
 
     $processor->process(
       data: $this->createInput(approved: true),
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 

@@ -21,7 +21,7 @@ use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnbo
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
@@ -54,8 +54,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       ->method('generateRaw')
       ->willReturn($sessionId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
@@ -90,12 +89,10 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $service = $this->buildService(
@@ -122,15 +119,13 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
     // Org predates the session (pre-existing production org)
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
     $service = $this->buildService(
@@ -170,21 +165,17 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $userId = '550e8400-e29b-41d4-a716-446655440106';
     $sessionId = '550e8400-e29b-41d4-a716-446655440195';
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
 
     $this->expectException(LogicException::class);
@@ -210,8 +201,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440157';
     $sessionId = '550e8400-e29b-41d4-a716-446655440194';
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
@@ -220,15 +210,13 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn(null);
     $sessionRepository->expects(self::once())->method('save');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
     // Org was created after the session started (simulates user creating the org during onboarding)
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId, new DateTimeImmutable('+1 hour'));
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
     $service = $this->buildService(
@@ -258,21 +246,17 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $userId = '550e8400-e29b-41d4-a716-446655440114';
     $sessionId = '550e8400-e29b-41d4-a716-446655440188';
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, null);
 
     $this->expectException(InvalidArgumentException::class);
@@ -301,24 +285,20 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $orgId = '550e8400-e29b-41d4-a716-446655440156';
     $sessionId = '550e8400-e29b-41d4-a716-446655440186';
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn($sessionId);
 
     // Pre-existing org with a past createdAt (predates the onboarding session)
     $orgResult = $this->buildOrganizationResult($orgId, 'Legacy Corp', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
     $this->expectException(InvalidArgumentException::class);
@@ -342,13 +322,11 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   {
     $userId = '550e8400-e29b-41d4-a716-446655440108';
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
     $this->expectException(LogicException::class);
@@ -366,8 +344,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   {
     $userId = '550e8400-e29b-41d4-a716-446655440109';
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
@@ -388,12 +365,10 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
     $this->expectException(LogicException::class);
@@ -432,8 +407,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
@@ -444,8 +418,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
     $service = $this->buildService(
@@ -491,8 +464,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
@@ -503,8 +475,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus($queryBus, $orgResult);
 
     $service = $this->buildService(
@@ -565,8 +536,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
@@ -577,8 +547,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus(
       $queryBus,
       $orgResult,
@@ -640,8 +609,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     // Facility already exists externally — must NOT auto-complete the step
     $this->configureQueryBus($queryBus, $orgResult, hasFacility: true);
 
@@ -692,8 +660,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $this->configureQueryBus(
       $queryBus,
       $orgResult,
@@ -751,8 +718,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     // The pinned org no longer exists; the user has a different org
     $otherOrgResult = $this->buildOrganizationResult($otherOrgId, 'Other Org', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new PaginatedResult(items: [$otherOrgResult], total: 1, limit: 1, offset: 0));
 
@@ -792,19 +758,16 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
 
     $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     // Facility does NOT exist yet
     $this->configureQueryBus($queryBus, $orgResult, hasFacility: false);
 
@@ -864,8 +827,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->expects(self::once())->method('save');
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     // No organizations returned — pinned org was deleted externally
     $this->configureQueryBus($queryBus, null);
 
@@ -894,12 +856,12 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     ?EventDispatcherInterface $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
     return new OrganizationOnboardingFlowService(
-      sessionRepository: $sessionRepository ?? $this->createMock(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createMock(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createMock(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createMock(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createMock(TransactionManagerPort::class),
-      eventDispatcher: $eventDispatcher ?? $this->createMock(EventDispatcherInterface::class),
+      sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
+      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
+      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
     );
   }
 
@@ -928,7 +890,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
    * Configures the QueryBus mock to route queries by type.
    */
   private function configureQueryBus(
-    QueryBusPort&MockObject $queryBus,
+    QueryBusPort&Stub $queryBus,
     ?GetOrganizationResult $orgResult,
     bool $hasFacility = false,
     bool $hasEquipment = false,

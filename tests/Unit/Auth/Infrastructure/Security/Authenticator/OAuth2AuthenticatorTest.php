@@ -38,7 +38,7 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testSupportsChecksAuthorizationHeader(): void
   {
-    $authenticator = $this->createAuthenticator($this->createMock(AccessTokenLookupPort::class));
+    $authenticator = $this->createAuthenticator($this->createStub(AccessTokenLookupPort::class));
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer token');
@@ -54,7 +54,7 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testAuthenticateRejectsEmptyToken(): void
   {
-    $authenticator = $this->createAuthenticator($this->createMock(AccessTokenLookupPort::class));
+    $authenticator = $this->createAuthenticator($this->createStub(AccessTokenLookupPort::class));
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer ');
@@ -121,7 +121,7 @@ final class OAuth2AuthenticatorTest extends TestCase
     };
 
     $authenticator = new OAuth2Authenticator(
-      accessTokenLookup: $this->createMock(AccessTokenLookupPort::class),
+      accessTokenLookup: $this->createStub(AccessTokenLookupPort::class),
       userProvider: $this->createUserProvider(),
       publicKeyPath: $this->getPublicKeyPath(),
       parser: $parser,
@@ -139,7 +139,7 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testAuthenticateRejectsMissingClaims(): void
   {
-    $authenticator = $this->createAuthenticator($this->createMock(AccessTokenLookupPort::class));
+    $authenticator = $this->createAuthenticator($this->createStub(AccessTokenLookupPort::class));
     $token = $this->buildRsaToken(includeJti: true, includeSub: false);
 
     $request = new Request();
@@ -319,7 +319,7 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testAuthenticateRejectsInvalidTokenString(): void
   {
-    $authenticator = $this->createAuthenticator($this->createMock(AccessTokenLookupPort::class));
+    $authenticator = $this->createAuthenticator($this->createStub(AccessTokenLookupPort::class));
 
     $request = new Request();
     $request->headers->set('Authorization', 'Bearer not-a-jwt');
@@ -336,7 +336,7 @@ final class OAuth2AuthenticatorTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
 
     new OAuth2Authenticator(
-      accessTokenLookup: $this->createMock(AccessTokenLookupPort::class),
+      accessTokenLookup: $this->createStub(AccessTokenLookupPort::class),
       userProvider: $this->createUserProvider(),
       publicKeyPath: '',
     );
@@ -345,9 +345,9 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testOnAuthenticationSuccessReturnsNull(): void
   {
-    $authenticator = $this->createAuthenticator($this->createMock(AccessTokenLookupPort::class));
+    $authenticator = $this->createAuthenticator($this->createStub(AccessTokenLookupPort::class));
 
-    $result = $authenticator->onAuthenticationSuccess(new Request(), $this->createMock(\Symfony\Component\Security\Core\Authentication\Token\TokenInterface::class), 'main');
+    $result = $authenticator->onAuthenticationSuccess(new Request(), $this->createStub(\Symfony\Component\Security\Core\Authentication\Token\TokenInterface::class), 'main');
 
     self::assertNull($result);
   }
@@ -355,7 +355,7 @@ final class OAuth2AuthenticatorTest extends TestCase
   #[Test]
   public function testOnAuthenticationFailureReturnsJsonResponse(): void
   {
-    $authenticator = $this->createAuthenticator($this->createMock(AccessTokenLookupPort::class));
+    $authenticator = $this->createAuthenticator($this->createStub(AccessTokenLookupPort::class));
 
     $response = $authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('bad token'));
 
@@ -376,11 +376,11 @@ final class OAuth2AuthenticatorTest extends TestCase
 
   private function createUserProvider(): SecurityUserProvider
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturn(new GetUserResult(user: $this->createUserView()));
 
-    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization = $this->createStub(AuthorizationPort::class);
     $authorization->method('getUserRoleNames')
       ->willReturn([]);
 

@@ -35,8 +35,7 @@ final class AddAttachmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -47,8 +46,7 @@ final class AddAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::once())->method('write');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
 
     $handler = new AddAttachmentHandler(
@@ -76,8 +74,7 @@ final class AddAttachmentHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenEquipmentNotFound(): void
   {
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn(null);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -88,8 +85,7 @@ final class AddAttachmentHandlerTest extends TestCase
     $fileStorage = $this->createMock(FileStoragePort::class);
     $fileStorage->expects(self::never())->method('write');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
 
     $handler = new AddAttachmentHandler(
@@ -120,8 +116,7 @@ final class AddAttachmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -134,8 +129,7 @@ final class AddAttachmentHandlerTest extends TestCase
       ->method('write')
       ->willThrowException(new RuntimeException('Storage unavailable.'));
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
 
     $handler = new AddAttachmentHandler(
@@ -167,8 +161,7 @@ final class AddAttachmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -182,8 +175,7 @@ final class AddAttachmentHandlerTest extends TestCase
     $fileStorage->expects(self::once())->method('write');
     $fileStorage->expects(self::once())->method('delete');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
 
     $handler = new AddAttachmentHandler(
@@ -215,12 +207,10 @@ final class AddAttachmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
-    /** @var AttachmentRepositoryPort&MockObject $attachmentRepository */
-    $attachmentRepository = $this->createMock(AttachmentRepositoryPort::class);
+    $attachmentRepository = $this->createStub(AttachmentRepositoryPort::class);
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -231,8 +221,7 @@ final class AddAttachmentHandlerTest extends TestCase
         self::anything(),
       );
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new AttachmentId(self::ATTACHMENT_ID));
 
     $handler = new AddAttachmentHandler(

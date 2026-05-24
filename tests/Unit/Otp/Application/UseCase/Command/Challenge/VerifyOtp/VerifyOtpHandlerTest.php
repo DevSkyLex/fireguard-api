@@ -116,7 +116,7 @@ final class VerifyOtpHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenNoIdentifiersProvided(): void
   {
-    $handler = new VerifyOtpHandler(otpRepository: $this->createMock(OtpRepositoryPort::class));
+    $handler = new VerifyOtpHandler(otpRepository: $this->createStub(OtpRepositoryPort::class));
 
     $this->expectException(InvalidArgumentException::class);
 

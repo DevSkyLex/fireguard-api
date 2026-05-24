@@ -125,8 +125,7 @@ final class RevokeSessionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsNotFoundWhenIdMissing(): void
   {
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $processor = new RevokeSessionProcessor(
       commandBus: $commandBus,
       security: $this->createSecurityMock(),
@@ -145,11 +144,11 @@ final class RevokeSessionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUserMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $processor = new RevokeSessionProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 
@@ -193,8 +192,8 @@ final class RevokeSessionProcessorTest extends TestCase
    */
   private function createSecurityMock(): Security
   {
-    $user = $this->createMock(UserInterface::class);
-    $security = $this->createMock(Security::class);
+    $user = $this->createStub(UserInterface::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     return $security;

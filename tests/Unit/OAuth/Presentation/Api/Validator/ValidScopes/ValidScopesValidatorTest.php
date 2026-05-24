@@ -136,7 +136,7 @@ final class ValidScopesValidatorTest extends TestCase
 
     $this->expectException(UnexpectedTypeException::class);
 
-    $validator->validate(value: 'openid', constraint: $this->createMock(\Symfony\Component\Validator\Constraint::class));
+    $validator->validate(value: 'openid', constraint: $this->createStub(\Symfony\Component\Validator\Constraint::class));
   }
   // #endregion
 }

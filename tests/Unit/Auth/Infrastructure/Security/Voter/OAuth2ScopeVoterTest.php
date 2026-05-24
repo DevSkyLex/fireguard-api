@@ -39,7 +39,7 @@ final class OAuth2ScopeVoterTest extends TestCase
       scopes: ['read', 'write'],
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, null, ['SCOPE_READ']);
@@ -63,7 +63,7 @@ final class OAuth2ScopeVoterTest extends TestCase
       scopes: ['read'],
     );
 
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')->willReturn($user);
 
     $result = $voter->vote($token, null, ['SCOPE_DELETE']);
@@ -79,8 +79,8 @@ final class OAuth2ScopeVoterTest extends TestCase
   {
     $voter = new OAuth2ScopeVoter();
 
-    $token = $this->createMock(TokenInterface::class);
-    $token->method('getUser')->willReturn($this->createMock(UserInterface::class));
+    $token = $this->createStub(TokenInterface::class);
+    $token->method('getUser')->willReturn($this->createStub(UserInterface::class));
 
     $result = $voter->vote($token, null, ['SCOPE_READ']);
 

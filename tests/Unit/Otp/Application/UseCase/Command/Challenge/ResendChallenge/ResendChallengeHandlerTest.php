@@ -118,13 +118,13 @@ final class ResendChallengeHandlerTest extends TestCase
   // #region Helpers
   private function createGenerateHandler(): GenerateOtpHandler
   {
-    $otpRepository = $this->createMock(OtpRepositoryPort::class);
+    $otpRepository = $this->createStub(OtpRepositoryPort::class);
     $otpRepository->method('revokeAllForUser');
     $otpRepository->method('save');
 
-    $notifier = $this->createMock(OtpNotifierPort::class);
+    $notifier = $this->createStub(OtpNotifierPort::class);
 
-    $uuidGenerator = $this->createMock(UuidGeneratorPort::class);
+    $uuidGenerator = $this->createStub(UuidGeneratorPort::class);
     $uuidGenerator->method('generate')
       ->willReturn('123e4567-e89b-12d3-a456-426614174999');
 

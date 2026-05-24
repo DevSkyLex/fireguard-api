@@ -130,7 +130,7 @@ final class CacheAdapterTest extends TestCase
   public function testSetThrowsExceptionOnSave(): void
   {
     $key = 'test_key';
-    $item = $this->createMock(CacheItemInterface::class);
+    $item = $this->createStub(CacheItemInterface::class);
     $exception = new class () extends Exception implements InvalidArgumentException {};
 
     $this->cachePool->expects($this->once())

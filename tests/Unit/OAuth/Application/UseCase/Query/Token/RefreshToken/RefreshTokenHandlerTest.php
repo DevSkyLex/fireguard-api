@@ -32,9 +32,9 @@ final class RefreshTokenHandlerTest extends TestCase
   public function testReturnsFailureWhenTokenMissing(): void
   {
     $handler = new RefreshTokenHandler(
-      tokenService: $this->createMock(JwtTokenServicePort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      tokenService: $this->createStub(JwtTokenServicePort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new RefreshTokenQuery(refreshToken: '', ipAddress: '127.0.0.1'));
@@ -65,7 +65,7 @@ final class RefreshTokenHandlerTest extends TestCase
 
     $handler = new RefreshTokenHandler(
       tokenService: $tokenService,
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       eventDispatcher: $eventDispatcher,
     );
 
@@ -170,8 +170,8 @@ final class RefreshTokenHandlerTest extends TestCase
 
     $handler = new RefreshTokenHandler(
       tokenService: $tokenService,
-      queryBus: $this->createMock(QueryBusPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token', ipAddress: '127.0.0.1'));

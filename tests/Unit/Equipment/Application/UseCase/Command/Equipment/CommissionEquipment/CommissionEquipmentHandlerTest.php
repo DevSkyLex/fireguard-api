@@ -46,14 +46,13 @@ final class CommissionEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $result = $handler->__invoke(new CommissionEquipmentCommand(
@@ -74,13 +73,12 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn(null);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -105,13 +103,12 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -137,13 +134,12 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(EquipmentAlreadyDecommissionedException::class);
@@ -168,13 +164,12 @@ final class CommissionEquipmentHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new CommissionEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
-      maintenanceLogRepository: $this->createMock(MaintenanceLogRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -213,8 +208,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */
@@ -259,8 +253,7 @@ final class CommissionEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     /** @var MaintenanceLogRepositoryPort&MockObject $maintenanceLogRepository */

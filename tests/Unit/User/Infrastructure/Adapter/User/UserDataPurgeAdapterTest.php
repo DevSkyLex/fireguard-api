@@ -45,11 +45,11 @@ final class UserDataPurgeAdapterTest extends TestCase
 
   private function createQueryBuilderMock(): QueryBuilder
   {
-    $query = $this->createMock(Query::class);
+    $query = $this->createStub(Query::class);
     $query->method('execute')
       ->willReturn(1);
 
-    $builder = $this->createMock(QueryBuilder::class);
+    $builder = $this->createStub(QueryBuilder::class);
     $builder->method('select')->willReturnSelf();
     $builder->method('from')->willReturnSelf();
     $builder->method('where')->willReturnSelf();

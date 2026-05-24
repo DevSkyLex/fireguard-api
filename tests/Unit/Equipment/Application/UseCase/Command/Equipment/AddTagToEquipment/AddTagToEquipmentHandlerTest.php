@@ -34,8 +34,7 @@ final class AddTagToEquipmentHandlerTest extends TestCase
       type: EquipmentType::FIRE_EXTINGUISHER,
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
@@ -44,8 +43,7 @@ final class AddTagToEquipmentHandlerTest extends TestCase
     $tagRepository->expects(self::once())->method('saveAndLinkToEquipment');
     $tagRepository->expects(self::never())->method('addTagToEquipment');
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new TagId(self::TAG_ID));
 
     $handler = new AddTagToEquipmentHandler(
@@ -79,8 +77,7 @@ final class AddTagToEquipmentHandlerTest extends TestCase
       name: 'urgent',
     );
 
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn($equipment);
 
     /** @var TagRepositoryPort&MockObject $tagRepository */
@@ -112,15 +109,12 @@ final class AddTagToEquipmentHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenEquipmentNotFound(): void
   {
-    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
-    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
     $equipmentRepository->method('findById')->willReturn(null);
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     $handler = new AddTagToEquipmentHandler(
       equipmentRepository: $equipmentRepository,

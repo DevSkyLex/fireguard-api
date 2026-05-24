@@ -131,7 +131,7 @@ final class AuthCodeRepositoryTest extends TestCase
   public function testFindByEncryptedCodeReturnsNullWhenEmpty(): void
   {
     $repository = new AuthCodeRepository(
-      entityManager: $this->createMock(EntityManagerInterface::class),
+      entityManager: $this->createStub(EntityManagerInterface::class),
       encryptionKey: self::ENCRYPTION_KEY,
     );
 
@@ -142,7 +142,7 @@ final class AuthCodeRepositoryTest extends TestCase
   public function testFindByEncryptedCodeReturnsNullForInvalidPayload(): void
   {
     $repository = new AuthCodeRepository(
-      entityManager: $this->createMock(EntityManagerInterface::class),
+      entityManager: $this->createStub(EntityManagerInterface::class),
       encryptionKey: self::ENCRYPTION_KEY,
     );
 
@@ -155,7 +155,7 @@ final class AuthCodeRepositoryTest extends TestCase
   public function testFindByEncryptedCodeReturnsNullWhenIdentifierMissing(): void
   {
     $repository = new AuthCodeRepository(
-      entityManager: $this->createMock(EntityManagerInterface::class),
+      entityManager: $this->createStub(EntityManagerInterface::class),
       encryptionKey: self::ENCRYPTION_KEY,
     );
 
@@ -168,7 +168,7 @@ final class AuthCodeRepositoryTest extends TestCase
   public function testFindByEncryptedCodeReturnsNullWhenDecryptFails(): void
   {
     $repository = new AuthCodeRepository(
-      entityManager: $this->createMock(EntityManagerInterface::class),
+      entityManager: $this->createStub(EntityManagerInterface::class),
       encryptionKey: self::ENCRYPTION_KEY,
     );
 

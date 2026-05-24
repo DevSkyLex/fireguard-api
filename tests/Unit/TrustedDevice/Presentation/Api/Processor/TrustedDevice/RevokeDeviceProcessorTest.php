@@ -42,7 +42,7 @@ final class RevokeDeviceProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new RevokeDeviceProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 
@@ -66,10 +66,10 @@ final class RevokeDeviceProcessorTest extends TestCase
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
       ->method('getUser')
-      ->willReturn($this->createMock(UserInterface::class));
+      ->willReturn($this->createStub(UserInterface::class));
 
     $processor = new RevokeDeviceProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 

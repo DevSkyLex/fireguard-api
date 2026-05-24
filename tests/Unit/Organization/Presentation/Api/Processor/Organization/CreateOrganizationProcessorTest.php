@@ -153,7 +153,7 @@ final class CreateOrganizationProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new CreateOrganizationProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 

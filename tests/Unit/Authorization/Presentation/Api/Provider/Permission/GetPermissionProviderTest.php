@@ -28,7 +28,7 @@ final class GetPermissionProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsNullWhenIdMissing(): void
   {
-    $provider = new GetPermissionProvider($this->createMock(QueryBusPort::class));
+    $provider = new GetPermissionProvider($this->createStub(QueryBusPort::class));
 
     $result = $provider->provide(new Get(), ['id' => null]);
 
