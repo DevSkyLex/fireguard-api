@@ -124,7 +124,7 @@ final class SyncPermissionsCommandTest extends TestCase
   }
 
   #[Test]
-  public function testUpdateRolesWarnsWhenPermissionMissing(): void
+  public function testUpdateRolesReportsSystemRoleCreationsInDryRun(): void
   {
     $definitions = PermissionCatalog::definitions();
     $definitionDescriptions = [];
@@ -181,8 +181,8 @@ final class SyncPermissionsCommandTest extends TestCase
     $tester->execute(['--update-roles' => true, '--dry-run' => true]);
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-    self::assertStringContainsString('Permission "', $tester->getDisplay());
-    self::assertStringContainsString('missing, skipping.', $tester->getDisplay());
+    self::assertStringContainsString('System roles created: 2', $tester->getDisplay());
+    self::assertStringContainsString('Role permissions added', $tester->getDisplay());
   }
 
   private function createRole(string $name): RoleRecord
