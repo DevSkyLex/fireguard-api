@@ -13,6 +13,7 @@ services:
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
+      APP_RUNTIME: Symfony\Component\Runtime\SymfonyRuntime
       SERVER_NAME: ":8000"
       SERVER_ROOT: public/
       REDIS_URL: redis://redis:6379
@@ -52,6 +53,23 @@ services:
       start_period: 30s
     security_opt:
       - no-new-privileges:true
+    logging: *default-logging
+
+  app_var_init:
+    image: ${FIREGUARD_IMAGE:?Set FIREGUARD_IMAGE}
+    profiles: ["tools"]
+    user: "0:0"
+    working_dir: /var/www/html
+    entrypoint: ["sh", "-lc"]
+    command: >
+      set -eu;
+      mkdir -p var/cache var/log;
+      chown -R 1000:1000 var;
+      chmod -R u+rwX,g-rwx,o-rwx var;
+    volumes:
+      - app_var:/var/www/html/var
+    labels:
+      - "traefik.enable=false"
     logging: *default-logging
 
   jwt_init:

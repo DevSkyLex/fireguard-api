@@ -46,6 +46,7 @@ WORKDIR /var/www/html
 # Traefik terminates TLS; FrankenPHP serves HTTP internally on a non-privileged port.
 ENV SERVER_NAME=:8000
 ENV SERVER_ROOT=public/
+ENV APP_RUNTIME=Symfony\\Component\\Runtime\\SymfonyRuntime
 
 # Create app user and writable runtime directories.
 RUN groupadd -g 1000 app \
