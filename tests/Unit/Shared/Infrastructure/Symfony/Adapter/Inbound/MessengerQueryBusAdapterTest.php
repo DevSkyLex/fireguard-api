@@ -31,8 +31,8 @@ final class MessengerQueryBusAdapterTest extends TestCase
   #[Test]
   public function testAskSuccess(): void
   {
-    $query = $this->createMock(QueryMessage::class);
-    $result = $this->createMock(ResultMessage::class);
+    $query = $this->createStub(QueryMessage::class);
+    $result = $this->createStub(ResultMessage::class);
     $handledStamp = new HandledStamp($result, 'handler');
     $envelope = new Envelope($query, [$handledStamp]);
 
@@ -49,7 +49,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
   #[Test]
   public function testAskThrowsMessengerRuntimeException(): void
   {
-    $query = $this->createMock(QueryMessage::class);
+    $query = $this->createStub(QueryMessage::class);
     $exception = new Exception('Dispatch error');
 
     $this->messageBus->expects($this->once())
@@ -64,7 +64,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
   #[Test]
   public function testAskThrowsNoHandlerResultExceptionWhenNoStamp(): void
   {
-    $query = $this->createMock(QueryMessage::class);
+    $query = $this->createStub(QueryMessage::class);
     $envelope = new Envelope($query); // No HandledStamp
 
     $this->messageBus->expects($this->once())
@@ -79,7 +79,7 @@ final class MessengerQueryBusAdapterTest extends TestCase
   #[Test]
   public function testAskThrowsNoHandlerResultExceptionWhenResultNotResultMessage(): void
   {
-    $query = $this->createMock(QueryMessage::class);
+    $query = $this->createStub(QueryMessage::class);
     $handledStamp = new HandledStamp('not-a-result-message', 'handler');
     $envelope = new Envelope($query, [$handledStamp]);
 

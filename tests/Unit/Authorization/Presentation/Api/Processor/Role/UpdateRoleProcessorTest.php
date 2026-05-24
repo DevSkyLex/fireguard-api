@@ -46,6 +46,8 @@ final class UpdateRoleProcessorTest extends TestCase
   {
     $input = new RoleInput();
 
+    $this->commandBus->expects($this->never())->method(self::anything());
+
     $this->expectException(RoleNotFoundException::class);
 
     $this->processor->process($input, new Put(), ['id' => null]);

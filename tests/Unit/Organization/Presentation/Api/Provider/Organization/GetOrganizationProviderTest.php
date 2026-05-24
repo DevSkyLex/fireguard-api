@@ -35,7 +35,7 @@ final class GetOrganizationProviderTest extends TestCase
 
     $provider = new GetOrganizationProvider(
       queryBus: $queryBus,
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -60,7 +60,7 @@ final class GetOrganizationProviderTest extends TestCase
       ->willReturn(false);
 
     $provider = new GetOrganizationProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );

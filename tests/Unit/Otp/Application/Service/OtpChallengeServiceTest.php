@@ -62,7 +62,7 @@ final class OtpChallengeServiceTest extends TestCase
       uuidFactory: $uuidFactory,
     );
 
-    $verifyHandler = new VerifyOtpHandler($this->createMock(OtpRepositoryPort::class));
+    $verifyHandler = new VerifyOtpHandler($this->createStub(OtpRepositoryPort::class));
 
     $service = new OtpChallengeService(
       generateHandler: $generateHandler,
@@ -94,9 +94,9 @@ final class OtpChallengeServiceTest extends TestCase
 
     $verifyHandler = new VerifyOtpHandler($repository);
     $generateHandler = new GenerateOtpHandler(
-      otpRepository: $this->createMock(OtpRepositoryPort::class),
-      otpNotifier: $this->createMock(OtpNotifierPort::class),
-      uuidFactory: $this->createMock(UuidFactory::class),
+      otpRepository: $this->createStub(OtpRepositoryPort::class),
+      otpNotifier: $this->createStub(OtpNotifierPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
     );
 
     $service = new OtpChallengeService(
@@ -138,9 +138,9 @@ final class OtpChallengeServiceTest extends TestCase
 
     $verifyHandler = new VerifyOtpHandler($repository);
     $generateHandler = new GenerateOtpHandler(
-      otpRepository: $this->createMock(OtpRepositoryPort::class),
-      otpNotifier: $this->createMock(OtpNotifierPort::class),
-      uuidFactory: $this->createMock(UuidFactory::class),
+      otpRepository: $this->createStub(OtpRepositoryPort::class),
+      otpNotifier: $this->createStub(OtpNotifierPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
     );
 
     $service = new OtpChallengeService(

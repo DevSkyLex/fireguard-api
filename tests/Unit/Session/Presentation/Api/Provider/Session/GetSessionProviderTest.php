@@ -38,7 +38,7 @@ final class GetSessionProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new GetSessionProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 
@@ -50,7 +50,7 @@ final class GetSessionProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenIdMissing(): void
   {
-    $user = $this->createMock(UserInterface::class);
+    $user = $this->createStub(UserInterface::class);
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
@@ -58,7 +58,7 @@ final class GetSessionProviderTest extends TestCase
       ->willReturn($user);
 
     $provider = new GetSessionProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 
@@ -70,7 +70,7 @@ final class GetSessionProviderTest extends TestCase
   #[Test]
   public function testProvideMapsResult(): void
   {
-    $user = $this->createMock(UserInterface::class);
+    $user = $this->createStub(UserInterface::class);
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())
@@ -115,7 +115,7 @@ final class GetSessionProviderTest extends TestCase
   #[Test]
   public function testProvideMapsNotFoundException(): void
   {
-    $user = $this->createMock(UserInterface::class);
+    $user = $this->createStub(UserInterface::class);
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())

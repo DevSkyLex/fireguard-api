@@ -31,12 +31,12 @@ final class CancelInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenNotAuthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $processor = new CancelInspectionProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -52,11 +52,10 @@ final class CancelInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessDispatchesCommandAndReturnsNull(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var CommandBusPort&MockObject $commandBus */
@@ -126,15 +125,13 @@ final class CancelInspectionProcessorTest extends TestCase
 
   private function makeAuthorizedProcessor(Throwable $commandException): CancelInspectionProcessor
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException($commandException);
 
     return new CancelInspectionProcessor(

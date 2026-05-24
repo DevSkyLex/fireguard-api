@@ -36,12 +36,11 @@ final class GetUserAvatarControllerTest extends TestCase
   #[Test]
   public function testInvokeThrows404WhenUserNotFound(): void
   {
-    /** @var UserRepositoryPort&MockObject $repo */
-    $repo = $this->createMock(UserRepositoryPort::class);
+    $repo = $this->createStub(UserRepositoryPort::class);
     $repo->method('findById')->willReturn(null);
 
     $controller = new GetUserAvatarController(
-      fileStorage: $this->createMock(FileStoragePort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
       userRepository: $repo,
     );
 
@@ -54,12 +53,10 @@ final class GetUserAvatarControllerTest extends TestCase
   #[Test]
   public function testInvokeThrows404WhenAvatarFileMissing(): void
   {
-    /** @var UserRepositoryPort&MockObject $repo */
-    $repo = $this->createMock(UserRepositoryPort::class);
+    $repo = $this->createStub(UserRepositoryPort::class);
     $repo->method('findById')->willReturn($this->makeUser(self::USER_ID));
 
-    /** @var FileStoragePort&MockObject $storage */
-    $storage = $this->createMock(FileStoragePort::class);
+    $storage = $this->createStub(FileStoragePort::class);
     $storage->method('read')->willThrowException(
       FileStorageException::readFailed(sprintf('avatars/%s/256.webp', self::USER_ID)),
     );
@@ -80,8 +77,7 @@ final class GetUserAvatarControllerTest extends TestCase
   {
     $fakeWebp = 'fake-webp-contents';
 
-    /** @var UserRepositoryPort&MockObject $repo */
-    $repo = $this->createMock(UserRepositoryPort::class);
+    $repo = $this->createStub(UserRepositoryPort::class);
     $repo->method('findById')->willReturn($this->makeUser(self::USER_ID));
 
     /** @var FileStoragePort&MockObject $storage */
@@ -110,8 +106,7 @@ final class GetUserAvatarControllerTest extends TestCase
   #[DataProvider('sizeResolutionProvider')]
   public function testSizeQueryParamResolvesToNearestVariant(int $requested, int $expectedSize): void
   {
-    /** @var UserRepositoryPort&MockObject $repo */
-    $repo = $this->createMock(UserRepositoryPort::class);
+    $repo = $this->createStub(UserRepositoryPort::class);
     $repo->method('findById')->willReturn($this->makeUser(self::USER_ID));
 
     /** @var FileStoragePort&MockObject $storage */

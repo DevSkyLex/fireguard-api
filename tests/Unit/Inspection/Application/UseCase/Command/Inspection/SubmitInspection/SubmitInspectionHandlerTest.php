@@ -72,8 +72,7 @@ final class SubmitInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn(null);
 
     $handler = new SubmitInspectionHandler(inspectionRepository: $repository);
@@ -91,8 +90,7 @@ final class SubmitInspectionHandlerTest extends TestCase
   {
     $inspection = $this->makeDraftInspection();
 
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn($inspection);
 
     $handler = new SubmitInspectionHandler(inspectionRepository: $repository);

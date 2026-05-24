@@ -61,11 +61,11 @@ final class EndSessionProcessorTest extends TestCase
       requestStack: $requestStack,
       commandBus: $commandBus,
       queryBus: $queryBus,
-      jwtParser: $this->createMock(JwtParserPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -111,13 +111,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
-      jwtParser: $this->createMock(JwtParserPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: RedirectResponse::class, actual: $response);
     self::assertSame(
@@ -169,13 +169,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
       jwtParser: $jwtParser,
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: RedirectResponse::class, actual: $response);
     self::assertSame(
@@ -231,7 +231,7 @@ final class EndSessionProcessorTest extends TestCase
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -290,7 +290,7 @@ final class EndSessionProcessorTest extends TestCase
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -342,13 +342,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
-      jwtParser: $this->createMock(JwtParserPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_BAD_REQUEST, actual: $response->getStatusCode());
@@ -401,13 +401,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
       jwtParser: $jwtParser,
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: RedirectResponse::class, actual: $response);
     self::assertSame(
@@ -456,12 +456,12 @@ final class EndSessionProcessorTest extends TestCase
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
       commandBus: $commandBus,
-      queryBus: $this->createMock(QueryBusPort::class),
-      jwtParser: $this->createMock(JwtParserPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $cookieService,
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(expected: JsonResponse::class, actual: $response);
     self::assertSame(expected: Response::HTTP_OK, actual: $response->getStatusCode());
@@ -479,9 +479,9 @@ final class EndSessionProcessorTest extends TestCase
   {
     $processor = new EndSessionProcessor(
       requestStack: new RequestStack(),
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
-      jwtParser: $this->createMock(JwtParserPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
@@ -489,7 +489,7 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor->process(
       data: null,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -520,13 +520,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       jwtParser: $jwtParser,
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -559,13 +559,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       jwtParser: $jwtParser,
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -593,13 +593,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
-      jwtParser: $this->createMock(JwtParserPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -635,13 +635,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
-      jwtParser: $this->createMock(JwtParserPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
@@ -673,13 +673,13 @@ final class EndSessionProcessorTest extends TestCase
 
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       queryBus: $queryBus,
-      jwtParser: $this->createMock(JwtParserPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $this->createCookieService(),
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(RedirectResponse::class, $response);
     self::assertSame($postLogoutUri, $response->headers->get('Location'));
@@ -705,12 +705,12 @@ final class EndSessionProcessorTest extends TestCase
     $processor = new EndSessionProcessor(
       requestStack: $requestStack,
       commandBus: $commandBus,
-      queryBus: $this->createMock(QueryBusPort::class),
-      jwtParser: $this->createMock(JwtParserPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
       cookieService: $cookieService,
     );
 
-    $response = $processor->provide(operation: $this->createMock(Operation::class));
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
 
     self::assertInstanceOf(JsonResponse::class, $response);
     self::assertSame(Response::HTTP_OK, $response->getStatusCode());

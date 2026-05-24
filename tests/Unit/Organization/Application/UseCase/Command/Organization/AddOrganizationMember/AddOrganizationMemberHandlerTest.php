@@ -273,7 +273,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createMock(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
     );
 
@@ -387,7 +387,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createMock(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
     );
 
@@ -423,12 +423,12 @@ final class AddOrganizationMemberHandlerTest extends TestCase
 
     $handler = new AddOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
-      memberRepository: $this->createMock(OrganizationMemberRepositoryPort::class),
-      roleRepository: $this->createMock(OrganizationRoleRepositoryPort::class),
-      userRepository: $this->createMock(UserRepositoryPort::class),
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      userRepository: $this->createStub(UserRepositoryPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createMock(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
     );
 
@@ -496,7 +496,7 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
-      uuidFactory: $this->createMock(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
     );
 

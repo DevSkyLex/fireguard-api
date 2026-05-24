@@ -219,8 +219,8 @@ final class ListFacilitiesProviderTest extends TestCase
     $requestStack->push(new Request());
 
     $provider = new ListFacilitiesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $requestStack,
     );
@@ -252,7 +252,7 @@ final class ListFacilitiesProviderTest extends TestCase
     $requestStack->push(new Request());
 
     $provider = new ListFacilitiesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
@@ -277,8 +277,8 @@ final class ListFacilitiesProviderTest extends TestCase
     $requestStack->push(new Request());
 
     $provider = new ListFacilitiesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $requestStack,
     );

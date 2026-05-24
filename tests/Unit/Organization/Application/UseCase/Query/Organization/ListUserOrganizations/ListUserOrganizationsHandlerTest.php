@@ -156,8 +156,8 @@ final class ListUserOrganizationsHandlerTest extends TestCase
   public function testInvokeThrowsWhenStatusIsInvalid(): void
   {
     $handler = new ListUserOrganizationsHandler(
-      memberRepository: $this->createMock(OrganizationMemberRepositoryPort::class),
-      organizationRepository: $this->createMock(OrganizationRepositoryPort::class),
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

@@ -40,7 +40,7 @@ final class RevokeAllDevicesProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new RevokeAllDevicesProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 

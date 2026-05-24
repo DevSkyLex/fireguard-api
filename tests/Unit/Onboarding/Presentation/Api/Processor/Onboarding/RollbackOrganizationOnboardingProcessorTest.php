@@ -17,7 +17,6 @@ use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutp
 use Onboarding\Presentation\Api\Processor\Onboarding\RollbackOrganizationOnboardingProcessor;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -60,8 +59,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
@@ -82,8 +80,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
     );
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn($existingSession);
     $sessionRepository->method('save');
 
@@ -104,8 +101,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     );
 
     $listOrgCallCount = 0;
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')
       ->willReturnCallback(static function (mixed $query) use ($orgResult, &$listOrgCallCount): mixed {
         ++$listOrgCallCount;
@@ -116,8 +112,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
         return new PaginatedResult(items: [], total: 0, limit: 100, offset: 0);
       });
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch');
 
     $processor = new RollbackOrganizationOnboardingProcessor(
@@ -146,13 +141,11 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static fn (callable $fn): mixed => $fn());
 
-    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
-    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
     $sessionRepository->method('findByUserId')->willReturn(null);
 
     $this->expectException(ConflictHttpException::class);
@@ -179,8 +172,7 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($this->createSecurityUser($userId));
 
-    /** @var TransactionManagerPort&MockObject $transactionManager */
-    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')
       ->willReturnCallback(static function (callable $fn): mixed {
         throw MessengerRuntimeException::wrap(
@@ -210,12 +202,12 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
     ?EventDispatcherInterface $eventDispatcher = null,
   ): OrganizationOnboardingFlowService {
     return new OrganizationOnboardingFlowService(
-      sessionRepository: $sessionRepository ?? $this->createMock(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $queryBus ?? $this->createMock(QueryBusPort::class),
-      commandBus: $commandBus ?? $this->createMock(CommandBusPort::class),
-      uuidFactory: $uuidFactory ?? $this->createMock(UuidFactory::class),
-      transactionManager: $transactionManager ?? $this->createMock(TransactionManagerPort::class),
-      eventDispatcher: $eventDispatcher ?? $this->createMock(EventDispatcherInterface::class),
+      sessionRepository: $sessionRepository ?? $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
+      queryBus: $queryBus ?? $this->createStub(QueryBusPort::class),
+      commandBus: $commandBus ?? $this->createStub(CommandBusPort::class),
+      uuidFactory: $uuidFactory ?? $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager ?? $this->createStub(TransactionManagerPort::class),
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherInterface::class),
     );
   }
 

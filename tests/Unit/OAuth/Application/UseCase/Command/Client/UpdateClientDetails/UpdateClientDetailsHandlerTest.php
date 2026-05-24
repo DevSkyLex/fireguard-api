@@ -113,7 +113,7 @@ final class UpdateClientDetailsHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $eventBus = $this->createMock(EventBusPort::class);
+    $eventBus = $this->createStub(EventBusPort::class);
 
     $command = new UpdateClientDetailsCommand(
       clientId: $clientId,

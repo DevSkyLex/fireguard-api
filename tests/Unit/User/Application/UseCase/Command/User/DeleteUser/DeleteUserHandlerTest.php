@@ -35,8 +35,7 @@ final class DeleteUserHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    /** @var UserDataPurgePort&MockObject $purgePort */
-    $purgePort = $this->createMock(UserDataPurgePort::class);
+    $purgePort = $this->createStub(UserDataPurgePort::class);
     $handler = new DeleteUserHandler($repository, $purgePort);
 
     $this->expectException(UserNotFoundException::class);

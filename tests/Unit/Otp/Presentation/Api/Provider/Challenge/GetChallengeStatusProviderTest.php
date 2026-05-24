@@ -36,7 +36,7 @@ final class GetChallengeStatusProviderTest extends TestCase
   #[Test]
   public function testProvideThrowsWhenTokenMissing(): void
   {
-    $provider = new GetChallengeStatusProvider($this->createMock(QueryBusPort::class));
+    $provider = new GetChallengeStatusProvider($this->createStub(QueryBusPort::class));
 
     $this->expectException(NotFoundHttpException::class);
 

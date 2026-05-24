@@ -24,7 +24,7 @@ final class InspectionRepositoryTest extends TestCase
   public function testCountByOrganizationIdNormalizesDateFiltersToConfiguredStorageTimezone(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440001');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
     $query = $this->createMock(Query::class);
     $query->expects(self::once())->method('getSingleScalarResult')->willReturn('0');
 
@@ -160,7 +160,7 @@ final class InspectionRepositoryTest extends TestCase
   public function testCountByPerformedDayForOrganizationIdReinterpretsHydratedDatetimesUsingConfiguredStorageTimezone(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440031');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('sqlite');
@@ -211,7 +211,7 @@ final class InspectionRepositoryTest extends TestCase
   public function testCountByPerformedDayForOrganizationIdPreservesMicrosecondsOnPostgreSqlBounds(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440032');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('postgresql');
@@ -258,7 +258,7 @@ final class InspectionRepositoryTest extends TestCase
   public function testCountByPerformedDayForOrganizationIdPostgreSqlAppliesOptionalFiltersInSql(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440033');
-    $doctrineRepository = $this->createMock(EntityRepository::class);
+    $doctrineRepository = $this->createStub(EntityRepository::class);
 
     $platform = $this->createMock(AbstractPlatform::class);
     $platform->expects(self::once())->method('getName')->willReturn('postgresql');

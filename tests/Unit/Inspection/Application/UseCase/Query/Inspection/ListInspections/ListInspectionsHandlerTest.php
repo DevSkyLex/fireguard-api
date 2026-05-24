@@ -151,8 +151,8 @@ final class ListInspectionsHandlerTest extends TestCase
   public function testInvokeThrowsWhenPerformedAtRangeIsInvalid(): void
   {
     $handler = new ListInspectionsHandler(
-      inspectionRepository: $this->createMock(InspectionRepositoryPort::class),
-      nonConformityRepository: $this->createMock(NonConformityRepositoryPort::class),
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

@@ -35,7 +35,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
 
     $provider = new ListOrganizationRolesProvider(
       queryBus: $queryBus,
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -60,7 +60,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
       ->willReturn(false);
 
     $provider = new ListOrganizationRolesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );

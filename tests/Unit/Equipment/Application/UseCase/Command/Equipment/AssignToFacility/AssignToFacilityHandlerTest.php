@@ -47,8 +47,7 @@ final class AssignToFacilityHandlerTest extends TestCase
       ->method('assertFacilityIsAssignable')
       ->with(self::FACILITY_ID, self::ORG_ID);
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new AssignToFacilityHandler(
@@ -81,8 +80,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $facilityValidation = $this->createMock(FacilityValidationPort::class);
     $facilityValidation->expects(self::never())->method('assertFacilityIsAssignable');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
       equipmentRepository: $equipmentRepository,
@@ -119,8 +117,7 @@ final class AssignToFacilityHandlerTest extends TestCase
     $facilityValidation = $this->createMock(FacilityValidationPort::class);
     $facilityValidation->expects(self::never())->method('assertFacilityIsAssignable');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
       equipmentRepository: $equipmentRepository,
@@ -159,8 +156,7 @@ final class AssignToFacilityHandlerTest extends TestCase
       ->method('assertFacilityIsAssignable')
       ->willThrowException(new InvalidArgumentException('Facility with ID "' . self::FACILITY_ID . '" not found.'));
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
       equipmentRepository: $equipmentRepository,
@@ -199,8 +195,7 @@ final class AssignToFacilityHandlerTest extends TestCase
       ->method('assertFacilityIsAssignable')
       ->willThrowException(new InvalidArgumentException('Facility with ID "' . self::FACILITY_ID . '" is archived and cannot be used.'));
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new AssignToFacilityHandler(
       equipmentRepository: $equipmentRepository,

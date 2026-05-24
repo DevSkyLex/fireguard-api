@@ -49,14 +49,14 @@ final class MfaVerifyProcessorTest extends TestCase
 
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
-      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
       handler: $handler,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
     );
 
     $input = new MfaVerifyInput();
@@ -71,15 +71,15 @@ final class MfaVerifyProcessorTest extends TestCase
   public function testProcessThrowsBadRequestWhenCodeInvalid(): void
   {
     $handler = new MfaVerifyHandler(
-      jwtService: $this->createMock(JwtTokenServicePort::class),
-      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      jwtService: $this->createStub(JwtTokenServicePort::class),
+      challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
       handler: $handler,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
     );
 
     $input = new MfaVerifyInput();
@@ -117,13 +117,13 @@ final class MfaVerifyProcessorTest extends TestCase
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
       challengeVerifier: $verifier,
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
       handler: $handler,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
     );
 
     $input = new MfaVerifyInput();
@@ -241,15 +241,15 @@ final class MfaVerifyProcessorTest extends TestCase
     $rateLimiter->create($this->createRateLimitKey('pre-auth', '127.0.0.1'))->consume();
 
     $handler = new MfaVerifyHandler(
-      jwtService: $this->createMock(JwtTokenServicePort::class),
-      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      jwtService: $this->createStub(JwtTokenServicePort::class),
+      challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $processor = new MfaVerifyProcessor(
       handler: $handler,
       requestStack: $requestStack,
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
       rateLimiter: $rateLimiter,
     );
 

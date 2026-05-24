@@ -131,9 +131,9 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
 
     $handler = new GetCurrentOrganizationMemberProfileHandler(
       organizationRepository: $organizationRepository,
-      memberRepository: $this->createMock(OrganizationMemberRepositoryPort::class),
-      roleRepository: $this->createMock(OrganizationRoleRepositoryPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
     );
 
     $this->expectException(OrganizationNotFoundException::class);

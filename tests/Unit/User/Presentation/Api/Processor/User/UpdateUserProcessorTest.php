@@ -32,8 +32,8 @@ final class UpdateUserProcessorTest extends TestCase
   public function testProcessReturnsNullWhenDataInvalid(): void
   {
     $processor = new UpdateUserProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $result = $processor->process('invalid', new Put(), ['id' => 'user-1']);
@@ -45,8 +45,8 @@ final class UpdateUserProcessorTest extends TestCase
   public function testProcessReturnsNullWhenIdMissing(): void
   {
     $processor = new UpdateUserProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $input = new UserInput();

@@ -120,8 +120,7 @@ final class GetFacilityHandlerTest extends TestCase
       parentFacilityId: $parentId,
     );
 
-    /** @var FacilityRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository = $this->createStub(FacilityRepositoryPort::class);
     $repository->method('findById')->willReturn($facility);
 
     $handler = new GetFacilityHandler(facilityRepository: $repository);

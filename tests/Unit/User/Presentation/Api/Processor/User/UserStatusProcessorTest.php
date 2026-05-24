@@ -35,8 +35,8 @@ final class UserStatusProcessorTest extends TestCase
   public function testActivateReturnsNullWhenIdMissing(): void
   {
     $processor = new ActivateUserProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $result = $processor->process(null, new Post(), ['id' => null]);
@@ -103,8 +103,8 @@ final class UserStatusProcessorTest extends TestCase
   public function testDeactivateReturnsNullWhenIdMissing(): void
   {
     $processor = new DeactivateUserProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $result = $processor->process(null, new Post(), ['id' => null]);
@@ -171,8 +171,8 @@ final class UserStatusProcessorTest extends TestCase
   public function testVerifyEmailReturnsNullWhenIdMissing(): void
   {
     $processor = new VerifyUserEmailProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
     );
 
     $result = $processor->process(null, new Post(), ['id' => null]);

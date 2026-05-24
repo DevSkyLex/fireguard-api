@@ -130,10 +130,10 @@ final class TrustDeviceProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new TrustDeviceProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       requestStack: $requestStack,
-      cookieService: $this->createMock(TrustedDeviceCookieService::class),
+      cookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -166,10 +166,10 @@ final class TrustDeviceProcessorTest extends TestCase
       ));
 
     $processor = new TrustDeviceProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(TrustedDeviceCookieService::class),
+      cookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(BadRequestHttpException::class);

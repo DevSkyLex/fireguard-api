@@ -90,7 +90,7 @@ final class OrganizationOnboardingProviderTest extends TestCase
       ->method('ask')
       ->willReturn(new PaginatedResult(items: [], total: 0, limit: 100, offset: 0));
 
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
 
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::once())
@@ -102,20 +102,20 @@ final class OrganizationOnboardingProviderTest extends TestCase
       queryBus: $queryBus,
       commandBus: $commandBus,
       uuidFactory: $uuidFactory,
-      transactionManager: $this->createMock(TransactionManagerPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherInterface::class),
+      transactionManager: $this->createStub(TransactionManagerPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherInterface::class),
     );
   }
 
   private function createUnusedFlowService(): OrganizationOnboardingFlowService
   {
     return new OrganizationOnboardingFlowService(
-      sessionRepository: $this->createMock(OrganizationOnboardingSessionRepositoryPort::class),
-      queryBus: $this->createMock(QueryBusPort::class),
-      commandBus: $this->createMock(CommandBusPort::class),
-      uuidFactory: $this->createMock(UuidFactory::class),
-      transactionManager: $this->createMock(TransactionManagerPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherInterface::class),
+      sessionRepository: $this->createStub(OrganizationOnboardingSessionRepositoryPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $this->createStub(TransactionManagerPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherInterface::class),
     );
   }
 }

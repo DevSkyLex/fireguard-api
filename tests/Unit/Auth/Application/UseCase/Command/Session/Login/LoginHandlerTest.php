@@ -51,13 +51,13 @@ final class LoginHandlerTest extends TestCase
       ->with(self::isInstanceOf(LoginFailedEvent::class));
 
     $handler = new LoginHandler(
-      userAuthentication: $this->createMock(UserAuthenticationPort::class),
-      tokenService: $this->createMock(JwtTokenServicePort::class),
-      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      userAuthentication: $this->createStub(UserAuthenticationPort::class),
+      tokenService: $this->createStub(JwtTokenServicePort::class),
+      challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
-      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -98,12 +98,12 @@ final class LoginHandlerTest extends TestCase
 
     $handler = new LoginHandler(
       userAuthentication: $auth,
-      tokenService: $this->createMock(JwtTokenServicePort::class),
-      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      tokenService: $this->createStub(JwtTokenServicePort::class),
+      challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
-      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -157,10 +157,10 @@ final class LoginHandlerTest extends TestCase
       userAuthentication: $auth,
       tokenService: $jwt,
       challengeGenerator: $generator,
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       rateLimiter: $rateLimiter,
-      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       mfaEnabled: true,
     );
 
@@ -242,11 +242,11 @@ final class LoginHandlerTest extends TestCase
     $handler = new LoginHandler(
       userAuthentication: $auth,
       tokenService: $jwt,
-      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
+      challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
       sessionTracking: $sessionTracking,
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
-      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -282,12 +282,12 @@ final class LoginHandlerTest extends TestCase
 
     $handler = new LoginHandler(
       userAuthentication: $auth,
-      tokenService: $this->createMock(JwtTokenServicePort::class),
-      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      tokenService: $this->createStub(JwtTokenServicePort::class),
+      challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
-      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -344,11 +344,11 @@ final class LoginHandlerTest extends TestCase
     $handler = new LoginHandler(
       userAuthentication: $auth,
       tokenService: $jwt,
-      challengeGenerator: $this->createMock(ChallengeGeneratorPort::class),
+      challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
       sessionTracking: $sessionTracking,
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       rateLimiter: $rateLimiter,
-      trustedDeviceCheck: $this->createMock(TrustedDeviceCheckPort::class),
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
       mfaEnabled: false,
     );
 

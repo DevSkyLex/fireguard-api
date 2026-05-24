@@ -56,8 +56,8 @@ final class CreateTenantProcessorTest extends TestCase
       ->willReturn(new CreateTenantResult(tenantId: $tenantId));
 
     // Mock Security with authenticated user
-    $user = $this->createMock(UserInterface::class);
-    $security = $this->createMock(Security::class);
+    $user = $this->createStub(UserInterface::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($user);
 
     $input = new TenantInput();
@@ -101,7 +101,7 @@ final class CreateTenantProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new CreateTenantProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 

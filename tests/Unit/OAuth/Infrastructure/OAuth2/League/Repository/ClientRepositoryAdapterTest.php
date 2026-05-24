@@ -43,7 +43,7 @@ final class ClientRepositoryAdapterTest extends TestCase
       ->with(self::isInstanceOf(OAuthClientIdentifier::class))
       ->willReturn($client);
 
-    $validation = $this->createMock(ClientValidationPort::class);
+    $validation = $this->createStub(ClientValidationPort::class);
 
     $adapter = new ClientRepositoryAdapter(
       clientRepository: $repository,
@@ -68,7 +68,7 @@ final class ClientRepositoryAdapterTest extends TestCase
 
     $adapter = new ClientRepositoryAdapter(
       clientRepository: $repository,
-      clientValidation: $this->createMock(ClientValidationPort::class),
+      clientValidation: $this->createStub(ClientValidationPort::class),
     );
 
     self::assertNull($adapter->getClientEntity('client-123'));
@@ -84,7 +84,7 @@ final class ClientRepositoryAdapterTest extends TestCase
 
     $adapter = new ClientRepositoryAdapter(
       clientRepository: $repository,
-      clientValidation: $this->createMock(ClientValidationPort::class),
+      clientValidation: $this->createStub(ClientValidationPort::class),
     );
 
     self::assertNull($adapter->getClientEntity('client-123'));
@@ -100,7 +100,7 @@ final class ClientRepositoryAdapterTest extends TestCase
       ->willReturn(true);
 
     $adapter = new ClientRepositoryAdapter(
-      clientRepository: $this->createMock(OAuthClientRepositoryPort::class),
+      clientRepository: $this->createStub(OAuthClientRepositoryPort::class),
       clientValidation: $validation,
     );
 

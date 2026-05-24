@@ -114,7 +114,7 @@ final class UserStatusHandlerTest extends TestCase
 
     $handler = new VerifyUserEmailHandler(
       userRepository: $repository,
-      eventBus: $this->createMock(EventBusPort::class),
+      eventBus: $this->createStub(EventBusPort::class),
       eventIdProvider: new TestEventIdProvider(),
     );
 

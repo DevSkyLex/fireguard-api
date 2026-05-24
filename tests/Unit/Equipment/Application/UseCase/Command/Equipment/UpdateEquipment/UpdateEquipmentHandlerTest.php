@@ -27,8 +27,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
       ->willReturn(null);
     $repository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
 
@@ -63,8 +62,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
       ->method('save')
       ->willThrowException(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('EXT-DUPLICATE'));
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
 
@@ -98,8 +96,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $repository->expects(self::once())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
@@ -145,8 +142,7 @@ final class UpdateEquipmentHandlerTest extends TestCase
       ->willReturn($equipment);
     $repository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UpdateEquipmentHandler(equipmentRepository: $repository, tagRepository: $tagRepository);
 

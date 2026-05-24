@@ -38,7 +38,7 @@ final class OAuthResponseSubscriberTest extends TestCase
     $request = new Request();
     $request->attributes->set('_api_operation_name', OAuthOperations::TOKEN);
 
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $response = new Response();
     $event = new ResponseEvent(
       kernel: $kernel,
@@ -68,7 +68,7 @@ final class OAuthResponseSubscriberTest extends TestCase
     $request = new Request();
     $request->attributes->set('_api_operation_name', OAuthOperations::USERINFO);
 
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $response = new Response();
     // Get the default cache-control header before the subscriber runs
     $defaultCacheControl = $response->headers->get('Cache-Control');

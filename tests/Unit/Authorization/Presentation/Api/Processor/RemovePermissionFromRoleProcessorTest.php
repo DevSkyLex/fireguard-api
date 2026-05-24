@@ -148,6 +148,8 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
   {
     $operation = new Delete();
 
+    $this->commandBus->expects($this->never())->method(self::anything());
+
     $this->expectException(RoleNotFoundException::class);
 
     $this->processor->process(
@@ -161,6 +163,8 @@ final class RemovePermissionFromRoleProcessorTest extends TestCase
   public function testProcessThrowsWhenPermissionIdIsInvalid(): void
   {
     $operation = new Delete();
+
+    $this->commandBus->expects($this->never())->method(self::anything());
 
     $this->expectException(PermissionNotFoundException::class);
 

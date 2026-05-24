@@ -14,7 +14,7 @@ use Organization\Domain\Exception\{OrganizationAccessDeniedException, Organizati
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 
 use function array_column;
@@ -38,11 +38,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $memberRepository->method('countActiveByOrganizationId')->willReturn(9);
     $memberRepository->expects(self::exactly(2))->method('countJoinedBetween')->willReturnOnConsecutiveCalls(2, 1);
 
-    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
     $roleRepository->method('countByOrganizationId')->willReturn(5);
     $roleRepository->method('countSystemByOrganizationId')->willReturn(2);
 
-    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository = $this->createStub(OrganizationInvitationRepositoryPort::class);
     $invitationRepository->method('countByOrganizationId')->willReturn(8);
     $invitationRepository->method('countByStatusForOrganizationId')->willReturn([
       'pending' => 2,
@@ -407,11 +407,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       return '2026-03-01T00:00:00+00:00' === $from->format('c') && '2026-03-03T23:59:59+00:00' === $to->format('c') ? 2 : 1;
     });
 
-    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
     $roleRepository->method('countByOrganizationId')->willReturn(1);
     $roleRepository->method('countSystemByOrganizationId')->willReturn(1);
 
-    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository = $this->createStub(OrganizationInvitationRepositoryPort::class);
     $invitationRepository->method('countByOrganizationId')->willReturn(0);
     $invitationRepository->method('countByStatusForOrganizationId')->willReturn([]);
 
@@ -743,11 +743,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   /**
-   * @return OrganizationMemberRepositoryPort&MockObject
+   * @return OrganizationMemberRepositoryPort&Stub
    */
   private function createZeroMemberRepository(): OrganizationMemberRepositoryPort
   {
-    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
     $memberRepository->method('countByOrganizationId')->willReturn(0);
     $memberRepository->method('countActiveByOrganizationId')->willReturn(0);
     $memberRepository->method('countJoinedBetween')->willReturn(0);
@@ -756,11 +756,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   /**
-   * @return OrganizationRoleRepositoryPort&MockObject
+   * @return OrganizationRoleRepositoryPort&Stub
    */
   private function createZeroRoleRepository(): OrganizationRoleRepositoryPort
   {
-    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
     $roleRepository->method('countByOrganizationId')->willReturn(0);
     $roleRepository->method('countSystemByOrganizationId')->willReturn(0);
 
@@ -768,11 +768,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   /**
-   * @return OrganizationInvitationRepositoryPort&MockObject
+   * @return OrganizationInvitationRepositoryPort&Stub
    */
   private function createZeroInvitationRepository(): OrganizationInvitationRepositoryPort
   {
-    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository = $this->createStub(OrganizationInvitationRepositoryPort::class);
     $invitationRepository->method('countByOrganizationId')->willReturn(0);
     $invitationRepository->method('countByStatusForOrganizationId')->willReturn([
       'pending' => 0,
@@ -785,11 +785,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   /**
-   * @return FacilityStatisticsPort&MockObject
+   * @return FacilityStatisticsPort&Stub
    */
   private function createZeroFacilityStatistics(): FacilityStatisticsPort
   {
-    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics = $this->createStub(FacilityStatisticsPort::class);
     $facilityStatistics->method('countFacilityOverview')->willReturn(['total' => 0, 'active' => 0]);
     $facilityStatistics->method('countFacilities')->willReturn(0);
     $facilityStatistics->method('countActiveFacilities')->willReturn(0);
@@ -799,11 +799,11 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   }
 
   /**
-   * @return EquipmentStatisticsPort&MockObject
+   * @return EquipmentStatisticsPort&Stub
    */
   private function createZeroEquipmentStatistics(): EquipmentStatisticsPort
   {
-    $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
+    $equipmentStatistics = $this->createStub(EquipmentStatisticsPort::class);
     $equipmentStatistics->method('countEquipmentOverview')->willReturn(['total' => 0, 'in_stock' => 0, 'operational' => 0, 'under_maintenance' => 0, 'decommissioned' => 0]);
     $equipmentStatistics->method('countEquipment')->willReturn(0);
     $equipmentStatistics->method('countEquipmentByStatus')->willReturn([]);

@@ -9,7 +9,6 @@ use Otp\Application\UseCase\Command\Totp\SetupTotp\{SetupTotpCommand, SetupTotpR
 use Otp\Presentation\Api\Dto\Output\Totp\SetupTotpOutput;
 use Otp\Presentation\Api\Processor\Totp\SetupTotpProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -36,7 +35,7 @@ final class SetupTotpProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new SetupTotpProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 
@@ -74,7 +73,6 @@ final class SetupTotpProcessorTest extends TestCase
       ->method('getUser')
       ->willReturn($user);
 
-    /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::once())
       ->method('dispatch')

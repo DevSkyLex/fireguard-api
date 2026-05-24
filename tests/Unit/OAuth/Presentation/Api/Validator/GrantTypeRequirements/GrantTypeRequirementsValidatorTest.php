@@ -104,18 +104,18 @@ final class GrantTypeRequirementsValidatorTest extends TestCase
   public function testThrowsOnInvalidConstraint(): void
   {
     $validator = new GrantTypeRequirementsValidator();
-    $validator->initialize(context: $this->createMock(ExecutionContextInterface::class));
+    $validator->initialize(context: $this->createStub(ExecutionContextInterface::class));
 
     $this->expectException(UnexpectedTypeException::class);
 
-    $validator->validate(value: null, constraint: $this->createMock(Constraint::class));
+    $validator->validate(value: null, constraint: $this->createStub(Constraint::class));
   }
 
   #[Test]
   public function testThrowsOnInvalidValueType(): void
   {
     $validator = new GrantTypeRequirementsValidator();
-    $validator->initialize(context: $this->createMock(ExecutionContextInterface::class));
+    $validator->initialize(context: $this->createStub(ExecutionContextInterface::class));
 
     $this->expectException(UnexpectedValueException::class);
 

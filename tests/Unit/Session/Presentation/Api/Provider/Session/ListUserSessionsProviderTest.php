@@ -38,7 +38,7 @@ final class ListUserSessionsProviderTest extends TestCase
   #[Test]
   public function testProvideReturnsEmptyArrayWhenNotAuthenticated(): void
   {
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
 
     $security = $this->createMock(Security::class);
     $security->expects(self::once())

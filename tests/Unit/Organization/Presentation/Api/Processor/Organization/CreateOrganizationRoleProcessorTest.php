@@ -25,7 +25,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenPermissionIsMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441300'));
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -36,7 +36,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
       ->willReturn(false);
 
     $processor = new CreateOrganizationRoleProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
       security: $security,
     );
@@ -115,12 +115,12 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenOrganizationIdMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441300'));
 
     $processor = new CreateOrganizationRoleProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 

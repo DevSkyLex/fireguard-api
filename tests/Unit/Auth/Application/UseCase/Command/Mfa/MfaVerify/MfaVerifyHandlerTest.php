@@ -38,8 +38,8 @@ final class MfaVerifyHandlerTest extends TestCase
 
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
-      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $this->expectException(AuthorizationException::class);
@@ -60,8 +60,8 @@ final class MfaVerifyHandlerTest extends TestCase
 
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
-      challengeVerifier: $this->createMock(ChallengeVerifierPort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      challengeVerifier: $this->createStub(ChallengeVerifierPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $this->expectException(AuthorizationException::class);
@@ -100,7 +100,7 @@ final class MfaVerifyHandlerTest extends TestCase
     $handler = new MfaVerifyHandler(
       jwtService: $jwt,
       challengeVerifier: $verifier,
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
     );
 
     $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));

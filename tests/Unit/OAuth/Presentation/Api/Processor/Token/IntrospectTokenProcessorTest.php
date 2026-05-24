@@ -34,7 +34,7 @@ final class IntrospectTokenProcessorTest extends TestCase
   public function testProcessThrowsWhenDataInvalid(): void
   {
     $processor = new IntrospectTokenProcessor(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: new RequestStack(),
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -43,7 +43,7 @@ final class IntrospectTokenProcessorTest extends TestCase
 
     $processor->process(
       data: 'invalid',
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -57,7 +57,7 @@ final class IntrospectTokenProcessorTest extends TestCase
     $input->token = null;
 
     $processor = new IntrospectTokenProcessor(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -66,7 +66,7 @@ final class IntrospectTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -107,7 +107,7 @@ final class IntrospectTokenProcessorTest extends TestCase
 
     $output = $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(TokenIntrospectionOutput::class, $output);
@@ -129,7 +129,7 @@ final class IntrospectTokenProcessorTest extends TestCase
     $rateLimiter->create('127.0.0.1')->consume();
 
     $processor = new IntrospectTokenProcessor(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $rateLimiter,
     );
@@ -138,7 +138,7 @@ final class IntrospectTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 

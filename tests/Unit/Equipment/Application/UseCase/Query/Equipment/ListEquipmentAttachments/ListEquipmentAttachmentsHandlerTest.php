@@ -25,8 +25,8 @@ final class ListEquipmentAttachmentsHandlerTest extends TestCase
   public function testInvokeThrowsInvalidArgumentOnInvalidEquipmentId(): void
   {
     $handler = new ListEquipmentAttachmentsHandler(
-      equipmentRepository: $this->createMock(EquipmentRepositoryPort::class),
-      attachmentRepository: $this->createMock(AttachmentRepositoryPort::class),
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -48,7 +48,7 @@ final class ListEquipmentAttachmentsHandlerTest extends TestCase
 
     $handler = new ListEquipmentAttachmentsHandler(
       equipmentRepository: $equipmentRepository,
-      attachmentRepository: $this->createMock(AttachmentRepositoryPort::class),
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -76,7 +76,7 @@ final class ListEquipmentAttachmentsHandlerTest extends TestCase
 
     $handler = new ListEquipmentAttachmentsHandler(
       equipmentRepository: $equipmentRepository,
-      attachmentRepository: $this->createMock(AttachmentRepositoryPort::class),
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);

@@ -30,7 +30,7 @@ final class GetEquipmentHandlerTest extends TestCase
 
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
-      tagRepository: $this->createMock(TagRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -52,7 +52,7 @@ final class GetEquipmentHandlerTest extends TestCase
 
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
-      tagRepository: $this->createMock(TagRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -80,7 +80,7 @@ final class GetEquipmentHandlerTest extends TestCase
 
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
-      tagRepository: $this->createMock(TagRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);

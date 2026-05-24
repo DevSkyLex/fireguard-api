@@ -83,8 +83,8 @@ final class IntrospectTokenHandlerTest extends TestCase
 
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       issuer: 'https://issuer.example',
     );
@@ -117,8 +117,8 @@ final class IntrospectTokenHandlerTest extends TestCase
 
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       issuer: 'https://issuer.example',
     );
@@ -173,7 +173,7 @@ final class IntrospectTokenHandlerTest extends TestCase
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
       accessTokenRepository: $accessTokenRepository,
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       issuer: 'https://issuer.example',
     );
@@ -234,7 +234,7 @@ final class IntrospectTokenHandlerTest extends TestCase
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
       accessTokenRepository: $accessTokenRepository,
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       issuer: 'https://issuer.example',
     );
@@ -323,10 +323,10 @@ final class IntrospectTokenHandlerTest extends TestCase
       ->willReturn($refreshToken);
 
     $handler = new IntrospectTokenHandler(
-      jwtParser: $this->createMock(JwtParserPort::class),
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
       refreshTokenRepository: $refreshTokenRepository,
-      tokenCache: $this->createMock(TokenCachePort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
       issuer: 'https://issuer.example',
     );
 
@@ -363,10 +363,10 @@ final class IntrospectTokenHandlerTest extends TestCase
     $refreshTokenRepository->expects(self::never())->method('find');
 
     $handler = new IntrospectTokenHandler(
-      jwtParser: $this->createMock(JwtParserPort::class),
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
+      jwtParser: $this->createStub(JwtParserPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
       refreshTokenRepository: $refreshTokenRepository,
-      tokenCache: $this->createMock(TokenCachePort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
       issuer: 'https://issuer.example',
     );
 
@@ -393,9 +393,9 @@ final class IntrospectTokenHandlerTest extends TestCase
 
     $handler = new IntrospectTokenHandler(
       jwtParser: $jwtParser,
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
-      tokenCache: $this->createMock(TokenCachePort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
       issuer: 'https://issuer.example',
     );
 

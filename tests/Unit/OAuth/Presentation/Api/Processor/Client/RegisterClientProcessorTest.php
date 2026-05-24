@@ -57,7 +57,7 @@ final class RegisterClientProcessorTest extends TestCase
       ->with(self::isInstanceOf(RegisterClientCommand::class))
       ->willReturn($result);
 
-    $operation = $this->createMock(Operation::class);
+    $operation = $this->createStub(Operation::class);
 
     // Processor
     $processor = new RegisterClientProcessor(commandBus: $commandBus);

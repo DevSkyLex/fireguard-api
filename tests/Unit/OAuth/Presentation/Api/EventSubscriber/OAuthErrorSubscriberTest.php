@@ -76,11 +76,11 @@ final class OAuthErrorSubscriberTest extends TestCase
   #[Test]
   public function testOnKernelExceptionMapsViolations(): void
   {
-    $violationOne = $this->createMock(ConstraintViolationInterface::class);
+    $violationOne = $this->createStub(ConstraintViolationInterface::class);
     $violationOne->method('getPropertyPath')->willReturn('client_id');
     $violationOne->method('getMessage')->willReturn('This value should not be blank.');
 
-    $violationTwo = $this->createMock(ConstraintViolationInterface::class);
+    $violationTwo = $this->createStub(ConstraintViolationInterface::class);
     $violationTwo->method('getPropertyPath')->willReturn('');
     $violationTwo->method('getMessage')->willReturn('Payload invalid.');
 
@@ -393,7 +393,7 @@ final class OAuthErrorSubscriberTest extends TestCase
       $request->attributes->set('_api_operation_name', $operationName);
     }
 
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
 
     return new ExceptionEvent(
       kernel: $kernel,

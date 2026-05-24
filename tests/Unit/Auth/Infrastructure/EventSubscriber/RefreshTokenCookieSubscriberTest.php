@@ -34,7 +34,7 @@ final class RefreshTokenCookieSubscriberTest extends TestCase
     $request->attributes->set('_refresh_token_cookie', $cookie);
 
     $response = new Response();
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $event = new ResponseEvent(
       kernel: $kernel,
       request: $request,
@@ -58,7 +58,7 @@ final class RefreshTokenCookieSubscriberTest extends TestCase
     $subscriber = new RefreshTokenCookieSubscriber();
     $request = new Request();
     $response = new Response();
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $event = new ResponseEvent(
       kernel: $kernel,
       request: $request,

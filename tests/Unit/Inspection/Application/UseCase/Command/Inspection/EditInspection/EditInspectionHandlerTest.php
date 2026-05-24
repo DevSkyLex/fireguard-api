@@ -46,9 +46,9 @@ final class EditInspectionHandlerTest extends TestCase
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
-      equipmentValidation: $this->createMock(EquipmentValidationPort::class),
-      facilityValidation: $this->createMock(FacilityValidationPort::class),
-      checklistValidation: $this->createMock(ChecklistValidationPort::class),
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
     $result = $handler->__invoke(new EditInspectionCommand(
@@ -67,15 +67,14 @@ final class EditInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn(null);
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
-      equipmentValidation: $this->createMock(EquipmentValidationPort::class),
-      facilityValidation: $this->createMock(FacilityValidationPort::class),
-      checklistValidation: $this->createMock(ChecklistValidationPort::class),
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -91,15 +90,14 @@ final class EditInspectionHandlerTest extends TestCase
   {
     $inspection = $this->makeDraftInspection();
 
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn($inspection);
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
-      equipmentValidation: $this->createMock(EquipmentValidationPort::class),
-      facilityValidation: $this->createMock(FacilityValidationPort::class),
-      checklistValidation: $this->createMock(ChecklistValidationPort::class),
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -115,15 +113,14 @@ final class EditInspectionHandlerTest extends TestCase
   {
     $inspection = $this->makeDraftInspection();
 
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn($inspection);
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
-      equipmentValidation: $this->createMock(EquipmentValidationPort::class),
-      facilityValidation: $this->createMock(FacilityValidationPort::class),
-      checklistValidation: $this->createMock(ChecklistValidationPort::class),
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -156,8 +153,8 @@ final class EditInspectionHandlerTest extends TestCase
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
       equipmentValidation: $equipmentValidation,
-      facilityValidation: $this->createMock(FacilityValidationPort::class),
-      checklistValidation: $this->createMock(ChecklistValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
     $handler->__invoke(new EditInspectionCommand(
@@ -186,9 +183,9 @@ final class EditInspectionHandlerTest extends TestCase
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
-      equipmentValidation: $this->createMock(EquipmentValidationPort::class),
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
       facilityValidation: $facilityValidation,
-      checklistValidation: $this->createMock(ChecklistValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
     );
 
     $handler->__invoke(new EditInspectionCommand(
@@ -217,8 +214,8 @@ final class EditInspectionHandlerTest extends TestCase
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
-      equipmentValidation: $this->createMock(EquipmentValidationPort::class),
-      facilityValidation: $this->createMock(FacilityValidationPort::class),
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
       checklistValidation: $checklistValidation,
     );
 

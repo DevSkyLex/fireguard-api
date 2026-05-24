@@ -169,8 +169,8 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListEquipmentsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $this->buildRequestStack(),
     );
@@ -199,7 +199,7 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn(false);
 
     $provider = new ListEquipmentsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
       requestStack: $this->buildRequestStack(),
@@ -221,8 +221,8 @@ final class ListEquipmentsProviderTest extends TestCase
       ->willReturn($user);
 
     $provider = new ListEquipmentsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: $this->buildRequestStack(),
     );

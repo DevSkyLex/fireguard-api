@@ -31,7 +31,7 @@ final class AccessTokenRepositoryAdapterTest extends TestCase
     $scope = new TestScope('OPENID');
 
     $adapter = new AccessTokenRepositoryAdapter(
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
     );
 
     $token = $adapter->getNewToken($client, [$scope], 'user-1');

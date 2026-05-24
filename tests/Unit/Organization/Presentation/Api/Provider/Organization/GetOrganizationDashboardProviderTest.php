@@ -34,8 +34,8 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $security->expects(self::once())->method('getUser')->willReturn(null);
 
     $provider = new GetOrganizationDashboardProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -56,7 +56,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
 
     $provider = new GetOrganizationDashboardProvider(
       queryBus: $queryBus,
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -70,7 +70,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $provider = new GetOrganizationDashboardProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createDashboardAuthorizationMock(['organization.equipment.read']),
       security: $security,
     );
@@ -442,7 +442,7 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
 
     $provider = new GetOrganizationDashboardProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createDashboardAuthorizationMock(),
       security: $security,
     );

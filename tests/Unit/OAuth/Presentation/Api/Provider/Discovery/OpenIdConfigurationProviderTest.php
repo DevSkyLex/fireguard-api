@@ -38,7 +38,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willReturnCallback(
         static fn (string $name, array $parameters = [], int $referenceType = 0): string => 'https://auth.example.com/' . $name,
@@ -52,7 +52,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(
       expected: 'https://auth.example.com/' . OAuthOperations::END_SESSION,
@@ -78,7 +78,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -90,7 +90,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: '/api/auth/logout',
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(
       expected: 'https://auth.example.com/api/auth/logout',
@@ -112,7 +112,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -124,7 +124,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame(
       expected: 'https://auth.example.com/api/oauth2/logout',
@@ -139,7 +139,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -151,7 +151,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('https://auth.example.com/custom/authorize', $output->authorizationEndpoint);
   }
@@ -163,7 +163,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willReturnCallback(
         static fn (string $name, array $parameters = [], int $referenceType = 0): string => 'https://auth.example.com/' . $name,
@@ -177,7 +177,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('https://auth.example.com/custom_authorize', $output->authorizationEndpoint);
   }
@@ -187,7 +187,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
   {
     $requestStack = new RequestStack();
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -199,7 +199,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('/api/oauth2/token', $output->tokenEndpoint);
   }
@@ -211,7 +211,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -223,7 +223,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('https://auth.example.com/custom/authorize', $output->authorizationEndpoint);
   }
@@ -235,7 +235,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -247,7 +247,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('https://auth.example.com/custom/authorize', $output->authorizationEndpoint);
   }
@@ -259,7 +259,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+    $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
     $urlGenerator->method('generate')
       ->willThrowException(new RouteNotFoundException());
 
@@ -271,7 +271,7 @@ final class OpenIdConfigurationProviderTest extends TestCase
       logoutPath: null,
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame('https://issuer.example.com', $output->issuer);
     self::assertSame('https://issuer.example.com/api/oauth2/token', $output->tokenEndpoint);

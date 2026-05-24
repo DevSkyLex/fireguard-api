@@ -36,7 +36,7 @@ final class TrustedDeviceCookieListenerTest extends TestCase
     $request->attributes->set(TrustedDeviceCookieListener::REQUEST_ATTRIBUTE, $cookie);
 
     $response = new Response();
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $event = new ResponseEvent(
       kernel: $kernel,
       request: $request,
@@ -62,7 +62,7 @@ final class TrustedDeviceCookieListenerTest extends TestCase
     $listener = new TrustedDeviceCookieListener();
     $request = new Request();
     $response = new Response();
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $event = new ResponseEvent(
       kernel: $kernel,
       request: $request,

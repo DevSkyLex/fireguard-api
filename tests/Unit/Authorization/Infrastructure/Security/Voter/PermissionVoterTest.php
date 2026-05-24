@@ -31,7 +31,7 @@ final class PermissionVoterTest extends TestCase
       ->willReturn(true);
 
     $voter = new PermissionVoter($authorization);
-    $token = $this->createMock(TokenInterface::class);
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')
       ->willReturn(new SecurityUser('user-123', 'user@example.com', 'secret'));
 
@@ -43,8 +43,8 @@ final class PermissionVoterTest extends TestCase
   #[Test]
   public function testVoteAbstainsForUnsupportedAttribute(): void
   {
-    $voter = new PermissionVoter($this->createMock(AuthorizationPort::class));
-    $token = $this->createMock(TokenInterface::class);
+    $voter = new PermissionVoter($this->createStub(AuthorizationPort::class));
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')
       ->willReturn(new SecurityUser('user-123', 'user@example.com', 'secret'));
 
@@ -56,10 +56,10 @@ final class PermissionVoterTest extends TestCase
   #[Test]
   public function testVoteDeniesWhenUserIsNotSecurityUser(): void
   {
-    $voter = new PermissionVoter($this->createMock(AuthorizationPort::class));
-    $token = $this->createMock(TokenInterface::class);
+    $voter = new PermissionVoter($this->createStub(AuthorizationPort::class));
+    $token = $this->createStub(TokenInterface::class);
     $token->method('getUser')
-      ->willReturn($this->createMock(\Symfony\Component\Security\Core\User\UserInterface::class));
+      ->willReturn($this->createStub(\Symfony\Component\Security\Core\User\UserInterface::class));
 
     $result = $voter->vote($token, null, ['users.create']);
 

@@ -44,8 +44,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
     $tagRepository->method('findByEquipmentId')->willReturn([]);
 
     $handler = new UnassignFromFacilityHandler(
@@ -71,8 +70,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn(null);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UnassignFromFacilityHandler(
       equipmentRepository: $equipmentRepository,
@@ -101,8 +99,7 @@ final class UnassignFromFacilityHandlerTest extends TestCase
     $equipmentRepository->method('findById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
-    /** @var TagRepositoryPort&MockObject $tagRepository */
-    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
 
     $handler = new UnassignFromFacilityHandler(
       equipmentRepository: $equipmentRepository,

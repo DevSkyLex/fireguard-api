@@ -44,7 +44,7 @@ final class ListTrustedDevicesProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListTrustedDevicesProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 

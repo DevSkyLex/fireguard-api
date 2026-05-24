@@ -38,10 +38,10 @@ final class LoginProcessorTest extends TestCase
   public function testProcessThrowsOnInvalidInput(): void
   {
     $processor = new LoginProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
-      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -68,8 +68,8 @@ final class LoginProcessorTest extends TestCase
     $processor = new LoginProcessor(
       commandBus: $commandBus,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
-      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(UnauthorizedHttpException::class);
@@ -99,8 +99,8 @@ final class LoginProcessorTest extends TestCase
     $processor = new LoginProcessor(
       commandBus: $commandBus,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
-      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $this->expectException(TooManyRequestsHttpException::class);
@@ -135,8 +135,8 @@ final class LoginProcessorTest extends TestCase
     $processor = new LoginProcessor(
       commandBus: $commandBus,
       requestStack: new RequestStack(),
-      cookieService: $this->createMock(RefreshTokenCookieService::class),
-      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
+      cookieService: $this->createStub(RefreshTokenCookieService::class),
+      trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $output = $processor->process($input, new Post());
@@ -190,7 +190,7 @@ final class LoginProcessorTest extends TestCase
       commandBus: $commandBus,
       requestStack: $requestStack,
       cookieService: $cookieService,
-      trustedDeviceCookieService: $this->createMock(TrustedDeviceCookieService::class),
+      trustedDeviceCookieService: $this->createStub(TrustedDeviceCookieService::class),
     );
 
     $output = $processor->process($input, new Post());

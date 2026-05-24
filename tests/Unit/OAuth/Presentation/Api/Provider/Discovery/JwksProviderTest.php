@@ -44,7 +44,7 @@ final class JwksProviderTest extends TestCase
 
     $provider = new JwksProvider(publicKeyPath: $tempFile);
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame([], $output->keys);
 
@@ -64,7 +64,7 @@ final class JwksProviderTest extends TestCase
     set_error_handler(static fn (): bool => true);
 
     try {
-      $output = $provider->provide(operation: $this->createMock(Operation::class));
+      $output = $provider->provide(operation: $this->createStub(Operation::class));
     } finally {
       restore_error_handler();
     }
@@ -99,7 +99,7 @@ final class JwksProviderTest extends TestCase
 
     $provider = new JwksProvider(publicKeyPath: $tempFile);
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame([], $output->keys);
 
@@ -120,7 +120,7 @@ final class JwksProviderTest extends TestCase
       ],
     );
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertSame([], $output->keys);
   }
@@ -131,7 +131,7 @@ final class JwksProviderTest extends TestCase
     $path = getcwd() . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'jwt' . DIRECTORY_SEPARATOR . 'public.key';
     $provider = new JwksProvider(publicKeyPath: $path);
 
-    $output = $provider->provide(operation: $this->createMock(Operation::class));
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
 
     self::assertNotEmpty($output->keys);
     self::assertSame('RSA', $output->keys[0]['kty'] ?? null);

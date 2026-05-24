@@ -127,7 +127,7 @@ final class UserProviderTest extends TestCase
     $id = new UserId('550e8400-e29b-41d4-a716-446655440001');
     $result = new GetUserResult(null);
 
-    $this->queryBus->method('ask')->willReturn($result);
+    $this->queryBus->expects($this->once())->method('ask')->willReturn($result);
 
     $operation = new Get();
     $uriVariables = ['id' => $id->value];
@@ -155,6 +155,8 @@ final class UserProviderTest extends TestCase
     // Arrange
     $operation = new Get();
     $uriVariables = [];
+
+    $this->queryBus->expects($this->never())->method(self::anything());
 
     // Act
     $response = $this->provider->provide($operation, $uriVariables);

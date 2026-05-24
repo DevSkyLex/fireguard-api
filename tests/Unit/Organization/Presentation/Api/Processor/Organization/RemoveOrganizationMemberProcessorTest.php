@@ -23,12 +23,12 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUnauthenticated(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $processor = new RemoveOrganizationMemberProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -43,12 +43,12 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenUriVariablesMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     $processor = new RemoveOrganizationMemberProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -60,7 +60,7 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenPermissionIsMissing(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -71,7 +71,7 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
       ->willReturn(false);
 
     $processor = new RemoveOrganizationMemberProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
       security: $security,
     );
@@ -87,7 +87,7 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessDispatchesCommandAndReturnsNull(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
@@ -122,15 +122,13 @@ final class RemoveOrganizationMemberProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsNotFoundWhenMemberAbsent(): void
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
 
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
       ->willThrowException(OrganizationMemberNotFoundException::withId('550e8400-e29b-41d4-a716-446655441412'));
 

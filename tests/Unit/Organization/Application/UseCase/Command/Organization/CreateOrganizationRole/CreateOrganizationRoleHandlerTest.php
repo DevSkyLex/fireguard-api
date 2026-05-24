@@ -97,8 +97,8 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
 
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
-      roleRepository: $this->createMock(OrganizationRoleRepositoryPort::class),
-      uuidFactory: $this->createMock(UuidFactory::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -133,8 +133,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       description: '',
     );
 
-    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
-    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($organization);
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
@@ -151,7 +150,7 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
-      uuidFactory: $this->createMock(UuidFactory::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

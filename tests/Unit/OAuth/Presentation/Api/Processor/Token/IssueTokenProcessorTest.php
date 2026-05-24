@@ -39,7 +39,7 @@ final class IssueTokenProcessorTest extends TestCase
   public function testProcessThrowsWhenDataInvalid(): void
   {
     $processor = new IssueTokenProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: new RequestStack(),
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -48,7 +48,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: 'invalid',
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -56,7 +56,7 @@ final class IssueTokenProcessorTest extends TestCase
   public function testProcessThrowsWhenRequestMissing(): void
   {
     $processor = new IssueTokenProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: new RequestStack(),
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -70,7 +70,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -116,7 +116,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $output = $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(TokenOutput::class, $output);
@@ -144,7 +144,7 @@ final class IssueTokenProcessorTest extends TestCase
     $rateLimiter->create('client-123|127.0.0.1')->consume();
 
     $processor = new IssueTokenProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $rateLimiter,
     );
@@ -153,7 +153,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -197,7 +197,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -231,7 +231,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -265,7 +265,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -301,7 +301,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -335,7 +335,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -370,7 +370,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -408,7 +408,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -443,7 +443,7 @@ final class IssueTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 

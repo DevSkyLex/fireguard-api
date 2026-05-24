@@ -81,7 +81,7 @@ final class TokenRevocationAdapterTest extends TestCase
       refreshTokenRepository: $refreshTokenRepository,
       tokenCache: $tokenCache,
       sessionTracking: $sessionTracking,
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -105,12 +105,12 @@ final class TokenRevocationAdapterTest extends TestCase
       ->method('revokeSessionByToken');
 
     $adapter = new TokenRevocationAdapter(
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       sessionTracking: $sessionTracking,
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
-      logger: $this->createMock(LoggerInterface::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
 
@@ -131,12 +131,12 @@ final class TokenRevocationAdapterTest extends TestCase
       ->willReturn(null);
 
     $adapter = new TokenRevocationAdapter(
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
       refreshTokenRepository: $refreshTokenRepository,
-      tokenCache: $this->createMock(TokenCachePort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
-      logger: $this->createMock(LoggerInterface::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
 
@@ -163,11 +163,11 @@ final class TokenRevocationAdapterTest extends TestCase
       ->method('debug');
 
     $adapter = new TokenRevocationAdapter(
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
-      tokenCache: $this->createMock(TokenCachePort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -206,10 +206,10 @@ final class TokenRevocationAdapterTest extends TestCase
 
     $adapter = new TokenRevocationAdapter(
       accessTokenRepository: $accessTokenRepository,
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
       tokenCache: $tokenCache,
       sessionTracking: $sessionTracking,
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -250,11 +250,11 @@ final class TokenRevocationAdapterTest extends TestCase
 
     $adapter = new TokenRevocationAdapter(
       accessTokenRepository: $accessTokenRepository,
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
-      tokenCache: $this->createMock(TokenCachePort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
-      logger: $this->createMock(LoggerInterface::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
 
@@ -279,11 +279,11 @@ final class TokenRevocationAdapterTest extends TestCase
       ->method('info');
 
     $adapter = new TokenRevocationAdapter(
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
-      tokenCache: $this->createMock(TokenCachePort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
       logger: $logger,
       encryptionKey: $this->encryptionKey(),
     );
@@ -294,12 +294,12 @@ final class TokenRevocationAdapterTest extends TestCase
   private function createAdapter(): TokenRevocationAdapter
   {
     return new TokenRevocationAdapter(
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
-      refreshTokenRepository: $this->createMock(RefreshTokenRepositoryPort::class),
-      tokenCache: $this->createMock(TokenCachePort::class),
-      sessionTracking: $this->createMock(SessionTrackingPort::class),
-      eventDispatcher: $this->createMock(EventDispatcherPort::class),
-      logger: $this->createMock(LoggerInterface::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $this->createStub(LoggerInterface::class),
       encryptionKey: $this->encryptionKey(),
     );
   }

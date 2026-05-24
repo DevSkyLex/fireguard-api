@@ -35,7 +35,7 @@ final class RevokeAllSessionsProcessorTest extends TestCase
       ->willReturn(null);
 
     $processor = new RevokeAllSessionsProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       security: $security,
     );
 

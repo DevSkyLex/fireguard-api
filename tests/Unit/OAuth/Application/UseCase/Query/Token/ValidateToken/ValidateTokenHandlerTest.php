@@ -231,7 +231,7 @@ final class ValidateTokenHandlerTest extends TestCase
 
     $handler = new ValidateTokenHandler(
       jwtParser: $jwtParser,
-      accessTokenRepository: $this->createMock(AccessTokenRepositoryPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
     );
 
     $result = $handler->__invoke(new ValidateTokenQuery(accessToken: 'access-token'));

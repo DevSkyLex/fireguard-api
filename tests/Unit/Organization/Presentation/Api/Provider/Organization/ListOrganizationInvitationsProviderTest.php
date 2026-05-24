@@ -39,7 +39,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
 
     $provider = new ListOrganizationInvitationsProvider(
       queryBus: $queryBus,
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 
@@ -65,7 +65,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       ->willReturn(false);
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
     );
@@ -147,8 +147,8 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListOrganizationInvitationsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
-      authorization: $this->createMock(OrganizationAuthorizationPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
 

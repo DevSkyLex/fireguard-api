@@ -112,7 +112,8 @@ final class AuthenticateUserHandlerTest extends TestCase
   {
     // Arrange
     $query = new AuthenticateUserQuery('jdoe', 'password123');
-    $this->userRepository->method('findByUsername')->willReturn(null);
+    $this->userRepository->expects($this->once())->method('findByUsername')->willReturn(null);
+    $this->userRepository->expects($this->never())->method('save');
 
     // Act
     $result = ($this->handler)($query);
@@ -149,7 +150,8 @@ final class AuthenticateUserHandlerTest extends TestCase
     );
     $user->verifyEmail($eventIdProvider);
 
-    $this->userRepository->method('findByUsername')->willReturn($user);
+    $this->userRepository->expects($this->once())->method('findByUsername')->willReturn($user);
+    $this->userRepository->expects($this->never())->method('save');
 
     // Act
     $result = ($this->handler)($query);

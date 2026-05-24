@@ -56,7 +56,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new GetCurrentOrganizationMemberProfileProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 

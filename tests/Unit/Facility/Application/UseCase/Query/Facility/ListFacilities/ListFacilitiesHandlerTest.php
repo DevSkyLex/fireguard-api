@@ -111,8 +111,7 @@ final class ListFacilitiesHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenTypeIsInvalid(): void
   {
-    /** @var FacilityRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository = $this->createStub(FacilityRepositoryPort::class);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
@@ -127,8 +126,7 @@ final class ListFacilitiesHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenParentFacilityIdIsInvalid(): void
   {
-    /** @var FacilityRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository = $this->createStub(FacilityRepositoryPort::class);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 

@@ -48,7 +48,7 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-123')
       ->willReturn([$role]);
 
-    $cache = $this->createMock(CachePort::class);
+    $cache = $this->createStub(CachePort::class);
     $cache->method('get')->willReturn(null);
 
     $service = new AuthorizationService($repository, $cache);
@@ -79,7 +79,7 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-456')
       ->willReturn([$role]);
 
-    $cache = $this->createMock(CachePort::class);
+    $cache = $this->createStub(CachePort::class);
     $cache->method('get')->willReturn(null);
 
     $service = new AuthorizationService($repository, $cache);
@@ -108,7 +108,7 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-789')
       ->willReturn([$roleAdmin, $roleViewer]);
 
-    $cache = $this->createMock(CachePort::class);
+    $cache = $this->createStub(CachePort::class);
     $cache->method('get')->willReturn(null);
 
     $service = new AuthorizationService($repository, $cache);
@@ -160,7 +160,7 @@ final class AuthorizationServiceTest extends TestCase
       ->with(SubjectType::USER, 'user-999')
       ->willReturn([$roleOne, $roleTwo]);
 
-    $cache = $this->createMock(CachePort::class);
+    $cache = $this->createStub(CachePort::class);
     $cache->method('get')->willReturn(null);
 
     $service = new AuthorizationService($repository, $cache);

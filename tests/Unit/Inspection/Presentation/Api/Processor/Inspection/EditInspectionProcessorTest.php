@@ -58,8 +58,7 @@ final class EditInspectionProcessorTest extends TestCase
   #[Test]
   public function testProcessDispatchesCommandAndReturnsOutput(): void
   {
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var CommandBusPort&MockObject $commandBus */
@@ -159,18 +158,15 @@ final class EditInspectionProcessorTest extends TestCase
 
   private function makeProcessor(?Throwable $commandException = null, ?RequestStack $requestStack = null): EditInspectionProcessor
   {
-    /** @var OrganizationAuthorizationPort&MockObject $authorization */
-    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var CommandBusPort&MockObject $commandBus */
-    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus = $this->createStub(CommandBusPort::class);
     if (null !== $commandException) {
       $commandBus->method('dispatch')->willThrowException($commandException);
     }
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn($this->makeGetInspectionResult());
 
     return new EditInspectionProcessor(
@@ -205,7 +201,7 @@ final class EditInspectionProcessorTest extends TestCase
 
   private function makeSecurity(): Security
   {
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(new SecurityUser(
       id: self::USER_ID,
       email: 'user@example.com',

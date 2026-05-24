@@ -61,10 +61,9 @@ final class ListUsersProviderTest extends TestCase
       ->willReturn($result);
 
     $securityUser = new SecurityUser(id: 'admin-1', email: 'admin@example.com', password: '');
-    /** @var Security&MockObject $security */
     $security = $this->createMock(Security::class);
-    $security->method('getUser')->willReturn($securityUser);
-    $security->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(true);
+    $security->expects(self::once())->method('getUser')->willReturn($securityUser);
+    $security->expects(self::once())->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(true);
 
     $provider = new ListUsersProvider($queryBus, $security);
 
@@ -91,10 +90,9 @@ final class ListUsersProviderTest extends TestCase
       ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
 
     $securityUser = new SecurityUser(id: 'admin-1', email: 'admin@example.com', password: '');
-    /** @var Security&MockObject $security */
     $security = $this->createMock(Security::class);
-    $security->method('getUser')->willReturn($securityUser);
-    $security->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(true);
+    $security->expects(self::once())->method('getUser')->willReturn($securityUser);
+    $security->expects(self::once())->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(true);
 
     $provider = new ListUsersProvider($queryBus, $security);
 
@@ -125,8 +123,7 @@ final class ListUsersProviderTest extends TestCase
       password: '',
       tenantId: 'tenant-xyz',
     );
-    /** @var Security&MockObject $security */
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($securityUser);
 
     $provider = new ListUsersProvider($queryBus, $security);
@@ -144,10 +141,9 @@ final class ListUsersProviderTest extends TestCase
     $queryBus->expects(self::never())->method('ask');
 
     $securityUser = new SecurityUser(id: 'regular-1', email: 'regular@example.com', password: '');
-    /** @var Security&MockObject $security */
     $security = $this->createMock(Security::class);
-    $security->method('getUser')->willReturn($securityUser);
-    $security->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(false);
+    $security->expects(self::once())->method('getUser')->willReturn($securityUser);
+    $security->expects(self::once())->method('isGranted')->with('ROLE_SUPER_ADMIN')->willReturn(false);
 
     $provider = new ListUsersProvider($queryBus, $security);
 
@@ -162,8 +158,7 @@ final class ListUsersProviderTest extends TestCase
     $queryBus = $this->createMock(QueryBusPort::class);
     $queryBus->expects(self::never())->method('ask');
 
-    /** @var Security&MockObject $security */
-    $security = $this->createMock(Security::class);
+    $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(null);
 
     $provider = new ListUsersProvider($queryBus, $security);

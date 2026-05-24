@@ -53,14 +53,11 @@ final class CreateInspectionHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -101,21 +98,16 @@ final class CreateInspectionHandlerTest extends TestCase
   {
     $inspectionId = InspectionId::fromString(self::INSP_ID);
 
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn($inspectionId);
 
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -146,20 +138,15 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsOnInvalidOrganizationUuid(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -187,21 +174,16 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenUserInspectorWithoutUserId(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(InspectionId::fromString(self::INSP_ID));
 
-    /** @var InspectionRepositoryPort&MockObject $repository */
-    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository = $this->createStub(InspectionRepositoryPort::class);
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -229,8 +211,7 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenEquipmentNotFound(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
@@ -242,11 +223,9 @@ final class CreateInspectionHandlerTest extends TestCase
       ->method('assertEquipmentExists')
       ->willThrowException(new InvalidArgumentException('Equipment with ID "' . self::EQUIP_ID . '" not found.'));
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -272,8 +251,7 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeNormalizesInvalidEquipmentValidationValue(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
@@ -285,11 +263,9 @@ final class CreateInspectionHandlerTest extends TestCase
       ->method('assertEquipmentExists')
       ->willThrowException(InvalidValueException::because('Invalid UUID provided.'));
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -316,15 +292,13 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenFacilityNotFound(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
     /** @var FacilityValidationPort&MockObject $facilityValidation */
     $facilityValidation = $this->createMock(FacilityValidationPort::class);
@@ -332,8 +306,7 @@ final class CreateInspectionHandlerTest extends TestCase
       ->method('assertFacilityIsUsable')
       ->willThrowException(new InvalidArgumentException('Facility with ID "550e8400-e29b-41d4-a716-446655440010" not found.'));
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -360,15 +333,13 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenFacilityIsArchived(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
     /** @var FacilityValidationPort&MockObject $facilityValidation */
     $facilityValidation = $this->createMock(FacilityValidationPort::class);
@@ -376,8 +347,7 @@ final class CreateInspectionHandlerTest extends TestCase
       ->method('assertFacilityIsUsable')
       ->willThrowException(new InvalidArgumentException('Facility with ID "550e8400-e29b-41d4-a716-446655440010" is archived and cannot be used.'));
 
-    /** @var ChecklistValidationPort&MockObject $checklistValidation */
-    $checklistValidation = $this->createMock(ChecklistValidationPort::class);
+    $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
     $handler = new CreateInspectionHandler(
       inspectionRepository: $repository,
@@ -404,18 +374,15 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenChecklistNotFound(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
     /** @var ChecklistValidationPort&MockObject $checklistValidation */
     $checklistValidation = $this->createMock(ChecklistValidationPort::class);
@@ -448,18 +415,15 @@ final class CreateInspectionHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenChecklistIsArchived(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->expects(self::never())->method('save');
 
-    /** @var EquipmentValidationPort&MockObject $equipmentValidation */
-    $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
+    $equipmentValidation = $this->createStub(EquipmentValidationPort::class);
 
-    /** @var FacilityValidationPort&MockObject $facilityValidation */
-    $facilityValidation = $this->createMock(FacilityValidationPort::class);
+    $facilityValidation = $this->createStub(FacilityValidationPort::class);
 
     /** @var ChecklistValidationPort&MockObject $checklistValidation */
     $checklistValidation = $this->createMock(ChecklistValidationPort::class);

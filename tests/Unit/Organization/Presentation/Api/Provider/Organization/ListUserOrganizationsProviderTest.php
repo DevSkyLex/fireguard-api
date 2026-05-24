@@ -35,7 +35,7 @@ final class ListUserOrganizationsProviderTest extends TestCase
       ->willReturn(null);
 
     $provider = new ListUserOrganizationsProvider(
-      queryBus: $this->createMock(QueryBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       security: $security,
     );
 

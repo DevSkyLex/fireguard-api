@@ -41,7 +41,7 @@ final class VerifyOtpProcessorTest extends TestCase
   #[Test]
   public function testProcessThrowsWhenIdentifiersMissing(): void
   {
-    $processor = new VerifyOtpProcessor($this->createMock(CommandBusPort::class));
+    $processor = new VerifyOtpProcessor($this->createStub(CommandBusPort::class));
 
     $input = new VerifyOtpInput();
     $input->code = '123456';
@@ -185,7 +185,7 @@ final class VerifyOtpProcessorTest extends TestCase
     $rateLimiter->create($this->createRateLimitKey('token-9'))->consume();
 
     $processor = new VerifyOtpProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       rateLimiter: $rateLimiter,
     );
 

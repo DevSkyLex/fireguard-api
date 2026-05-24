@@ -33,7 +33,7 @@ final class RevokeTokenProcessorTest extends TestCase
   public function testProcessThrowsWhenDataInvalid(): void
   {
     $processor = new RevokeTokenProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: new RequestStack(),
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -42,7 +42,7 @@ final class RevokeTokenProcessorTest extends TestCase
 
     $processor->process(
       data: 'invalid',
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -56,7 +56,7 @@ final class RevokeTokenProcessorTest extends TestCase
     $input->token = null;
 
     $processor = new RevokeTokenProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $this->createRateLimiterFactory(),
     );
@@ -65,7 +65,7 @@ final class RevokeTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 
@@ -96,7 +96,7 @@ final class RevokeTokenProcessorTest extends TestCase
 
     $response = $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
 
     self::assertInstanceOf(JsonResponse::class, $response);
@@ -116,7 +116,7 @@ final class RevokeTokenProcessorTest extends TestCase
     $rateLimiter->create('127.0.0.1')->consume();
 
     $processor = new RevokeTokenProcessor(
-      commandBus: $this->createMock(CommandBusPort::class),
+      commandBus: $this->createStub(CommandBusPort::class),
       requestStack: $requestStack,
       rateLimiter: $rateLimiter,
     );
@@ -125,7 +125,7 @@ final class RevokeTokenProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
-      operation: $this->createMock(Operation::class),
+      operation: $this->createStub(Operation::class),
     );
   }
 

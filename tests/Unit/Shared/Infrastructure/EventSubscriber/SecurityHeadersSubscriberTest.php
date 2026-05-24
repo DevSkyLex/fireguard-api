@@ -242,7 +242,7 @@ final class SecurityHeadersSubscriberTest extends TestCase
   // #region Helpers
   private function createResponseEvent(?Request $request = null): ResponseEvent
   {
-    $kernel = $this->createMock(HttpKernelInterface::class);
+    $kernel = $this->createStub(HttpKernelInterface::class);
     $request ??= new Request();
     $response = new Response();
 

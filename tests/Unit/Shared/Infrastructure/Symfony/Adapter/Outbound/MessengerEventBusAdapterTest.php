@@ -46,8 +46,8 @@ final class MessengerEventBusAdapterTest extends TestCase
   #[Test]
   public function testPublishSuccess(): void
   {
-    $event1 = $this->createMock(DomainEvent::class);
-    $event2 = $this->createMock(DomainEvent::class);
+    $event1 = $this->createStub(DomainEvent::class);
+    $event2 = $this->createStub(DomainEvent::class);
 
     $this->messageBus->expects($this->exactly(2))
       ->method('dispatch')
@@ -78,7 +78,7 @@ final class MessengerEventBusAdapterTest extends TestCase
   #[Test]
   public function testPublishThrowsException(): void
   {
-    $event = $this->createMock(DomainEvent::class);
+    $event = $this->createStub(DomainEvent::class);
     $exception = new Exception('Dispatch error');
 
     $this->messageBus->expects($this->once())

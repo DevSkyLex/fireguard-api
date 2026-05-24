@@ -61,8 +61,7 @@ final class AddNonConformityHandlerTest extends TestCase
       ->with(NonConformityId::class)
       ->willReturn($ncId);
 
-    /** @var InspectionRepositoryPort&MockObject $inspectionRepository */
-    $inspectionRepository = $this->createMock(InspectionRepositoryPort::class);
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn($this->makeDraftInspection());
 
     /** @var NonConformityRepositoryPort&MockObject $ncRepository */
@@ -95,15 +94,12 @@ final class AddNonConformityHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
-    /** @var InspectionRepositoryPort&MockObject $inspectionRepository */
-    $inspectionRepository = $this->createMock(InspectionRepositoryPort::class);
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn(null);
 
-    /** @var NonConformityRepositoryPort&MockObject $ncRepository */
-    $ncRepository = $this->createMock(NonConformityRepositoryPort::class);
+    $ncRepository = $this->createStub(NonConformityRepositoryPort::class);
 
     $handler = new AddNonConformityHandler(
       inspectionRepository: $inspectionRepository,
@@ -124,11 +120,9 @@ final class AddNonConformityHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenInspectionIsClosed(): void
   {
-    /** @var UuidFactory&MockObject $uuidFactory */
-    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory = $this->createStub(UuidFactory::class);
 
-    /** @var InspectionRepositoryPort&MockObject $inspectionRepository */
-    $inspectionRepository = $this->createMock(InspectionRepositoryPort::class);
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
     $inspectionRepository->method('findById')->willReturn($this->makeClosedInspection());
 
     /** @var NonConformityRepositoryPort&MockObject $ncRepository */

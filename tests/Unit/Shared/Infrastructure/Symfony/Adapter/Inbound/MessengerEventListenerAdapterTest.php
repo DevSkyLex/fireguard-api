@@ -33,7 +33,7 @@ final class MessengerEventListenerAdapterTest extends TestCase
   public function testHandleSuccess(): void
   {
     $event = new stdClass();
-    $result = $this->createMock(ResultMessage::class);
+    $result = $this->createStub(ResultMessage::class);
     $handledStamp = new HandledStamp($result, 'handler');
     $envelope = new Envelope($event, [$handledStamp]);
 

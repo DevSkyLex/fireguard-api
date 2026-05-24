@@ -136,7 +136,7 @@ final class RefreshTokenRepositoryTest extends TestCase
   public function testFindByEncryptedTokenReturnsNullWhenEmpty(): void
   {
     $repository = new RefreshTokenRepository(
-      entityManager: $this->createMock(EntityManagerInterface::class),
+      entityManager: $this->createStub(EntityManagerInterface::class),
       encryptionKey: self::ENCRYPTION_KEY,
     );
 
@@ -179,7 +179,7 @@ final class RefreshTokenRepositoryTest extends TestCase
   public function testFindByEncryptedTokenReturnsNullWhenDecryptFails(): void
   {
     $repository = new RefreshTokenRepository(
-      entityManager: $this->createMock(EntityManagerInterface::class),
+      entityManager: $this->createStub(EntityManagerInterface::class),
       encryptionKey: self::ENCRYPTION_KEY,
     );
 
