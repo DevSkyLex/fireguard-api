@@ -107,7 +107,9 @@ traefik.http.services.fireguard-mercure.loadbalancer.server.port: 80
 Dans le `.env` du VPS, expose Mercure avec:
 
 ```env
+CORS_ALLOW_ORIGIN='^https://app\.fireguard\.valentin-fortin\.pro$'
 MERCURE_PUBLIC_URL=https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
+MERCURE_CORS_ORIGINS=https://app.fireguard.valentin-fortin.pro
 ```
 
 Le reseau externe doit deja exister sur le VPS:
