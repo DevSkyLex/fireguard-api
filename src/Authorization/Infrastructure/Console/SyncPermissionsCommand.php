@@ -53,11 +53,13 @@ final class SyncPermissionsCommand extends Command
 
     $created = 0;
     $updated = 0;
+    $permissionsByName = [];
 
     foreach (PermissionCatalog::definitions() as $definition) {
       $existing = $permissionRepo->findOneBy(['name' => $definition['name']]);
 
       if (!$existing instanceof PermissionRecord) {
+        $record = null;
         if (!$dryRun) {
           $record = new PermissionRecord();
           $record->id = Uuid::v7()->toRfc4122();
@@ -66,10 +68,15 @@ final class SyncPermissionsCommand extends Command
           $record->createdAt = new DateTimeImmutable();
           $this->entityManager->persist($record);
         }
+        if ($record instanceof PermissionRecord) {
+          $permissionsByName[$definition['name']] = $record;
+        }
         ++$created;
 
         continue;
       }
+
+      $permissionsByName[$definition['name']] = $existing;
 
       if ($existing->description !== $definition['description']) {
         if (!$dryRun) {
@@ -86,30 +93,47 @@ final class SyncPermissionsCommand extends Command
     $io->text(sprintf('Permissions created: %d, updated: %d', $created, $updated));
 
     if ($updateRoles) {
+      $roleCreations = 0;
       $roleUpdates = 0;
       $roleMap = [
-        'super_admin' => RoleCatalog::superAdminPermissionNames(),
-        'admin' => RoleCatalog::adminPermissionNames(),
-        'user' => RoleCatalog::userPermissionNames(),
+        'super_admin' => [
+          'description' => 'Full system access with all permissions',
+          'permissions' => RoleCatalog::superAdminPermissionNames(),
+        ],
+        'admin' => [
+          'description' => 'Administrative access for user and client management',
+          'permissions' => RoleCatalog::adminPermissionNames(),
+        ],
+        'user' => [
+          'description' => 'Standard user access with profile and session management',
+          'permissions' => RoleCatalog::userPermissionNames(),
+        ],
       ];
 
-      foreach ($roleMap as $roleName => $permissionNames) {
+      foreach ($roleMap as $roleName => $roleDefinition) {
         $role = $roleRepo->findOneBy(['name' => $roleName]);
         if (!$role instanceof RoleRecord) {
-          $io->warning(sprintf('Role "%s" not found, skipping.', $roleName));
-
-          continue;
+          if (!$dryRun) {
+            $role = new RoleRecord();
+            $role->id = Uuid::v7()->toRfc4122();
+            $role->name = $roleName;
+            $role->description = $roleDefinition['description'];
+            $role->isSystem = true;
+            $role->createdAt = new DateTimeImmutable();
+            $this->entityManager->persist($role);
+          }
+          ++$roleCreations;
         }
 
-        foreach ($permissionNames as $permissionName) {
-          $permission = $permissionRepo->findOneBy(['name' => $permissionName]);
+        foreach ($roleDefinition['permissions'] as $permissionName) {
+          $permission = $permissionsByName[$permissionName] ?? $permissionRepo->findOneBy(['name' => $permissionName]);
           if (!$permission instanceof PermissionRecord) {
             $io->warning(sprintf('Permission "%s" missing, skipping.', $permissionName));
 
             continue;
           }
 
-          if (!$role->permissions->contains($permission)) {
+          if ($role instanceof RoleRecord && !$role->permissions->contains($permission)) {
             if (!$dryRun) {
               $role->permissions->add($permission);
             }
@@ -122,6 +146,7 @@ final class SyncPermissionsCommand extends Command
         $this->entityManager->flush();
       }
 
+      $io->text(sprintf('System roles created: %d', $roleCreations));
       $io->text(sprintf('Role permissions added: %d', $roleUpdates));
     }
 
