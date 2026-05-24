@@ -113,6 +113,11 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
 
+    - name: Ensure application runtime volume permissions
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} --profile tools run --rm app_var_init"
+      args:
+        chdir: "{{ fireguard_app_dir }}"
+
     - name: Start dependency services
       ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} up -d auth_database main_database redis mercure"
       args:
@@ -217,27 +222,27 @@
       failed_when: false
 
     - name: Run auth migrations
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod"
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/auth.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Run main migrations
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod"
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console doctrine:migrations:migrate --configuration=config/migrations/main.yaml --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Clear production cache
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console cache:clear --no-warmup --env=prod"
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:clear --no-warmup --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Warm production cache
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console cache:warmup --env=prod"
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console cache:warmup --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
     - name: Synchronize RBAC permissions
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm app php bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod"
+      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} run --rm --no-deps app php -d display_errors=1 -d error_reporting=E_ALL bin/console app:authz:sync-permissions --update-roles --no-interaction --env=prod -vvv"
       args:
         chdir: "{{ fireguard_app_dir }}"
 
