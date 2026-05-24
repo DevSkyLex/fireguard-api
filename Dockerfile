@@ -111,7 +111,9 @@ COPY --chown=app:app . .
 COPY --from=vendor --chown=app:app /var/www/html/vendor vendor
 
 # Create required directories.
-RUN mkdir -p var/cache var/log \
+RUN touch .env \
+    && chown app:app .env \
+    && mkdir -p var/cache var/log \
     && chown -R app:app var /data /config \
     && (setcap -r /usr/local/bin/frankenphp || true)
 
