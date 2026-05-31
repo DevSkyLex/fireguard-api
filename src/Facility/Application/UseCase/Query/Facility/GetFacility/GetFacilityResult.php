@@ -38,6 +38,7 @@ final readonly class GetFacilityResult implements ResultMessage
     public array $metadata,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public bool $hasChildren = false,
   ) {
   }
   // #endregion

@@ -68,6 +68,7 @@ final readonly class GetFacilityHandler implements QueryHandler
       metadata: $facility->metadata(),
       createdAt: $facility->createdAt(),
       updatedAt: $facility->updatedAt(),
+      hasChildren: $this->facilityRepository->countChildren($organizationId, $facilityId) > 0,
     );
   }
   // #endregion

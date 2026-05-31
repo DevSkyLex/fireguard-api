@@ -48,6 +48,15 @@ final class FacilityOutput
   public ?string $parentFacilityId = null;
 
   /**
+   * Property hasChildren.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $hasChildren = false;
+
+  /**
    * Property type.
    *
    * @since 1.0.0

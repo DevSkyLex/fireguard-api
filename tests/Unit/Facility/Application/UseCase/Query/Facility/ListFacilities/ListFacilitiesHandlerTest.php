@@ -45,6 +45,7 @@ final class ListFacilitiesHandlerTest extends TestCase
         new Sorting('createdAt', SortDirection::DESC),
         15,
         30,
+        false,
       )
       ->willReturn([$activeFacility]);
     $repository->expects(self::once())
@@ -57,8 +58,12 @@ final class ListFacilitiesHandlerTest extends TestCase
         '550e8400-e29b-41d4-a716-446655441803',
         'SITE-001',
         'hq',
+        false,
       )
       ->willReturn(4);
+    $repository->expects(self::once())
+      ->method('countChildrenByParentIds')
+      ->willReturn(['550e8400-e29b-41d4-a716-446655441801' => 2]);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
@@ -78,6 +83,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertCount(1, $result->items);
     self::assertSame('550e8400-e29b-41d4-a716-446655441801', $result->items[0]->facilityId);
     self::assertSame('active', $result->items[0]->status);
+    self::assertTrue($result->items[0]->hasChildren);
     self::assertSame(4, $result->total);
     self::assertSame(15, $result->limit);
     self::assertSame(30, $result->offset);
@@ -94,6 +100,9 @@ final class ListFacilitiesHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('countByOrganizationId')
       ->willReturn(0);
+    $repository->expects(self::once())
+      ->method('countChildrenByParentIds')
+      ->willReturn([]);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
@@ -139,6 +148,23 @@ final class ListFacilitiesHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsWhenRootsOnlyIsCombinedWithParentFacilityId(): void
+  {
+    $handler = new ListFacilitiesHandler(
+      facilityRepository: $this->createStub(FacilityRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('rootsOnly cannot be combined with parentFacilityId.');
+
+    $handler->__invoke(new ListFacilitiesQuery(
+      organizationId: '550e8400-e29b-41d4-a716-446655441831',
+      parentFacilityId: '550e8400-e29b-41d4-a716-446655441832',
+      rootsOnly: true,
+    ));
+  }
+
+  #[Test]
   public function testInvokeMapsResultFieldsCorrectly(): void
   {
     $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441840');
@@ -159,6 +185,9 @@ final class ListFacilitiesHandlerTest extends TestCase
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())->method('findByOrganizationId')->willReturn([$facility]);
     $repository->expects(self::once())->method('countByOrganizationId')->willReturn(1);
+    $repository->expects(self::once())
+      ->method('countChildrenByParentIds')
+      ->willReturn(['550e8400-e29b-41d4-a716-446655441841' => 0]);
 
     $handler = new ListFacilitiesHandler(facilityRepository: $repository);
 
@@ -176,6 +205,7 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertSame('Floor 3', $item->name);
     self::assertSame('FLR-3', $item->code);
     self::assertSame('active', $item->status);
+    self::assertFalse($item->hasChildren);
     self::assertSame('Wing B', $item->address);
     self::assertSame(['capacity' => 50], $item->metadata);
     self::assertSame(1, $result->total);

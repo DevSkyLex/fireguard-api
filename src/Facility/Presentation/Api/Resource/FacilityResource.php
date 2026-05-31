@@ -105,6 +105,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
           new Parameter(
+            name: 'rootsOnly',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+            schema: ['type' => 'boolean', 'default' => false],
+          ),
+          new Parameter(
             name: 'code',
             in: 'query',
             required: false,
@@ -145,13 +152,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: FacilityOutput::class,
       provider: ListFacilityChildrenProvider::class,
-      paginationEnabled: false,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'List facility children',
-        description: 'Lists direct children for one facility.',
+        description: 'Lists direct children for one facility. This is the lazy tree expansion endpoint.',
         parameters: [
           new Parameter(name: 'includeArchived', in: 'query', required: false, description: 'When true, archived children are included.', schema: ['type' => 'boolean', 'default' => false]),
           new Parameter(name: 'search', in: 'query', required: false, description: 'Text search across child facilities.', schema: ['type' => 'string']),

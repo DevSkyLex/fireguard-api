@@ -93,7 +93,7 @@ final class GrantConsentInput
    * @since 1.0.0
    */
   #[Assert\NotBlank(message: 'The redirect_uri field is required.')]
-  #[Assert\Url(message: 'The redirect_uri must be a valid URL.')]
+  #[Assert\Url(message: 'The redirect_uri must be a valid URL.', requireTld: false)]
   #[Groups(groups: [OAuthSerializationGroup::CONSENT_WRITE])]
   #[SerializedName(serializedName: 'redirect_uri')]
   #[ApiProperty(

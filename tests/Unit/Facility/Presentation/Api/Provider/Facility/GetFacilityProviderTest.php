@@ -111,6 +111,7 @@ final class GetFacilityProviderTest extends TestCase
         metadata: ['k' => 'v'],
         createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
         updatedAt: new DateTimeImmutable('2026-02-12T10:10:00+00:00'),
+        hasChildren: true,
       ));
 
     $provider = new GetFacilityProvider(
@@ -130,6 +131,7 @@ final class GetFacilityProviderTest extends TestCase
     self::assertInstanceOf(FacilityOutput::class, $output);
     self::assertSame($facilityId, $output->id);
     self::assertSame('HQ', $output->name);
+    self::assertTrue($output->hasChildren);
   }
 
   private function createSecurityUser(string $id): SecurityUser

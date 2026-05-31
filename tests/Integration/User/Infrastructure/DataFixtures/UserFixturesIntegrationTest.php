@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Integration\User\Infrastructure\DataFixtures;
 
+use Authorization\Domain\ValueObject\SubjectType;
+use Authorization\Infrastructure\Catalog\RoleCatalog;
+use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\ORM\EntityManagerInterface;
@@ -56,6 +60,7 @@ final class UserFixturesIntegrationTest extends KernelTestCase
     $fixtures = static::getContainer()->get(UserFixtures::class);
 
     $loader = new Loader();
+    $loader->addFixture(new AuthorizationFixtures());
     $loader->addFixture($fixtures);
 
     $executor = new ORMExecutor($this->entityManager);
@@ -77,6 +82,23 @@ final class UserFixturesIntegrationTest extends KernelTestCase
     self::assertSame('testuser', $testUser->username);
     self::assertSame(UserStatus::ACTIVE->value, $testUser->status);
     self::assertTrue($testUser->emailVerified);
+
+    $assignment = $this->entityManager->getRepository(RoleAssignmentRecord::class)->findOneBy([
+      'subjectType' => SubjectType::USER->value,
+      'subjectId' => $admin->id,
+    ]);
+
+    self::assertNotNull($assignment);
+    self::assertInstanceOf(RoleRecord::class, $assignment->role);
+    self::assertSame('admin', $assignment->role->name);
+
+    $permissionNames = $assignment->role->permissions
+      ->map(static fn ($permission): string => $permission->name)
+      ->toArray();
+
+    foreach (RoleCatalog::adminPermissionNames() as $permissionName) {
+      self::assertContains($permissionName, $permissionNames);
+    }
   }
   // #endregion
 }

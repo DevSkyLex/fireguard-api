@@ -57,6 +57,31 @@ interface FacilityRepositoryPort
     bool $includeArchived = false,
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array;
+
+  /**
+   * Counts direct children for a facility.
+   */
+  public function countChildren(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+  ): int;
+
+  /**
+   * Counts direct children grouped by parent facility identifier.
+   *
+   * @param list<FacilityId> $parentIds
+   *
+   * @return array<string, int>
+   */
+  public function countChildrenByParentIds(
+    FacilityOrganizationId $organizationId,
+    array $parentIds,
+    bool $includeArchived = false,
   ): array;
 
   /**
@@ -88,6 +113,7 @@ interface FacilityRepositoryPort
    * @param ?string $parentFacilityId optional parent facility filter
    * @param ?string $code optional exact code filter
    * @param ?string $search optional text search applied before counting
+   * @param bool $rootsOnly whether only facilities without parent are counted
    *
    * @return int the facilities count
    */
@@ -99,6 +125,7 @@ interface FacilityRepositoryPort
     ?string $parentFacilityId = null,
     ?string $code = null,
     ?string $search = null,
+    bool $rootsOnly = false,
   ): int;
 
   /**
@@ -169,6 +196,7 @@ interface FacilityRepositoryPort
    * @param Sorting $sorting requested sorting applied before pagination
    * @param int $limit maximum number of results
    * @param int $offset result offset
+   * @param bool $rootsOnly whether only facilities without parent are listed
    *
    * @return list<Facility> the facilities collection
    */
@@ -183,6 +211,7 @@ interface FacilityRepositoryPort
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
+    bool $rootsOnly = false,
   ): array;
 
   // #endregion

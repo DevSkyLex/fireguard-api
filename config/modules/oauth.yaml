@@ -25,6 +25,28 @@ services:
     tags:
       - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\Client\GetClient\GetClientQuery }
 
+  OAuth\Application\UseCase\Query\Client\ListClients\ListClientsHandler:
+    tags:
+      - { name: messenger.message_handler, handles: OAuth\Application\UseCase\Query\Client\ListClients\ListClientsQuery }
+
+  OAuth\Application\UseCase\Command\Client\RegisterClient\RegisterClientHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Client\UpdateClientDetails\UpdateClientDetailsHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Client\DeleteClient\DeleteClientHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Client\ActivateClient\ActivateClientHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Client\DeactivateClient\DeactivateClientHandler:
+    tags: ['messenger.message_handler']
+
+  OAuth\Application\UseCase\Command\Client\RegenerateClientSecret\RegenerateClientSecretHandler:
+    tags: ['messenger.message_handler']
+
   # Token/Consent Handlers
   OAuth\Application\UseCase\Command\Token\IssueToken\IssueTokenHandler:
     tags: ['messenger.message_handler']
@@ -148,6 +170,12 @@ services:
   OAuth\Infrastructure\Oidc\Adapter\OidcUserProviderAdapter: ~
 
   # OAuth Processors
+  OAuth\Presentation\Api\Processor\Client\RegisterClientProcessor: ~
+  OAuth\Presentation\Api\Processor\Client\UpdateClientProcessor: ~
+  OAuth\Presentation\Api\Processor\Client\DeleteClientProcessor: ~
+  OAuth\Presentation\Api\Processor\Client\ActivateClientProcessor: ~
+  OAuth\Presentation\Api\Processor\Client\DeactivateClientProcessor: ~
+  OAuth\Presentation\Api\Processor\Client\RegenerateSecretProcessor: ~
   OAuth\Presentation\Api\Processor\Authorization\AuthorizeProcessor: ~
   OAuth\Presentation\Api\Processor\Consent\GrantConsentProcessor: ~
   OAuth\Presentation\Api\Processor\Session\EndSessionProcessor: ~
@@ -156,6 +184,8 @@ services:
   OAuth\Presentation\Api\Processor\Token\IntrospectTokenProcessor: ~
 
   # Discovery Providers
+  OAuth\Presentation\Api\Provider\Client\GetClientProvider: ~
+  OAuth\Presentation\Api\Provider\Client\ListClientsProvider: ~
   OAuth\Presentation\Api\Provider\Discovery\UserInfoProvider: ~
   OAuth\Presentation\Api\Provider\Discovery\OpenIdConfigurationProvider: ~
   OAuth\Presentation\Api\Provider\Discovery\JwksProvider: ~

@@ -85,6 +85,9 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('findById')
       ->with(self::callback(static fn (FacilityId $id): bool => '550e8400-e29b-41d4-a716-446655441720' === (string) $id))
       ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('countChildren')
+      ->willReturn(2);
 
     $handler = new GetFacilityHandler(facilityRepository: $repository);
 
@@ -101,6 +104,7 @@ final class GetFacilityHandlerTest extends TestCase
     self::assertSame('Building B', $result->name);
     self::assertSame('BLDG-B', $result->code);
     self::assertSame('active', $result->status);
+    self::assertTrue($result->hasChildren);
     self::assertSame('123 Main St', $result->address);
     self::assertSame(['floors' => 4], $result->metadata);
   }
@@ -122,6 +126,7 @@ final class GetFacilityHandlerTest extends TestCase
 
     $repository = $this->createStub(FacilityRepositoryPort::class);
     $repository->method('findById')->willReturn($facility);
+    $repository->method('countChildren')->willReturn(0);
 
     $handler = new GetFacilityHandler(facilityRepository: $repository);
 
@@ -131,5 +136,6 @@ final class GetFacilityHandlerTest extends TestCase
     ));
 
     self::assertSame((string) $parentId, $result->parentFacilityId);
+    self::assertFalse($result->hasChildren);
   }
 }

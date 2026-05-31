@@ -130,11 +130,15 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     bool $includeArchived = false,
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createChildQueryBuilder($organizationId, $facilityId, $includeArchived, $search)
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
+      ->setFirstResult($offset)
+      ->setMaxResults($limit)
       ->getQuery()
       ->getResult();
 
@@ -142,6 +146,65 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
       $records,
     );
+  }
+
+  public function countChildren(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+  ): int {
+    return (int) $this->createChildQueryBuilder($organizationId, $facilityId, $includeArchived, $search)
+      ->select('COUNT(f.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
+  public function countChildrenByParentIds(
+    FacilityOrganizationId $organizationId,
+    array $parentIds,
+    bool $includeArchived = false,
+  ): array {
+    if ([] === $parentIds) {
+      return [];
+    }
+
+    $parentIdValues = [];
+    foreach ($parentIds as $parentId) {
+      $parentIdValues[] = (string) $parentId;
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select('IDENTITY(f.parentFacility) AS parentId', 'COUNT(f.id) AS childCount')
+      ->from(FacilityRecord::class, 'f')
+      ->where('f.organization = :organization')
+      ->andWhere('IDENTITY(f.parentFacility) IN (:parentIds)')
+      ->setParameter('organization', $organization)
+      ->setParameter('parentIds', $parentIdValues)
+      ->groupBy('f.parentFacility');
+
+    if (!$includeArchived) {
+      $queryBuilder
+        ->andWhere('f.status = :activeStatus')
+        ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
+    }
+
+    /** @var list<array{parentId: string|null, childCount: int|string}> $rows */
+    $rows = $queryBuilder->getQuery()->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      if (null === $row['parentId']) {
+        continue;
+      }
+
+      $counts[(string) $row['parentId']] = (int) $row['childCount'];
+    }
+
+    return $counts;
   }
 
   public function findDescendants(
@@ -217,6 +280,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $parentFacilityId = null,
     ?string $code = null,
     ?string $search = null,
+    bool $rootsOnly = false,
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
@@ -226,6 +290,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $parentFacilityId,
       $code,
       $search,
+      $rootsOnly,
     )
       ->select('COUNT(f.id)')
       ->getQuery()
@@ -377,6 +442,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
+    bool $rootsOnly = false,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createListQueryBuilder(
@@ -387,6 +453,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $parentFacilityId,
       $code,
       $search,
+      $rootsOnly,
     )
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
@@ -409,6 +476,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $parentFacilityId,
     ?string $code,
     ?string $search,
+    bool $rootsOnly = false,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -437,7 +505,9 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         ->setParameter('status', $status);
     }
 
-    if (null !== $parentFacilityId) {
+    if ($rootsOnly) {
+      $queryBuilder->andWhere('f.parentFacility IS NULL');
+    } elseif (null !== $parentFacilityId) {
       $queryBuilder
         ->andWhere('IDENTITY(f.parentFacility) = :parentFacilityId')
         ->setParameter('parentFacilityId', $parentFacilityId);

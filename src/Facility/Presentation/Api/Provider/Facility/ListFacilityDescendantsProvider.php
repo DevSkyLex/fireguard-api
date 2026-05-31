@@ -143,6 +143,7 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     $output->id = $facility->facilityId;
     $output->organizationId = $facility->organizationId;
     $output->parentFacilityId = $facility->parentFacilityId;
+    $output->hasChildren = $facility->hasChildren;
     $output->type = $facility->type;
     $output->name = $facility->name;
     $output->code = $facility->code;

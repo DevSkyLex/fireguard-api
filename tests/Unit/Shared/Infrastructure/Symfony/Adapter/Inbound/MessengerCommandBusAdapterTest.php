@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Message\{CommandMessage, ResultMessage};
+use Shared\Application\Message\{CommandMessage, ResultMessage, VoidResult};
 use Shared\Infrastructure\Exception\NoHandlerResultException;
 use Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
@@ -74,6 +74,23 @@ final class MessengerCommandBusAdapterTest extends TestCase
 
     $this->expectException(NoHandlerResultException::class);
     $this->adapter->dispatch($command);
+  }
+
+  #[Test]
+  public function testDispatchReturnsVoidResultWhenHandlerReturnsNull(): void
+  {
+    $command = $this->createStub(CommandMessage::class);
+    $handledStamp = new HandledStamp(null, 'handler');
+    $envelope = new Envelope($command, [$handledStamp]);
+
+    $this->messageBus->expects($this->once())
+      ->method('dispatch')
+      ->with($command)
+      ->willReturn($envelope);
+
+    $actualResult = $this->adapter->dispatch($command);
+
+    $this->assertInstanceOf(VoidResult::class, $actualResult);
   }
 
   #[Test]

@@ -77,6 +77,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     $type = $request?->query->get('type');
     $status = $request?->query->get('status');
     $parentFacilityId = $request?->query->get('parentFacilityId');
+    $rootsOnly = $request?->query->getBoolean('rootsOnly', false) ?? false;
     $code = $request?->query->get('code');
 
     $filters = $context['filters'] ?? [];
@@ -101,6 +102,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
         type: is_string($type) && '' !== $type ? $type : null,
         status: is_string($status) && '' !== $status ? $status : null,
         parentFacilityId: is_string($parentFacilityId) && '' !== $parentFacilityId ? $parentFacilityId : null,
+        rootsOnly: $rootsOnly,
         code: is_string($code) && '' !== $code ? $code : null,
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'code'], 'name'),
@@ -172,6 +174,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     $output->id = $facility->facilityId;
     $output->organizationId = $facility->organizationId;
     $output->parentFacilityId = $facility->parentFacilityId;
+    $output->hasChildren = $facility->hasChildren;
     $output->type = $facility->type;
     $output->name = $facility->name;
     $output->code = $facility->code;

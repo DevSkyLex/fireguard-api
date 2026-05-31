@@ -159,7 +159,7 @@ final class TenantInput
    *
    * Custom issuer URL for this tenant.
    */
-  #[Assert\Url(message: 'Custom issuer must be a valid URL.')]
+  #[Assert\Url(message: 'Custom issuer must be a valid URL.', requireTld: false)]
   #[Groups([TenantSerializationGroup::WRITE])]
   #[ApiProperty(
     description: 'Custom issuer URL for this tenant.',

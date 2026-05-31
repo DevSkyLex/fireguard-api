@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Shared\Infrastructure\Symfony\Adapter\Inbound;
 
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Message\{CommandMessage, ResultMessage};
+use Shared\Application\Message\{CommandMessage, ResultMessage, VoidResult};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Infrastructure\Exception\NoHandlerResultException;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
@@ -69,6 +69,10 @@ final readonly class MessengerCommandBusAdapter implements CommandBusPort
     );
 
     $result = $handledStamp->getResult();
+
+    if (null === $result) {
+      return new VoidResult();
+    }
 
     if (!$result instanceof ResultMessage) {
       throw NoHandlerResultException::forMessage(

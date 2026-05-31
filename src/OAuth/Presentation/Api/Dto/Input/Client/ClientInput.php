@@ -63,7 +63,7 @@ final class ClientInput
   #[Assert\NotBlank]
   #[Assert\All([
     new Assert\NotBlank(),
-    new Assert\Url(protocols: ['http', 'https']),
+    new Assert\Url(protocols: ['http', 'https'], requireTld: false),
   ])]
   #[SerializedName('redirect_uris')]
   #[ApiProperty(

@@ -51,6 +51,7 @@ final class ListFacilityDescendantsProviderTest extends TestCase
           metadata: [],
           createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
           updatedAt: new DateTimeImmutable('2026-02-12T10:10:00+00:00'),
+          hasChildren: true,
         ),
         new GetFacilityResult(
           facilityId: '550e8400-e29b-41d4-a716-446655441304',
@@ -80,6 +81,7 @@ final class ListFacilityDescendantsProviderTest extends TestCase
     );
 
     self::assertCount(2, $outputs);
+    self::assertTrue($outputs[0]->hasChildren);
     self::assertSame('Floor 1', $outputs[1]->name);
   }
 
