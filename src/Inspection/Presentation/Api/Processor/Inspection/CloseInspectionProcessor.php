@@ -11,6 +11,7 @@ use Inspection\Application\UseCase\Command\Inspection\CloseInspection\CloseInspe
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionQuery, GetInspectionResult};
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionNotFoundException, InspectionNotSubmittedException};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Mapper\InspectionOutputMapper;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -29,6 +30,7 @@ final readonly class CloseInspectionProcessor implements ProcessorInterface
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
+    private InspectionOutputMapper $outputMapper,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
   ) {
@@ -97,25 +99,6 @@ final readonly class CloseInspectionProcessor implements ProcessorInterface
 
   private function mapResult(GetInspectionResult $result): InspectionOutput
   {
-    $output = new InspectionOutput();
-    $output->id = $result->inspectionId;
-    $output->organizationId = $result->organizationId;
-    $output->equipmentId = $result->equipmentId;
-    $output->facilityId = $result->facilityId;
-    $output->result = $result->result;
-    $output->status = $result->status;
-    $output->performedAt = $result->performedAt;
-    $output->inspectorType = $result->inspectorType;
-    $output->inspectorName = $result->inspectorName;
-    $output->inspectorUserId = $result->inspectorUserId;
-    $output->inspectorOrganizationName = $result->inspectorOrganizationName;
-    $output->checklistId = $result->checklistId;
-    $output->notes = $result->notes;
-    $output->signature = $result->signature;
-    $output->nonConformitiesCount = $result->nonConformitiesCount;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->outputMapper->fromGetResult($result);
   }
 }

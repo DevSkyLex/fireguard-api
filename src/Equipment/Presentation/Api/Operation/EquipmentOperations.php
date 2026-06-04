@@ -31,6 +31,13 @@ final class EquipmentOperations
   public const string LIST_EQUIPMENTS = 'equipment_list';
 
   /**
+   * Constant LIST_FACILITY_EQUIPMENTS.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_EQUIPMENTS = 'facility_equipment_list';
+
+  /**
    * Constant GET_EQUIPMENT.
    *
    * @var string

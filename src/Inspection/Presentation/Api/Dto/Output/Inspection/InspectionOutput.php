@@ -40,19 +40,7 @@ final class InspectionOutput
 
   #[Groups([InspectionSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
-  public string $inspectorType = '';
-
-  #[Groups([InspectionSerializationGroup::READ])]
-  #[ApiProperty(readable: true, writable: false)]
-  public string $inspectorName = '';
-
-  #[Groups([InspectionSerializationGroup::READ])]
-  #[ApiProperty(readable: true, writable: false)]
-  public ?string $inspectorUserId = null;
-
-  #[Groups([InspectionSerializationGroup::READ])]
-  #[ApiProperty(readable: true, writable: false)]
-  public ?string $inspectorOrganizationName = null;
+  public ?InspectorOutput $inspector = null;
 
   #[Groups([InspectionSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]

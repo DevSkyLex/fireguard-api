@@ -10,7 +10,9 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
+use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Mapper\InspectionOutputMapper;
 use Inspection\Presentation\Api\Provider\Inspection\ListInspectionsProvider;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -46,6 +48,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: new RequestStack(),
@@ -67,6 +70,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
       requestStack: new RequestStack(),
@@ -91,6 +95,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $this->createStub(QueryBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
       requestStack: new RequestStack(),
@@ -160,6 +165,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
@@ -179,6 +185,10 @@ final class ListInspectionsProviderTest extends TestCase
     self::assertCount(1, $items);
     self::assertInstanceOf(InspectionOutput::class, $items[0]);
     self::assertSame(self::INSP_ID, $items[0]->id);
+    self::assertNotNull($items[0]->inspector);
+    self::assertSame('user', $items[0]->inspector->type);
+    self::assertSame(self::USER_ID, $items[0]->inspector->id);
+    self::assertSame('John Doe', $items[0]->inspector->displayName);
   }
 
   #[Test]
@@ -210,6 +220,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
@@ -260,6 +271,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
@@ -274,6 +286,48 @@ final class ListInspectionsProviderTest extends TestCase
           'order' => ['performedAt' => 'desc'],
         ],
       ],
+    );
+  }
+
+  #[Test]
+  public function testProvideUsesFacilityIdFromUriVariables(): void
+  {
+    $facilityId = '550e8400-e29b-41d4-a716-446655440011';
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInspectionsQuery $query) use ($facilityId): bool {
+        return self::ORG_ID === $query->organizationId
+          && $facilityId === $query->facilityId;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/api/organizations/'.self::ORG_ID.'/facilities/'.$facilityId.'/inspections',
+      method: 'GET',
+      parameters: ['facilityId' => '550e8400-e29b-41d4-a716-446655440012'],
+    ));
+
+    $provider = new ListInspectionsProvider(
+      queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'facilityId' => $facilityId],
     );
   }
 
@@ -294,6 +348,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
@@ -326,6 +381,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $provider = new ListInspectionsProvider(
       queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
       requestStack: $requestStack,
@@ -349,5 +405,13 @@ final class ListInspectionsProviderTest extends TestCase
       scopes: [],
       isActive: true,
     );
+  }
+
+  private function createOutputMapper(): InspectionOutputMapper
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetUserResult(null));
+
+    return new InspectionOutputMapper($queryBus);
   }
 }

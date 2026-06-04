@@ -12,6 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Mapper\InspectionOutputMapper;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -35,6 +36,7 @@ final readonly class ListInspectionsProvider implements ProviderInterface
 
   public function __construct(
     private QueryBusPort $queryBus,
+    private InspectionOutputMapper $outputMapper,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
@@ -62,7 +64,9 @@ final readonly class ListInspectionsProvider implements ProviderInterface
 
     $request = $this->requestStack->getCurrentRequest();
     $equipmentId = $request?->query->get('equipmentId');
-    $facilityId = $request?->query->get('facilityId');
+    $uriFacilityId = $uriVariables['facilityId'] ?? null;
+    $queryFacilityId = $request?->query->get('facilityId');
+    $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
     $result = $request?->query->get('result');
     $status = $request?->query->get('status');
     $performedAtFrom = $request?->query->get('performedAtFrom');
@@ -125,25 +129,6 @@ final readonly class ListInspectionsProvider implements ProviderInterface
 
   private function mapResult(GetInspectionResult $result): InspectionOutput
   {
-    $output = new InspectionOutput();
-    $output->id = $result->inspectionId;
-    $output->organizationId = $result->organizationId;
-    $output->equipmentId = $result->equipmentId;
-    $output->facilityId = $result->facilityId;
-    $output->result = $result->result;
-    $output->status = $result->status;
-    $output->performedAt = $result->performedAt;
-    $output->inspectorType = $result->inspectorType;
-    $output->inspectorName = $result->inspectorName;
-    $output->inspectorUserId = $result->inspectorUserId;
-    $output->inspectorOrganizationName = $result->inspectorOrganizationName;
-    $output->checklistId = $result->checklistId;
-    $output->notes = $result->notes;
-    $output->signature = $result->signature;
-    $output->nonConformitiesCount = $result->nonConformitiesCount;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->outputMapper->fromGetResult($result);
   }
 }

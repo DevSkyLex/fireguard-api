@@ -201,6 +201,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: FacilityOperations::UPDATE_FACILITY,
       uriTemplate: '/{organizationId}/facilities/{facilityId}',
+      read: false,
       input: UpdateFacilityInput::class,
       output: FacilityOutput::class,
       processor: UpdateFacilityProcessor::class,

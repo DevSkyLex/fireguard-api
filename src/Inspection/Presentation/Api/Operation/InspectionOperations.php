@@ -20,6 +20,8 @@ final class InspectionOperations
 
   public const string LIST_INSPECTIONS = 'inspection_list';
 
+  public const string LIST_FACILITY_INSPECTIONS = 'facility_inspection_list';
+
   public const string GET_INSPECTION = 'inspection_get';
 
   public const string EDIT_INSPECTION = 'inspection_edit';

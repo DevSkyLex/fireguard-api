@@ -17,6 +17,9 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, 
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
+use function intdiv;
+use function sprintf;
+
 final class InspectionFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
   public const string CHECKLIST_REFERENCE = 'inspection-seed-checklist';
@@ -59,6 +62,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
     /** @var EquipmentRecord $heatDetector */
     $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $siteEmergencyLighting */
+    $siteEmergencyLighting = $this->getReference(EquipmentFixtures::SITE_EMERGENCY_LIGHTING_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $buildingFireDoor */
+    $buildingFireDoor = $this->getReference(EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $floorOneCamera */
+    $floorOneCamera = $this->getReference(EquipmentFixtures::FLOOR_ONE_CAMERA_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $floorTwoGasDetector */
+    $floorTwoGasDetector = $this->getReference(EquipmentFixtures::FLOOR_TWO_GAS_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $site */
+    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $building */
+    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $floorOne */
+    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $floorTwo */
+    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
     /** @var FacilityRecord $zone */
     $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
     /** @var FacilityRecord $area */
@@ -207,6 +226,153 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
     );
     $manager->persist($recentPassInspection);
+
+    $siteEmergencyLightingInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444484',
+      organization: $organization,
+      equipmentId: $siteEmergencyLighting->id,
+      facilityId: $site->id,
+      inspectorType: InspectorType::USER->value,
+      inspectorName: 'Admin User',
+      result: InspectionResult::PASS->value,
+      status: InspectionStatus::CLOSED->value,
+      performedAt: new DateTimeImmutable('2026-04-04T08:00:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Emergency lighting autonomy test passed at site entrance.',
+      inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
+    );
+    $manager->persist($siteEmergencyLightingInspection);
+
+    $buildingFireDoorInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444485',
+      organization: $organization,
+      equipmentId: $buildingFireDoor->id,
+      facilityId: $building->id,
+      inspectorType: InspectorType::EXTERNAL->value,
+      inspectorName: 'SafeCheck Consultants',
+      result: InspectionResult::PARTIAL->value,
+      status: InspectionStatus::SUBMITTED->value,
+      performedAt: new DateTimeImmutable('2026-04-04T09:30:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Fire door closes correctly but the closer needs tension adjustment.',
+      inspectorOrganizationName: 'SafeCheck Consultants',
+    );
+    $manager->persist($buildingFireDoorInspection);
+
+    $floorOneCameraInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444486',
+      organization: $organization,
+      equipmentId: $floorOneCamera->id,
+      facilityId: $floorOne->id,
+      inspectorType: InspectorType::USER->value,
+      inspectorName: 'Test User',
+      result: InspectionResult::PASS->value,
+      status: InspectionStatus::CLOSED->value,
+      performedAt: new DateTimeImmutable('2026-04-04T10:15:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Camera view, recording, and retention checks passed.',
+      inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
+    );
+    $manager->persist($floorOneCameraInspection);
+
+    $floorTwoGasDetectorInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444487',
+      organization: $organization,
+      equipmentId: $floorTwoGasDetector->id,
+      facilityId: $floorTwo->id,
+      inspectorType: InspectorType::EXTERNAL->value,
+      inspectorName: 'External Safety Services',
+      result: InspectionResult::FAIL->value,
+      status: InspectionStatus::SUBMITTED->value,
+      performedAt: new DateTimeImmutable('2026-04-04T11:00:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Gas detector calibration drift exceeded tolerance.',
+      inspectorOrganizationName: 'External Safety Services',
+    );
+    $manager->persist($floorTwoGasDetectorInspection);
+
+    $manager->persist($this->createNonConformity(
+      id: '44444444-4444-4444-8444-444444444488',
+      inspection: $buildingFireDoorInspection,
+      description: 'Door closer tension below expected threshold.',
+      severity: NonConformitySeverity::LOW->value,
+      status: NonConformityStatus::OPEN->value,
+      createdAt: new DateTimeImmutable('2026-04-04T09:45:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-04-04T09:45:00+00:00'),
+      dueAt: new DateTimeImmutable('2026-04-18T12:00:00+00:00'),
+      notes: 'Adjustment can be handled during the next maintenance visit.',
+    ));
+
+    $manager->persist($this->createNonConformity(
+      id: '44444444-4444-4444-8444-444444444489',
+      inspection: $floorTwoGasDetectorInspection,
+      description: 'Calibration drift above tolerance on gas detector channel A.',
+      severity: NonConformitySeverity::HIGH->value,
+      status: NonConformityStatus::IN_PROGRESS->value,
+      createdAt: new DateTimeImmutable('2026-04-04T11:20:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-04-04T11:20:00+00:00'),
+      dueAt: new DateTimeImmutable('2026-04-11T12:00:00+00:00'),
+      notes: 'Replacement sensor requested from vendor.',
+    ));
+
+    $bulkInspectionIndex = 0;
+    $bulkNonConformityIndex = 0;
+    foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
+      /** @var EquipmentRecord $equipment */
+      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+
+      for ($inspectionIndex = 0; $inspectionIndex < 3; ++$inspectionIndex) {
+        $result = match (($equipmentIndex + $inspectionIndex) % 4) {
+          1 => InspectionResult::PARTIAL->value,
+          2 => InspectionResult::FAIL->value,
+          default => InspectionResult::PASS->value,
+        };
+        $status = InspectionResult::PASS->value === $result || 0 === $inspectionIndex
+          ? InspectionStatus::CLOSED->value
+          : InspectionStatus::SUBMITTED->value;
+        $inspectorType = 0 === ($equipmentIndex + $inspectionIndex) % 3
+          ? InspectorType::EXTERNAL->value
+          : InspectorType::USER->value;
+        $performedAt = new DateTimeImmutable(sprintf(
+          '2026-04-%02dT%02d:00:00+00:00',
+          6 + intdiv($equipmentIndex, 4),
+          8 + $inspectionIndex,
+        ));
+
+        $inspection = $this->createInspection(
+          id: sprintf('44444444-4444-4444-8444-4444444445%02x', $bulkInspectionIndex++),
+          organization: $organization,
+          equipmentId: $equipment->id,
+          facilityId: $equipment->facilityId,
+          inspectorType: $inspectorType,
+          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : (0 === $inspectionIndex % 2 ? 'Admin User' : 'Test User'),
+          result: $result,
+          status: $status,
+          performedAt: $performedAt,
+          checklistId: $checklist->id,
+          notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $seed['locationLabel']),
+          inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
+          inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : null,
+        );
+        $manager->persist($inspection);
+
+        if (InspectionResult::PASS->value !== $result) {
+          $manager->persist($this->createNonConformity(
+            id: sprintf('44444444-4444-4444-8444-4444444446%02x', $bulkNonConformityIndex++),
+            inspection: $inspection,
+            description: InspectionResult::FAIL->value === $result
+              ? sprintf('%s failed validation during seeded inspection.', $seed['locationLabel'])
+              : sprintf('%s requires follow-up adjustment after seeded inspection.', $seed['locationLabel']),
+            severity: InspectionResult::FAIL->value === $result ? NonConformitySeverity::HIGH->value : NonConformitySeverity::MEDIUM->value,
+            status: InspectionResult::FAIL->value === $result ? NonConformityStatus::OPEN->value : NonConformityStatus::IN_PROGRESS->value,
+            createdAt: $performedAt->modify('+15 minutes'),
+            updatedAt: $performedAt->modify('+15 minutes'),
+            dueAt: $performedAt->modify('+14 days'),
+            notes: 'Generated from dense seed fixture data.',
+          ));
+        }
+      }
+    }
 
     $manager->persist($this->createNonConformity(
       id: '44444444-4444-4444-8444-444444444448',

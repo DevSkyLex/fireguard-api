@@ -75,7 +75,9 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $facilityId = $request?->query->get('facilityId');
+    $uriFacilityId = $uriVariables['facilityId'] ?? null;
+    $queryFacilityId = $request?->query->get('facilityId');
+    $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
     $type = $request?->query->get('type');
     $status = $request?->query->get('status');
     $brand = $request?->query->get('brand');

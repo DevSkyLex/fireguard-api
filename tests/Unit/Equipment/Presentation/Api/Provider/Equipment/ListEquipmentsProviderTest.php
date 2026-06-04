@@ -402,6 +402,55 @@ final class ListEquipmentsProviderTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testProvideUsesFacilityIdFromUriVariables(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441570';
+    $facilityId = '550e8400-e29b-41d4-a716-446655441571';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441572');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with($user->getId(), $organizationId, 'organization.equipment.read')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListEquipmentsQuery $query) use ($organizationId, $facilityId): bool {
+        return $organizationId === $query->organizationId
+          && $facilityId === $query->facilityId;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 30, offset: 0));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/api/organizations/'.$organizationId.'/facilities/'.$facilityId.'/equipment',
+      method: 'GET',
+      parameters: ['facilityId' => '550e8400-e29b-41d4-a716-446655441573'],
+    ));
+
+    $provider = new ListEquipmentsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => $organizationId, 'facilityId' => $facilityId],
+    );
+  }
+
   private function createSecurityUser(string $id): SecurityUser
   {
     return new SecurityUser(
