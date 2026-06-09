@@ -146,6 +146,17 @@ interface OrganizationMemberRepositoryPort
   public function countByOrganizationId(OrganizationId $organizationId): int;
 
   /**
+   * Counts members for multiple organizations in one query.
+   *
+   * @since 1.0.0
+   *
+   * @param list<OrganizationId> $organizationIds the organization identifiers
+   *
+   * @return array<string, int> member counts indexed by organization ID
+   */
+  public function countByOrganizationIds(array $organizationIds): array;
+
+  /**
    * Counts active members belonging to an organization.
    *
    * @since 1.0.0

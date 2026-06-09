@@ -33,6 +33,7 @@ use Equipment\Presentation\Api\Serialization\EquipmentSerializationGroup;
       provider: ListEquipmentTypesProvider::class,
       normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Equipment'],
         summary: 'List equipment types',

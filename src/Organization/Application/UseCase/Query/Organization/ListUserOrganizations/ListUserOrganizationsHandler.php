@@ -12,6 +12,7 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use ValueError;
 
+use function array_map;
 use function array_values;
 
 /**
@@ -103,10 +104,15 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       $query->search,
     );
 
+    $memberCounts = $this->memberRepository->countByOrganizationIds(
+      array_values(array_map(static fn ($organization): OrganizationId => $organization->id(), $organizations)),
+    );
+
     $results = [];
     foreach ($organizations as $organization) {
+      $organizationId = (string) $organization->id();
       $results[] = new GetOrganizationResult(
-        id: (string) $organization->id(),
+        id: $organizationId,
         name: (string) $organization->name(),
         slug: (string) $organization->slug(),
         ownerUserId: $organization->ownerUserId(),
@@ -115,7 +121,7 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
         isActive: $organization->isActive(),
         createdAt: $organization->createdAt(),
         updatedAt: $organization->updatedAt(),
-        memberCount: $this->memberRepository->countByOrganizationId($organization->id()),
+        memberCount: $memberCounts[$organizationId] ?? 0,
       );
     }
 

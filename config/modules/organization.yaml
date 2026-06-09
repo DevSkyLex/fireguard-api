@@ -136,6 +136,8 @@ services:
   Organization\Application\Port\Inbound\OrganizationAuthorizationPort:
     alias: Organization\Application\Service\OrganizationAuthorizationService
 
+  Organization\Application\Service\OrganizationCacheInvalidator: ~
+
   Organization\Application\Service\OrganizationAuthorizationService: ~
 
   Organization\Application\Port\Outbound\FacilityStatisticsPort:

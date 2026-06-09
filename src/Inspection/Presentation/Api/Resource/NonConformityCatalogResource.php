@@ -25,6 +25,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListNonConformityStatusesProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['NonConformity'],
         summary: 'List non-conformity statuses',

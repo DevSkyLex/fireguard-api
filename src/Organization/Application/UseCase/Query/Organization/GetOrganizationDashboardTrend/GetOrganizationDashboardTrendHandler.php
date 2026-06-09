@@ -15,12 +15,18 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\CachePort;
+use Throwable;
 
 use function array_sum;
+use function hash;
 use function in_array;
+use function json_encode;
 use function max;
 use function round;
 use function timezone_identifiers_list;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Handler for fetching organization dashboard trend data.
@@ -49,6 +55,8 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
 
   private const int MAX_TREND_PERIOD_DAYS = 366;
 
+  private const int DEFAULT_CACHE_TTL_SECONDS = 30;
+
   /**
    * Constructor.
    *
@@ -61,6 +69,8 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     private FacilityStatisticsPort $facilityStatistics,
     private InspectionStatisticsPort $inspectionStatistics,
     private NonConformityStatisticsPort $nonConformityStatistics,
+    private ?CachePort $cache = null,
+    private int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
   ) {
   }
 
@@ -80,6 +90,12 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
+    $cacheKey = $this->buildCacheKey($query);
+    $cached = $this->readCache($cacheKey);
+    if ($cached instanceof GetOrganizationDashboardTrendResult) {
+      return $cached;
+    }
+
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
     $periodFrom = DashboardDateTimeParser::parseNullable($query->periodFrom, 'from');
     $periodTo = DashboardDateTimeParser::parseNullable($query->periodTo, 'to');
@@ -94,7 +110,7 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     $currentCounts = $this->loadMetricCounts($metric, $query, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName());
     $currentTotal = $this->sumSeries($currentCounts);
 
-    return new GetOrganizationDashboardTrendResult(
+    $result = new GetOrganizationDashboardTrendResult(
       generatedAt: $this->formatIso8601($generatedAt),
       metric: $metric,
       period: ['from' => $periodStartFormatted, 'to' => $periodEndFormatted, 'granularity' => $granularity, 'comparison' => null !== $comparisonPeriod ? 'previous_period' : 'none', 'timezone' => $dashboardTimeZone->getName()],
@@ -102,6 +118,9 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
       series: $this->normalizeSeries($periodStart, $periodEnd, $granularity, $currentCounts),
       comparison: $this->buildComparison($metric, $query, $comparisonPeriod, $granularity, $currentTotal),
     );
+    $this->writeCache($cacheKey, $result);
+
+    return $result;
   }
 
   private function assertSupportedMetric(string $metric): string
@@ -119,6 +138,61 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
       if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
         throw OrganizationAccessDeniedException::missingPermission($permission);
       }
+    }
+  }
+
+  private function buildCacheKey(GetOrganizationDashboardTrendQuery $query): string
+  {
+    try {
+      $payload = json_encode([
+        'organizationId' => $query->organizationId,
+        'metric' => $query->metric,
+        'periodFrom' => $query->periodFrom,
+        'periodTo' => $query->periodTo,
+        'compareWithPreviousPeriod' => $query->compareWithPreviousPeriod,
+        'granularity' => $query->granularity,
+        'timeZone' => $query->timeZone,
+        'facilityType' => $query->facilityType,
+        'equipmentType' => $query->equipmentType,
+        'equipmentStatus' => $query->equipmentStatus,
+        'inspectionStatus' => $query->inspectionStatus,
+        'inspectionResult' => $query->inspectionResult,
+        'inspectorType' => $query->inspectorType,
+        'nonConformityStatus' => $query->nonConformityStatus,
+        'nonConformitySeverity' => $query->nonConformitySeverity,
+      ], JSON_THROW_ON_ERROR);
+    } catch (Throwable) {
+      $payload = $query->organizationId . '|' . $query->metric;
+    }
+
+    return 'organization.dashboard_trend.' . hash('sha256', $payload);
+  }
+
+  private function readCache(string $cacheKey): ?GetOrganizationDashboardTrendResult
+  {
+    if (null === $this->cache || $this->cacheTtl <= 0) {
+      return null;
+    }
+
+    try {
+      $cached = $this->cache->get($cacheKey);
+    } catch (Throwable) {
+      return null;
+    }
+
+    return $cached instanceof GetOrganizationDashboardTrendResult ? $cached : null;
+  }
+
+  private function writeCache(string $cacheKey, GetOrganizationDashboardTrendResult $result): void
+  {
+    if (null === $this->cache || $this->cacheTtl <= 0) {
+      return;
+    }
+
+    try {
+      $this->cache->set($cacheKey, $result, $this->cacheTtl);
+    } catch (Throwable) {
+      // Trend cache failures should not block fresh trend generation.
     }
   }
 

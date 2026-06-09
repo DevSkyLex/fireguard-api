@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\OrganizationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Contracts\Service\ResetInterface;
 
 #[CoversClass(OrganizationAuthorizationService::class)]
@@ -83,6 +84,60 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-446655440001',
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
       permissions: ['organization.members.read'],
+    );
+  }
+
+  #[Test]
+  public function testGetUserPermissionsUsesSharedCacheBeforeRepository(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('getPermissionNamesForUserInOrganization');
+
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->with('organization.permissions.550e8400-e29b-41d4-a716-446655440010.550e8400-e29b-41d4-a716-446655440001')
+      ->willReturn(['organization.read']);
+    $cache->expects(self::never())->method('set');
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+
+    self::assertSame(
+      ['organization.read'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
+    );
+  }
+
+  #[Test]
+  public function testGetUserPermissionsRefreshesStaleEmptySharedCache(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->with(
+        '550e8400-e29b-41d4-a716-446655440001',
+        self::isInstanceOf(OrganizationId::class),
+      )
+      ->willReturn(['organization.*']);
+
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->with('organization.permissions.550e8400-e29b-41d4-a716-446655440010.550e8400-e29b-41d4-a716-446655440001')
+      ->willReturn([]);
+    $cache->expects(self::once())
+      ->method('set')
+      ->with(
+        'organization.permissions.550e8400-e29b-41d4-a716-446655440010.550e8400-e29b-41d4-a716-446655440001',
+        ['organization.*'],
+        self::anything(),
+      );
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+
+    self::assertSame(
+      ['organization.*'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
     );
   }
 

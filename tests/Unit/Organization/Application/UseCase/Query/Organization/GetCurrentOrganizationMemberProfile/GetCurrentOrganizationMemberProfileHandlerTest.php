@@ -24,6 +24,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\CachePort;
 
 use function count;
 
@@ -198,5 +199,116 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
     $this->expectException(OrganizationMemberNotFoundException::class);
 
     $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));
+  }
+
+  #[Test]
+  public function testInvokeIgnoresStaleEmptyCachedProfileAndRecomputesPermissions(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442231';
+    $memberId = '550e8400-e29b-41d4-a716-446655442232';
+    $userId = '550e8400-e29b-41d4-a716-446655442233';
+    $roleId = '550e8400-e29b-41d4-a716-446655442234';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Lyon'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-4 days'),
+    );
+
+    $member = OrganizationMember::reconstitute(
+      id: new OrganizationMemberId($memberId),
+      organizationId: new OrganizationId($organizationId),
+      userId: $userId,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-2 days'),
+    );
+
+    $role = OrganizationRole::reconstitute(
+      id: new OrganizationRoleId($roleId),
+      organizationId: new OrganizationId($organizationId),
+      name: new OrganizationRoleName('admin'),
+      permissions: ['organization.*'],
+      isSystem: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+      description: 'Seed admin role',
+    );
+
+    $staleCachedResult = new GetCurrentOrganizationMemberProfileResult(
+      id: $memberId,
+      organizationId: $organizationId,
+      userId: $userId,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-2 days'),
+      roles: [],
+      permissions: [],
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
+      ->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('findByOrganizationAndUser')
+      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id), $userId)
+      ->willReturn($member);
+    $memberRepository->expects(self::once())
+      ->method('findRoleIdsForMember')
+      ->with(self::callback(static fn (OrganizationMemberId $id): bool => $memberId === (string) $id))
+      ->willReturn([$roleId]);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByIdsInOrganization')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id),
+        self::callback(static fn (array $ids): bool => 1 === count($ids)
+          && isset($ids[0])
+          && $ids[0] instanceof OrganizationRoleId
+          && $roleId === $ids[0]->value),
+      )
+      ->willReturn([$role]);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('getUserPermissions')
+      ->with($userId, $organizationId)
+      ->willReturn(['organization.*']);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willReturn($staleCachedResult);
+    $cache->expects(self::once())
+      ->method('set')
+      ->with(
+        self::isString(),
+        self::callback(static fn (mixed $result): bool => $result instanceof GetCurrentOrganizationMemberProfileResult
+          && 1 === count($result->roles)
+          && ['organization.*'] === $result->permissions),
+        self::anything(),
+      );
+
+    $handler = new GetCurrentOrganizationMemberProfileHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      authorization: $authorization,
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));
+
+    self::assertCount(1, $result->roles);
+    self::assertSame(['organization.*'], $result->permissions);
   }
 }

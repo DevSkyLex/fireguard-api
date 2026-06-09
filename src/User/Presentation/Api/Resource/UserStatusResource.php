@@ -25,6 +25,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       provider: ListUserStatusesProvider::class,
       normalizationContext: ['groups' => [UserSerializationGroup::READ]],
       security: "is_granted('users.read')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Users'],
         summary: 'List user statuses',

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
+use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
@@ -19,6 +20,7 @@ use function array_map;
 use function array_unique;
 use function array_values;
 use function in_array;
+use function is_array;
 
 /**
  * Repository OrganizationMemberRepository.
@@ -60,6 +62,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
     $this->memberRepository = $entityManager->getRepository(OrganizationMemberRecord::class);
     $this->memberRoleRepository = $entityManager->getRepository(OrganizationMemberRoleRecord::class);
@@ -94,6 +97,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     }
 
     $this->entityManager->flush();
+    $this->invalidateMemberProfile((string) $member->organizationId(), $member->userId());
   }
 
   /**
@@ -212,8 +216,13 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     $record = $this->memberRepository->find((string) $member->id());
 
     if ($record instanceof OrganizationMemberRecord) {
+      $organizationId = $record->organization?->id;
+      $userId = $record->userId;
       $this->entityManager->remove($record);
       $this->entityManager->flush();
+      if (null !== $organizationId) {
+        $this->invalidateMemberProfile($organizationId, $userId);
+      }
     }
   }
 
@@ -254,6 +263,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $this->entityManager->persist($assignment);
     $this->entityManager->flush();
+    $this->invalidateMemberRecordProfile($memberRecord);
   }
 
   /**
@@ -321,6 +331,7 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
 
     $this->entityManager->remove($assignment);
     $this->entityManager->flush();
+    $this->invalidateMemberRecordProfile($memberRecord);
   }
 
   /**
@@ -342,6 +353,56 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return (int) $this->memberRepository->count([
       'organization' => $organization,
     ]);
+  }
+
+  /**
+   * @param list<OrganizationId> $organizationIds
+   *
+   * @return array<string, int>
+   */
+  public function countByOrganizationIds(array $organizationIds): array
+  {
+    if ([] === $organizationIds) {
+      return [];
+    }
+
+    $organizations = array_map(
+      fn (OrganizationId $organizationId): OrganizationRecord => $this->entityManager->getReference(
+        OrganizationRecord::class,
+        (string) $organizationId,
+      ),
+      $organizationIds,
+    );
+
+    $rows = $this->memberRepository
+      ->createQueryBuilder('organizationMember')
+      ->select('IDENTITY(organizationMember.organization) AS organizationId')
+      ->addSelect('COUNT(organizationMember.id) AS memberCount')
+      ->where('organizationMember.organization IN (:organizations)')
+      ->groupBy('organizationMember.organization')
+      ->setParameter('organizations', $organizations)
+      ->getQuery()
+      ->getScalarResult();
+
+    if (!is_array($rows)) {
+      return [];
+    }
+
+    $counts = [];
+    foreach ($rows as $row) {
+      if (!is_array($row)) {
+        continue;
+      }
+
+      $organizationId = (string) ($row['organizationId'] ?? '');
+      if ('' === $organizationId) {
+        continue;
+      }
+
+      $counts[$organizationId] = (int) ($row['memberCount'] ?? 0);
+    }
+
+    return $counts;
   }
 
   public function countActiveByOrganizationId(OrganizationId $organizationId): int
@@ -425,6 +486,21 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     }
 
     return $permissions;
+  }
+
+  private function invalidateMemberRecordProfile(OrganizationMemberRecord $memberRecord): void
+  {
+    $organizationId = $memberRecord->organization?->id;
+    if (null === $organizationId) {
+      return;
+    }
+
+    $this->invalidateMemberProfile($organizationId, $memberRecord->userId);
+  }
+
+  private function invalidateMemberProfile(string $organizationId, string $userId): void
+  {
+    $this->cacheInvalidator?->invalidateCurrentMemberProfile($organizationId, $userId);
   }
   // #endregion
 }

@@ -33,6 +33,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       provider: ListOrganizationLegalTypesProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'List organization legal types',

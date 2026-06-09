@@ -30,8 +30,6 @@ use function is_array;
  */
 final readonly class AuthorizationService implements AuthorizationPort
 {
-  private const string PERMISSIONS_CACHE_PREFIX = 'authz.permissions.';
-
   // #region Constructor
   /**
    * Constructor.
@@ -221,9 +219,34 @@ final readonly class AuthorizationService implements AuthorizationPort
    */
   public function getUserRoleNames(string $userId): array
   {
-    $roles = $this->getUserRoles(userId: $userId);
+    $cacheKey = AuthorizationCacheKeys::roles($userId);
 
-    return array_map(fn (Role $role) => $role->name()->value, $roles);
+    try {
+      $cached = $this->cache->get(key: $cacheKey);
+      if (is_array($cached)) {
+        /** @var list<string> $cached */
+        return $cached;
+      }
+    } catch (Throwable) {
+      // Cache failures should not block authorization checks
+    }
+
+    $roles = array_map(
+      fn (Role $role) => $role->name()->value,
+      $this->getUserRoles(userId: $userId),
+    );
+
+    try {
+      $this->cache->set(
+        key: $cacheKey,
+        value: $roles,
+        ttl: $this->permissionCacheTtl,
+      );
+    } catch (Throwable) {
+      // Ignore cache write failures
+    }
+
+    return $roles;
   }
 
   /**
@@ -248,7 +271,7 @@ final readonly class AuthorizationService implements AuthorizationPort
    */
   private function getCachedPermissionNames(string $userId): array
   {
-    $cacheKey = self::PERMISSIONS_CACHE_PREFIX . $userId;
+    $cacheKey = AuthorizationCacheKeys::permissions($userId);
 
     try {
       $cached = $this->cache->get(key: $cacheKey);

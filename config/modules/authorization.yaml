@@ -71,6 +71,8 @@ services:
       $entityManager: '@doctrine.orm.auth_entity_manager'
 
   # Authorization Service
+  Authorization\Application\Service\AuthorizationCacheInvalidator: ~
+
   Authorization\Application\Service\AuthorizationService:
     arguments:
       $permissionCacheTtl: '%env(int:AUTHZ_PERMISSION_CACHE_TTL)%'

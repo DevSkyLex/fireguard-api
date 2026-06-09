@@ -25,6 +25,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListInspectionResultsProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List inspection results',
@@ -43,6 +44,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListInspectionStatusesProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List inspection statuses',
@@ -61,6 +63,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListInspectorTypesProvider::class,
       normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Inspection'],
         summary: 'List inspector types',

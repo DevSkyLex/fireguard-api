@@ -16,12 +16,18 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationStatus};
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\CachePort;
+use Throwable;
 
 use function array_sum;
+use function hash;
 use function in_array;
+use function json_encode;
 use function max;
 use function round;
 use function timezone_identifiers_list;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Handler for fetching organization dashboard data.
@@ -82,6 +88,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @var int
    */
   private const int MAX_TREND_PERIOD_DAYS = 366;
+
+  private const int DEFAULT_CACHE_TTL_SECONDS = 30;
   // #endregion
 
   // #region Constructor
@@ -113,6 +121,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     private EquipmentStatisticsPort $equipmentStatistics,
     private InspectionStatisticsPort $inspectionStatistics,
     private NonConformityStatisticsPort $nonConformityStatistics,
+    private ?CachePort $cache = null,
+    private int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
   ) {
   }
   // #endregion
@@ -139,6 +149,12 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $organization = $this->organizationRepository->findById(OrganizationId::fromString($query->organizationId));
     if (null === $organization) {
       throw OrganizationNotFoundException::withId($query->organizationId);
+    }
+
+    $cacheKey = $this->buildCacheKey($query);
+    $cached = $this->readCache($cacheKey);
+    if ($cached instanceof GetOrganizationDashboardResult) {
+      return $cached;
     }
 
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
@@ -274,7 +290,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       $alerts[] = ['code' => 'equipment_under_maintenance', 'severity' => 'medium', 'count' => $underMaintenanceEquipmentCount];
     }
 
-    return new GetOrganizationDashboardResult(
+    $result = new GetOrganizationDashboardResult(
       generatedAt: $generatedAtFormatted,
       period: [
         'from' => $periodStartFormatted,
@@ -297,6 +313,9 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         $comparisonPeriod,
       ),
     );
+    $this->writeCache($cacheKey, $result);
+
+    return $result;
   }
 
   /**
@@ -320,6 +339,59 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       $organizationId,
       OrganizationPermissionCatalog::dashboardReadDependencies(),
     );
+  }
+
+  private function buildCacheKey(GetOrganizationDashboardQuery $query): string
+  {
+    try {
+      $payload = json_encode([
+        'organizationId' => $query->organizationId,
+        'periodFrom' => $query->periodFrom,
+        'periodTo' => $query->periodTo,
+        'compareWithPreviousPeriod' => $query->compareWithPreviousPeriod,
+        'timeZone' => $query->timeZone,
+        'facilityType' => $query->facilityType,
+        'equipmentType' => $query->equipmentType,
+        'equipmentStatus' => $query->equipmentStatus,
+        'inspectionStatus' => $query->inspectionStatus,
+        'inspectionResult' => $query->inspectionResult,
+        'inspectorType' => $query->inspectorType,
+        'nonConformityStatus' => $query->nonConformityStatus,
+        'nonConformitySeverity' => $query->nonConformitySeverity,
+      ], JSON_THROW_ON_ERROR);
+    } catch (Throwable) {
+      $payload = $query->organizationId;
+    }
+
+    return 'organization.dashboard.' . hash('sha256', $payload);
+  }
+
+  private function readCache(string $cacheKey): ?GetOrganizationDashboardResult
+  {
+    if (null === $this->cache || $this->cacheTtl <= 0) {
+      return null;
+    }
+
+    try {
+      $cached = $this->cache->get($cacheKey);
+    } catch (Throwable) {
+      return null;
+    }
+
+    return $cached instanceof GetOrganizationDashboardResult ? $cached : null;
+  }
+
+  private function writeCache(string $cacheKey, GetOrganizationDashboardResult $result): void
+  {
+    if (null === $this->cache || $this->cacheTtl <= 0) {
+      return;
+    }
+
+    try {
+      $this->cache->set($cacheKey, $result, $this->cacheTtl);
+    } catch (Throwable) {
+      // Dashboard cache failures should not block fresh dashboard generation.
+    }
   }
 
   /**
