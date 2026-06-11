@@ -68,7 +68,7 @@ security:
     - { path: ^/api/oauth2/token/introspect$, roles: ROLE_USER }
 
     # Public avatar streaming endpoint (GET only — POST remains protected)
-    - { path: ^/api/users/.+/avatar$, roles: PUBLIC_ACCESS, methods: [GET] }
+    - { path: '^/api/users/.+/avatar(/\d+\.webp)?$', roles: PUBLIC_ACCESS, methods: [GET] }
 
     # Default: require authentication for all API endpoints
     - { path: ^/api, roles: ROLE_USER }

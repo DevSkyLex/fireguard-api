@@ -11,6 +11,8 @@ User deletion also purges linked auth data (sessions, consents, tokens, OTPs, tr
 | Resource | Method | Path | Description |
 | --- | --- | --- | --- |
 | CurrentUserProfile | GET | `/api/me` | Get the authenticated user profile with global roles and permissions |
+| CurrentUserProfile | PATCH | `/api/me` | Update the authenticated user profile |
+| CurrentUserProfile | PUT | `/api/me/avatar` | Replace the authenticated user avatar |
 | User | POST | `/api/users` | Create a user |
 | User | GET | `/api/users/{id}` | Get user details |
 | User | GET | `/api/users` | List users |

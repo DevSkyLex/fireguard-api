@@ -1,5 +1,0 @@
-user_get_avatar:
-    path: /api/users/{id}/avatar
-    controller: User\Presentation\Api\Controller\User\GetUserAvatarController
-    methods: [GET]
-

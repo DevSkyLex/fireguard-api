@@ -57,6 +57,12 @@ services:
   Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\ConfirmPasswordResetHandler:
     tags: ['messenger.message_handler']
 
+  Auth\Application\UseCase\Command\PasswordChange\RequestPasswordChange\RequestPasswordChangeHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange\ConfirmPasswordChangeHandler:
+    tags: ['messenger.message_handler']
+
   # Use Case Query Handlers
   Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenHandler:
     tags: ['messenger.message_handler']
@@ -75,6 +81,10 @@ services:
   Auth\Presentation\Api\Processor\PasswordReset\RequestPasswordResetProcessor: ~
   Auth\Presentation\Api\Processor\PasswordReset\ResendPasswordResetProcessor: ~
   Auth\Presentation\Api\Processor\PasswordReset\ConfirmPasswordResetProcessor: ~
+
+  # Password Change Processors
+  Auth\Presentation\Api\Processor\PasswordChange\RequestPasswordChangeProcessor: ~
+  Auth\Presentation\Api\Processor\PasswordChange\ConfirmPasswordChangeProcessor: ~
 
   # Event Subscribers
   Auth\Infrastructure\EventSubscriber\RefreshTokenCookieSubscriber: ~

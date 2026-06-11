@@ -151,4 +151,32 @@ final class CurrentUserProfileOutput
   )]
   public array $permissions = [];
   // #endregion
+
+  // #region Methods
+  /**
+   * Method getAvatarUrls.
+   *
+   * Derives the per-size avatar URLs from the canonical avatar URL.
+   *
+   * @since 1.0.0
+   *
+   * @return array<string, string>|null map of size (px) to URL
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Avatar URLs by size in pixels. Null when no avatar is set or the avatar is hosted externally.',
+    readable: true,
+    writable: false,
+    openapiContext: [
+      'type' => 'object',
+      'additionalProperties' => ['type' => 'string', 'format' => 'uri'],
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
+  public function getAvatarUrls(): ?array
+  {
+    return AvatarUrls::fromAvatarUrl($this->avatarUrl);
+  }
+  // #endregion
 }

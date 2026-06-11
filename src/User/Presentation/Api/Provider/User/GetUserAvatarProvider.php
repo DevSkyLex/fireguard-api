@@ -2,21 +2,24 @@
 
 declare(strict_types=1);
 
-namespace User\Presentation\Api\Controller\User;
+namespace User\Presentation\Api\Provider\User;
 
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProviderInterface;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Infrastructure\Exception\FileStorageException;
-use Symfony\Component\HttpFoundation\{Request, Response};
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 use User\Infrastructure\Image\AvatarResizer;
 
 use function abs;
+use function is_numeric;
 use function sprintf;
 
 /**
- * Controller GetUserAvatarController.
+ * Provider GetUserAvatarProvider.
  *
  * Streams a stored avatar variant as a public WebP image.
  * The requested size is resolved to the nearest available
@@ -26,19 +29,21 @@ use function sprintf;
  * required) so avatar URLs work directly in <img> tags and
  * OIDC userinfo `picture` claims.
  *
- * @category Controller
+ * @category Provider
  *
  * @version 1.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ *
+ * @implements ProviderInterface<Response>
  */
-final readonly class GetUserAvatarController
+final readonly class GetUserAvatarProvider implements ProviderInterface
 {
   // #region Constants
   /**
    * Constant DEFAULT_SIZE.
    *
-   * Default avatar size served when no `size` query param is present.
+   * Default avatar size served when no size is requested.
    *
    * @since 1.0.0
    *
@@ -65,21 +70,25 @@ final readonly class GetUserAvatarController
 
   // #region Methods
   /**
-   * Method __invoke.
+   * Method provide.
    *
-   * Handles GET /api/users/{id}/avatar[?size=N].
+   * Handles GET /api/users/{id}/avatar/{size}.webp
+   * and the legacy GET /api/users/{id}/avatar[?size=N].
    *
    * @since 1.0.0
    *
-   * @param string $id user identifier from the route
-   * @param Request $request the current HTTP request
+   * @param Operation $operation the current API Platform operation
+   * @param array<string, mixed> $uriVariables route variables (expects "id", optionally "size")
+   * @param array<string, mixed> $context request context
    *
    * @throws NotFoundHttpException if the user or avatar is not found
    *
    * @return Response a WebP image response with appropriate cache headers
    */
-  public function __invoke(string $id, Request $request): Response
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): Response
   {
+    $id = (string) ($uriVariables['id'] ?? '');
+
     $userId = new UserId($id);
     $user = $this->userRepository->findById($userId);
 
@@ -87,8 +96,10 @@ final readonly class GetUserAvatarController
       throw new NotFoundHttpException('User not found.');
     }
 
-    $requestedSize = (int) ($request->query->get('size', (string) self::DEFAULT_SIZE));
-    $size = $this->resolveSize($requestedSize);
+    $requested = $uriVariables['size']
+      ?? ($context['request'] ?? null)?->query->get('size')
+      ?? self::DEFAULT_SIZE;
+    $size = $this->resolveSize(is_numeric($requested) ? (int) $requested : self::DEFAULT_SIZE);
     $path = sprintf('avatars/%s/%d.webp', $id, $size);
 
     try {

@@ -124,6 +124,12 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
       throw new UnprocessableEntityHttpException('Missing "avatar" file in the request.');
     }
 
+    if (!$file->isValid()) {
+      throw new UnprocessableEntityHttpException(
+        sprintf('Invalid upload: %s', $file->getErrorMessage()),
+      );
+    }
+
     if ($file->getSize() > self::MAX_FILE_SIZE) {
       throw new UnprocessableEntityHttpException(
         sprintf('File size exceeds the %d MB limit.', self::MAX_FILE_SIZE / 1024 / 1024),
@@ -150,9 +156,10 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
     $this->avatarResizer->resize($id, $sourceContents);
 
     $avatarUrl = sprintf(
-      '%s/api/users/%s/avatar',
+      '%s/api/users/%s/avatar/%d.webp',
       $request->getSchemeAndHttpHost(),
       $id,
+      AvatarResizer::SIZES[0],
     );
 
     $this->commandBus->dispatch(new UpdateUserCommand(

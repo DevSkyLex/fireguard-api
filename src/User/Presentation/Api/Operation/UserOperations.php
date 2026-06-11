@@ -83,6 +83,28 @@ final class UserOperations
   public const string GET_CURRENT_PROFILE = 'user_get_current_profile';
 
   /**
+   * Constant UPDATE_CURRENT_PROFILE.
+   *
+   * Update current authenticated user profile operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string UPDATE_CURRENT_PROFILE = 'user_update_current_profile';
+
+  /**
+   * Constant UPLOAD_CURRENT_AVATAR.
+   *
+   * Upload current authenticated user avatar operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string UPLOAD_CURRENT_AVATAR = 'user_upload_current_avatar';
+
+  /**
    * Constant LIST.
    *
    * List users operation name.
@@ -160,6 +182,17 @@ final class UserOperations
   public const string GET_AVATAR = 'user_get_avatar';
 
   /**
+   * Constant GET_AVATAR_SIZED.
+   *
+   * Get user avatar by size operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string GET_AVATAR_SIZED = 'user_get_avatar_sized';
+
+  /**
    * Constant ALL.
    *
    * All user operation names.
@@ -172,6 +205,8 @@ final class UserOperations
     self::CREATE,
     self::GET,
     self::GET_CURRENT_PROFILE,
+    self::UPDATE_CURRENT_PROFILE,
+    self::UPLOAD_CURRENT_AVATAR,
     self::LIST,
     self::LIST_STATUSES,
     self::UPDATE,
@@ -182,6 +217,7 @@ final class UserOperations
     self::VERIFY_EMAIL,
     self::UPLOAD_AVATAR,
     self::GET_AVATAR,
+    self::GET_AVATAR_SIZED,
   ];
   // #endregion
 }

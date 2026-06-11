@@ -20,7 +20,7 @@ use User\Presentation\Api\Processor\User\{
   UploadUserAvatarProcessor,
   VerifyUserEmailProcessor
 };
-use User\Presentation\Api\Provider\User\{ListUsersProvider, UserProvider};
+use User\Presentation\Api\Provider\User\{GetUserAvatarProvider, ListUsersProvider, UserProvider};
 use User\Presentation\Api\Serialization\UserSerializationGroup;
 
 /**
@@ -355,6 +355,47 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
           ),
           HttpResponse::HTTP_FORBIDDEN => new Response(
             description: 'Insufficient permissions',
+          ),
+        ],
+      ),
+    ),
+    new Get(
+      name: UserOperations::GET_AVATAR_SIZED,
+      uriTemplate: '/users/{id}/avatar/{size}.webp',
+      requirements: ['size' => '\d+'],
+      input: false,
+      output: false,
+      provider: GetUserAvatarProvider::class,
+      openapi: new Operation(
+        tags: ['Users'],
+        summary: 'Get user avatar (sized)',
+        description: 'Streams the avatar WebP variant closest to the requested size (256, 128, 64 or 32 px). Public endpoint.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Avatar image (WebP)',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'User or avatar not found',
+          ),
+        ],
+      ),
+    ),
+    new Get(
+      name: UserOperations::GET_AVATAR,
+      uriTemplate: '/users/{id}/avatar',
+      input: false,
+      output: false,
+      provider: GetUserAvatarProvider::class,
+      openapi: new Operation(
+        tags: ['Users'],
+        summary: 'Get user avatar',
+        description: 'Streams the avatar as WebP. Optional ?size=N query parameter resolved to the nearest variant (256, 128, 64 or 32 px). Public endpoint.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Avatar image (WebP)',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'User or avatar not found',
           ),
         ],
       ),
