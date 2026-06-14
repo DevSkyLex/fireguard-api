@@ -30,7 +30,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_inspection_organization_inspector_type_performed_at', columns: ['organization_id', 'inspector_type', 'performed_at'])]
 #[ORM\Index(name: 'idx_inspection_organization_result', columns: ['organization_id', 'result'])]
 #[ORM\Index(name: 'idx_inspection_organization_status', columns: ['organization_id', 'status'])]
-#[ORM\Index(name: 'idx_inspection_mission_record_status', columns: ['mission_id', 'record_status'])]
+#[ORM\Index(name: 'idx_inspection_intervention_record_status', columns: ['intervention_id', 'record_status'])]
 class InspectionRecord
 {
   /**
@@ -52,12 +52,12 @@ class InspectionRecord
   public ?OrganizationRecord $organization = null;
 
   /**
-   * Property missionId.
+   * Property interventionId.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'mission_id', type: 'string', length: 36, nullable: true)]
-  public ?string $missionId = null;
+  #[ORM\Column(name: 'intervention_id', type: 'string', length: 36, nullable: true)]
+  public ?string $interventionId = null;
 
   /**
    * Property clientId.

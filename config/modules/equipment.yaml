@@ -47,10 +47,10 @@ services:
 
   Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
 
-  Equipment\Infrastructure\Adapter\Mission\EquipmentMissionResourceAdapter:
+  Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-    tags: ['mission.change_applier', 'mission.draft_publisher', 'mission.resource_owner']
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
 
   Equipment\Application\Port\Outbound\TagRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository

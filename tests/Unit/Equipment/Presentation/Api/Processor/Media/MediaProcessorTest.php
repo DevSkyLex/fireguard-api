@@ -12,9 +12,9 @@ use Equipment\Application\UseCase\Command\Equipment\AddAttachment\AddAttachmentR
 use Equipment\Application\UseCase\Command\Equipment\DeleteAttachment\DeleteAttachmentCommand;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRecord, EquipmentRecord};
 use Equipment\Presentation\Api\Processor\Media\MediaProcessor;
-use Mission\Application\Contract\Resource\MissionAssignmentContext;
-use Mission\Application\Port\Outbound\MissionResourceGatewayPort;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
+use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -35,7 +35,7 @@ final class MediaProcessorTest extends TestCase
 {
   private const string EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655440001';
 
-  private const string MISSION_ID = '550e8400-e29b-41d4-a716-446655440002';
+  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440003';
 
@@ -47,7 +47,7 @@ final class MediaProcessorTest extends TestCase
     $equipment = new EquipmentRecord();
     $equipment->id = self::EQUIPMENT_ID;
     $equipment->organization = $organization;
-    $equipment->missionId = self::MISSION_ID;
+    $equipment->interventionId = self::INTERVENTION_ID;
     $equipment->recordStatus = 'published';
     $attachment = new EquipmentAttachmentRecord();
     $attachment->id = 'attachment-id';
@@ -59,9 +59,9 @@ final class MediaProcessorTest extends TestCase
     $entityManager->method('find')->with(EquipmentAttachmentRecord::class, $attachment->id)->willReturn($attachment);
     $entityManager->expects(self::never())->method('remove');
     $entityManager->expects(self::never())->method('flush');
-    $resources = $this->createMock(MissionResourceGatewayPort::class);
-    $resources->expects(self::never())->method('missionMutationContext');
-    $resources->expects(self::never())->method('touchDraftMission');
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->expects(self::never())->method('interventionMutationContext');
+    $resources->expects(self::never())->method('touchDraftIntervention');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
       ->method('hasPermission')
@@ -91,7 +91,7 @@ final class MediaProcessorTest extends TestCase
       $authorization,
       $security,
       $requestStack,
-      new MissionResourceManager($resources),
+      new InterventionResourceManager($resources),
       new RevisionGuard($requestStack),
     )->process(null, new Delete(), ['id' => $attachment->id]);
 
@@ -99,7 +99,7 @@ final class MediaProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testMissionContextAuthorizesEvidenceForPublishedEquipment(): void
+  public function testInterventionContextAuthorizesEvidenceForPublishedEquipment(): void
   {
     $path = tempnam(sys_get_temp_dir(), 'media-');
     self::assertIsString($path);
@@ -129,16 +129,16 @@ final class MediaProcessorTest extends TestCase
           default => null,
         },
       );
-      $resources = $this->createMock(MissionResourceGatewayPort::class);
-      $context = new MissionAssignmentContext(
-        self::MISSION_ID,
+      $resources = $this->createMock(InterventionResourceGatewayPort::class);
+      $context = new InterventionAssignmentContext(
+        self::INTERVENTION_ID,
         self::ORGANIZATION_ID,
         'in_progress',
       );
-      $resources->method('missionAssignmentContext')->willReturn($context);
-      $resources->method('missionMutationContext')->willReturn($context);
-      $resources->method('resourceInMissionScope')->willReturn(true);
-      $resources->expects(self::once())->method('touchDraftMission')->with(self::MISSION_ID);
+      $resources->method('interventionAssignmentContext')->willReturn($context);
+      $resources->method('interventionMutationContext')->willReturn($context);
+      $resources->method('resourceInInterventionScope')->willReturn(true);
+      $resources->expects(self::once())->method('touchDraftIntervention')->with(self::INTERVENTION_ID);
       $authorization = $this->createStub(OrganizationAuthorizationPort::class);
       $authorization->method('hasPermission')->willReturn(true);
       $security = $this->createStub(Security::class);
@@ -161,7 +161,7 @@ final class MediaProcessorTest extends TestCase
         'POST',
         [
           'equipment' => '/api/equipment/' . self::EQUIPMENT_ID,
-          'mission' => '/api/missions/' . self::MISSION_ID,
+          'intervention' => '/api/interventions/' . self::INTERVENTION_ID,
         ],
         [],
         ['file' => new UploadedFile($path, 'photo.jpg', 'image/jpeg', null, true)],
@@ -173,7 +173,7 @@ final class MediaProcessorTest extends TestCase
         $authorization,
         $security,
         $requestStack,
-        new MissionResourceManager($resources),
+        new InterventionResourceManager($resources),
         new RevisionGuard($requestStack),
       )->process(null, new Post());
 

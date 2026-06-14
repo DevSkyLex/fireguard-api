@@ -14,10 +14,10 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentAttachmentRec
 use Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput;
 use Equipment\Presentation\Api\Provider\Media\MediaProvider;
 use Equipment\Domain\ValueObject\AttachmentId;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
-use Mission\Domain\Exception\{MissionAccessDeniedException, MissionConflictException, MissionNotFoundException};
-use Mission\Domain\ValueObject\MissionResourceType;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
+use Intervention\Domain\ValueObject\InterventionResourceType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Domain\Exception\InvalidValueException;
@@ -55,7 +55,7 @@ final readonly class MediaProcessor implements ProcessorInterface
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    */
   public function __construct(
@@ -64,7 +64,7 @@ final readonly class MediaProcessor implements ProcessorInterface
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private MissionResourceManager $missionResourceManager,
+    private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
   ) {
   }
@@ -105,14 +105,14 @@ final readonly class MediaProcessor implements ProcessorInterface
   {
     $request = $this->requestStack->getCurrentRequest();
     $equipmentValue = $request?->request->get('equipment');
-    $missionValue = $request?->request->get('mission');
+    $interventionValue = $request?->request->get('intervention');
     $clientId = $request?->request->get('clientId');
     $file = $request?->files->get('file');
     if (!is_string($equipmentValue) || !$file instanceof UploadedFile) {
       throw new BadRequestHttpException('Multipart fields "equipment" and "file" are required.');
     }
-    if (null !== $missionValue && !is_string($missionValue)) {
-      throw new BadRequestHttpException('Multipart field "mission" must be a mission IRI.');
+    if (null !== $interventionValue && !is_string($interventionValue)) {
+      throw new BadRequestHttpException('Multipart field "intervention" must be a intervention IRI.');
     }
     if (null !== $clientId && !is_string($clientId)) {
       throw new BadRequestHttpException('Multipart field "clientId" must be a UUID.');
@@ -129,10 +129,10 @@ final readonly class MediaProcessor implements ProcessorInterface
       throw new NotFoundHttpException('Equipment not found.');
     }
     $organizationId = $equipment->organization->id;
-    $missionId = null === $missionValue
-      ? ('draft' === $equipment->recordStatus ? $equipment->missionId : null)
-      : ResourceIriParser::id($missionValue, 'missions');
-    $this->assertWrite($equipment, $missionId);
+    $interventionId = null === $interventionValue
+      ? ('draft' === $equipment->recordStatus ? $equipment->interventionId : null)
+      : ResourceIriParser::id($interventionValue, 'interventions');
+    $this->assertWrite($equipment, $interventionId);
     if (is_string($clientId) && '' !== $clientId) {
       $existing = $this->entityManager->find(EquipmentAttachmentRecord::class, $clientId);
       if ($existing instanceof EquipmentAttachmentRecord) {
@@ -159,7 +159,7 @@ final readonly class MediaProcessor implements ProcessorInterface
     if (!$record instanceof EquipmentAttachmentRecord) {
       throw new NotFoundHttpException('Uploaded media not found.');
     }
-    $this->missionResourceManager->touchDraftMission($missionId);
+    $this->interventionResourceManager->touchDraftIntervention($interventionId);
 
     return MediaProvider::output($record);
   }
@@ -188,16 +188,16 @@ final readonly class MediaProcessor implements ProcessorInterface
       throw new NotFoundHttpException('Media not found.');
     }
     $organization = $equipment->organization;
-    $missionId = 'draft' === $equipment->recordStatus ? $equipment->missionId : null;
-    $this->assertWrite($equipment, $missionId);
+    $interventionId = 'draft' === $equipment->recordStatus ? $equipment->interventionId : null;
+    $this->assertWrite($equipment, $interventionId);
     $this->revisionGuard->assertMatches($record->revision);
     $this->commandBus->dispatch(new DeleteAttachmentCommand(
       organizationId: $organization->id,
       equipmentId: $equipment->id,
       attachmentId: $record->id,
     ));
-    if (null !== $missionId) {
-      $this->missionResourceManager->touchDraftMission($missionId);
+    if (null !== $interventionId) {
+      $this->interventionResourceManager->touchDraftIntervention($interventionId);
     }
 
     return null;
@@ -211,9 +211,9 @@ final readonly class MediaProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param EquipmentRecord $equipment the equipment value
-   * @param ?string $missionId the mission authorizing the mutation
+   * @param ?string $interventionId the intervention authorizing the mutation
    */
-  private function assertWrite(EquipmentRecord $equipment, ?string $missionId): void
+  private function assertWrite(EquipmentRecord $equipment, ?string $interventionId): void
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser || null === $equipment->organization) {
@@ -221,30 +221,30 @@ final readonly class MediaProcessor implements ProcessorInterface
     }
 
     try {
-      if (null !== $missionId) {
-        $mission = $this->missionResourceManager->missionContext($missionId);
-        if (null === $mission || $mission->organizationId !== $equipment->organization->id) {
-          throw new MissionConflictException('Mission and equipment must belong to the same organization.');
+      if (null !== $interventionId) {
+        $intervention = $this->interventionResourceManager->interventionContext($interventionId);
+        if (null === $intervention || $intervention->organizationId !== $equipment->organization->id) {
+          throw new InterventionConflictException('Intervention and equipment must belong to the same organization.');
         }
         if (
-          $equipment->missionId !== $missionId
-          && !$this->missionResourceManager->resourceInMissionScope(
-            MissionResourceType::EQUIPMENT,
+          $equipment->interventionId !== $interventionId
+          && !$this->interventionResourceManager->resourceInInterventionScope(
+            InterventionResourceType::EQUIPMENT,
             $equipment->id,
-            $missionId,
+            $interventionId,
           )
         ) {
-          throw new MissionConflictException('Equipment is outside the mission scope.');
+          throw new InterventionConflictException('Equipment is outside the intervention scope.');
         }
-        $permission = $this->missionResourceManager->mutationPermission($missionId, $user->getId());
+        $permission = $this->interventionResourceManager->mutationPermission($interventionId, $user->getId());
       } else {
         $permission = 'organization.equipment.write';
       }
-    } catch (MissionAccessDeniedException $exception) {
+    } catch (InterventionAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (MissionNotFoundException $exception) {
+    } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
     if (!$this->authorization->hasPermission($user->getId(), $equipment->organization->id, $permission)) {

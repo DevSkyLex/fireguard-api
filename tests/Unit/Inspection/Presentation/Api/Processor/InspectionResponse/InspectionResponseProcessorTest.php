@@ -10,8 +10,8 @@ use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionResponseRecord;
 use Inspection\Presentation\Api\Dto\Input\InspectionResponse\CreateInspectionResponseInput;
 use Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor;
-use Mission\Application\Port\Outbound\MissionResourceGatewayPort;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -67,7 +67,7 @@ final class InspectionResponseProcessorTest extends TestCase
       $authorization,
       $security,
       $requestStack,
-      new MissionResourceManager($this->createStub(MissionResourceGatewayPort::class)),
+      new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class)),
       new CreationPreconditionGuard($requestStack),
       new RevisionGuard($requestStack),
     );

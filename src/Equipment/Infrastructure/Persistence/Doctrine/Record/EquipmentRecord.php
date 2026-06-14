@@ -28,7 +28,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_equipment_organization_status', columns: ['organization_id', 'status'])]
 #[ORM\Index(name: 'idx_equipment_organization_type_status', columns: ['organization_id', 'type', 'status'])]
 #[ORM\Index(name: 'idx_equipment_organization_created_at', columns: ['organization_id', 'created_at'])]
-#[ORM\Index(name: 'idx_equipment_mission_record_status', columns: ['mission_id', 'record_status'])]
+#[ORM\Index(name: 'idx_equipment_intervention_record_status', columns: ['intervention_id', 'record_status'])]
 #[ORM\UniqueConstraint(name: 'uniq_equipment_organization_serial', columns: ['organization_id', 'serial_number'])]
 class EquipmentRecord
 {
@@ -52,12 +52,12 @@ class EquipmentRecord
   public ?OrganizationRecord $organization = null;
 
   /**
-   * Property missionId.
+   * Property interventionId.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'mission_id', type: 'string', length: 36, nullable: true)]
-  public ?string $missionId = null;
+  #[ORM\Column(name: 'intervention_id', type: 'string', length: 36, nullable: true)]
+  public ?string $interventionId = null;
 
   /**
    * Property clientId.

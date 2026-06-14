@@ -1,0 +1,1316 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Intervention\Infrastructure\Adapter\Workflow;
+
+use DateTimeImmutable;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
+use Exception;
+use InvalidArgumentException;
+use Intervention\Application\Contract\Resource\InterventionListMetrics;
+use Intervention\Application\Contract\Workflow\{
+  InterventionWorkflowContext,
+  InterventionWorkflowMutation,
+  InterventionWorkflowPage,
+  InterventionWorkflowView
+};
+use Intervention\Application\Port\Outbound\{InterventionIssueQueryPort, InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
+use Intervention\Application\Service\{InterventionIssueFinder, InterventionMemberPolicy, InterventionNotificationService};
+use Intervention\Domain\Exception\{
+  InterventionAccessDeniedException,
+  InterventionConflictException,
+  InterventionNotFoundException,
+  InterventionPreconditionFailedException,
+  InterventionValidationException
+};
+use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
+use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy};
+use Intervention\Domain\ValueObject\{InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType};
+use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionMapper;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{
+  InterventionChangeRecord,
+  InterventionRecord,
+  InterventionWorkItemRecord
+};
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Factory\UuidFactory;
+
+use function array_filter;
+use function array_key_exists;
+use function array_keys;
+use function array_map;
+use function array_unique;
+use function array_values;
+use function count;
+use function in_array;
+use function is_array;
+use function is_string;
+use function max;
+use function min;
+use function sprintf;
+use function trim;
+
+/**
+ * Gateway DoctrineInterventionWorkflowGateway.
+ *
+ * @category Adapter
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class DoctrineInterventionWorkflowGateway implements InterventionIssueQueryPort, InterventionWorkflowGatewayPort
+{
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the DoctrineInterventionWorkflowGateway class.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param InterventionTransitionPolicy $transitionPolicy the transition policy value
+   * @param InterventionChangePolicy $changePolicy the change policy value
+   * @param InterventionMemberPolicy $memberPolicy the member policy value
+   * @param InterventionNotificationService $notifications the notifications value
+   * @param InterventionResourceGatewayPort $resources the resources value
+   * @param InterventionIssueFinder $issueFinder the issue finder value
+   */
+  public function __construct(
+    private EntityManagerInterface $entityManager,
+    private UuidFactory $uuidFactory,
+    private InterventionTransitionPolicy $transitionPolicy,
+    private InterventionChangePolicy $changePolicy,
+    private InterventionMemberPolicy $memberPolicy,
+    private InterventionNotificationService $notifications,
+    private InterventionResourceGatewayPort $resources,
+    private InterventionIssueFinder $issueFinder,
+  ) {
+  }
+
+  /**
+   * Method interventionContext.
+   *
+   * Executes the intervention context operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   *
+   * @return ?InterventionWorkflowContext the intervention context result
+   */
+  public function interventionContext(string $interventionId): ?InterventionWorkflowContext
+  {
+    $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
+
+    return $intervention instanceof InterventionRecord ? $this->context($intervention) : null;
+  }
+
+  /**
+   * Method resourceContext.
+   *
+   * Executes the resource context operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $resource the resource value
+   * @param string $id the id value
+   *
+   * @return ?InterventionWorkflowContext the resource context result
+   */
+  public function resourceContext(string $resource, string $id): ?InterventionWorkflowContext
+  {
+    if ('intervention' === $resource) {
+      return $this->interventionContext($id);
+    }
+    $record = match ($resource) {
+      'work_item' => $this->entityManager->find(InterventionWorkItemRecord::class, $id),
+      'change' => $this->entityManager->find(InterventionChangeRecord::class, $id),
+      default => null,
+    };
+    $intervention = $record instanceof InterventionWorkItemRecord || $record instanceof InterventionChangeRecord
+      ? $record->intervention
+      : null;
+
+    return $intervention instanceof InterventionRecord ? $this->context($intervention) : null;
+  }
+
+  /**
+   * Method mutate.
+   *
+   * Executes the mutate operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   *
+   * @return ?InterventionWorkflowView the mutate result
+   */
+  public function mutate(InterventionWorkflowMutation $mutation): ?InterventionWorkflowView
+  {
+    /** @var list<callable(): void> $notifications */
+    $notifications = [];
+    $view = $this->entityManager->wrapInTransaction(
+      function () use ($mutation, &$notifications): ?InterventionWorkflowView {
+        return match ($mutation->resource) {
+          'intervention' => $this->mutateIntervention($mutation, $notifications),
+          'work_item' => $this->mutateWorkItem($mutation, $notifications),
+          'change' => $this->mutateChange($mutation),
+          default => throw new InvalidArgumentException('Unsupported intervention workflow resource.'),
+        };
+      },
+    );
+    foreach ($notifications as $notify) {
+      $notify();
+    }
+
+    return $view;
+  }
+
+  /**
+   * Method get.
+   *
+   * Executes the get operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $resource the resource value
+   * @param string $id the id value
+   *
+   * @return ?InterventionWorkflowView the get result
+   */
+  public function get(string $resource, string $id): ?InterventionWorkflowView
+  {
+    return match ($resource) {
+      'intervention' => ($record = $this->entityManager->find(InterventionRecord::class, $id)) instanceof InterventionRecord
+        ? $this->interventionView($record)
+        : null,
+      'work_item' => ($record = $this->entityManager->find(InterventionWorkItemRecord::class, $id)) instanceof InterventionWorkItemRecord
+        ? $this->workItemView($record)
+        : null,
+      'change' => ($record = $this->entityManager->find(InterventionChangeRecord::class, $id)) instanceof InterventionChangeRecord
+        ? $this->changeView($record)
+        : null,
+      default => null,
+    };
+  }
+
+  /**
+   * Method list.
+   *
+   * Executes the list operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $resource the resource value
+   * @param string $scopeId the scope id value
+   * @param array<string, mixed> $filters the filters value
+   * @param int $page the page value
+   * @param int $itemsPerPage the items per page value
+   *
+   * @return InterventionWorkflowPage the list result
+   */
+  public function list(string $resource, string $scopeId, array $filters, int $page, int $itemsPerPage): InterventionWorkflowPage
+  {
+    $page = max(1, $page);
+    $itemsPerPage = max(1, min(100, $itemsPerPage));
+    $qb = match ($resource) {
+      'intervention' => $this->interventionListQuery($scopeId, $filters),
+      'work_item' => $this->workItemListQuery($scopeId, $filters),
+      'change' => $this->changeListQuery($scopeId, $filters),
+      default => throw new InvalidArgumentException('Unsupported intervention workflow resource.'),
+    };
+    $countQb = clone $qb;
+    $alias = match ($resource) {
+      'intervention' => 'm',
+      'work_item' => 'w',
+      default => 'c',
+    };
+    $total = (int) $countQb->select('COUNT(' . $alias . '.id)')->getQuery()->getSingleScalarResult();
+    /** @var list<InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord> $records */
+    $records = $qb
+      ->setFirstResult(($page - 1) * $itemsPerPage)
+      ->setMaxResults($itemsPerPage)
+      ->getQuery()
+      ->getResult();
+    $metrics = 'intervention' === $resource
+      ? $this->resources->listMetrics(array_map(
+        static fn (InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord $record): string => $record->id,
+        $records,
+      ))
+      : [];
+    $items = array_map(function (object $record) use ($metrics): InterventionWorkflowView {
+      if ($record instanceof InterventionRecord) {
+        return $this->interventionView($record, $metrics[$record->id] ?? null);
+      }
+      if ($record instanceof InterventionWorkItemRecord) {
+        return $this->workItemView($record);
+      }
+
+      return $this->changeView($record);
+    }, $records);
+
+    return new InterventionWorkflowPage($items, $page, $itemsPerPage, $total);
+  }
+
+  /**
+   * Method issues.
+   *
+   * Executes the issues operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   *
+   * @return list<\Intervention\Application\Contract\Resource\InterventionIssue> the issues result
+   */
+  public function issues(string $interventionId): array
+  {
+    return $this->issueFinder->find($interventionId);
+  }
+
+  /**
+   * Method mutateIntervention.
+   *
+   * Executes the mutate intervention operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   *
+   * @return ?InterventionWorkflowView the mutate intervention result
+   */
+  private function mutateIntervention(InterventionWorkflowMutation $mutation, array &$notifications): ?InterventionWorkflowView
+  {
+    if ('create' === $mutation->action) {
+      return $this->createIntervention($mutation);
+    }
+    $intervention = $this->intervention($mutation->id);
+    $this->assertRevision($intervention->revision, $mutation->expectedRevision);
+    if ('delete' === $mutation->action) {
+      if (!in_array($intervention->status, ['draft', 'abandoned'], true)) {
+        throw new InterventionConflictException('Only draft or abandoned interventions can be deleted.');
+      }
+      $this->entityManager->remove($intervention);
+      $this->entityManager->flush();
+
+      return null;
+    }
+
+    return $this->updateIntervention($intervention, $mutation, $notifications);
+  }
+
+  /**
+   * Method createIntervention.
+   *
+   * Executes the create intervention operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   *
+   * @return InterventionWorkflowView the create intervention result
+   */
+  private function createIntervention(InterventionWorkflowMutation $mutation): InterventionWorkflowView
+  {
+    $id = $mutation->id ?? $this->uuidFactory->generateRaw();
+    if ($mutation->createOnly && $this->entityManager->find(InterventionRecord::class, $id) instanceof InterventionRecord) {
+      throw new InterventionPreconditionFailedException('The client UUID intervention already exists.');
+    }
+    $organizationId = $this->requiredString($mutation->payload, 'organizationId');
+    $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
+    if (!$organization instanceof OrganizationRecord) {
+      throw InterventionNotFoundException::withId($organizationId);
+    }
+    $responsibleId = $this->nullableString($mutation->payload, 'responsibleId');
+    $participants = $this->stringList($mutation->payload['participants'] ?? []);
+    $this->assertActiveMembers($organizationId, $responsibleId, $participants);
+    $siteId = $this->nullableString($mutation->payload, 'siteId');
+    $this->assertSiteBelongsToOrganization($siteId, $organizationId);
+    $aggregate = InterventionAggregate::create(
+      id: $id,
+      organizationId: $organizationId,
+      type: InterventionType::from($this->requiredString($mutation->payload, 'type')),
+      name: $this->requiredString($mutation->payload, 'name'),
+      referencePackId: $this->requiredString($mutation->payload, 'referencePackId'),
+      siteId: $siteId,
+      responsibleId: $responsibleId,
+      participants: $participants,
+      priority: InterventionPriority::from($this->requiredString($mutation->payload, 'priority')),
+      plannedStartAt: $this->date($mutation->payload['plannedStartAt'] ?? null),
+      dueAt: $this->date($mutation->payload['dueAt'] ?? null),
+    );
+    $intervention = InterventionMapper::toRecord($aggregate);
+    $intervention->organization = $organization;
+    $this->entityManager->persist($intervention);
+    $this->entityManager->flush();
+
+    return $this->interventionView($intervention);
+  }
+
+  /**
+   * Method updateIntervention.
+   *
+   * Executes the update intervention operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   *
+   * @return InterventionWorkflowView the update intervention result
+   */
+  private function updateIntervention(InterventionRecord $intervention, InterventionWorkflowMutation $mutation, array &$notifications): InterventionWorkflowView
+  {
+    $organizationId = $this->organizationId($intervention);
+    $aggregate = InterventionMapper::toDomain($intervention);
+    $responsibleId = $aggregate->responsibleId();
+    if (array_key_exists('responsibleId', $mutation->payload)) {
+      $responsibleId = $this->nullableString($mutation->payload, 'responsibleId');
+      if (null !== $responsibleId) {
+        $this->memberPolicy->assertActiveMember($organizationId, $responsibleId);
+      }
+    }
+    $participants = $aggregate->participants();
+    if (array_key_exists('participants', $mutation->payload)) {
+      $participants = $this->stringList($mutation->payload['participants']);
+      $this->assertActiveMembers($organizationId, null, $participants);
+    }
+    $siteId = $aggregate->siteId();
+    if (array_key_exists('siteId', $mutation->payload)) {
+      $siteId = $this->nullableString($mutation->payload, 'siteId');
+      $this->assertSiteBelongsToOrganization($siteId, $organizationId);
+    }
+    $nextStatus = null;
+    if (array_key_exists('status', $mutation->payload)) {
+      $nextStatus = InterventionStatus::from($this->requiredString($mutation->payload, 'status'));
+      if (InterventionStatus::SUBMITTED === $nextStatus) {
+        try {
+          $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $responsibleId);
+        } catch (InterventionConflictException $exception) {
+          throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
+        }
+      }
+    }
+    $aggregate->edit(
+      policy: $this->transitionPolicy,
+      name: array_key_exists('name', $mutation->payload) ? $this->requiredString($mutation->payload, 'name') : null,
+      referencePackId: array_key_exists('referencePackId', $mutation->payload) ? $this->requiredString($mutation->payload, 'referencePackId') : null,
+      siteId: $siteId,
+      responsibleId: $responsibleId,
+      participants: $participants,
+      priority: array_key_exists('priority', $mutation->payload) ? InterventionPriority::from($this->requiredString($mutation->payload, 'priority')) : null,
+      plannedStartAt: array_key_exists('plannedStartAt', $mutation->payload) ? $this->date($mutation->payload['plannedStartAt']) : null,
+      dueAt: array_key_exists('dueAt', $mutation->payload) ? $this->date($mutation->payload['dueAt']) : null,
+      reviewNote: array_key_exists('reviewNote', $mutation->payload) ? $this->nullableString($mutation->payload, 'reviewNote') : null,
+      nextStatus: $nextStatus,
+      hasName: array_key_exists('name', $mutation->payload),
+      hasReferencePackId: array_key_exists('referencePackId', $mutation->payload),
+      hasSiteId: array_key_exists('siteId', $mutation->payload),
+      hasResponsibleId: array_key_exists('responsibleId', $mutation->payload),
+      hasParticipants: array_key_exists('participants', $mutation->payload),
+      hasPriority: array_key_exists('priority', $mutation->payload),
+      hasPlannedStartAt: array_key_exists('plannedStartAt', $mutation->payload),
+      hasDueAt: array_key_exists('dueAt', $mutation->payload),
+      hasReviewNote: array_key_exists('reviewNote', $mutation->payload),
+    );
+    InterventionMapper::sync($aggregate, $intervention);
+    $this->entityManager->flush();
+    if (InterventionStatus::CHANGES_REQUESTED === $nextStatus) {
+      $interventionId = $intervention->id;
+      $interventionName = $intervention->name;
+      $responsibleId = $intervention->responsibleId;
+      $notifications[] = fn () => $this->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
+    }
+
+    return $this->interventionView($intervention);
+  }
+
+  /**
+   * Method mutateWorkItem.
+   *
+   * Executes the mutate work item operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   *
+   * @return ?InterventionWorkflowView the mutate work item result
+   */
+  private function mutateWorkItem(InterventionWorkflowMutation $mutation, array &$notifications): ?InterventionWorkflowView
+  {
+    if ('create' === $mutation->action) {
+      return $this->createWorkItem($mutation, $notifications);
+    }
+    $record = $this->workItem($mutation->id);
+    $intervention = $this->workItemIntervention($record);
+    $this->assertRevision($record->revision, $mutation->expectedRevision);
+    $this->assertInterventionWorkMutable($intervention);
+    if ('draft' !== $intervention->status) {
+      $this->memberPolicy->assertCanExecuteWorkItem(
+        $this->organizationId($intervention),
+        $mutation->userId,
+        $intervention->responsibleId,
+        $intervention->participants,
+        $record->assigneeId,
+      );
+      if (array_key_exists('assigneeId', $mutation->payload)) {
+        throw new InterventionConflictException('Work item assignments are frozen after planning.');
+      }
+    }
+    if ('delete' === $mutation->action) {
+      if ('draft' !== $intervention->status) {
+        throw new InterventionConflictException('Only prepared work items can be deleted.');
+      }
+      $this->entityManager->remove($record);
+      $this->touch($intervention, new DateTimeImmutable());
+      $this->entityManager->flush();
+
+      return null;
+    }
+    $previousAssigneeId = $record->assigneeId;
+    if (array_key_exists('status', $mutation->payload)) {
+      $status = $this->requiredString($mutation->payload, 'status');
+      $skipReason = $this->nullableString($mutation->payload, 'skipReason');
+      if ('skipped' === $status && (null === $skipReason || '' === trim($skipReason))) {
+        throw new InterventionValidationException('A skip reason is required.');
+      }
+      $record->status = $status;
+      if ('planned' === $intervention->status && 'planned' !== $status) {
+        $intervention->status = 'in_progress';
+      }
+    }
+    if (array_key_exists('skipReason', $mutation->payload)) {
+      $skipReason = $this->nullableString($mutation->payload, 'skipReason');
+      $record->skipReason = null === $skipReason ? null : trim($skipReason);
+    }
+    if (array_key_exists('resultResource', $mutation->payload)) {
+      $record->resultResource = $this->nullableString($mutation->payload, 'resultResource');
+    }
+    if (array_key_exists('assigneeId', $mutation->payload)) {
+      $record->assigneeId = $this->nullableString($mutation->payload, 'assigneeId');
+      if (null !== $record->assigneeId) {
+        $this->memberPolicy->assertActiveMember($this->organizationId($intervention), $record->assigneeId);
+      }
+    }
+    $now = new DateTimeImmutable();
+    ++$record->revision;
+    $record->updatedAt = $now;
+    $this->touch($intervention, $now);
+    $this->entityManager->flush();
+    if (null !== $record->assigneeId && $record->assigneeId !== $previousAssigneeId) {
+      $interventionId = $intervention->id;
+      $interventionName = $intervention->name;
+      $assigneeId = $record->assigneeId;
+      $notifications[] = fn () => $this->notifications->assigned($interventionId, $interventionName, $assigneeId);
+    }
+
+    return $this->workItemView($record);
+  }
+
+  /**
+   * Method createWorkItem.
+   *
+   * Executes the create work item operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   * @param list<callable(): void> $notifications deferred notifications dispatched after commit
+   *
+   * @return InterventionWorkflowView the create work item result
+   */
+  private function createWorkItem(InterventionWorkflowMutation $mutation, array &$notifications): InterventionWorkflowView
+  {
+    $id = $mutation->id ?? $this->uuidFactory->generateRaw();
+    if ($mutation->createOnly && $this->entityManager->find(InterventionWorkItemRecord::class, $id) instanceof InterventionWorkItemRecord) {
+      throw new InterventionPreconditionFailedException('The client UUID work item already exists.');
+    }
+    $intervention = $this->intervention($this->requiredString($mutation->payload, 'interventionId'));
+    $this->assertInterventionWorkMutable($intervention);
+    $source = $this->requiredString($mutation->payload, 'source');
+    if ('draft' !== $intervention->status && 'discovered' !== $source) {
+      throw new InterventionConflictException('Only discovered work items can be added after preparation.');
+    }
+    if ('draft' !== $intervention->status) {
+      $this->memberPolicy->assertCanExecuteWorkItem(
+        $this->organizationId($intervention),
+        $mutation->userId,
+        $intervention->responsibleId,
+        $intervention->participants,
+        null,
+      );
+    }
+    $assigneeId = $this->nullableString($mutation->payload, 'assigneeId');
+    if (null !== $assigneeId) {
+      $this->memberPolicy->assertActiveMember($this->organizationId($intervention), $assigneeId);
+    }
+    $now = new DateTimeImmutable();
+    $record = new InterventionWorkItemRecord();
+    $record->id = $id;
+    $record->intervention = $intervention;
+    $record->action = $this->requiredString($mutation->payload, 'action');
+    $record->target = $this->nullableString($mutation->payload, 'target');
+    $record->resultResource = $this->nullableString($mutation->payload, 'resultResource');
+    $record->assigneeId = $assigneeId;
+    $record->source = $source;
+    $record->required = (bool) ($mutation->payload['required'] ?? true);
+    $record->createdAt = $now;
+    $record->updatedAt = $now;
+    $this->touch($intervention, $now);
+    $this->entityManager->persist($record);
+    $this->entityManager->flush();
+    if (null !== $record->assigneeId) {
+      $interventionId = $intervention->id;
+      $interventionName = $intervention->name;
+      $assigneeId = $record->assigneeId;
+      $notifications[] = fn () => $this->notifications->assigned($interventionId, $interventionName, $assigneeId);
+    }
+
+    return $this->workItemView($record);
+  }
+
+  /**
+   * Method mutateChange.
+   *
+   * Executes the mutate change operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   *
+   * @return ?InterventionWorkflowView the mutate change result
+   */
+  private function mutateChange(InterventionWorkflowMutation $mutation): ?InterventionWorkflowView
+  {
+    if ('create' === $mutation->action) {
+      return $this->createChange($mutation);
+    }
+    $record = $this->change($mutation->id);
+    $intervention = $this->changeIntervention($record);
+    $this->assertRevision($record->revision, $mutation->expectedRevision);
+    $this->assertCanMutateChange($intervention, $record->workItem, $mutation->userId);
+    if ('delete' === $mutation->action) {
+      $this->changePolicy->assertCanDelete(InterventionStatus::from($intervention->status));
+      if ('proposed' !== $record->status) {
+        throw new InterventionConflictException('Only proposed intervention changes can be deleted.');
+      }
+      $this->entityManager->remove($record);
+      $this->touch($intervention, new DateTimeImmutable());
+      $this->entityManager->flush();
+
+      return null;
+    }
+    if ([] === $mutation->payload) {
+      return $this->changeView($record);
+    }
+    if (array_key_exists('patch', $mutation->payload)) {
+      $this->changePolicy->assertCanEditPatch(InterventionStatus::from($intervention->status));
+      if ('proposed' !== $record->status) {
+        throw new InterventionConflictException('Only proposed changes can be edited.');
+      }
+      $record->patch = $this->patch($mutation->payload['patch']);
+    }
+    if (array_key_exists('status', $mutation->payload)) {
+      $status = $this->requiredString($mutation->payload, 'status');
+      $this->changePolicy->assertCanChangeStatus(InterventionStatus::from($intervention->status), $status);
+      $record->status = $status;
+    }
+    $now = new DateTimeImmutable();
+    ++$record->revision;
+    $record->updatedAt = $now;
+    $this->touch($intervention, $now);
+    $this->entityManager->flush();
+
+    return $this->changeView($record);
+  }
+
+  /**
+   * Method createChange.
+   *
+   * Executes the create change operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkflowMutation $mutation the mutation value
+   *
+   * @return InterventionWorkflowView the create change result
+   */
+  private function createChange(InterventionWorkflowMutation $mutation): InterventionWorkflowView
+  {
+    $id = $mutation->id ?? $this->uuidFactory->generateRaw();
+    if ($mutation->createOnly && $this->entityManager->find(InterventionChangeRecord::class, $id) instanceof InterventionChangeRecord) {
+      throw new InterventionPreconditionFailedException('The client UUID intervention change already exists.');
+    }
+    $intervention = $this->intervention($this->requiredString($mutation->payload, 'interventionId'));
+    $this->changePolicy->assertCanCreate(InterventionStatus::from($intervention->status));
+    $workItemId = $this->nullableString($mutation->payload, 'workItemId');
+    $workItem = null;
+    if (null !== $workItemId) {
+      $workItem = $this->entityManager->find(InterventionWorkItemRecord::class, $workItemId);
+      if (!$workItem instanceof InterventionWorkItemRecord || $workItem->intervention?->id !== $intervention->id) {
+        throw new InterventionValidationException('Intervention changes can only reference work items from the same intervention.');
+      }
+    }
+    $this->assertCanMutateChange($intervention, $workItem, $mutation->userId);
+    $now = new DateTimeImmutable();
+    $record = new InterventionChangeRecord();
+    $record->id = $id;
+    $record->intervention = $intervention;
+    $record->workItem = $workItem;
+    $record->resource = $this->requiredString($mutation->payload, 'resource');
+    $record->patch = $this->patch($mutation->payload['patch'] ?? null);
+    $record->createdAt = $now;
+    $record->updatedAt = $now;
+    $this->touch($intervention, $now);
+    $this->entityManager->persist($record);
+    $this->entityManager->flush();
+
+    return $this->changeView($record);
+  }
+
+  /**
+   * Method interventionListQuery.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization id value
+   * @param array<string, mixed> $filters
+   *
+   * @return QueryBuilder the intervention list query result
+   */
+  private function interventionListQuery(string $organizationId, array $filters): QueryBuilder
+  {
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('m')
+      ->from(InterventionRecord::class, 'm')
+      ->where('m.organization = :organization')
+      ->setParameter('organization', $organization)
+      ->orderBy('m.updatedAt', 'DESC');
+    foreach (['type', 'status'] as $filter) {
+      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
+        $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+      }
+    }
+    if (is_string($filters['responsibleId'] ?? null) && '' !== $filters['responsibleId']) {
+      $qb->andWhere('m.responsibleId = :responsibleId')->setParameter('responsibleId', $filters['responsibleId']);
+    }
+    if (is_string($filters['siteId'] ?? null) && '' !== $filters['siteId']) {
+      $qb->andWhere('m.siteId = :siteId')->setParameter('siteId', $filters['siteId']);
+    }
+    if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
+      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :participant)',
+        ['organization' => $organizationId, 'participant' => $filters['participantId']],
+      );
+      $qb->andWhere([] === $ids ? '1 = 0' : 'm.id IN (:participantIds)');
+      if ([] !== $ids) {
+        $qb->setParameter('participantIds', $ids);
+      }
+    }
+    foreach (['dueAtAfter' => '>=', 'dueAtBefore' => '<='] as $filter => $operator) {
+      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
+        try {
+          $date = new DateTimeImmutable($filters[$filter]);
+        } catch (Exception $exception) {
+          throw new InvalidArgumentException(sprintf('The %s filter must be a valid date-time.', $filter), previous: $exception);
+        }
+        $qb->andWhere(sprintf('m.dueAt %s :%s', $operator, $filter))->setParameter($filter, $date);
+      }
+    }
+
+    return $qb;
+  }
+
+  /**
+   * Method workItemListQuery.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   * @param array<string, mixed> $filters
+   *
+   * @return QueryBuilder the work item list query result
+   */
+  private function workItemListQuery(string $interventionId, array $filters): QueryBuilder
+  {
+    $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('w')
+      ->from(InterventionWorkItemRecord::class, 'w')
+      ->where('w.intervention = :intervention')
+      ->setParameter('intervention', $intervention)
+      ->orderBy('w.updatedAt', 'DESC');
+    foreach (['source', 'action', 'status', 'assigneeId'] as $filter) {
+      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
+        $qb->andWhere('w.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+      }
+    }
+
+    return $qb;
+  }
+
+  /**
+   * Method changeListQuery.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   * @param array<string, mixed> $filters
+   *
+   * @return QueryBuilder the change list query result
+   */
+  private function changeListQuery(string $interventionId, array $filters): QueryBuilder
+  {
+    $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('c')
+      ->from(InterventionChangeRecord::class, 'c')
+      ->where('c.intervention = :intervention')
+      ->setParameter('intervention', $intervention)
+      ->orderBy('c.updatedAt', 'DESC');
+    foreach (['resource', 'status'] as $filter) {
+      if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
+        $qb->andWhere('c.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
+      }
+    }
+
+    return $qb;
+  }
+
+  /**
+   * Method interventionView.
+   *
+   * Executes the intervention view operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   * @param ?InterventionListMetrics $metrics preloaded collection metrics
+   *
+   * @return InterventionWorkflowView the intervention view result
+   */
+  private function interventionView(InterventionRecord $intervention, ?InterventionListMetrics $metrics = null): InterventionWorkflowView
+  {
+    $organizationId = $this->organizationId($intervention);
+    if (null === $metrics) {
+      $summary = $this->resources->summary($intervention->id);
+      $workItems = $this->resources->workItemSummary($intervention->id);
+      $issues = $this->issueFinder->find(
+        $intervention->id,
+        $summary,
+        $workItems,
+        $this->resources->validationContext($intervention->id),
+      );
+      $facilitiesCount = $summary->facilities;
+      $equipmentCount = $summary->equipment;
+      $inspectionsCount = $summary->inspections;
+      $blockersCount = count(array_filter($issues, static fn ($issue): bool => 'blocker' === $issue->severity));
+      $workItemsCount = $workItems->total;
+      $completedWorkItemsCount = $workItems->completed;
+      $proposedChangesCount = $this->entityManager->getRepository(InterventionChangeRecord::class)->count([
+        'intervention' => $intervention,
+        'status' => 'proposed',
+      ]);
+    } else {
+      $facilitiesCount = $metrics->facilities;
+      $equipmentCount = $metrics->equipment;
+      $inspectionsCount = $metrics->inspections;
+      $blockersCount = $metrics->resourceBlockers;
+      $blockersCount += 'site_setup' === $intervention->type && 0 === $metrics->facilities ? 1 : 0;
+      $blockersCount += in_array($intervention->type, ['inventory', 'inspection_campaign'], true) && 0 === $metrics->workItems ? 1 : 0;
+      $blockersCount += $metrics->requiredIncomplete > 0 ? 1 : 0;
+      $workItemsCount = $metrics->workItems;
+      $completedWorkItemsCount = $metrics->completedWorkItems;
+      $proposedChangesCount = $metrics->proposedChanges;
+    }
+
+    return new InterventionWorkflowView('intervention', $organizationId, [
+      'id' => $intervention->id,
+      'organization' => '/api/organizations/' . $organizationId,
+      'type' => $intervention->type,
+      'name' => $intervention->name,
+      'status' => $intervention->status,
+      'referencePack' => '/api/reference-packs/' . $intervention->referencePackId,
+      'site' => null === $intervention->siteId ? null : '/api/facilities/' . $intervention->siteId,
+      'responsible' => null === $intervention->responsibleId ? null : '/api/organizations/' . $organizationId . '/members/' . $intervention->responsibleId,
+      'participants' => array_map(
+        static fn (string $id): string => '/api/organizations/' . $organizationId . '/members/' . $id,
+        $intervention->participants,
+      ),
+      'priority' => $intervention->priority,
+      'plannedStartAt' => $intervention->plannedStartAt?->format('c'),
+      'dueAt' => $intervention->dueAt?->format('c'),
+      'reviewNote' => $intervention->reviewNote,
+      'revision' => $intervention->revision,
+      'facilitiesCount' => $facilitiesCount,
+      'equipmentCount' => $equipmentCount,
+      'inspectionsCount' => $inspectionsCount,
+      'blockersCount' => $blockersCount,
+      'workItemsCount' => $workItemsCount,
+      'completedWorkItemsCount' => $completedWorkItemsCount,
+      'proposedChangesCount' => $proposedChangesCount,
+      'createdAt' => $intervention->createdAt->format('c'),
+      'updatedAt' => $intervention->updatedAt->format('c'),
+    ]);
+  }
+
+  /**
+   * Method workItemView.
+   *
+   * Executes the work item view operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkItemRecord $record the record value
+   *
+   * @return InterventionWorkflowView the work item view result
+   */
+  private function workItemView(InterventionWorkItemRecord $record): InterventionWorkflowView
+  {
+    $intervention = $this->workItemIntervention($record, false);
+    $organizationId = $this->organizationId($intervention);
+
+    return new InterventionWorkflowView('work_item', $organizationId, [
+      'id' => $record->id,
+      'intervention' => '/api/interventions/' . $intervention->id,
+      'action' => $record->action,
+      'target' => $record->target,
+      'resultResource' => $record->resultResource,
+      'assignee' => null === $record->assigneeId ? null : '/api/organizations/' . $organizationId . '/members/' . $record->assigneeId,
+      'source' => $record->source,
+      'status' => $record->status,
+      'required' => $record->required,
+      'skipReason' => $record->skipReason,
+      'revision' => $record->revision,
+      'createdAt' => $record->createdAt->format('c'),
+      'updatedAt' => $record->updatedAt->format('c'),
+    ]);
+  }
+
+  /**
+   * Method changeView.
+   *
+   * Executes the change view operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionChangeRecord $record the record value
+   *
+   * @return InterventionWorkflowView the change view result
+   */
+  private function changeView(InterventionChangeRecord $record): InterventionWorkflowView
+  {
+    $intervention = $this->changeIntervention($record, false);
+
+    return new InterventionWorkflowView('change', $this->organizationId($intervention), [
+      'id' => $record->id,
+      'intervention' => '/api/interventions/' . $intervention->id,
+      'workItem' => null === $record->workItem ? null : '/api/intervention-work-items/' . $record->workItem->id,
+      'resource' => $record->resource,
+      'patch' => $record->patch,
+      'status' => $record->status,
+      'revision' => $record->revision,
+      'createdAt' => $record->createdAt->format('c'),
+      'updatedAt' => $record->updatedAt->format('c'),
+    ]);
+  }
+
+  /**
+   * Method context.
+   *
+   * Executes the context operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   *
+   * @return InterventionWorkflowContext the context result
+   */
+  private function context(InterventionRecord $intervention): InterventionWorkflowContext
+  {
+    return new InterventionWorkflowContext(
+      $intervention->id,
+      $this->organizationId($intervention),
+      $intervention->status,
+      $intervention->responsibleId,
+      $intervention->participants,
+    );
+  }
+
+  /**
+   * Method intervention.
+   *
+   * Executes the intervention operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $id the id value
+   *
+   * @return InterventionRecord the intervention result
+   */
+  private function intervention(?string $id): InterventionRecord
+  {
+    $intervention = null === $id
+      ? null
+      : $this->entityManager->find(InterventionRecord::class, $id, LockMode::PESSIMISTIC_WRITE);
+    if (!$intervention instanceof InterventionRecord) {
+      throw InterventionNotFoundException::withId($id ?? 'unknown');
+    }
+
+    return $intervention;
+  }
+
+  /**
+   * Method workItem.
+   *
+   * Executes the work item operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $id the id value
+   *
+   * @return InterventionWorkItemRecord the work item result
+   */
+  private function workItem(?string $id): InterventionWorkItemRecord
+  {
+    $record = null === $id
+      ? null
+      : $this->entityManager->find(InterventionWorkItemRecord::class, $id, LockMode::PESSIMISTIC_WRITE);
+    if (!$record instanceof InterventionWorkItemRecord) {
+      throw InterventionNotFoundException::withId($id ?? 'unknown');
+    }
+
+    return $record;
+  }
+
+  /**
+   * Method change.
+   *
+   * Executes the change operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $id the id value
+   *
+   * @return InterventionChangeRecord the change result
+   */
+  private function change(?string $id): InterventionChangeRecord
+  {
+    $record = null === $id
+      ? null
+      : $this->entityManager->find(InterventionChangeRecord::class, $id, LockMode::PESSIMISTIC_WRITE);
+    if (!$record instanceof InterventionChangeRecord) {
+      throw InterventionNotFoundException::withId($id ?? 'unknown');
+    }
+
+    return $record;
+  }
+
+  /**
+   * Method workItemIntervention.
+   *
+   * Executes the work item intervention operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionWorkItemRecord $record the record value
+   * @param bool $lock whether the intervention must be write locked
+   *
+   * @return InterventionRecord the work item intervention result
+   */
+  private function workItemIntervention(InterventionWorkItemRecord $record, bool $lock = true): InterventionRecord
+  {
+    if (!$record->intervention instanceof InterventionRecord) {
+      throw InterventionNotFoundException::withId($record->id);
+    }
+
+    return $lock ? $this->intervention($record->intervention->id) : $record->intervention;
+  }
+
+  /**
+   * Method changeIntervention.
+   *
+   * Executes the change intervention operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionChangeRecord $record the record value
+   * @param bool $lock whether the intervention must be write locked
+   *
+   * @return InterventionRecord the change intervention result
+   */
+  private function changeIntervention(InterventionChangeRecord $record, bool $lock = true): InterventionRecord
+  {
+    if (!$record->intervention instanceof InterventionRecord) {
+      throw InterventionNotFoundException::withId($record->id);
+    }
+
+    return $lock ? $this->intervention($record->intervention->id) : $record->intervention;
+  }
+
+  /**
+   * Method organizationId.
+   *
+   * Executes the organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   *
+   * @return string the organization id result
+   */
+  private function organizationId(InterventionRecord $intervention): string
+  {
+    if (!$intervention->organization instanceof OrganizationRecord) {
+      throw new InterventionConflictException('Intervention organization is missing.');
+    }
+
+    return $intervention->organization->id;
+  }
+
+  /**
+   * Method assertInterventionWorkMutable.
+   *
+   * Executes the assert intervention work mutable operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   */
+  private function assertInterventionWorkMutable(InterventionRecord $intervention): void
+  {
+    if (in_array($intervention->status, ['published', 'abandoned', 'submitted'], true)) {
+      throw new InterventionConflictException('Intervention work is immutable in the current state.');
+    }
+  }
+
+  /**
+   * Method assertCanMutateChange.
+   *
+   * Ensures proposed changes created during execution are owned by the
+   * assigned member or an active intervention participant.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   * @param ?InterventionWorkItemRecord $workItem the work item value
+   * @param string $userId the current user id value
+   */
+  private function assertCanMutateChange(
+    InterventionRecord $intervention,
+    ?InterventionWorkItemRecord $workItem,
+    string $userId,
+  ): void {
+    if ('draft' === $intervention->status || 'submitted' === $intervention->status) {
+      return;
+    }
+    $this->memberPolicy->assertCanExecuteWorkItem(
+      $this->organizationId($intervention),
+      $userId,
+      $intervention->responsibleId,
+      $intervention->participants,
+      $workItem?->assigneeId,
+    );
+  }
+
+  /**
+   * Method assertRevision.
+   *
+   * Executes the assert revision operation.
+   *
+   * @since 1.0.0
+   *
+   * @param int $revision the revision value
+   * @param ?int $expectedRevision the expected revision value
+   */
+  private function assertRevision(int $revision, ?int $expectedRevision): void
+  {
+    if (null !== $expectedRevision && $revision !== $expectedRevision) {
+      throw new InterventionPreconditionFailedException('The resource revision is stale.');
+    }
+  }
+
+  /**
+   * Method assertActiveMembers.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization id value
+   * @param ?string $responsibleId the responsible id value
+   * @param list<string> $participants
+   */
+  private function assertActiveMembers(string $organizationId, ?string $responsibleId, array $participants): void
+  {
+    if (null !== $responsibleId) {
+      $this->memberPolicy->assertActiveMember($organizationId, $responsibleId);
+    }
+    foreach ($participants as $participantId) {
+      $this->memberPolicy->assertActiveMember($organizationId, $participantId);
+    }
+  }
+
+  /**
+   * Method assertSiteBelongsToOrganization.
+   *
+   * Executes the assert site belongs to organization operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $siteId the site id value
+   * @param string $organizationId the organization id value
+   */
+  private function assertSiteBelongsToOrganization(?string $siteId, string $organizationId): void
+  {
+    if (
+      null !== $siteId
+      && !$this->resources->resourceBelongsToOrganization(
+        InterventionResourceType::FACILITY,
+        $siteId,
+        $organizationId,
+      )
+    ) {
+      throw new InterventionValidationException('Intervention site must belong to the intervention organization.');
+    }
+  }
+
+  /**
+   * Method touch.
+   *
+   * Executes the touch operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionRecord $intervention the intervention value
+   * @param DateTimeImmutable $now the now value
+   */
+  private function touch(InterventionRecord $intervention, DateTimeImmutable $now): void
+  {
+    ++$intervention->revision;
+    $intervention->updatedAt = $now;
+  }
+
+  /**
+   * Method requiredString.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $payload
+   * @param string $key the key value
+   *
+   * @return string the required string result
+   */
+  private function requiredString(array $payload, string $key): string
+  {
+    $value = $payload[$key] ?? null;
+    if (!is_string($value) || '' === $value) {
+      throw new InvalidArgumentException($key . ' must be a non-empty string.');
+    }
+
+    return $value;
+  }
+
+  /**
+   * Method nullableString.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $payload
+   * @param string $key the key value
+   *
+   * @return ?string the nullable string result
+   */
+  private function nullableString(array $payload, string $key): ?string
+  {
+    $value = $payload[$key] ?? null;
+    if (null === $value) {
+      return null;
+    }
+    if (!is_string($value)) {
+      throw new InvalidArgumentException($key . ' must be a string or null.');
+    }
+
+    return $value;
+  }
+
+  /**
+   * Method stringList.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $value the value value
+   *
+   * @return list<string>
+   */
+  private function stringList(mixed $value): array
+  {
+    if (!is_array($value)) {
+      throw new InvalidArgumentException('Expected a list of strings.');
+    }
+
+    return array_values(array_unique(array_map(
+      static function (mixed $item): string {
+        if (!is_string($item)) {
+          throw new InvalidArgumentException('Expected a list of strings.');
+        }
+
+        return $item;
+      },
+      $value,
+    )));
+  }
+
+  /**
+   * Method date.
+   *
+   * Executes the date operation.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $value the value value
+   *
+   * @return ?DateTimeImmutable the date result
+   */
+  private function date(mixed $value): ?DateTimeImmutable
+  {
+    if (null === $value) {
+      return null;
+    }
+    if (!is_string($value)) {
+      throw new InvalidArgumentException('Expected a date-time string or null.');
+    }
+
+    return new DateTimeImmutable($value);
+  }
+
+  /**
+   * Method patch.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $value the value value
+   *
+   * @return array<string, mixed>
+   */
+  private function patch(mixed $value): array
+  {
+    if (!is_array($value)) {
+      throw new InvalidArgumentException('Patch must be an object.');
+    }
+    foreach (array_keys($value) as $key) {
+      if (!is_string($key)) {
+        throw new InvalidArgumentException('Patch must be an object.');
+      }
+    }
+
+    /** @var array<string, mixed> $value */
+    return $value;
+  }
+}

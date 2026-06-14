@@ -20,7 +20,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Entity]
 #[ORM\Table(name: 'inspection_responses')]
 #[ORM\Index(name: 'idx_response_inspection', columns: ['inspection_id'])]
-#[ORM\Index(name: 'idx_response_mission_status', columns: ['mission_id', 'record_status'])]
+#[ORM\Index(name: 'idx_response_intervention_status', columns: ['intervention_id', 'record_status'])]
 class InspectionResponseRecord
 {
   /**
@@ -42,12 +42,12 @@ class InspectionResponseRecord
   public ?OrganizationRecord $organization = null;
 
   /**
-   * Property missionId.
+   * Property interventionId.
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'mission_id', type: 'string', length: 36, nullable: true)]
-  public ?string $missionId = null;
+  #[ORM\Column(name: 'intervention_id', type: 'string', length: 36, nullable: true)]
+  public ?string $interventionId = null;
 
   /**
    * Property inspectionId.

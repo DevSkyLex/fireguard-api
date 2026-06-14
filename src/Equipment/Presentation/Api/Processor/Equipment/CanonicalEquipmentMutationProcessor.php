@@ -15,9 +15,9 @@ use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use LogicException;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
-use Mission\Domain\Exception\{MissionConflictException, MissionNotFoundException};
+use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
@@ -53,7 +53,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
    * @param CanonicalEquipmentProvider $provider the provider value
-   * @param MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
    */
@@ -63,7 +63,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     private Security $security,
     private RequestStack $requestStack,
     private CanonicalEquipmentProvider $provider,
-    private MissionResourceManager $missionResourceManager,
+    private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
   ) {
@@ -93,7 +93,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
   /**
    * Method processMutation.
    *
-   * Executes one canonical equipment mutation in the mission lock transaction.
+   * Executes one canonical equipment mutation in the intervention lock transaction.
    *
    * @since 1.0.0
    *
@@ -125,7 +125,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
         $record->updatedAt = new DateTimeImmutable();
       }
       $this->entityManager->flush();
-      $this->missionResourceManager->touchDraftMission($record->missionId);
+      $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
 
       return null;
     }
@@ -165,7 +165,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
     $this->entityManager->flush();
-    $this->missionResourceManager->touchDraftMission($record->missionId);
+    $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
 
     $output = $this->provider->provide($operation, ['id' => $record->id]);
     if (!$output instanceof EquipmentOutput) {
@@ -192,12 +192,12 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     }
 
     try {
-      $permission = 'draft' !== $record->recordStatus || null === $record->missionId
+      $permission = 'draft' !== $record->recordStatus || null === $record->interventionId
         ? 'organization.equipment.write'
-        : $this->missionResourceManager->mutationPermission($record->missionId, $user->getId());
-    } catch (MissionNotFoundException $exception) {
+        : $this->interventionResourceManager->mutationPermission($record->interventionId, $user->getId());
+    } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
     if (!$this->authorization->hasPermission($user->getId(), $record->organization->id, $permission)) {

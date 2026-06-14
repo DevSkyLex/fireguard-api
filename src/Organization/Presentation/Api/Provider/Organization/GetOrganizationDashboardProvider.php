@@ -705,7 +705,7 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
    *
    * @param array<string, mixed> $values the array of metric values to search, expected to
    *                                     be an associative array where keys are metric identifiers and values are their corresponding mixed values
-   * @param string $legacyKey The legacy metric key to check for the integer value (e.g., "totalEmissions").
+   * @param string $legacyKey The legacy metric key to check for the integer value (e.g., "totalEinterventions").
    * @param string $metricKey The current metric key to check for the integer value (e.g., "emissionsTotal").
    *
    * @return int|null the extracted integer value if found under either the legacy or current

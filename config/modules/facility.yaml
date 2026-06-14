@@ -27,10 +27,10 @@ services:
 
   Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter: ~
 
-  Facility\Infrastructure\Adapter\Mission\FacilityMissionResourceAdapter:
+  Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-    tags: ['mission.change_applier', 'mission.draft_publisher', 'mission.resource_owner']
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
 
   Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
     tags: ['messenger.message_handler']

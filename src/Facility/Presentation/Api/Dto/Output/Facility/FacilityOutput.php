@@ -20,12 +20,12 @@ use Symfony\Component\Serializer\Attribute\Groups;
 final class FacilityOutput
 {
   /**
-   * Property mission.
+   * Property intervention.
    *
    * @since 1.0.0
    */
   #[Groups([FacilitySerializationGroup::READ])]
-  public ?string $mission = null;
+  public ?string $intervention = null;
 
   /**
    * Property recordStatus.

@@ -45,10 +45,10 @@ services:
 
   Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
 
-  Inspection\Infrastructure\Adapter\Mission\InspectionMissionResourceAdapter:
+  Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-    tags: ['mission.change_applier', 'mission.draft_publisher', 'mission.resource_owner']
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
 
   Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
 

@@ -12,7 +12,7 @@ framework:
             sync: 'sync://'
 
         routing:
-            'Mission\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': async
+            'Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': async
 
 when@test:
     framework:

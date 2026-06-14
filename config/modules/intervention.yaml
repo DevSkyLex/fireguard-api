@@ -1,0 +1,80 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Intervention\Presentation\:
+    resource: '../../src/Intervention/Presentation'
+
+  Intervention\Application\:
+    resource: '../../src/Intervention/Application'
+
+  Intervention\Domain\Service\:
+    resource: '../../src/Intervention/Domain/Service'
+
+  Intervention\Infrastructure\:
+    resource: '../../src/Intervention/Infrastructure'
+
+  Intervention\Application\Port\Outbound\InterventionResourceGatewayPort:
+    alias: Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter
+
+  Intervention\Application\Port\Outbound\InterventionEquipmentDraftProviderPort:
+    alias: Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter
+
+  Intervention\Application\Port\Outbound\PublicationRepositoryPort:
+    alias: Intervention\Infrastructure\Adapter\Publication\DoctrinePublicationAdapter
+
+  Intervention\Application\Port\Outbound\PublicationQueuePort:
+    alias: Intervention\Infrastructure\Adapter\Publication\MessengerPublicationQueueAdapter
+
+  Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort:
+    alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGateway
+
+  Intervention\Application\Port\Outbound\InterventionIssueQueryPort:
+    alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGateway
+
+  Intervention\Application\Service\InterventionChangeApplication:
+    arguments:
+      $appliers: !tagged_iterator intervention.change_applier
+
+  Intervention\Application\Service\InterventionDraftPublisher:
+    arguments:
+      $publishers: !tagged_iterator intervention.draft_publisher
+
+  Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+      $owners: !tagged_iterator intervention.resource_owner
+
+  Intervention\Infrastructure\Adapter\Publication\DoctrinePublicationAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Publication\MessengerPublicationQueueAdapter:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGateway:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\UseCase\Command\Publication\RequestPublication\RequestPublicationHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Publication\GetPublication\GetPublicationHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow\MutateInterventionWorkflowHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\GetInterventionWorkflowHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\ListInterventionWorkflowHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Workflow\ListInterventionIssues\ListInterventionIssuesHandler:
+    tags: ['messenger.message_handler']

@@ -20,12 +20,12 @@ use Symfony\Component\Serializer\Attribute\Groups;
 final class InspectionOutput
 {
   /**
-   * Property mission.
+   * Property intervention.
    *
    * @since 1.0.0
    */
   #[Groups([InspectionSerializationGroup::READ])]
-  public ?string $mission = null;
+  public ?string $intervention = null;
 
   /**
    * Property recordStatus.

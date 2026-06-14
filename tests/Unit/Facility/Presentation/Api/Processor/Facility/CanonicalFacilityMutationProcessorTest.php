@@ -11,8 +11,8 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
-use Mission\Application\Port\Outbound\MissionResourceGatewayPort;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -60,7 +60,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     $authorization->method('hasPermission')->willReturn(true);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->user());
-    $manager = new MissionResourceManager($this->createStub(MissionResourceGatewayPort::class));
+    $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));
     $provider = new CanonicalFacilityProvider(
       $entityManager,
       $authorization,
