@@ -13,12 +13,12 @@ imports:
   - { resource: '../modules/facility.yaml' }
   - { resource: '../modules/equipment.yaml' }
   - { resource: '../modules/inspection.yaml' }
+  - { resource: '../modules/mission.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/notification.yaml' }
   - { resource: '../modules/trusted_device.yaml' }
   - { resource: '../modules/authorization.yaml' }
   - { resource: '../modules/audit.yaml' }
-
 
 
 

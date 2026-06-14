@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Inspection\Presentation\Api\Mapper;
+namespace Inspection\Presentation\Api\Factory;
 
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
@@ -11,16 +11,54 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
-final class InspectionOutputMapper
+use function array_key_exists;
+use function trim;
+
+/**
+ * Factory InspectionOutputFactory.
+ *
+ * @category Factory
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class InspectionOutputFactory
 {
-  /** @var array<string, GetUserResult|null> */
+  /**
+   * Property userCache.
+   *
+   * @since 1.0.0
+   *
+   * @var array<string, GetUserResult|null>
+   */
   private array $userCache = [];
 
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the InspectionOutputFactory class.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryBusPort $queryBus the query bus value
+   */
   public function __construct(
     private readonly QueryBusPort $queryBus,
   ) {
   }
 
+  /**
+   * Method fromGetResult.
+   *
+   * Executes the from get result operation.
+   *
+   * @since 1.0.0
+   *
+   * @param GetInspectionResult $result the result value
+   *
+   * @return InspectionOutput the from get result result
+   */
   public function fromGetResult(GetInspectionResult $result): InspectionOutput
   {
     return $this->map(
@@ -44,6 +82,17 @@ final class InspectionOutputMapper
     );
   }
 
+  /**
+   * Method fromCreateResult.
+   *
+   * Executes the from create result operation.
+   *
+   * @since 1.0.0
+   *
+   * @param CreateInspectionResult $result the result value
+   *
+   * @return InspectionOutput the from create result result
+   */
   public function fromCreateResult(CreateInspectionResult $result): InspectionOutput
   {
     return $this->map(
@@ -67,6 +116,33 @@ final class InspectionOutputMapper
     );
   }
 
+  /**
+   * Method map.
+   *
+   * Executes the map operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $inspectionId the inspection id value
+   * @param string $organizationId the organization id value
+   * @param string $equipmentId the equipment id value
+   * @param ?string $facilityId the facility id value
+   * @param string $result the result value
+   * @param string $status the status value
+   * @param string $performedAt the performed at value
+   * @param string $inspectorType the inspector type value
+   * @param string $inspectorName the inspector name value
+   * @param ?string $inspectorUserId the inspector user id value
+   * @param ?string $inspectorOrganizationName the inspector organization name value
+   * @param ?string $checklistId the checklist id value
+   * @param ?string $notes the notes value
+   * @param ?string $signature the signature value
+   * @param int $nonConformitiesCount the non conformities count value
+   * @param string $createdAt the created at value
+   * @param string $updatedAt the updated at value
+   *
+   * @return InspectionOutput the map result
+   */
   private function map(
     string $inspectionId,
     string $organizationId,
@@ -105,6 +181,20 @@ final class InspectionOutputMapper
     return $output;
   }
 
+  /**
+   * Method mapInspector.
+   *
+   * Executes the map inspector operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $type the type value
+   * @param string $name the name value
+   * @param ?string $userId the user id value
+   * @param ?string $organizationName the organization name value
+   *
+   * @return InspectorOutput the map inspector result
+   */
   private function mapInspector(
     string $type,
     string $name,
@@ -134,6 +224,17 @@ final class InspectionOutputMapper
     return $output;
   }
 
+  /**
+   * Method findUser.
+   *
+   * Executes the find user operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user id value
+   *
+   * @return ?GetUserResult the find user result
+   */
   private function findUser(string $userId): ?GetUserResult
   {
     if (array_key_exists($userId, $this->userCache)) {

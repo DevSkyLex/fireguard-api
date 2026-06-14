@@ -21,6 +21,36 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class CreateFacilityInput
 {
+  /**
+   * Property clientId.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Uuid(message: 'Client ID must be a valid UUID.')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Client-generated UUID for idempotent offline creation', required: false)]
+  public ?string $clientId = null;
+
+  /**
+   * Property organization.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Regex(pattern: '#^/api/organizations/[0-9a-fA-F-]{36}$#', message: 'Organization must be a valid organization IRI.')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Organization IRI, required on the canonical endpoint', required: false)]
+  public ?string $organization = null;
+
+  /**
+   * Property mission.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Regex(pattern: '#^/api/missions/[0-9a-fA-F-]{36}$#', message: 'Mission must be a valid mission IRI.')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional field mission IRI', required: false)]
+  public ?string $mission = null;
+
   // #region Properties
   /**
    * Property type.

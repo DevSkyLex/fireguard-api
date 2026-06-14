@@ -44,6 +44,16 @@ use function strtolower;
 final readonly class CreateFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateFacilityHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private UuidFactory $uuidFactory,
@@ -85,7 +95,9 @@ final readonly class CreateFacilityHandler implements CommandHandler
       }
 
       /** @var FacilityId $facilityId */
-      $facilityId = $this->uuidFactory->create(FacilityId::class);
+      $facilityId = null === $command->resourceId
+        ? $this->uuidFactory->create(FacilityId::class)
+        : FacilityId::fromString($command->resourceId);
 
       $facility = Facility::create(
         id: $facilityId,

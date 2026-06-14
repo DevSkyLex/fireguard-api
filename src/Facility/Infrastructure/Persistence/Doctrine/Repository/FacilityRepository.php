@@ -124,6 +124,23 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return FacilityMapper::toDomain($record);
   }
 
+  /**
+   * Method findChildren.
+   *
+   * Executes the find children operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   * @param Sorting $sorting the sorting value
+   * @param int $limit the limit value
+   * @param int $offset the offset value
+   *
+   * @return array the find children result
+   */
   public function findChildren(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
@@ -148,6 +165,20 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     );
   }
 
+  /**
+   * Method countChildren.
+   *
+   * Executes the count children operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   *
+   * @return int the count children result
+   */
   public function countChildren(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
@@ -160,6 +191,19 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       ->getSingleScalarResult();
   }
 
+  /**
+   * Method countChildrenByParentIds.
+   *
+   * Executes the count children by parent ids operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param array $parentIds the parent ids value
+   * @param bool $includeArchived the include archived value
+   *
+   * @return array the count children by parent ids result
+   */
   public function countChildrenByParentIds(
     FacilityOrganizationId $organizationId,
     array $parentIds,
@@ -207,6 +251,21 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method findDescendants.
+   *
+   * Executes the find descendants operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   * @param Sorting $sorting the sorting value
+   *
+   * @return array the find descendants result
+   */
   public function findDescendants(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
@@ -319,6 +378,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ]);
   }
 
+  /**
+   * Method countOverviewByOrganizationId.
+   *
+   * Executes the count overview by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param ?string $type the type value
+   *
+   * @return array the count overview by organization id result
+   */
   public function countOverviewByOrganizationId(FacilityOrganizationId $organizationId, ?string $type = null): array
   {
     /** @var OrganizationRecord $organization */
@@ -347,6 +418,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ];
   }
 
+  /**
+   * Method countByTypeForOrganizationId.
+   *
+   * Executes the count by type for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param bool $includeArchived the include archived value
+   *
+   * @return array the count by type for organization id result
+   */
   public function countByTypeForOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
@@ -374,6 +457,21 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByCreatedDayForOrganizationId.
+   *
+   * Executes the count by created day for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param string $createdAtFrom the created at from value
+   * @param string $createdAtTo the created at to value
+   * @param ?string $timeZone the time zone value
+   * @param ?string $type the type value
+   *
+   * @return array the count by created day for organization id result
+   */
   public function countByCreatedDayForOrganizationId(
     FacilityOrganizationId $organizationId,
     string $createdAtFrom,
@@ -468,6 +566,24 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     );
   }
 
+  /**
+   * Method createListQueryBuilder.
+   *
+   * Executes the create list query builder operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $type the type value
+   * @param ?string $status the status value
+   * @param ?string $parentFacilityId the parent facility id value
+   * @param ?string $code the code value
+   * @param ?string $search the search value
+   * @param bool $rootsOnly the roots only value
+   *
+   * @return QueryBuilder the create list query builder result
+   */
   private function createListQueryBuilder(
     FacilityOrganizationId $organizationId,
     bool $includeArchived,
@@ -485,6 +601,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       ->select('f')
       ->from(FacilityRecord::class, 'f')
       ->where('f.organization = :organization')
+      ->andWhere('f.recordStatus = :publishedRecordStatus')
+      ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
     if (null === $status && !$includeArchived) {
@@ -536,6 +654,20 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $queryBuilder;
   }
 
+  /**
+   * Method createChildQueryBuilder.
+   *
+   * Executes the create child query builder operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   *
+   * @return QueryBuilder the create child query builder result
+   */
   private function createChildQueryBuilder(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
@@ -574,6 +706,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $records;
   }
 
+  /**
+   * Method matchesSearch.
+   *
+   * Executes the matches search operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the record value
+   * @param ?string $search the search value
+   *
+   * @return bool the matches search result
+   */
   private function matchesSearch(FacilityRecord $record, ?string $search): bool
   {
     if (null === $search || '' === $search) {
@@ -622,6 +766,17 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     });
   }
 
+  /**
+   * Method resolveSortField.
+   *
+   * Executes the resolve sort field operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $field the field value
+   *
+   * @return string the resolve sort field result
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {
@@ -679,6 +834,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method resolveBucketTimeZone.
+   *
+   * Executes the resolve bucket time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $timeZone the time zone value
+   * @param string $lowerBound the lower bound value
+   *
+   * @return DateTimeZone the resolve bucket time zone result
+   */
   private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -688,6 +855,15 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return new DateTimeImmutable($lowerBound)->getTimezone();
   }
 
+  /**
+   * Method resolveStorageTimeZone.
+   *
+   * Executes the resolve storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeZone the resolve storage time zone result
+   */
   private function resolveStorageTimeZone(): DateTimeZone
   {
     try {
@@ -697,12 +873,34 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     }
   }
 
+  /**
+   * Method normalizeTimestampToStorageDateTime.
+   *
+   * Executes the normalize timestamp to storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   *
+   * @return DateTimeImmutable the normalize timestamp to storage date time result
+   */
   private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
   {
     return new DateTimeImmutable($value)
       ->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method reinterpretStorageDateTime.
+   *
+   * Executes the reinterpret storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param DateTimeImmutable $value the value value
+   *
+   * @return DateTimeImmutable the reinterpret storage date time result
+   */
   private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
   {
     return DateTimeImmutable::createFromFormat(
@@ -712,6 +910,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ) ?: $value->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method normalizeTimestampForStorageTimeZone.
+   *
+   * Executes the normalize timestamp for storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   * @param DateTimeZone $storageTimeZone the storage time zone value
+   *
+   * @return string the normalize timestamp for storage time zone result
+   */
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
     return new DateTimeImmutable($value)

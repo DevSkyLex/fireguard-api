@@ -25,6 +25,16 @@ use ValueError;
 final readonly class CreateEquipmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateEquipmentHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository the equipment repository value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private UuidFactory $uuidFactory,
@@ -50,7 +60,9 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
       /** @var EquipmentId $equipmentId */
-      $equipmentId = $this->uuidFactory->create(EquipmentId::class);
+      $equipmentId = null === $command->resourceId
+        ? $this->uuidFactory->create(EquipmentId::class)
+        : EquipmentId::fromString($command->resourceId);
 
       $equipment = Equipment::create(
         id: $equipmentId,

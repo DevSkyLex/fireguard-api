@@ -204,6 +204,19 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->getSingleScalarResult();
   }
 
+  /**
+   * Method countOverviewByOrganizationId.
+   *
+   * Executes the count overview by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization id value
+   * @param ?string $type the type value
+   * @param ?string $status the status value
+   *
+   * @return array the count overview by organization id result
+   */
   public function countOverviewByOrganizationId(EquipmentOrganizationId $organizationId, ?string $type = null, ?string $status = null): array
   {
     /** @var OrganizationRecord $organization */
@@ -244,6 +257,17 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ];
   }
 
+  /**
+   * Method countByStatusForOrganizationId.
+   *
+   * Executes the count by status for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization id value
+   *
+   * @return array the count by status for organization id result
+   */
   public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array
   {
     /** @var list<array{status: string, equipmentCount: int|string}> $rows */
@@ -270,6 +294,17 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByTypeForOrganizationId.
+   *
+   * Executes the count by type for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization id value
+   *
+   * @return array the count by type for organization id result
+   */
   public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array
   {
     /** @var list<array{type: string, equipmentCount: int|string}> $rows */
@@ -296,6 +331,22 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByCreatedDayForOrganizationId.
+   *
+   * Executes the count by created day for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization id value
+   * @param string $createdAtFrom the created at from value
+   * @param string $createdAtTo the created at to value
+   * @param ?string $timeZone the time zone value
+   * @param ?string $type the type value
+   * @param ?string $status the status value
+   *
+   * @return array the count by created day for organization id result
+   */
   public function countByCreatedDayForOrganizationId(
     EquipmentOrganizationId $organizationId,
     string $createdAtFrom,
@@ -345,6 +396,24 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method createListQueryBuilder.
+   *
+   * Executes the create list query builder operation.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentOrganizationId $organizationId the organization id value
+   * @param ?string $facilityId the facility id value
+   * @param ?string $type the type value
+   * @param ?string $status the status value
+   * @param ?string $brand the brand value
+   * @param ?string $model the model value
+   * @param ?string $subType the sub type value
+   * @param ?string $search the search value
+   *
+   * @return QueryBuilder the create list query builder result
+   */
   private function createListQueryBuilder(
     EquipmentOrganizationId $organizationId,
     ?string $facilityId,
@@ -362,6 +431,8 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->select('e')
       ->from(EquipmentRecord::class, 'e')
       ->where('e.organization = :organization')
+      ->andWhere('e.recordStatus = :publishedRecordStatus')
+      ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
     if (null !== $facilityId) {
@@ -471,6 +542,18 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method resolveBucketTimeZone.
+   *
+   * Executes the resolve bucket time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $timeZone the time zone value
+   * @param string $lowerBound the lower bound value
+   *
+   * @return DateTimeZone the resolve bucket time zone result
+   */
   private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -480,6 +563,15 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     return new DateTimeImmutable($lowerBound)->getTimezone();
   }
 
+  /**
+   * Method resolveStorageTimeZone.
+   *
+   * Executes the resolve storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeZone the resolve storage time zone result
+   */
   private function resolveStorageTimeZone(): DateTimeZone
   {
     try {
@@ -489,12 +581,34 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     }
   }
 
+  /**
+   * Method normalizeTimestampToStorageDateTime.
+   *
+   * Executes the normalize timestamp to storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   *
+   * @return DateTimeImmutable the normalize timestamp to storage date time result
+   */
   private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
   {
     return new DateTimeImmutable($value)
       ->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method reinterpretStorageDateTime.
+   *
+   * Executes the reinterpret storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param DateTimeImmutable $value the value value
+   *
+   * @return DateTimeImmutable the reinterpret storage date time result
+   */
   private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
   {
     return DateTimeImmutable::createFromFormat(
@@ -504,6 +618,18 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     ) ?: $value->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method normalizeTimestampForStorageTimeZone.
+   *
+   * Executes the normalize timestamp for storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   * @param DateTimeZone $storageTimeZone the storage time zone value
+   *
+   * @return string the normalize timestamp for storage time zone result
+   */
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
     return new DateTimeImmutable($value)
@@ -511,6 +637,17 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       ->format('Y-m-d H:i:s.u');
   }
 
+  /**
+   * Method isDuplicateSerialNumberViolation.
+   *
+   * Executes the is duplicate serial number violation operation.
+   *
+   * @since 1.0.0
+   *
+   * @param Throwable $exception the exception value
+   *
+   * @return bool the is duplicate serial number violation result
+   */
   private function isDuplicateSerialNumberViolation(Throwable $exception): bool
   {
     $current = $exception;

@@ -21,7 +21,7 @@ use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 #[ApiResource(
-  shortName: 'Inspection',
+  shortName: 'LegacyInspection',
   routePrefix: '/organizations',
   description: 'Inspection records for fire safety equipment.',
   operations: [
@@ -159,6 +159,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Inspection'],
         summary: 'Submit an inspection',
         description: 'Submits a draft inspection for review.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Inspection submitted'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
@@ -211,6 +212,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
   ],
 )]
+/**
+ * Resource InspectionResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class InspectionResource
 {
 }

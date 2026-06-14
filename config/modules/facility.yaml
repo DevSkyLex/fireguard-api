@@ -6,6 +6,18 @@ services:
   Facility\Presentation\:
     resource: '../../src/Facility/Presentation'
 
+  Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -14,6 +26,11 @@ services:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository
 
   Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter: ~
+
+  Facility\Infrastructure\Adapter\Mission\FacilityMissionResourceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['mission.change_applier', 'mission.draft_publisher', 'mission.resource_owner']
 
   Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityHandler:
     tags: ['messenger.message_handler']
@@ -44,4 +61,3 @@ services:
 
   # Console Commands use #[AsCommand]
   Facility\Infrastructure\Console\CreateFacilityConsoleCommand: ~
-

@@ -3,8 +3,28 @@ services:
     autowire: true
     autoconfigure: true
 
+  Equipment\Presentation\Api\Processor\Media\MediaProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Presentation\Api\Provider\Media\MediaProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Equipment\Presentation\:
     resource: '../../src/Equipment/Presentation'
+
+  Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository:
     arguments:
@@ -26,6 +46,11 @@ services:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository
 
   Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
+
+  Equipment\Infrastructure\Adapter\Mission\EquipmentMissionResourceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['mission.change_applier', 'mission.draft_publisher', 'mission.resource_owner']
 
   Equipment\Application\Port\Outbound\TagRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository

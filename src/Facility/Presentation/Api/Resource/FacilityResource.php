@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-  shortName: 'Facility',
+  shortName: 'LegacyFacility',
   routePrefix: '/organizations',
   description: 'Generic organizational facilities (site/building/floor/zone/area).',
   operations: [
@@ -233,6 +233,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Facility'],
         summary: 'Archive facility',
         description: 'Archives one facility.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility archived'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
@@ -274,6 +275,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Facility'],
         summary: 'Move facility',
         description: 'Moves a facility under a new parent.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility moved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid hierarchy'),
@@ -284,6 +286,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
   ],
 )]
+/**
+ * Resource FacilityResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class FacilityResource
 {
 }

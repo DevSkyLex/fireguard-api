@@ -19,6 +19,30 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class FacilityOutput
 {
+  /**
+   * Property mission.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  public ?string $mission = null;
+
+  /**
+   * Property recordStatus.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  public string $recordStatus = 'published';
+
+  /**
+   * Property revision.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  public int $revision = 1;
+
   // #region Properties
   /**
    * Property id.

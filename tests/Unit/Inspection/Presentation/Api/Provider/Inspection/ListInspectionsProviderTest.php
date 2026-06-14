@@ -10,9 +10,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
-use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
-use Inspection\Presentation\Api\Mapper\InspectionOutputMapper;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Provider\Inspection\ListInspectionsProvider;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -26,6 +25,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 
 use function iterator_to_array;
 
@@ -312,7 +312,7 @@ final class ListInspectionsProviderTest extends TestCase
 
     $requestStack = new RequestStack();
     $requestStack->push(Request::create(
-      uri: '/api/organizations/'.self::ORG_ID.'/facilities/'.$facilityId.'/inspections',
+      uri: '/api/organizations/' . self::ORG_ID . '/facilities/' . $facilityId . '/inspections',
       method: 'GET',
       parameters: ['facilityId' => '550e8400-e29b-41d4-a716-446655440012'],
     ));
@@ -407,11 +407,11 @@ final class ListInspectionsProviderTest extends TestCase
     );
   }
 
-  private function createOutputMapper(): InspectionOutputMapper
+  private function createOutputMapper(): InspectionOutputFactory
   {
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new GetUserResult(null));
 
-    return new InspectionOutputMapper($queryBus);
+    return new InspectionOutputFactory($queryBus);
   }
 }

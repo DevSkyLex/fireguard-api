@@ -82,6 +82,14 @@ class EquipmentAttachmentRecord
   public ?string $label = null;
 
   /**
+   * Property revision.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'integer')]
+  public int $revision = 1;
+
+  /**
    * Property uploadedAt.
    *
    * @since 1.0.0

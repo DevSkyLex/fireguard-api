@@ -26,6 +26,7 @@ final readonly class AddAttachmentCommand implements CommandMessage
     public string $mimeType,
     public int $size,
     public ?string $label = null,
+    public ?string $attachmentId = null,
   ) {
   }
   // #endregion

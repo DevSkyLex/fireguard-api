@@ -30,6 +30,7 @@ final readonly class CreateFacilityCommand implements CommandMessage
    * @param ?string $code the optional facility code
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
+   * @param ?string $resourceId the resource id value
    */
   public function __construct(
     public string $organizationId,
@@ -39,6 +40,7 @@ final readonly class CreateFacilityCommand implements CommandMessage
     public ?string $code = null,
     public ?string $address = null,
     public array $metadata = [],
+    public ?string $resourceId = null,
   ) {
   }
   // #endregion

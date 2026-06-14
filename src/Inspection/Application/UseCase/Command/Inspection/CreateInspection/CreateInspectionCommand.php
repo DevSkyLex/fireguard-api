@@ -35,6 +35,7 @@ final readonly class CreateInspectionCommand implements CommandMessage
    * @param ?string $inspectorOrganizationName the optional external organization name
    * @param ?string $notes optional free-form notes
    * @param ?string $signature optional signature data
+   * @param ?string $resourceId the resource id value
    */
   public function __construct(
     public string $organizationId,
@@ -49,6 +50,7 @@ final readonly class CreateInspectionCommand implements CommandMessage
     public ?string $inspectorOrganizationName = null,
     public ?string $notes = null,
     public ?string $signature = null,
+    public ?string $resourceId = null,
   ) {
   }
   // #endregion

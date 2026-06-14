@@ -10,14 +10,16 @@ use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{CreateInspectionCommand, CreateInspectionResult};
 use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
@@ -40,6 +42,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
@@ -61,6 +64,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
@@ -85,6 +89,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -148,6 +153,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -188,6 +194,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -226,6 +233,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -250,5 +258,13 @@ final class CreateInspectionProcessorTest extends TestCase
       scopes: [],
       isActive: true,
     );
+  }
+
+  private function createOutputMapper(): InspectionOutputFactory
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('User lookup unavailable.'));
+
+    return new InspectionOutputFactory($queryBus);
   }
 }

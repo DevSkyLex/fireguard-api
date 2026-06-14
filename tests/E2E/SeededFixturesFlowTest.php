@@ -48,17 +48,17 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame(2, $this->summaryValue($membersWidget, 'total'));
     self::assertSame(3, $this->summaryValue($rolesWidget, 'total'));
     self::assertSame(8, $this->summaryValue($facilitiesWidget, 'total'));
-    self::assertSame(6, $this->summaryValue($equipmentWidget, 'total'));
-    self::assertSame(25, $this->summaryValue($inspectionsWidget, 'total'));
-    self::assertSame(14, $this->summaryValue($nonConformitiesWidget, 'total'));
+    self::assertSame(42, $this->summaryValue($equipmentWidget, 'total'));
+    self::assertSame(125, $this->summaryValue($inspectionsWidget, 'total'));
+    self::assertSame(64, $this->summaryValue($nonConformitiesWidget, 'total'));
     self::assertSame('total', $this->primaryKey($facilitiesWidget));
     self::assertSame(8, $this->primaryValue($facilitiesWidget));
     self::assertSame('operational', $this->primaryKey($equipmentWidget));
-    self::assertSame(5, $this->primaryValue($equipmentWidget));
+    self::assertSame(35, $this->primaryValue($equipmentWidget));
     self::assertSame('closed', $this->primaryKey($inspectionsWidget));
-    self::assertSame(20, $this->primaryValue($inspectionsWidget));
+    self::assertSame(86, $this->primaryValue($inspectionsWidget));
     self::assertSame('open', $this->primaryKey($nonConformitiesWidget));
-    self::assertSame(3, $this->primaryValue($nonConformitiesWidget));
+    self::assertSame(28, $this->primaryValue($nonConformitiesWidget));
 
     $filteredDashboardData = $this->requestDashboard(
       $client,
@@ -74,9 +74,9 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame('inStock', $this->primaryKey($filteredEquipmentWidget));
     self::assertSame(1, $this->primaryValue($filteredEquipmentWidget));
     self::assertSame('submitted', $this->primaryKey($filteredInspectionsWidget));
-    self::assertSame(4, $this->primaryValue($filteredInspectionsWidget));
+    self::assertSame(38, $this->primaryValue($filteredInspectionsWidget));
     self::assertSame('inProgress', $this->primaryKey($filteredNonConformitiesWidget));
-    self::assertSame(3, $this->primaryValue($filteredNonConformitiesWidget));
+    self::assertSame(28, $this->primaryValue($filteredNonConformitiesWidget));
 
     $comparisonDashboardData = $this->requestDashboard($client, $token, $this->dashboardPeriodQuery(compare: true));
     $health = $comparisonDashboardData['health'] ?? [];
@@ -119,9 +119,9 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     $equipmentComparisonMetric = $this->findMetricByField($comparisonMetrics, 'key', 'equipment');
     self::assertNotNull($equipmentComparisonMetric);
     self::assertSame('Equipment', $equipmentComparisonMetric['label'] ?? null);
-    self::assertSame(6, $equipmentComparisonMetric['current'] ?? null);
+    self::assertSame(10, $equipmentComparisonMetric['current'] ?? null);
     self::assertSame(0, $equipmentComparisonMetric['previous'] ?? null);
-    self::assertSame('+6', $equipmentComparisonMetric['value'] ?? null);
+    self::assertSame('+10', $equipmentComparisonMetric['value'] ?? null);
     self::assertSame('up', $equipmentComparisonMetric['direction'] ?? null);
 
     $nonConformitiesOpenedMetric = $this->findMetricByField($comparisonMetrics, 'key', 'nonConformitiesOpened');
@@ -138,7 +138,7 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertArrayHasKey('direction', $comparisonHealthMetric);
 
     $this->assertTrendSeries($client, $token, 'facilities-created', 'facilities_created', 8, 7, ['2026-03-03' => 1, '2026-03-30' => 2]);
-    $this->assertTrendSeries($client, $token, 'equipment-created', 'equipment_created', 6, 4, ['2026-03-06' => 1, '2026-03-30' => 3]);
+    $this->assertTrendSeries($client, $token, 'equipment-created', 'equipment_created', 10, 4, ['2026-03-06' => 1, '2026-03-30' => 3]);
     $this->assertTrendSeries($client, $token, 'inspections', 'inspections_performed', 13, 13, ['2026-03-11' => 1, '2026-04-02' => 1]);
     $this->assertTrendSeries($client, $token, 'non-conformities-opened', 'non_conformities_opened', 9, 7, ['2026-03-11' => 2, '2026-03-20' => 2]);
     $this->assertTrendSeries($client, $token, 'non-conformities-resolved', 'non_conformities_resolved', 6, 6, ['2026-03-02' => 1, '2026-04-01' => 1]);
@@ -193,7 +193,7 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode(), 'Seeded inspector should read equipment.');
     $equipmentData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
     $equipmentMembers = $this->getCollectionMembers($equipmentData);
-    self::assertCount(6, $equipmentMembers);
+    self::assertCount(42, $equipmentMembers);
     self::assertTrue($this->collectionContainsFieldValue($equipmentMembers, 'serialNumber', 'SEED-EXT-001'));
     self::assertTrue($this->collectionContainsFieldValue($equipmentMembers, 'serialNumber', 'SEED-HYD-001'));
 
@@ -209,13 +209,13 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode(), 'Seeded inspector should read inspections.');
     $inspectionData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
     $inspectionMembers = $this->getCollectionMembers($inspectionData);
-    self::assertCount(25, $inspectionMembers);
+    self::assertCount(50, $inspectionMembers);
     self::assertTrue($this->collectionContainsFieldValue($inspectionMembers, 'result', 'pass'));
     self::assertTrue($this->collectionContainsFieldValue($inspectionMembers, 'result', 'fail'));
     self::assertTrue($this->collectionContainsFieldValue($inspectionMembers, 'result', 'partial'));
 
     $this->assertTrendSeries($client, $token, 'facilities-created', 'facilities_created', 8, 7, ['2026-03-30' => 2]);
-    $this->assertTrendSeries($client, $token, 'equipment-created', 'equipment_created', 6, 4, ['2026-03-30' => 3]);
+    $this->assertTrendSeries($client, $token, 'equipment-created', 'equipment_created', 10, 4, ['2026-03-30' => 3]);
     $this->assertTrendSeries($client, $token, 'inspections', 'inspections_performed', 13, 13, ['2026-03-11' => 1]);
     $this->assertTrendSeries($client, $token, 'non-conformities-opened', 'non_conformities_opened', 9, 7, ['2026-03-11' => 2]);
     $this->assertTrendSeries($client, $token, 'non-conformities-resolved', 'non_conformities_resolved', 6, 6, ['2026-04-01' => 1]);

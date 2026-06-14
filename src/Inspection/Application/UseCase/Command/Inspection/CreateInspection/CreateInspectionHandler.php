@@ -36,6 +36,19 @@ use ValueError;
 final readonly class CreateInspectionHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateInspectionHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionRepositoryPort $inspectionRepository the inspection repository value
+   * @param EquipmentValidationPort $equipmentValidation the equipment validation value
+   * @param FacilityValidationPort $facilityValidation the facility validation value
+   * @param ChecklistValidationPort $checklistValidation the checklist validation value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private EquipmentValidationPort $equipmentValidation,
@@ -93,7 +106,9 @@ final readonly class CreateInspectionHandler implements CommandHandler
       $performedAt = new DateTimeImmutable($command->performedAt);
 
       /** @var InspectionId $inspectionId */
-      $inspectionId = $this->uuidFactory->create(InspectionId::class);
+      $inspectionId = null === $command->resourceId
+        ? $this->uuidFactory->create(InspectionId::class)
+        : InspectionId::fromString($command->resourceId);
 
       $inspection = Inspection::create(
         id: $inspectionId,

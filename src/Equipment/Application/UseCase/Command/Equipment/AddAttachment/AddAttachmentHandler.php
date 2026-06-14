@@ -60,8 +60,14 @@ final readonly class AddAttachmentHandler implements CommandHandler
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
-    /** @var AttachmentId $attachmentId */
-    $attachmentId = $this->uuidFactory->create(AttachmentId::class);
+    try {
+      /** @var AttachmentId $attachmentId */
+      $attachmentId = null === $command->attachmentId
+        ? $this->uuidFactory->create(AttachmentId::class)
+        : AttachmentId::fromString($command->attachmentId);
+    } catch (InvalidValueException $exception) {
+      throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
 
     $storagePath = sprintf(
       'equipment/%s/attachments/%s_%s',

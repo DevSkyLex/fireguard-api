@@ -6,6 +6,26 @@ services:
   Inspection\Presentation\:
     resource: '../../src/Inspection/Presentation'
 
+  Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Repositories
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
     arguments:
@@ -24,6 +44,11 @@ services:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
   Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
+
+  Inspection\Infrastructure\Adapter\Mission\InspectionMissionResourceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['mission.change_applier', 'mission.draft_publisher', 'mission.resource_owner']
 
   Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
 

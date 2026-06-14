@@ -36,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-  shortName: 'Equipment',
+  shortName: 'LegacyEquipment',
   routePrefix: '/organizations',
   description: 'Fire safety equipment and assets managed at organization level.',
   operations: [
@@ -282,6 +282,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Equipment'],
         summary: 'Commission equipment',
         description: 'Marks the equipment as commissioned and operational.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment commissioned'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or equipment not assigned to a facility'),
@@ -335,6 +336,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
   ],
 )]
+/**
+ * Resource EquipmentResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class EquipmentResource
 {
 }

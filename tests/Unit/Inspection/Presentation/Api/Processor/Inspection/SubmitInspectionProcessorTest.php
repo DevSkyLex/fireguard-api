@@ -11,11 +11,13 @@ use Inspection\Application\UseCase\Command\Inspection\SubmitInspection\SubmitIns
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionQuery, GetInspectionResult};
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\SubmitInspectionProcessor;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -42,6 +44,7 @@ final class SubmitInspectionProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -64,6 +67,7 @@ final class SubmitInspectionProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -89,6 +93,7 @@ final class SubmitInspectionProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -135,6 +140,7 @@ final class SubmitInspectionProcessorTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $output = $processor->process(
@@ -230,7 +236,16 @@ final class SubmitInspectionProcessorTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
+  }
+
+  private function createOutputMapper(): InspectionOutputFactory
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('User lookup unavailable.'));
+
+    return new InspectionOutputFactory($queryBus);
   }
 
   private function makeGetInspectionResult(string $status): GetInspectionResult
