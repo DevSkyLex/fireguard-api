@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Intervention\Application\UseCase\Command\Publication\RequestPublication;
+
+use Shared\Application\Message\CommandMessage;
+
+/**
+ * UseCase RequestPublicationCommand.
+ *
+ * @category UseCase
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final readonly class RequestPublicationCommand implements CommandMessage
+{
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the RequestPublicationCommand class.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user id value
+   * @param string $interventionId the intervention id value
+   * @param int $interventionRevision the intervention revision value
+   */
+  public function __construct(
+    public string $userId,
+    public string $interventionId,
+    public int $interventionRevision,
+  ) {
+  }
+}
