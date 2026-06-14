@@ -35,8 +35,8 @@ use Symfony\Component\HttpFoundation\Response;
       paginationItemsPerPage: 50,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
-        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI. Required when mission and inspection are omitted.', required: false, schema: ['type' => 'string']),
-        new Parameter(name: 'mission', in: 'query', description: 'Mission IRI. Also scopes the organization and defaults recordStatus to draft.', required: false, schema: ['type' => 'string']),
+        new Parameter(name: 'organization', in: 'query', description: 'Organization IRI. Required when intervention and inspection are omitted.', required: false, schema: ['type' => 'string']),
+        new Parameter(name: 'intervention', in: 'query', description: 'Intervention IRI. Also scopes the organization and defaults recordStatus to draft.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'inspection', in: 'query', description: 'Inspection IRI. Also scopes the organization.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'recordStatus', in: 'query', description: 'Lifecycle status of the representation.', required: false, schema: ['type' => 'string', 'enum' => ['draft', 'published']]),
       ]),

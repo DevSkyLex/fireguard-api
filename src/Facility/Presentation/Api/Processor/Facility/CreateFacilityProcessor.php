@@ -17,16 +17,16 @@ use Facility\Domain\Exception\{
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
-use Mission\Application\Contract\Resource\MissionResourceAssignment;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
-use Mission\Domain\Exception\{
-  MissionConflictException,
-  MissionNotFoundException,
-  MissionResourceNotFoundException,
+use Intervention\Domain\Exception\{
+  InterventionConflictException,
+  InterventionNotFoundException,
+  InterventionResourceNotFoundException,
   ClientResourceAlreadyExistsException
 };
-use Mission\Domain\ValueObject\MissionResourceType;
+use Intervention\Domain\ValueObject\InterventionResourceType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -68,7 +68,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
    * @param CommandBusPort $commandBus the command bus value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
-   * @param ?MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param ?InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
    * @param ?EntityManagerInterface $entityManager the entity manager value
    */
@@ -76,7 +76,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private ?MissionResourceManager $missionResourceManager = null,
+    private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
     private ?EntityManagerInterface $entityManager = null,
   ) {
@@ -97,7 +97,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): FacilityOutput
   {
     /** @var CreateFacilityInput $data */
-    if (null !== $data->mission && null !== $this->entityManager) {
+    if (null !== $data->intervention && null !== $this->entityManager) {
       return $this->entityManager->wrapInTransaction(
         fn (): FacilityOutput => $this->processCreation($data, $operation, $uriVariables, $context),
       );
@@ -109,7 +109,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   /**
    * Method processCreation.
    *
-   * Executes one facility creation and optional mission assignment.
+   * Executes one facility creation and optional intervention assignment.
    *
    * @since 1.0.0
    *
@@ -137,7 +137,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $permission = $this->missionPermission($data->mission, $user->getId()) ?? 'organization.facilities.write';
+    $permission = $this->interventionPermission($data->intervention, $user->getId()) ?? 'organization.facilities.write';
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
@@ -197,8 +197,8 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->metadata = $result->metadata;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
-    $assignment = $this->attachToMission($result->facilityId, $organizationId, $data->mission, $data->clientId);
-    $output->mission = null === $assignment->missionId ? null : '/api/missions/' . $assignment->missionId;
+    $assignment = $this->attachToIntervention($result->facilityId, $organizationId, $data->intervention, $data->clientId);
+    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
     $output->recordStatus = $assignment->recordStatus;
     $output->revision = $assignment->revision;
 
@@ -217,12 +217,12 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
    */
   private function assertOfflineCreate(?string $clientId, bool $createOnly): void
   {
-    if (null === $clientId || '' === $clientId || null === $this->missionResourceManager) {
+    if (null === $clientId || '' === $clientId || null === $this->interventionResourceManager) {
       return;
     }
 
     try {
-      $this->missionResourceManager->assertOfflineCreate(MissionResourceType::FACILITY, $clientId);
+      $this->interventionResourceManager->assertOfflineCreate(InterventionResourceType::FACILITY, $clientId);
     } catch (ClientResourceAlreadyExistsException $exception) {
       throw new ClientResourceAlreadyExistsHttpException(
         $createOnly ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
@@ -232,66 +232,66 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   }
 
   /**
-   * Method missionPermission.
+   * Method interventionPermission.
    *
-   * Executes the mission permission operation.
+   * Executes the intervention permission operation.
    *
    * @since 1.0.0
    *
-   * @param ?string $mission the mission value
+   * @param ?string $intervention the intervention value
    * @param string $userId the current user id value
    *
-   * @return ?string the mission permission result
+   * @return ?string the intervention permission result
    */
-  private function missionPermission(?string $mission, string $userId): ?string
+  private function interventionPermission(?string $intervention, string $userId): ?string
   {
-    if (null === $mission || null === $this->missionResourceManager) {
+    if (null === $intervention || null === $this->interventionResourceManager) {
       return null;
     }
     try {
-      return $this->missionResourceManager->mutationPermission(ResourceIriParser::id($mission, 'missions'), $userId);
-    } catch (MissionNotFoundException $exception) {
+      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId);
+    } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
   }
 
   /**
-   * Method attachToMission.
+   * Method attachToIntervention.
    *
-   * Executes the attach to mission operation.
+   * Executes the attach to intervention operation.
    *
    * @since 1.0.0
    *
    * @param string $facilityId the facility id value
    * @param string $organizationId the organization id value
-   * @param ?string $mission the mission value
+   * @param ?string $intervention the intervention value
    * @param ?string $clientId the client id value
    *
-   * @return MissionResourceAssignment the attach to mission result
+   * @return InterventionResourceAssignment the attach to intervention result
    */
-  private function attachToMission(
+  private function attachToIntervention(
     string $facilityId,
     string $organizationId,
-    ?string $mission,
+    ?string $intervention,
     ?string $clientId,
-  ): MissionResourceAssignment {
-    if (null === $this->missionResourceManager) {
-      return new MissionResourceAssignment(null, 'published', 1);
+  ): InterventionResourceAssignment {
+    if (null === $this->interventionResourceManager) {
+      return new InterventionResourceAssignment(null, 'published', 1);
     }
 
     try {
-      return $this->missionResourceManager->attach(
-        MissionResourceType::FACILITY,
+      return $this->interventionResourceManager->attach(
+        InterventionResourceType::FACILITY,
         $facilityId,
         $organizationId,
-        null === $mission ? null : ResourceIriParser::id($mission, 'missions'),
+        null === $intervention ? null : ResourceIriParser::id($intervention, 'interventions'),
         $clientId,
       );
-    } catch (MissionNotFoundException|MissionResourceNotFoundException $exception) {
+    } catch (InterventionNotFoundException|InterventionResourceNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
   }

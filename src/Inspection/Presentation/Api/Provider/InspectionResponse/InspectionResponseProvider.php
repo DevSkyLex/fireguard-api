@@ -12,7 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, InspectionResponseRecord};
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -51,14 +51,14 @@ final readonly class InspectionResponseProvider implements ProviderInterface
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private MissionResourceManager $missionResourceManager,
+    private InterventionResourceManager $interventionResourceManager,
   ) {
   }
 
@@ -87,10 +87,10 @@ final readonly class InspectionResponseProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $missionValue = $request?->query->get('mission');
+    $interventionValue = $request?->query->get('intervention');
     $inspectionValue = $request?->query->get('inspection');
     $organizationValue = $request?->query->get('organization');
-    $organization = $this->organization($organizationValue, $missionValue, $inspectionValue);
+    $organization = $this->organization($organizationValue, $interventionValue, $inspectionValue);
     $this->assertRead($organization);
     $query = $this->entityManager->createQueryBuilder()
       ->select('r')
@@ -98,8 +98,8 @@ final readonly class InspectionResponseProvider implements ProviderInterface
       ->where('r.organization = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('r.createdAt', 'ASC');
-    if (is_string($missionValue) && '' !== $missionValue) {
-      $query->andWhere('r.missionId = :mission')->setParameter('mission', ResourceIriParser::id($missionValue, 'missions'));
+    if (is_string($interventionValue) && '' !== $interventionValue) {
+      $query->andWhere('r.interventionId = :intervention')->setParameter('intervention', ResourceIriParser::id($interventionValue, 'interventions'));
     }
     if (is_string($inspectionValue) && '' !== $inspectionValue) {
       $query->andWhere('r.inspectionId = :inspection')->setParameter('inspection', ResourceIriParser::id($inspectionValue, 'inspections'));
@@ -107,7 +107,7 @@ final readonly class InspectionResponseProvider implements ProviderInterface
     $recordStatus = $request?->query->get('recordStatus');
     $query
       ->andWhere('r.recordStatus = :status')
-      ->setParameter('status', is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (is_string($missionValue) && '' !== $missionValue ? 'draft' : 'published'));
+      ->setParameter('status', is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (is_string($interventionValue) && '' !== $interventionValue ? 'draft' : 'published'));
     $filters = $context['filters'] ?? [];
     $page = is_array($filters) && is_numeric($filters['page'] ?? null) ? max(1, (int) $filters['page']) : 1;
     $itemsPerPage = is_array($filters) && is_numeric($filters['itemsPerPage'] ?? null)
@@ -153,7 +153,7 @@ final readonly class InspectionResponseProvider implements ProviderInterface
     $output = new InspectionResponseOutput();
     $output->id = $record->id;
     $output->organization = '/api/organizations/' . $record->organization->id;
-    $output->mission = null !== $record->missionId ? '/api/missions/' . $record->missionId : null;
+    $output->intervention = null !== $record->interventionId ? '/api/interventions/' . $record->interventionId : null;
     $output->inspection = '/api/inspections/' . $record->inspectionId;
     $output->recordStatus = $record->recordStatus;
     $output->revision = $record->revision;
@@ -173,24 +173,24 @@ final readonly class InspectionResponseProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param mixed $organizationValue the organization value value
-   * @param mixed $missionValue the mission value value
+   * @param mixed $interventionValue the intervention value value
    * @param mixed $inspectionValue the inspection value value
    *
    * @return OrganizationRecord the organization result
    */
-  private function organization(mixed $organizationValue, mixed $missionValue, mixed $inspectionValue): OrganizationRecord
+  private function organization(mixed $organizationValue, mixed $interventionValue, mixed $inspectionValue): OrganizationRecord
   {
     $organizationId = is_string($organizationValue) && '' !== $organizationValue
       ? ResourceIriParser::id($organizationValue, 'organizations')
-      : (is_string($missionValue) && '' !== $missionValue
-        ? $this->missionResourceManager->missionContext(ResourceIriParser::id($missionValue, 'missions'))?->organizationId
+      : (is_string($interventionValue) && '' !== $interventionValue
+        ? $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId
         : null);
     if (null === $organizationId && is_string($inspectionValue) && '' !== $inspectionValue) {
       $inspection = $this->entityManager->find(InspectionRecord::class, ResourceIriParser::id($inspectionValue, 'inspections'));
       $organizationId = $inspection instanceof InspectionRecord ? $inspection->organization?->id : null;
     }
     if (null === $organizationId) {
-      throw new BadRequestHttpException('The organization, mission or inspection filter is required.');
+      throw new BadRequestHttpException('The organization, intervention or inspection filter is required.');
     }
     $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
     if (!$organization instanceof OrganizationRecord) {

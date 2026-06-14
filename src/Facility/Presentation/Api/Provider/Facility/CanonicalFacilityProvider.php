@@ -12,7 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -50,14 +50,14 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private MissionResourceManager $missionResourceManager,
+    private InterventionResourceManager $interventionResourceManager,
   ) {
   }
 
@@ -85,7 +85,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       return $this->map($record);
     }
 
-    [$organization, $missionId, $recordStatus] = $this->filters();
+    [$organization, $interventionId, $recordStatus] = $this->filters();
     $this->assertRead($organization);
     $query = $this->entityManager->createQueryBuilder()
       ->select('f')
@@ -95,8 +95,8 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       ->setParameter('organization', $organization)
       ->setParameter('recordStatus', $recordStatus)
       ->orderBy('f.createdAt', 'ASC');
-    if (null !== $missionId) {
-      $query->andWhere('f.missionId = :missionId')->setParameter('missionId', $missionId);
+    if (null !== $interventionId) {
+      $query->andWhere('f.interventionId = :interventionId')->setParameter('interventionId', $interventionId);
     }
 
     [$page, $itemsPerPage] = $this->pagination($context);
@@ -149,12 +149,12 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
   {
     $request = $this->requestStack->getCurrentRequest();
     $organizationValue = $request?->query->get('organization');
-    $mission = $request?->query->get('mission');
-    $missionId = is_string($mission) && '' !== $mission ? ResourceIriParser::id($mission, 'missions') : null;
-    $organization = $this->organization($organizationValue, $mission);
+    $intervention = $request?->query->get('intervention');
+    $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
+    $organization = $this->organization($organizationValue, $intervention);
     $recordStatus = $request?->query->get('recordStatus');
 
-    return [$organization, $missionId, is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (null !== $missionId ? 'draft' : 'published')];
+    return [$organization, $interventionId, is_string($recordStatus) && '' !== $recordStatus ? $recordStatus : (null !== $interventionId ? 'draft' : 'published')];
   }
 
   /**
@@ -165,19 +165,19 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param mixed $organizationValue the organization value value
-   * @param mixed $missionValue the mission value value
+   * @param mixed $interventionValue the intervention value value
    *
    * @return OrganizationRecord the organization result
    */
-  private function organization(mixed $organizationValue, mixed $missionValue): OrganizationRecord
+  private function organization(mixed $organizationValue, mixed $interventionValue): OrganizationRecord
   {
     $organizationId = is_string($organizationValue) && '' !== $organizationValue
       ? ResourceIriParser::id($organizationValue, 'organizations')
-      : (is_string($missionValue) && '' !== $missionValue
-        ? $this->missionResourceManager->missionContext(ResourceIriParser::id($missionValue, 'missions'))?->organizationId
+      : (is_string($interventionValue) && '' !== $interventionValue
+        ? $this->interventionResourceManager->interventionContext(ResourceIriParser::id($interventionValue, 'interventions'))?->organizationId
         : null);
     if (null === $organizationId) {
-      throw new BadRequestHttpException('The organization or mission filter is required.');
+      throw new BadRequestHttpException('The organization or intervention filter is required.');
     }
     $organization = $this->entityManager->find(OrganizationRecord::class, $organizationId);
     if (!$organization instanceof OrganizationRecord) {
@@ -223,7 +223,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $output = new FacilityOutput();
     $output->id = $record->id;
     $output->organizationId = $record->organization->id;
-    $output->mission = null !== $record->missionId ? '/api/missions/' . $record->missionId : null;
+    $output->intervention = null !== $record->interventionId ? '/api/interventions/' . $record->interventionId : null;
     $output->recordStatus = $record->recordStatus;
     $output->revision = $record->revision;
     $output->parentFacilityId = $record->parentFacility?->id;

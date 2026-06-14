@@ -13,10 +13,10 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, Ins
 use Inspection\Presentation\Api\Dto\Input\InspectionResponse\{CreateInspectionResponseInput, PatchInspectionResponseInput};
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
 use Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
-use Mission\Domain\Exception\{MissionAccessDeniedException, MissionConflictException, MissionNotFoundException};
-use Mission\Infrastructure\Persistence\Doctrine\Record\MissionRecord;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
@@ -53,7 +53,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
    * @param RequestStack $requestStack the request stack value
-   * @param MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
    * @param RevisionGuard $revisionGuard the revision guard value
    */
@@ -63,7 +63,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
-    private MissionResourceManager $missionResourceManager,
+    private InterventionResourceManager $interventionResourceManager,
     private CreationPreconditionGuard $creationPreconditionGuard,
     private RevisionGuard $revisionGuard,
   ) {
@@ -108,14 +108,14 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
       return $this->create($data, $uriVariables);
     }
     $record = $this->record($uriVariables);
-    $this->assertWrite($record->organization, $record->missionId);
+    $this->assertWrite($record->organization, $record->interventionId);
     $this->revisionGuard->assertMatches($record->revision);
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
       if ('draft' !== $record->recordStatus) {
         throw new ConflictHttpException('Published inspection responses cannot be deleted.');
       }
       $this->entityManager->remove($record);
-      $this->missionResourceManager->touchDraftMission($record->missionId);
+      $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
       $this->entityManager->flush();
 
       return null;
@@ -129,7 +129,7 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     $record->value = $data->value;
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
-    $this->missionResourceManager->touchDraftMission($record->missionId);
+    $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
     $this->entityManager->flush();
 
     return InspectionResponseProvider::output($record);
@@ -160,8 +160,8 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     } else {
       $resourceId = null;
     }
-    $missionId = null === $data->mission ? null : ResourceIriParser::id($data->mission, 'missions');
-    $this->assertWrite($organization, $missionId);
+    $interventionId = null === $data->intervention ? null : ResourceIriParser::id($data->intervention, 'interventions');
+    $this->assertWrite($organization, $interventionId);
     if (null !== $data->clientId) {
       if (null !== $this->entityManager->getRepository(InspectionResponseRecord::class)->findOneBy(['clientId' => $data->clientId])) {
         throw new ClientResourceAlreadyExistsHttpException(
@@ -173,8 +173,8 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     if (!$inspection instanceof InspectionRecord || $inspection->organization?->id !== $organization->id) {
       throw new ConflictHttpException('Inspection must belong to the organization.');
     }
-    if (null !== $missionId && $inspection->missionId !== $missionId) {
-      throw new ConflictHttpException('Inspection and response must belong to the same mission.');
+    if (null !== $interventionId && $inspection->interventionId !== $interventionId) {
+      throw new ConflictHttpException('Inspection and response must belong to the same intervention.');
     }
     $now = new DateTimeImmutable();
     $record = new InspectionResponseRecord();
@@ -186,15 +186,15 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     $record->value = $data->value;
     $record->createdAt = $now;
     $record->updatedAt = $now;
-    if (null !== $data->mission) {
-      $mission = $this->entityManager->find(MissionRecord::class, $missionId);
-      if (!$mission instanceof MissionRecord || $mission->organization?->id !== $organization->id) {
-        throw new ConflictHttpException('Mission must belong to the organization.');
+    if (null !== $data->intervention) {
+      $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
+      if (!$intervention instanceof InterventionRecord || $intervention->organization?->id !== $organization->id) {
+        throw new ConflictHttpException('Intervention must belong to the organization.');
       }
-      $record->missionId = $mission->id;
+      $record->interventionId = $intervention->id;
       $record->recordStatus = 'draft';
-      ++$mission->revision;
-      $mission->updatedAt = $now;
+      ++$intervention->revision;
+      $intervention->updatedAt = $now;
     }
     $this->entityManager->persist($record);
     $this->entityManager->flush();
@@ -230,9 +230,9 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
    * @since 1.0.0
    *
    * @param ?OrganizationRecord $organization the organization value
-   * @param ?string $missionId the mission id value
+   * @param ?string $interventionId the intervention id value
    */
-  private function assertWrite(?OrganizationRecord $organization, ?string $missionId): void
+  private function assertWrite(?OrganizationRecord $organization, ?string $interventionId): void
   {
     $user = $this->security->getUser();
     if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
@@ -240,14 +240,14 @@ final readonly class InspectionResponseProcessor implements ProcessorInterface
     }
 
     try {
-      $permission = null === $missionId
+      $permission = null === $interventionId
         ? 'organization.inspection.write'
-        : $this->missionResourceManager->mutationPermission($missionId, $user->getId());
-    } catch (MissionAccessDeniedException $exception) {
+        : $this->interventionResourceManager->mutationPermission($interventionId, $user->getId());
+    } catch (InterventionAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (MissionNotFoundException $exception) {
+    } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
     if (!$this->authorization->hasPermission($user->getId(), $organization->id, $permission)) {

@@ -42,14 +42,14 @@ final class CreateEquipmentInput
   public ?string $organization = null;
 
   /**
-   * Property mission.
+   * Property intervention.
    *
    * @since 1.0.0
    */
-  #[Assert\Regex(pattern: '#^/api/missions/[0-9a-fA-F-]{36}$#', message: 'Mission must be a valid mission IRI.')]
+  #[Assert\Regex(pattern: '#^/api/interventions/[0-9a-fA-F-]{36}$#', message: 'Intervention must be a valid intervention IRI.')]
   #[Groups([EquipmentSerializationGroup::WRITE])]
-  #[ApiProperty(description: 'Optional field mission IRI', required: false)]
-  public ?string $mission = null;
+  #[ApiProperty(description: 'Optional field intervention IRI', required: false)]
+  public ?string $intervention = null;
 
   /**
    * Property facility.

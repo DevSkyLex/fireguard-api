@@ -14,16 +14,16 @@ use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
-use Mission\Application\Contract\Resource\MissionResourceAssignment;
-use Mission\Application\Service\MissionResourceManager;
+use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
+use Intervention\Application\Service\InterventionResourceManager;
 use Shared\Presentation\Api\Http\ResourceIriParser;
-use Mission\Domain\Exception\{
-  MissionConflictException,
-  MissionNotFoundException,
-  MissionResourceNotFoundException,
+use Intervention\Domain\Exception\{
+  InterventionConflictException,
+  InterventionNotFoundException,
+  InterventionResourceNotFoundException,
   ClientResourceAlreadyExistsException
 };
-use Mission\Domain\ValueObject\MissionResourceType;
+use Intervention\Domain\ValueObject\InterventionResourceType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -55,7 +55,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
    * @param InspectionOutputFactory $outputMapper the output mapper value
    * @param OrganizationAuthorizationPort $authorization the authorization value
    * @param Security $security the security value
-   * @param ?MissionResourceManager $missionResourceManager the mission resource manager value
+   * @param ?InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param ?CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
    * @param ?EntityManagerInterface $entityManager the entity manager value
    */
@@ -64,7 +64,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     private InspectionOutputFactory $outputMapper,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
-    private ?MissionResourceManager $missionResourceManager = null,
+    private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
     private ?EntityManagerInterface $entityManager = null,
   ) {
@@ -87,7 +87,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): InspectionOutput
   {
     /** @var CreateInspectionInput $data */
-    if (null !== $data->mission && null !== $this->entityManager) {
+    if (null !== $data->intervention && null !== $this->entityManager) {
       return $this->entityManager->wrapInTransaction(
         fn (): InspectionOutput => $this->processCreation($data, $operation, $uriVariables, $context),
       );
@@ -99,7 +99,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
   /**
    * Method processCreation.
    *
-   * Executes one inspection creation and optional mission assignment.
+   * Executes one inspection creation and optional intervention assignment.
    *
    * @since 1.0.0
    *
@@ -127,7 +127,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId URI parameter is required.');
     }
 
-    $permission = $this->missionPermission($data->mission, $user->getId()) ?? 'organization.inspection.write';
+    $permission = $this->interventionPermission($data->intervention, $user->getId()) ?? 'organization.inspection.write';
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
@@ -162,8 +162,8 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     }
 
     $output = $this->outputMapper->fromCreateResult($result);
-    $assignment = $this->attachToMission($result->inspectionId, $organizationId, $data->mission, $data->clientId);
-    $output->mission = null === $assignment->missionId ? null : '/api/missions/' . $assignment->missionId;
+    $assignment = $this->attachToIntervention($result->inspectionId, $organizationId, $data->intervention, $data->clientId);
+    $output->intervention = null === $assignment->interventionId ? null : '/api/interventions/' . $assignment->interventionId;
     $output->recordStatus = $assignment->recordStatus;
     $output->revision = $assignment->revision;
 
@@ -182,12 +182,12 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
    */
   private function assertOfflineCreate(?string $clientId, bool $createOnly): void
   {
-    if (null === $clientId || '' === $clientId || null === $this->missionResourceManager) {
+    if (null === $clientId || '' === $clientId || null === $this->interventionResourceManager) {
       return;
     }
 
     try {
-      $this->missionResourceManager->assertOfflineCreate(MissionResourceType::INSPECTION, $clientId);
+      $this->interventionResourceManager->assertOfflineCreate(InterventionResourceType::INSPECTION, $clientId);
     } catch (ClientResourceAlreadyExistsException $exception) {
       throw new ClientResourceAlreadyExistsHttpException(
         $createOnly ? Response::HTTP_PRECONDITION_FAILED : Response::HTTP_CONFLICT,
@@ -197,66 +197,66 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
   }
 
   /**
-   * Method missionPermission.
+   * Method interventionPermission.
    *
-   * Executes the mission permission operation.
+   * Executes the intervention permission operation.
    *
    * @since 1.0.0
    *
-   * @param ?string $mission the mission value
+   * @param ?string $intervention the intervention value
    * @param string $userId the current user id value
    *
-   * @return ?string the mission permission result
+   * @return ?string the intervention permission result
    */
-  private function missionPermission(?string $mission, string $userId): ?string
+  private function interventionPermission(?string $intervention, string $userId): ?string
   {
-    if (null === $mission || null === $this->missionResourceManager) {
+    if (null === $intervention || null === $this->interventionResourceManager) {
       return null;
     }
     try {
-      return $this->missionResourceManager->mutationPermission(ResourceIriParser::id($mission, 'missions'), $userId);
-    } catch (MissionNotFoundException $exception) {
+      return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId);
+    } catch (InterventionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
   }
 
   /**
-   * Method attachToMission.
+   * Method attachToIntervention.
    *
-   * Executes the attach to mission operation.
+   * Executes the attach to intervention operation.
    *
    * @since 1.0.0
    *
    * @param string $inspectionId the inspection id value
    * @param string $organizationId the organization id value
-   * @param ?string $mission the mission value
+   * @param ?string $intervention the intervention value
    * @param ?string $clientId the client id value
    *
-   * @return MissionResourceAssignment the attach to mission result
+   * @return InterventionResourceAssignment the attach to intervention result
    */
-  private function attachToMission(
+  private function attachToIntervention(
     string $inspectionId,
     string $organizationId,
-    ?string $mission,
+    ?string $intervention,
     ?string $clientId,
-  ): MissionResourceAssignment {
-    if (null === $this->missionResourceManager) {
-      return new MissionResourceAssignment(null, 'published', 1);
+  ): InterventionResourceAssignment {
+    if (null === $this->interventionResourceManager) {
+      return new InterventionResourceAssignment(null, 'published', 1);
     }
 
     try {
-      return $this->missionResourceManager->attach(
-        MissionResourceType::INSPECTION,
+      return $this->interventionResourceManager->attach(
+        InterventionResourceType::INSPECTION,
         $inspectionId,
         $organizationId,
-        null === $mission ? null : ResourceIriParser::id($mission, 'missions'),
+        null === $intervention ? null : ResourceIriParser::id($intervention, 'interventions'),
         $clientId,
       );
-    } catch (MissionNotFoundException|MissionResourceNotFoundException $exception) {
+    } catch (InterventionNotFoundException|InterventionResourceNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (MissionConflictException $exception) {
+    } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
   }

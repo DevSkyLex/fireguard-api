@@ -15,7 +15,7 @@ final class MergePatchFieldsTest extends TestCase
   public function itPreservesExplicitNullFields(): void
   {
     $request = Request::create(
-      '/api/missions/mission-1',
+      '/api/interventions/intervention-1',
       'PATCH',
       server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
       content: '{"responsible":null,"dueAt":null}',
@@ -33,7 +33,7 @@ final class MergePatchFieldsTest extends TestCase
   public function itIgnoresNonPatchRequests(): void
   {
     $stack = new RequestStack();
-    $stack->push(Request::create('/api/missions', 'POST', content: '{"responsible":null}'));
+    $stack->push(Request::create('/api/interventions', 'POST', content: '{"responsible":null}'));
 
     self::assertSame([], new MergePatchFields($stack)->all());
   }

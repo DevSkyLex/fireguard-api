@@ -30,11 +30,11 @@ final class InspectionResponseOutput
   public string $organization;
 
   /**
-   * Property mission.
+   * Property intervention.
    *
    * @since 1.0.0
    */
-  public ?string $mission = null;
+  public ?string $intervention = null;
 
   /**
    * Property inspection.

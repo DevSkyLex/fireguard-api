@@ -120,13 +120,13 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.inspection.read', 'description' => 'View organization inspections, checklists, non-conformities, and inspection dashboard statistics'],
       ['name' => 'organization.inspection.write', 'description' => 'Manage organization inspections, checklists, and non-conformities'],
 
-      // Field mission management
-      ['name' => 'organization.missions.read', 'description' => 'View organization field missions and validation issues'],
-      ['name' => 'organization.missions.write', 'description' => 'Create and update organization field missions'],
-      ['name' => 'organization.missions.plan', 'description' => 'Prepare and assign organization field missions'],
-      ['name' => 'organization.missions.execute', 'description' => 'Execute assigned organization field mission work'],
-      ['name' => 'organization.missions.review', 'description' => 'Review submitted organization field missions'],
-      ['name' => 'organization.missions.publish', 'description' => 'Publish organization field missions'],
+      // Field intervention management
+      ['name' => 'organization.interventions.read', 'description' => 'View organization field interventions and validation issues'],
+      ['name' => 'organization.interventions.write', 'description' => 'Create and update organization field interventions'],
+      ['name' => 'organization.interventions.plan', 'description' => 'Prepare and assign organization field interventions'],
+      ['name' => 'organization.interventions.execute', 'description' => 'Execute assigned organization field intervention work'],
+      ['name' => 'organization.interventions.review', 'description' => 'Review submitted organization field interventions'],
+      ['name' => 'organization.interventions.publish', 'description' => 'Publish organization field interventions'],
 
       // Legal profile
       ['name' => 'organization.legal_profile.write', 'description' => 'Manage organization legal profile'],
