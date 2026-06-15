@@ -229,7 +229,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       'work_item' => 'w',
       default => 'c',
     };
-    $total = (int) $countQb->select('COUNT(' . $alias . '.id)')->getQuery()->getSingleScalarResult();
+    $total = (int) $countQb->resetDQLPart('orderBy')->select('COUNT(' . $alias . '.id)')->getQuery()->getSingleScalarResult();
     /** @var list<InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord> $records */
     $records = $qb
       ->setFirstResult(($page - 1) * $itemsPerPage)
