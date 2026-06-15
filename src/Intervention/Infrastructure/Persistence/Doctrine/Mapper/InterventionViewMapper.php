@@ -104,7 +104,6 @@ final readonly class InterventionViewMapper
       'type' => $intervention->type,
       'name' => $intervention->name,
       'status' => $intervention->status,
-      'referencePack' => '/api/reference-packs/' . $intervention->referencePackId,
       'site' => null === $intervention->siteId ? null : '/api/facilities/' . $intervention->siteId,
       'responsible' => null === $intervention->responsibleId ? null : '/api/organizations/' . $organizationId . '/members/' . $intervention->responsibleId,
       'participants' => array_map(

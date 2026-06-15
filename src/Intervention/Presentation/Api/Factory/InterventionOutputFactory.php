@@ -41,7 +41,6 @@ final class InterventionOutputFactory
     $output->type = $this->string($data, 'type');
     $output->name = $this->string($data, 'name');
     $output->status = $this->string($data, 'status');
-    $output->referencePack = $this->string($data, 'referencePack');
     $output->site = $this->nullableString($data, 'site');
     $output->responsible = $this->nullableString($data, 'responsible');
     $output->participants = $this->stringList($data, 'participants');

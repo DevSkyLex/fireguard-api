@@ -66,14 +66,6 @@ class InterventionRecord
   public string $status = 'draft';
 
   /**
-   * Property referencePackId.
-   *
-   * @since 1.0.0
-   */
-  #[ORM\Column(name: 'reference_pack_id', type: 'string', length: 80)]
-  public string $referencePackId = 'fr-erp-ert-v1';
-
-  /**
    * Property siteId.
    *
    * @since 1.0.0

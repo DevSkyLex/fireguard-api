@@ -54,13 +54,6 @@ final class InterventionOutput
   public string $status = 'draft';
 
   /**
-   * Property referencePack.
-   *
-   * @since 1.0.0
-   */
-  public string $referencePack = '';
-
-  /**
    * Property site.
    *
    * @since 1.0.0
