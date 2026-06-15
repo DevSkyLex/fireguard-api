@@ -123,6 +123,36 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     );
   }
 
+  public function testTransitionWithoutIfMatchIsRejected(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-ifmatch-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'IfMatch Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Concurrent edit');
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    // Mutating an existing intervention without the optimistic-concurrency
+    // precondition must be refused before any state change is applied.
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/interventions/' . $interventionId,
+      server: $this->headers($token, self::MERGE_PATCH),
+      content: json_encode(['priority' => 'urgent']) ?: '',
+    );
+
+    self::assertSame(
+      Response::HTTP_PRECONDITION_REQUIRED,
+      $client->getResponse()->getStatusCode(),
+      'A mutation without If-Match must be rejected with 428.',
+    );
+  }
+
   public function testInterventionEndpointsRequireAuthentication(): void
   {
     $client = static::createClientWithFixtures();

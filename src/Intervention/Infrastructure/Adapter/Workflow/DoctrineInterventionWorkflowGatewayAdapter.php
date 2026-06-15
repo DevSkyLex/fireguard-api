@@ -22,6 +22,7 @@ use Intervention\Domain\Exception\{
   InterventionConflictException,
   InterventionNotFoundException,
   InterventionPreconditionFailedException,
+  InterventionPreconditionRequiredException,
   InterventionValidationException
 };
 use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
@@ -994,7 +995,10 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    */
   private function assertRevision(int $revision, ?int $expectedRevision): void
   {
-    if (null !== $expectedRevision && $revision !== $expectedRevision) {
+    if (null === $expectedRevision) {
+      throw new InterventionPreconditionRequiredException('If-Match is required to mutate an existing resource.');
+    }
+    if ($revision !== $expectedRevision) {
       throw new InterventionPreconditionFailedException('The resource revision is stale.');
     }
   }

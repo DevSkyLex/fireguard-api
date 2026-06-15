@@ -10,6 +10,7 @@ use Intervention\Domain\Exception\{
   InterventionConflictException,
   InterventionNotFoundException,
   InterventionPreconditionFailedException,
+  InterventionPreconditionRequiredException,
   InterventionValidationException
 };
 use Symfony\Component\HttpKernel\Exception\{
@@ -18,6 +19,7 @@ use Symfony\Component\HttpKernel\Exception\{
   ConflictHttpException,
   NotFoundHttpException,
   PreconditionFailedHttpException,
+  PreconditionRequiredHttpException,
   UnprocessableEntityHttpException
 };
 use Throwable;
@@ -51,6 +53,7 @@ trait InterventionWorkflowExceptionMapperTrait
       $mapped = match (true) {
         $current instanceof InterventionAccessDeniedException => new AccessDeniedHttpException($current->getMessage(), $exception),
         $current instanceof InterventionNotFoundException => new NotFoundHttpException($current->getMessage(), $exception),
+        $current instanceof InterventionPreconditionRequiredException => new PreconditionRequiredHttpException($current->getMessage(), $exception),
         $current instanceof InterventionPreconditionFailedException => new PreconditionFailedHttpException($current->getMessage(), $exception),
         $current instanceof InterventionValidationException => new UnprocessableEntityHttpException($current->getMessage(), $exception),
         $current instanceof InterventionConflictException => new ConflictHttpException($current->getMessage(), $exception),
