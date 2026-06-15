@@ -11,6 +11,7 @@ use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow
   MutateInterventionWorkflowCommand,
   MutateInterventionWorkflowResult
 };
+use Intervention\Domain\Catalog\ReferencePackCatalog;
 use Intervention\Presentation\Api\Dto\Input\{CreateInterventionInput, UpdateInterventionInput};
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
@@ -57,6 +58,7 @@ final readonly class InterventionProcessor implements ProcessorInterface
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param CreationPreconditionGuard $creationPreconditionGuard the creation precondition guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
+   * @param ReferencePackCatalog $referencePacks the reference pack catalog
    */
   public function __construct(
     private CommandBusPort $commandBus,
@@ -66,6 +68,7 @@ final readonly class InterventionProcessor implements ProcessorInterface
     private RevisionGuard $revisionGuard,
     private CreationPreconditionGuard $creationPreconditionGuard,
     private MergePatchFields $mergePatchFields,
+    private ReferencePackCatalog $referencePacks,
   ) {
   }
 
@@ -133,7 +136,9 @@ final readonly class InterventionProcessor implements ProcessorInterface
       'organizationId' => ResourceIriParser::id($input->organization, 'organizations'),
       'type' => $input->type,
       'name' => $input->name,
-      'referencePackId' => ResourceIriParser::id($input->referencePack, 'reference-packs'),
+      'referencePackId' => null === $input->referencePack
+        ? $this->referencePacks->defaultPack()->id
+        : ResourceIriParser::id($input->referencePack, 'reference-packs'),
       'siteId' => null === $input->site ? null : ResourceIriParser::id($input->site, 'facilities'),
       'responsibleId' => null === $input->responsible ? null : ResourceIriParser::memberId($input->responsible),
       'participants' => array_map(ResourceIriParser::memberId(...), $input->participants),

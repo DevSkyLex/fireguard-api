@@ -12,6 +12,9 @@ services:
   Intervention\Domain\Service\:
     resource: '../../src/Intervention/Domain/Service'
 
+  Intervention\Domain\Catalog\:
+    resource: '../../src/Intervention/Domain/Catalog'
+
   Intervention\Infrastructure\:
     resource: '../../src/Intervention/Infrastructure'
 
