@@ -45,15 +45,6 @@ final class CreateInterventionInput
   public string $name = '';
 
   /**
-   * Property referencePack.
-   *
-   * Optional reference pack IRI. When omitted the catalog default is applied.
-   *
-   * @since 1.0.0
-   */
-  public ?string $referencePack = null;
-
-  /**
    * Property site.
    *
    * @since 1.0.0

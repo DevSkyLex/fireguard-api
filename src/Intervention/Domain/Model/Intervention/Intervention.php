@@ -35,7 +35,6 @@ final class Intervention
    * @param InterventionType $type the type value
    * @param string $name the name value
    * @param InterventionStatus $status the status value
-   * @param string $referencePackId the reference pack id value
    * @param ?string $siteId the site id value
    * @param ?string $responsibleId the responsible id value
    * @param list<string> $participants
@@ -53,7 +52,6 @@ final class Intervention
     private InterventionType $type,
     private string $name,
     private InterventionStatus $status,
-    private string $referencePackId,
     private ?string $siteId,
     private ?string $responsibleId,
     private array $participants,
@@ -76,7 +74,6 @@ final class Intervention
    * @param string $organizationId the organization id value
    * @param InterventionType $type the type value
    * @param string $name the name value
-   * @param string $referencePackId the reference pack id value
    * @param ?string $siteId the site id value
    * @param ?string $responsibleId the responsible id value
    * @param list<string> $participants
@@ -91,7 +88,6 @@ final class Intervention
     string $organizationId,
     InterventionType $type,
     string $name,
-    string $referencePackId,
     ?string $siteId,
     ?string $responsibleId,
     array $participants,
@@ -106,7 +102,6 @@ final class Intervention
       type: $type,
       name: self::normalizeName($name),
       status: InterventionStatus::DRAFT,
-      referencePackId: self::required($referencePackId, 'Intervention reference pack'),
       siteId: self::nullable($siteId),
       responsibleId: self::nullable($responsibleId),
       participants: self::normalizeParticipants($participants),
@@ -133,7 +128,6 @@ final class Intervention
    * @param InterventionType $type the type value
    * @param string $name the name value
    * @param InterventionStatus $status the status value
-   * @param string $referencePackId the reference pack id value
    * @param ?string $siteId the site id value
    * @param ?string $responsibleId the responsible id value
    * @param list<string> $participants
@@ -153,7 +147,6 @@ final class Intervention
     InterventionType $type,
     string $name,
     InterventionStatus $status,
-    string $referencePackId,
     ?string $siteId,
     ?string $responsibleId,
     array $participants,
@@ -171,7 +164,6 @@ final class Intervention
       $type,
       $name,
       $status,
-      $referencePackId,
       $siteId,
       $responsibleId,
       $participants,
@@ -198,22 +190,6 @@ final class Intervention
   {
     $this->assertMutable();
     $this->name = self::normalizeName($name);
-    $this->touch();
-  }
-
-  /**
-   * Method changeReferencePack.
-   *
-   * Executes the change reference pack operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $referencePackId the reference pack id value
-   */
-  public function changeReferencePack(string $referencePackId): void
-  {
-    $this->assertPlanningMutable();
-    $this->referencePackId = self::required($referencePackId, 'Intervention reference pack');
     $this->touch();
   }
 
@@ -338,7 +314,6 @@ final class Intervention
    *
    * @param InterventionTransitionPolicy $policy the policy value
    * @param ?string $name the name value
-   * @param ?string $referencePackId the reference pack id value
    * @param ?string $siteId the site id value
    * @param ?string $responsibleId the responsible id value
    * @param list<string>|null $participants
@@ -348,7 +323,6 @@ final class Intervention
    * @param ?string $reviewNote the review note value
    * @param ?InterventionStatus $nextStatus the next status value
    * @param bool $hasName the has name value
-   * @param bool $hasReferencePackId the has reference pack id value
    * @param bool $hasSiteId the has site id value
    * @param bool $hasResponsibleId the has responsible id value
    * @param bool $hasParticipants the has participants value
@@ -360,7 +334,6 @@ final class Intervention
   public function edit(
     InterventionTransitionPolicy $policy,
     ?string $name = null,
-    ?string $referencePackId = null,
     ?string $siteId = null,
     ?string $responsibleId = null,
     ?array $participants = null,
@@ -370,7 +343,6 @@ final class Intervention
     ?string $reviewNote = null,
     ?InterventionStatus $nextStatus = null,
     bool $hasName = false,
-    bool $hasReferencePackId = false,
     bool $hasSiteId = false,
     bool $hasResponsibleId = false,
     bool $hasParticipants = false,
@@ -380,14 +352,11 @@ final class Intervention
     bool $hasReviewNote = false,
   ): void {
     $this->assertMutable();
-    if ($hasReferencePackId || $hasSiteId || $hasResponsibleId || $hasParticipants || $hasPriority || $hasPlannedStartAt || $hasDueAt) {
+    if ($hasSiteId || $hasResponsibleId || $hasParticipants || $hasPriority || $hasPlannedStartAt || $hasDueAt) {
       $this->assertPlanningMutable();
     }
     if ($hasName) {
       $this->name = self::normalizeName($name ?? '');
-    }
-    if ($hasReferencePackId) {
-      $this->referencePackId = self::required($referencePackId ?? '', 'Intervention reference pack');
     }
     if ($hasSiteId) {
       $this->siteId = self::nullable($siteId);
@@ -485,20 +454,6 @@ final class Intervention
   public function status(): InterventionStatus
   {
     return $this->status;
-  }
-
-  /**
-   * Method referencePackId.
-   *
-   * Executes the reference pack id operation.
-   *
-   * @since 1.0.0
-   *
-   * @return string the reference pack id result
-   */
-  public function referencePackId(): string
-  {
-    return $this->referencePackId;
   }
 
   /**

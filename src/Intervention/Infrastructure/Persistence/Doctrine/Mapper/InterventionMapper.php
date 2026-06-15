@@ -44,7 +44,6 @@ final class InterventionMapper
       type: InterventionType::from($record->type),
       name: $record->name,
       status: InterventionStatus::from($record->status),
-      referencePackId: $record->referencePackId,
       siteId: $record->siteId,
       responsibleId: $record->responsibleId,
       participants: $record->participants,
@@ -92,7 +91,6 @@ final class InterventionMapper
     $record->type = $intervention->type()->value;
     $record->name = $intervention->name();
     $record->status = $intervention->status()->value;
-    $record->referencePackId = $intervention->referencePackId();
     $record->siteId = $intervention->siteId();
     $record->responsibleId = $intervention->responsibleId();
     $record->participants = $intervention->participants();

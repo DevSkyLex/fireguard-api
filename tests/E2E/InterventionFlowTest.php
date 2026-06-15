@@ -46,11 +46,6 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame(0, $intervention['workItemsCount'] ?? null);
     self::assertSame(0, $intervention['facilitiesCount'] ?? null);
     self::assertSame(0, $intervention['proposedChangesCount'] ?? null);
-    $referencePack = $intervention['referencePack'] ?? '';
-    self::assertTrue(
-      is_string($referencePack) && str_contains($referencePack, '/api/reference-packs/'),
-      'Reference pack defaults to the catalog default IRI.',
-    );
 
     // The single-item view goes through the same builder.
     $interventionId = $this->extractResourceId($intervention);

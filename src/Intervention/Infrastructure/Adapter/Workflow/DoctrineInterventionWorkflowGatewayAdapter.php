@@ -336,7 +336,6 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       organizationId: $organizationId,
       type: InterventionType::from($this->requiredString($mutation->payload, 'type')),
       name: $this->requiredString($mutation->payload, 'name'),
-      referencePackId: $this->requiredString($mutation->payload, 'referencePackId'),
       siteId: $siteId,
       responsibleId: $responsibleId,
       participants: $participants,
@@ -400,7 +399,6 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $aggregate->edit(
       policy: $this->transitionPolicy,
       name: array_key_exists('name', $mutation->payload) ? $this->requiredString($mutation->payload, 'name') : null,
-      referencePackId: array_key_exists('referencePackId', $mutation->payload) ? $this->requiredString($mutation->payload, 'referencePackId') : null,
       siteId: $siteId,
       responsibleId: $responsibleId,
       participants: $participants,
@@ -410,7 +408,6 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       reviewNote: array_key_exists('reviewNote', $mutation->payload) ? $this->nullableString($mutation->payload, 'reviewNote') : null,
       nextStatus: $nextStatus,
       hasName: array_key_exists('name', $mutation->payload),
-      hasReferencePackId: array_key_exists('referencePackId', $mutation->payload),
       hasSiteId: array_key_exists('siteId', $mutation->payload),
       hasResponsibleId: array_key_exists('responsibleId', $mutation->payload),
       hasParticipants: array_key_exists('participants', $mutation->payload),

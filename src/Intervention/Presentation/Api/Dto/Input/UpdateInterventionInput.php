@@ -34,13 +34,6 @@ final class UpdateInterventionInput
   public ?string $status = null;
 
   /**
-   * Property referencePack.
-   *
-   * @since 1.0.0
-   */
-  public ?string $referencePack = null;
-
-  /**
    * Property site.
    *
    * @since 1.0.0
