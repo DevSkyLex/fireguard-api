@@ -47,10 +47,11 @@ final class CreateInterventionInput
   /**
    * Property referencePack.
    *
+   * Optional reference pack IRI. When omitted the catalog default is applied.
+   *
    * @since 1.0.0
    */
-  #[Assert\NotBlank]
-  public string $referencePack = '/api/reference-packs/fr-erp-ert-v1';
+  public ?string $referencePack = null;
 
   /**
    * Property site.

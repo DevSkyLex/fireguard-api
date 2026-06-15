@@ -10,6 +10,7 @@ use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow
   MutateInterventionWorkflowCommand,
   MutateInterventionWorkflowResult
 };
+use Intervention\Domain\Catalog\ReferencePackCatalog;
 use Intervention\Presentation\Api\Dto\Input\UpdateInterventionInput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Processor\InterventionProcessor;
@@ -61,6 +62,7 @@ final class InterventionProcessorTest extends TestCase
       new RevisionGuard($stack),
       new CreationPreconditionGuard($stack),
       new MergePatchFields($stack),
+      new ReferencePackCatalog(),
     );
 
     self::assertNull($processor->process($input, new Patch(), ['id' => 'intervention-1']));
