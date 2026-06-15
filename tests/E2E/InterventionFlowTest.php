@@ -87,8 +87,8 @@ final class InterventionFlowTest extends OAuth2WebTestCase
       [
         'site' => '/api/facilities/' . $facilityId,
         'responsible' => $memberIri,
-        'plannedStartAt' => '2026-07-01 09:00:00',
-        'dueAt' => '2026-07-02 09:00:00',
+        'plannedStartAt' => '2026-07-01T09:00:00Z',
+        'dueAt' => '2026-07-02T09:00:00Z',
         'priority' => 'high',
         'status' => 'planned',
       ],

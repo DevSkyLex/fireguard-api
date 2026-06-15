@@ -90,7 +90,7 @@ final class CreateInterventionInput
    *
    * @since 1.0.0
    */
-  #[Assert\DateTime]
+  #[Assert\DateTime(format: \DateTimeInterface::ATOM)]
   public ?string $plannedStartAt = null;
 
   /**
@@ -98,6 +98,6 @@ final class CreateInterventionInput
    *
    * @since 1.0.0
    */
-  #[Assert\DateTime]
+  #[Assert\DateTime(format: \DateTimeInterface::ATOM)]
   public ?string $dueAt = null;
 }
