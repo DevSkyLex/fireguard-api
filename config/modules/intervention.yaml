@@ -61,6 +61,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Intervention\Application\UseCase\Command\Publication\RequestPublication\RequestPublicationHandler:
     tags: ['messenger.message_handler']
 

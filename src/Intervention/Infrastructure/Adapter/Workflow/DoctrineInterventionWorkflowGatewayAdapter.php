@@ -9,7 +9,6 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
 use InvalidArgumentException;
-use Intervention\Application\Contract\Resource\InterventionListMetrics;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowMutation,
@@ -28,7 +27,7 @@ use Intervention\Domain\Exception\{
 use Intervention\Domain\Model\Intervention\Intervention as InterventionAggregate;
 use Intervention\Domain\Service\{InterventionChangePolicy, InterventionTransitionPolicy};
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionResourceType, InterventionStatus, InterventionType};
-use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionMapper;
+use Intervention\Infrastructure\Persistence\Doctrine\Mapper\{InterventionMapper, InterventionViewMapper};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
   InterventionRecord,
@@ -37,13 +36,11 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
 
-use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_unique;
 use function array_values;
-use function count;
 use function in_array;
 use function is_array;
 use function is_string;
@@ -78,6 +75,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param InterventionNotificationService $notifications the notifications value
    * @param InterventionResourceGatewayPort $resources the resources value
    * @param InterventionIssueFinder $issueFinder the issue finder value
+   * @param InterventionViewMapper $views the view mapper value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -88,6 +86,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private InterventionNotificationService $notifications,
     private InterventionResourceGatewayPort $resources,
     private InterventionIssueFinder $issueFinder,
+    private InterventionViewMapper $views,
   ) {
   }
 
@@ -186,13 +185,13 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   {
     return match ($resource) {
       'intervention' => ($record = $this->entityManager->find(InterventionRecord::class, $id)) instanceof InterventionRecord
-        ? $this->interventionView($record)
+        ? $this->views->interventionView($record)
         : null,
       'work_item' => ($record = $this->entityManager->find(InterventionWorkItemRecord::class, $id)) instanceof InterventionWorkItemRecord
-        ? $this->workItemView($record)
+        ? $this->views->workItemView($record)
         : null,
       'change' => ($record = $this->entityManager->find(InterventionChangeRecord::class, $id)) instanceof InterventionChangeRecord
-        ? $this->changeView($record)
+        ? $this->views->changeView($record)
         : null,
       default => null,
     };
@@ -244,13 +243,13 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       : [];
     $items = array_map(function (object $record) use ($metrics): InterventionWorkflowView {
       if ($record instanceof InterventionRecord) {
-        return $this->interventionView($record, $metrics[$record->id] ?? null);
+        return $this->views->interventionView($record, $metrics[$record->id] ?? null);
       }
       if ($record instanceof InterventionWorkItemRecord) {
-        return $this->workItemView($record);
+        return $this->views->workItemView($record);
       }
 
-      return $this->changeView($record);
+      return $this->views->changeView($record);
     }, $records);
 
     return new InterventionWorkflowPage($items, $page, $itemsPerPage, $total);
@@ -349,7 +348,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $this->entityManager->persist($intervention);
     $this->entityManager->flush();
 
-    return $this->interventionView($intervention);
+    return $this->views->interventionView($intervention);
   }
 
   /**
@@ -428,7 +427,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $notifications[] = fn () => $this->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
     }
 
-    return $this->interventionView($intervention);
+    return $this->views->interventionView($intervention);
   }
 
   /**
@@ -511,7 +510,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $notifications[] = fn () => $this->notifications->assigned($interventionId, $interventionName, $assigneeId);
     }
 
-    return $this->workItemView($record);
+    return $this->views->workItemView($record);
   }
 
   /**
@@ -573,7 +572,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $notifications[] = fn () => $this->notifications->assigned($interventionId, $interventionName, $assigneeId);
     }
 
-    return $this->workItemView($record);
+    return $this->views->workItemView($record);
   }
 
   /**
@@ -608,7 +607,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       return null;
     }
     if ([] === $mutation->payload) {
-      return $this->changeView($record);
+      return $this->views->changeView($record);
     }
     if (array_key_exists('patch', $mutation->payload)) {
       $this->changePolicy->assertCanEditPatch(InterventionStatus::from($intervention->status));
@@ -628,7 +627,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $this->touch($intervention, $now);
     $this->entityManager->flush();
 
-    return $this->changeView($record);
+    return $this->views->changeView($record);
   }
 
   /**
@@ -672,7 +671,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $this->entityManager->persist($record);
     $this->entityManager->flush();
 
-    return $this->changeView($record);
+    return $this->views->changeView($record);
   }
 
   /**
@@ -783,144 +782,6 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     }
 
     return $qb;
-  }
-
-  /**
-   * Method interventionView.
-   *
-   * Executes the intervention view operation.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionRecord $intervention the intervention value
-   * @param ?InterventionListMetrics $metrics preloaded collection metrics
-   *
-   * @return InterventionWorkflowView the intervention view result
-   */
-  private function interventionView(InterventionRecord $intervention, ?InterventionListMetrics $metrics = null): InterventionWorkflowView
-  {
-    $organizationId = $this->organizationId($intervention);
-    if (null === $metrics) {
-      $summary = $this->resources->summary($intervention->id);
-      $workItems = $this->resources->workItemSummary($intervention->id);
-      $issues = $this->issueFinder->find(
-        $intervention->id,
-        $summary,
-        $workItems,
-        $this->resources->validationContext($intervention->id),
-      );
-      $facilitiesCount = $summary->facilities;
-      $equipmentCount = $summary->equipment;
-      $inspectionsCount = $summary->inspections;
-      $blockersCount = count(array_filter($issues, static fn ($issue): bool => 'blocker' === $issue->severity));
-      $workItemsCount = $workItems->total;
-      $completedWorkItemsCount = $workItems->completed;
-      $proposedChangesCount = $this->entityManager->getRepository(InterventionChangeRecord::class)->count([
-        'intervention' => $intervention,
-        'status' => 'proposed',
-      ]);
-    } else {
-      $facilitiesCount = $metrics->facilities;
-      $equipmentCount = $metrics->equipment;
-      $inspectionsCount = $metrics->inspections;
-      $blockersCount = $metrics->resourceBlockers;
-      $blockersCount += 'site_setup' === $intervention->type && 0 === $metrics->facilities ? 1 : 0;
-      $blockersCount += in_array($intervention->type, ['inventory', 'inspection_campaign'], true) && 0 === $metrics->workItems ? 1 : 0;
-      $blockersCount += $metrics->requiredIncomplete > 0 ? 1 : 0;
-      $workItemsCount = $metrics->workItems;
-      $completedWorkItemsCount = $metrics->completedWorkItems;
-      $proposedChangesCount = $metrics->proposedChanges;
-    }
-
-    return new InterventionWorkflowView('intervention', $organizationId, [
-      'id' => $intervention->id,
-      'organization' => '/api/organizations/' . $organizationId,
-      'type' => $intervention->type,
-      'name' => $intervention->name,
-      'status' => $intervention->status,
-      'referencePack' => '/api/reference-packs/' . $intervention->referencePackId,
-      'site' => null === $intervention->siteId ? null : '/api/facilities/' . $intervention->siteId,
-      'responsible' => null === $intervention->responsibleId ? null : '/api/organizations/' . $organizationId . '/members/' . $intervention->responsibleId,
-      'participants' => array_map(
-        static fn (string $id): string => '/api/organizations/' . $organizationId . '/members/' . $id,
-        $intervention->participants,
-      ),
-      'priority' => $intervention->priority,
-      'plannedStartAt' => $intervention->plannedStartAt?->format('c'),
-      'dueAt' => $intervention->dueAt?->format('c'),
-      'reviewNote' => $intervention->reviewNote,
-      'revision' => $intervention->revision,
-      'facilitiesCount' => $facilitiesCount,
-      'equipmentCount' => $equipmentCount,
-      'inspectionsCount' => $inspectionsCount,
-      'blockersCount' => $blockersCount,
-      'workItemsCount' => $workItemsCount,
-      'completedWorkItemsCount' => $completedWorkItemsCount,
-      'proposedChangesCount' => $proposedChangesCount,
-      'createdAt' => $intervention->createdAt->format('c'),
-      'updatedAt' => $intervention->updatedAt->format('c'),
-    ]);
-  }
-
-  /**
-   * Method workItemView.
-   *
-   * Executes the work item view operation.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionWorkItemRecord $record the record value
-   *
-   * @return InterventionWorkflowView the work item view result
-   */
-  private function workItemView(InterventionWorkItemRecord $record): InterventionWorkflowView
-  {
-    $intervention = $this->workItemIntervention($record, false);
-    $organizationId = $this->organizationId($intervention);
-
-    return new InterventionWorkflowView('work_item', $organizationId, [
-      'id' => $record->id,
-      'intervention' => '/api/interventions/' . $intervention->id,
-      'action' => $record->action,
-      'target' => $record->target,
-      'resultResource' => $record->resultResource,
-      'assignee' => null === $record->assigneeId ? null : '/api/organizations/' . $organizationId . '/members/' . $record->assigneeId,
-      'source' => $record->source,
-      'status' => $record->status,
-      'required' => $record->required,
-      'skipReason' => $record->skipReason,
-      'revision' => $record->revision,
-      'createdAt' => $record->createdAt->format('c'),
-      'updatedAt' => $record->updatedAt->format('c'),
-    ]);
-  }
-
-  /**
-   * Method changeView.
-   *
-   * Executes the change view operation.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionChangeRecord $record the record value
-   *
-   * @return InterventionWorkflowView the change view result
-   */
-  private function changeView(InterventionChangeRecord $record): InterventionWorkflowView
-  {
-    $intervention = $this->changeIntervention($record, false);
-
-    return new InterventionWorkflowView('change', $this->organizationId($intervention), [
-      'id' => $record->id,
-      'intervention' => '/api/interventions/' . $intervention->id,
-      'workItem' => null === $record->workItem ? null : '/api/intervention-work-items/' . $record->workItem->id,
-      'resource' => $record->resource,
-      'patch' => $record->patch,
-      'status' => $record->status,
-      'revision' => $record->revision,
-      'createdAt' => $record->createdAt->format('c'),
-      'updatedAt' => $record->updatedAt->format('c'),
-    ]);
   }
 
   /**
