@@ -31,10 +31,10 @@ services:
     alias: Intervention\Infrastructure\Adapter\Publication\MessengerPublicationQueueAdapter
 
   Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort:
-    alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGateway
+    alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter
 
   Intervention\Application\Port\Outbound\InterventionIssueQueryPort:
-    alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGateway
+    alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter
 
   Intervention\Application\Service\InterventionChangeApplication:
     arguments:
@@ -57,7 +57,7 @@ services:
     arguments:
       $messageBus: '@messenger.default_bus'
 
-  Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGateway:
+  Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
