@@ -53,7 +53,7 @@ use function sprintf;
 use function trim;
 
 /**
- * Gateway DoctrineInterventionWorkflowGateway.
+ * Gateway DoctrineInterventionWorkflowGatewayAdapter.
  *
  * @category Adapter
  *
@@ -61,12 +61,12 @@ use function trim;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final readonly class DoctrineInterventionWorkflowGateway implements InterventionIssueQueryPort, InterventionWorkflowGatewayPort
+final readonly class DoctrineInterventionWorkflowGatewayAdapter implements InterventionIssueQueryPort, InterventionWorkflowGatewayPort
 {
   /**
    * Constructor.
    *
-   * Initializes a new instance of the DoctrineInterventionWorkflowGateway class.
+   * Initializes a new instance of the DoctrineInterventionWorkflowGatewayAdapter class.
    *
    * @since 1.0.0
    *
