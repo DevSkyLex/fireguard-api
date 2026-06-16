@@ -11,6 +11,7 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{GetOrganizationMemberResult, ListOrganizationMembersQuery};
+use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
@@ -19,12 +20,18 @@ use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Throwable;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
+use function array_filter;
+use function array_map;
 use function array_slice;
+use function array_values;
 use function count;
 use function is_numeric;
 use function is_string;
 use function max;
+use function trim;
 
 /**
  * Provider ListOrganizationMembersProvider.
@@ -117,20 +124,43 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     }
 
+    /** @var ListOrganizationRolesResult $rolesResult */
+    $rolesResult = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
+    $roleNamesById = [];
+    foreach ($rolesResult->roles as $role) {
+      $roleNamesById[$role->id] = $role->name;
+    }
+
     $outputs = [];
     foreach ($result->items as $member) {
       $output = new OrganizationMemberOutput();
       $output->id = $member->id;
       $output->organizationId = $member->organizationId;
       $output->userId = $member->userId;
+      $output->displayName = $member->userId;
       $output->isActive = $member->isActive;
       $output->joinedAt = $member->joinedAt->format('c');
       $output->roleIds = $member->roleIds;
+      $output->roleNames = array_values(array_filter(array_map(
+        static fn (string $roleId): ?string => $roleNamesById[$roleId] ?? null,
+        $member->roleIds,
+      )));
+
+      $userResult = $this->findUser($member->userId);
+      if ($userResult instanceof GetUserResult && null !== $userResult->user) {
+        $output->firstName = $userResult->user->firstName;
+        $output->lastName = $userResult->user->lastName;
+        $output->displayName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
+          ?: $userResult->user->username
+          ?: $member->userId;
+        $output->avatarUrl = $userResult->user->avatarUrl;
+      }
+
       $outputs[] = $output;
     }
 
     $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['userId']);
+    $outputs = CollectionSearcher::search($outputs, $search, ['userId', 'displayName', 'firstName', 'lastName']);
 
     $total = count($outputs);
 
@@ -145,6 +175,22 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       itemsPerPage: (float) $itemsPerPage,
       totalItems: (float) $total,
     );
+  }
+
+  /**
+   * Resolves a user profile without making member listing fail when the user
+   * record is unavailable.
+   */
+  private function findUser(string $userId): ?GetUserResult
+  {
+    try {
+      /** @var GetUserResult $result */
+      $result = $this->queryBus->ask(new GetUserQuery($userId));
+    } catch (Throwable) {
+      return null;
+    }
+
+    return $result;
   }
   // #endregion
 }

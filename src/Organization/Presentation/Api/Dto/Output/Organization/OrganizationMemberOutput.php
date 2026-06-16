@@ -48,6 +48,42 @@ final class OrganizationMemberOutput
   public string $userId = '';
 
   /**
+   * Property firstName.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $firstName = null;
+
+  /**
+   * Property lastName.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $lastName = null;
+
+  /**
+   * Property displayName.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $displayName = '';
+
+  /**
+   * Property avatarUrl.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $avatarUrl = null;
+
+  /**
    * Property isActive.
    *
    * @since 1.0.0
@@ -71,5 +107,12 @@ final class OrganizationMemberOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $roleIds = [];
+
+  /**
+   * @var list<string>
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $roleNames = [];
   // #endregion
 }
