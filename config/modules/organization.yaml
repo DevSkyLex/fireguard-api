@@ -95,6 +95,9 @@ services:
   Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\GetCurrentOrganizationMemberProfileHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberHandler:
+    tags: ['messenger.message_handler']
+
   # Repositories
   Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository:
     arguments:

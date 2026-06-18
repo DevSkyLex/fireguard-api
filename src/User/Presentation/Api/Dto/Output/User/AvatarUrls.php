@@ -43,13 +43,17 @@ final readonly class AvatarUrls
       return null;
     }
 
-    if (1 !== preg_match('#^(.+/avatar)(?:/\d+\.webp)?$#', $avatarUrl, $matches)) {
+    if (1 !== preg_match('#^(.+/avatar)(?:/\d+\.webp)?(\?.*)?$#', $avatarUrl, $matches)) {
       return null;
     }
 
+    // Preserve any cache-busting query (e.g. "?v=1700000000") on every variant
+    // so a fresh upload invalidates the browser cache for all sizes at once.
+    $query = $matches[2] ?? '';
+
     $urls = [];
     foreach (AvatarResizer::SIZES as $size) {
-      $urls[(string) $size] = sprintf('%s/%d.webp', $matches[1], $size);
+      $urls[(string) $size] = sprintf('%s/%d.webp%s', $matches[1], $size, $query);
     }
 
     return $urls;

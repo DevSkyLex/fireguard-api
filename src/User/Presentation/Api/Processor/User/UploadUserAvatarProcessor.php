@@ -22,6 +22,7 @@ use function implode;
 use function in_array;
 use function is_string;
 use function sprintf;
+use function time;
 
 /**
  * Processor UploadUserAvatarProcessor.
@@ -155,11 +156,18 @@ final readonly class UploadUserAvatarProcessor implements ProcessorInterface
     $this->avatarResizer->delete($id);
     $this->avatarResizer->resize($id, $sourceContents);
 
+    // Append an upload-time version token so the canonical URL changes on each
+    // upload. The image endpoint serves variants with a 24h cache; without this
+    // token the URL would stay identical and browsers would keep showing the
+    // previous avatar. The token is ignored by the avatar endpoint (it only
+    // reads the size from the path) and propagated to every size variant by
+    // AvatarUrls::fromAvatarUrl.
     $avatarUrl = sprintf(
-      '%s/api/users/%s/avatar/%d.webp',
+      '%s/api/users/%s/avatar/%d.webp?v=%d',
       $request->getSchemeAndHttpHost(),
       $id,
       AvatarResizer::SIZES[0],
+      time(),
     );
 
     $this->commandBus->dispatch(new UpdateUserCommand(

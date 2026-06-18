@@ -47,6 +47,17 @@ final class InterventionWorkItemOutput
   public ?string $target = null;
 
   /**
+   * Property targetSummary.
+   *
+   * Read-only target summary (kind + label) resolved at read time from
+   * {@see $target}. Null when there is no target, the target is free text, or
+   * the linked resource can no longer be resolved.
+   *
+   * @since 1.1.0
+   */
+  public ?InterventionTargetOutput $targetSummary = null;
+
+  /**
    * Property resultResource.
    *
    * @since 1.0.0
@@ -59,6 +70,17 @@ final class InterventionWorkItemOutput
    * @since 1.0.0
    */
   public ?string $assignee = null;
+
+  /**
+   * Property assigneeProfile.
+   *
+   * Read-only assignee identity (display name + avatar) resolved at read time
+   * from {@see $assignee}. Null when the work item is unassigned or the member
+   * can no longer be resolved.
+   *
+   * @since 1.1.0
+   */
+  public ?InterventionAssigneeOutput $assigneeProfile = null;
 
   /**
    * Property source.
