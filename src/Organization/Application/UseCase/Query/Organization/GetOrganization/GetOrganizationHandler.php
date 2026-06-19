@@ -69,6 +69,9 @@ final readonly class GetOrganizationHandler implements QueryHandler
       createdAt: $organization->createdAt(),
       updatedAt: $organization->updatedAt(),
       memberCount: $this->memberRepository->countByOrganizationId($organization->id()),
+      description: $organization->description(),
+      logoUrl: $organization->logoUrl(),
+      settings: $organization->settings(),
     );
   }
   // #endregion

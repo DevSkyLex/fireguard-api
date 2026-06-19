@@ -8,7 +8,7 @@ namespace Onboarding\Domain\Model\OrganizationOnboardingSession;
  * Value Object ComputedOnboardingState.
  *
  * Captures the synchronization result derived from authoritative module state
- * (organizations list, permission check, legal profile query) without mutating
+ * (organizations list, permission check) without mutating
  * the session aggregate. Replaces the raw associative array previously returned
  * by {@see \Onboarding\Application\Service\OrganizationOnboardingFlowService::synchronizeSessionFromCurrentState()}.
  *

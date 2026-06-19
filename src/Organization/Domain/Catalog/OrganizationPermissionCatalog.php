@@ -99,6 +99,8 @@ final class OrganizationPermissionCatalog
       // Organization general
       ['name' => 'organization.read', 'description' => 'View organization details'],
       ['name' => 'organization.dashboard.read', 'description' => 'View organization dashboard analytics and KPIs'],
+      ['name' => 'organization.settings.write', 'description' => 'Manage organization settings (general, notifications, regional)'],
+      ['name' => 'organization.delete', 'description' => 'Delete the organization'],
 
       // Member management
       ['name' => 'organization.members.read', 'description' => 'View organization members'],
@@ -127,9 +129,6 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.interventions.execute', 'description' => 'Execute assigned organization field intervention work'],
       ['name' => 'organization.interventions.review', 'description' => 'Review submitted organization field interventions'],
       ['name' => 'organization.interventions.publish', 'description' => 'Publish organization field interventions'],
-
-      // Legal profile
-      ['name' => 'organization.legal_profile.write', 'description' => 'Manage organization legal profile'],
 
       // Wildcard
       ['name' => 'organization.*', 'description' => 'Full access to all organization operations (owner)'],

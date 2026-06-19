@@ -84,6 +84,24 @@ final class OrganizationOutput
   public bool $isActive = true;
 
   /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $description = null;
+
+  /**
+   * Property logoUrl.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $logoUrl = null;
+
+  /**
    * Property memberCount.
    *
    * @since 1.0.0
@@ -91,6 +109,15 @@ final class OrganizationOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public int $memberCount = 0;
+
+  /**
+   * Property settings.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?OrganizationSettingsOutput $settings = null;
 
   /**
    * Property createdAt.

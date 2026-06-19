@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug, OrganizationStatus};
+use Organization\Domain\ValueObject\{
+  OrganizationId,
+  OrganizationName,
+  OrganizationSettings,
+  OrganizationSlug,
+  OrganizationStatus
+};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
@@ -48,6 +54,9 @@ final class OrganizationMapper
       ownerUserId: $record->ownerUserId,
       slug: new OrganizationSlug($record->slug),
       status: $status,
+      description: $record->description,
+      logoUrl: $record->logoUrl,
+      settings: OrganizationSettings::fromArray($record->settings),
     );
   }
 
@@ -72,6 +81,9 @@ final class OrganizationMapper
     $record->createdByUserId = $organization->createdByUserId();
     $record->status = $organization->status()->value;
     $record->isActive = $organization->isActive();
+    $record->description = $organization->description();
+    $record->logoUrl = $organization->logoUrl();
+    $record->settings = $organization->settings()->toArray();
     $record->createdAt = $organization->createdAt();
     $record->updatedAt = $organization->updatedAt();
 

@@ -88,6 +88,35 @@ class OrganizationRecord
   public bool $isActive = true;
 
   /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'description', type: 'text', nullable: true)]
+  public ?string $description = null;
+
+  /**
+   * Property logoUrl.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'logo_url', type: 'string', length: 500, nullable: true)]
+  public ?string $logoUrl = null;
+
+  /**
+   * Property settings.
+   *
+   * Structured organization preferences (notifications, regional) persisted as
+   * a JSON blob.
+   *
+   * @var array<string, mixed>
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'settings', type: 'json')]
+  public array $settings = [];
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0
@@ -126,14 +155,6 @@ class OrganizationRecord
    */
   #[ORM\OneToMany(mappedBy: 'organization', targetEntity: OrganizationInvitationRecord::class, cascade: ['remove'])]
   public Collection $invitations;
-
-  /**
-   * Property legalProfile.
-   *
-   * @since 1.0.0
-   */
-  #[ORM\OneToOne(mappedBy: 'organization', targetEntity: OrganizationLegalProfileRecord::class, cascade: ['remove'])]
-  public ?OrganizationLegalProfileRecord $legalProfile = null;
 
   /**
    * Property facilities.

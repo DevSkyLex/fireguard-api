@@ -8,8 +8,8 @@ use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
-use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationLegalType, OrganizationStatus};
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationLegalProfileRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
+use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationStatus};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 
 use function hash;
 
@@ -58,17 +58,6 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $organization->updatedAt = $organizationCreatedAt;
     $manager->persist($organization);
     $this->addReference(self::ORGANIZATION_REFERENCE, $organization);
-
-    $legalProfile = new OrganizationLegalProfileRecord();
-    $legalProfile->organization = $organization;
-    $legalProfile->legalName = 'Fireguard Seed Organization SAS';
-    $legalProfile->countryCode = 'FR';
-    $legalProfile->legalType = OrganizationLegalType::COMPANY->value;
-    $legalProfile->registrationNumber = 'RCS-PARIS-2026-SEED';
-    $legalProfile->vatNumber = 'FR00111111111';
-    $legalProfile->createdAt = $organizationCreatedAt;
-    $legalProfile->updatedAt = $organizationCreatedAt;
-    $manager->persist($legalProfile);
 
     $adminRole = new OrganizationRoleRecord();
     $adminRole->id = '11111111-1111-4111-8111-111111111112';

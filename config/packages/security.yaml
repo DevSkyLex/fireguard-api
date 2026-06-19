@@ -70,6 +70,9 @@ security:
     # Public avatar streaming endpoint (GET only — POST remains protected)
     - { path: '^/api/users/.+/avatar(/\d+\.webp)?$', roles: PUBLIC_ACCESS, methods: [GET] }
 
+    # Public organization logo streaming endpoint (GET only — upload stays protected)
+    - { path: '^/api/organizations/.+/logo\.webp$', roles: PUBLIC_ACCESS, methods: [GET] }
+
     # Default: require authentication for all API endpoints
     - { path: ^/api, roles: ROLE_USER }
 

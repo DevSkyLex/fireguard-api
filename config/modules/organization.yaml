@@ -20,7 +20,9 @@ services:
   Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationHandler:
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Command\Organization\DeleteOrganizationLegalProfile\DeleteOrganizationLegalProfileHandler:
+  Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler:
@@ -61,9 +63,6 @@ services:
       $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Command\Organization\UpsertOrganizationLegalProfile\UpsertOrganizationLegalProfileHandler:
-    tags: ['messenger.message_handler']
-
   # Query handlers
   Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationHandler:
     tags: ['messenger.message_handler']
@@ -81,9 +80,6 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler:
-    tags: ['messenger.message_handler']
-
-  Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\GetOrganizationLegalProfileHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
@@ -111,10 +107,6 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository:
-    arguments:
-      $entityManager: '@doctrine.orm.main_entity_manager'
-
   Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -128,9 +120,6 @@ services:
 
   Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository
-
-  Organization\Application\Port\Outbound\OrganizationLegalProfileRepositoryPort:
-    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository
 
   Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository
@@ -154,6 +143,9 @@ services:
 
   Organization\Application\Port\Outbound\NonConformityStatisticsPort:
     alias: Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter
+
+  # Image services
+  Organization\Infrastructure\Image\OrganizationLogoResizer: ~
 
   # Console Commands use #[AsCommand]
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~

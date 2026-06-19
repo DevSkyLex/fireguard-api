@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\GetOrganization;
 
 use DateTimeImmutable;
+use Organization\Domain\ValueObject\OrganizationSettings;
 use Shared\Application\Message\ResultMessage;
 
 /**
@@ -37,6 +38,9 @@ final readonly class GetOrganizationResult implements ResultMessage
    * @param DateTimeImmutable $createdAt the creation date
    * @param DateTimeImmutable $updatedAt the update date
    * @param int $memberCount the member count
+   * @param ?string $description the organization description
+   * @param ?string $logoUrl the organization logo URL
+   * @param ?OrganizationSettings $settings the structured organization settings
    */
   public function __construct(
     public string $id,
@@ -49,6 +53,9 @@ final readonly class GetOrganizationResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public int $memberCount = 0,
+    public ?string $description = null,
+    public ?string $logoUrl = null,
+    public ?OrganizationSettings $settings = null,
   ) {
   }
   // #endregion

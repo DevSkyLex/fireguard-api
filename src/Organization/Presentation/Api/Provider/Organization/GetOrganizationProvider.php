@@ -10,7 +10,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Domain\ValueObject\OrganizationSettings;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -95,7 +96,10 @@ final readonly class GetOrganizationProvider implements ProviderInterface
     $output->createdByUserId = $result->createdByUserId;
     $output->status = $result->status;
     $output->isActive = $result->isActive;
+    $output->description = $result->description;
+    $output->logoUrl = $result->logoUrl;
     $output->memberCount = $result->memberCount;
+    $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 

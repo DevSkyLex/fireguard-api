@@ -122,6 +122,9 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
         createdAt: $organization->createdAt(),
         updatedAt: $organization->updatedAt(),
         memberCount: $memberCounts[$organizationId] ?? 0,
+        description: $organization->description(),
+        logoUrl: $organization->logoUrl(),
+        settings: $organization->settings(),
       );
     }
 

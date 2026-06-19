@@ -8,7 +8,7 @@ use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationLegalProfileRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -48,7 +48,6 @@ final class OrganizationFixturesIntegrationTest extends KernelTestCase
     self::assertSame(2, $this->entityManager->getRepository(OrganizationMemberRecord::class)->count([]));
     self::assertSame(2, $this->entityManager->getRepository(OrganizationMemberRoleRecord::class)->count([]));
     self::assertSame(1, $this->entityManager->getRepository(OrganizationInvitationRecord::class)->count([]));
-    self::assertSame(1, $this->entityManager->getRepository(OrganizationLegalProfileRecord::class)->count([]));
 
     self::assertTrue($organizationFixtures->hasReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class));
     self::assertTrue($organizationFixtures->hasReference(OrganizationFixtures::ADMIN_ROLE_REFERENCE, OrganizationRoleRecord::class));

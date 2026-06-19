@@ -5,7 +5,17 @@ declare(strict_types=1);
 namespace Organization\Domain\Model\Organization;
 
 use DateTimeImmutable;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug, OrganizationStatus};
+use Organization\Domain\ValueObject\{
+  OrganizationId,
+  OrganizationName,
+  OrganizationNotificationSettings,
+  OrganizationRegionalSettings,
+  OrganizationSettings,
+  OrganizationSlug,
+  OrganizationStatus
+};
+
+use function trim;
 
 /**
  * Model Organization.
@@ -18,6 +28,17 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, Organizat
  */
 final class Organization
 {
+  // #region Properties
+  /**
+   * Property settings.
+   *
+   * Structured organization preferences (notifications, regional).
+   *
+   * @since 1.0.0
+   */
+  private OrganizationSettings $settings;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -34,6 +55,9 @@ final class Organization
    * @param OrganizationStatus $status the current organization status
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
+   * @param ?string $description the optional organization description
+   * @param ?string $logoUrl the optional organization logo URL
+   * @param ?OrganizationSettings $settings the structured organization settings
    */
   private function __construct(
     private OrganizationId $id,
@@ -44,7 +68,11 @@ final class Organization
     private OrganizationStatus $status,
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
+    private ?string $description = null,
+    private ?string $logoUrl = null,
+    ?OrganizationSettings $settings = null,
   ) {
+    $this->settings = $settings ?? OrganizationSettings::default();
   }
   // #endregion
 
@@ -61,6 +89,9 @@ final class Organization
    * @param string $ownerUserId the owner user identifier
    * @param ?OrganizationSlug $slug the optional organization slug
    * @param ?string $createdByUserId the optional creator user identifier
+   * @param ?string $description the optional organization description
+   * @param ?string $logoUrl the optional organization logo URL
+   * @param ?OrganizationSettings $settings the optional structured organization settings
    *
    * @return self the created organization aggregate
    */
@@ -70,6 +101,9 @@ final class Organization
     string $ownerUserId,
     ?OrganizationSlug $slug = null,
     ?string $createdByUserId = null,
+    ?string $description = null,
+    ?string $logoUrl = null,
+    ?OrganizationSettings $settings = null,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -82,6 +116,9 @@ final class Organization
       status: OrganizationStatus::ACTIVE,
       createdAt: $now,
       updatedAt: $now,
+      description: $description,
+      logoUrl: $logoUrl,
+      settings: $settings,
     );
   }
 
@@ -101,6 +138,9 @@ final class Organization
    * @param ?string $ownerUserId the optional owner user identifier
    * @param ?OrganizationSlug $slug the optional organization slug
    * @param ?OrganizationStatus $status the optional explicit status
+   * @param ?string $description the optional organization description
+   * @param ?string $logoUrl the optional organization logo URL
+   * @param ?OrganizationSettings $settings the optional structured organization settings
    *
    * @return self the reconstituted organization aggregate
    */
@@ -114,6 +154,9 @@ final class Organization
     ?string $ownerUserId = null,
     ?OrganizationSlug $slug = null,
     ?OrganizationStatus $status = null,
+    ?string $description = null,
+    ?string $logoUrl = null,
+    ?OrganizationSettings $settings = null,
   ): self {
     return new self(
       id: $id,
@@ -124,6 +167,9 @@ final class Organization
       status: $status ?? OrganizationStatus::fromIsActive($isActive),
       createdAt: $createdAt,
       updatedAt: $updatedAt ?? $createdAt,
+      description: $description,
+      logoUrl: $logoUrl,
+      settings: $settings,
     );
   }
 
@@ -306,6 +352,122 @@ final class Organization
   public function activate(): void
   {
     $this->status = OrganizationStatus::ACTIVE;
+    $this->touch();
+  }
+
+  /**
+   * Method description.
+   *
+   * Returns the organization description.
+   *
+   * @since 1.0.0
+   *
+   * @return ?string the organization description when set
+   */
+  public function description(): ?string
+  {
+    return $this->description;
+  }
+
+  /**
+   * Method logoUrl.
+   *
+   * Returns the organization logo URL.
+   *
+   * @since 1.0.0
+   *
+   * @return ?string the organization logo URL when set
+   */
+  public function logoUrl(): ?string
+  {
+    return $this->logoUrl;
+  }
+
+  /**
+   * Method changeDescription.
+   *
+   * Updates the organization description, normalizing empty values to null.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $description the new organization description
+   */
+  public function changeDescription(?string $description): void
+  {
+    $normalized = null !== $description ? trim($description) : null;
+    $this->description = '' === $normalized ? null : $normalized;
+    $this->touch();
+  }
+
+  /**
+   * Method setLogoUrl.
+   *
+   * Updates the organization logo URL.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $logoUrl the new organization logo URL
+   */
+  public function setLogoUrl(?string $logoUrl): void
+  {
+    $this->logoUrl = $logoUrl;
+    $this->touch();
+  }
+
+  /**
+   * Method removeLogo.
+   *
+   * Clears the organization logo URL.
+   *
+   * @since 1.0.0
+   */
+  public function removeLogo(): void
+  {
+    $this->logoUrl = null;
+    $this->touch();
+  }
+
+  /**
+   * Method settings.
+   *
+   * Returns the structured organization settings.
+   *
+   * @since 1.0.0
+   *
+   * @return OrganizationSettings the organization settings
+   */
+  public function settings(): OrganizationSettings
+  {
+    return $this->settings;
+  }
+
+  /**
+   * Method updateNotificationSettings.
+   *
+   * Replaces the organization notification policy sub-section.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationNotificationSettings $notifications the new notification settings
+   */
+  public function updateNotificationSettings(OrganizationNotificationSettings $notifications): void
+  {
+    $this->settings = $this->settings->withNotifications($notifications);
+    $this->touch();
+  }
+
+  /**
+   * Method updateRegionalSettings.
+   *
+   * Replaces the organization regional and formatting sub-section.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRegionalSettings $regional the new regional settings
+   */
+  public function updateRegionalSettings(OrganizationRegionalSettings $regional): void
+  {
+    $this->settings = $this->settings->withRegional($regional);
     $this->touch();
   }
 
