@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganization;
 
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
 
@@ -31,10 +32,12 @@ final readonly class GetOrganizationHandler implements QueryHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   * @param PlanRepositoryPort $planRepository the plan repository
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
+    private PlanRepositoryPort $planRepository,
   ) {
   }
   // #endregion
@@ -58,6 +61,10 @@ final readonly class GetOrganizationHandler implements QueryHandler
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
+    $planId = $organization->planId();
+    $plan = null !== $planId ? $this->planRepository->findById($planId) : null;
+    $plan ??= $this->planRepository->findDefault();
+
     return new GetOrganizationResult(
       id: (string) $organization->id(),
       name: (string) $organization->name(),
@@ -72,6 +79,8 @@ final readonly class GetOrganizationHandler implements QueryHandler
       description: $organization->description(),
       logoUrl: $organization->logoUrl(),
       settings: $organization->settings(),
+      planId: $plan instanceof Plan ? (string) $plan->id() : null,
+      planName: $plan instanceof Plan ? $plan->name() : null,
     );
   }
   // #endregion

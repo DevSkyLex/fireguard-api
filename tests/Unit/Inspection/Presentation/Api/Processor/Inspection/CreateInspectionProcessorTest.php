@@ -13,7 +13,7 @@ use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -44,6 +44,7 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -66,6 +67,7 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -91,6 +93,7 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -155,6 +158,7 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -196,6 +200,7 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -235,6 +240,7 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 

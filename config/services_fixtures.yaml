@@ -15,6 +15,10 @@ services:
     tags:
       - { name: 'app.seed_fixture.auth' }
 
+  Organization\Infrastructure\DataFixtures\PlanFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
   Organization\Infrastructure\DataFixtures\OrganizationFixtures:
     tags:
       - { name: 'app.seed_fixture.main' }

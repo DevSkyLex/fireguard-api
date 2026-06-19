@@ -100,6 +100,8 @@ final readonly class GetOrganizationProvider implements ProviderInterface
     $output->logoUrl = $result->logoUrl;
     $output->memberCount = $result->memberCount;
     $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
+    $output->planId = $result->planId;
+    $output->planName = $result->planName;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 

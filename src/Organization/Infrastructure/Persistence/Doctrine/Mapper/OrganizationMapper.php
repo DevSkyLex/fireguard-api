@@ -10,7 +10,8 @@ use Organization\Domain\ValueObject\{
   OrganizationName,
   OrganizationSettings,
   OrganizationSlug,
-  OrganizationStatus
+  OrganizationStatus,
+  PlanId
 };
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
@@ -57,6 +58,7 @@ final class OrganizationMapper
       description: $record->description,
       logoUrl: $record->logoUrl,
       settings: OrganizationSettings::fromArray($record->settings),
+      planId: null !== $record->planId ? PlanId::fromString($record->planId) : null,
     );
   }
 
@@ -84,6 +86,7 @@ final class OrganizationMapper
     $record->description = $organization->description();
     $record->logoUrl = $organization->logoUrl();
     $record->settings = $organization->settings()->toArray();
+    $record->planId = null !== $organization->planId() ? (string) $organization->planId() : null;
     $record->createdAt = $organization->createdAt();
     $record->updatedAt = $organization->updatedAt();
 

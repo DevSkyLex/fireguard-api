@@ -78,6 +78,7 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       $existing->description = $record->description;
       $existing->logoUrl = $record->logoUrl;
       $existing->settings = $record->settings;
+      $existing->planId = $record->planId;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);

@@ -120,6 +120,28 @@ final class OrganizationOutput
   public ?OrganizationSettingsOutput $settings = null;
 
   /**
+   * Property planId.
+   *
+   * Identifier of the assigned subscription plan.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $planId = null;
+
+  /**
+   * Property planName.
+   *
+   * Display name of the assigned subscription plan.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $planName = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

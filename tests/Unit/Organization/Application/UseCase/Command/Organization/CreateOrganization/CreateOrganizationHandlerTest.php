@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Creat
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationHandler, CreateOrganizationResult};
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\Organization;
@@ -103,11 +103,15 @@ final class CreateOrganizationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findDefault')->willReturn(null);
+
     $handler = new CreateOrganizationHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
+      planRepository: $planRepository,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
     );
@@ -162,6 +166,7 @@ final class CreateOrganizationHandlerTest extends TestCase
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
+      planRepository: $this->createStub(PlanRepositoryPort::class),
       uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
     );
@@ -225,11 +230,15 @@ final class CreateOrganizationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willThrowException(TransactionExecutionException::wrap($uniqueViolation));
 
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findDefault')->willReturn(null);
+
     $handler = new CreateOrganizationHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
+      planRepository: $planRepository,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
     );

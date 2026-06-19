@@ -54,6 +54,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $organization->createdByUserId = self::OWNER_USER_ID;
     $organization->status = OrganizationStatus::ACTIVE->value;
     $organization->isActive = true;
+    $organization->planId = PlanFixtures::MAX_PLAN_ID;
     $organization->createdAt = $organizationCreatedAt;
     $organization->updatedAt = $organizationCreatedAt;
     $manager->persist($organization);

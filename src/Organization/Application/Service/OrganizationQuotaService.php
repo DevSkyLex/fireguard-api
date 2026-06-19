@@ -1,0 +1,161 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Organization\Application\Service;
+
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Application\Port\Outbound\{
+  EquipmentStatisticsPort,
+  FacilityStatisticsPort,
+  InspectionStatisticsPort,
+  OrganizationMemberRepositoryPort,
+  OrganizationRepositoryPort,
+  PlanRepositoryPort
+};
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationQuotaResource};
+use Symfony\Contracts\Service\ResetInterface;
+
+/**
+ * Service OrganizationQuotaService.
+ *
+ * Resolves the quantity caps defined by an organization's current plan, the
+ * current usage of each capped resource, and enforces the caps at creation
+ * time. Usage is sourced from the existing statistics ports so the Organization
+ * module stays decoupled from the other modules' repositories.
+ *
+ * @category Service
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInterface
+{
+  /**
+   * In-memory per-request cache of the resolved plan, keyed by organization id.
+   * `false` marks a resolved-but-absent plan to avoid repeated lookups.
+   *
+   * @var array<string, Plan|false>
+   */
+  private array $planCache = [];
+
+  // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the OrganizationQuotaService class.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param PlanRepositoryPort $planRepository the plan repository
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   * @param FacilityStatisticsPort $facilityStatistics the facility statistics port
+   * @param EquipmentStatisticsPort $equipmentStatistics the equipment statistics port
+   * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics port
+   */
+  public function __construct(
+    private readonly OrganizationRepositoryPort $organizationRepository,
+    private readonly PlanRepositoryPort $planRepository,
+    private readonly OrganizationMemberRepositoryPort $memberRepository,
+    private readonly FacilityStatisticsPort $facilityStatistics,
+    private readonly EquipmentStatisticsPort $equipmentStatistics,
+    private readonly InspectionStatisticsPort $inspectionStatistics,
+  ) {
+  }
+  // #endregion
+
+  // #region Methods
+  public function getLimit(string $organizationId, OrganizationQuotaResource $resource): ?int
+  {
+    $plan = $this->resolvePlan($organizationId);
+
+    return $plan instanceof Plan ? $plan->limitFor($resource) : null;
+  }
+
+  public function getUsage(string $organizationId, OrganizationQuotaResource $resource): int
+  {
+    return match ($resource) {
+      OrganizationQuotaResource::MEMBERS => $this->memberRepository->countByOrganizationId(
+        OrganizationId::fromString($organizationId),
+      ),
+      OrganizationQuotaResource::FACILITIES => $this->facilityStatistics->countFacilities($organizationId),
+      OrganizationQuotaResource::EQUIPMENT => $this->equipmentStatistics->countEquipment($organizationId),
+      OrganizationQuotaResource::INSPECTIONS => $this->inspectionStatistics->countInspections($organizationId),
+    };
+  }
+
+  public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void
+  {
+    $limit = $this->getLimit($organizationId, $resource);
+
+    if (null === $limit) {
+      return;
+    }
+
+    if ($this->getUsage($organizationId, $resource) >= $limit) {
+      throw OrganizationQuotaExceededException::forResource($resource, $limit);
+    }
+  }
+
+  /**
+   * @return list<array{resource: string, used: int, limit: int|null}>
+   */
+  public function getQuotaSummary(string $organizationId): array
+  {
+    $summary = [];
+
+    foreach (OrganizationQuotaResource::cases() as $resource) {
+      $summary[] = [
+        'resource' => $resource->value,
+        'used' => $this->getUsage($organizationId, $resource),
+        'limit' => $this->getLimit($organizationId, $resource),
+      ];
+    }
+
+    return $summary;
+  }
+
+  public function reset(): void
+  {
+    $this->planCache = [];
+  }
+
+  /**
+   * Method resolvePlan.
+   *
+   * Resolves the organization's plan, falling back to the catalog default plan
+   * when none is assigned. Caches the result per request.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return ?Plan the resolved plan, or null when none is configured
+   */
+  private function resolvePlan(string $organizationId): ?Plan
+  {
+    if (isset($this->planCache[$organizationId])) {
+      $cached = $this->planCache[$organizationId];
+
+      return $cached instanceof Plan ? $cached : null;
+    }
+
+    $organization = $this->organizationRepository->findById(OrganizationId::fromString($organizationId));
+
+    $plan = null;
+    if (null !== $organization) {
+      $planId = $organization->planId();
+      $plan = null !== $planId ? $this->planRepository->findById($planId) : null;
+      $plan ??= $this->planRepository->findDefault();
+    }
+
+    $this->planCache[$organizationId] = $plan ?? false;
+
+    return $plan;
+  }
+  // #endregion
+}

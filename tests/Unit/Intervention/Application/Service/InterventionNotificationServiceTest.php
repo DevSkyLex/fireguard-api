@@ -8,9 +8,10 @@ use DateTimeImmutable;
 use Intervention\Application\Service\InterventionNotificationService;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationNotificationSettings};
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -37,7 +38,36 @@ final class InterventionNotificationServiceTest extends TestCase
         && 'intervention-1' === $request->payload['interventionId']))
       ->willReturn($this->sent());
 
-    new InterventionNotificationService($notifications, $members)->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
+    new InterventionNotificationService($notifications, $members, $this->policy())
+      ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
+  }
+
+  #[Test]
+  public function itDoesNotNotifyWhenTheAssignmentCategoryIsDisabled(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new InterventionNotificationService($notifications, $members, $this->policy(interventionAssigned: false))
+      ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function itDoesNotNotifyWhenInAppDeliveryIsDisabled(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false))
+      ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
+
+    self::addToAssertionCount(1);
   }
 
   #[Test]
@@ -48,7 +78,8 @@ final class InterventionNotificationServiceTest extends TestCase
     $notifications = $this->createStub(NotificationPort::class);
     $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
 
-    new InterventionNotificationService($notifications, $members)->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
+    new InterventionNotificationService($notifications, $members, $this->policy())
+      ->assigned('intervention-1', 'Annual inventory', self::MEMBER_ID);
 
     self::addToAssertionCount(1);
   }
@@ -62,6 +93,17 @@ final class InterventionNotificationServiceTest extends TestCase
       true,
       new DateTimeImmutable(),
     );
+  }
+
+  private function policy(bool $inAppEnabled = true, bool $interventionAssigned = true): OrganizationNotificationPolicyPort
+  {
+    $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
+    $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
+      inAppEnabled: $inAppEnabled,
+      interventionAssigned: $interventionAssigned,
+    ));
+
+    return $policy;
   }
 
   private function sent(): SentNotification

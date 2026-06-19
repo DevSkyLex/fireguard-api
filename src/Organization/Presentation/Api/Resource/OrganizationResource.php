@@ -7,10 +7,11 @@ namespace Organization\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, RequestBody, Response};
 use ArrayObject;
-use Organization\Presentation\Api\Dto\Input\Organization\{CreateOrganizationInput, UpdateOrganizationSettingsInput};
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Presentation\Api\Dto\Input\Organization\{ChangeOrganizationPlanInput, CreateOrganizationInput, UpdateOrganizationSettingsInput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationQuotaOutput};
 use Organization\Presentation\Api\Operation\OrganizationOperations;
 use Organization\Presentation\Api\Processor\Organization\{
+  ChangeOrganizationPlanProcessor,
   CreateOrganizationProcessor,
   DeleteOrganizationProcessor,
   UpdateOrganizationSettingsProcessor,
@@ -19,6 +20,7 @@ use Organization\Presentation\Api\Processor\Organization\{
 use Organization\Presentation\Api\Provider\Organization\{
   GetOrganizationLogoProvider,
   GetOrganizationProvider,
+  GetOrganizationQuotaProvider,
   ListUserOrganizationsProvider
 };
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
@@ -100,6 +102,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: OrganizationOperations::UPDATE_ORGANIZATION_SETTINGS,
       uriTemplate: '/{id}',
+      read: false,
       input: UpdateOrganizationSettingsInput::class,
       output: OrganizationOutput::class,
       processor: UpdateOrganizationSettingsProcessor::class,
@@ -116,6 +119,46 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Slug already in use'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+        ],
+      ),
+    ),
+    new Get(
+      name: OrganizationOperations::GET_ORGANIZATION_QUOTA,
+      uriTemplate: '/{organizationId}/quota',
+      input: false,
+      output: OrganizationQuotaOutput::class,
+      provider: GetOrganizationQuotaProvider::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Get Organization quota usage',
+        description: 'Returns the current usage and plan limit of each capped resource (members, facilities, equipment, inspections). Requires the organization.read permission.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Quota usage retrieved'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Patch(
+      name: OrganizationOperations::CHANGE_ORGANIZATION_PLAN,
+      uriTemplate: '/{id}/plan',
+      read: false,
+      input: ChangeOrganizationPlanInput::class,
+      output: OrganizationOutput::class,
+      processor: ChangeOrganizationPlanProcessor::class,
+      denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Change Organization plan',
+        description: 'Assigns a subscription plan to the organization. Self-service — requires the organization.settings.write permission.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Organization plan updated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - plan not selectable'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or plan not found'),
         ],
       ),
     ),

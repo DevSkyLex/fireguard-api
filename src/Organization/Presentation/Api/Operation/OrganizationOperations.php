@@ -27,6 +27,10 @@ final class OrganizationOperations
 
   public const string UPDATE_ORGANIZATION_SETTINGS = 'updateOrganizationSettings';
 
+  public const string CHANGE_ORGANIZATION_PLAN = 'changeOrganizationPlan';
+
+  public const string GET_ORGANIZATION_QUOTA = 'getOrganizationQuota';
+
   public const string DELETE_ORGANIZATION = 'deleteOrganization';
 
   public const string UPLOAD_ORGANIZATION_LOGO = 'uploadOrganizationLogo';

@@ -12,7 +12,7 @@ use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -67,6 +67,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $processor = new CreateEquipmentProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -129,6 +130,7 @@ final class CreateEquipmentProcessorTest extends TestCase
     $processor = new CreateEquipmentProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 

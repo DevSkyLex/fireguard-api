@@ -10,7 +10,7 @@ use Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityC
 use Facility\Domain\Exception\FacilityCodeAlreadyExistsException;
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
 use Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -66,6 +66,7 @@ final class CreateFacilityProcessorTest extends TestCase
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 

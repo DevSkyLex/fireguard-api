@@ -12,7 +12,8 @@ use Organization\Domain\ValueObject\{
   OrganizationRegionalSettings,
   OrganizationSettings,
   OrganizationSlug,
-  OrganizationStatus
+  OrganizationStatus,
+  PlanId
 };
 
 use function trim;
@@ -71,6 +72,7 @@ final class Organization
     private ?string $description = null,
     private ?string $logoUrl = null,
     ?OrganizationSettings $settings = null,
+    private ?PlanId $planId = null,
   ) {
     $this->settings = $settings ?? OrganizationSettings::default();
   }
@@ -92,6 +94,7 @@ final class Organization
    * @param ?string $description the optional organization description
    * @param ?string $logoUrl the optional organization logo URL
    * @param ?OrganizationSettings $settings the optional structured organization settings
+   * @param ?PlanId $planId the optional assigned subscription plan identifier
    *
    * @return self the created organization aggregate
    */
@@ -104,6 +107,7 @@ final class Organization
     ?string $description = null,
     ?string $logoUrl = null,
     ?OrganizationSettings $settings = null,
+    ?PlanId $planId = null,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -119,6 +123,7 @@ final class Organization
       description: $description,
       logoUrl: $logoUrl,
       settings: $settings,
+      planId: $planId,
     );
   }
 
@@ -141,6 +146,7 @@ final class Organization
    * @param ?string $description the optional organization description
    * @param ?string $logoUrl the optional organization logo URL
    * @param ?OrganizationSettings $settings the optional structured organization settings
+   * @param ?PlanId $planId the optional assigned subscription plan identifier
    *
    * @return self the reconstituted organization aggregate
    */
@@ -157,6 +163,7 @@ final class Organization
     ?string $description = null,
     ?string $logoUrl = null,
     ?OrganizationSettings $settings = null,
+    ?PlanId $planId = null,
   ): self {
     return new self(
       id: $id,
@@ -170,6 +177,7 @@ final class Organization
       description: $description,
       logoUrl: $logoUrl,
       settings: $settings,
+      planId: $planId,
     );
   }
 
@@ -424,6 +432,35 @@ final class Organization
   public function removeLogo(): void
   {
     $this->logoUrl = null;
+    $this->touch();
+  }
+
+  /**
+   * Method planId.
+   *
+   * Returns the assigned subscription plan identifier.
+   *
+   * @since 1.0.0
+   *
+   * @return ?PlanId the assigned plan identifier when set
+   */
+  public function planId(): ?PlanId
+  {
+    return $this->planId;
+  }
+
+  /**
+   * Method changePlan.
+   *
+   * Assigns the organization to a subscription plan.
+   *
+   * @since 1.0.0
+   *
+   * @param PlanId $planId the target plan identifier
+   */
+  public function changePlan(PlanId $planId): void
+  {
+    $this->planId = $planId;
     $this->touch();
   }
 

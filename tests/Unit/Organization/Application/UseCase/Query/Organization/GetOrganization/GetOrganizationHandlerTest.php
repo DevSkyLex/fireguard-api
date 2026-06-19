@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganization;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationHandler, GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
@@ -44,7 +44,11 @@ final class GetOrganizationHandlerTest extends TestCase
       ->with(self::isInstanceOf(OrganizationId::class))
       ->willReturn(5);
 
-    $handler = new GetOrganizationHandler($organizationRepository, $memberRepository);
+    /** @var PlanRepositoryPort&MockObject $planRepository */
+    $planRepository = $this->createMock(PlanRepositoryPort::class);
+    $planRepository->expects(self::once())->method('findDefault')->willReturn(null);
+
+    $handler = new GetOrganizationHandler($organizationRepository, $memberRepository, $planRepository);
 
     $result = $handler->__invoke(new GetOrganizationQuery('550e8400-e29b-41d4-a716-446655440700'));
 
@@ -67,8 +71,9 @@ final class GetOrganizationHandlerTest extends TestCase
       ->willReturn(null);
 
     $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
 
-    $handler = new GetOrganizationHandler($organizationRepository, $memberRepository);
+    $handler = new GetOrganizationHandler($organizationRepository, $memberRepository, $planRepository);
 
     $this->expectException(OrganizationNotFoundException::class);
 

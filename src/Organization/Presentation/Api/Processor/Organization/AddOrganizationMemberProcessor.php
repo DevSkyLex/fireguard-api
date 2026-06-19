@@ -8,8 +8,9 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -48,6 +49,7 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationQuotaPort $quota,
     private Security $security,
   ) {
   }
@@ -84,6 +86,8 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.members.manage')) {
       throw new AccessDeniedHttpException('Missing Organization.members.manage permission.');
     }
+
+    $this->quota->assertCanAdd($organizationId, OrganizationQuotaResource::MEMBERS);
 
     try {
       /** @var AddOrganizationMemberResult $result */

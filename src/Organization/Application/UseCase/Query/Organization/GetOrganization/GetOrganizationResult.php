@@ -41,6 +41,8 @@ final readonly class GetOrganizationResult implements ResultMessage
    * @param ?string $description the organization description
    * @param ?string $logoUrl the organization logo URL
    * @param ?OrganizationSettings $settings the structured organization settings
+   * @param ?string $planId the assigned plan identifier
+   * @param ?string $planName the assigned plan display name
    */
   public function __construct(
     public string $id,
@@ -56,6 +58,8 @@ final readonly class GetOrganizationResult implements ResultMessage
     public ?string $description = null,
     public ?string $logoUrl = null,
     public ?OrganizationSettings $settings = null,
+    public ?string $planId = null,
+    public ?string $planName = null,
   ) {
   }
   // #endregion

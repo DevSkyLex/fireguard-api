@@ -27,7 +27,8 @@ use Intervention\Domain\Exception\{
   ClientResourceAlreadyExistsException
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
@@ -75,6 +76,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationQuotaPort $quota,
     private Security $security,
     private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
@@ -141,6 +143,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
+    $this->quota->assertCanAdd($organizationId, OrganizationQuotaResource::FACILITIES);
     $this->assertOfflineCreate($data->clientId, null !== $resourceId);
 
     try {

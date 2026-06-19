@@ -9,6 +9,8 @@ use Notification\Application\Contract\Notification\{NotificationChannel, SendNot
 use Notification\Application\Port\Inbound\NotificationPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
 use Onboarding\Infrastructure\EventSubscriber\OnboardingNotificationSubscriber;
+use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
+use Organization\Domain\ValueObject\OrganizationNotificationSettings;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -56,9 +58,58 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       notificationPort: $notificationPort,
       queryBus: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
+      policyPort: $this->policyPort(),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
+  }
+
+  #[Test]
+  public function testEmailChannelIsDroppedWhenOrganizationDisablesEmail(): void
+  {
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static function (SendNotificationRequest $request): bool {
+        return [NotificationChannel::MERCURE] === $request->channels;
+      }))
+      ->willReturn($this->makeSentNotification());
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')
+      ->willReturn(new GetUserResult($this->buildUserView('user@example.com')));
+
+    $subscriber = new OnboardingNotificationSubscriber(
+      notificationPort: $notificationPort,
+      queryBus: $queryBus,
+      logger: $this->createStub(LoggerInterface::class),
+      policyPort: $this->policyPort(emailEnabled: false),
+    );
+
+    $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
+  }
+
+  #[Test]
+  public function testNoNotificationWhenOrganizationDisablesEveryChannel(): void
+  {
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')
+      ->willReturn(new GetUserResult($this->buildUserView('user@example.com')));
+
+    $subscriber = new OnboardingNotificationSubscriber(
+      notificationPort: $notificationPort,
+      queryBus: $queryBus,
+      logger: $this->createStub(LoggerInterface::class),
+      policyPort: $this->policyPort(emailEnabled: false, inAppEnabled: false),
+    );
+
+    $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
+
+    self::addToAssertionCount(1);
   }
 
   #[Test]
@@ -83,6 +134,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       notificationPort: $notificationPort,
       queryBus: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
+      policyPort: $this->policyPort(),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
@@ -113,6 +165,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       notificationPort: $notificationPort,
       queryBus: $queryBus,
       logger: $logger,
+      policyPort: $this->policyPort(),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
@@ -139,6 +192,7 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       notificationPort: $notificationPort,
       queryBus: $queryBus,
       logger: $logger,
+      policyPort: $this->policyPort(),
     );
 
     // Must not throw
@@ -167,9 +221,21 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       notificationPort: $notificationPort,
       queryBus: $queryBus,
       logger: $this->createStub(LoggerInterface::class),
+      policyPort: $this->policyPort(),
     );
 
     $subscriber->onOrganizationOnboardingSessionCompleted($this->buildEvent());
+  }
+
+  private function policyPort(bool $emailEnabled = true, bool $inAppEnabled = true): OrganizationNotificationPolicyPort
+  {
+    $policyPort = $this->createStub(OrganizationNotificationPolicyPort::class);
+    $policyPort->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
+      emailEnabled: $emailEnabled,
+      inAppEnabled: $inAppEnabled,
+    ));
+
+    return $policyPort;
   }
 
   private function makeSentNotification(): SentNotification

@@ -26,6 +26,7 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistRecord, Insp
 #[ORM\Index(name: 'idx_organization_owner_user', columns: ['owner_user_id'])]
 #[ORM\Index(name: 'idx_organization_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_organization_status_name', columns: ['status', 'name'])]
+#[ORM\Index(name: 'idx_organization_plan', columns: ['plan_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_organization_slug', columns: ['slug'])]
 class OrganizationRecord
 {
@@ -115,6 +116,17 @@ class OrganizationRecord
    */
   #[ORM\Column(name: 'settings', type: 'json')]
   public array $settings = [];
+
+  /**
+   * Property planId.
+   *
+   * Soft reference to the assigned subscription plan. Null falls back to the
+   * catalog default plan when resolving features.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'plan_id', type: 'string', length: 36, nullable: true)]
+  public ?string $planId = null;
 
   /**
    * Property createdAt.

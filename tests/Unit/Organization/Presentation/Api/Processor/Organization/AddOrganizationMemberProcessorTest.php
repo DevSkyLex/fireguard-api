@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -38,6 +38,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $processor = new AddOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -83,6 +84,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $processor = new AddOrganizationMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -109,6 +111,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $processor = new AddOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 

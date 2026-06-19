@@ -2,6 +2,8 @@ api_platform:
   title: Fireguard Auth API
   description: OAuth2 and OpenID Connect Authorization Server
   version: 1.0.0
+  exception_to_status:
+    Organization\Domain\Exception\OrganizationQuotaExceededException: 409
   defaults:
     stateless: true
     cache_headers:

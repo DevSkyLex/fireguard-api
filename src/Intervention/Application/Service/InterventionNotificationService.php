@@ -6,8 +6,9 @@ namespace Intervention\Application\Service;
 
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use Organization\Domain\ValueObject\OrganizationMemberId;
+use Organization\Domain\ValueObject\{OrganizationMemberId, OrganizationNotificationSettings};
 use Throwable;
 
 use function array_unique;
@@ -34,10 +35,12 @@ final readonly class InterventionNotificationService
    *
    * @param NotificationPort $notifications the notifications value
    * @param OrganizationMemberRepositoryPort $members the members value
+   * @param OrganizationNotificationPolicyPort $policy the organization notification policy port
    */
   public function __construct(
     private NotificationPort $notifications,
     private OrganizationMemberRepositoryPort $members,
+    private OrganizationNotificationPolicyPort $policy,
   ) {
   }
 
@@ -132,6 +135,14 @@ final readonly class InterventionNotificationService
         return;
       }
 
+      $policy = $this->policy->notificationPolicy((string) $member->organizationId());
+
+      // Respect the organization policy: skip the event category when disabled,
+      // and the real-time channel when in-app delivery is turned off.
+      if (!$this->isCategoryEnabled($policy, $type) || !$policy->inAppEnabled) {
+        return;
+      }
+
       $this->notifications->send(new SendNotificationRequest(
         type: $type,
         subject: $subject,
@@ -143,5 +154,28 @@ final readonly class InterventionNotificationService
     } catch (Throwable) {
       // Notifications must not make a successful intervention mutation fail.
     }
+  }
+
+  /**
+   * Method isCategoryEnabled.
+   *
+   * Maps an intervention notification type to its organization policy flag.
+   * Workflow-critical events with no dedicated toggle (such as requested
+   * changes) are always allowed.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationNotificationSettings $policy the organization notification policy
+   * @param string $type the notification type
+   *
+   * @return bool true when the category may notify
+   */
+  private function isCategoryEnabled(OrganizationNotificationSettings $policy, string $type): bool
+  {
+    return match ($type) {
+      'intervention.assigned' => $policy->interventionAssigned,
+      'intervention.published' => $policy->interventionPublished,
+      default => true,
+    };
   }
 }

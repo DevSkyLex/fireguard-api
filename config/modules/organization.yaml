@@ -63,6 +63,26 @@ services:
       $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Plan\CreatePlan\CreatePlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Plan\UpdatePlan\UpdatePlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Plan\DeletePlan\DeletePlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   # Query handlers
   Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationHandler:
     tags: ['messenger.message_handler']
@@ -94,6 +114,15 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Plan\ListPlans\ListPlansHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationQuota\GetOrganizationQuotaHandler:
+    tags: ['messenger.message_handler']
+
   # Repositories
   Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository:
     arguments:
@@ -111,6 +140,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Organization\Infrastructure\Persistence\Doctrine\Repository\PlanRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Outbound ports
   Organization\Application\Port\Outbound\OrganizationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository
@@ -124,13 +157,26 @@ services:
   Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository
 
+  Organization\Application\Port\Outbound\PlanRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\PlanRepository
+
   # Inbound ports
   Organization\Application\Port\Inbound\OrganizationAuthorizationPort:
     alias: Organization\Application\Service\OrganizationAuthorizationService
 
+  Organization\Application\Port\Inbound\OrganizationQuotaPort:
+    alias: Organization\Application\Service\OrganizationQuotaService
+
+  Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort:
+    alias: Organization\Application\Service\OrganizationNotificationPolicyService
+
   Organization\Application\Service\OrganizationCacheInvalidator: ~
 
   Organization\Application\Service\OrganizationAuthorizationService: ~
+
+  Organization\Application\Service\OrganizationQuotaService: ~
+
+  Organization\Application\Service\OrganizationNotificationPolicyService: ~
 
   Organization\Application\Port\Outbound\FacilityStatisticsPort:
     alias: Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter

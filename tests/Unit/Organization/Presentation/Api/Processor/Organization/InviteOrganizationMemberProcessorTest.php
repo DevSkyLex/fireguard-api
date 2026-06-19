@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
 use Organization\Presentation\Api\Dto\Input\Organization\InviteOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
@@ -38,6 +38,7 @@ final class InviteOrganizationMemberProcessorTest extends TestCase
     $processor = new InviteOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -87,6 +88,7 @@ final class InviteOrganizationMemberProcessorTest extends TestCase
     $processor = new InviteOrganizationMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 

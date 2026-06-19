@@ -6,7 +6,7 @@ namespace Organization\Application\UseCase\Command\Organization\CreateOrganizati
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\Organization;
@@ -48,6 +48,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param UserRepositoryPort $userRepository the user repository port
+   * @param PlanRepositoryPort $planRepository the plan repository port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
    */
@@ -56,6 +57,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     private OrganizationRoleRepositoryPort $roleRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private UserRepositoryPort $userRepository,
+    private PlanRepositoryPort $planRepository,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
   ) {
@@ -95,11 +97,14 @@ final readonly class CreateOrganizationHandler implements CommandHandler
 
     $normalizedSlug = $this->normalizeNullableString($command->slug);
 
+    $defaultPlan = $this->planRepository->findDefault();
+
     $organization = Organization::create(
       id: $organizationId,
       name: new OrganizationName($command->name),
       ownerUserId: $command->ownerUserId,
       slug: null !== $normalizedSlug ? new OrganizationSlug($normalizedSlug) : null,
+      planId: $defaultPlan?->id(),
     );
 
     $ownerRole = OrganizationRole::create(
