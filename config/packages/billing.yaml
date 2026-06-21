@@ -1,0 +1,22 @@
+parameters:
+  billing.stripe_secret_key: '%env(STRIPE_SECRET_KEY)%'
+  billing.stripe_webhook_secret: '%env(STRIPE_WEBHOOK_SECRET)%'
+  billing.currency: '%env(STRIPE_CURRENCY)%'
+  billing.frontend_url: '%env(APP_FRONTEND_URL)%'
+  # Plan-key keyed Stripe price mapping (env-driven so test/live keys differ).
+  # amount is the display amount in the currency's smallest unit (e.g. cents).
+  billing.prices:
+    pro:
+      month:
+        priceId: '%env(STRIPE_PRICE_PRO_MONTHLY)%'
+        amount: '%env(int:STRIPE_PRICE_PRO_MONTHLY_AMOUNT)%'
+      year:
+        priceId: '%env(STRIPE_PRICE_PRO_YEARLY)%'
+        amount: '%env(int:STRIPE_PRICE_PRO_YEARLY_AMOUNT)%'
+    max:
+      month:
+        priceId: '%env(STRIPE_PRICE_MAX_MONTHLY)%'
+        amount: '%env(int:STRIPE_PRICE_MAX_MONTHLY_AMOUNT)%'
+      year:
+        priceId: '%env(STRIPE_PRICE_MAX_YEARLY)%'
+        amount: '%env(int:STRIPE_PRICE_MAX_YEARLY_AMOUNT)%'

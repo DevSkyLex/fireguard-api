@@ -19,6 +19,7 @@ imports:
   - { resource: '../modules/trusted_device.yaml' }
   - { resource: '../modules/authorization.yaml' }
   - { resource: '../modules/audit.yaml' }
+  - { resource: '../modules/billing.yaml' }
 
 
 

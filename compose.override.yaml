@@ -1,4 +1,13 @@
 services:
+  # FrankenPHP worker mode (dev): keeps the Symfony kernel warm between requests,
+  # which removes the per-request boot cost that is crippling over the Windows
+  # bind mount. Requires runtime/frankenphp-symfony. Backend code changes need a
+  # `docker compose restart app` to be picked up.
+  app:
+    environment:
+      APP_RUNTIME: 'Runtime\FrankenPhpSymfony\Runtime'
+      FRANKENPHP_CONFIG: 'worker ./public/index.php'
+
 ###> doctrine/doctrine-bundle ###
   auth_database:
     ports:
@@ -25,3 +34,19 @@ services:
     ports:
       - "3000:80"
 ###< symfony/mercure-bundle ###
+
+###> stripe/stripe-cli ###
+  # Forwards Stripe webhooks to the API over the compose network (dev only).
+  # Authenticates with the test secret key passed from the host shell:
+  #   export STRIPE_SECRET_KEY=sk_test_...   (then: docker compose up -d stripe-cli)
+  # The signing secret is printed in its logs — copy it into STRIPE_WEBHOOK_SECRET.
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    command: listen --forward-to http://app:8000/api/billing/webhook
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    tty: true
+###< stripe/stripe-cli ###

@@ -126,6 +126,12 @@ doctrine:
             dir: '%kernel.project_dir%/src/Intervention/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Intervention\Infrastructure\Persistence\Doctrine\Record'
             alias: Intervention
+          Billing:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Billing/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Billing\Infrastructure\Persistence\Doctrine\Record'
+            alias: Billing
     controller_resolver:
       auto_mapping: false
 

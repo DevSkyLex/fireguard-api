@@ -1,0 +1,81 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Billing\Presentation\:
+    resource: '../../src/Billing/Presentation'
+
+  # Transaction manager (main schema)
+  billing.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Persistence
+  Billing\Infrastructure\Persistence\Doctrine\Repository\SubscriptionRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Billing\Application\Port\Outbound\SubscriptionRepositoryPort:
+    alias: Billing\Infrastructure\Persistence\Doctrine\Repository\SubscriptionRepository
+
+  # Stripe gateway
+  Billing\Infrastructure\Adapter\Stripe\StripeGatewayAdapter:
+    arguments:
+      $secretKey: '%billing.stripe_secret_key%'
+      $webhookSecret: '%billing.stripe_webhook_secret%'
+
+  Billing\Application\Port\Outbound\StripeGatewayPort:
+    alias: Billing\Infrastructure\Adapter\Stripe\StripeGatewayAdapter
+
+  # Price catalog
+  Billing\Application\Service\BillingPriceCatalog:
+    arguments:
+      $prices: '%billing.prices%'
+      $currency: '%billing.currency%'
+
+  # Cross-module seams (implemented by the Organization module, bound to Billing ports)
+  Organization\Infrastructure\Adapter\Billing\OrganizationPlanAssignmentAdapter: ~
+
+  Billing\Application\Port\Outbound\OrganizationPlanAssignmentPort:
+    alias: Organization\Infrastructure\Adapter\Billing\OrganizationPlanAssignmentAdapter
+
+  Organization\Infrastructure\Adapter\Billing\OrganizationAccessAdapter: ~
+
+  Billing\Application\Port\Outbound\OrganizationAccessPort:
+    alias: Organization\Infrastructure\Adapter\Billing\OrganizationAccessAdapter
+
+  # Command handlers
+  Billing\Application\UseCase\Command\StartCheckout\StartCheckoutHandler:
+    arguments:
+      $transactionManager: '@billing.main_transaction_manager'
+      $frontendUrl: '%billing.frontend_url%'
+    tags: ['messenger.message_handler']
+
+  Billing\Application\UseCase\Command\StartPortal\StartPortalHandler:
+    arguments:
+      $frontendUrl: '%billing.frontend_url%'
+    tags: ['messenger.message_handler']
+
+  Billing\Application\UseCase\Command\HandleStripeWebhook\HandleStripeWebhookHandler:
+    arguments:
+      $transactionManager: '@billing.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Billing\Application\UseCase\Command\CancelSubscription\CancelSubscriptionHandler:
+    arguments:
+      $transactionManager: '@billing.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Billing\Application\UseCase\Command\ResumeSubscription\ResumeSubscriptionHandler:
+    arguments:
+      $transactionManager: '@billing.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Billing\Application\UseCase\Query\GetOrganizationSubscription\GetOrganizationSubscriptionHandler:
+    tags: ['messenger.message_handler']
+
+  Billing\Application\UseCase\Query\GetOrganizationInvoices\GetOrganizationInvoicesHandler:
+    tags: ['messenger.message_handler']

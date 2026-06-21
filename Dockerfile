@@ -16,12 +16,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
+# gd is required by intervention/image (organization logo resizing → WebP).
 RUN install-php-extensions \
     pdo_pgsql \
     intl \
     opcache \
     zip \
     bcmath \
+    gd \
     redis
 
 # Configure PHP and OPcache

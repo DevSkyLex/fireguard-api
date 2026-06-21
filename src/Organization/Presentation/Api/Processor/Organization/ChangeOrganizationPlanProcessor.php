@@ -9,13 +9,14 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\PlanRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\{
   ChangeOrganizationPlanCommand,
   ChangeOrganizationPlanResult
 };
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\{OrganizationNotFoundException, PlanNotFoundException};
-use Organization\Domain\ValueObject\OrganizationSettings;
+use Organization\Domain\ValueObject\{OrganizationSettings, PlanId};
 use Organization\Presentation\Api\Dto\Input\Organization\ChangeOrganizationPlanInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -24,6 +25,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
+  ConflictHttpException,
   NotFoundHttpException
 };
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
@@ -59,12 +61,14 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
    * @param CommandBusPort $commandBus the command bus
    * @param QueryBusPort $queryBus the query bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param PlanRepositoryPort $planRepository the plan repository port
    * @param Security $security the security service
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
+    private PlanRepositoryPort $planRepository,
     private Security $security,
   ) {
   }
@@ -98,6 +102,19 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
 
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.settings.write')) {
       throw new AccessDeniedHttpException('Missing organization.settings.write permission.');
+    }
+
+    // Self-service may only assign the free (default) plan. Paid plans are sold
+    // through Stripe Checkout and applied by the billing webhook, so this guard
+    // closes the "free upgrade" hole without coupling Organization to Stripe.
+    $plan = $this->planRepository->findById(PlanId::fromString($data->planId));
+
+    if (null === $plan) {
+      throw new NotFoundHttpException('Plan not found.');
+    }
+
+    if (!$plan->isDefault()) {
+      throw new ConflictHttpException('Paid plans must be subscribed to through billing. Use the checkout flow to upgrade.');
     }
 
     try {

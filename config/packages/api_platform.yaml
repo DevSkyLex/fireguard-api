@@ -28,6 +28,7 @@ api_platform:
       - '%kernel.project_dir%/src/TrustedDevice/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Authorization/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Intervention/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Billing/Presentation/Api/Resource'
 
 # Security schemes for OpenAPI (Swagger UI)
 # This is handled by api_platform.yaml security definitions in resources

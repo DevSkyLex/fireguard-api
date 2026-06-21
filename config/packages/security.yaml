@@ -29,6 +29,11 @@ security:
       pattern: ^/api/(oauth2/token|oauth2/logout|\.well-known|auth/login|auth/refresh|auth/logout|auth/mfa/verify|auth/password/reset)
       security: false
 
+    # Stripe webhook (public; Stripe signature is verified in the controller)
+    billing_webhook:
+      pattern: ^/api/billing/webhook$
+      security: false
+
     # Protected API endpoints (Bearer token required)
     api:
       pattern: ^/api
@@ -72,6 +77,9 @@ security:
 
     # Public organization logo streaming endpoint (GET only — upload stays protected)
     - { path: '^/api/organizations/.+/logo\.webp$', roles: PUBLIC_ACCESS, methods: [GET] }
+
+    # Stripe webhook (public; signature is verified in the controller)
+    - { path: ^/api/billing/webhook$, roles: PUBLIC_ACCESS, methods: [POST] }
 
     # Default: require authentication for all API endpoints
     - { path: ^/api, roles: ROLE_USER }
