@@ -7,6 +7,22 @@ services:
     environment:
       APP_RUNTIME: 'Runtime\FrankenPhpSymfony\Runtime'
       FRANKENPHP_CONFIG: 'worker ./public/index.php'
+    # Warm the DI container via the CLI (max_execution_time=0) BEFORE the worker
+    # starts serving. A backend change invalidates the compiled container; left to
+    # the worker, the recompile runs inside a 30 s web request and — because it
+    # scans src/ + config/ over the Windows bind mount (~90 s) — times out, 500s
+    # every request (preflight included) and never finalizes the cache, looping
+    # forever. Doing it here means any restart recompiles off the request path and
+    # the worker always boots warm. `exec` keeps frankenphp as PID 1 for clean
+    # restart/stop signals. FRANKENPHP_CONFIG (worker mode) still applies.
+    command:
+      - sh
+      - -c
+      - php bin/console cache:warmup && exec frankenphp run --config /etc/frankenphp/Caddyfile
+    healthcheck:
+      # A stale-cache cold boot recompiles (~90 s) before serving; give it room so
+      # the container is not flagged unhealthy (which would also stall stripe-cli).
+      start_period: 150s
 
 ###> doctrine/doctrine-bundle ###
   auth_database:

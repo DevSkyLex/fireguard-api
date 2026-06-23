@@ -163,6 +163,16 @@ class UserRecord
   public int $failedLoginAttempts = 0;
 
   /**
+   * Property locale.
+   *
+   * The preferred display language ("system" follows the browser).
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'string', length: 10, options: ['default' => 'system'])]
+  public string $locale = 'system';
+
+  /**
    * Property roles.
    *
    * The roles assigned to this user.

@@ -10,7 +10,7 @@ use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\{Email, TenantId};
 use User\Domain\Event\{UserCreatedEvent, UserEmailVerifiedEvent};
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
-use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
+use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 
 /**
  * Aggregate User.
@@ -63,6 +63,7 @@ final class User
    * @param DateTimeImmutable $createdAt when the user was created
    * @param DateTimeImmutable|null $lastLoginAt when the user last logged in
    * @param int $failedLoginAttempts number of failed login attempts
+   * @param Locale $locale the preferred display language (defaults to following the browser)
    */
   private function __construct(
     private UserId $id,
@@ -76,6 +77,7 @@ final class User
     private DateTimeImmutable $createdAt,
     private ?DateTimeImmutable $lastLoginAt = null,
     private int $failedLoginAttempts = 0,
+    private Locale $locale = Locale::SYSTEM,
   ) {
   }
   // #endregion
@@ -286,6 +288,23 @@ final class User
   }
 
   /**
+   * Method updateLocale.
+   *
+   * Updates the user's preferred display language. Pass {@see Locale::SYSTEM} to
+   * make the user follow their browser language again.
+   *
+   * @since 1.0.0
+   *
+   * @param Locale $locale the new preferred locale
+   *
+   * @return void No return value
+   */
+  public function updateLocale(Locale $locale): void
+  {
+    $this->locale = $locale;
+  }
+
+  /**
    * Method changePassword.
    *
    * Changes the user's password.
@@ -381,6 +400,14 @@ final class User
   public function failedLoginAttempts(): int
   {
     return $this->failedLoginAttempts;
+  }
+
+  /**
+   * Get the preferred display language ({@see Locale::SYSTEM} follows the browser).
+   */
+  public function locale(): Locale
+  {
+    return $this->locale;
   }
   // #endregion
 }

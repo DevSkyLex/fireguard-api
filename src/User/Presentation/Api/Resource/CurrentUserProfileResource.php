@@ -68,7 +68,7 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
       openapi: new Operation(
         tags: ['Users'],
         summary: 'Update current user profile',
-        description: 'Partially updates the authenticated user profile. Requires profile.update permission.',
+        description: 'Partially updates the authenticated user profile (first name, last name, preferred display language). Requires profile.update permission.',
         security: [['bearerAuth' => []]],
         responses: [
           HttpResponse::HTTP_OK => new Response(

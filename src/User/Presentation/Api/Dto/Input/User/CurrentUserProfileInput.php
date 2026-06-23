@@ -7,6 +7,7 @@ namespace User\Presentation\Api\Dto\Input\User;
 use ApiPlatform\Metadata\ApiProperty;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+use User\Domain\ValueObject\Locale;
 use User\Presentation\Api\Serialization\UserSerializationGroup;
 
 /**
@@ -67,5 +68,28 @@ final class CurrentUserProfileInput
     ],
   )]
   public ?string $lastName = null;
+
+  /**
+   * Property locale.
+   *
+   * The preferred display language. Omit it to leave the current preference
+   * unchanged (JSON Merge Patch semantics); send "system" to follow the browser
+   * language again.
+   */
+  #[Groups([UserSerializationGroup::WRITE])]
+  #[Assert\Choice(choices: Locale::VALUES, message: 'Unsupported locale "{{ value }}".')]
+  #[ApiProperty(
+    description: 'Preferred display language. Omit to leave unchanged; "system" follows the browser language.',
+    readable: false,
+    writable: true,
+    required: false,
+    identifier: false,
+    example: 'fr',
+    openapiContext: [
+      'type' => 'string',
+      'enum' => ['system', 'en', 'fr', 'es'],
+    ],
+  )]
+  public ?string $locale = null;
   // #endregion
 }

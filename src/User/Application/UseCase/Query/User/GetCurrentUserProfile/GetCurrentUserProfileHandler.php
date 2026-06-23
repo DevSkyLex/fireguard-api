@@ -94,6 +94,7 @@ final readonly class GetCurrentUserProfileHandler implements \Shared\Application
       createdAt: $user->createdAt(),
       lastLoginAt: $user->lastLoginAt(),
       canLogin: $user->canLogin(),
+      locale: $user->locale()->value,
     );
   }
   // #endregion

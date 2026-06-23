@@ -7,7 +7,7 @@ namespace User\Infrastructure\Persistence\Doctrine\Mapper;
 use ReflectionClass;
 use Shared\Domain\ValueObject\{Email, TenantId};
 use User\Domain\Model\User\User;
-use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
+use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
 use function is_int;
@@ -50,6 +50,7 @@ final class UserMapper
     $record->tenantId = $user->tenantId()?->__toString();
     $record->createdAt = $user->createdAt();
     $record->lastLoginAt = $user->lastLoginAt();
+    $record->locale = $user->locale()->value;
 
     // Access private password property via reflection
     $reflection = new ReflectionClass($user);
@@ -89,6 +90,7 @@ final class UserMapper
     $record->emailVerified = $user->isEmailVerified();
     $record->tenantId = $user->tenantId()?->__toString();
     $record->lastLoginAt = $user->lastLoginAt();
+    $record->locale = $user->locale()->value;
 
     // Access private password property via reflection
     $reflection = new ReflectionClass($user);
@@ -138,6 +140,7 @@ final class UserMapper
     $this->setProperty($user, 'createdAt', $record->createdAt);
     $this->setProperty($user, 'lastLoginAt', $record->lastLoginAt);
     $this->setProperty($user, 'failedLoginAttempts', $record->failedLoginAttempts);
+    $this->setProperty($user, 'locale', Locale::from($record->locale));
 
     return $user;
   }

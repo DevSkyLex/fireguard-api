@@ -52,4 +52,24 @@ final class CurrentUserProfileApiTest extends WebTestCase
     self::assertNotSame(404, $response->getStatusCode());
     self::assertContains($response->getStatusCode(), [401, 403]);
   }
+
+  #[Test]
+  public function testUpdateCurrentUserProfileLocaleRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      'PATCH',
+      '/api/me',
+      server: [
+        'CONTENT_TYPE' => 'application/merge-patch+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: '{"locale":"fr"}',
+    );
+
+    $response = $client->getResponse();
+    self::assertNotSame(404, $response->getStatusCode());
+    self::assertContains($response->getStatusCode(), [401, 403]);
+  }
 }

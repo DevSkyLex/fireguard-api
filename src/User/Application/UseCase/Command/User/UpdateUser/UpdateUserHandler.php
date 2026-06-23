@@ -6,7 +6,7 @@ namespace User\Application\UseCase\Command\User\UpdateUser;
 
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
-use User\Domain\ValueObject\{UserId, UserProfile};
+use User\Domain\ValueObject\{Locale, UserId, UserProfile};
 
 /**
  * Handler UpdateUserHandler.
@@ -69,6 +69,13 @@ final readonly class UpdateUserHandler implements \Shared\Application\Message\Co
     );
 
     $user->updateProfile(profile: $newProfile);
+
+    // Merge semantics: a null locale leaves the current preference untouched, so
+    // a name-only update never clobbers it. Locale::SYSTEM clears it back to the
+    // browser language.
+    if (null !== $command->locale) {
+      $user->updateLocale(locale: Locale::from($command->locale));
+    }
 
     $this->userRepository->save(user: $user);
 

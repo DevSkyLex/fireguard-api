@@ -85,6 +85,7 @@ final readonly class GetUserHandler implements \Shared\Application\Message\Query
       createdAt: $user->createdAt(),
       lastLoginAt: $user->lastLoginAt(),
       canLogin: $user->canLogin(),
+      locale: $user->locale()->value,
     );
   }
   // #endregion

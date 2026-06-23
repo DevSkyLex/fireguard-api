@@ -120,6 +120,26 @@ final class CurrentUserProfileOutput
   public ?string $lastLoginAt = null;
 
   /**
+   * Property locale.
+   *
+   * The preferred display language. "system" means the user follows their
+   * browser language.
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Preferred display language. "system" follows the browser language.',
+    readable: true,
+    writable: false,
+    example: 'fr',
+    openapiContext: [
+      'type' => 'string',
+      'enum' => ['system', 'en', 'fr', 'es'],
+      'readOnly' => true,
+    ],
+  )]
+  public string $locale = 'system';
+
+  /**
    * @var list<string>
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
