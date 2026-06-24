@@ -60,5 +60,23 @@ final class OnboardingOperations
    * @var string
    */
   public const string SKIP_ORGANIZATION_ONBOARDING_STEP = 'skipOrganizationOnboardingStep';
+
+  /**
+   * Constant DISMISS_ORGANIZATION_ONBOARDING.
+   *
+   * @since 3.0.0
+   *
+   * @var string
+   */
+  public const string DISMISS_ORGANIZATION_ONBOARDING = 'dismissOrganizationOnboarding';
+
+  /**
+   * Constant RESUME_ORGANIZATION_ONBOARDING.
+   *
+   * @since 3.0.0
+   *
+   * @var string
+   */
+  public const string RESUME_ORGANIZATION_ONBOARDING = 'resumeOrganizationOnboarding';
   // #endregion
 }

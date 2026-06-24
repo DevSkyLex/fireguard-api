@@ -79,7 +79,7 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->assertSame('in_progress', $data['state']);
     $this->assertSame('create_organization', $data['nextStep']);
     $this->assertIsArray($data['steps']);
-    $this->assertCount(5, $data['steps']);
+    $this->assertCount(6, $data['steps']);
   }
 
   public function testCompleteOrganizationOnboardingFlow(): void
@@ -155,7 +155,8 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
 
     $createOrgData = $this->decodeJsonResponse($createOrgResponse->getContent() ?: '{}');
     $this->assertSame('in_progress', $createOrgData['state']);
-    $this->assertSame('invite_members', $createOrgData['nextStep']);
+    // select_plan is the first step after the organization is created.
+    $this->assertSame('select_plan', $createOrgData['nextStep']);
     $this->assertNotNull($createOrgData['targetOrganizationId']);
     $this->assertTrue($createOrgData['canRollback']);
 
@@ -356,6 +357,74 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->assertSame('in_progress', $resetData['state']);
     $this->assertSame('create_organization', $resetData['nextStep']);
     $this->assertFalse($resetData['canRollback']);
+  }
+
+  public function testDismissAndResumeActivationKeepsFlowNonBlocking(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $email = 'onboarding-dismiss-' . uniqid() . '@example.com';
+    $password = 'Password123!';
+
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+
+    $authServer = [
+      'CONTENT_TYPE' => 'application/ld+json',
+      'HTTP_ACCEPT' => 'application/ld+json',
+      'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+    ];
+
+    // Dismiss the activation flow without completing it.
+    $client->request(
+      method: 'POST',
+      uri: '/api/onboarding/organization/dismiss',
+      server: $authServer,
+      content: '{}',
+    );
+
+    $dismissResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $dismissResponse->getStatusCode(),
+      'Dismiss activation should return 200. Response: ' . $dismissResponse->getContent(),
+    );
+
+    $dismissData = $this->decodeJsonResponse($dismissResponse->getContent() ?: '{}');
+    $this->assertTrue($dismissData['dismissed'], 'Dismissed flag should be true after dismiss.');
+    $this->assertNotNull($dismissData['dismissedAt']);
+    // Dismissal must not block the flow: progression is preserved.
+    $this->assertSame('in_progress', $dismissData['state']);
+    $this->assertSame('create_organization', $dismissData['nextStep']);
+
+    // A subsequent GET still reports the dismissal (read does not reset it).
+    $client->request(
+      method: 'GET',
+      uri: '/api/onboarding/organization',
+      server: $authServer,
+    );
+
+    $getData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $this->assertTrue($getData['dismissed'], 'Dismissed flag should persist across reads.');
+
+    // Resume clears the dismissal so the setup checklist becomes visible again.
+    $client->request(
+      method: 'POST',
+      uri: '/api/onboarding/organization/resume',
+      server: $authServer,
+      content: '{}',
+    );
+
+    $resumeResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $resumeResponse->getStatusCode(),
+      'Resume activation should return 200. Response: ' . $resumeResponse->getContent(),
+    );
+
+    $resumeData = $this->decodeJsonResponse($resumeResponse->getContent() ?: '{}');
+    $this->assertFalse($resumeData['dismissed'], 'Dismissed flag should be false after resume.');
+    $this->assertNull($resumeData['dismissedAt']);
   }
 
   private function loginAndGetUserAccessToken(KernelBrowser $client, string $email, string $password): string

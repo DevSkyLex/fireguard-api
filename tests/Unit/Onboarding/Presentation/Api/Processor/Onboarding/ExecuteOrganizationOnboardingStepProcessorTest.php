@@ -128,7 +128,7 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
     self::assertInstanceOf(OrganizationOnboardingOutput::class, $output);
     self::assertSame('organization', $output->flow);
     self::assertSame('in_progress', $output->state);
-    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $output->nextStep);
+    self::assertSame(OrganizationOnboardingStep::SELECT_PLAN, $output->nextStep);
   }
 
   #[Test]

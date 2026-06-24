@@ -146,5 +146,15 @@ class OrganizationOnboardingSessionRecord
    */
   #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
   public DateTimeImmutable $updatedAt;
+
+  /**
+   * Property dismissedAt.
+   *
+   * When the user voluntarily hid the non-blocking activation flow, or null.
+   *
+   * @since 3.0.0
+   */
+  #[ORM\Column(name: 'dismissed_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $dismissedAt = null;
   // #endregion
 }

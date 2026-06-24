@@ -233,7 +233,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     );
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $state->nextStep);
+    // select_plan is the first step proposed after the organization is created.
+    self::assertSame(OrganizationOnboardingStep::SELECT_PLAN, $state->nextStep);
     self::assertSame($orgId, $state->targetOrganizationId);
     self::assertContains(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->completedSteps);
     self::assertTrue($state->canRollback);
@@ -399,6 +400,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::SELECT_PLAN,
       ],
       skippedSteps: [],
       rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
@@ -456,6 +458,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::SELECT_PLAN,
       ],
       skippedSteps: [],
       rollbackStack: [],
@@ -525,6 +528,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::SELECT_PLAN,
         OrganizationOnboardingStep::INVITE_MEMBERS,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
         OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
@@ -595,7 +599,10 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
+      skippedSteps: [
+        OrganizationOnboardingStep::SELECT_PLAN,
+        OrganizationOnboardingStep::INVITE_MEMBERS,
+      ],
       rollbackStack: [],
       stepHistory: [],
       createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
@@ -642,6 +649,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [
         OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::SELECT_PLAN,
         OrganizationOnboardingStep::INVITE_MEMBERS,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
         OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
@@ -751,7 +759,10 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
       completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
-      skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
+      skippedSteps: [
+        OrganizationOnboardingStep::SELECT_PLAN,
+        OrganizationOnboardingStep::INVITE_MEMBERS,
+      ],
       rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
       stepHistory: [],
       createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),

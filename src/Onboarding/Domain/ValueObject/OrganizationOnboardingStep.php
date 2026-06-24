@@ -20,6 +20,8 @@ final class OrganizationOnboardingStep
   // #region Constants
   public const string CREATE_ORGANIZATION = 'create_organization';
 
+  public const string SELECT_PLAN = 'select_plan';
+
   public const string INVITE_MEMBERS = 'invite_members';
 
   public const string CREATE_FIRST_FACILITY = 'create_first_facility';
@@ -55,6 +57,7 @@ final class OrganizationOnboardingStep
   {
     return [
       self::CREATE_ORGANIZATION,
+      self::SELECT_PLAN,
       self::INVITE_MEMBERS,
       self::CREATE_FIRST_FACILITY,
       self::CREATE_FIRST_EQUIPMENT,

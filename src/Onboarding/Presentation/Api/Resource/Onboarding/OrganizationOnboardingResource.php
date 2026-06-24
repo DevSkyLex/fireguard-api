@@ -13,7 +13,9 @@ use Onboarding\Presentation\Api\Dto\Input\Onboarding\{
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Operation\OnboardingOperations;
 use Onboarding\Presentation\Api\Processor\Onboarding\{
+  DismissOrganizationOnboardingProcessor,
   ExecuteOrganizationOnboardingStepProcessor,
+  ResumeOrganizationOnboardingProcessor,
   RollbackOrganizationOnboardingProcessor,
   SkipOrganizationOnboardingStepProcessor,
   StartOrganizationOnboardingProcessor
@@ -133,6 +135,44 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Onboarding step skipped'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid or required step'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Step not available to skip in current flow state'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+        ],
+      ),
+    ),
+    new Post(
+      name: OnboardingOperations::DISMISS_ORGANIZATION_ONBOARDING,
+      uriTemplate: '/organization/dismiss',
+      status: HttpResponse::HTTP_OK,
+      input: false,
+      output: OrganizationOnboardingOutput::class,
+      processor: DismissOrganizationOnboardingProcessor::class,
+      normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Onboarding'],
+        summary: 'Dismiss organization onboarding activation',
+        description: 'Voluntarily hides the non-blocking activation flow without completing it. Progression is preserved and can be resumed later.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Onboarding activation dismissed'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+        ],
+      ),
+    ),
+    new Post(
+      name: OnboardingOperations::RESUME_ORGANIZATION_ONBOARDING,
+      uriTemplate: '/organization/resume',
+      status: HttpResponse::HTTP_OK,
+      input: false,
+      output: OrganizationOnboardingOutput::class,
+      processor: ResumeOrganizationOnboardingProcessor::class,
+      normalizationContext: ['groups' => [OnboardingSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Onboarding'],
+        summary: 'Resume organization onboarding activation',
+        description: 'Clears a previous dismissal so the activation flow and setup checklist become visible again.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Onboarding activation resumed'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
         ],
       ),

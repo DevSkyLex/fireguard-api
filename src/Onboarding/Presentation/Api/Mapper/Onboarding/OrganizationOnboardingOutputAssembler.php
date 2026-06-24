@@ -59,6 +59,8 @@ final class OrganizationOnboardingOutputAssembler
     $output->completedSteps = $state->completedSteps;
     $output->skippedSteps = $state->skippedSteps;
     $output->updatedAt = $state->updatedAt;
+    $output->dismissed = $state->dismissed;
+    $output->dismissedAt = $state->dismissedAt;
 
     // Step history
     $output->stepHistory = array_map(
@@ -90,6 +92,15 @@ final class OrganizationOnboardingOutputAssembler
         'skippable' => false,
         'actionMethod' => 'POST',
         'actionPath' => '/api/organizations',
+      ],
+      OrganizationOnboardingStep::SELECT_PLAN => [
+        'label' => 'Choose a plan',
+        'required' => false,
+        'skippable' => true,
+        'actionMethod' => 'POST',
+        'actionPath' => null !== $orgId
+          ? sprintf('/api/organizations/%s/billing/checkout', $orgId)
+          : '/api/organizations/{organizationId}/billing/checkout',
       ],
       OrganizationOnboardingStep::INVITE_MEMBERS => [
         'label' => 'Invite members',

@@ -296,6 +296,60 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   }
 
   /**
+   * Method dismiss.
+   *
+   * @since 3.0.0
+   *
+   * Voluntarily hides the non-blocking activation flow for the user without
+   * completing it. Dismissal is orthogonal to step progression — the flow can
+   * still complete (or be resumed) afterwards.
+   *
+   * @param string $userId the authenticated user identifier
+   *
+   * @return OrganizationOnboardingSessionState the updated flow state
+   */
+  public function dismiss(string $userId): OrganizationOnboardingSessionState
+  {
+    /** @var OrganizationOnboardingSessionState $state */
+    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+      $session = $this->getOrCreateSession($userId);
+      $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
+      $session->dismiss();
+      $this->sessionRepository->save($session);
+
+      return $this->buildState($session, $computed);
+    });
+
+    return $state;
+  }
+
+  /**
+   * Method resume.
+   *
+   * @since 3.0.0
+   *
+   * Clears a previous dismissal so the activation flow becomes visible again.
+   *
+   * @param string $userId the authenticated user identifier
+   *
+   * @return OrganizationOnboardingSessionState the updated flow state
+   */
+  public function resume(string $userId): OrganizationOnboardingSessionState
+  {
+    /** @var OrganizationOnboardingSessionState $state */
+    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+      $session = $this->getOrCreateSession($userId);
+      $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
+      $session->resume();
+      $this->sessionRepository->save($session);
+
+      return $this->buildState($session, $computed);
+    });
+
+    return $state;
+  }
+
+  /**
    * Method getOrCreateSession.
    *
    * @since 1.0.0
@@ -446,6 +500,17 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return;
     }
 
+    if (OrganizationOnboardingStep::SELECT_PLAN === $stepKey) {
+      // Plan selection is a confirmation step: subscribing to a paid plan happens
+      // out-of-band through Billing (hosted Checkout + webhook), and a new
+      // organization already defaults to the free plan. Confirming simply records
+      // that the user reviewed the plans; it carries no rollback action.
+      $session->markStepCompleted(OrganizationOnboardingStep::SELECT_PLAN);
+      $session->removeSkippedStep(OrganizationOnboardingStep::SELECT_PLAN);
+
+      return;
+    }
+
     if (OrganizationOnboardingStep::INVITE_MEMBERS === $stepKey) {
       $session->markStepCompleted(OrganizationOnboardingStep::INVITE_MEMBERS);
       $session->removeSkippedStep(OrganizationOnboardingStep::INVITE_MEMBERS);
@@ -577,6 +642,8 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       updatedAt: $session->updatedAt()->format('c'),
       canRollback: null !== $lastRollbackStep,
       lastRollbackableStep: $lastRollbackStep,
+      dismissed: $session->isDismissed(),
+      dismissedAt: $session->dismissedAt()?->format('c'),
     );
   }
 

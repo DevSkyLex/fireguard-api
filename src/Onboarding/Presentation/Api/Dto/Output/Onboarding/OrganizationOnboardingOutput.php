@@ -168,5 +168,26 @@ final class OrganizationOnboardingOutput
   #[Groups([OnboardingSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false, required: false)]
   public ?string $updatedAt = null;
+
+  /**
+   * Property dismissed.
+   *
+   * Whether the user voluntarily hid the non-blocking activation flow. Onboarding
+   * never blocks navigation; this flag lets the shell hide the setup checklist.
+   *
+   * @since 3.0.0
+   */
+  #[Groups([OnboardingSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $dismissed = false;
+
+  /**
+   * Property dismissedAt.
+   *
+   * @since 3.0.0
+   */
+  #[Groups([OnboardingSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, required: false)]
+  public ?string $dismissedAt = null;
   // #endregion
 }

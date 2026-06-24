@@ -54,6 +54,7 @@ final class OrganizationOnboardingSessionMapper
     );
     $record->createdAt = $session->createdAt();
     $record->updatedAt = $session->updatedAt();
+    $record->dismissedAt = $session->dismissedAt();
 
     return $record;
   }
@@ -94,6 +95,7 @@ final class OrganizationOnboardingSessionMapper
       stepHistory: $stepHistory,
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
+      dismissedAt: $record->dismissedAt,
     );
   }
   // #endregion

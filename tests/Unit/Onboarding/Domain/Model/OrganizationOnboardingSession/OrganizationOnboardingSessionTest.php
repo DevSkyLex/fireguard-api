@@ -509,4 +509,101 @@ final class OrganizationOnboardingSessionTest extends TestCase
   }
 
   // #endregion
+
+  // #region dismiss / resume
+
+  #[Test]
+  public function testDismissMarksSessionAsDismissed(): void
+  {
+    $session = OrganizationOnboardingSession::start(
+      id: '550e8400-e29b-41d4-a716-550000000001',
+      userId: '550e8400-e29b-41d4-a716-550000000002',
+    );
+
+    self::assertFalse($session->isDismissed());
+    self::assertNull($session->dismissedAt());
+
+    $session->dismiss();
+
+    self::assertTrue($session->isDismissed());
+    self::assertNotNull($session->dismissedAt());
+    // Dismissal is orthogonal to progression: state must remain in_progress.
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $session->state());
+  }
+
+  #[Test]
+  public function testDismissIsIdempotent(): void
+  {
+    $session = OrganizationOnboardingSession::start(
+      id: '550e8400-e29b-41d4-a716-550000000001',
+      userId: '550e8400-e29b-41d4-a716-550000000002',
+    );
+
+    $session->dismiss();
+    $updatedAtAfterFirst = $session->updatedAt();
+
+    $session->dismiss();
+
+    self::assertTrue($session->isDismissed());
+    self::assertSame($updatedAtAfterFirst, $session->updatedAt());
+  }
+
+  #[Test]
+  public function testResumeClearsDismissal(): void
+  {
+    $session = OrganizationOnboardingSession::start(
+      id: '550e8400-e29b-41d4-a716-550000000001',
+      userId: '550e8400-e29b-41d4-a716-550000000002',
+    );
+
+    $session->dismiss();
+    $session->resume();
+
+    self::assertFalse($session->isDismissed());
+    self::assertNull($session->dismissedAt());
+  }
+
+  #[Test]
+  public function testResumeIsNoopWhenNotDismissed(): void
+  {
+    $session = OrganizationOnboardingSession::start(
+      id: '550e8400-e29b-41d4-a716-550000000001',
+      userId: '550e8400-e29b-41d4-a716-550000000002',
+    );
+
+    $before = $session->updatedAt();
+    $session->resume();
+
+    self::assertFalse($session->isDismissed());
+    self::assertSame($before, $session->updatedAt());
+  }
+
+  #[Test]
+  public function testReconstitutePreservesDismissedAt(): void
+  {
+    $dismissedAt = new DateTimeImmutable('2026-06-23T09:00:00+00:00');
+
+    $session = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-550000000010',
+      userId: '550e8400-e29b-41d4-a716-550000000011',
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+      blockedReason: null,
+      targetOrganizationId: 'org-123',
+      targetOrganizationName: 'My Org',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-06-23T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-06-23T09:00:00+00:00'),
+      dismissedAt: $dismissedAt,
+    );
+
+    self::assertTrue($session->isDismissed());
+    self::assertSame($dismissedAt, $session->dismissedAt());
+  }
+
+  // #endregion
 }
