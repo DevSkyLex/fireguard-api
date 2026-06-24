@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{CreateInspectionCommand, CreateInspectionResult};
 use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
+use Inspection\Domain\ValueObject\InspectorType;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
@@ -136,6 +137,13 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     $this->quota->assertCanAdd($organizationId, OrganizationQuotaResource::INSPECTIONS);
     $this->assertOfflineCreate($data->clientId, null !== $resourceId);
 
+    // A USER inspection requires the acting user when the client does not name a
+    // specific technician (e.g. the self-service onboarding "first inspection").
+    $inspectorUserId = $data->inspectorUserId;
+    if (InspectorType::USER->value === $data->inspectorType && (null === $inspectorUserId || '' === $inspectorUserId)) {
+      $inspectorUserId = $user->getId();
+    }
+
     try {
       /** @var CreateInspectionResult $result */
       $result = $this->commandBus->dispatch(new CreateInspectionCommand(
@@ -147,7 +155,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
         inspectorName: $data->inspectorName,
         facilityId: $data->facilityId,
         checklistId: $data->checklistId,
-        inspectorUserId: $data->inspectorUserId,
+        inspectorUserId: $inspectorUserId,
         inspectorOrganizationName: $data->inspectorOrganizationName,
         notes: $data->notes,
         signature: $data->signature,

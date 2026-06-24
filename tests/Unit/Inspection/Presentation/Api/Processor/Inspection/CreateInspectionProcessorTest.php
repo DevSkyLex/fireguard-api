@@ -254,6 +254,71 @@ final class CreateInspectionProcessorTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testProcessDefaultsInspectorUserIdToAuthenticatedUserForUserType(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (CreateInspectionCommand $command): bool {
+        return 'user' === $command->inspectorType
+          && self::USER_ID === $command->inspectorUserId;
+      }))
+      ->willReturn(new CreateInspectionResult(
+        inspectionId: self::INSP_ID,
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        facilityId: null,
+        result: 'pass',
+        status: 'draft',
+        performedAt: '2026-01-15T10:00:00+00:00',
+        inspectorType: 'user',
+        inspectorName: 'John Doe',
+        inspectorUserId: self::USER_ID,
+        inspectorOrganizationName: null,
+        checklistId: null,
+        notes: null,
+        signature: null,
+        createdAt: $now,
+        updatedAt: $now,
+      ));
+
+    $input = new CreateInspectionInput();
+    $input->equipmentId = self::EQUIP_ID;
+    $input->result = 'pass';
+    $input->performedAt = '2026-01-15T10:00:00+00:00';
+    $input->inspectorType = 'user';
+    $input->inspectorName = 'John Doe';
+    // inspectorUserId intentionally left null: the processor must attribute the
+    // inspection to the authenticated user for the USER inspector type.
+
+    $processor = new CreateInspectionProcessor(
+      commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      security: $security,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+
+    self::assertInstanceOf(InspectionOutput::class, $output);
+    self::assertSame(self::INSP_ID, $output->id);
+  }
+
   private function createSecurityUser(): SecurityUser
   {
     return new SecurityUser(

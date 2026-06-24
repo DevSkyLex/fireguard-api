@@ -57,6 +57,15 @@ services:
   Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\ConfirmPasswordResetHandler:
     tags: ['messenger.message_handler']
 
+  Auth\Application\UseCase\Command\Registration\RegisterUser\RegisterUserHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Registration\ResendRegistration\ResendRegistrationHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Registration\ConfirmRegistration\ConfirmRegistrationHandler:
+    tags: ['messenger.message_handler']
+
   Auth\Application\UseCase\Command\PasswordChange\RequestPasswordChange\RequestPasswordChangeHandler:
     tags: ['messenger.message_handler']
 
@@ -81,6 +90,11 @@ services:
   Auth\Presentation\Api\Processor\PasswordReset\RequestPasswordResetProcessor: ~
   Auth\Presentation\Api\Processor\PasswordReset\ResendPasswordResetProcessor: ~
   Auth\Presentation\Api\Processor\PasswordReset\ConfirmPasswordResetProcessor: ~
+
+  # Registration Processors
+  Auth\Presentation\Api\Processor\Registration\RegisterUserProcessor: ~
+  Auth\Presentation\Api\Processor\Registration\ResendRegistrationProcessor: ~
+  Auth\Presentation\Api\Processor\Registration\ConfirmRegistrationProcessor: ~
 
   # Password Change Processors
   Auth\Presentation\Api\Processor\PasswordChange\RequestPasswordChangeProcessor: ~

@@ -100,6 +100,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
     $testRecord->emailVerified = true;
     $manager->persist($testRecord);
     $this->addReference(self::TEST_USER_REFERENCE, $testRecord);
+    $this->assignUserRole($manager, 'b2c3d4e5-f6a7-4901-8cde-f23456789012');
 
     // Create Demo Users
     $demoUsers = [
@@ -109,8 +110,9 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
     ];
 
     foreach ($demoUsers as $index => $userData) {
+      $userId = sprintf('c3d4e5f6-a7b8-40%02d-8def-345678901234', $index);
       $user = $this->createUser(
-        id: sprintf('c3d4e5f6-a7b8-40%02d-8def-345678901234', $index),
+        id: $userId,
         username: $userData[0],
         email: $userData[1],
         firstName: $userData[2],
@@ -119,6 +121,7 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
       );
       $record = $this->userMapper->toRecord($user);
       $manager->persist($record);
+      $this->assignUserRole($manager, $userId);
     }
 
     // Create User matching Dev Client ID (for Client Credentials flow)
@@ -174,6 +177,33 @@ class UserFixtures extends Fixture implements DependentFixtureInterface, Fixture
     $assignment->roleId = $adminRole->id;
     $assignment->subjectType = SubjectType::USER->value;
     $assignment->subjectId = self::ADMIN_USER_ID;
+    $assignment->assignedAt = new DateTimeImmutable();
+
+    $manager->persist($assignment);
+  }
+
+  /**
+   * Assigns the default global "user" role to a seeded user.
+   *
+   * Fixture users release their domain events, so the runtime
+   * AssignDefaultRoleOnUserCreatedHandler never fires for them; the baseline
+   * self-service permissions (profile, sessions, OTP, trusted devices) must
+   * therefore be granted explicitly here.
+   *
+   * @param ObjectManager $manager the object manager
+   * @param string $userId the user ID to grant the role to
+   */
+  private function assignUserRole(ObjectManager $manager, string $userId): void
+  {
+    /** @var RoleRecord $userRole */
+    $userRole = $this->getReference(AuthorizationFixtures::ROLE_USER, RoleRecord::class);
+
+    $assignment = new RoleAssignmentRecord();
+    $assignment->id = Uuid::v7()->toRfc4122();
+    $assignment->role = $userRole;
+    $assignment->roleId = $userRole->id;
+    $assignment->subjectType = SubjectType::USER->value;
+    $assignment->subjectId = $userId;
     $assignment->assignedAt = new DateTimeImmutable();
 
     $manager->persist($assignment);
