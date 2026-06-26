@@ -37,7 +37,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertNull($output->rollbackPath);
     self::assertNull($output->rollbackMethod);
 
-    self::assertCount(6, $output->steps);
+    self::assertCount(5, $output->steps);
 
     $createStep = $output->steps[0];
     self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $createStep->key);
@@ -50,7 +50,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertFalse($createStep->rollbackAvailable);
 
     // All subsequent steps are blocked before create_organization
-    for ($i = 1; $i < 6; ++$i) {
+    for ($i = 1; $i < 5; ++$i) {
       self::assertSame('blocked', $output->steps[$i]->status);
       self::assertFalse($output->steps[$i]->available);
       self::assertSame('organization_required', $output->steps[$i]->reason);
@@ -61,7 +61,6 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertFalse($output->steps[2]->required); // invite_members (optional)
     self::assertTrue($output->steps[3]->required);  // create_first_facility
     self::assertTrue($output->steps[4]->required);  // create_first_equipment
-    self::assertTrue($output->steps[5]->required);  // run_first_inspection
 
     $planStep = $output->steps[1];
     self::assertSame(OrganizationOnboardingStep::SELECT_PLAN, $planStep->key);
@@ -103,7 +102,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertTrue($createStep->available);
 
     // All subsequent steps are blocked
-    for ($i = 1; $i < 6; ++$i) {
+    for ($i = 1; $i < 5; ++$i) {
       self::assertSame('blocked', $output->steps[$i]->status);
       self::assertSame('organization_required', $output->steps[$i]->reason);
     }
@@ -113,7 +112,6 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertFalse($output->steps[2]->required); // invite_members (optional)
     self::assertTrue($output->steps[3]->required);  // create_first_facility
     self::assertTrue($output->steps[4]->required);  // create_first_equipment
-    self::assertTrue($output->steps[5]->required);  // run_first_inspection
   }
 
   #[Test]
@@ -142,7 +140,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertSame('/api/onboarding/organization/rollback', $output->rollbackPath);
     self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $output->lastRollbackableStep);
 
-    self::assertCount(6, $output->steps);
+    self::assertCount(5, $output->steps);
 
     // create_organization: completed, rollbackable
     $createStep = $output->steps[0];
@@ -173,7 +171,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertFalse($inviteStep->rollbackAvailable);
 
     // Remaining steps: blocked (previous_step_required)
-    for ($i = 3; $i < 6; ++$i) {
+    for ($i = 3; $i < 5; ++$i) {
       self::assertSame('blocked', $output->steps[$i]->status);
       self::assertSame('previous_step_required', $output->steps[$i]->reason);
     }
@@ -181,7 +179,6 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     // All three are required steps — required flag must be true even when blocked
     self::assertTrue($output->steps[3]->required);  // create_first_facility
     self::assertTrue($output->steps[4]->required);  // create_first_equipment
-    self::assertTrue($output->steps[5]->required);  // run_first_inspection
   }
 
   #[Test]
@@ -205,7 +202,7 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
     self::assertNull($output->nextStep);
     self::assertFalse($output->canRollback);
     self::assertNull($output->rollbackPath);
-    self::assertCount(6, $output->steps);
+    self::assertCount(5, $output->steps);
 
     foreach ($output->steps as $step) {
       self::assertSame('completed', $step->status);
@@ -230,7 +227,6 @@ final class OrganizationOnboardingOutputAssemblerTest extends TestCase
         OrganizationOnboardingStep::SELECT_PLAN,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
         OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
-        OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
       ],
       skippedSteps: [OrganizationOnboardingStep::INVITE_MEMBERS],
       canRollback: false,

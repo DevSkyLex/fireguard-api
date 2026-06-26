@@ -79,7 +79,7 @@ final class OnboardingFlowTest extends OAuth2WebTestCase
     $this->assertSame('in_progress', $data['state']);
     $this->assertSame('create_organization', $data['nextStep']);
     $this->assertIsArray($data['steps']);
-    $this->assertCount(6, $data['steps']);
+    $this->assertCount(5, $data['steps']);
   }
 
   public function testCompleteOrganizationOnboardingFlow(): void

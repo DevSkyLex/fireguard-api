@@ -7,7 +7,6 @@ namespace Tests\Unit\Onboarding\Application\Service;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
-use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
 use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
@@ -522,7 +521,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       userId: $userId,
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
+      nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
       blockedReason: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
@@ -531,7 +530,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
         OrganizationOnboardingStep::SELECT_PLAN,
         OrganizationOnboardingStep::INVITE_MEMBERS,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
       ],
       skippedSteps: [],
       rollbackStack: [],
@@ -557,7 +555,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       $orgResult,
       hasFacility: true,
       hasEquipment: true,
-      hasInspection: true,
     );
 
     /** @var EventDispatcherInterface&MockObject $eventDispatcher */
@@ -573,14 +570,14 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
     $state = $service->executeStep(
       userId: $userId,
-      stepKey: OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
+      stepKey: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
       input: new ExecuteOnboardingStepPayload(),
     );
 
     self::assertSame(OrganizationOnboardingState::COMPLETED, $state->state);
     self::assertNull($state->nextStep);
     self::assertSame($orgId, $state->targetOrganizationId);
-    self::assertContains(OrganizationOnboardingStep::RUN_FIRST_INSPECTION, $state->completedSteps);
+    self::assertContains(OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT, $state->completedSteps);
   }
 
   #[Test]
@@ -643,7 +640,7 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       userId: $userId,
       flow: 'organization',
       state: OrganizationOnboardingState::IN_PROGRESS,
-      nextStep: OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
+      nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
       blockedReason: null,
       targetOrganizationId: $orgId,
       targetOrganizationName: 'Fireguard SAS',
@@ -652,7 +649,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
         OrganizationOnboardingStep::SELECT_PLAN,
         OrganizationOnboardingStep::INVITE_MEMBERS,
         OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
-        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
       ],
       skippedSteps: [],
       rollbackStack: [],
@@ -674,7 +670,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
       $orgResult,
       hasFacility: true,
       hasEquipment: true,
-      hasInspection: true,
     );
 
     /** @var EventDispatcherInterface&MockObject $eventDispatcher */
@@ -690,8 +685,8 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     $state = $service->getFlow($userId);
 
     self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
-    self::assertSame(OrganizationOnboardingStep::RUN_FIRST_INSPECTION, $state->nextStep);
-    self::assertNotContains(OrganizationOnboardingStep::RUN_FIRST_INSPECTION, $state->completedSteps);
+    self::assertSame(OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT, $state->nextStep);
+    self::assertNotContains(OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT, $state->completedSteps);
   }
 
   #[Test]
@@ -905,10 +900,9 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     ?GetOrganizationResult $orgResult,
     bool $hasFacility = false,
     bool $hasEquipment = false,
-    bool $hasInspection = false,
   ): void {
     $queryBus->method('ask')->willReturnCallback(
-      static function (object $query) use ($orgResult, $hasFacility, $hasEquipment, $hasInspection): mixed {
+      static function (object $query) use ($orgResult, $hasFacility, $hasEquipment): mixed {
         if ($query instanceof ListUserOrganizationsQuery) {
           if (null === $orgResult) {
             return new PaginatedResult(items: [], total: 0, limit: 100, offset: 0);
@@ -923,10 +917,6 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
 
         if ($query instanceof ListEquipmentsQuery) {
           return new PaginatedResult(items: [], total: $hasEquipment ? 1 : 0, limit: 1, offset: 0);
-        }
-
-        if ($query instanceof ListInspectionsQuery) {
-          return new PaginatedResult(items: [], total: $hasInspection ? 1 : 0, limit: 1, offset: 0);
         }
 
         throw new RuntimeException('Unexpected query type: ' . $query::class);

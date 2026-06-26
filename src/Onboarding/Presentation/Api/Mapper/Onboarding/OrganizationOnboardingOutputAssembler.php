@@ -129,15 +129,6 @@ final class OrganizationOnboardingOutputAssembler
           ? sprintf('/api/organizations/%s/equipment', $orgId)
           : '/api/organizations/{organizationId}/equipment',
       ],
-      OrganizationOnboardingStep::RUN_FIRST_INSPECTION => [
-        'label' => 'Run first inspection',
-        'required' => true,
-        'skippable' => false,
-        'actionMethod' => 'POST',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/inspections', $orgId)
-          : '/api/organizations/{organizationId}/inspections',
-      ],
     ];
 
     $steps = [];

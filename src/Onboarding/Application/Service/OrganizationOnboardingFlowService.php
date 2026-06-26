@@ -6,7 +6,6 @@ namespace Onboarding\Application\Service;
 
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
-use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
 use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
@@ -518,10 +517,10 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return;
     }
 
-    // Auto-detected steps (create_first_facility, create_first_equipment,
-    // run_first_inspection): validate that the external
-    // action was actually completed before accepting the user's confirmation.
-    // This prevents advancing the flow when the required module data does not exist yet.
+    // Auto-detected steps (create_first_facility, create_first_equipment):
+    // validate that the external action was actually completed before accepting
+    // the user's confirmation. This prevents advancing the flow when the required
+    // module data does not exist yet.
     $orgId = $session->targetOrganizationId();
     if (!is_string($orgId) || '' === $orgId) {
       throw new InvalidArgumentException(
@@ -532,7 +531,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     $stateExists = match ($stepKey) {
       OrganizationOnboardingStep::CREATE_FIRST_FACILITY => $this->hasFacility($orgId),
       OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT => $this->hasEquipment($orgId),
-      OrganizationOnboardingStep::RUN_FIRST_INSPECTION => $this->hasInspection($orgId),
       default => false,
     };
 
@@ -579,26 +577,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   {
     /** @var PaginatedResult<mixed> $result */
     $result = $this->queryBus->ask(new ListEquipmentsQuery(
-      organizationId: $organizationId,
-      pagination: new Pagination(offset: 0, limit: 1),
-    ));
-
-    return $result->total > 0;
-  }
-
-  /**
-   * Method hasInspection.
-   *
-   * @since 2.0.0
-   *
-   * @param string $organizationId the organization to check
-   *
-   * @return bool true when at least one inspection exists
-   */
-  private function hasInspection(string $organizationId): bool
-  {
-    /** @var PaginatedResult<mixed> $result */
-    $result = $this->queryBus->ask(new ListInspectionsQuery(
       organizationId: $organizationId,
       pagination: new Pagination(offset: 0, limit: 1),
     ));

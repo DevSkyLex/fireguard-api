@@ -53,11 +53,6 @@ final class OnboardingFixtures extends Fixture implements DependentFixtureInterf
         'occurredAt' => '2026-03-06T08:30:00+00:00',
         'skipped' => false,
       ],
-      [
-        'stepKey' => OrganizationOnboardingStep::RUN_FIRST_INSPECTION,
-        'occurredAt' => '2026-03-06T09:00:00+00:00',
-        'skipped' => false,
-      ],
     ];
 
     $session = new OrganizationOnboardingSessionRecord();

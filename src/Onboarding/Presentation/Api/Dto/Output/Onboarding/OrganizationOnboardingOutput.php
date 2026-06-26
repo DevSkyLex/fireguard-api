@@ -43,7 +43,7 @@ final class OrganizationOnboardingOutput
   /**
    * Property nextStep.
    *
-   * Possible values: create_organization, invite_members, create_first_facility, create_first_equipment, run_first_inspection.
+   * Possible values: create_organization, select_plan, invite_members, create_first_facility, create_first_equipment.
    *
    * @since 1.0.0
    */
