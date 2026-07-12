@@ -16,16 +16,21 @@ use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitation
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Throwable;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
+use function array_filter;
+use function array_key_exists;
 use function array_slice;
+use function array_values;
 use function count;
-use function is_numeric;
 use function is_string;
-use function max;
+use function trim;
 
 /**
  * Provider ListOrganizationInvitationsProvider.
@@ -73,9 +78,6 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
-   * @return list<OrganizationInvitationOutput>
-   */
-  /**
    * @return TraversablePaginator<OrganizationInvitationOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
@@ -94,29 +96,20 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       throw new AccessDeniedHttpException('Missing Organization.members.manage permission.');
     }
 
-    $filters = $context['filters'] ?? [];
-    /** @var array<string, mixed> $filters */
-    $pageValue = $filters['page'] ?? 1;
-    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
-
-    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
-    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
-
-    $page = max(1, $page);
-    $itemsPerPage = max(1, $itemsPerPage);
-
-    $offset = ($page - 1) * $itemsPerPage;
+    $pagination = PaginationExtractor::fromContext($context);
 
     try {
       /** @var PaginatedResult<GetOrganizationInvitationResult> $result */
       $result = $this->queryBus->ask(new ListOrganizationInvitationsQuery(
         organizationId: $organizationId,
-        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+        pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
       ));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     }
 
+    /** @var array<string, ?string> $displayNameCache */
+    $displayNameCache = [];
     $outputs = [];
     foreach ($result->items as $invitation) {
       $output = new OrganizationInvitationOutput();
@@ -125,6 +118,10 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       $output->email = $invitation->email;
       $output->status = $invitation->status;
       $output->invitedByUserId = $invitation->invitedByUserId;
+      $output->invitedByDisplayName = $this->resolveDisplayName(
+        $invitation->invitedByUserId,
+        $displayNameCache,
+      );
       $output->acceptedByUserId = $invitation->acceptedByUserId;
       $output->revokedByUserId = $invitation->revokedByUserId;
       $output->expiresAt = $invitation->expiresAt->format('c');
@@ -136,22 +133,68 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
       $outputs[] = $output;
     }
 
+    $filters = $context['filters'] ?? [];
+    /** @var array<string, mixed> $filters */
+    $statusFilter = $filters['status'] ?? null;
+    if (is_string($statusFilter) && '' !== $statusFilter) {
+      $outputs = array_values(
+        array_filter($outputs, static fn (OrganizationInvitationOutput $o): bool => $o->status === $statusFilter),
+      );
+    }
+
     $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['email', 'status']);
+    $outputs = CollectionSearcher::search($outputs, $search, ['email', 'status', 'invitedByDisplayName']);
 
     $total = count($outputs);
 
     $sorting = SortingExtractor::fromContext($context, ['email', 'status', 'createdAt', 'expiresAt'], 'createdAt', SortDirection::DESC);
     $outputs = CollectionSorter::sort($outputs, $sorting);
 
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+    $outputs = array_slice($outputs, $pagination->offset, $pagination->itemsPerPage);
 
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
-      currentPage: (float) $page,
-      itemsPerPage: (float) $itemsPerPage,
+      currentPage: (float) $pagination->page,
+      itemsPerPage: (float) $pagination->itemsPerPage,
       totalItems: (float) $total,
     );
+  }
+
+  /**
+   * Method resolveDisplayName.
+   *
+   * Resolves an inviter's display name, caching per user id and never letting a
+   * missing user record fail the listing.
+   *
+   * @since 1.2.0
+   *
+   * @param string $userId the inviter user id
+   * @param array<string, ?string> $cache per-request resolution cache
+   *
+   * @return string|null the resolved display name, or null when unavailable
+   */
+  private function resolveDisplayName(string $userId, array &$cache): ?string
+  {
+    if (array_key_exists($userId, $cache)) {
+      return $cache[$userId];
+    }
+
+    $name = null;
+
+    try {
+      /** @var GetUserResult $result */
+      $result = $this->queryBus->ask(new GetUserQuery($userId));
+      if ($result instanceof GetUserResult && null !== $result->user) {
+        $name = trim($result->user->firstName . ' ' . $result->user->lastName)
+          ?: ($result->user->username ?: null);
+      }
+    } catch (Throwable) {
+      $name = null;
+    }
+
+    $cache[$userId] = $name;
+
+    return $name;
   }
   // #endregion
 }

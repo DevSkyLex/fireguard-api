@@ -55,6 +55,8 @@ Main fields:
 - `code` (optional)
 - `status` (`active`, `archived`)
 - `address` (optional)
+- `latitude` (optional, decimal degrees, range [-90, 90]; required together with `longitude`)
+- `longitude` (optional, decimal degrees, range [-180, 180]; required together with `latitude`)
 - `metadata` (JSON object)
 - `createdAt`, `updatedAt`
 
@@ -63,6 +65,7 @@ Main fields:
 - Table: `facilities` (main database)
 - Doctrine mapping: `src/Facility/Infrastructure/Persistence/Doctrine/Record`
 - Migration: `migrations/main/Version20260212120000.php`
+- Migration (coordinates): `migrations/main/Version20260708120000.php`
 - Repository: `Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository`
 
 ## Architecture

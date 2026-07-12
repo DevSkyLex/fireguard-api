@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\Service;
 
-use Organization\Application\Service\OrganizationNotificationPolicyService;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
+use Organization\Application\Service\OrganizationNotificationPolicyService;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{
   OrganizationId,

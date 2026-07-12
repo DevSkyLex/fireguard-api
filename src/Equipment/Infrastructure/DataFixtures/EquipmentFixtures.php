@@ -15,6 +15,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
+use function intdiv;
 use function sprintf;
 
 final class EquipmentFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface

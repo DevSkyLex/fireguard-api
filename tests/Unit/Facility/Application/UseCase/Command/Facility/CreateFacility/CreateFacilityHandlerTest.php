@@ -209,6 +209,160 @@ final class CreateFacilityHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsWhenOnlyLatitudeIsProvided(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441950'));
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655441951',
+      type: 'site',
+      name: 'HQ',
+      latitude: 48.8566,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenOnlyLongitudeIsProvided(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441960'));
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655441961',
+      type: 'site',
+      name: 'HQ',
+      longitude: 2.3522,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithCoordinates(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-446655441970');
+    $organizationId = '550e8400-e29b-41d4-a716-446655441971';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn($generatedId);
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Paris HQ',
+      latitude: 48.8566,
+      longitude: 2.3522,
+    ));
+
+    self::assertSame(48.8566, $result->latitude);
+    self::assertSame(2.3522, $result->longitude);
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithNullCoordinatesWhenOmitted(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-446655441980');
+    $organizationId = '550e8400-e29b-41d4-a716-446655441981';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn($generatedId);
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'HQ Without Coordinates',
+    ));
+
+    self::assertNull($result->latitude);
+    self::assertNull($result->longitude);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenLatitudeIsOutOfRange(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441990'));
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Facility latitude must be between -90 and 90 degrees.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655441991',
+      type: 'site',
+      name: 'HQ',
+      latitude: 90.5,
+      longitude: 2.3522,
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenParentFacilityIsArchived(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655441940';

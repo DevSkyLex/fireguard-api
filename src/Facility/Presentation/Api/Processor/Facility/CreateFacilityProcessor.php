@@ -16,22 +16,22 @@ use Facility\Domain\Exception\{
 };
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
-use InvalidArgumentException;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Service\InterventionResourceManager;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Intervention\Domain\Exception\{
+  ClientResourceAlreadyExistsException,
   InterventionConflictException,
   InterventionNotFoundException,
-  InterventionResourceNotFoundException,
-  ClientResourceAlreadyExistsException
+  InterventionResourceNotFoundException
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
+use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{
@@ -155,6 +155,8 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
         parentFacilityId: $data->parentFacilityId,
         code: $data->code,
         address: $data->address,
+        latitude: $data->latitude,
+        longitude: $data->longitude,
         metadata: $data->metadata,
         resourceId: $resourceId,
       ));
@@ -197,6 +199,8 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     $output->code = $result->code;
     $output->status = $result->status;
     $output->address = $result->address;
+    $output->latitude = $result->latitude;
+    $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
@@ -251,6 +255,7 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     if (null === $intervention || null === $this->interventionResourceManager) {
       return null;
     }
+
     try {
       return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId);
     } catch (InterventionNotFoundException $exception) {

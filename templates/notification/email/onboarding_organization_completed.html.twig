@@ -1,12 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-  <body>
-    <h1>{{ subject }}</h1>
-    <p>Your organization onboarding has been successfully completed.</p>
-    <ul>
-      <li><strong>Organization ID:</strong> {{ organizationId }}</li>
-      <li><strong>Completed at:</strong> {{ completedAt }}</li>
-    </ul>
-    <p>You can now access all features of your organization.</p>
-  </body>
-</html>
+{% extends 'notification/email/layout.html.twig' %}
+
+{% block content %}
+  <h1>{{ subject }}</h1>
+  <p>Your organization onboarding has been successfully completed.</p>
+  <p class="muted">Organization ID: {{ organizationId }}<br />Completed at: {{ completedAt }}</p>
+  <p>You can now access all features of your organization.</p>
+{% endblock %}

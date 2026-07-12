@@ -69,6 +69,8 @@ final readonly class GetFacilityHandler implements QueryHandler
       createdAt: $facility->createdAt(),
       updatedAt: $facility->updatedAt(),
       hasChildren: $this->facilityRepository->countChildren($organizationId, $facilityId) > 0,
+      latitude: $facility->coordinates()?->latitude(),
+      longitude: $facility->coordinates()?->longitude(),
     );
   }
   // #endregion

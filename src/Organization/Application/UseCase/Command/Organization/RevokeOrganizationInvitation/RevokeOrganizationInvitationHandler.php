@@ -6,7 +6,7 @@ namespace Organization\Application\UseCase\Command\Organization\RevokeOrganizati
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
@@ -144,7 +144,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       ]);
     }
 
-    if (null !== $notification && !$this->isEmailDelivered($notification)) {
+    if (null !== $notification && !$notification->isDelivered(NotificationChannel::EMAIL)) {
       $this->logger->warning('Invitation revoked email delivery failed.', [
         'organizationId' => (string) $invitation->organizationId(),
         'invitationId' => (string) $invitation->id(),
@@ -154,15 +154,6 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
     }
 
     return $result;
-  }
-
-  private function isEmailDelivered(?SentNotification $notification): bool
-  {
-    if (null === $notification) {
-      return false;
-    }
-
-    return true === ($notification->channelDelivery[NotificationChannel::EMAIL->value] ?? false);
   }
   // #endregion
 }

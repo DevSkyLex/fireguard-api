@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
-use LogicException;
 use Intervention\Domain\Model\Intervention\Intervention;
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, InterventionType};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
@@ -43,6 +43,7 @@ final class InterventionMapper
       organizationId: $record->organization->id,
       type: InterventionType::from($record->type),
       name: $record->name,
+      description: $record->description,
       status: InterventionStatus::from($record->status),
       siteId: $record->siteId,
       responsibleId: $record->responsibleId,
@@ -90,6 +91,7 @@ final class InterventionMapper
     $record->id = $intervention->id();
     $record->type = $intervention->type()->value;
     $record->name = $intervention->name();
+    $record->description = $intervention->description();
     $record->status = $intervention->status()->value;
     $record->siteId = $intervention->siteId();
     $record->responsibleId = $intervention->responsibleId();

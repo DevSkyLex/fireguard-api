@@ -108,6 +108,8 @@ final readonly class ListFacilitiesHandler implements QueryHandler
         createdAt: $facility->createdAt(),
         updatedAt: $facility->updatedAt(),
         hasChildren: ($childCounts[(string) $facility->id()] ?? 0) > 0,
+        latitude: $facility->coordinates()?->latitude(),
+        longitude: $facility->coordinates()?->longitude(),
       );
     }
 

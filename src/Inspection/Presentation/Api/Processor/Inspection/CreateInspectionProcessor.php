@@ -9,27 +9,27 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{CreateInspectionCommand, CreateInspectionResult};
-use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
 use Inspection\Domain\ValueObject\InspectorType;
+use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
-use InvalidArgumentException;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Service\InterventionResourceManager;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Intervention\Domain\Exception\{
+  ClientResourceAlreadyExistsException,
   InterventionConflictException,
   InterventionNotFoundException,
-  InterventionResourceNotFoundException,
-  ClientResourceAlreadyExistsException
+  InterventionResourceNotFoundException
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
+use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{
@@ -224,6 +224,7 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     if (null === $intervention || null === $this->interventionResourceManager) {
       return null;
     }
+
     try {
       return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId);
     } catch (InterventionNotFoundException $exception) {

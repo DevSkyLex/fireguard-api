@@ -126,7 +126,7 @@ final readonly class InterventionResourceManager
   /**
    * Method resourceInInterventionScope.
    *
-   * Determines whether a canonical resource is targeted by a intervention.
+   * Determines whether a canonical resource is targeted by an intervention.
    *
    * @since 1.0.0
    *
@@ -147,7 +147,7 @@ final readonly class InterventionResourceManager
   /**
    * Method mutationPermission.
    *
-   * Resolves the intervention permission required to mutate a intervention-owned
+   * Resolves the intervention permission required to mutate an intervention-owned
    * resource and rejects immutable intervention states.
    *
    * @since 1.0.0

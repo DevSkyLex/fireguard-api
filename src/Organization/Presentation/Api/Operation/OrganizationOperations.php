@@ -67,6 +67,8 @@ final class OrganizationOperations
 
   public const string REMOVE_ORGANIZATION_MEMBER = 'removeOrganizationMember';
 
+  public const string BATCH_REMOVE_ORGANIZATION_MEMBERS = 'batchRemoveOrganizationMembers';
+
   public const string REMOVE_ORGANIZATION_ROLE_FROM_MEMBER = 'removeOrganizationRoleFromMember';
 
   public const string DELETE_ORGANIZATION_ROLE = 'deleteOrganizationRole';
@@ -78,4 +80,8 @@ final class OrganizationOperations
   public const string ACCEPT_ORGANIZATION_INVITATION = 'acceptOrganizationInvitation';
 
   public const string REVOKE_ORGANIZATION_INVITATION = 'revokeOrganizationInvitation';
+
+  public const string RESEND_ORGANIZATION_INVITATION = 'resendOrganizationInvitation';
+
+  public const string GET_ORGANIZATION_INVITATION_PREVIEW = 'getOrganizationInvitationPreview';
 }

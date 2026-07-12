@@ -51,6 +51,7 @@ final class Intervention
     private readonly string $organizationId,
     private InterventionType $type,
     private string $name,
+    private ?string $description,
     private InterventionStatus $status,
     private ?string $siteId,
     private ?string $responsibleId,
@@ -80,6 +81,7 @@ final class Intervention
    * @param InterventionPriority $priority the priority value
    * @param ?DateTimeImmutable $plannedStartAt the planned start at value
    * @param ?DateTimeImmutable $dueAt the due at value
+   * @param ?string $description the description value
    *
    * @return self the create result
    */
@@ -94,6 +96,7 @@ final class Intervention
     InterventionPriority $priority,
     ?DateTimeImmutable $plannedStartAt,
     ?DateTimeImmutable $dueAt,
+    ?string $description = null,
   ): self {
     $now = new DateTimeImmutable();
     $intervention = new self(
@@ -101,6 +104,7 @@ final class Intervention
       organizationId: self::required($organizationId, 'Intervention organization'),
       type: $type,
       name: self::normalizeName($name),
+      description: self::nullable($description),
       status: InterventionStatus::DRAFT,
       siteId: self::nullable($siteId),
       responsibleId: self::nullable($responsibleId),
@@ -127,6 +131,7 @@ final class Intervention
    * @param string $organizationId the organization id value
    * @param InterventionType $type the type value
    * @param string $name the name value
+   * @param ?string $description the description value
    * @param InterventionStatus $status the status value
    * @param ?string $siteId the site id value
    * @param ?string $responsibleId the responsible id value
@@ -146,6 +151,7 @@ final class Intervention
     string $organizationId,
     InterventionType $type,
     string $name,
+    ?string $description,
     InterventionStatus $status,
     ?string $siteId,
     ?string $responsibleId,
@@ -163,6 +169,7 @@ final class Intervention
       $organizationId,
       $type,
       $name,
+      $description,
       $status,
       $siteId,
       $responsibleId,
@@ -190,6 +197,23 @@ final class Intervention
   {
     $this->assertMutable();
     $this->name = self::normalizeName($name);
+    $this->touch();
+  }
+
+  /**
+   * Method changeDescription.
+   *
+   * Executes the change description operation. Unlike planning fields, the
+   * free-text description stays editable across every non-terminal status.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $description the description value
+   */
+  public function changeDescription(?string $description): void
+  {
+    $this->assertMutable();
+    $this->description = self::nullable($description);
     $this->touch();
   }
 
@@ -323,6 +347,7 @@ final class Intervention
    * @param ?string $reviewNote the review note value
    * @param ?InterventionStatus $nextStatus the next status value
    * @param bool $hasName the has name value
+   * @param bool $hasDescription the has description value
    * @param bool $hasSiteId the has site id value
    * @param bool $hasResponsibleId the has responsible id value
    * @param bool $hasParticipants the has participants value
@@ -334,6 +359,7 @@ final class Intervention
   public function edit(
     InterventionTransitionPolicy $policy,
     ?string $name = null,
+    ?string $description = null,
     ?string $siteId = null,
     ?string $responsibleId = null,
     ?array $participants = null,
@@ -343,6 +369,7 @@ final class Intervention
     ?string $reviewNote = null,
     ?InterventionStatus $nextStatus = null,
     bool $hasName = false,
+    bool $hasDescription = false,
     bool $hasSiteId = false,
     bool $hasResponsibleId = false,
     bool $hasParticipants = false,
@@ -357,6 +384,9 @@ final class Intervention
     }
     if ($hasName) {
       $this->name = self::normalizeName($name ?? '');
+    }
+    if ($hasDescription) {
+      $this->description = self::nullable($description);
     }
     if ($hasSiteId) {
       $this->siteId = self::nullable($siteId);
@@ -440,6 +470,20 @@ final class Intervention
   public function name(): string
   {
     return $this->name;
+  }
+
+  /**
+   * Method description.
+   *
+   * Executes the description operation.
+   *
+   * @since 1.0.0
+   *
+   * @return ?string the description result
+   */
+  public function description(): ?string
+  {
+    return $this->description;
   }
 
   /**
@@ -613,7 +657,7 @@ final class Intervention
       || null === $this->plannedStartAt
       || null === $this->dueAt
     )) {
-      throw new InterventionConflictException('A site, responsible member, planned start and due date are required before planning a intervention.');
+      throw new InterventionConflictException('A site, responsible member, planned start and due date are required before planning an intervention.');
     }
     $this->assertSchedule();
     if (InterventionStatus::CHANGES_REQUESTED === $status && null === $this->reviewNote) {

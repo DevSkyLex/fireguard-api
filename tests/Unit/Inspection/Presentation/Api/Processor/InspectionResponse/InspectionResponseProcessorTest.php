@@ -17,10 +17,10 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException;
 use Shared\Presentation\Api\Http\{CreationPreconditionGuard, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Shared\Presentation\Api\Http\ClientResourceAlreadyExistsHttpException;
 
 #[CoversClass(InspectionResponseProcessor::class)]
 final class InspectionResponseProcessorTest extends TestCase

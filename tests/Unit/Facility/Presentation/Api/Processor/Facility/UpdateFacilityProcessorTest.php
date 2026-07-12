@@ -144,6 +144,78 @@ final class UpdateFacilityProcessorTest extends TestCase
     self::assertSame('SITE-1', $output->code);
   }
 
+  #[Test]
+  public function testProcessDispatchesCommandWithCoordinatePresenceFlags(): void
+  {
+    $input = new UpdateFacilityInput();
+    $input->latitude = 48.8566;
+    $input->longitude = 2.3522;
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655442100'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    $request = new Request(
+      server: ['CONTENT_TYPE' => 'application/json'],
+      content: '{"latitude":48.8566,"longitude":2.3522}',
+    );
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (UpdateFacilityCommand $command): bool {
+        return $command->hasLatitude
+          && $command->hasLongitude
+          && 48.8566 === $command->latitude
+          && 2.3522 === $command->longitude;
+      }))
+      ->willReturn(new UpdateFacilityResult(
+        facilityId: '550e8400-e29b-41d4-a716-446655442102',
+        organizationId: '550e8400-e29b-41d4-a716-446655442101',
+        parentFacilityId: null,
+        type: 'site',
+        name: 'HQ',
+        code: null,
+        status: 'active',
+        address: null,
+        metadata: [],
+        createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-12T11:00:00+00:00'),
+        latitude: 48.8566,
+        longitude: 2.3522,
+      ));
+
+    $processor = new UpdateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Patch(),
+      uriVariables: [
+        'organizationId' => '550e8400-e29b-41d4-a716-446655442101',
+        'facilityId' => '550e8400-e29b-41d4-a716-446655442102',
+      ],
+    );
+
+    self::assertInstanceOf(FacilityOutput::class, $output);
+    self::assertSame(48.8566, $output->latitude);
+    self::assertSame(2.3522, $output->longitude);
+  }
+
   private function createSecurityUser(string $id): SecurityUser
   {
     return new SecurityUser(

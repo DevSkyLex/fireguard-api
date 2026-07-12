@@ -10,6 +10,7 @@ use Notification\Application\Contract\Notification\SentNotification;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationHandler, AcceptOrganizationInvitationResult};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler;
 use Organization\Domain\Model\Organization\Organization;
@@ -215,6 +216,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
     );
 
     $result = $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -405,6 +407,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
     );
 
     $result = $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -584,6 +587,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
     );
 
     $result = $handler->__invoke(new AcceptOrganizationInvitationCommand(

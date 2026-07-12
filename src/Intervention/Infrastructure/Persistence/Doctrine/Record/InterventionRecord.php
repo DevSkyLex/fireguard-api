@@ -21,6 +21,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Entity]
 #[ORM\Table(name: 'interventions')]
 #[ORM\Index(name: 'idx_intervention_organization_status', columns: ['organization_id', 'status'])]
+#[ORM\UniqueConstraint(name: 'uniq_intervention_org_number', columns: ['organization_id', 'number'])]
 class InterventionRecord
 {
   /**
@@ -56,6 +57,25 @@ class InterventionRecord
    */
   #[ORM\Column(type: 'string', length: 160)]
   public string $name;
+
+  /**
+   * Property number.
+   *
+   * Human-readable, per-organization sequential identifier rendered as
+   * `FG-{number}` by the client. Allocated once at creation and never mutated.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'integer')]
+  public int $number = 0;
+
+  /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(type: 'text', nullable: true)]
+  public ?string $description = null;
 
   /**
    * Property status.
@@ -178,6 +198,23 @@ class InterventionRecord
   public Collection $changes;
 
   /**
+   * Property labels.
+   *
+   * Owning side of the intervention/label assignment. Record-level metadata
+   * managed directly on this record (like `number`), never part of the
+   * `Intervention` domain aggregate.
+   *
+   * @since 1.0.0
+   *
+   * @var Collection<int, InterventionLabelRecord>
+   */
+  #[ORM\ManyToMany(targetEntity: InterventionLabelRecord::class)]
+  #[ORM\JoinTable(name: 'intervention_label_assignments')]
+  #[ORM\JoinColumn(name: 'intervention_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+  #[ORM\InverseJoinColumn(name: 'label_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+  public Collection $labels;
+
+  /**
    * Constructor.
    *
    * Initializes a new instance of the InterventionRecord class.
@@ -189,5 +226,6 @@ class InterventionRecord
     $this->publications = new ArrayCollection();
     $this->workItems = new ArrayCollection();
     $this->changes = new ArrayCollection();
+    $this->labels = new ArrayCollection();
   }
 }

@@ -10,6 +10,7 @@ use Notification\Application\Contract\Notification\{NotificationChannel, SendNot
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
@@ -17,7 +18,6 @@ use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
 use Throwable;
 
-use function hash;
 use function sprintf;
 use function strtolower;
 use function trim;
@@ -44,6 +44,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param AddOrganizationMemberHandler $addOrganizationMemberHandler the member add use case handler
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
@@ -52,6 +53,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
+    private OrganizationInvitationTokenHasher $tokenHasher,
   ) {
   }
   // #endregion
@@ -76,7 +78,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     }
 
     $invitation = $this->invitationRepository->findByTokenHash(
-      tokenHash: $this->hashInvitationToken($token),
+      tokenHash: $this->tokenHasher->hash($token),
     );
 
     if (null === $invitation) {
@@ -131,77 +133,93 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       );
     });
 
-    try {
-      $this->notificationPort->send(new SendNotificationRequest(
-        type: NotificationType::ORGANIZATION_INVITATION_ACCEPTED,
-        subject: 'Invitation accepted',
-        body: sprintf('%s accepted your organization invitation.', $authenticatedEmail),
-        channels: [NotificationChannel::MERCURE],
-        payload: [
-          'organizationId' => (string) $invitation->organizationId(),
-          'invitationId' => (string) $invitation->id(),
-          'acceptedUserId' => $command->userId,
-          'acceptedEmail' => $authenticatedEmail,
-          'acceptedAt' => $now->format('c'),
-        ],
-        recipientUserId: $invitation->invitedByUserId(),
-      ));
-    } catch (Throwable $exception) {
-      $this->logger->warning('Invitation accepted notification dispatch failed.', [
+    $this->dispatchMercure(
+      type: NotificationType::ORGANIZATION_INVITATION_ACCEPTED,
+      subject: 'Invitation accepted',
+      body: sprintf('%s accepted your organization invitation.', $authenticatedEmail),
+      payload: [
+        'organizationId' => (string) $invitation->organizationId(),
+        'invitationId' => (string) $invitation->id(),
+        'acceptedUserId' => $command->userId,
+        'acceptedEmail' => $authenticatedEmail,
+        'acceptedAt' => $now->format('c'),
+      ],
+      recipientUserId: $invitation->invitedByUserId(),
+      failureMessage: 'Invitation accepted notification dispatch failed.',
+      logContext: [
         'organizationId' => (string) $invitation->organizationId(),
         'invitationId' => (string) $invitation->id(),
         'recipientUserId' => $invitation->invitedByUserId(),
-        'error' => $exception->getMessage(),
-      ]);
-    }
+      ],
+    );
 
     $organization = $this->organizationRepository->findById(new OrganizationId((string) $invitation->organizationId()));
     $ownerUserId = $organization?->ownerUserId();
 
     if (null !== $organization && null !== $ownerUserId && $ownerUserId !== $command->userId && $ownerUserId !== $invitation->invitedByUserId()) {
-      try {
-        $this->notificationPort->send(new SendNotificationRequest(
-          type: NotificationType::ORGANIZATION_MEMBER_JOINED,
-          subject: 'New member joined your organization',
-          body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
-          channels: [NotificationChannel::MERCURE],
-          payload: [
-            'organizationId' => (string) $invitation->organizationId(),
-            'invitationId' => (string) $invitation->id(),
-            'memberId' => $result->memberId,
-            'joinedUserId' => $command->userId,
-            'joinedEmail' => $authenticatedEmail,
-            'joinedAt' => $result->joinedAt->format('c'),
-          ],
-          recipientUserId: $ownerUserId,
-        ));
-      } catch (Throwable $exception) {
-        $this->logger->warning('Member joined notification dispatch failed.', [
+      $this->dispatchMercure(
+        type: NotificationType::ORGANIZATION_MEMBER_JOINED,
+        subject: 'New member joined your organization',
+        body: sprintf('%s joined %s.', $authenticatedEmail, (string) $organization->name()),
+        payload: [
+          'organizationId' => (string) $invitation->organizationId(),
+          'invitationId' => (string) $invitation->id(),
+          'memberId' => $result->memberId,
+          'joinedUserId' => $command->userId,
+          'joinedEmail' => $authenticatedEmail,
+          'joinedAt' => $result->joinedAt->format('c'),
+        ],
+        recipientUserId: $ownerUserId,
+        failureMessage: 'Member joined notification dispatch failed.',
+        logContext: [
           'organizationId' => (string) $invitation->organizationId(),
           'invitationId' => (string) $invitation->id(),
           'recipientUserId' => $ownerUserId,
-          'error' => $exception->getMessage(),
-        ]);
-      }
+        ],
+      );
     }
 
     return $result;
   }
 
   /**
-   * Method hashInvitationToken.
+   * Method dispatchMercure.
    *
-   * Computes a deterministic hash for invitation token lookup.
+   * Sends a fire-and-forget Mercure notification, swallowing and logging any
+   * delivery failure so a real-time push never aborts the accept flow. Shared
+   * by the invitation-accepted and member-joined pushes.
    *
    * @since 1.0.0
    *
-   * @param string $token the raw token
-   *
-   * @return string the token hash
+   * @param string $type the notification type
+   * @param string $subject the notification subject
+   * @param string $body the notification body
+   * @param array<string, mixed> $payload the Mercure payload
+   * @param string $recipientUserId the recipient user identifier
+   * @param string $failureMessage the log message written on dispatch failure
+   * @param array<string, mixed> $logContext extra context added to the failure log
    */
-  private function hashInvitationToken(string $token): string
-  {
-    return hash('sha256', $token);
+  private function dispatchMercure(
+    string $type,
+    string $subject,
+    string $body,
+    array $payload,
+    string $recipientUserId,
+    string $failureMessage,
+    array $logContext,
+  ): void {
+    try {
+      $this->notificationPort->send(new SendNotificationRequest(
+        type: $type,
+        subject: $subject,
+        body: $body,
+        channels: [NotificationChannel::MERCURE],
+        payload: $payload,
+        recipientUserId: $recipientUserId,
+      ));
+    } catch (Throwable $exception) {
+      $this->logger->warning($failureMessage, [...$logContext, 'error' => $exception->getMessage()]);
+    }
   }
   // #endregion
 }

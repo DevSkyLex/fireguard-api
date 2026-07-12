@@ -56,6 +56,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       createdAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
       address: '12 Rue des Pompiers, Paris',
       metadata: ['city' => 'Paris', 'country' => 'FR'],
+      latitude: 48.8566,
+      longitude: 2.3522,
     );
     $this->addReference(self::SITE_REFERENCE, $site);
     $manager->persist($site);
@@ -108,6 +110,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       code: 'ZN-A',
       createdAt: new DateTimeImmutable('2026-03-22T08:15:00+00:00'),
       metadata: ['sector' => 'north'],
+      latitude: 48.8566,
+      longitude: 2.3522,
     );
     $this->addReference(self::ZONE_REFERENCE, $zone);
     $manager->persist($zone);
@@ -121,6 +125,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       code: 'AR-SRV',
       createdAt: new DateTimeImmutable('2026-03-29T08:20:00+00:00'),
       metadata: ['restricted' => true],
+      latitude: 43.2965,
+      longitude: 5.3698,
     );
     $this->addReference(self::AREA_REFERENCE, $area);
     $manager->persist($area);
@@ -147,6 +153,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       code: 'AR-STR',
       createdAt: new DateTimeImmutable('2026-03-30T08:05:00+00:00'),
       metadata: ['restricted' => false],
+      latitude: 45.7640,
+      longitude: 4.8357,
     );
     $this->addReference(self::STORAGE_ROOM_REFERENCE, $storageRoom);
     $manager->persist($storageRoom);
@@ -167,6 +175,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     DateTimeImmutable $createdAt,
     ?string $address = null,
     array $metadata = [],
+    ?float $latitude = null,
+    ?float $longitude = null,
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
@@ -177,6 +187,8 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $facility->code = $code;
     $facility->status = FacilityStatus::ACTIVE->value;
     $facility->address = $address;
+    $facility->latitude = $latitude;
+    $facility->longitude = $longitude;
     $facility->metadata = $metadata;
     $facility->createdAt = $createdAt;
     $facility->updatedAt = $createdAt;

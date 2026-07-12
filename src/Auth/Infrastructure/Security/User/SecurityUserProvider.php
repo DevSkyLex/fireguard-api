@@ -14,11 +14,11 @@ use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_filter;
+use function array_key_exists;
 use function array_map;
 use function array_merge;
 use function array_unique;
 use function array_values;
-use function array_key_exists;
 use function is_array;
 use function is_bool;
 use function is_string;

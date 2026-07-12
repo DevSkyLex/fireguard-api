@@ -93,7 +93,7 @@ final readonly class InterventionProvider implements ProviderInterface
       throw new BadRequestHttpException('The organization filter is required.');
     }
     $filters = [];
-    foreach (['type', 'status', 'dueAtAfter', 'dueAtBefore'] as $filter) {
+    foreach (['name', 'type', 'status', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;

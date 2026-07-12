@@ -33,6 +33,13 @@ final class InterventionOutput
   public string $organization = '';
 
   /**
+   * Property number.
+   *
+   * @since 1.0.0
+   */
+  public int $number = 0;
+
+  /**
    * Property type.
    *
    * @since 1.0.0
@@ -45,6 +52,13 @@ final class InterventionOutput
    * @since 1.0.0
    */
   public string $name = '';
+
+  /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  public ?string $description = null;
 
   /**
    * Property status.
@@ -112,6 +126,21 @@ final class InterventionOutput
   public int $revision = 1;
 
   /**
+   * Property allowedTransitions.
+   *
+   * Workflow-legal next statuses reachable from the current status, straight
+   * from the domain `InterventionTransitionPolicy` (excludes `published`, which
+   * is reached only through the publication flow). The client intersects this
+   * with the current member's permissions to decide which actions to offer,
+   * instead of duplicating the transition table.
+   *
+   * @since 1.0.0
+   *
+   * @var list<string>
+   */
+  public array $allowedTransitions = [];
+
+  /**
    * Property facilitiesCount.
    *
    * @since 1.0.0
@@ -159,6 +188,26 @@ final class InterventionOutput
    * @since 1.0.0
    */
   public int $proposedChangesCount = 0;
+
+  /**
+   * Property commentsCount.
+   *
+   * @since 1.0.0
+   */
+  public int $commentsCount = 0;
+
+  /**
+   * Property labels.
+   *
+   * Embedded label summaries (`{id, name, color}`) assigned to the
+   * intervention, so the client can render chips without extra requests.
+   * Manage the underlying labels through `/intervention-labels`.
+   *
+   * @since 1.0.0
+   *
+   * @var list<array{id: string, name: string, color: string}>
+   */
+  public array $labels = [];
 
   /**
    * Property createdAt.

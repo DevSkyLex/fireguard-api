@@ -14,22 +14,22 @@ use Equipment\Domain\Exception\EquipmentSerialNumberAlreadyExistsException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
 use Equipment\Presentation\Api\Trait\Equipment\EquipmentExceptionUnwrapperTrait;
-use InvalidArgumentException;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Service\InterventionResourceManager;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Intervention\Domain\Exception\{
+  ClientResourceAlreadyExistsException,
   InterventionConflictException,
   InterventionNotFoundException,
-  InterventionResourceNotFoundException,
-  ClientResourceAlreadyExistsException
+  InterventionResourceNotFoundException
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
+use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\{
@@ -238,6 +238,7 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     if (null === $intervention || null === $this->interventionResourceManager) {
       return null;
     }
+
     try {
       return $this->interventionResourceManager->mutationPermission(ResourceIriParser::id($intervention, 'interventions'), $userId);
     } catch (InterventionNotFoundException $exception) {

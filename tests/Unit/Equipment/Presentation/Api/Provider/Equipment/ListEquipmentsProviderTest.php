@@ -433,7 +433,7 @@ final class ListEquipmentsProviderTest extends TestCase
 
     $requestStack = new RequestStack();
     $requestStack->push(Request::create(
-      uri: '/api/organizations/'.$organizationId.'/facilities/'.$facilityId.'/equipment',
+      uri: '/api/organizations/' . $organizationId . '/facilities/' . $facilityId . '/equipment',
       method: 'GET',
       parameters: ['facilityId' => '550e8400-e29b-41d4-a716-446655441573'],
     ));

@@ -39,6 +39,8 @@ final readonly class GetFacilityResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public bool $hasChildren = false,
+    public ?float $latitude = null,
+    public ?float $longitude = null,
   ) {
   }
   // #endregion

@@ -11,7 +11,9 @@ use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
+  InterventionActivityRecord,
   InterventionChangeRecord,
+  InterventionLabelRecord,
   InterventionRecord,
   InterventionWorkItemRecord
 };
@@ -66,6 +68,20 @@ final readonly class InterventionViewMapper
   public function interventionView(InterventionRecord $intervention, ?InterventionListMetrics $metrics = null): InterventionWorkflowView
   {
     $organizationId = $this->organizationId($intervention);
+    $commentsCount = $this->entityManager->getRepository(InterventionActivityRecord::class)->count([
+      'intervention' => $intervention,
+      'kind' => 'comment',
+    ]);
+    // Bounded per-row lazy load (mirrors the commentsCount decision above);
+    // never fetch-joined into the paginated intervention list query.
+    $labels = array_map(
+      static fn (InterventionLabelRecord $label): array => [
+        'id' => $label->id,
+        'name' => $label->name,
+        'color' => $label->color,
+      ],
+      $intervention->labels->toArray(),
+    );
     if (null === $metrics) {
       $summary = $this->resources->summary($intervention->id);
       $workItems = $this->resources->workItemSummary($intervention->id);
@@ -101,8 +117,10 @@ final readonly class InterventionViewMapper
     return new InterventionWorkflowView('intervention', $organizationId, [
       'id' => $intervention->id,
       'organization' => '/api/organizations/' . $organizationId,
+      'number' => $intervention->number,
       'type' => $intervention->type,
       'name' => $intervention->name,
+      'description' => $intervention->description,
       'status' => $intervention->status,
       'site' => null === $intervention->siteId ? null : '/api/facilities/' . $intervention->siteId,
       'responsible' => null === $intervention->responsibleId ? null : '/api/organizations/' . $organizationId . '/members/' . $intervention->responsibleId,
@@ -122,6 +140,8 @@ final readonly class InterventionViewMapper
       'workItemsCount' => $workItemsCount,
       'completedWorkItemsCount' => $completedWorkItemsCount,
       'proposedChangesCount' => $proposedChangesCount,
+      'commentsCount' => $commentsCount,
+      'labels' => $labels,
       'createdAt' => $intervention->createdAt->format('c'),
       'updatedAt' => $intervention->updatedAt->format('c'),
     ]);
@@ -185,6 +205,32 @@ final readonly class InterventionViewMapper
   }
 
   /**
+   * Method activityView.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionActivityRecord $record the record value
+   *
+   * @return InterventionWorkflowView the activity view result
+   */
+  public function activityView(InterventionActivityRecord $record): InterventionWorkflowView
+  {
+    $intervention = $this->activityIntervention($record);
+    $organizationId = $this->organizationId($intervention);
+
+    return new InterventionWorkflowView('activity', $organizationId, [
+      'id' => $record->id,
+      'intervention' => '/api/interventions/' . $intervention->id,
+      'kind' => $record->kind,
+      'event' => $record->event,
+      'actor' => null === $record->actorId ? null : '/api/organizations/' . $organizationId . '/members/' . $record->actorId,
+      'body' => $record->body,
+      'payload' => $record->payload,
+      'createdAt' => $record->createdAt->format('c'),
+    ]);
+  }
+
+  /**
    * Method organizationId.
    *
    * @since 1.0.0
@@ -230,6 +276,24 @@ final readonly class InterventionViewMapper
    * @return InterventionRecord the owning intervention record
    */
   private function changeIntervention(InterventionChangeRecord $record): InterventionRecord
+  {
+    if (!$record->intervention instanceof InterventionRecord) {
+      throw InterventionNotFoundException::withId($record->id);
+    }
+
+    return $record->intervention;
+  }
+
+  /**
+   * Method activityIntervention.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionActivityRecord $record the record value
+   *
+   * @return InterventionRecord the owning intervention record
+   */
+  private function activityIntervention(InterventionActivityRecord $record): InterventionRecord
   {
     if (!$record->intervention instanceof InterventionRecord) {
       throw InterventionNotFoundException::withId($record->id);

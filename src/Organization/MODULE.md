@@ -35,8 +35,10 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/{organizationId}/members` | List Organization members |
 | POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |
 | GET | `/api/organizations/{organizationId}/invitations` | List Organization invitations |
+| GET | `/api/organizations/invitations/{token}/preview` | Public preview of an invitation by token (organization, inviter, invited email, status, expiry) |
 | POST | `/api/organizations/invitations/accept` | Accept an invitation token |
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/revoke` | Revoke pending invitation |
+| POST | `/api/organizations/{organizationId}/invitations/{invitationId}/resend` | Regenerate token, reset expiry and re-send the invitation email (returns a fresh accept link) |
 | POST | `/api/organizations/{organizationId}/roles` | Create Organization role |
 | GET | `/api/organizations/{organizationId}/roles` | List Organization roles |
 | POST | `/api/organizations/{organizationId}/members/{memberId}/roles` | Assign role to member |

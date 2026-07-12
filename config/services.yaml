@@ -6,6 +6,8 @@
 parameters:
   shared.file_storage.base_path: '%kernel.project_dir%/var/storage'
   database_storage_timezone_default: 'UTC'
+  # Public frontend base URL used to build deep links in transactional emails
+  app.frontend_url: '%env(APP_FRONTEND_URL)%'
   # Security headers configuration with defaults
   security_headers.enabled_default: 'true'
   security_headers.csp_default: ''

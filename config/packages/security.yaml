@@ -79,6 +79,10 @@ security:
     # Public organization logo streaming endpoint (GET only — upload stays protected)
     - { path: '^/api/organizations/.+/logo\.webp$', roles: PUBLIC_ACCESS, methods: [GET] }
 
+    # Public invitation preview by token (GET only — lets an invitee see the
+    # organization/inviter before signing in or creating an account)
+    - { path: '^/api/organizations/invitations/[^/]+/preview$', roles: PUBLIC_ACCESS, methods: [GET] }
+
     # Stripe webhook (public; signature is verified in the controller)
     - { path: ^/api/billing/webhook$, roles: PUBLIC_ACCESS, methods: [POST] }
 

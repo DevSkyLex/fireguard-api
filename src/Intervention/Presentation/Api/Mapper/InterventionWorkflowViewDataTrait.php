@@ -156,4 +156,56 @@ trait InterventionWorkflowViewDataTrait
     /** @var array<string, mixed> $value */
     return $value;
   }
+
+  /**
+   * Method nullableObject.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $data the data value
+   * @param string $key the key value
+   *
+   * @return ?array<string, mixed>
+   */
+  private function nullableObject(array $data, string $key): ?array
+  {
+    $value = $data[$key] ?? null;
+    if (null === $value) {
+      return null;
+    }
+
+    return $this->object($data, $key);
+  }
+
+  /**
+   * Method objectList.
+   *
+   * @since 1.0.0
+   *
+   * @param array<string, mixed> $data the data value
+   * @param string $key the key value
+   *
+   * @return list<array<string, mixed>>
+   */
+  private function objectList(array $data, string $key): array
+  {
+    $value = $data[$key] ?? null;
+    if (!is_array($value)) {
+      throw new LogicException($key . ' must be a list of objects.');
+    }
+
+    return array_values(array_map(function (mixed $item) use ($key): array {
+      if (!is_array($item)) {
+        throw new LogicException($key . ' must be a list of objects.');
+      }
+      foreach (array_keys($item) as $itemKey) {
+        if (!is_string($itemKey)) {
+          throw new LogicException($key . ' must be a list of objects.');
+        }
+      }
+
+      /** @var array<string, mixed> $item */
+      return $item;
+    }, $value));
+  }
 }

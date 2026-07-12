@@ -14,13 +14,13 @@ use Inspection\Presentation\Api\Dto\Input\InspectionResponse\{CreateInspectionRe
 use Inspection\Presentation\Api\Dto\Output\InspectionResponse\InspectionResponseOutput;
 use Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider;
 use Intervention\Application\Service\InterventionResourceManager;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard, RevisionGuard};
+use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{RequestStack, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};

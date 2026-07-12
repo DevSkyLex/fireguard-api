@@ -37,6 +37,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
         new Parameter(name: 'organization', in: 'query', description: 'Organization IRI.', required: true, schema: ['type' => 'string']),
+        new Parameter(name: 'name', in: 'query', description: 'Case-insensitive partial match on the intervention name.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'responsible', in: 'query', description: 'Responsible member IRI.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'participant', in: 'query', description: 'Participant member IRI.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'type', in: 'query', description: 'Intervention type.', required: false, schema: ['type' => 'string']),
@@ -44,6 +45,8 @@ use Symfony\Component\HttpFoundation\Response;
         new Parameter(name: 'site', in: 'query', description: 'Site IRI.', required: false, schema: ['type' => 'string']),
         new Parameter(name: 'dueAtAfter', in: 'query', description: 'Inclusive lower due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
         new Parameter(name: 'dueAtBefore', in: 'query', description: 'Inclusive upper due-date bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+        new Parameter(name: 'plannedStartAtAfter', in: 'query', description: 'Inclusive lower planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+        new Parameter(name: 'plannedStartAtBefore', in: 'query', description: 'Inclusive upper planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
       ]),
     ),
     new Get(uriTemplate: '/interventions/{id}', output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),

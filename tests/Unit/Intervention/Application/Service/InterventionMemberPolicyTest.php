@@ -133,6 +133,57 @@ final class InterventionMemberPolicyTest extends TestCase
     );
   }
 
+  #[Test]
+  public function itResolvesTheActiveMemberIdForAnAuthenticatedUser(): void
+  {
+    $repository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
+    $repository->method('findById')->willReturn($this->member(self::ORGANIZATION_ID));
+
+    $memberId = new InterventionMemberPolicy($repository)->assertActiveMemberForUser(
+      self::ORGANIZATION_ID,
+      self::USER_ID,
+    );
+
+    self::assertSame(self::MEMBER_ID, $memberId);
+  }
+
+  #[Test]
+  public function itRejectsAUserWithNoMembershipInTheOrganization(): void
+  {
+    $repository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $repository->method('findByOrganizationAndUser')->willReturn(null);
+
+    $this->expectException(InterventionConflictException::class);
+
+    new InterventionMemberPolicy($repository)->assertActiveMemberForUser(
+      self::ORGANIZATION_ID,
+      self::USER_ID,
+    );
+  }
+
+  #[Test]
+  public function itFindsTheMemberIdWithoutThrowingWhenActive(): void
+  {
+    $repository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $repository->method('findByOrganizationAndUser')->willReturn($this->member(self::ORGANIZATION_ID));
+
+    $memberId = new InterventionMemberPolicy($repository)->findMemberId(self::ORGANIZATION_ID, self::USER_ID);
+
+    self::assertSame(self::MEMBER_ID, $memberId);
+  }
+
+  #[Test]
+  public function itFindsNoMemberIdWhenTheUserIsNotAMember(): void
+  {
+    $repository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $repository->method('findByOrganizationAndUser')->willReturn(null);
+
+    $memberId = new InterventionMemberPolicy($repository)->findMemberId(self::ORGANIZATION_ID, self::USER_ID);
+
+    self::assertNull($memberId);
+  }
+
   private function member(string $organizationId): OrganizationMember
   {
     return OrganizationMember::reconstitute(

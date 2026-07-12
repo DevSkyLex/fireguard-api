@@ -60,3 +60,19 @@ framework:
       policy: 'sliding_window'
       limit: 100000
       interval: '1 minute'
+    invitation_preview:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    invitation_resend:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    password_change_request:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    password_change_confirm:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'

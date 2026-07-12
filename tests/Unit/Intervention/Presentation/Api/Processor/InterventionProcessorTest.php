@@ -10,6 +10,7 @@ use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow
   MutateInterventionWorkflowCommand,
   MutateInterventionWorkflowResult
 };
+use Intervention\Domain\Service\InterventionTransitionPolicy;
 use Intervention\Presentation\Api\Dto\Input\UpdateInterventionInput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Processor\InterventionProcessor;
@@ -55,7 +56,7 @@ final class InterventionProcessorTest extends TestCase
     $input = new UpdateInterventionInput();
     $processor = new InterventionProcessor(
       $commandBus,
-      new InterventionOutputFactory(),
+      new InterventionOutputFactory(new InterventionTransitionPolicy()),
       $security,
       $stack,
       new RevisionGuard($stack),

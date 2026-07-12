@@ -1,0 +1,30 @@
+framework:
+    html_sanitizer:
+        sanitizers:
+            # Allowlist for rich-text intervention comments produced by the
+            # PrimeNG (Quill) editor: inline formatting, lists, links, headings,
+            # blockquotes and code. Everything else (scripts, styles, iframes,
+            # images, event handlers, inline styles/classes) is dropped, and
+            # only safe URL schemes are kept on links.
+            intervention.comment:
+                allow_elements:
+                    p: []
+                    br: []
+                    span: []
+                    strong: []
+                    b: []
+                    em: []
+                    i: []
+                    u: []
+                    s: []
+                    ol: []
+                    ul: []
+                    li: []
+                    a: ['href']
+                    h1: []
+                    h2: []
+                    h3: []
+                    blockquote: []
+                    pre: []
+                    code: []
+                max_input_length: 40000

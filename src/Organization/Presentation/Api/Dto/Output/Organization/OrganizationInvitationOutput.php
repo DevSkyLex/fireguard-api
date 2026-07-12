@@ -66,6 +66,15 @@ final class OrganizationInvitationOutput
   public string $invitedByUserId = '';
 
   /**
+   * Property invitedByDisplayName.
+   *
+   * @since 1.2.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $invitedByDisplayName = null;
+
+  /**
    * Property acceptedByUserId.
    *
    * @since 1.0.0
@@ -134,5 +143,18 @@ final class OrganizationInvitationOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $roleIds = [];
+
+  /**
+   * Property acceptUrl.
+   *
+   * Public accept link returned only when a fresh token is issued
+   * (invite / resend). Empty for listed invitations, whose token is never
+   * recoverable from storage.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $acceptUrl = '';
   // #endregion
 }

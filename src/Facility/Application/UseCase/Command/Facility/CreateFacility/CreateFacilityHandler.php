@@ -17,6 +17,7 @@ use Facility\Domain\Exception\{
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
+  FacilityCoordinates,
   FacilityId,
   FacilityName,
   FacilityOrganizationId,
@@ -108,6 +109,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
         code: $command->code,
         address: $command->address,
         metadata: $command->metadata,
+        coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
@@ -143,6 +145,8 @@ final readonly class CreateFacilityHandler implements CommandHandler
       metadata: $facility->metadata(),
       createdAt: $facility->createdAt(),
       updatedAt: $facility->updatedAt(),
+      latitude: $facility->coordinates()?->latitude(),
+      longitude: $facility->coordinates()?->longitude(),
     );
   }
 
@@ -162,6 +166,32 @@ final readonly class CreateFacilityHandler implements CommandHandler
     }
 
     return FacilityId::fromString($parentFacilityId);
+  }
+
+  /**
+   * Method resolveCoordinates.
+   *
+   * Builds the facility coordinates value object. Latitude and longitude
+   * must both be provided together, or both omitted.
+   *
+   * @since 1.0.0
+   *
+   * @param ?float $latitude the optional latitude
+   * @param ?float $longitude the optional longitude
+   *
+   * @return ?FacilityCoordinates the resolved coordinates
+   */
+  private function resolveCoordinates(?float $latitude, ?float $longitude): ?FacilityCoordinates
+  {
+    if (null === $latitude && null === $longitude) {
+      return null;
+    }
+
+    if (null === $latitude || null === $longitude) {
+      throw InvalidValueException::because('Facility latitude and longitude must be provided together.');
+    }
+
+    return new FacilityCoordinates($latitude, $longitude);
   }
 
   /**

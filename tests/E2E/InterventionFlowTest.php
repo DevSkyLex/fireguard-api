@@ -8,6 +8,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
 use function basename;
+use function http_build_query;
 use function is_array;
 use function is_string;
 use function json_encode;
@@ -25,6 +26,7 @@ use function uniqid;
 final class InterventionFlowTest extends OAuth2WebTestCase
 {
   private const string LD_JSON = 'application/ld+json';
+
   private const string MERGE_PATCH = 'application/merge-patch+json';
 
   public function testCreateDraftInterventionExposesDefaultsAndCounts(): void
@@ -160,6 +162,135 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     );
   }
 
+  public function testPlannedStartWindowFilterBoundsTheCollection(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-window-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Window Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Windowed mission');
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    $this->patch(
+      $client,
+      $token,
+      '/api/interventions/' . $interventionId,
+      1,
+      ['plannedStartAt' => '2026-09-15T09:00:00Z'],
+    );
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $organizationIri = '/api/organizations/' . $organizationId;
+
+    $inWindow = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => $organizationIri,
+      'plannedStartAtAfter' => '2026-09-01T00:00:00Z',
+      'plannedStartAtBefore' => '2026-09-30T23:59:59Z',
+    ]));
+    self::assertContains(
+      $interventionId,
+      $this->memberIds($inWindow),
+      'An intervention planned inside the window must be listed.',
+    );
+
+    $outOfWindow = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => $organizationIri,
+      'plannedStartAtAfter' => '2026-10-01T00:00:00Z',
+      'plannedStartAtBefore' => '2026-10-31T23:59:59Z',
+    ]));
+    self::assertNotContains(
+      $interventionId,
+      $this->memberIds($outOfWindow),
+      'An intervention planned outside the window must be excluded.',
+    );
+  }
+
+  public function testCreateAssignsSequentialNumberPerOrganization(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-number-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Number Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $first = $this->createDraftIntervention($client, $token, $organizationId, 'First mission');
+    $second = $this->createDraftIntervention($client, $token, $organizationId, 'Second mission');
+
+    self::assertIsInt($first['number'] ?? null);
+    self::assertIsInt($second['number'] ?? null);
+    self::assertGreaterThan(0, $first['number']);
+    self::assertSame(
+      $first['number'] + 1,
+      $second['number'],
+      'Each new intervention takes the next per-organization number.',
+    );
+  }
+
+  public function testDescriptionIsPersistedAndPatchable(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-description-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Description Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention(
+      $client,
+      $token,
+      $organizationId,
+      'Documented mission',
+      'Initial scope notes.',
+    );
+    self::assertSame('Initial scope notes.', $intervention['description'] ?? null);
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    $patched = $this->patch(
+      $client,
+      $token,
+      '/api/interventions/' . $interventionId,
+      1,
+      ['description' => 'Revised scope notes.'],
+    );
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('Revised scope notes.', $patched['description'] ?? null);
+  }
+
+  public function testNameFilterMatchesPartialCaseInsensitively(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-search-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Search Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $matching = $this->createDraftIntervention($client, $token, $organizationId, 'Sprinkler Recharge Campaign');
+    $other = $this->createDraftIntervention($client, $token, $organizationId, 'Fire door audit');
+    $matchingId = $this->extractResourceId($matching);
+    $otherId = $this->extractResourceId($other);
+    self::assertNotNull($matchingId);
+    self::assertNotNull($otherId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'name' => 'sprinkler',
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($matchingId, $ids, 'Partial, case-insensitive name match must be listed.');
+    self::assertNotContains($otherId, $ids, 'Non-matching interventions must be excluded.');
+  }
+
   /**
    * @return array<string, mixed>
    */
@@ -168,16 +299,21 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     string $token,
     string $organizationId,
     string $name,
+    ?string $description = null,
   ): array {
+    $payload = [
+      'organization' => '/api/organizations/' . $organizationId,
+      'type' => 'inspection_campaign',
+      'name' => $name,
+    ];
+    if (null !== $description) {
+      $payload['description'] = $description;
+    }
     $client->request(
       method: 'POST',
       uri: '/api/interventions',
       server: $this->headers($token, self::LD_JSON),
-      content: json_encode([
-        'organization' => '/api/organizations/' . $organizationId,
-        'type' => 'inspection_campaign',
-        'name' => $name,
-      ]) ?: '',
+      content: json_encode($payload) ?: '',
     );
 
     self::assertSame(
@@ -221,6 +357,32 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     $client->request('GET', $uri, server: $this->headers($token, self::LD_JSON));
 
     return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+  }
+
+  /**
+   * Extracts the resource ids of a Hydra collection's members.
+   *
+   * @param array<string, mixed> $collection
+   *
+   * @return list<string>
+   */
+  private function memberIds(array $collection): array
+  {
+    $members = $collection['member'] ?? [];
+    if (!is_array($members)) {
+      return [];
+    }
+    $ids = [];
+    foreach ($members as $member) {
+      if (is_array($member)) {
+        $id = $this->extractResourceId($member);
+        if (is_string($id)) {
+          $ids[] = $id;
+        }
+      }
+    }
+
+    return $ids;
   }
 
   private function firstMemberIri(KernelBrowser $client, string $token, string $organizationId): ?string

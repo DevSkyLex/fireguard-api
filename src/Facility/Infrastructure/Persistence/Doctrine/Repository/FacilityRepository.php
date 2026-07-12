@@ -93,6 +93,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $existing->code = $record->code;
       $existing->status = $record->status;
       $existing->address = $record->address;
+      $existing->latitude = $record->latitude;
+      $existing->longitude = $record->longitude;
       $existing->metadata = $record->metadata;
       $existing->updatedAt = $record->updatedAt;
     } else {
@@ -754,6 +756,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         'type' => $left->type <=> $right->type,
         'status' => $left->status <=> $right->status,
         'createdAt' => $left->createdAt <=> $right->createdAt,
+        'updatedAt' => $left->updatedAt <=> $right->updatedAt,
         'code' => ($left->code ?? '') <=> ($right->code ?? ''),
         default => $left->name <=> $right->name,
       };
@@ -783,6 +786,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       'type' => 'f.type',
       'status' => 'f.status',
       'createdAt' => 'f.createdAt',
+      'updatedAt' => 'f.updatedAt',
       'code' => 'f.code',
       default => 'f.name',
     };

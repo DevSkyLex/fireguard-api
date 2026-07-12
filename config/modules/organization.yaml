@@ -63,6 +63,11 @@ services:
       $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\ResendOrganizationInvitationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
@@ -100,6 +105,9 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\GetOrganizationInvitationPreviewHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
@@ -169,6 +177,12 @@ services:
 
   Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort:
     alias: Organization\Application\Service\OrganizationNotificationPolicyService
+
+  Organization\Application\Service\OrganizationInvitationTokenHasher: ~
+
+  Organization\Application\Service\OrganizationInvitationNotifier:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
 
   Organization\Application\Service\OrganizationCacheInvalidator: ~
 

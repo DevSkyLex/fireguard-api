@@ -48,4 +48,24 @@ final readonly class SentNotification
   ) {
   }
   // #endregion
+
+  // #region Methods
+  /**
+   * Method isDelivered.
+   *
+   * Tells whether this notification reports a successful delivery on the given
+   * channel, so callers stop re-implementing the `channelDelivery[...] ?? false`
+   * lookup.
+   *
+   * @since 1.0.0
+   *
+   * @param NotificationChannel $channel the channel to check
+   *
+   * @return bool true when the channel reports a successful delivery
+   */
+  public function isDelivered(NotificationChannel $channel): bool
+  {
+    return true === ($this->channelDelivery[$channel->value] ?? false);
+  }
+  // #endregion
 }

@@ -69,6 +69,8 @@ final class ListFacilitiesProviderTest extends TestCase
             createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
             updatedAt: new DateTimeImmutable('2026-02-12T10:30:00+00:00'),
             hasChildren: true,
+            latitude: 48.8566,
+            longitude: 2.3522,
           ),
         ],
         total: 1,
@@ -96,6 +98,8 @@ final class ListFacilitiesProviderTest extends TestCase
     self::assertInstanceOf(FacilityOutput::class, $items[0]);
     self::assertSame('550e8400-e29b-41d4-a716-446655441202', $items[0]->id);
     self::assertTrue($items[0]->hasChildren);
+    self::assertSame(48.8566, $items[0]->latitude);
+    self::assertSame(2.3522, $items[0]->longitude);
   }
 
   #[Test]

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Presentation\Api\Dto\Input;
 
 use ApiPlatform\Metadata\ApiProperty;
+use DateTimeInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -45,6 +46,14 @@ final class CreateInterventionInput
   public string $name = '';
 
   /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Length(max: 5000)]
+  public ?string $description = null;
+
+  /**
    * Property site.
    *
    * @since 1.0.0
@@ -81,7 +90,7 @@ final class CreateInterventionInput
    *
    * @since 1.0.0
    */
-  #[Assert\DateTime(format: \DateTimeInterface::ATOM)]
+  #[Assert\DateTime(format: DateTimeInterface::ATOM)]
   public ?string $plannedStartAt = null;
 
   /**
@@ -89,6 +98,18 @@ final class CreateInterventionInput
    *
    * @since 1.0.0
    */
-  #[Assert\DateTime(format: \DateTimeInterface::ATOM)]
+  #[Assert\DateTime(format: DateTimeInterface::ATOM)]
   public ?string $dueAt = null;
+
+  /**
+   * Property labelIds.
+   *
+   * Intervention label ids (uuids) to assign at creation.
+   *
+   * @since 1.0.0
+   *
+   * @var list<string>
+   */
+  #[Assert\All([new Assert\Type('string')])]
+  public array $labelIds = [];
 }

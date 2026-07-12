@@ -13,13 +13,13 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
-use LogicException;
 use Intervention\Application\Service\InterventionResourceManager;
-use Shared\Presentation\Api\Http\ResourceIriParser;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
+use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
+use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
@@ -152,6 +152,16 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     }
     if (array_key_exists('address', $fields)) {
       $record->address = null === $input->address ? null : trim($input->address);
+    }
+    if (array_key_exists('latitude', $fields) || array_key_exists('longitude', $fields)) {
+      if (array_key_exists('latitude', $fields) !== array_key_exists('longitude', $fields)) {
+        throw new UnprocessableEntityHttpException('Facility latitude and longitude must be provided together.');
+      }
+      if ((null === $input->latitude) !== (null === $input->longitude)) {
+        throw new UnprocessableEntityHttpException('Facility latitude and longitude must be provided together.');
+      }
+      $record->latitude = $input->latitude;
+      $record->longitude = $input->longitude;
     }
     if (array_key_exists('metadata', $fields)) {
       $record->metadata = $input->metadata ?? [];

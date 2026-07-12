@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="{% block lang %}en{% endblock %}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}{{ subject|default('FireGuard') }}{% endblock %}</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f1f5f9;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #1e293b;
+      }
+      .wrapper { width: 100%; background-color: #f1f5f9; padding: 24px 0; }
+      .container {
+        max-width: 560px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .header { background-color: #0f172a; padding: 20px 32px; }
+      .brand { font-size: 18px; font-weight: 700; color: #ffffff; letter-spacing: -0.01em; }
+      .brand-accent { color: #f97316; }
+      .content { padding: 32px; }
+      .content h1 { font-size: 20px; font-weight: 600; margin: 0 0 16px; color: #0f172a; }
+      .content p { font-size: 15px; line-height: 1.6; margin: 0 0 16px; color: #334155; }
+      .btn-wrap { margin: 24px 0; }
+      .btn {
+        display: inline-block;
+        background-color: #ea580c;
+        color: #ffffff !important;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 12px 28px;
+        border-radius: 8px;
+      }
+      .muted { color: #64748b; font-size: 13px; }
+      .link-fallback { word-break: break-all; font-size: 13px; }
+      .link-fallback a { color: #2563eb; }
+      .footer { padding: 20px 32px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 12px; }
+      .footer p { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <span class="brand">Fire<span class="brand-accent">Guard</span></span>
+        </div>
+        <div class="content">
+          {% block content %}{% endblock %}
+        </div>
+        <div class="footer">
+          {% block footer %}
+            <p>FireGuard — fire-safety field operations platform.</p>
+          {% endblock %}
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

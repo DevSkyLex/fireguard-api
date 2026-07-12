@@ -8,7 +8,7 @@ use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityHandler, GetFacilityQuery, GetFacilityResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -77,6 +77,7 @@ final class GetFacilityHandlerTest extends TestCase
       code: 'BLDG-B',
       address: '123 Main St',
       metadata: ['floors' => 4],
+      coordinates: new FacilityCoordinates(48.8566, 2.3522),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -106,6 +107,8 @@ final class GetFacilityHandlerTest extends TestCase
     self::assertSame('active', $result->status);
     self::assertTrue($result->hasChildren);
     self::assertSame('123 Main St', $result->address);
+    self::assertSame(48.8566, $result->latitude);
+    self::assertSame(2.3522, $result->longitude);
     self::assertSame(['floors' => 4], $result->metadata);
   }
 

@@ -15,6 +15,11 @@ services:
   Intervention\Infrastructure\:
     resource: '../../src/Intervention/Infrastructure'
 
+  # Bind the rich-text comment sanitizer (Quill / PrimeNG editor output).
+  Intervention\Presentation\Api\Processor\InterventionActivityProcessor:
+    arguments:
+      $commentSanitizer: '@html_sanitizer.sanitizer.intervention.comment'
+
   Intervention\Application\Port\Outbound\InterventionResourceGatewayPort:
     alias: Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter
 
@@ -32,6 +37,12 @@ services:
 
   Intervention\Application\Port\Outbound\InterventionIssueQueryPort:
     alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter
+
+  Intervention\Application\Port\Outbound\InterventionActivityPort:
+    alias: Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter
+
+  Intervention\Application\Port\Outbound\InterventionLabelPort:
+    alias: Intervention\Infrastructure\Adapter\Label\DoctrineInterventionLabelAdapter
 
   Intervention\Application\Service\InterventionChangeApplication:
     arguments:
@@ -58,6 +69,14 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Intervention\Infrastructure\Adapter\Activity\DoctrineInterventionActivityAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Label\DoctrineInterventionLabelAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -81,4 +100,22 @@ services:
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Query\Workflow\ListInterventionIssues\ListInterventionIssuesHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Activity\AddInterventionComment\AddInterventionCommentHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\ListInterventionActivitiesHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Label\CreateInterventionLabel\CreateInterventionLabelHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Label\UpdateInterventionLabel\UpdateInterventionLabelHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Label\DeleteInterventionLabel\DeleteInterventionLabelHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Label\ListInterventionLabels\ListInterventionLabelsHandler:
     tags: ['messenger.message_handler']

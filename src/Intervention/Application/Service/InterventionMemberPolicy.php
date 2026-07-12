@@ -113,6 +113,56 @@ final readonly class InterventionMemberPolicy
   }
 
   /**
+   * Method assertActiveMemberForUser.
+   *
+   * Resolves the authenticated user's membership in the organization and
+   * asserts it is active, returning the resolved organization member id. Used
+   * to attribute an authenticated action (e.g. a comment) to a member id
+   * rather than the raw user id, so activity actors always resolve to a
+   * member IRI at read time.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization id value
+   * @param string $userId the user id value
+   *
+   * @return string the resolved organization member id
+   */
+  public function assertActiveMemberForUser(string $organizationId, string $userId): string
+  {
+    $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
+    if (null === $member) {
+      throw new InterventionConflictException('The current user is not a member of the intervention organization.');
+    }
+    $this->assertActiveMember($organizationId, $member->id()->value);
+
+    return $member->id()->value;
+  }
+
+  /**
+   * Method findMemberId.
+   *
+   * Resolves the authenticated user's organization member id without
+   * throwing, for best-effort actor attribution on system-recorded activities
+   * (e.g. intervention creation, status transitions). Returns null when the
+   * user cannot be resolved to an active member, so a missing membership
+   * never blocks the underlying mutation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization id value
+   * @param string $userId the user id value
+   *
+   * @return ?string the resolved organization member id, or null
+   */
+  public function findMemberId(string $organizationId, string $userId): ?string
+  {
+    $member = $this->members->findByOrganizationAndUser(OrganizationId::fromString($organizationId), $userId);
+
+    return null !== $member && $member->isActive() ? $member->id()->value : null;
+  }
+
+  /**
    * Method assertCanExecuteIntervention.
    *
    * Ensures field resources are mutated only by the responsible member or a

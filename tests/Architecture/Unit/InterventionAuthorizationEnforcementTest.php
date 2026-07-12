@@ -13,7 +13,6 @@ use SplFileInfo;
 use function dirname;
 use function file_get_contents;
 use function in_array;
-use function is_dir;
 use function sprintf;
 use function str_contains;
 use function str_ends_with;

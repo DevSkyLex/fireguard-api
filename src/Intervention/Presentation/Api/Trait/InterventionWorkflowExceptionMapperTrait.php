@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Intervention\Presentation\Api\Trait;
 
-use InvalidArgumentException;
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
   InterventionConflictException,
@@ -13,6 +12,7 @@ use Intervention\Domain\Exception\{
   InterventionPreconditionRequiredException,
   InterventionValidationException
 };
+use InvalidArgumentException;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,

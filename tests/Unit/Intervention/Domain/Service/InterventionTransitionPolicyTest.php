@@ -39,4 +39,28 @@ final class InterventionTransitionPolicyTest extends TestCase
 
     new InterventionTransitionPolicy()->assertAllowed(InterventionStatus::PUBLISHED, InterventionStatus::IN_PROGRESS);
   }
+
+  #[Test]
+  public function itListsTheWorkflowLegalTransitionsFromEachStatus(): void
+  {
+    $policy = new InterventionTransitionPolicy();
+
+    self::assertSame(
+      [InterventionStatus::IN_PROGRESS, InterventionStatus::SUBMITTED, InterventionStatus::ABANDONED],
+      $policy->allowedFrom(InterventionStatus::CHANGES_REQUESTED),
+    );
+    self::assertSame(
+      [InterventionStatus::PLANNED, InterventionStatus::ABANDONED],
+      $policy->allowedFrom(InterventionStatus::DRAFT),
+    );
+  }
+
+  #[Test]
+  public function itNeverAllowsTransitionsFromTerminalStatuses(): void
+  {
+    $policy = new InterventionTransitionPolicy();
+
+    self::assertSame([], $policy->allowedFrom(InterventionStatus::PUBLISHED));
+    self::assertSame([], $policy->allowedFrom(InterventionStatus::ABANDONED));
+  }
 }

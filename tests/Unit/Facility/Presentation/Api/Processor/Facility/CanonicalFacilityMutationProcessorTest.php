@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Presentation\Api\Processor\Facility;
 
-use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\{Delete, Patch};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
@@ -21,6 +22,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 #[CoversClass(CanonicalFacilityMutationProcessor::class)]
 final class CanonicalFacilityMutationProcessorTest extends TestCase
@@ -48,6 +50,57 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     self::assertNull($result);
     self::assertSame('archived', $record->status);
     self::assertSame(4, $record->revision);
+  }
+
+  #[Test]
+  public function testPatchThrowsWhenOnlyLatitudeIsProvided(): void
+  {
+    $record = $this->record();
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->latitude = 48.8566;
+
+    $request = Request::create(
+      uri: '/api/facilities/' . self::FACILITY_ID,
+      method: 'PATCH',
+      content: '{"latitude":48.8566}',
+    );
+    $request->headers->set('If-Match', '"revision-3"');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
+
+    $this->processor($record, $requestStack, $entityManager)->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testPatchSetsBothCoordinatesWhenProvidedTogether(): void
+  {
+    $record = $this->record();
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::once())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->latitude = 48.8566;
+    $input->longitude = 2.3522;
+
+    $request = Request::create(
+      uri: '/api/facilities/' . self::FACILITY_ID,
+      method: 'PATCH',
+      content: '{"latitude":48.8566,"longitude":2.3522}',
+    );
+    $request->headers->set('If-Match', '"revision-3"');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $this->processor($record, $requestStack, $entityManager)->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    self::assertSame(48.8566, $record->latitude);
+    self::assertSame(2.3522, $record->longitude);
   }
 
   private function processor(
@@ -104,7 +157,11 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     $record->organization = $organization;
     $record->recordStatus = 'published';
     $record->revision = 3;
+    $record->type = 'site';
+    $record->name = 'HQ';
     $record->status = 'active';
+    $record->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $record->updatedAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
 
     return $record;
   }

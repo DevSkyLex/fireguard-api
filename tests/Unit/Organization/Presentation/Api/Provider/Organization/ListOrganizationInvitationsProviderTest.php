@@ -19,6 +19,7 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use User\Application\UseCase\Query\User\GetUser\GetUserResult;
 
 use function iterator_to_array;
 
@@ -92,33 +93,36 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       ->method('hasPermission')
       ->willReturn(true);
 
+    $invitationsResult = new PaginatedResult(
+      items: [
+        new GetOrganizationInvitationResult(
+          id: '550e8400-e29b-41d4-a716-446655441952',
+          organizationId: '550e8400-e29b-41d4-a716-446655441951',
+          email: 'member@example.com',
+          status: 'pending',
+          invitedByUserId: '550e8400-e29b-41d4-a716-446655441950',
+          acceptedByUserId: null,
+          revokedByUserId: null,
+          expiresAt: $expiresAt,
+          createdAt: $createdAt,
+          updatedAt: $createdAt,
+          acceptedAt: null,
+          revokedAt: null,
+          roleIds: ['550e8400-e29b-41d4-a716-446655441953'],
+        ),
+      ],
+      total: 1,
+      limit: 1,
+      offset: 0,
+    );
+
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
-      ->method('ask')
-      ->with(self::isInstanceOf(ListOrganizationInvitationsQuery::class))
-      ->willReturn(new PaginatedResult(
-        items: [
-          new GetOrganizationInvitationResult(
-            id: '550e8400-e29b-41d4-a716-446655441952',
-            organizationId: '550e8400-e29b-41d4-a716-446655441951',
-            email: 'member@example.com',
-            status: 'pending',
-            invitedByUserId: '550e8400-e29b-41d4-a716-446655441950',
-            acceptedByUserId: null,
-            revokedByUserId: null,
-            expiresAt: $expiresAt,
-            createdAt: $createdAt,
-            updatedAt: $createdAt,
-            acceptedAt: null,
-            revokedAt: null,
-            roleIds: ['550e8400-e29b-41d4-a716-446655441953'],
-          ),
-        ],
-        total: 1,
-        limit: 1,
-        offset: 0,
-      ));
+    $queryBus->method('ask')->willReturnCallback(
+      static fn (object $query): object => $query instanceof ListOrganizationInvitationsQuery
+        ? $invitationsResult
+        : new GetUserResult(null),
+    );
 
     $provider = new ListOrganizationInvitationsProvider(
       queryBus: $queryBus,
@@ -136,6 +140,7 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
     self::assertSame('pending', $items[0]->status);
     self::assertSame(['550e8400-e29b-41d4-a716-446655441953'], $items[0]->roleIds);
     self::assertSame($expiresAt->format('c'), $items[0]->expiresAt);
+    self::assertNull($items[0]->invitedByDisplayName);
   }
 
   #[Test]

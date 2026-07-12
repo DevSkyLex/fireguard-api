@@ -106,6 +106,26 @@ final class CreateFacilityInput
   public ?string $address = null;
 
   /**
+   * Property latitude.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Range(min: -90, max: 90)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional latitude, required together with longitude', required: false, example: 48.8566)]
+  public ?float $latitude = null;
+
+  /**
+   * Property longitude.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Range(min: -180, max: 180)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional longitude, required together with latitude', required: false, example: 2.3522)]
+  public ?float $longitude = null;
+
+  /**
    * Property metadata.
    *
    * @since 1.0.0

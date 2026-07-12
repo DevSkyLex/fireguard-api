@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -179,6 +179,7 @@ final class ListFacilitiesHandlerTest extends TestCase
       code: 'FLR-3',
       address: 'Wing B',
       metadata: ['capacity' => 50],
+      coordinates: new FacilityCoordinates(48.8566, 2.3522),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -207,6 +208,8 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertSame('active', $item->status);
     self::assertFalse($item->hasChildren);
     self::assertSame('Wing B', $item->address);
+    self::assertSame(48.8566, $item->latitude);
+    self::assertSame(2.3522, $item->longitude);
     self::assertSame(['capacity' => 50], $item->metadata);
     self::assertSame(1, $result->total);
     self::assertSame(20, $result->limit);

@@ -10,8 +10,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Presentation\Api\Dto\Input\Organization\InviteOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -33,6 +33,8 @@ use function is_string;
  */
 final readonly class InviteOrganizationMemberProcessor implements ProcessorInterface
 {
+  use InvitationOutputMapperTrait;
+
   // #region Constructor
   /**
    * Constructor.
@@ -102,18 +104,7 @@ final readonly class InviteOrganizationMemberProcessor implements ProcessorInter
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     }
 
-    $output = new OrganizationInvitationOutput();
-    $output->id = $result->invitationId;
-    $output->organizationId = $result->organizationId;
-    $output->email = $result->email;
-    $output->status = $result->status;
-    $output->invitedByUserId = $result->invitedByUserId;
-    $output->expiresAt = $result->expiresAt->format('c');
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-    $output->roleIds = $result->roleIds;
-
-    return $output;
+    return $this->buildInvitationOutput($result);
   }
   // #endregion
 }

@@ -91,7 +91,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   /**
    * Method interventionMutationContext.
    *
-   * Loads and locks a intervention for a resource mutation.
+   * Loads and locks an intervention for a resource mutation.
    *
    * @since 1.0.0
    *
@@ -182,7 +182,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   /**
    * Method resourceInInterventionScope.
    *
-   * Determines whether a canonical resource is targeted by a intervention work item.
+   * Determines whether a canonical resource is targeted by an intervention work item.
    *
    * @since 1.0.0
    *
@@ -337,7 +337,7 @@ final readonly class DoctrineInterventionResourceGatewayAdapter implements Inter
   /**
    * Method listMetrics.
    *
-   * Aggregates the metrics required to render a intervention collection.
+   * Aggregates the metrics required to render an intervention collection.
    *
    * @since 1.0.0
    *

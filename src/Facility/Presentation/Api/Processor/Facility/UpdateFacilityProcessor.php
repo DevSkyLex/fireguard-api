@@ -92,6 +92,8 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
       && !array_key_exists('name', $payload)
       && !array_key_exists('code', $payload)
       && !array_key_exists('address', $payload)
+      && !array_key_exists('latitude', $payload)
+      && !array_key_exists('longitude', $payload)
       && !array_key_exists('metadata', $payload)
     ) {
       throw new BadRequestHttpException('At least one field must be provided for update.');
@@ -106,11 +108,15 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
         name: $data->name,
         code: $data->code,
         address: $data->address,
+        latitude: $data->latitude,
+        longitude: $data->longitude,
         metadata: $data->metadata,
         hasType: array_key_exists('type', $payload),
         hasName: array_key_exists('name', $payload),
         hasCode: array_key_exists('code', $payload),
         hasAddress: array_key_exists('address', $payload),
+        hasLatitude: array_key_exists('latitude', $payload),
+        hasLongitude: array_key_exists('longitude', $payload),
         hasMetadata: array_key_exists('metadata', $payload),
       ));
     } catch (FacilityCodeAlreadyExistsException $exception) {
@@ -147,6 +153,8 @@ final readonly class UpdateFacilityProcessor implements ProcessorInterface
     $output->code = $result->code;
     $output->status = $result->status;
     $output->address = $result->address;
+    $output->latitude = $result->latitude;
+    $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');

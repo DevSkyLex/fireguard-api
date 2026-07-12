@@ -102,7 +102,7 @@ interface InterventionResourceOwnerPort
   /**
    * Method countsForInterventions.
    *
-   * Aggregates owned resource counts for a intervention collection.
+   * Aggregates owned resource counts for an intervention collection.
    *
    * @since 1.0.0
    *
@@ -115,7 +115,7 @@ interface InterventionResourceOwnerPort
   /**
    * Method blockerCountsForInterventions.
    *
-   * Aggregates resource-specific blocker counts for a intervention collection.
+   * Aggregates resource-specific blocker counts for an intervention collection.
    *
    * @since 1.0.0
    *

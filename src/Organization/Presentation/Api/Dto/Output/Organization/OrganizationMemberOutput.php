@@ -48,6 +48,15 @@ final class OrganizationMemberOutput
   public string $userId = '';
 
   /**
+   * Property email.
+   *
+   * @since 1.2.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $email = null;
+
+  /**
    * Property firstName.
    *
    * @since 1.1.0

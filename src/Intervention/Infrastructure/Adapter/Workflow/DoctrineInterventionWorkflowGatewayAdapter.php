@@ -8,14 +8,13 @@ use DateTimeImmutable;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
-use InvalidArgumentException;
 use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowContext,
   InterventionWorkflowMutation,
   InterventionWorkflowPage,
   InterventionWorkflowView
 };
-use Intervention\Application\Port\Outbound\{InterventionIssueQueryPort, InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
+use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionIssueQueryPort, InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\Service\{InterventionIssueFinder, InterventionMemberPolicy, InterventionNotificationService};
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
@@ -31,9 +30,11 @@ use Intervention\Domain\ValueObject\{InterventionPriority, InterventionResourceT
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\{InterventionMapper, InterventionViewMapper};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionChangeRecord,
+  InterventionLabelRecord,
   InterventionRecord,
   InterventionWorkItemRecord
 };
+use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
 
@@ -44,8 +45,10 @@ use function array_unique;
 use function array_values;
 use function in_array;
 use function is_array;
+use function is_numeric;
 use function is_string;
 use function max;
+use function mb_strtolower;
 use function min;
 use function sprintf;
 use function trim;
@@ -77,6 +80,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param InterventionResourceGatewayPort $resources the resources value
    * @param InterventionIssueFinder $issueFinder the issue finder value
    * @param InterventionViewMapper $views the view mapper value
+   * @param InterventionActivityPort $activities the activity feed port value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -88,6 +92,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private InterventionResourceGatewayPort $resources,
     private InterventionIssueFinder $issueFinder,
     private InterventionViewMapper $views,
+    private InterventionActivityPort $activities,
   ) {
   }
 
@@ -342,11 +347,27 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       priority: InterventionPriority::from($this->requiredString($mutation->payload, 'priority')),
       plannedStartAt: $this->date($mutation->payload['plannedStartAt'] ?? null),
       dueAt: $this->date($mutation->payload['dueAt'] ?? null),
+      description: $this->nullableString($mutation->payload, 'description'),
     );
     $intervention = InterventionMapper::toRecord($aggregate);
     $intervention->organization = $organization;
+    $intervention->number = $this->allocateNumber($organizationId);
+    if (array_key_exists('labelIds', $mutation->payload)) {
+      foreach ($this->resolveLabels($mutation->payload['labelIds'] ?? [], $organizationId) as $label) {
+        $intervention->labels->add($label);
+      }
+    }
     $this->entityManager->persist($intervention);
     $this->entityManager->flush();
+    $this->activities->append(
+      $intervention->id,
+      $organizationId,
+      $this->memberPolicy->findMemberId($organizationId, $mutation->userId),
+      'system',
+      'created',
+      null,
+      null,
+    );
 
     return $this->views->interventionView($intervention);
   }
@@ -367,6 +388,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   private function updateIntervention(InterventionRecord $intervention, InterventionWorkflowMutation $mutation, array &$notifications): InterventionWorkflowView
   {
     $organizationId = $this->organizationId($intervention);
+    $previousStatus = $intervention->status;
     $aggregate = InterventionMapper::toDomain($intervention);
     $responsibleId = $aggregate->responsibleId();
     if (array_key_exists('responsibleId', $mutation->payload)) {
@@ -399,6 +421,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $aggregate->edit(
       policy: $this->transitionPolicy,
       name: array_key_exists('name', $mutation->payload) ? $this->requiredString($mutation->payload, 'name') : null,
+      description: array_key_exists('description', $mutation->payload) ? $this->nullableString($mutation->payload, 'description') : null,
       siteId: $siteId,
       responsibleId: $responsibleId,
       participants: $participants,
@@ -408,6 +431,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       reviewNote: array_key_exists('reviewNote', $mutation->payload) ? $this->nullableString($mutation->payload, 'reviewNote') : null,
       nextStatus: $nextStatus,
       hasName: array_key_exists('name', $mutation->payload),
+      hasDescription: array_key_exists('description', $mutation->payload),
       hasSiteId: array_key_exists('siteId', $mutation->payload),
       hasResponsibleId: array_key_exists('responsibleId', $mutation->payload),
       hasParticipants: array_key_exists('participants', $mutation->payload),
@@ -417,7 +441,24 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       hasReviewNote: array_key_exists('reviewNote', $mutation->payload),
     );
     InterventionMapper::sync($aggregate, $intervention);
+    if (array_key_exists('labelIds', $mutation->payload)) {
+      $intervention->labels->clear();
+      foreach ($this->resolveLabels($mutation->payload['labelIds'] ?? [], $organizationId) as $label) {
+        $intervention->labels->add($label);
+      }
+    }
     $this->entityManager->flush();
+    if (null !== $nextStatus && $nextStatus->value !== $previousStatus) {
+      $this->activities->append(
+        $intervention->id,
+        $organizationId,
+        $this->memberPolicy->findMemberId($organizationId, $mutation->userId),
+        'system',
+        'status_changed',
+        null,
+        ['from' => $previousStatus, 'to' => $nextStatus->value],
+      );
+    }
     if (InterventionStatus::CHANGES_REQUESTED === $nextStatus) {
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;
@@ -696,6 +737,10 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
       }
     }
+    if (is_string($filters['name'] ?? null) && '' !== trim($filters['name'])) {
+      $qb->andWhere('LOWER(m.name) LIKE :name')
+        ->setParameter('name', '%' . mb_strtolower(trim($filters['name'])) . '%');
+    }
     if (is_string($filters['responsibleId'] ?? null) && '' !== $filters['responsibleId']) {
       $qb->andWhere('m.responsibleId = :responsibleId')->setParameter('responsibleId', $filters['responsibleId']);
     }
@@ -712,14 +757,21 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $qb->setParameter('participantIds', $ids);
       }
     }
-    foreach (['dueAtAfter' => '>=', 'dueAtBefore' => '<='] as $filter => $operator) {
+    foreach (
+      [
+        'dueAtAfter' => ['dueAt', '>='],
+        'dueAtBefore' => ['dueAt', '<='],
+        'plannedStartAtAfter' => ['plannedStartAt', '>='],
+        'plannedStartAtBefore' => ['plannedStartAt', '<='],
+      ] as $filter => [$field, $operator]
+    ) {
       if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
         try {
           $date = new DateTimeImmutable($filters[$filter]);
         } catch (Exception $exception) {
           throw new InvalidArgumentException(sprintf('The %s filter must be a valid date-time.', $filter), previous: $exception);
         }
-        $qb->andWhere(sprintf('m.dueAt %s :%s', $operator, $filter))->setParameter($filter, $date);
+        $qb->andWhere(sprintf('m.%s %s :%s', $field, $operator, $filter))->setParameter($filter, $date);
       }
     }
 
@@ -1044,6 +1096,35 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   }
 
   /**
+   * Method resolveLabels.
+   *
+   * Resolves and asserts a list of label ids belong to the intervention's
+   * organization. Labels are record-level metadata, resolved directly against
+   * `InterventionLabelRecord` rather than through a port, since the gateway
+   * already queries records directly (e.g. `assertSiteBelongsToOrganization`).
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $labelIds the raw label ids value
+   * @param string $organizationId the organization id value
+   *
+   * @return list<InterventionLabelRecord>
+   */
+  private function resolveLabels(mixed $labelIds, string $organizationId): array
+  {
+    $labels = [];
+    foreach ($this->stringList($labelIds) as $labelId) {
+      $label = $this->entityManager->find(InterventionLabelRecord::class, $labelId);
+      if (!$label instanceof InterventionLabelRecord || $label->organization?->id !== $organizationId) {
+        throw new InterventionValidationException('Intervention labels must belong to the intervention organization.');
+      }
+      $labels[] = $label;
+    }
+
+    return $labels;
+  }
+
+  /**
    * Method touch.
    *
    * Executes the touch operation.
@@ -1057,6 +1138,35 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
   {
     ++$intervention->revision;
     $intervention->updatedAt = $now;
+  }
+
+  /**
+   * Method allocateNumber.
+   *
+   * Atomically allocates the next per-organization intervention number through
+   * an upsert with `RETURNING`, so concurrent creations serialize on the
+   * counter row instead of racing a `MAX()+1` read before the new intervention
+   * row exists. Runs inside the surrounding mutation transaction.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization id value
+   *
+   * @return int the allocated intervention number
+   */
+  private function allocateNumber(string $organizationId): int
+  {
+    $number = $this->entityManager->getConnection()->fetchOne(
+      'INSERT INTO intervention_number_counters (organization_id, last_number) VALUES (:organization, 1) '
+      . 'ON CONFLICT (organization_id) DO UPDATE SET last_number = intervention_number_counters.last_number + 1 '
+      . 'RETURNING last_number',
+      ['organization' => $organizationId],
+    );
+    if (!is_numeric($number)) {
+      throw new InterventionConflictException('Failed to allocate an intervention number.');
+    }
+
+    return (int) $number;
   }
 
   /**

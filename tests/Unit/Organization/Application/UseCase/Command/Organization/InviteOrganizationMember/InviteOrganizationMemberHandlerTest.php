@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberHandler, InviteOrganizationMemberResult};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
@@ -19,6 +20,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Tests\Support\Factory\EmailTranslatorTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
 
 use function array_key_exists;
@@ -113,19 +115,21 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
         $emailPayload = $request->deliveryPayload['email'] ?? null;
         $emailTemplate = is_array($emailPayload) ? ($emailPayload['template'] ?? null) : null;
         $emailContext = is_array($emailPayload) ? ($emailPayload['context'] ?? null) : null;
-        $emailToken = is_array($emailContext) ? ($emailContext['token'] ?? null) : null;
+        $emailAcceptUrl = is_array($emailContext) ? ($emailContext['acceptUrl'] ?? null) : null;
 
         return 'organization.invitation' === $request->type
           && [NotificationChannel::EMAIL] === $request->channels
           && null === $request->recipientUserId
           && $email === $request->recipientEmail
           && !array_key_exists('token', $request->payload)
+          && !array_key_exists('acceptUrl', $request->payload)
           && !str_contains($request->body, 'Use this token')
           && str_contains($request->subject, 'Invitation to join')
           && 'notification/email/organization_invitation.html.twig' === $emailTemplate
           && is_array($emailContext)
-          && is_string($emailToken)
-          && '' !== $emailToken;
+          && !array_key_exists('token', $emailContext)
+          && is_string($emailAcceptUrl)
+          && str_contains($emailAcceptUrl, '/organizations/invitations/accept?token=');
       }))
       ->willThrowException(new RuntimeException('Notification delivery failed.'));
 
@@ -148,13 +152,20 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
     $logger->expects(self::exactly(2))
       ->method('warning');
 
+    $invitationNotifier = new OrganizationInvitationNotifier(
+      $notificationPort,
+      'http://localhost:4200',
+      new OrganizationInvitationTokenHasher(),
+      EmailTranslatorTestFactory::create(),
+    );
+
     $handler = new InviteOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       invitationRepository: $invitationRepository,
       userRepository: $userRepository,
-      notificationPort: $notificationPort,
+      invitationNotifier: $invitationNotifier,
       logger: $logger,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,

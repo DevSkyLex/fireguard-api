@@ -133,12 +133,14 @@ final readonly class InterventionProcessor implements ProcessorInterface
       'organizationId' => ResourceIriParser::id($input->organization, 'organizations'),
       'type' => $input->type,
       'name' => $input->name,
+      'description' => $input->description,
       'siteId' => null === $input->site ? null : ResourceIriParser::id($input->site, 'facilities'),
       'responsibleId' => null === $input->responsible ? null : ResourceIriParser::memberId($input->responsible),
       'participants' => array_map(ResourceIriParser::memberId(...), $input->participants),
       'priority' => $input->priority,
       'plannedStartAt' => $input->plannedStartAt,
       'dueAt' => $input->dueAt,
+      'labelIds' => $input->labelIds,
     ];
   }
 
@@ -155,7 +157,7 @@ final readonly class InterventionProcessor implements ProcessorInterface
   {
     $fields = $this->mergePatchFields->all();
     $payload = [];
-    foreach (['name', 'status', 'priority', 'plannedStartAt', 'dueAt', 'reviewNote'] as $field) {
+    foreach (['name', 'description', 'status', 'priority', 'plannedStartAt', 'dueAt', 'reviewNote'] as $field) {
       if (array_key_exists($field, $fields)) {
         $payload[$field] = $input->{$field};
       }
@@ -172,6 +174,9 @@ final readonly class InterventionProcessor implements ProcessorInterface
       $payload['participants'] = null === $input->participants
         ? null
         : array_map(ResourceIriParser::memberId(...), $input->participants);
+    }
+    if (array_key_exists('labelIds', $fields)) {
+      $payload['labelIds'] = $input->labelIds ?? [];
     }
 
     return $payload;

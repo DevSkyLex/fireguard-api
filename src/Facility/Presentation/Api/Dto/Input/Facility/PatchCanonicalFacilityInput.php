@@ -50,6 +50,22 @@ final class PatchCanonicalFacilityInput
   public ?string $address = null;
 
   /**
+   * Property latitude.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Range(min: -90, max: 90)]
+  public ?float $latitude = null;
+
+  /**
+   * Property longitude.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Range(min: -180, max: 180)]
+  public ?float $longitude = null;
+
+  /**
    * Property metadata.
    *
    * @since 1.0.0
