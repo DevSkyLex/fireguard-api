@@ -17,6 +17,30 @@ final class InspectionStatisticsAdapterTest extends TestCase
   private const string ORG_ID = '550e8400-e29b-41d4-a716-446655440001';
 
   #[Test]
+  public function testCountActiveInspectionsExcludesCancelled(): void
+  {
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::exactly(2))
+      ->method('countByOrganizationId')
+      ->willReturnCallback(static function (
+        InspectionOrganizationId $organizationId,
+        ?string $equipmentId = null,
+        ?string $facilityId = null,
+        ?string $result = null,
+        ?string $status = null,
+      ): int {
+        self::assertSame(self::ORG_ID, (string) $organizationId);
+
+        return 'cancelled' === $status ? 2 : 9;
+      });
+
+    $adapter = new InspectionStatisticsAdapter($repository);
+
+    self::assertSame(7, $adapter->countActiveInspections(self::ORG_ID));
+  }
+
+  #[Test]
   public function testCountInspectionOverviewNormalizesMissingValuesToZero(): void
   {
     /** @var InspectionRepositoryPort&MockObject $repository */
@@ -39,6 +63,7 @@ final class InspectionStatisticsAdapterTest extends TestCase
       'pass' => 6,
       'draft' => 0,
       'submitted' => 0,
+      'cancelled' => 0,
       'fail' => 0,
       'partial' => 0,
     ], $adapter->countInspectionOverview(self::ORG_ID, 'closed', 'pass', 'user'));
@@ -87,6 +112,7 @@ final class InspectionStatisticsAdapterTest extends TestCase
       'draft' => 0,
       'submitted' => 4,
       'closed' => 0,
+      'cancelled' => 0,
     ], $adapter->countInspectionsByStatus(self::ORG_ID));
   }
 

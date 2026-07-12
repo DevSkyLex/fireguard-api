@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 /**
@@ -59,7 +60,10 @@ final class InterventionActivityProcessorTest extends TestCase
     $input = new CreateInterventionCommentInput();
     $input->body = 'A comment';
 
-    $processor = new InterventionActivityProcessor($commandBus, new InterventionActivityOutputFactory(), $security);
+    $sanitizer = $this->createStub(HtmlSanitizerInterface::class);
+    $sanitizer->method('sanitize')->willReturnArgument(0);
+
+    $processor = new InterventionActivityProcessor($commandBus, new InterventionActivityOutputFactory(), $security, $sanitizer);
     $output = $processor->process($input, new Post(), ['interventionId' => 'intervention-1']);
 
     self::assertSame('activity-1', $output->id);
@@ -77,7 +81,10 @@ final class InterventionActivityProcessorTest extends TestCase
       new SecurityUser('user-1', 'user@example.com', 'password', ['ROLE_USER'], [], true),
     );
 
-    $processor = new InterventionActivityProcessor($commandBus, new InterventionActivityOutputFactory(), $security);
+    $sanitizer = $this->createStub(HtmlSanitizerInterface::class);
+    $sanitizer->method('sanitize')->willReturnArgument(0);
+
+    $processor = new InterventionActivityProcessor($commandBus, new InterventionActivityOutputFactory(), $security, $sanitizer);
 
     $this->expectException(BadRequestHttpException::class);
 

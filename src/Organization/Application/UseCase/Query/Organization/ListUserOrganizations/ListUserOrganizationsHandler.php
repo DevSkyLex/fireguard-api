@@ -105,7 +105,7 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
     );
 
     $memberCounts = $this->memberRepository->countByOrganizationIds(
-      array_values(array_map(static fn ($organization): OrganizationId => $organization->id(), $organizations)),
+      array_map(static fn ($organization): OrganizationId => $organization->id(), $organizations),
     );
 
     $results = [];

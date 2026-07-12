@@ -35,7 +35,7 @@ final readonly class AvatarUrls
    *
    * @param string|null $avatarUrl the canonical avatar URL
    *
-   * @return array<string, string>|null map of size (px) to URL
+   * @return array<int, string>|null map of size (px) to URL
    */
   public static function fromAvatarUrl(?string $avatarUrl): ?array
   {
@@ -53,7 +53,7 @@ final readonly class AvatarUrls
 
     $urls = [];
     foreach (AvatarResizer::SIZES as $size) {
-      $urls[(string) $size] = sprintf('%s/%d.webp%s', $matches[1], $size, $query);
+      $urls[$size] = sprintf('%s/%d.webp%s', $matches[1], $size, $query);
     }
 
     return $urls;

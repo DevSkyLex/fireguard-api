@@ -9,6 +9,7 @@ use Organization\Application\Port\Outbound\{
   EquipmentStatisticsPort,
   FacilityStatisticsPort,
   InspectionStatisticsPort,
+  OrganizationInvitationRepositoryPort,
   OrganizationMemberRepositoryPort,
   OrganizationRepositoryPort,
   PlanRepositoryPort
@@ -53,6 +54,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param PlanRepositoryPort $planRepository the plan repository
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
+   * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository
    * @param FacilityStatisticsPort $facilityStatistics the facility statistics port
    * @param EquipmentStatisticsPort $equipmentStatistics the equipment statistics port
    * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics port
@@ -61,6 +63,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     private readonly OrganizationRepositoryPort $organizationRepository,
     private readonly PlanRepositoryPort $planRepository,
     private readonly OrganizationMemberRepositoryPort $memberRepository,
+    private readonly OrganizationInvitationRepositoryPort $invitationRepository,
     private readonly FacilityStatisticsPort $facilityStatistics,
     private readonly EquipmentStatisticsPort $equipmentStatistics,
     private readonly InspectionStatisticsPort $inspectionStatistics,
@@ -78,14 +81,35 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
 
   public function getUsage(string $organizationId, OrganizationQuotaResource $resource): int
   {
+    // Usage counts the resources that occupy a plan slot: active members plus the
+    // pending invitations that reserve one, and only the "active" (published and
+    // not archived/decommissioned/cancelled) assets, so archiving, decommissioning
+    // or cancelling frees capacity.
     return match ($resource) {
-      OrganizationQuotaResource::MEMBERS => $this->memberRepository->countByOrganizationId(
-        OrganizationId::fromString($organizationId),
-      ),
-      OrganizationQuotaResource::FACILITIES => $this->facilityStatistics->countFacilities($organizationId),
-      OrganizationQuotaResource::EQUIPMENT => $this->equipmentStatistics->countEquipment($organizationId),
-      OrganizationQuotaResource::INSPECTIONS => $this->inspectionStatistics->countInspections($organizationId),
+      OrganizationQuotaResource::MEMBERS => $this->countMemberUsage($organizationId),
+      OrganizationQuotaResource::FACILITIES => $this->facilityStatistics->countActiveFacilities($organizationId),
+      OrganizationQuotaResource::EQUIPMENT => $this->equipmentStatistics->countActiveEquipment($organizationId),
+      OrganizationQuotaResource::INSPECTIONS => $this->inspectionStatistics->countActiveInspections($organizationId),
     };
+  }
+
+  public function assertCanAcceptMember(string $organizationId): void
+  {
+    $limit = $this->getLimit($organizationId, OrganizationQuotaResource::MEMBERS);
+
+    if (null === $limit) {
+      return;
+    }
+
+    // Count only active members: the pending invitation being accepted already
+    // reserved a slot at emission time, so it must not block its own acceptance.
+    $activeMembers = $this->memberRepository->countActiveByOrganizationId(
+      OrganizationId::fromString($organizationId),
+    );
+
+    if ($activeMembers >= $limit) {
+      throw OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, $limit);
+    }
   }
 
   public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void
@@ -122,6 +146,27 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
   public function reset(): void
   {
     $this->planCache = [];
+  }
+
+  /**
+   * Method countMemberUsage.
+   *
+   * Counts the member slots occupied by an organization: its active members
+   * plus its pending invitations, each of which reserves a slot until it is
+   * accepted, revoked, or expired.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the occupied member slots
+   */
+  private function countMemberUsage(string $organizationId): int
+  {
+    $organization = OrganizationId::fromString($organizationId);
+
+    return $this->memberRepository->countActiveByOrganizationId($organization)
+      + $this->invitationRepository->countPendingByOrganizationId($organization);
   }
 
   /**

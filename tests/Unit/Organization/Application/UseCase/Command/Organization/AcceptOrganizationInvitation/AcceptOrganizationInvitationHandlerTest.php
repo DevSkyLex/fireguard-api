@@ -9,6 +9,7 @@ use Notification\Application\Contract\Notification\{NotificationChannel, SendNot
 use Notification\Application\Contract\Notification\SentNotification;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationHandler, AcceptOrganizationInvitationResult};
@@ -213,6 +214,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
@@ -404,6 +406,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
@@ -584,6 +587,7 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,

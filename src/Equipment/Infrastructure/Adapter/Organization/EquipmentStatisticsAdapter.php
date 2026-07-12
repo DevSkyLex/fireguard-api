@@ -36,6 +36,23 @@ final readonly class EquipmentStatisticsAdapter implements EquipmentStatisticsPo
     );
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  public function countActiveEquipment(string $organizationId, ?string $type = null): int
+  {
+    $organization = EquipmentOrganizationId::fromString($organizationId);
+
+    $total = $this->equipmentRepository->countByOrganizationId($organization, type: $type);
+    $decommissioned = $this->equipmentRepository->countByOrganizationId(
+      $organization,
+      type: $type,
+      status: EquipmentStatus::DECOMMISSIONED->value,
+    );
+
+    return $total - $decommissioned;
+  }
+
   public function countEquipmentOverview(string $organizationId, ?string $type = null, ?string $status = null): array
   {
     /** @var array<string, int> $overview */

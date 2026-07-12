@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 #[CoversClass(CanonicalEquipmentMutationProcessor::class)]
 final class CanonicalEquipmentMutationProcessorTest extends TestCase
@@ -82,6 +83,73 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     self::assertSame(4, $result?->revision);
   }
 
+  #[Test]
+  public function testRejectsIllegalPublishedStatusTransition(): void
+  {
+    $record = $this->record();
+    $record->status = 'decommissioned';
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('flush');
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"operational"}'),
+      $entityManager,
+    )->process($this->patchStatus('operational'), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testAllowsLegalPublishedStatusTransition(): void
+  {
+    $record = $this->record();
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::once())->method('flush');
+
+    $result = $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"under_maintenance"}'),
+      $entityManager,
+    )->process($this->patchStatus('under_maintenance'), new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    self::assertSame('under_maintenance', $record->status);
+    self::assertSame(4, $record->revision);
+    self::assertSame(4, $result?->revision);
+  }
+
+  #[Test]
+  public function testDraftRecordSkipsStatusTransitionValidation(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+    $record->status = 'decommissioned';
+    $record->facilityId = null;
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::once())->method('flush');
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
+    );
+
+    // A draft (intervention scratchpad) record may be freely edited — an
+    // otherwise-illegal transition (decommissioned -> in_stock) must not throw.
+    $result = $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"in_stock"}'),
+      $entityManager,
+      $resources,
+    )->process($this->patchStatus('in_stock'), new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    self::assertSame('in_stock', $record->status);
+    self::assertSame(4, $result?->revision);
+  }
+
   private function processor(
     EquipmentRecord $record,
     RequestStack $requestStack,
@@ -127,6 +195,14 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     $entityManager->method('find')->with(EquipmentRecord::class, self::EQUIPMENT_ID)->willReturn($record);
 
     return $entityManager;
+  }
+
+  private function patchStatus(string $status): PatchCanonicalEquipmentInput
+  {
+    $input = new PatchCanonicalEquipmentInput();
+    $input->status = $status;
+
+    return $input;
   }
 
   private function record(): EquipmentRecord

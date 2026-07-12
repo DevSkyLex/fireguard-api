@@ -28,9 +28,20 @@ interface InspectionStatisticsPort
   ): int;
 
   /**
+   * Counts active inspections for an organization, i.e. every inspection that is
+   * not cancelled. Used by the plan quota so that cancelling an inspection frees
+   * capacity.
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return int the active (non-cancelled) inspection count
+   */
+  public function countActiveInspections(string $organizationId): int;
+
+  /**
    * Returns aggregate inspection overview counts for dashboard cards.
    *
-   * @return array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int}
+   * @return array{total: int, draft: int, submitted: int, closed: int, cancelled: int, pass: int, fail: int, partial: int}
    */
   public function countInspectionOverview(
     string $organizationId,

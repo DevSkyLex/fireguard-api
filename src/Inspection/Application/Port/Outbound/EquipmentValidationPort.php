@@ -35,5 +35,23 @@ interface EquipmentValidationPort
    * @throws InvalidArgumentException when the equipment is not found or belongs to another organization
    */
   public function assertEquipmentExists(string $equipmentId, string $organizationId): void;
+
+  /**
+   * Method assertEquipmentIsInspectable.
+   *
+   * Verifies the equipment exists in the organization, is not decommissioned,
+   * and — when an inspection facility is provided — is assigned to that same
+   * facility (an inspection must not claim an equipment at a facility it is not
+   * installed in). Guards inspection creation against inconsistent targets.
+   *
+   * @since 1.0.0
+   *
+   * @param string $equipmentId the equipment identifier
+   * @param string $organizationId the expected organization identifier
+   * @param string|null $facilityId the inspection facility, when set
+   *
+   * @throws InvalidArgumentException when the equipment is not found, belongs to another organization, is decommissioned, or is not assigned to the given facility
+   */
+  public function assertEquipmentIsInspectable(string $equipmentId, string $organizationId, ?string $facilityId): void;
   // #endregion
 }

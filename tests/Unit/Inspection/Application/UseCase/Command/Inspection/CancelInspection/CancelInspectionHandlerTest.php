@@ -12,8 +12,8 @@ use Inspection\Application\UseCase\Command\Inspection\CancelInspection\{
   CancelInspectionResult
 };
 use Inspection\Domain\Exception\{
+  InspectionAlreadyCancelledException,
   InspectionAlreadyClosedException,
-  InspectionAlreadySubmittedException,
   InspectionNotFoundException
 };
 use Inspection\Domain\Model\Inspection\Inspection;
@@ -38,14 +38,16 @@ final class CancelInspectionHandlerTest extends TestCase
   private const string INSP_ID = '550e8400-e29b-41d4-a716-446655440003';
 
   #[Test]
-  public function testInvokeRemovesInspectionAndReturnsResult(): void
+  public function testInvokeCancelsDraftInspectionLogically(): void
   {
     $inspection = $this->makeDraftInspection();
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn($inspection);
-    $repository->expects(self::once())->method('remove')->with($inspection);
+    // Logical cancellation persists the row instead of deleting it.
+    $repository->expects(self::never())->method('remove');
+    $repository->expects(self::once())->method('save')->with($inspection);
 
     $handler = new CancelInspectionHandler(inspectionRepository: $repository);
 
@@ -57,6 +59,28 @@ final class CancelInspectionHandlerTest extends TestCase
     self::assertInstanceOf(CancelInspectionResult::class, $result);
     self::assertSame(self::INSP_ID, $result->inspectionId);
     self::assertSame(self::ORG_ID, $result->organizationId);
+    self::assertTrue($inspection->status()->isCancelled());
+  }
+
+  #[Test]
+  public function testInvokeCancelsSubmittedInspectionLogically(): void
+  {
+    $inspection = $this->makeSubmittedInspection();
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->method('findById')->willReturn($inspection);
+    $repository->expects(self::never())->method('remove');
+    $repository->expects(self::once())->method('save')->with($inspection);
+
+    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+
+    $handler->__invoke(new CancelInspectionCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+    ));
+
+    self::assertTrue($inspection->status()->isCancelled());
   }
 
   #[Test]
@@ -101,6 +125,7 @@ final class CancelInspectionHandlerTest extends TestCase
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn($inspection);
+    $repository->expects(self::never())->method('save');
     $repository->expects(self::never())->method('remove');
 
     $handler = new CancelInspectionHandler(inspectionRepository: $repository);
@@ -114,18 +139,19 @@ final class CancelInspectionHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeThrowsWhenInspectionIsSubmitted(): void
+  public function testInvokeThrowsWhenInspectionIsAlreadyCancelled(): void
   {
-    $inspection = $this->makeSubmittedInspection();
+    $inspection = $this->makeCancelledInspection();
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->method('findById')->willReturn($inspection);
+    $repository->expects(self::never())->method('save');
     $repository->expects(self::never())->method('remove');
 
     $handler = new CancelInspectionHandler(inspectionRepository: $repository);
 
-    $this->expectException(InspectionAlreadySubmittedException::class);
+    $this->expectException(InspectionAlreadyCancelledException::class);
 
     $handler->__invoke(new CancelInspectionCommand(
       organizationId: self::ORG_ID,
@@ -158,6 +184,14 @@ final class CancelInspectionHandlerTest extends TestCase
   {
     $inspection = $this->makeSubmittedInspection();
     $inspection->close();
+
+    return $inspection;
+  }
+
+  private function makeCancelledInspection(): Inspection
+  {
+    $inspection = $this->makeDraftInspection();
+    $inspection->cancel();
 
     return $inspection;
   }

@@ -15,6 +15,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberR
 
 use function array_filter;
 use function array_map;
+use function array_values;
 use function is_array;
 
 /**
@@ -279,12 +280,11 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
         'organizationId' => (string) $record->member?->organization?->id,
         'userId' => (string) $record->member?->userId,
       ],
-      array_filter(
+      array_values(array_filter(
         $records,
-        static fn ($record): bool => $record instanceof OrganizationMemberRoleRecord
-          && null !== $record->member?->organization
+        static fn (OrganizationMemberRoleRecord $record): bool => null !== $record->member?->organization
           && '' !== $record->member->userId,
-      ),
+      )),
     );
   }
 

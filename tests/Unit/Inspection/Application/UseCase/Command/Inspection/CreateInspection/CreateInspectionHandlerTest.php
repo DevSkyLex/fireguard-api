@@ -220,7 +220,7 @@ final class CreateInspectionHandlerTest extends TestCase
     /** @var EquipmentValidationPort&MockObject $equipmentValidation */
     $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
     $equipmentValidation->expects(self::once())
-      ->method('assertEquipmentExists')
+      ->method('assertEquipmentIsInspectable')
       ->willThrowException(new InvalidArgumentException('Equipment with ID "' . self::EQUIP_ID . '" not found.'));
 
     $facilityValidation = $this->createStub(FacilityValidationPort::class);
@@ -260,7 +260,7 @@ final class CreateInspectionHandlerTest extends TestCase
     /** @var EquipmentValidationPort&MockObject $equipmentValidation */
     $equipmentValidation = $this->createMock(EquipmentValidationPort::class);
     $equipmentValidation->expects(self::once())
-      ->method('assertEquipmentExists')
+      ->method('assertEquipmentIsInspectable')
       ->willThrowException(InvalidValueException::because('Invalid UUID provided.'));
 
     $facilityValidation = $this->createStub(FacilityValidationPort::class);

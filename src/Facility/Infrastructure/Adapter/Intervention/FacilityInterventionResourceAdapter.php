@@ -243,6 +243,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
     if (!$record instanceof FacilityRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
       throw new InterventionConflictException('Proposed facility change target is invalid.');
     }
+    $previousStatus = $record->status;
 
     if (array_key_exists('type', $patch)) {
       $type = $patch['type'];
@@ -288,13 +289,28 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
         $record->parentFacility = null;
       } elseif (is_string($parentIri)) {
         $parent = $this->entityManager->find(FacilityRecord::class, $this->id($parentIri));
-        if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $organizationId || $parent->id === $record->id) {
+        if (!$parent instanceof FacilityRecord || $parent->organization?->id !== $organizationId) {
           throw new InterventionConflictException('Proposed parent facility is invalid.');
+        }
+        $this->assertNoParentCycle($record, $parent);
+        if ('archived' === $parent->status) {
+          throw new InterventionConflictException('Proposed parent facility is archived.');
         }
         $record->parentFacility = $parent;
       } else {
         throw new InterventionConflictException('Proposed parent facility must be an IRI or null.');
       }
+    }
+
+    // Restoring (archived -> active) is refused while the parent is archived,
+    // mirroring the RestoreFacility use case and the canonical mutation processor.
+    if (
+      'archived' === $previousStatus
+      && 'active' === $record->status
+      && $record->parentFacility instanceof FacilityRecord
+      && 'archived' === $record->parentFacility->status
+    ) {
+      throw new InterventionConflictException('Cannot restore a facility while its parent is archived.');
     }
 
     ++$record->revision;
@@ -321,6 +337,50 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       ->setParameter('interventionId', $interventionId)
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * Method discardDrafts.
+   *
+   * Deletes the still-draft facility records created for an intervention that is
+   * abandoned or deleted. Published records are left untouched.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   */
+  public function discardDrafts(string $interventionId): void
+  {
+    $this->entityManager->createQueryBuilder()
+      ->delete(FacilityRecord::class, 'record')
+      ->where('record.interventionId = :interventionId')
+      ->andWhere('record.recordStatus = :draft')
+      ->setParameter('interventionId', $interventionId)
+      ->setParameter('draft', 'draft')
+      ->getQuery()
+      ->execute();
+  }
+
+  /**
+   * Method assertNoParentCycle.
+   *
+   * Rejects a parent assignment that would create a hierarchy cycle by walking
+   * the proposed parent's ancestry back to the record being reparented.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the facility being reparented
+   * @param FacilityRecord $parent the proposed parent
+   */
+  private function assertNoParentCycle(FacilityRecord $record, FacilityRecord $parent): void
+  {
+    $ancestor = $parent;
+    while ($ancestor instanceof FacilityRecord) {
+      if ($ancestor->id === $record->id) {
+        throw new InterventionConflictException('Proposed parent facility would create a hierarchy cycle.');
+      }
+      $ancestor = $ancestor->parentFacility;
+    }
   }
 
   /**

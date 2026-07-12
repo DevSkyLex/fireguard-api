@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Shared\Application\Port\Outbound\FileStoragePort;
 use Shared\Infrastructure\Exception\FileStorageException;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\{Request, Response};
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
@@ -16,6 +16,7 @@ use User\Infrastructure\Image\AvatarResizer;
 
 use function abs;
 use function is_numeric;
+use function is_string;
 use function sprintf;
 
 /**
@@ -87,7 +88,8 @@ final readonly class GetUserAvatarProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): Response
   {
-    $id = (string) ($uriVariables['id'] ?? '');
+    $idValue = $uriVariables['id'] ?? '';
+    $id = is_string($idValue) ? $idValue : '';
 
     $userId = new UserId($id);
     $user = $this->userRepository->findById($userId);
@@ -96,8 +98,9 @@ final readonly class GetUserAvatarProvider implements ProviderInterface
       throw new NotFoundHttpException('User not found.');
     }
 
+    $request = $context['request'] ?? null;
     $requested = $uriVariables['size']
-      ?? ($context['request'] ?? null)?->query->get('size')
+      ?? ($request instanceof Request ? $request->query->get('size') : null)
       ?? self::DEFAULT_SIZE;
     $size = $this->resolveSize(is_numeric($requested) ? (int) $requested : self::DEFAULT_SIZE);
     $path = sprintf('avatars/%s/%d.webp', $id, $size);

@@ -48,6 +48,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    $equipment->commission();
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
@@ -224,8 +225,10 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeThrowsWhenNoFacilityAssigned(): void
+  public function testInvokeThrowsWhenEquipmentIsInStock(): void
   {
+    // An in-stock (never commissioned) equipment cannot go straight into
+    // maintenance — it must be commissioned first (operational ↔ maintenance).
     $equipment = Equipment::create(
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
@@ -262,7 +265,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     );
 
     $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Equipment must be assigned to a facility before putting it under maintenance.');
+    $this->expectExceptionMessage('In-stock equipment must be commissioned before it can be put under maintenance.');
 
     $handler->__invoke(new PutUnderMaintenanceCommand(
       organizationId: self::ORG_ID,
@@ -282,6 +285,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    $equipment->commission();
     $equipment->putUnderMaintenance();
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
@@ -340,6 +344,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    $equipment->commission();
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);

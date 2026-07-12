@@ -15,7 +15,7 @@ use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowView
 };
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionIssueQueryPort, InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
-use Intervention\Application\Service\{InterventionIssueFinder, InterventionMemberPolicy, InterventionNotificationService};
+use Intervention\Application\Service\{InterventionDraftPublisher, InterventionIssueFinder, InterventionMemberPolicy, InterventionNotificationService};
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
   InterventionConflictException,
@@ -93,6 +93,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private InterventionIssueFinder $issueFinder,
     private InterventionViewMapper $views,
     private InterventionActivityPort $activities,
+    private InterventionDraftPublisher $draftPublisher,
   ) {
   }
 
@@ -300,6 +301,9 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       if (!in_array($intervention->status, ['draft', 'abandoned'], true)) {
         throw new InterventionConflictException('Only draft or abandoned interventions can be deleted.');
       }
+      // Purge any still-draft resource records this intervention created before
+      // removing it, so no orphaned drafts (and their unique client ids) survive.
+      $this->draftPublisher->discard($intervention->id);
       $this->entityManager->remove($intervention);
       $this->entityManager->flush();
 
@@ -465,6 +469,11 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $responsibleId = $intervention->responsibleId;
       $notifications[] = fn () => $this->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
     }
+    // Abandoning an intervention is terminal: its draft resources can never be
+    // published, so purge them here to avoid permanent orphaned draft rows.
+    if (InterventionStatus::ABANDONED === $nextStatus) {
+      $this->draftPublisher->discard($intervention->id);
+    }
 
     return $this->views->interventionView($intervention);
   }
@@ -513,6 +522,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       return null;
     }
     $previousAssigneeId = $record->assigneeId;
+    $interventionAutoStarted = false;
     if (array_key_exists('status', $mutation->payload)) {
       $status = $this->requiredString($mutation->payload, 'status');
       $skipReason = $this->nullableString($mutation->payload, 'skipReason');
@@ -522,6 +532,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $record->status = $status;
       if ('planned' === $intervention->status && 'planned' !== $status) {
         $intervention->status = 'in_progress';
+        $interventionAutoStarted = true;
       }
     }
     if (array_key_exists('skipReason', $mutation->payload)) {
@@ -542,6 +553,22 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $record->updatedAt = $now;
     $this->touch($intervention, $now);
     $this->entityManager->flush();
+    // Starting work on any item auto-advances the intervention
+    // planned -> in_progress; journal it as a `status_changed` activity so the
+    // audit feed reflects the lifecycle change (RNCP traceability), mirroring
+    // the explicit intervention status-transition path.
+    if ($interventionAutoStarted) {
+      $activityOrganizationId = $this->organizationId($intervention);
+      $this->activities->append(
+        $intervention->id,
+        $activityOrganizationId,
+        $this->memberPolicy->findMemberId($activityOrganizationId, $mutation->userId),
+        'system',
+        'status_changed',
+        null,
+        ['from' => 'planned', 'to' => 'in_progress'],
+      );
+    }
     if (null !== $record->assigneeId && $record->assigneeId !== $previousAssigneeId) {
       $interventionId = $intervention->id;
       $interventionName = $intervention->name;

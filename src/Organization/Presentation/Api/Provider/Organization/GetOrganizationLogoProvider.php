@@ -12,6 +12,8 @@ use Shared\Infrastructure\Exception\FileStorageException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
+use function is_string;
+
 /**
  * Provider GetOrganizationLogoProvider.
  *
@@ -61,7 +63,8 @@ final readonly class GetOrganizationLogoProvider implements ProviderInterface
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): Response
   {
-    $organizationId = (string) ($uriVariables['organizationId'] ?? '');
+    $organizationIdValue = $uriVariables['organizationId'] ?? '';
+    $organizationId = is_string($organizationIdValue) ? $organizationIdValue : '';
 
     try {
       $contents = $this->fileStorage->read(OrganizationLogoResizer::pathFor($organizationId));

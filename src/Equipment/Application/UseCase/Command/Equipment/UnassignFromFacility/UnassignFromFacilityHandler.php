@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
@@ -28,6 +28,7 @@ final readonly class UnassignFromFacilityHandler implements CommandHandler
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
+    private MaintenanceLogRepositoryPort $maintenanceLogRepository,
   ) {
   }
   // #endregion
@@ -53,9 +54,21 @@ final readonly class UnassignFromFacilityHandler implements CommandHandler
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
+    $wasUnderMaintenance = EquipmentStatus::UNDER_MAINTENANCE === $equipment->status();
+
     $equipment->unassignFromFacility();
 
     $this->equipmentRepository->save($equipment);
+
+    // Unassigning an item mid-maintenance closes its open maintenance log, so no
+    // log is left "in progress" once the item returns to stock.
+    if ($wasUnderMaintenance) {
+      $openLog = $this->maintenanceLogRepository->findOpenByEquipmentId($equipmentId);
+      if (null !== $openLog) {
+        $openLog->close();
+        $this->maintenanceLogRepository->save($openLog);
+      }
+    }
 
     $tags = $this->tagRepository->findByEquipmentId($equipmentId);
 

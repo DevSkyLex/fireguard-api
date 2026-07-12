@@ -26,6 +26,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 use function array_key_exists;
+use function in_array;
 use function is_string;
 
 /**
@@ -41,6 +42,19 @@ use function is_string;
  */
 final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInterface
 {
+  /**
+   * Legal equipment status transitions for published records, mirroring the
+   * `Equipment` aggregate. `decommissioned` is terminal (no outgoing edges).
+   *
+   * @var array<string, list<string>>
+   */
+  private const array ALLOWED_STATUS_TRANSITIONS = [
+    'in_stock' => ['operational', 'decommissioned'],
+    'operational' => ['in_stock', 'under_maintenance', 'decommissioned'],
+    'under_maintenance' => ['in_stock', 'operational', 'decommissioned'],
+    'decommissioned' => [],
+  ];
+
   /**
    * Constructor.
    *
@@ -135,6 +149,7 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     }
     $input = $data;
     $fields = $this->mergePatchFields->all();
+    $previousStatus = $record->status;
     foreach (['type', 'status'] as $property) {
       if (array_key_exists($property, $fields)) {
         if (null === $input->{$property}) {
@@ -161,6 +176,14 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     }
     if ('operational' === $record->status && null === $record->facilityId) {
       throw new UnprocessableEntityHttpException('Operational equipment must be assigned to a facility.');
+    }
+    // Published equipment follows the domain status machine even on the canonical
+    // surface: a decommissioned asset is terminal and no illegal transition may
+    // be written directly to the record. Draft (intervention scratchpad) records
+    // are materialized through the aggregate at publication, so they stay freely
+    // editable here.
+    if ('published' === $record->recordStatus && $record->status !== $previousStatus) {
+      $this->assertLegalStatusTransition($previousStatus, $record->status);
     }
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
@@ -202,6 +225,27 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     }
     if (!$this->authorization->hasPermission($user->getId(), $record->organization->id, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
+    }
+  }
+
+  /**
+   * Method assertLegalStatusTransition.
+   *
+   * Rejects an illegal published-equipment status transition (for example
+   * reviving a decommissioned asset), matching the `Equipment` aggregate rules.
+   *
+   * @since 1.0.0
+   *
+   * @param string $from the current status
+   * @param string $to the requested status
+   */
+  private function assertLegalStatusTransition(string $from, string $to): void
+  {
+    $allowed = self::ALLOWED_STATUS_TRANSITIONS[$from] ?? [];
+    if (!in_array($to, $allowed, true)) {
+      throw new UnprocessableEntityHttpException(
+        'Illegal equipment status transition from ' . $from . ' to ' . $to . '.',
+      );
     }
   }
 }

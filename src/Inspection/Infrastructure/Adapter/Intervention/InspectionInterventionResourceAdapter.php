@@ -39,6 +39,18 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
   private const STATUSES = ['draft', 'submitted', 'closed'];
 
   /**
+   * Legal inspection status transitions, mirroring the `Inspection` aggregate:
+   * draft -> submitted -> closed. `closed` is terminal.
+   *
+   * @var array<string, list<string>>
+   */
+  private const array ALLOWED_STATUS_TRANSITIONS = [
+    'draft' => ['submitted'],
+    'submitted' => ['closed'],
+    'closed' => [],
+  ];
+
+  /**
    * Constructor.
    *
    * Initializes a new instance of the InspectionInterventionResourceAdapter class.
@@ -244,6 +256,7 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
     if ('closed' === $record->status) {
       throw new InterventionConflictException('Closed inspections are immutable.');
     }
+    $previousStatus = $record->status;
 
     if (array_key_exists('result', $patch)) {
       $result = $patch['result'];
@@ -267,6 +280,12 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
         }
         $record->{$property} = $value;
       }
+    }
+
+    // A published inspection follows the domain lifecycle even on the
+    // intervention publication path: draft -> submitted -> closed, no skipping.
+    if ($record->status !== $previousStatus) {
+      $this->assertLegalStatusTransition($previousStatus, $record->status);
     }
 
     ++$record->revision;
@@ -302,6 +321,58 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
       ->setParameter('interventionId', $interventionId)
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * Method discardDrafts.
+   *
+   * Deletes the still-draft inspection records (and their responses) created for
+   * an intervention that is abandoned or deleted. Responses are deleted first to
+   * respect the foreign key. Published records are left untouched.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   */
+  public function discardDrafts(string $interventionId): void
+  {
+    $this->entityManager->createQueryBuilder()
+      ->delete(InspectionResponseRecord::class, 'record')
+      ->where('record.interventionId = :interventionId')
+      ->andWhere('record.recordStatus = :draft')
+      ->setParameter('interventionId', $interventionId)
+      ->setParameter('draft', 'draft')
+      ->getQuery()
+      ->execute();
+    $this->entityManager->createQueryBuilder()
+      ->delete(InspectionRecord::class, 'record')
+      ->where('record.interventionId = :interventionId')
+      ->andWhere('record.recordStatus = :draft')
+      ->setParameter('interventionId', $interventionId)
+      ->setParameter('draft', 'draft')
+      ->getQuery()
+      ->execute();
+  }
+
+  /**
+   * Method assertLegalStatusTransition.
+   *
+   * Rejects an illegal published-inspection status transition, matching the
+   * aggregate lifecycle and the canonical mutation processor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $from the current status
+   * @param string $to the requested status
+   */
+  private function assertLegalStatusTransition(string $from, string $to): void
+  {
+    $allowed = self::ALLOWED_STATUS_TRANSITIONS[$from] ?? [];
+    if (!in_array($to, $allowed, true)) {
+      throw new InterventionConflictException(
+        sprintf('Illegal inspection status transition from %s to %s.', $from, $to),
+      );
+    }
   }
 
   /**

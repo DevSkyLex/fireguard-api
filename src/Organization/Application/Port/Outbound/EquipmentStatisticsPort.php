@@ -29,6 +29,18 @@ interface EquipmentStatisticsPort
   public function countEquipment(string $organizationId, ?string $type = null, ?string $status = null): int;
 
   /**
+   * Counts active equipment for an organization, i.e. every published item that
+   * is not decommissioned. Used by the plan quota so that decommissioning an
+   * item frees capacity.
+   *
+   * @param string $organizationId the organization identifier
+   * @param ?string $type optional type filter
+   *
+   * @return int the active (non-decommissioned) equipment count
+   */
+  public function countActiveEquipment(string $organizationId, ?string $type = null): int;
+
+  /**
    * Returns aggregate equipment overview counts for dashboard cards.
    *
    * @return array{total: int, in_stock: int, operational: int, under_maintenance: int, decommissioned: int}

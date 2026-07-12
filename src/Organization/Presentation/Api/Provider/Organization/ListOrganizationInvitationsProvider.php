@@ -182,7 +182,6 @@ final readonly class ListOrganizationInvitationsProvider implements ProviderInte
     $name = null;
 
     try {
-      /** @var GetUserResult $result */
       $result = $this->queryBus->ask(new GetUserQuery($userId));
       if ($result instanceof GetUserResult && null !== $result->user) {
         $name = trim($result->user->firstName . ' ' . $result->user->lastName)

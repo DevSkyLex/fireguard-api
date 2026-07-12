@@ -9,6 +9,7 @@ use Organization\Application\Port\Outbound\{
   EquipmentStatisticsPort,
   FacilityStatisticsPort,
   InspectionStatisticsPort,
+  OrganizationInvitationRepositoryPort,
   OrganizationMemberRepositoryPort,
   OrganizationRepositoryPort,
   PlanRepositoryPort
@@ -34,7 +35,7 @@ final class OrganizationQuotaServiceTest extends TestCase
   {
     $service = $this->service(
       plan: $this->plan(['members' => 5, 'facilities' => 2]),
-      memberCount: 3,
+      activeMemberCount: 3,
       facilityCount: 1,
       equipmentCount: 40,
       inspectionCount: 0,
@@ -51,9 +52,21 @@ final class OrganizationQuotaServiceTest extends TestCase
   }
 
   #[Test]
+  public function testMemberUsageCountsActiveMembersPlusPendingInvitations(): void
+  {
+    $service = $this->service(
+      plan: $this->plan(['members' => 10]),
+      activeMemberCount: 4,
+      pendingInvitationCount: 3,
+    );
+
+    self::assertSame(7, $service->getUsage(self::ORGANIZATION_ID, OrganizationQuotaResource::MEMBERS));
+  }
+
+  #[Test]
   public function testAssertCanAddPassesUnderLimit(): void
   {
-    $service = $this->service(plan: $this->plan(['members' => 5]), memberCount: 4);
+    $service = $this->service(plan: $this->plan(['members' => 5]), activeMemberCount: 4);
 
     $service->assertCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::MEMBERS);
 
@@ -61,9 +74,24 @@ final class OrganizationQuotaServiceTest extends TestCase
   }
 
   #[Test]
+  public function testAssertCanAddCountsPendingInvitationsTowardMemberCap(): void
+  {
+    // 3 active + 2 pending = 5 already occupies the cap of 5.
+    $service = $this->service(
+      plan: $this->plan(['members' => 5]),
+      activeMemberCount: 3,
+      pendingInvitationCount: 2,
+    );
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $service->assertCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::MEMBERS);
+  }
+
+  #[Test]
   public function testAssertCanAddThrowsAtLimit(): void
   {
-    $service = $this->service(plan: $this->plan(['members' => 5]), memberCount: 5);
+    $service = $this->service(plan: $this->plan(['members' => 5]), activeMemberCount: 5);
 
     $this->expectException(OrganizationQuotaExceededException::class);
 
@@ -81,11 +109,48 @@ final class OrganizationQuotaServiceTest extends TestCase
   }
 
   #[Test]
+  public function testAssertCanAcceptMemberIgnoresPendingInvitationBeingAccepted(): void
+  {
+    // 4 active + 3 pending: getUsage would be 7 (> 5), but acceptance only counts
+    // active members, so the reserved pending slot never blocks its own acceptance.
+    $service = $this->service(
+      plan: $this->plan(['members' => 5]),
+      activeMemberCount: 4,
+      pendingInvitationCount: 3,
+    );
+
+    $service->assertCanAcceptMember(self::ORGANIZATION_ID);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testAssertCanAcceptMemberThrowsWhenActiveMembersAtLimit(): void
+  {
+    // Plan-downgrade case: already 5 active members against a cap of 5.
+    $service = $this->service(plan: $this->plan(['members' => 5]), activeMemberCount: 5);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $service->assertCanAcceptMember(self::ORGANIZATION_ID);
+  }
+
+  #[Test]
+  public function testAssertCanAcceptMemberPassesWhenUnlimited(): void
+  {
+    $service = $this->service(plan: $this->plan([]), activeMemberCount: 9999);
+
+    $service->assertCanAcceptMember(self::ORGANIZATION_ID);
+
+    $this->addToAssertionCount(1);
+  }
+
+  #[Test]
   public function testGetQuotaSummaryCoversEveryResource(): void
   {
     $service = $this->service(
       plan: $this->plan(['members' => 5, 'facilities' => 2, 'equipment' => 50, 'inspections' => 100]),
-      memberCount: 3,
+      activeMemberCount: 3,
       facilityCount: 2,
       equipmentCount: 10,
       inspectionCount: 7,
@@ -115,12 +180,16 @@ final class OrganizationQuotaServiceTest extends TestCase
     $planRepository->method('findById')->willReturn($this->plan(['members' => 5]));
 
     $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $memberRepository->method('countByOrganizationId')->willReturn(2);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn(2);
+
+    $invitationRepository = $this->createStub(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->method('countPendingByOrganizationId')->willReturn(0);
 
     $service = new OrganizationQuotaService(
       $organizationRepository,
       $planRepository,
       $memberRepository,
+      $invitationRepository,
       $this->createStub(FacilityStatisticsPort::class),
       $this->createStub(EquipmentStatisticsPort::class),
       $this->createStub(InspectionStatisticsPort::class),
@@ -132,7 +201,8 @@ final class OrganizationQuotaServiceTest extends TestCase
 
   private function service(
     Plan $plan,
-    int $memberCount = 0,
+    int $activeMemberCount = 0,
+    int $pendingInvitationCount = 0,
     int $facilityCount = 0,
     int $equipmentCount = 0,
     int $inspectionCount = 0,
@@ -144,21 +214,25 @@ final class OrganizationQuotaServiceTest extends TestCase
     $planRepository->method('findById')->willReturn($plan);
 
     $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
-    $memberRepository->method('countByOrganizationId')->willReturn($memberCount);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn($activeMemberCount);
+
+    $invitationRepository = $this->createStub(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->method('countPendingByOrganizationId')->willReturn($pendingInvitationCount);
 
     $facilityStatistics = $this->createStub(FacilityStatisticsPort::class);
-    $facilityStatistics->method('countFacilities')->willReturn($facilityCount);
+    $facilityStatistics->method('countActiveFacilities')->willReturn($facilityCount);
 
     $equipmentStatistics = $this->createStub(EquipmentStatisticsPort::class);
-    $equipmentStatistics->method('countEquipment')->willReturn($equipmentCount);
+    $equipmentStatistics->method('countActiveEquipment')->willReturn($equipmentCount);
 
     $inspectionStatistics = $this->createStub(InspectionStatisticsPort::class);
-    $inspectionStatistics->method('countInspections')->willReturn($inspectionCount);
+    $inspectionStatistics->method('countActiveInspections')->willReturn($inspectionCount);
 
     return new OrganizationQuotaService(
       $organizationRepository,
       $planRepository,
       $memberRepository,
+      $invitationRepository,
       $facilityStatistics,
       $equipmentStatistics,
       $inspectionStatistics,

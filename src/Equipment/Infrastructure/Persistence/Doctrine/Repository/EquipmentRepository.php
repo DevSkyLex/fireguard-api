@@ -215,7 +215,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    * @param ?string $type the type value
    * @param ?string $status the status value
    *
-   * @return array the count overview by organization id result
+   * @return array{total: int, in_stock: int, operational: int, under_maintenance: int, decommissioned: int} the count overview by organization id result
    */
   public function countOverviewByOrganizationId(EquipmentOrganizationId $organizationId, ?string $type = null, ?string $status = null): array
   {
@@ -266,7 +266,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
    *
-   * @return array the count by status for organization id result
+   * @return array<string, int> map of status => count
    */
   public function countByStatusForOrganizationId(EquipmentOrganizationId $organizationId): array
   {
@@ -303,7 +303,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    *
    * @param EquipmentOrganizationId $organizationId the organization id value
    *
-   * @return array the count by type for organization id result
+   * @return array<string, int> map of type => count
    */
   public function countByTypeForOrganizationId(EquipmentOrganizationId $organizationId): array
   {
@@ -345,7 +345,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
    * @param ?string $type the type value
    * @param ?string $status the status value
    *
-   * @return array the count by created day for organization id result
+   * @return array<string, int> map of YYYY-MM-DD => count
    */
   public function countByCreatedDayForOrganizationId(
     EquipmentOrganizationId $organizationId,

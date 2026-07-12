@@ -264,11 +264,9 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
 
   private function invalidateSubjectCache(SubjectType $subjectType, string $subjectId): void
   {
-    if (SubjectType::USER !== $subjectType) {
-      return;
-    }
-
-    $this->cacheInvalidator?->invalidateUser($subjectId);
+    match ($subjectType) {
+      SubjectType::USER => $this->cacheInvalidator?->invalidateUser($subjectId),
+    };
   }
   // #endregion
 }

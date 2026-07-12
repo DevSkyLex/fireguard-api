@@ -58,8 +58,8 @@ final readonly class SubmitInspectionProcessor implements ProcessorInterface
    *
    * @param mixed $data the data value
    * @param Operation $operation the operation value
-   * @param array $uriVariables the uri variables value
-   * @param array $context the context value
+   * @param array<string, mixed> $uriVariables the uri variables value
+   * @param array<string, mixed> $context the context value
    *
    * @return InspectionOutput the process result
    */

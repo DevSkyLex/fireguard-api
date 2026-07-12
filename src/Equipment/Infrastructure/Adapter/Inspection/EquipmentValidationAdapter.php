@@ -44,5 +44,33 @@ final readonly class EquipmentValidationAdapter implements EquipmentValidationPo
       throw new InvalidArgumentException(sprintf('Equipment with ID "%s" not found.', $equipmentId));
     }
   }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function assertEquipmentIsInspectable(string $equipmentId, string $organizationId, ?string $facilityId): void
+  {
+    $equipment = $this->equipmentRepository->findById(EquipmentId::fromString($equipmentId));
+
+    if (null === $equipment || (string) $equipment->organizationId() !== $organizationId) {
+      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" not found.', $equipmentId));
+    }
+
+    if ($equipment->status()->isDecommissioned()) {
+      throw new InvalidArgumentException(sprintf('Equipment with ID "%s" is decommissioned and cannot be inspected.', $equipmentId));
+    }
+
+    if (null !== $facilityId) {
+      $equipmentFacilityId = $equipment->facilityId();
+
+      if (null === $equipmentFacilityId || (string) $equipmentFacilityId !== $facilityId) {
+        throw new InvalidArgumentException(sprintf(
+          'Equipment with ID "%s" is not assigned to facility "%s" and cannot be inspected there.',
+          $equipmentId,
+          $facilityId,
+        ));
+      }
+    }
+  }
   // #endregion
 }

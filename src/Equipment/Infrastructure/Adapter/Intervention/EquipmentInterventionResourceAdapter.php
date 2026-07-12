@@ -40,6 +40,19 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
   private const STATUSES = ['in_stock', 'operational', 'decommissioned', 'under_maintenance'];
 
   /**
+   * Legal equipment status transitions, mirroring the `Equipment` aggregate.
+   * `decommissioned` is terminal.
+   *
+   * @var array<string, list<string>>
+   */
+  private const array ALLOWED_STATUS_TRANSITIONS = [
+    'in_stock' => ['operational', 'decommissioned'],
+    'operational' => ['in_stock', 'under_maintenance', 'decommissioned'],
+    'under_maintenance' => ['in_stock', 'operational', 'decommissioned'],
+    'decommissioned' => [],
+  ];
+
+  /**
    * Constructor.
    *
    * Initializes a new instance of the EquipmentInterventionResourceAdapter class.
@@ -254,6 +267,7 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     if (!$record instanceof EquipmentRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
       throw new InterventionConflictException('Proposed equipment change target is invalid.');
     }
+    $previousStatus = $record->status;
 
     if (array_key_exists('type', $patch)) {
       $type = $patch['type'];
@@ -303,6 +317,13 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       throw new InterventionConflictException('Operational equipment must be assigned to a facility.');
     }
 
+    // A published equipment change follows the domain status machine even on the
+    // intervention publication path: a decommissioned asset is terminal and no
+    // illegal transition may be applied directly to the record.
+    if ($record->status !== $previousStatus) {
+      $this->assertLegalStatusTransition($previousStatus, $record->status);
+    }
+
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
   }
@@ -327,6 +348,49 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       ->setParameter('interventionId', $interventionId)
       ->getQuery()
       ->execute();
+  }
+
+  /**
+   * Method discardDrafts.
+   *
+   * Deletes the still-draft equipment records created for an intervention that
+   * is abandoned or deleted. Published records are left untouched.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention id value
+   */
+  public function discardDrafts(string $interventionId): void
+  {
+    $this->entityManager->createQueryBuilder()
+      ->delete(EquipmentRecord::class, 'record')
+      ->where('record.interventionId = :interventionId')
+      ->andWhere('record.recordStatus = :draft')
+      ->setParameter('interventionId', $interventionId)
+      ->setParameter('draft', 'draft')
+      ->getQuery()
+      ->execute();
+  }
+
+  /**
+   * Method assertLegalStatusTransition.
+   *
+   * Rejects an illegal published-equipment status transition, matching the
+   * `Equipment` aggregate rules and the canonical mutation processor.
+   *
+   * @since 1.0.0
+   *
+   * @param string $from the current status
+   * @param string $to the requested status
+   */
+  private function assertLegalStatusTransition(string $from, string $to): void
+  {
+    $allowed = self::ALLOWED_STATUS_TRANSITIONS[$from] ?? [];
+    if (!in_array($to, $allowed, true)) {
+      throw new InterventionConflictException(
+        sprintf('Illegal equipment status transition from %s to %s.', $from, $to),
+      );
+    }
   }
 
   /**

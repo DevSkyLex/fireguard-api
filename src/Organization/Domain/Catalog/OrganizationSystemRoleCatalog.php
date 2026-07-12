@@ -47,6 +47,7 @@ final class OrganizationSystemRoleCatalog
         'organization.facilities.read',
         'organization.equipment.read',
         'organization.inspection.read',
+        'organization.interventions.read',
       ],
       default => [],
     };

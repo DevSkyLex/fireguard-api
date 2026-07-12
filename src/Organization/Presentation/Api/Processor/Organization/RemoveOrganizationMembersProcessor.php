@@ -17,7 +17,6 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
-use function array_values;
 use function is_string;
 
 /**
@@ -115,9 +114,6 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
         $output->failedIds[] = $memberId;
       }
     }
-
-    $output->removedIds = array_values($output->removedIds);
-    $output->failedIds = array_values($output->failedIds);
 
     return $output;
   }

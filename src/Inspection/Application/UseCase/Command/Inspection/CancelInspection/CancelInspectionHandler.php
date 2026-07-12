@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Command\Inspection\CancelInspection;
 
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
-use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
+use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
@@ -33,15 +33,11 @@ final readonly class CancelInspectionHandler implements CommandHandler
       throw InspectionNotFoundException::withId($command->inspectionId);
     }
 
-    if ($inspection->status()->isClosed()) {
-      throw InspectionAlreadyClosedException::withId($command->inspectionId);
-    }
-
-    if (!$inspection->status()->isDraft()) {
-      throw InspectionAlreadySubmittedException::withId($command->inspectionId);
-    }
-
-    $this->inspectionRepository->remove($inspection);
+    // Logical cancellation: a draft or submitted inspection transitions to
+    // `cancelled` (the aggregate rejects closed/already-cancelled) instead of a
+    // physical delete, so the row and its non-conformities are preserved.
+    $inspection->cancel();
+    $this->inspectionRepository->save($inspection);
 
     return new CancelInspectionResult(
       inspectionId: $command->inspectionId,

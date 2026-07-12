@@ -68,6 +68,24 @@ interface OrganizationQuotaPort
   public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void;
 
   /**
+   * Method assertCanAcceptMember.
+   *
+   * Asserts that accepting a pending invitation would not push the organization
+   * beyond its `members` cap. Unlike {@see assertCanAdd()}, this check counts
+   * only active members (not pending invitations), so the pending invitation
+   * being accepted never blocks its own acceptance, while a plan downgrade that
+   * left the organization already at/over its cap still blocks it.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
+   *                                                                           when the active member cap has been reached
+   */
+  public function assertCanAcceptMember(string $organizationId): void;
+
+  /**
    * Method getQuotaSummary.
    *
    * Returns the usage and limit of every capped resource for the organization.

@@ -13,7 +13,6 @@ use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, 
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Domain\ValueObject\TenantId;
 
-use function array_filter;
 use function array_map;
 
 /**
@@ -217,10 +216,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
 
     return array_map(
       static fn (RoleAssignmentRecord $record): string => $record->subjectId,
-      array_filter(
-        $records,
-        static fn ($record): bool => $record instanceof RoleAssignmentRecord,
-      ),
+      $records,
     );
   }
   // #endregion

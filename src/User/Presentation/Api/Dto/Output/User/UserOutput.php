@@ -262,7 +262,7 @@ final class UserOutput
    *
    * @since 1.0.0
    *
-   * @return array<string, string>|null map of size (px) to URL
+   * @return array<int, string>|null map of size (px) to URL
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
   #[ApiProperty(

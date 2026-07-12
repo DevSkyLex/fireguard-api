@@ -141,7 +141,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param int $limit the limit value
    * @param int $offset the offset value
    *
-   * @return array the find children result
+   * @return list<Facility> the find children result
    */
   public function findChildren(
     FacilityOrganizationId $organizationId,
@@ -201,10 +201,10 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization id value
-   * @param array $parentIds the parent ids value
+   * @param list<FacilityId> $parentIds the parent ids value
    * @param bool $includeArchived the include archived value
    *
-   * @return array the count children by parent ids result
+   * @return array<string, int> the count children by parent ids result
    */
   public function countChildrenByParentIds(
     FacilityOrganizationId $organizationId,
@@ -266,7 +266,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param ?string $search the search value
    * @param Sorting $sorting the sorting value
    *
-   * @return array the find descendants result
+   * @return list<Facility> the find descendants result
    */
   public function findDescendants(
     FacilityOrganizationId $organizationId,
@@ -390,7 +390,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param FacilityOrganizationId $organizationId the organization id value
    * @param ?string $type the type value
    *
-   * @return array the count overview by organization id result
+   * @return array{total: int, active: int} the count overview by organization id result
    */
   public function countOverviewByOrganizationId(FacilityOrganizationId $organizationId, ?string $type = null): array
   {
@@ -430,7 +430,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param FacilityOrganizationId $organizationId the organization id value
    * @param bool $includeArchived the include archived value
    *
-   * @return array the count by type for organization id result
+   * @return array<string, int> map of type => count
    */
   public function countByTypeForOrganizationId(
     FacilityOrganizationId $organizationId,
@@ -472,7 +472,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param ?string $timeZone the time zone value
    * @param ?string $type the type value
    *
-   * @return array the count by created day for organization id result
+   * @return array<string, int> map of YYYY-MM-DD => count
    */
   public function countByCreatedDayForOrganizationId(
     FacilityOrganizationId $organizationId,

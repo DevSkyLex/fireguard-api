@@ -41,6 +41,22 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
     );
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  public function countActiveInspections(string $organizationId): int
+  {
+    $organization = InspectionOrganizationId::fromString($organizationId);
+
+    $total = $this->inspectionRepository->countByOrganizationId($organization);
+    $cancelled = $this->inspectionRepository->countByOrganizationId(
+      $organization,
+      status: InspectionStatus::CANCELLED->value,
+    );
+
+    return $total - $cancelled;
+  }
+
   public function countInspectionOverview(
     string $organizationId,
     ?string $status = null,
@@ -66,7 +82,7 @@ final readonly class InspectionStatisticsAdapter implements InspectionStatistics
       }
     }
 
-    /** @var array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int} $overview */
+    /** @var array{total: int, draft: int, submitted: int, closed: int, cancelled: int, pass: int, fail: int, partial: int} $overview */
     return $overview;
   }
 

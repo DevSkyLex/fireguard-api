@@ -22,6 +22,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
       'organization.facilities.read',
       'organization.equipment.read',
       'organization.inspection.read',
+      'organization.interventions.read',
     ], OrganizationSystemRoleCatalog::permissionsFor(OrganizationSystemRoleCatalog::MEMBER));
   }
 
@@ -36,6 +37,7 @@ final class OrganizationSystemRoleCatalogTest extends TestCase
       'organization.facilities.read',
       'organization.equipment.read',
       'organization.inspection.read',
+      'organization.interventions.read',
     ], OrganizationSystemRoleCatalog::mergePermissions(
       roleName: OrganizationSystemRoleCatalog::MEMBER,
       permissions: [

@@ -74,7 +74,7 @@ final readonly class CreateInspectionHandler implements CommandHandler
   public function __invoke(CreateInspectionCommand $command): CreateInspectionResult
   {
     try {
-      $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
+      $this->equipmentValidation->assertEquipmentIsInspectable($command->equipmentId, $command->organizationId, $command->facilityId);
 
       if (null !== $command->facilityId) {
         $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);

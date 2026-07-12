@@ -20,7 +20,6 @@ use function array_map;
 use function array_unique;
 use function array_values;
 use function in_array;
-use function is_array;
 
 /**
  * Repository OrganizationMemberRepository.
@@ -367,13 +366,19 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     }
 
     $organizations = array_map(
-      fn (OrganizationId $organizationId): OrganizationRecord => $this->entityManager->getReference(
-        OrganizationRecord::class,
-        (string) $organizationId,
-      ),
+      function (OrganizationId $organizationId): OrganizationRecord {
+        /** @var OrganizationRecord $reference */
+        $reference = $this->entityManager->getReference(
+          OrganizationRecord::class,
+          (string) $organizationId,
+        );
+
+        return $reference;
+      },
       $organizationIds,
     );
 
+    /** @var list<array{organizationId: string|null, memberCount: int|string|null}> $rows */
     $rows = $this->memberRepository
       ->createQueryBuilder('organizationMember')
       ->select('IDENTITY(organizationMember.organization) AS organizationId')
@@ -384,16 +389,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
       ->getQuery()
       ->getScalarResult();
 
-    if (!is_array($rows)) {
-      return [];
-    }
-
     $counts = [];
     foreach ($rows as $row) {
-      if (!is_array($row)) {
-        continue;
-      }
-
       $organizationId = (string) ($row['organizationId'] ?? '');
       if ('' === $organizationId) {
         continue;

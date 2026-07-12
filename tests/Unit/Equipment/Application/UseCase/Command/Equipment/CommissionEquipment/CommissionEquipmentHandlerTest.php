@@ -193,6 +193,9 @@ final class CommissionEquipmentHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    // Reach under-maintenance the legal way: only operational equipment can
+    // enter maintenance, so commission before putting it under maintenance.
+    $equipment->commission();
     $equipment->putUnderMaintenance();
 
     $openLog = EquipmentMaintenanceLog::open(

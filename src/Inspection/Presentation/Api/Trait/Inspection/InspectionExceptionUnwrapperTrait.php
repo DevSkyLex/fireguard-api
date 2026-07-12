@@ -7,6 +7,7 @@ namespace Inspection\Presentation\Api\Trait\Inspection;
 use Inspection\Domain\Exception\{
   ChecklistArchivedException,
   ChecklistNotFoundException,
+  InspectionAlreadyCancelledException,
   InspectionAlreadyClosedException,
   InspectionAlreadySubmittedException,
   InspectionNotFoundException,
@@ -28,6 +29,11 @@ trait InspectionExceptionUnwrapperTrait
   private function findInspectionAlreadyClosedException(Throwable $exception): ?InspectionAlreadyClosedException
   {
     return $this->findException($exception, InspectionAlreadyClosedException::class);
+  }
+
+  private function findInspectionAlreadyCancelledException(Throwable $exception): ?InspectionAlreadyCancelledException
+  {
+    return $this->findException($exception, InspectionAlreadyCancelledException::class);
   }
 
   private function findInspectionAlreadySubmittedException(Throwable $exception): ?InspectionAlreadySubmittedException

@@ -7,7 +7,7 @@ namespace Tests\Unit\Facility\Presentation\Api\Processor\Facility;
 use ApiPlatform\Metadata\{Delete, Patch};
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor;
@@ -22,7 +22,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, UnprocessableEntityHttpException};
 
 #[CoversClass(CanonicalFacilityMutationProcessor::class)]
 final class CanonicalFacilityMutationProcessorTest extends TestCase
@@ -32,6 +32,8 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440012';
 
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655440013';
+
+  private const string PARENT_ID = '550e8400-e29b-41d4-a716-446655440014';
 
   #[Test]
   public function testDeletingPublishedFacilityArchivesIt(): void
@@ -50,6 +52,51 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     self::assertNull($result);
     self::assertSame('archived', $record->status);
     self::assertSame(4, $record->revision);
+  }
+
+  #[Test]
+  public function testRefusesDeletingDraftFacilityWithChildren(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+
+    $repository = $this->createStub(EntityRepository::class);
+    $repository->method('count')->willReturn(1);
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->method('getRepository')->willReturn($repository);
+    $entityManager->expects(self::never())->method('remove');
+
+    $this->expectException(ConflictHttpException::class);
+
+    $this->processor(
+      $record,
+      $this->request('DELETE'),
+      $entityManager,
+    )->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testDeletesDraftFacilityWithoutChildren(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+
+    $repository = $this->createStub(EntityRepository::class);
+    $repository->method('count')->willReturn(0);
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->method('getRepository')->willReturn($repository);
+    $entityManager->expects(self::once())->method('remove');
+    $entityManager->expects(self::once())->method('flush');
+
+    $result = $this->processor(
+      $record,
+      $this->request('DELETE'),
+      $entityManager,
+    )->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
+
+    self::assertNull($result);
   }
 
   #[Test]
@@ -101,6 +148,105 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
 
     self::assertSame(48.8566, $record->latitude);
     self::assertSame(2.3522, $record->longitude);
+  }
+
+  #[Test]
+  public function testRejectsParentAssignmentThatWouldCreateCycle(): void
+  {
+    $record = $this->record();
+    $parent = $this->record();
+    $parent->id = self::PARENT_ID;
+    // The proposed parent is itself a child of the record -> assigning it as the
+    // record's parent would create a cycle.
+    $parent->parentFacility = $record;
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $className, string $id): ?FacilityRecord => match ($id) {
+        self::FACILITY_ID => $record,
+        self::PARENT_ID => $parent,
+        default => null,
+      },
+    );
+    $entityManager->expects(self::never())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->parent = '/api/facilities/' . self::PARENT_ID;
+
+    $request = Request::create(
+      uri: '/api/facilities/' . self::FACILITY_ID,
+      method: 'PATCH',
+      content: '{"parent":"/api/facilities/' . self::PARENT_ID . '"}',
+    );
+    $request->headers->set('If-Match', '"revision-3"');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('hierarchy cycle');
+
+    $this->processor($record, $requestStack, $entityManager)->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testRejectsRestoringFacilityUnderArchivedParent(): void
+  {
+    $record = $this->record();
+    $record->status = 'archived';
+    $parent = $this->record();
+    $parent->id = self::PARENT_ID;
+    $parent->status = 'archived';
+    $record->parentFacility = $parent;
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->status = 'active';
+
+    $request = Request::create(
+      uri: '/api/facilities/' . self::FACILITY_ID,
+      method: 'PATCH',
+      content: '{"status":"active"}',
+    );
+    $request->headers->set('If-Match', '"revision-3"');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('parent is archived');
+
+    $this->processor($record, $requestStack, $entityManager)->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testAllowsRestoringFacilityWithoutArchivedParent(): void
+  {
+    $record = $this->record();
+    $record->status = 'archived';
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::once())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->status = 'active';
+
+    $request = Request::create(
+      uri: '/api/facilities/' . self::FACILITY_ID,
+      method: 'PATCH',
+      content: '{"status":"active"}',
+    );
+    $request->headers->set('If-Match', '"revision-3"');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $this->processor($record, $requestStack, $entityManager)->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    self::assertSame('active', $record->status);
+    self::assertSame(4, $record->revision);
   }
 
   private function processor(

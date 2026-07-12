@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
@@ -43,6 +44,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
    *
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param AddOrganizationMemberHandler $addOrganizationMemberHandler the member add use case handler
+   * @param OrganizationQuotaPort $quota the organization quota port
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
    */
@@ -50,6 +52,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     private OrganizationInvitationRepositoryPort $invitationRepository,
     private OrganizationRepositoryPort $organizationRepository,
     private AddOrganizationMemberHandler $addOrganizationMemberHandler,
+    private OrganizationQuotaPort $quota,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
@@ -110,6 +113,12 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       $command,
       $now,
     ): AcceptOrganizationInvitationResult {
+      // Enforce the plan's member cap on the acceptance path too: the direct-add
+      // and invite processors gate on active members + pending invitations, but
+      // an invitee reaching this handler would otherwise bypass the quota (e.g.
+      // after a plan downgrade left the organization already at its cap).
+      $this->quota->assertCanAcceptMember((string) $invitation->organizationId());
+
       $roleIds = $this->invitationRepository->findRoleIdsForInvitation($invitation->id());
 
       $memberResult = $this->addOrganizationMemberHandler->__invoke(new AddOrganizationMemberCommand(

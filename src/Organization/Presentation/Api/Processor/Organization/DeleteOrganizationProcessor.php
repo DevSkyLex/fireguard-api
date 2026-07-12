@@ -35,7 +35,7 @@ use function is_string;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
- * @implements ProcessorInterface<mixed, null>
+ * @implements ProcessorInterface<mixed, mixed>
  */
 final readonly class DeleteOrganizationProcessor implements ProcessorInterface
 {
@@ -72,7 +72,7 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): null
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): mixed
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {

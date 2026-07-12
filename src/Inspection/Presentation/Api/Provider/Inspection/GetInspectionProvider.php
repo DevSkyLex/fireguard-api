@@ -54,8 +54,8 @@ final readonly class GetInspectionProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param Operation $operation the operation value
-   * @param array $uriVariables the uri variables value
-   * @param array $context the context value
+   * @param array<string, mixed> $uriVariables the uri variables value
+   * @param array<string, mixed> $context the context value
    *
    * @return InspectionOutput the provide result
    */

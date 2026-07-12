@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Command\Inspection\CancelInspection\CancelInspectionCommand;
-use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
+use Inspection\Domain\Exception\{InspectionAlreadyCancelledException, InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -56,7 +56,7 @@ final readonly class CancelInspectionProcessor implements ProcessorInterface
       ));
     } catch (InspectionNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InspectionAlreadyClosedException|InspectionAlreadySubmittedException $exception) {
+    } catch (InspectionAlreadyClosedException|InspectionAlreadySubmittedException|InspectionAlreadyCancelledException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -68,6 +68,10 @@ final readonly class CancelInspectionProcessor implements ProcessorInterface
       $closed = $this->findInspectionAlreadyClosedException($exception);
       if ($closed instanceof InspectionAlreadyClosedException) {
         throw new ConflictHttpException($closed->getMessage(), $exception);
+      }
+      $cancelled = $this->findInspectionAlreadyCancelledException($exception);
+      if ($cancelled instanceof InspectionAlreadyCancelledException) {
+        throw new ConflictHttpException($cancelled->getMessage(), $exception);
       }
       $submitted = $this->findInspectionAlreadySubmittedException($exception);
       if ($submitted instanceof InspectionAlreadySubmittedException) {

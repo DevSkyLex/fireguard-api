@@ -24,6 +24,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 use function array_key_exists;
+use function in_array;
 use function is_string;
 
 /**
@@ -39,6 +40,18 @@ use function is_string;
  */
 final readonly class CanonicalInspectionMutationProcessor implements ProcessorInterface
 {
+  /**
+   * Legal inspection status transitions for published records, mirroring the
+   * `Inspection` aggregate: draft -> submitted -> closed. `closed` is terminal.
+   *
+   * @var array<string, list<string>>
+   */
+  private const array ALLOWED_STATUS_TRANSITIONS = [
+    'draft' => ['submitted'],
+    'submitted' => ['closed'],
+    'closed' => [],
+  ];
+
   /**
    * Constructor.
    *
@@ -136,6 +149,7 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     }
     $input = $data;
     $fields = $this->mergePatchFields->all();
+    $previousStatus = $record->status;
     foreach (['result', 'status'] as $property) {
       if (array_key_exists($property, $fields)) {
         if (null === $input->{$property}) {
@@ -148,6 +162,12 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
       if (array_key_exists($property, $fields)) {
         $record->{$property} = $input->{$property};
       }
+    }
+    // Published inspections follow the domain lifecycle even on the canonical
+    // surface: draft -> submitted -> closed, no skipping. Draft (intervention
+    // scratchpad) records are materialized through the aggregate at publication.
+    if ('published' === $record->recordStatus && $record->status !== $previousStatus) {
+      $this->assertLegalStatusTransition($previousStatus, $record->status);
     }
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
@@ -189,6 +209,27 @@ final readonly class CanonicalInspectionMutationProcessor implements ProcessorIn
     }
     if (!$this->authorization->hasPermission($user->getId(), $record->organization->id, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
+    }
+  }
+
+  /**
+   * Method assertLegalStatusTransition.
+   *
+   * Rejects an illegal published-inspection status transition (for example
+   * jumping from draft straight to closed), matching the aggregate lifecycle.
+   *
+   * @since 1.0.0
+   *
+   * @param string $from the current status
+   * @param string $to the requested status
+   */
+  private function assertLegalStatusTransition(string $from, string $to): void
+  {
+    $allowed = self::ALLOWED_STATUS_TRANSITIONS[$from] ?? [];
+    if (!in_array($to, $allowed, true)) {
+      throw new UnprocessableEntityHttpException(
+        'Illegal inspection status transition from ' . $from . ' to ' . $to . '.',
+      );
     }
   }
 }

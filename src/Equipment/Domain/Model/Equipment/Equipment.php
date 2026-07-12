@@ -222,6 +222,10 @@ final class Equipment
    */
   public function assignToFacility(EquipmentFacilityId $facilityId, DateTimeImmutable $installedAt): void
   {
+    if (EquipmentStatus::DECOMMISSIONED === $this->status) {
+      throw EquipmentAlreadyDecommissionedException::withId((string) $this->id);
+    }
+
     if (null !== $this->facilityId) {
       throw new InvalidArgumentException('Equipment is already assigned to a facility. Unassign it first.');
     }
@@ -240,6 +244,12 @@ final class Equipment
    */
   public function unassignFromFacility(): void
   {
+    // Decommissioning is terminal: a retired asset can never be unassigned back
+    // into stock, otherwise it could be re-assigned and re-commissioned.
+    if (EquipmentStatus::DECOMMISSIONED === $this->status) {
+      throw EquipmentAlreadyDecommissionedException::withId((string) $this->id);
+    }
+
     $this->facilityId = null;
     $this->installedAt = null;
     // Unassigning always resets the status to IN_STOCK regardless of prior state,
@@ -265,7 +275,9 @@ final class Equipment
       throw new InvalidArgumentException('Equipment must be assigned to a facility before commissioning.');
     }
 
-    $this->commissionedAt = new DateTimeImmutable();
+    // Preserve the original commissioning date: coming back from maintenance
+    // (re-commission) must not reset the first in-service date.
+    $this->commissionedAt ??= new DateTimeImmutable();
     $this->status = EquipmentStatus::OPERATIONAL;
     $this->touch();
   }
@@ -281,6 +293,13 @@ final class Equipment
   {
     if (EquipmentStatus::DECOMMISSIONED === $this->status) {
       throw EquipmentAlreadyDecommissionedException::withId((string) $this->id);
+    }
+
+    // Maintenance applies to in-service equipment only (operational ↔
+    // under_maintenance). In-stock equipment has never been commissioned, so it
+    // cannot go straight into maintenance; it must be commissioned first.
+    if (EquipmentStatus::IN_STOCK === $this->status) {
+      throw new InvalidArgumentException('In-stock equipment must be commissioned before it can be put under maintenance.');
     }
 
     if (null === $this->facilityId) {

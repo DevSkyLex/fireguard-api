@@ -162,7 +162,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @param int $limit the limit value
    * @param int $offset the offset value
    *
-   * @return array the find by organization id result
+   * @return list<Inspection> the find by organization id result
    */
   public function findByOrganizationId(
     InspectionOrganizationId $organizationId,
@@ -271,7 +271,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @param ?string $result the result value
    * @param ?string $inspectorType the inspector type value
    *
-   * @return array the count overview by organization id result
+   * @return array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int} the count overview by organization id result
    */
   public function countOverviewByOrganizationId(
     InspectionOrganizationId $organizationId,
@@ -335,7 +335,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    *
    * @param InspectionOrganizationId $organizationId the organization id value
    *
-   * @return array the count by status for organization id result
+   * @return array<string, int> map of status => count
    */
   public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array
   {
@@ -375,7 +375,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    *
    * @param InspectionOrganizationId $organizationId the organization id value
    *
-   * @return array the count by result for organization id result
+   * @return array<string, int> map of result => count
    */
   public function countByResultForOrganizationId(InspectionOrganizationId $organizationId): array
   {
@@ -415,7 +415,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    *
    * @param InspectionOrganizationId $organizationId the organization id value
    *
-   * @return array the count by inspector type for organization id result
+   * @return array<string, int> map of inspector type => count
    */
   public function countByInspectorTypeForOrganizationId(InspectionOrganizationId $organizationId): array
   {
@@ -461,7 +461,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @param ?string $result the result value
    * @param ?string $inspectorType the inspector type value
    *
-   * @return array the count by performed day for organization id result
+   * @return array<string, int> map of YYYY-MM-DD => count
    */
   public function countByPerformedDayForOrganizationId(
     InspectionOrganizationId $organizationId,
@@ -527,7 +527,7 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    * @param ?string $result the result value
    * @param ?string $inspectorType the inspector type value
    *
-   * @return array the count period metrics by organization id result
+   * @return array{total: int, closed: int, pass: int, fail: int, partial: int} the count period metrics by organization id result
    */
   public function countPeriodMetricsByOrganizationId(
     InspectionOrganizationId $organizationId,

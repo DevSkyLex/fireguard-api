@@ -24,24 +24,22 @@ final class RemoveOrganizationMembersOutput
 {
   // #region Properties
   /**
-   * @var list<string>
-   */
-  /**
    * Property removedIds.
    *
    * @since 1.0.0
+   *
+   * @var list<string>
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $removedIds = [];
 
   /**
-   * @var list<string>
-   */
-  /**
    * Property failedIds.
    *
    * @since 1.0.0
+   *
+   * @var list<string>
    */
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
