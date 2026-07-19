@@ -35,10 +35,13 @@ phpstan:
 deptrac:
 	$(PHP) $(DEPTRAC_BIN) analyse --config-file=deptrac.yaml
 
-# Validate Symfony container configuration
+# Validate Symfony container configuration.
+# `lint:container` needs the raised memory limit like phpstan/phpunit do: it
+# builds and inspects the whole compiled container, which outgrew PHP's default
+# 128M once the modulith passed ~25 modules (it died with OutOfMemoryError).
 lint:
-	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) lint:container
-	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) lint:yaml config
+	$(ENV_PREFIX) $(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) lint:container
+	$(ENV_PREFIX) $(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) lint:yaml config --parse-tags
 
 cs-lint:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHP_CS_FIXER_BIN) fix --dry-run --diff

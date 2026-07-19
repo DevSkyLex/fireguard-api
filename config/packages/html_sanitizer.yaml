@@ -28,3 +28,29 @@ framework:
                     pre: []
                     code: []
                 max_input_length: 40000
+
+            # Allowlist for rich-text messaging bodies (contextual discussion
+            # threads) — identical allowlist to intervention.comment so
+            # `@{memberUuid}` mention tokens survive sanitization the same way.
+            messaging.message:
+                allow_elements:
+                    p: []
+                    br: []
+                    span: []
+                    strong: []
+                    b: []
+                    em: []
+                    i: []
+                    u: []
+                    s: []
+                    ol: []
+                    ul: []
+                    li: []
+                    a: ['href']
+                    h1: []
+                    h2: []
+                    h3: []
+                    blockquote: []
+                    pre: []
+                    code: []
+                max_input_length: 40000

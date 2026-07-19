@@ -60,6 +60,14 @@ framework:
       policy: 'sliding_window'
       limit: 100000
       interval: '1 minute'
+    otp_totp_confirm:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
+    otp_totp_disable:
+      policy: 'sliding_window'
+      limit: 100000
+      interval: '1 minute'
     invitation_preview:
       policy: 'sliding_window'
       limit: 100000
