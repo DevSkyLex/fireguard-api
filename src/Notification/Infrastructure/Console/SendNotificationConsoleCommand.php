@@ -99,6 +99,12 @@ final class SendNotificationConsoleCommand extends Command
         description: 'Recipient e-mail address (required for the email channel)',
       )
       ->addOption(
+        name: 'organization-id',
+        shortcut: null,
+        mode: InputOption::VALUE_REQUIRED,
+        description: 'Organization to scope the notification to (optional; omit for an account-level or platform-wide notification)',
+      )
+      ->addOption(
         name: 'channels',
         shortcut: 'c',
         mode: InputOption::VALUE_REQUIRED,
@@ -139,6 +145,7 @@ HELP
     $bodyRaw = $input->getArgument('body');
     $userIdRaw = $input->getOption('user-id');
     $emailRaw = $input->getOption('email');
+    $organizationIdRaw = $input->getOption('organization-id');
     $channelsRaw = $input->getOption('channels');
 
     if (!is_string($typeRaw) || '' === trim($typeRaw)) {
@@ -164,6 +171,7 @@ HELP
     $body = trim($bodyRaw);
     $userId = is_string($userIdRaw) && '' !== trim($userIdRaw) ? trim($userIdRaw) : null;
     $email = is_string($emailRaw) && '' !== trim($emailRaw) ? trim($emailRaw) : null;
+    $organizationId = is_string($organizationIdRaw) && '' !== trim($organizationIdRaw) ? trim($organizationIdRaw) : null;
 
     if (!NotificationType::isValid($type)) {
       $io->warning(sprintf(
@@ -207,6 +215,7 @@ HELP
         channels: $channels,
         recipientUserId: $userId,
         recipientEmail: $email,
+        organizationId: $organizationId,
       ));
 
       $io->success(sprintf(

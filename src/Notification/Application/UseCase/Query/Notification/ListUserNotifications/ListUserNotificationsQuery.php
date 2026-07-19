@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Notification\Application\UseCase\Query\Notification\ListUserNotifications;
 
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -25,16 +26,18 @@ final readonly class ListUserNotificationsQuery implements QueryMessage
    *
    * @param string $userId the user identifier
    * @param bool $onlyUnread whether to list only unread notifications
-   * @param int $limit maximum number of notifications
+   * @param Pagination $pagination the requested page (offset/limit)
    * @param string|null $type exact type filter (e.g. `organization.invitation`)
    * @param string|null $category category prefix filter (e.g. `organization`)
+   * @param string|null $organizationId exact organization filter; when omitted, notifications across all organizations (and account-level ones) are returned
    */
   public function __construct(
     public string $userId,
     public bool $onlyUnread = false,
-    public int $limit = 50,
+    public Pagination $pagination = new Pagination(),
     public ?string $type = null,
     public ?string $category = null,
+    public ?string $organizationId = null,
   ) {
   }
   // #endregion

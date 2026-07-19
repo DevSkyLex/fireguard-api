@@ -32,6 +32,7 @@ final readonly class SendNotificationCommand implements CommandMessage
    * @param array<string, mixed> $deliveryPayload ephemeral delivery payload (not persisted)
    * @param string|null $recipientUserId the recipient user identifier
    * @param string|null $recipientEmail the recipient email
+   * @param string|null $organizationId the organization this notification belongs to, when any
    */
   public function __construct(
     public string $type,
@@ -42,6 +43,7 @@ final readonly class SendNotificationCommand implements CommandMessage
     public array $deliveryPayload = [],
     public ?string $recipientUserId = null,
     public ?string $recipientEmail = null,
+    public ?string $organizationId = null,
   ) {
   }
   // #endregion

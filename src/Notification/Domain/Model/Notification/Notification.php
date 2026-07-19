@@ -37,6 +37,7 @@ final class Notification
    * @param Email|null $recipientEmail the recipient email
    * @param bool $isRead whether notification is read
    * @param DateTimeImmutable|null $readAt the read datetime
+   * @param string|null $organizationId the organization this notification belongs to, when any
    */
   private function __construct(
     private NotificationId $id,
@@ -51,6 +52,7 @@ final class Notification
     private ?Email $recipientEmail = null,
     private bool $isRead = false,
     private ?DateTimeImmutable $readAt = null,
+    private ?string $organizationId = null,
   ) {
   }
   // #endregion
@@ -71,6 +73,7 @@ final class Notification
    * @param array<string, mixed> $payload the payload
    * @param string|null $recipientUserId the recipient user identifier
    * @param Email|null $recipientEmail the recipient email
+   * @param string|null $organizationId the organization this notification belongs to, when any
    *
    * @return self the created notification
    */
@@ -83,6 +86,7 @@ final class Notification
     array $payload = [],
     ?string $recipientUserId = null,
     ?Email $recipientEmail = null,
+    ?string $organizationId = null,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -99,6 +103,7 @@ final class Notification
       recipientEmail: $recipientEmail,
       isRead: false,
       readAt: null,
+      organizationId: $organizationId,
     );
   }
 
@@ -121,6 +126,7 @@ final class Notification
    * @param Email|null $recipientEmail the recipient email
    * @param bool $isRead whether notification is read
    * @param DateTimeImmutable|null $readAt the read datetime
+   * @param string|null $organizationId the organization this notification belongs to, when any
    *
    * @return self the reconstituted notification
    */
@@ -137,6 +143,7 @@ final class Notification
     ?Email $recipientEmail = null,
     bool $isRead = false,
     ?DateTimeImmutable $readAt = null,
+    ?string $organizationId = null,
   ): self {
     return new self(
       id: $id,
@@ -151,6 +158,7 @@ final class Notification
       recipientEmail: $recipientEmail,
       isRead: $isRead,
       readAt: $readAt,
+      organizationId: $organizationId,
     );
   }
 
@@ -295,6 +303,16 @@ final class Notification
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  /**
+   * Method organizationId.
+   *
+   * @since 1.1.0
+   */
+  public function organizationId(): ?string
+  {
+    return $this->organizationId;
   }
   // #endregion
 }

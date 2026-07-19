@@ -78,6 +78,15 @@ final class NotificationType
    * Sent to a member when their organization access is removed.
    */
   public const string ORGANIZATION_MEMBER_REMOVED = 'organization.member_removed';
+
+  /**
+   * Constant ORGANIZATION_PLAN_OVER_QUOTA.
+   *
+   * The organization's plan changed while its current usage exceeds the new
+   * plan's caps (typically a Stripe downgrade): existing data is preserved
+   * but new creations stay blocked until usage fits the plan.
+   */
+  public const string ORGANIZATION_PLAN_OVER_QUOTA = 'organization.plan_over_quota';
   // #endregion
 
   // #region User types
@@ -118,6 +127,7 @@ final class NotificationType
       self::ORGANIZATION_INVITATION_ACCEPTED,
       self::ORGANIZATION_INVITATION_REVOKED,
       self::ORGANIZATION_MEMBER_JOINED,
+      self::ORGANIZATION_PLAN_OVER_QUOTA,
       self::ORGANIZATION_MEMBER_ADDED,
       self::ORGANIZATION_MEMBER_REMOVED,
       self::USER_EMAIL_VERIFIED,

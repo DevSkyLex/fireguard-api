@@ -82,6 +82,7 @@ final readonly class GetUserNotificationHandler implements QueryHandler
       isRead: $notification->isRead(),
       createdAt: $notification->createdAt(),
       readAt: $notification->readAt(),
+      organizationId: $notification->organizationId(),
     );
   }
   // #endregion

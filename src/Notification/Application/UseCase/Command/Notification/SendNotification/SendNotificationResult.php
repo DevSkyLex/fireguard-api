@@ -34,6 +34,7 @@ final readonly class SendNotificationResult implements ResultMessage
    * @param DateTimeImmutable $createdAt the creation datetime
    * @param string|null $recipientUserId the recipient user identifier
    * @param string|null $recipientEmail the recipient email
+   * @param string|null $organizationId the organization this notification belongs to, when any
    */
   public function __construct(
     public string $id,
@@ -46,6 +47,7 @@ final readonly class SendNotificationResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public ?string $recipientUserId = null,
     public ?string $recipientEmail = null,
+    public ?string $organizationId = null,
   ) {
   }
   // #endregion

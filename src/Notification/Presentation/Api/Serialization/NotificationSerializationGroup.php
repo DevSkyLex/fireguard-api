@@ -35,4 +35,39 @@ final class NotificationSerializationGroup
    * @since 1.0.0
    */
   public const string NOTIFICATION_TYPE_READ = 'notification_type:read';
+
+  /**
+   * Group for unread notification count views.
+   *
+   * @since 1.1.0
+   */
+  public const string UNREAD_COUNT = 'notification:unread_count';
+
+  /**
+   * Group for mark-all-as-read result views.
+   *
+   * @since 1.1.0
+   */
+  public const string MARK_ALL_AS_READ = 'notification:mark_all_as_read';
+
+  /**
+   * Group for notification preference read views.
+   *
+   * @since 1.2.0
+   */
+  public const string PREFERENCES = 'notification:preferences:read';
+
+  /**
+   * Group for notification preference write payloads.
+   *
+   * @since 1.2.0
+   */
+  public const string PREFERENCES_WRITE = 'notification:preferences:write';
+
+  /**
+   * Group for unified inbox feed views.
+   *
+   * @since 1.3.0
+   */
+  public const string INBOX_READ = 'notification:inbox:read';
 }

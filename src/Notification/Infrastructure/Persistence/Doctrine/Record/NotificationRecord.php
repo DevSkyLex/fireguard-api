@@ -22,6 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_notifications_recipient_email', columns: ['recipient_email'])]
 #[ORM\Index(name: 'idx_notifications_created_at', columns: ['created_at'])]
 #[ORM\Index(name: 'idx_notifications_user_read', columns: ['recipient_user_id', 'is_read'])]
+#[ORM\Index(name: 'idx_notifications_user_org_created', columns: ['recipient_user_id', 'organization_id', 'created_at'])]
 class NotificationRecord
 {
   // #region Properties
@@ -49,6 +50,19 @@ class NotificationRecord
    */
   #[ORM\Column(name: 'recipient_email', type: 'string', length: 320, nullable: true)]
   public ?string $recipientEmail = null;
+
+  /**
+   * Property organizationId.
+   *
+   * The organization this notification belongs to, when it has one. Nullable
+   * because account-level notifications (`user.email_verified`) and platform
+   * announcements legitimately have no organization — and because every row
+   * written before this column existed has none.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'organization_id', type: 'string', length: 36, nullable: true)]
+  public ?string $organizationId = null;
 
   /**
    * Property type.

@@ -13,8 +13,26 @@ services:
   Notification\Application\Port\Inbound\NotificationPort:
     alias: Notification\Application\Service\NotificationService
 
+  Notification\Application\Port\Outbound\RecipientDirectoryPort:
+    alias: User\Infrastructure\Adapter\Notification\UserRecipientDirectoryAdapter
+
   Notification\Application\Port\Outbound\NotificationRepositoryPort:
     alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository
+
+  Notification\Application\Port\Outbound\NotificationPreferenceRepositoryPort:
+    alias: Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationPreferenceRepository
+
+  # Unified inbox seam (L1.8a): tagged-iterator aggregator, mirroring
+  # Messaging\Application\Service\MessagingSubjectResolverRegistry.
+  # Notification ships the one Notification-backed source provider today;
+  # other modules (e.g. Messaging) register their own adapter, tagged
+  # 'inbox.source_provider', in their own config/modules/<module>.yaml.
+  Notification\Application\Service\InboxAggregator:
+    arguments:
+      $providers: !tagged_iterator inbox.source_provider
+
+  Notification\Infrastructure\Adapter\Inbox\NotificationInboxSourceProviderAdapter:
+    tags: ['inbox.source_provider']
 
   Notification\Application\Port\Outbound\EmailNotificationChannelPort:
     alias: Notification\Infrastructure\Adapter\Channel\EmailNotificationChannelAdapter
@@ -23,6 +41,10 @@ services:
     alias: Notification\Infrastructure\Adapter\Channel\MercureNotificationChannelAdapter
 
   Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationPreferenceRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -44,4 +66,19 @@ services:
     tags: ['messenger.message_handler']
 
   Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Query\Notification\GetUnreadNotificationsCount\GetUnreadNotificationsCountHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Command\Notification\MarkAllNotificationsAsRead\MarkAllNotificationsAsReadHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Query\Notification\GetNotificationPreferences\GetNotificationPreferencesHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Command\Notification\UpdateNotificationPreferences\UpdateNotificationPreferencesHandler:
+    tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Query\Inbox\ListInboxItems\ListInboxItemsHandler:
     tags: ['messenger.message_handler']

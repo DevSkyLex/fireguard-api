@@ -125,6 +125,63 @@ final class NotificationRepositoryIntegrationTest extends KernelTestCase
     ));
   }
 
+  #[Test]
+  public function testFindByUserIdHonoursTheBeforeCursorForStableInboxPagination(): void
+  {
+    // Exercises the `before` cursor added for the unified inbox seam
+    // (NotificationInboxSourceProviderAdapter): a mocked QueryBuilder never
+    // parses the `n.createdAt < :before` DQL condition, so only a real
+    // connection catches a broken cursor filter.
+    $this->repository->save($this->createNotification(
+      id: '550e8400-e29b-41d4-a716-446655442320',
+      type: NotificationType::ORGANIZATION_MEMBER_REMOVED,
+      subject: 'Oldest',
+      body: 'Oldest notification',
+      userId: '550e8400-e29b-41d4-a716-446655442398',
+      createdAt: new DateTimeImmutable('2026-07-18T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-07-18T08:00:00+00:00'),
+      isRead: false,
+      readAt: null,
+    ));
+
+    $this->repository->save($this->createNotification(
+      id: '550e8400-e29b-41d4-a716-446655442321',
+      type: NotificationType::ORGANIZATION_MEMBER_REMOVED,
+      subject: 'Middle',
+      body: 'Middle notification',
+      userId: '550e8400-e29b-41d4-a716-446655442398',
+      createdAt: new DateTimeImmutable('2026-07-18T09:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-07-18T09:00:00+00:00'),
+      isRead: false,
+      readAt: null,
+    ));
+
+    $this->repository->save($this->createNotification(
+      id: '550e8400-e29b-41d4-a716-446655442322',
+      type: NotificationType::ORGANIZATION_MEMBER_REMOVED,
+      subject: 'Newest',
+      body: 'Newest notification',
+      userId: '550e8400-e29b-41d4-a716-446655442398',
+      createdAt: new DateTimeImmutable('2026-07-18T10:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-07-18T10:00:00+00:00'),
+      isRead: false,
+      readAt: null,
+    ));
+
+    $notifications = $this->repository->findByUserId(
+      userId: '550e8400-e29b-41d4-a716-446655442398',
+      limit: 10,
+      before: new DateTimeImmutable('2026-07-18T10:00:00+00:00'),
+    );
+
+    // Strictly BEFORE the cursor: excludes "Newest" (== cursor), keeps the
+    // two older rows, still ordered most-recent-first.
+    self::assertSame(['Middle', 'Oldest'], array_map(
+      static fn (Notification $notification): string => $notification->subject(),
+      $notifications,
+    ));
+  }
+
   private function createNotification(
     string $id,
     string $type,

@@ -108,5 +108,17 @@ final class NotificationOutput
   #[Groups([NotificationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $readAt = null;
+
+  /**
+   * Property organizationId.
+   *
+   * The organization this notification belongs to, when it has one. Null
+   * for account-level notifications and platform announcements.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([NotificationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $organizationId = null;
   // #endregion
 }

@@ -6,9 +6,16 @@ namespace Notification\Application\UseCase\Command\Notification\SendNotification
 
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\NotificationChannel;
-use Notification\Application\Port\Outbound\{EmailNotificationChannelPort, MercureNotificationChannelPort, NotificationRepositoryPort};
+use Notification\Application\Port\Outbound\{
+  EmailNotificationChannelPort,
+  MercureNotificationChannelPort,
+  NotificationPreferenceRepositoryPort,
+  NotificationRepositoryPort,
+  RecipientDirectoryPort
+};
 use Notification\Domain\Model\Notification\Notification;
-use Notification\Domain\ValueObject\NotificationId;
+use Notification\Domain\Model\NotificationPreference\NotificationPreference;
+use Notification\Domain\ValueObject\{NotificationId, NotificationType};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\LoggerPort;
@@ -16,9 +23,11 @@ use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_values;
+use function count;
 use function in_array;
 use function is_array;
 use function is_string;
@@ -43,15 +52,19 @@ final readonly class SendNotificationHandler implements CommandHandler
    * @since 1.0.0
    *
    * @param NotificationRepositoryPort $notificationRepository the notification repository port
+   * @param NotificationPreferenceRepositoryPort $preferenceRepository the notification preference repository port
    * @param EmailNotificationChannelPort $emailChannel the email channel port
    * @param MercureNotificationChannelPort $mercureChannel the mercure channel port
+   * @param RecipientDirectoryPort $recipientDirectory the recipient directory port
    * @param LoggerPort $logger the logger port
    * @param UuidFactory $uuidFactory the UUID factory
    */
   public function __construct(
     private NotificationRepositoryPort $notificationRepository,
+    private NotificationPreferenceRepositoryPort $preferenceRepository,
     private EmailNotificationChannelPort $emailChannel,
     private MercureNotificationChannelPort $mercureChannel,
+    private RecipientDirectoryPort $recipientDirectory,
     private LoggerPort $logger,
     private UuidFactory $uuidFactory,
   ) {
@@ -90,8 +103,28 @@ final readonly class SendNotificationHandler implements CommandHandler
       throw new InvalidArgumentException('Notification subject is required.');
     }
 
+    // When only a userId was provided, the guard above ensures it is non-null here.
     if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
-      throw new InvalidArgumentException('Recipient email is required for email notifications.');
+      $recipientEmail = $this->normalizeNullableString($this->recipientDirectory->emailForUserId((string) $recipientUserId));
+    }
+
+    if ($this->containsChannel($channels, NotificationChannel::EMAIL) && null === $recipientEmail) {
+      // Multi-channel requests degrade gracefully: the unresolvable email
+      // channel is dropped so the remaining channels still deliver. An
+      // email-only request with no resolvable address stays a caller error.
+      if (1 === count($channels)) {
+        throw new InvalidArgumentException('Recipient email is required for email notifications.');
+      }
+
+      $channels = array_values(array_filter(
+        $channels,
+        static fn (NotificationChannel $channel): bool => NotificationChannel::EMAIL !== $channel,
+      ));
+
+      $this->logger->warning('Email channel dropped: no resolvable recipient address.', [
+        'type' => $type,
+        'recipientUserId' => $recipientUserId,
+      ]);
     }
 
     if ($this->containsChannel($channels, NotificationChannel::MERCURE) && null === $recipientUserId) {
@@ -119,12 +152,35 @@ final readonly class SendNotificationHandler implements CommandHandler
       payload: $command->payload,
       recipientUserId: $recipientUserId,
       recipientEmail: $email,
+      organizationId: $this->normalizeNullableString($command->organizationId),
     );
 
     $this->notificationRepository->save($notification);
 
+    // Preferences suppress delivery only, never persistence: the row above
+    // is already saved and stays in the in-app list regardless of what the
+    // loop below decides for the email/Mercure fan-out. An absent row (no
+    // userId to key on, or no customization for this category) means every
+    // channel stays enabled.
+    $preference = null !== $recipientUserId
+      ? $this->preferenceRepository->findByUserIdAndCategory($recipientUserId, NotificationType::category($type))
+      : null;
+
     $channelDelivery = [];
     foreach ($channels as $channel) {
+      if ($this->isChannelSuppressedByPreference($channel, $preference)) {
+        $channelDelivery[$channel->value] = false;
+
+        $this->logger->info('Notification channel delivery skipped: disabled by user preference.', [
+          'notificationId' => (string) $notification->id(),
+          'channel' => $channel->value,
+          'category' => NotificationType::category($type),
+          'recipientUserId' => $recipientUserId,
+        ]);
+
+        continue;
+      }
+
       $channelPayload = $this->extractChannelPayload($command->deliveryPayload, $channel->value);
 
       try {
@@ -162,6 +218,7 @@ final readonly class SendNotificationHandler implements CommandHandler
       createdAt: $notification->createdAt(),
       recipientUserId: $notification->recipientUserId(),
       recipientEmail: null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null,
+      organizationId: $notification->organizationId(),
     );
   }
 
@@ -241,6 +298,33 @@ final readonly class SendNotificationHandler implements CommandHandler
   private function containsChannel(array $channels, NotificationChannel $needle): bool
   {
     return in_array($needle, $channels, true);
+  }
+
+  /**
+   * Method isChannelSuppressedByPreference.
+   *
+   * An absent preference (no customization for this user/category) means
+   * every channel is enabled — nothing is suppressed. When every requested
+   * channel ends up suppressed, the loop simply marks each as not delivered;
+   * that is a legitimate "user opted out" outcome, never an error.
+   *
+   * @since 1.2.0
+   *
+   * @param NotificationChannel $channel the channel to check
+   * @param NotificationPreference|null $preference the user's preference for this category, when customized
+   *
+   * @return bool true when the channel must not be dispatched
+   */
+  private function isChannelSuppressedByPreference(NotificationChannel $channel, ?NotificationPreference $preference): bool
+  {
+    if (!$preference instanceof NotificationPreference) {
+      return false;
+    }
+
+    return match ($channel) {
+      NotificationChannel::EMAIL => !$preference->isEmailEnabled(),
+      NotificationChannel::MERCURE => !$preference->isMercureEnabled(),
+    };
   }
 
   /**
