@@ -46,7 +46,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
           && in_array(NotificationChannel::MERCURE, $request->channels, true)
           && 'user@example.com' === $request->recipientEmail
           && 'user-001' === $request->recipientUserId
-          && 'org-001' === $request->payload['organizationId'];
+          && 'org-001' === $request->payload['organizationId']
+          && 'org-001' === $request->organizationId;
       }))
       ->willReturn($this->makeSentNotification());
 
@@ -209,7 +210,8 @@ final class OnboardingNotificationSubscriberTest extends TestCase
       ->with(self::callback(static function (SendNotificationRequest $request): bool {
         return 'session-001' === $request->payload['sessionId']
           && 'org-001' === $request->payload['organizationId']
-          && isset($request->payload['completedAt']);
+          && isset($request->payload['completedAt'])
+          && 'org-001' === $request->organizationId;
       }))
       ->willReturn($this->makeSentNotification());
 

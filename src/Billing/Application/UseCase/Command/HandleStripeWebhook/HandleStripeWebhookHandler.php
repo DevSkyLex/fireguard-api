@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Command\HandleStripeWebhook;
 
+use Billing\Application\Contract\Stripe\StripeEvent;
 use Billing\Application\Port\Outbound\{
   OrganizationPlanAssignmentPort,
   StripeGatewayPort,
   SubscriptionRepositoryPort
 };
-use Billing\Application\Port\Outbound\Stripe\StripeEvent;
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{SubscriptionId, SubscriptionStatus};

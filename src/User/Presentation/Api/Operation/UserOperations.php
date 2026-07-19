@@ -105,6 +105,17 @@ final class UserOperations
   public const string UPLOAD_CURRENT_AVATAR = 'user_upload_current_avatar';
 
   /**
+   * Constant DEACTIVATE_CURRENT.
+   *
+   * Self-service deactivate current authenticated user account operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string DEACTIVATE_CURRENT = 'user_deactivate_current';
+
+  /**
    * Constant LIST.
    *
    * List users operation name.
@@ -207,6 +218,7 @@ final class UserOperations
     self::GET_CURRENT_PROFILE,
     self::UPDATE_CURRENT_PROFILE,
     self::UPLOAD_CURRENT_AVATAR,
+    self::DEACTIVATE_CURRENT,
     self::LIST,
     self::LIST_STATUSES,
     self::UPDATE,

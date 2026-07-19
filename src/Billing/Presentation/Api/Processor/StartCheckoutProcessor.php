@@ -11,7 +11,7 @@ use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Command\StartCheckout\{StartCheckoutCommand, StartCheckoutResult};
 use Billing\Presentation\Api\Dto\Input\StartCheckoutInput;
 use Billing\Presentation\Api\Dto\Output\CheckoutSessionOutput;
-use Billing\Presentation\Api\Processor\Support\ResolvesMessengerFailure;
+use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use InvalidArgumentException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;

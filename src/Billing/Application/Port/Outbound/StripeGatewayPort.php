@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Application\Port\Outbound;
 
-use Billing\Application\Port\Outbound\Stripe\{StripeEvent, StripeInvoice};
+use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePaymentMethod};
 
 /**
  * Port StripeGatewayPort.
@@ -131,5 +131,23 @@ interface StripeGatewayPort
    * @param string $subscriptionId the Stripe subscription identifier
    */
   public function resumeCancellation(string $subscriptionId): void;
+
+  /**
+   * Method getPaymentMethod.
+   *
+   * Returns the customer's default saved card (brand, last 4 digits, expiry),
+   * or null when the customer has none. Card details never cross this
+   * boundary in the other direction: this application only ever reads what
+   * Stripe already stores.
+   *
+   * @since 1.0.0
+   *
+   * @param string $customerId the Stripe customer identifier
+   *
+   * @throws \Billing\Domain\Exception\BillingGatewayUnavailableException when Stripe cannot be reached
+   *
+   * @return ?StripePaymentMethod the normalized payment method, or null when none is saved
+   */
+  public function getPaymentMethod(string $customerId): ?StripePaymentMethod;
   // #endregion
 }

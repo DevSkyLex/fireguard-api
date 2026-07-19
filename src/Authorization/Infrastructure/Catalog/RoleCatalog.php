@@ -43,6 +43,8 @@ final class RoleCatalog
       'otp_config.read',
       'otp_challenges.*',
       'otp_totp.setup',
+      'otp_totp.confirm',
+      'otp_totp.disable',
       'trusted_devices.*',
     ];
   }
@@ -60,6 +62,8 @@ final class RoleCatalog
       'otp_config.read',
       'otp_challenges.*',
       'otp_totp.setup',
+      'otp_totp.confirm',
+      'otp_totp.disable',
       'trusted_devices.*',
     ];
   }

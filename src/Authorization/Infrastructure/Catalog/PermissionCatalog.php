@@ -60,6 +60,8 @@ final class PermissionCatalog
       ['name' => 'otp_challenges.resend', 'description' => 'Resend OTP challenges'],
       ['name' => 'otp_challenges.*', 'description' => 'All OTP challenge operations'],
       ['name' => 'otp_totp.setup', 'description' => 'Setup TOTP'],
+      ['name' => 'otp_totp.confirm', 'description' => 'Confirm TOTP setup'],
+      ['name' => 'otp_totp.disable', 'description' => 'Disable TOTP'],
 
       // Trusted device management
       ['name' => 'trusted_devices.create', 'description' => 'Create trusted devices'],

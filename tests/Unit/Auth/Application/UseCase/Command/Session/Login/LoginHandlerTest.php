@@ -6,8 +6,8 @@ namespace Tests\Unit\Auth\Application\UseCase\Command\Session\Login;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort, UserAuthenticationPort};
-use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
-use Auth\Application\UseCase\Command\Mfa\MfaChallenge\MfaChallengeResult;
+use Auth\Application\Port\Outbound\Mfa\{ChallengeGeneratorPort, TotpEnrollmentCheckPort};
+use Auth\Application\UseCase\Command\Mfa\MfaChallenge\{MfaChallengeCommand, MfaChallengeResult};
 use Auth\Application\UseCase\Command\Session\Login\{LoginCommand, LoginHandler, LoginResult};
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Domain\Event\Token\TokenIssuedEvent;
@@ -58,6 +58,7 @@ final class LoginHandlerTest extends TestCase
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -104,6 +105,7 @@ final class LoginHandlerTest extends TestCase
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -161,6 +163,7 @@ final class LoginHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       rateLimiter: $rateLimiter,
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: true,
     );
 
@@ -170,6 +173,73 @@ final class LoginHandlerTest extends TestCase
     $this->assertTrue($result->mfaRequired);
     $this->assertSame('pre-auth', $result->mfaToken);
     $this->assertSame('challenge-123', $result->challengeToken);
+    $this->assertSame('email', $result->mfaMethod);
+  }
+
+  /**
+   * Method testInvokeUsesTotpChannelWhenUserHasActiveEnrollment.
+   */
+  #[Test]
+  public function testInvokeUsesTotpChannelWhenUserHasActiveEnrollment(): void
+  {
+    $command = new LoginCommand(email: 'user@example.com', password: 'secret');
+
+    /** @var RateLimiterPort&MockObject $rateLimiter */
+    $rateLimiter = $this->createMock(RateLimiterPort::class);
+    $rateLimiter->expects(self::once())
+      ->method('consume')
+      ->willReturn(RateLimitResult::accepted());
+
+    /** @var UserAuthenticationPort&MockObject $auth */
+    $auth = $this->createMock(UserAuthenticationPort::class);
+    $auth->expects(self::once())
+      ->method('authenticate')
+      ->willReturn(UserAuthenticationResult::success('user-123', 'user@example.com'));
+
+    $challengeResult = new MfaChallengeResult(
+      challengeToken: 'challenge-totp',
+      maskedRecipient: 'Authenticator App',
+      expiresAt: new DateTimeImmutable('+5 minutes'),
+      maxAttempts: 5,
+    );
+
+    /** @var ChallengeGeneratorPort&MockObject $generator */
+    $generator = $this->createMock(ChallengeGeneratorPort::class);
+    $generator->expects(self::once())
+      ->method('generate')
+      ->with(self::callback(static fn (MfaChallengeCommand $cmd): bool => 'totp' === $cmd->channel))
+      ->willReturn($challengeResult);
+
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())
+      ->method('generatePreAuthToken')
+      ->willReturn('pre-auth-totp');
+
+    /** @var TotpEnrollmentCheckPort&MockObject $totpEnrollmentCheck */
+    $totpEnrollmentCheck = $this->createMock(TotpEnrollmentCheckPort::class);
+    $totpEnrollmentCheck->expects(self::once())
+      ->method('isEnrolled')
+      ->with('user-123')
+      ->willReturn(true);
+
+    $handler = new LoginHandler(
+      userAuthentication: $auth,
+      tokenService: $jwt,
+      challengeGenerator: $generator,
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $totpEnrollmentCheck,
+      mfaEnabled: true,
+    );
+
+    $result = $handler->__invoke($command);
+
+    $this->assertTrue($result->mfaRequired);
+    $this->assertSame('totp', $result->mfaMethod);
+    $this->assertSame('Authenticator App', $result->mfaDestination);
   }
 
   /**
@@ -247,6 +317,7 @@ final class LoginHandlerTest extends TestCase
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -288,6 +359,7 @@ final class LoginHandlerTest extends TestCase
       eventDispatcher: $dispatcher,
       rateLimiter: $rateLimiter,
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
     );
 
@@ -349,6 +421,7 @@ final class LoginHandlerTest extends TestCase
       eventDispatcher: $this->createStub(EventDispatcherPort::class),
       rateLimiter: $rateLimiter,
       trustedDeviceCheck: $this->createStub(TrustedDeviceCheckPort::class),
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
       mfaEnabled: false,
     );
 

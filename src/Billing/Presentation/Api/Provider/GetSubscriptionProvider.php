@@ -90,9 +90,13 @@ final readonly class GetSubscriptionProvider implements ProviderInterface
     $output->active = $result->active;
     $output->status = $result->status;
     $output->planKey = $result->planKey;
+    $output->planName = $result->planName;
     $output->interval = $result->interval;
     $output->currentPeriodEnd = $result->currentPeriodEnd?->format('c');
     $output->cancelAtPeriodEnd = $result->cancelAtPeriodEnd;
+    $output->currency = $result->currency;
+    $output->monthlyAmount = $result->monthlyAmount;
+    $output->yearlyAmount = $result->yearlyAmount;
 
     return $output;
   }

@@ -134,6 +134,7 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
         ],
         recipientUserId: $event->userId,
         recipientEmail: $recipientEmail,
+        organizationId: $event->targetOrganizationId,
       ));
     } catch (Throwable $exception) {
       $this->logger->error('Failed to send onboarding completion notification.', [

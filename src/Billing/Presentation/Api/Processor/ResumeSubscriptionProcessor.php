@@ -15,7 +15,7 @@ use Billing\Application\UseCase\Query\GetOrganizationSubscription\{
 };
 use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Billing\Presentation\Api\Dto\Output\SubscriptionOutput;
-use Billing\Presentation\Api\Processor\Support\ResolvesMessengerFailure;
+use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;

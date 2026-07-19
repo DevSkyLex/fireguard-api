@@ -244,6 +244,59 @@ final class AuditEventRepository implements AuditEventRepositoryPort
   }
 
   /**
+   * Method countMatching.
+   *
+   * Counts audit events matching a search criteria, with no pagination
+   * applied. Reuses the exact same filter DQL as `search()`.
+   *
+   * @since 1.3.0
+   *
+   * @param AuditEventSearchCriteria $criteria the search criteria
+   *
+   * @return int the number of matching audit events
+   */
+  public function countMatching(AuditEventSearchCriteria $criteria): int
+  {
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('COUNT(a.id)')
+      ->from(AuditEventRecord::class, 'a');
+
+    $this->applyCriteria($qb, $criteria);
+
+    return (int) $qb->getQuery()->getSingleScalarResult();
+  }
+
+  /**
+   * Method stream.
+   *
+   * Streams audit events matching a search criteria, with no pagination
+   * applied. Uses Doctrine's `toIterable()` so results are hydrated and
+   * yielded one row at a time rather than materialized into a single
+   * array — the caller (an export) may match tens of thousands of rows.
+   *
+   * @since 1.3.0
+   *
+   * @param AuditEventSearchCriteria $criteria the search criteria
+   *
+   * @return iterable<AuditEventView>
+   */
+  public function stream(AuditEventSearchCriteria $criteria): iterable
+  {
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('a')
+      ->from(AuditEventRecord::class, 'a');
+
+    $this->applyCriteria($qb, $criteria);
+
+    $qb->orderBy('a.' . $this->resolveSortField($criteria->sorting->field), $criteria->sorting->direction->value);
+
+    foreach ($qb->getQuery()->toIterable() as $record) {
+      /** @var AuditEventRecord $record */
+      yield $this->mapToView($record);
+    }
+  }
+
+  /**
    * Method resolveChainId.
    *
    * Resolves the chain ID for the event.

@@ -9,7 +9,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\ValueObject\{Email, TenantId};
 use Tests\Helper\TestEventIdProvider;
-use User\Domain\Event\UserCreatedEvent;
+use User\Domain\Event\{UserCreatedEvent, UserDeactivatedEvent};
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, UserStatus, Username};
@@ -190,6 +190,56 @@ final class UserTest extends TestCase
     $user->authenticate('new-pass');
 
     $this->assertEquals(0, $user->failedLoginAttempts());
+  }
+
+  #[Test]
+  public function testDeactivateRecordsEventAndChangesStatus(): void
+  {
+    $eventIdProvider = new TestEventIdProvider();
+    $user = User::register(
+      id: new UserId('550e8400-e29b-41d4-a716-446655440006'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
+    );
+    $user->verifyEmail($eventIdProvider);
+    $user->releaseEvents();
+
+    $user->deactivate($eventIdProvider);
+
+    $this->assertSame(UserStatus::INACTIVE, $user->status());
+    $this->assertFalse($user->canLogin());
+
+    $events = $user->releaseEvents();
+    $this->assertCount(1, $events);
+    $this->assertInstanceOf(UserDeactivatedEvent::class, $events[0]);
+    $this->assertSame($user->id()->value, $events[0]->aggregateId());
+  }
+
+  #[Test]
+  public function testDeactivateIsIdempotent(): void
+  {
+    $eventIdProvider = new TestEventIdProvider();
+    $user = User::register(
+      id: new UserId('550e8400-e29b-41d4-a716-446655440007'),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('password123'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: $eventIdProvider,
+    );
+    $user->releaseEvents();
+
+    $user->deactivate($eventIdProvider);
+    $this->assertCount(1, $user->releaseEvents());
+
+    // Deactivating an already-inactive user must not re-record the event.
+    $user->deactivate($eventIdProvider);
+
+    $this->assertSame(UserStatus::INACTIVE, $user->status());
+    $this->assertCount(0, $user->releaseEvents());
   }
   // #endregion
 }

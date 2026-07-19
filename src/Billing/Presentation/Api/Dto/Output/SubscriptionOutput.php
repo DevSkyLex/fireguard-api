@@ -62,11 +62,26 @@ final class SubscriptionOutput
   /**
    * Property planKey.
    *
+   * The organization's currently assigned plan key, populated even without a
+   * live Stripe subscription (e.g. the catalog default/free plan).
+   *
    * @since 1.0.0
    */
   #[Groups([BillingSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $planKey = null;
+
+  /**
+   * Property planName.
+   *
+   * The plan's display name, so the "current plan" card can render without a
+   * second call to the plan catalog.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([BillingSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $planName = null;
 
   /**
    * Property interval.
@@ -96,5 +111,44 @@ final class SubscriptionOutput
   #[Groups([BillingSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public bool $cancelAtPeriodEnd = false;
+
+  /**
+   * Property currency.
+   *
+   * The ISO currency code used for {@see self::$monthlyAmount} and
+   * {@see self::$yearlyAmount}, null when the plan has no configured pricing
+   * (e.g. the free plan).
+   *
+   * @since 1.0.0
+   */
+  #[Groups([BillingSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $currency = null;
+
+  /**
+   * Property monthlyAmount.
+   *
+   * The plan's monthly amount in the currency's smallest unit (e.g. cents),
+   * mirroring {@see PlanPricingOutput}. Null when the plan is not payable
+   * monthly (including the free plan).
+   *
+   * @since 1.0.0
+   */
+  #[Groups([BillingSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?int $monthlyAmount = null;
+
+  /**
+   * Property yearlyAmount.
+   *
+   * The plan's yearly amount in the currency's smallest unit (e.g. cents),
+   * mirroring {@see PlanPricingOutput}. Null when the plan is not payable
+   * yearly (including the free plan).
+   *
+   * @since 1.0.0
+   */
+  #[Groups([BillingSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?int $yearlyAmount = null;
   // #endregion
 }

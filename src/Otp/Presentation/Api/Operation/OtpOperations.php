@@ -80,6 +80,24 @@ final class OtpOperations
   public const string SETUP_TOTP = 'setupTotp';
 
   /**
+   * Constant CONFIRM_TOTP.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string CONFIRM_TOTP = 'confirmTotp';
+
+  /**
+   * Constant DISABLE_TOTP.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string DISABLE_TOTP = 'disableTotp';
+
+  /**
    * Constant ALL.
    *
    * @since 1.0.0
@@ -94,6 +112,8 @@ final class OtpOperations
     self::LIST_PURPOSES,
     self::LIST_CHANNELS,
     self::SETUP_TOTP,
+    self::CONFIRM_TOTP,
+    self::DISABLE_TOTP,
   ];
   // #endregion
 }

@@ -25,6 +25,8 @@ final class BillingOperations
 
   public const string GET_SUBSCRIPTION = 'getOrganizationSubscription';
 
+  public const string GET_PAYMENT_METHOD = 'getOrganizationPaymentMethod';
+
   public const string LIST_INVOICES = 'listOrganizationInvoices';
 
   public const string LIST_BILLING_PRICING = 'listBillingPricing';

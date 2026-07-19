@@ -20,6 +20,8 @@ services:
         tags: ['messenger.message_handler']
     Session\Application\UseCase\Command\Session\RevokeAllUserSessions\RevokeAllUserSessionsHandler:
         tags: ['messenger.message_handler']
+    Session\Application\UseCase\Command\Session\RevokeOtherUserSessions\RevokeOtherUserSessionsHandler:
+        tags: ['messenger.message_handler']
     Session\Application\UseCase\Command\Session\UpdateSessionTokens\UpdateSessionTokensHandler:
         tags: ['messenger.message_handler']
     Session\Application\UseCase\Command\Session\RevokeSessionByToken\RevokeSessionByTokenHandler:
@@ -49,3 +51,4 @@ services:
     # Processors
     Session\Presentation\Api\Processor\Session\RevokeSessionProcessor: ~
     Session\Presentation\Api\Processor\Session\RevokeAllSessionsProcessor: ~
+    Session\Presentation\Api\Processor\Session\RevokeOtherSessionsProcessor: ~

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Billing\Application\UseCase\Query\GetOrganizationInvoices;
 
-use Billing\Application\Port\Outbound\Stripe\StripeInvoice;
+use Billing\Application\Contract\Stripe\StripeInvoice;
 use Shared\Application\Message\ResultMessage;
 
 /**

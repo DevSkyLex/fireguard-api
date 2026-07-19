@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace User\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Get, Patch, Put};
+use ApiPlatform\Metadata\{ApiResource, Get, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, RequestBody, Response};
 use ArrayObject;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -12,6 +12,7 @@ use User\Presentation\Api\Dto\Input\User\CurrentUserProfileInput;
 use User\Presentation\Api\Dto\Output\User\CurrentUserProfileOutput;
 use User\Presentation\Api\Operation\UserOperations;
 use User\Presentation\Api\Processor\User\{
+  DeactivateCurrentUserProfileProcessor,
   UpdateCurrentUserProfileProcessor,
   UploadCurrentUserAvatarProcessor
 };
@@ -127,6 +128,36 @@ use User\Presentation\Api\Serialization\UserSerializationGroup;
           ),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(
             description: 'Invalid file - missing, too large, or unsupported MIME type',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+          HttpResponse::HTTP_NOT_FOUND => new Response(
+            description: 'Authenticated user not found',
+          ),
+        ],
+      ),
+    ),
+    new Post(
+      name: UserOperations::DEACTIVATE_CURRENT,
+      uriTemplate: '/me/deactivate',
+      input: false,
+      output: CurrentUserProfileOutput::class,
+      processor: DeactivateCurrentUserProfileProcessor::class,
+      status: HttpResponse::HTTP_OK,
+      normalizationContext: ['groups' => [UserSerializationGroup::READ]],
+      security: "is_granted('profile.update')",
+      openapi: new Operation(
+        tags: ['Users'],
+        summary: 'Deactivate current user account',
+        description: 'Deactivates the authenticated user own account and revokes all of their active sessions, signing them out everywhere. Idempotent. Organization memberships are left untouched. Reactivation is admin-only (POST /users/{id}/activate) — there is no self-service reactivation. Requires profile.update permission.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Account deactivated successfully — all sessions revoked',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Authentication required',

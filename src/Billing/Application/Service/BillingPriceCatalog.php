@@ -142,15 +142,34 @@ final readonly class BillingPriceCatalog
         continue;
       }
 
-      $pricing[] = new PlanPricing(
-        planKey: $planKey,
-        currency: $this->currency,
-        monthlyAmount: $this->amountFor($planKey, BillingInterval::MONTH),
-        yearlyAmount: $this->amountFor($planKey, BillingInterval::YEAR),
-      );
+      $pricing[] = $this->pricingFor($planKey);
     }
 
     return $pricing;
+  }
+
+  /**
+   * Method pricingFor.
+   *
+   * Returns the display pricing for a single plan key, regardless of whether
+   * it is payable. A plan with no configured Stripe price (e.g. the free
+   * plan) resolves to both amounts null, which callers should render as
+   * "free"/no charge rather than treat as missing data.
+   *
+   * @since 1.0.0
+   *
+   * @param string $planKey the plan key
+   *
+   * @return PlanPricing the display pricing
+   */
+  public function pricingFor(string $planKey): PlanPricing
+  {
+    return new PlanPricing(
+      planKey: $planKey,
+      currency: $this->currency,
+      monthlyAmount: $this->amountFor($planKey, BillingInterval::MONTH),
+      yearlyAmount: $this->amountFor($planKey, BillingInterval::YEAR),
+    );
   }
 
   /**

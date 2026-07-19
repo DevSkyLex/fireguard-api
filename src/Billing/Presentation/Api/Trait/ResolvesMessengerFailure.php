@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Billing\Presentation\Api\Processor\Support;
+namespace Billing\Presentation\Api\Trait;
 
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;

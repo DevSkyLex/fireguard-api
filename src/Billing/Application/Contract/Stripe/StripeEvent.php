@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Billing\Application\Port\Outbound\Stripe;
+namespace Billing\Application\Contract\Stripe;
 
 /**
  * DTO StripeEvent.

@@ -465,6 +465,62 @@ final class Otp
   }
 
   /**
+   * Method verifyExternal.
+   *
+   * Attempts to verify the OTP using an externally-computed validity flag
+   * instead of the internally stored code hash (used for TOTP-channel
+   * challenges, where the code is checked against a user's authenticator
+   * secret rather than a per-challenge random code). Expiry and attempt
+   * bookkeeping behave the same as {@see self::verify()}.
+   *
+   * @since 1.0.0
+   *
+   * @param bool $isValid whether the submitted code was valid
+   *
+   * @throws OtpExpiredException if OTP is expired
+   * @throws OtpMaxAttemptsException if max attempts exceeded
+   *
+   * @return bool true if verification succeeded
+   */
+  public function verifyExternal(bool $isValid): bool
+  {
+    if ($this->isExpired()) {
+      throw OtpExpiredException::create(
+        id: $this->id,
+      );
+    }
+
+    if (!$this->hasAttemptsRemaining()) {
+      throw OtpMaxAttemptsException::create(
+        id: $this->id,
+      );
+    }
+
+    ++$this->attempts;
+
+    if ($isValid) {
+      $this->verifiedAt = new DateTimeImmutable();
+
+      $this->events[] = new OtpVerifiedEvent(
+        otpId: $this->id->value,
+        userId: $this->userId,
+        purpose: $this->purpose->value,
+      );
+
+      return true;
+    }
+
+    $this->events[] = new OtpFailedEvent(
+      otpId: $this->id->value,
+      userId: $this->userId,
+      purpose: $this->purpose->value,
+      attemptsRemaining: $this->attemptsRemaining(),
+    );
+
+    return false;
+  }
+
+  /**
    * Method maskedRecipient.
    *
    * Returns the masked recipient.

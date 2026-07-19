@@ -109,6 +109,13 @@ final readonly class MfaResendHandler implements CommandHandler
       );
     }
 
+    if (OtpChannel::TOTP->value === $otp->channel()->value) {
+      return MfaResendResult::failed(
+        message: 'TOTP codes cannot be resent. Enter the current code from your authenticator app.',
+        errorCode: MfaResendResult::ERROR_TOTP_NOT_RESENDABLE,
+      );
+    }
+
     $now = new DateTimeImmutable();
     $canResendIn = ChallengeResendPolicy::canResendIn(
       createdAt: $otp->createdAt(),

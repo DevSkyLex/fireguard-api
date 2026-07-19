@@ -299,4 +299,86 @@ final class OtpTest extends TestCase
 
     $otp->verify('123456');
   }
+
+  #[Test]
+  public function testVerifyExternalMarksVerifiedWhenValid(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174116'),
+      userId: 'user-123',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      recipient: 'user-123',
+    );
+
+    $result = $otp->verifyExternal(true);
+
+    self::assertTrue($result);
+    self::assertTrue($otp->isVerified());
+    self::assertEquals('verified', $otp->status());
+  }
+
+  #[Test]
+  public function testVerifyExternalFailsWhenInvalid(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174117'),
+      userId: 'user-123',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      recipient: 'user-123',
+    );
+
+    $result = $otp->verifyExternal(false);
+
+    self::assertFalse($result);
+    self::assertFalse($otp->isVerified());
+    self::assertSame(1, $otp->attempts());
+  }
+
+  #[Test]
+  public function testVerifyExternalThrowsWhenExpired(): void
+  {
+    $otp = Otp::reconstitute(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174118'),
+      challengeToken: ChallengeToken::fromString('token-118'),
+      userId: 'user-118',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      codeHash: OtpCode::generate()->hash(),
+      recipient: 'user-118',
+      expiresAt: new DateTimeImmutable('-1 minute'),
+      maxAttempts: 3,
+      attempts: 0,
+      verifiedAt: null,
+      createdAt: new DateTimeImmutable('-2 minutes'),
+    );
+
+    $this->expectException(OtpExpiredException::class);
+
+    $otp->verifyExternal(true);
+  }
+
+  #[Test]
+  public function testVerifyExternalThrowsWhenMaxAttemptsExceeded(): void
+  {
+    $otp = Otp::reconstitute(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174119'),
+      challengeToken: ChallengeToken::fromString('token-119'),
+      userId: 'user-119',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      codeHash: OtpCode::generate()->hash(),
+      recipient: 'user-119',
+      expiresAt: new DateTimeImmutable('+10 minutes'),
+      maxAttempts: 1,
+      attempts: 1,
+      verifiedAt: null,
+      createdAt: new DateTimeImmutable('-2 minutes'),
+    );
+
+    $this->expectException(OtpMaxAttemptsException::class);
+
+    $otp->verifyExternal(true);
+  }
 }

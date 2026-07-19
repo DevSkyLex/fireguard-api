@@ -91,6 +91,7 @@ final readonly class GetCurrentUserProfileProvider implements ProviderInterface
     $output->locale = $result->user->locale;
     $output->roles = $result->roles;
     $output->permissions = $result->permissions;
+    $output->totpEnabled = $result->totpEnabled;
 
     return $output;
   }

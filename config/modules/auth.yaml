@@ -22,6 +22,10 @@ services:
   Auth\Application\Port\Outbound\TrustedDeviceCheckPort:
     alias: TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter
 
+  # Cross-module: implemented by the Otp module (delegates to its TOTP status inbound port)
+  Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort:
+    alias: Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter
+
   # Adapters
   Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
   Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~

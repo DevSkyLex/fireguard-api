@@ -54,6 +54,8 @@ final readonly class UserEmailVerifiedEventHandler
     $verifiedAt = $event->occurredAt->format('c');
 
     try {
+      // organizationId is intentionally omitted: email verification is an
+      // account-level event with no organization in scope, not an omission.
       $this->notificationPort->send(new SendNotificationRequest(
         type: NotificationType::USER_EMAIL_VERIFIED,
         subject: 'Your email has been verified',

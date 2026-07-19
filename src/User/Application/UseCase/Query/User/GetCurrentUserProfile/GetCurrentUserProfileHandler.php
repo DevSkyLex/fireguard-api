@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace User\Application\UseCase\Query\User\GetCurrentUserProfile;
 
 use Authorization\Application\Port\Inbound\AuthorizationPort;
+use Otp\Application\Port\Inbound\Totp\TotpStatusPort;
 use User\Application\Contract\User\UserView;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Exception\UserNotFoundException;
@@ -35,10 +36,12 @@ final readonly class GetCurrentUserProfileHandler implements \Shared\Application
    *
    * @param UserRepositoryPort $userRepository the user repository
    * @param AuthorizationPort $authorization the authorization service port
+   * @param TotpStatusPort $totpStatus the Otp module's TOTP status inbound port
    */
   public function __construct(
     private UserRepositoryPort $userRepository,
     private AuthorizationPort $authorization,
+    private TotpStatusPort $totpStatus,
   ) {
   }
   // #endregion
@@ -67,6 +70,7 @@ final readonly class GetCurrentUserProfileHandler implements \Shared\Application
       user: $this->mapUser($user),
       roles: array_values($this->authorization->getUserRoleNames($query->userId)),
       permissions: array_values($this->authorization->getUserPermissionNames($query->userId)),
+      totpEnabled: $this->totpStatus->isEnabled($query->userId),
     );
   }
 

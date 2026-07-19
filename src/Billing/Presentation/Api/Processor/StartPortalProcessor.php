@@ -11,7 +11,7 @@ use Billing\Application\Port\Outbound\OrganizationAccessPort;
 use Billing\Application\UseCase\Command\StartPortal\{StartPortalCommand, StartPortalResult};
 use Billing\Domain\Exception\BillingCustomerNotFoundException;
 use Billing\Presentation\Api\Dto\Output\PortalSessionOutput;
-use Billing\Presentation\Api\Processor\Support\ResolvesMessengerFailure;
+use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;

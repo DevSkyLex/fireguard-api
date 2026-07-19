@@ -11,6 +11,7 @@ use ArrayIterator;
 use Session\Application\UseCase\Query\Session\GetSession\GetSessionResult;
 use Session\Application\UseCase\Query\Session\ListUserSessions\ListUserSessionsQuery;
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
+use Session\Presentation\Api\Support\ResolvesCurrentSessionId;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -38,6 +39,8 @@ use function max;
  */
 final readonly class ListUserSessionsProvider implements ProviderInterface
 {
+  use ResolvesCurrentSessionId;
+
   // #region Constructor
   /**
    * Constructor.
@@ -90,10 +93,7 @@ final readonly class ListUserSessionsProvider implements ProviderInterface
       pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
     ));
 
-    $request = isset($context['request']) && $context['request'] instanceof \Symfony\Component\HttpFoundation\Request
-      ? $context['request']
-      : null;
-    $currentSessionId = $request?->getSession()->getId() ?? '';
+    $currentSessionId = $this->resolveCurrentSessionId(context: $context);
 
     $outputs = array_map(
       callback: function ($session) use ($currentSessionId): SessionOutput {

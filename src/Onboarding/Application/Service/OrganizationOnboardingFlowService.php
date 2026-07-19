@@ -713,9 +713,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
 
     $isUserMember = false;
+    $slug = null;
     foreach ($organizationsResult->items as $organization) {
       if ($organization->id === $organizationId) {
         $isUserMember = true;
+        $slug = $organization->slug;
 
         break;
       }
@@ -726,8 +728,16 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     }
 
     try {
+      // The slug confirmation is a danger-zone interlock meant to make a HUMAN
+      // re-type the name before destroying their organization. An onboarding
+      // rollback is not that: it is the system undoing a half-finished flow it
+      // created moments ago. It therefore satisfies the guard explicitly with
+      // the slug it just read, rather than the guard being weakened for
+      // everyone. Passing it here keeps a single enforcement point in
+      // `DeleteOrganizationHandler` and makes this deliberate bypass greppable.
       $this->commandBus->dispatch(new DeleteOrganizationCommand(
         organizationId: $organizationId,
+        slugConfirmation: $slug,
       ));
     } catch (OrganizationNotFoundException) {
       // Organization already absent, rollback is effectively done.

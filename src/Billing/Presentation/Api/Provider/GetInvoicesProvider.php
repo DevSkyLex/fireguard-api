@@ -7,8 +7,8 @@ namespace Billing\Presentation\Api\Provider;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Billing\Application\Contract\Stripe\StripeInvoice;
 use Billing\Application\Port\Outbound\OrganizationAccessPort;
-use Billing\Application\Port\Outbound\Stripe\StripeInvoice;
 use Billing\Application\UseCase\Query\GetOrganizationInvoices\{
   GetOrganizationInvoicesQuery,
   GetOrganizationInvoicesResult

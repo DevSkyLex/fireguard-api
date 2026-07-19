@@ -6,7 +6,7 @@ namespace Billing\Presentation\Controller;
 
 use Billing\Application\UseCase\Command\HandleStripeWebhook\HandleStripeWebhookCommand;
 use Billing\Domain\Exception\InvalidWebhookSignatureException;
-use Billing\Presentation\Api\Processor\Support\ResolvesMessengerFailure;
+use Billing\Presentation\Api\Trait\ResolvesMessengerFailure;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;

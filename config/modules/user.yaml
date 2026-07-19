@@ -10,6 +10,9 @@ services:
   User\Application\Port\Outbound\UserDataPurgePort:
     class: User\Infrastructure\Adapter\User\UserDataPurgeAdapter
 
+  # Resolves notification recipient emails from user ids (Notification module port)
+  User\Infrastructure\Adapter\Notification\UserRecipientDirectoryAdapter: ~
+
   User\Application\UseCase\Command\User\CreateUser\CreateUserHandler:
     tags: ['messenger.message_handler']
 
@@ -54,6 +57,7 @@ services:
   User\Presentation\Api\Processor\User\CreateUserProcessor: ~
   User\Presentation\Api\Processor\User\ActivateUserProcessor: ~
   User\Presentation\Api\Processor\User\DeactivateUserProcessor: ~
+  User\Presentation\Api\Processor\User\DeactivateCurrentUserProfileProcessor: ~
   User\Presentation\Api\Processor\User\DeleteUserProcessor: ~
   User\Presentation\Api\Processor\User\UpdateCurrentUserProfileProcessor: ~
   User\Presentation\Api\Processor\User\UpdateUserProcessor: ~

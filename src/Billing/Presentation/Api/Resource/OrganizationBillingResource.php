@@ -7,10 +7,10 @@ namespace Billing\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Get, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
 use Billing\Presentation\Api\Dto\Input\StartCheckoutInput;
-use Billing\Presentation\Api\Dto\Output\{CheckoutSessionOutput, PortalSessionOutput, SubscriptionOutput};
+use Billing\Presentation\Api\Dto\Output\{CheckoutSessionOutput, PaymentMethodOutput, PortalSessionOutput, SubscriptionOutput};
 use Billing\Presentation\Api\Operation\BillingOperations;
 use Billing\Presentation\Api\Processor\{CancelSubscriptionProcessor, ResumeSubscriptionProcessor, StartCheckoutProcessor, StartPortalProcessor};
-use Billing\Presentation\Api\Provider\GetSubscriptionProvider;
+use Billing\Presentation\Api\Provider\{GetPaymentMethodProvider, GetSubscriptionProvider};
 use Billing\Presentation\Api\Serialization\BillingSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -127,6 +127,25 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Subscription state returned'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Get(
+      name: BillingOperations::GET_PAYMENT_METHOD,
+      uriTemplate: '/{organizationId}/billing/payment-method',
+      input: false,
+      output: PaymentMethodOutput::class,
+      provider: GetPaymentMethodProvider::class,
+      normalizationContext: ['groups' => [BillingSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Billing'],
+        summary: 'Get organization payment method',
+        description: 'Returns the organization\'s saved Stripe card (brand, last 4 digits, expiry). Card details are never collected or transmitted by this API — read only, sourced from Stripe. To change the card, start a hosted Billing Portal session. Requires the organization.read permission.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Payment method state returned (hasPaymentMethod may be false)'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_SERVICE_UNAVAILABLE => new Response(description: 'The Stripe gateway could not be reached'),
         ],
       ),
     ),

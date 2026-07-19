@@ -43,7 +43,10 @@ final class UserEmailVerifiedEventHandlerTest extends TestCase
           && [NotificationChannel::MERCURE] === $request->channels
           && '2024-01-01T00:00:00+00:00' === ($request->payload['verifiedAt'] ?? null)
           && 'user-1' === $request->recipientUserId
-          && null === $request->recipientEmail;
+          && null === $request->recipientEmail
+          // organizationId is deliberately null: email verification is an
+          // account-level event with no organization in scope.
+          && null === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655449001',

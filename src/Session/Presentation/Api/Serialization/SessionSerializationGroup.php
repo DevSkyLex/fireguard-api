@@ -25,4 +25,15 @@ final readonly class SessionSerializationGroup
    * @var string
    */
   public const string READ = 'session:read';
+
+  /**
+   * Group REVOKE_OTHERS.
+   *
+   * Used for the revoke-others-sessions result view.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string REVOKE_OTHERS = 'session:revoke_others';
 }

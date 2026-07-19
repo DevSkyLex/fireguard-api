@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Billing\Infrastructure\Adapter\Stripe;
 
-use Billing\Application\Port\Outbound\Stripe\{StripeEvent, StripeInvoice};
+use Billing\Application\Contract\Stripe\{StripeEvent, StripeInvoice, StripePaymentMethod};
 use Billing\Application\Port\Outbound\StripeGatewayPort;
-use Billing\Domain\Exception\InvalidWebhookSignatureException;
+use Billing\Domain\Exception\{BillingGatewayUnavailableException, InvalidWebhookSignatureException};
 use DateTimeImmutable;
+use Stripe\Exception\ApiErrorException;
 use Stripe\{StripeClient, Webhook};
 use Throwable;
 
@@ -195,6 +196,97 @@ final readonly class StripeGatewayAdapter implements StripeGatewayPort
   public function resumeCancellation(string $subscriptionId): void
   {
     $this->stripe->subscriptions->update($subscriptionId, ['cancel_at_period_end' => false]);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getPaymentMethod(string $customerId): ?StripePaymentMethod
+  {
+    try {
+      $customer = $this->stripe->customers->retrieve($customerId, [
+        'expand' => ['invoice_settings.default_payment_method'],
+      ]);
+    } catch (ApiErrorException $exception) {
+      throw BillingGatewayUnavailableException::create($exception);
+    }
+
+    $data = $customer->toArray();
+    $paymentMethod = $this->dig($data, 'invoice_settings', 'default_payment_method');
+
+    if (!is_array($paymentMethod)) {
+      $paymentMethod = $this->firstCardPaymentMethod($customerId);
+    }
+
+    return null !== $paymentMethod ? $this->toPaymentMethod($paymentMethod) : null;
+  }
+
+  /**
+   * Method firstCardPaymentMethod.
+   *
+   * Falls back to the customer's most recently attached card when no default
+   * payment method is set on the customer's invoice settings.
+   *
+   * @since 1.0.0
+   *
+   * @param string $customerId the Stripe customer identifier
+   *
+   * @throws BillingGatewayUnavailableException when Stripe cannot be reached
+   *
+   * @return ?array<array-key, mixed> the raw payment method payload, or null
+   */
+  private function firstCardPaymentMethod(string $customerId): ?array
+  {
+    try {
+      $collection = $this->stripe->paymentMethods->all([
+        'customer' => $customerId,
+        'type' => 'card',
+        'limit' => 1,
+      ]);
+    } catch (ApiErrorException $exception) {
+      throw BillingGatewayUnavailableException::create($exception);
+    }
+
+    $first = $collection->data[0] ?? null;
+
+    return $first?->toArray();
+  }
+
+  /**
+   * Method toPaymentMethod.
+   *
+   * Normalizes a raw Stripe payment method payload into the SDK-agnostic
+   * projection, or null when it does not carry usable card data.
+   *
+   * @since 1.0.0
+   *
+   * @param array<array-key, mixed> $data the raw payment method payload
+   *
+   * @return ?StripePaymentMethod the normalized payment method, or null
+   */
+  private function toPaymentMethod(array $data): ?StripePaymentMethod
+  {
+    $card = $this->dig($data, 'card');
+    if (!is_array($card)) {
+      return null;
+    }
+
+    $brand = $this->stringOrNull($this->dig($card, 'brand'));
+    $last4 = $this->stringOrNull($this->dig($card, 'last4'));
+    $expMonth = $this->dig($card, 'exp_month');
+    $expYear = $this->dig($card, 'exp_year');
+
+    if (null === $brand || null === $last4 || !is_int($expMonth) || !is_int($expYear)) {
+      return null;
+    }
+
+    return new StripePaymentMethod(
+      id: $this->stringOrNull($this->dig($data, 'id')) ?? '',
+      brand: $brand,
+      last4: $last4,
+      expMonth: $expMonth,
+      expYear: $expYear,
+    );
   }
 
   /**

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Billing\Application\UseCase;
 
+use Billing\Application\Contract\Stripe\StripeEvent;
 use Billing\Application\Port\Outbound\{
   OrganizationPlanAssignmentPort,
   StripeGatewayPort,
   SubscriptionRepositoryPort
 };
-use Billing\Application\Port\Outbound\Stripe\StripeEvent;
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Application\UseCase\Command\HandleStripeWebhook\{
   HandleStripeWebhookCommand,

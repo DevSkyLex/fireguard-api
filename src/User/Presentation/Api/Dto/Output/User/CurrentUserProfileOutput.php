@@ -140,6 +140,25 @@ final class CurrentUserProfileOutput
   public string $locale = 'system';
 
   /**
+   * Property totpEnabled.
+   *
+   * Whether the authenticated user has an active TOTP (authenticator app)
+   * MFA enrollment.
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Whether the authenticated user has an active TOTP (authenticator app) enrollment.',
+    readable: true,
+    writable: false,
+    example: false,
+    openapiContext: [
+      'type' => 'boolean',
+      'readOnly' => true,
+    ],
+  )]
+  public bool $totpEnabled = false;
+
+  /**
    * @var list<string>
    */
   #[Groups(groups: [UserSerializationGroup::READ])]

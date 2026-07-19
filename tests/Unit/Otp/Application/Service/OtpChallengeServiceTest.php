@@ -7,6 +7,7 @@ namespace Tests\Unit\Otp\Application\Service;
 use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose, VerificationInfo};
 use Otp\Application\Port\Outbound\Challenge\{OtpNotifierPort, OtpRepositoryPort};
+use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\Service\OtpChallengeService;
 use Otp\Application\UseCase\Command\Challenge\GenerateOtp\GenerateOtpHandler;
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\VerifyOtpHandler;
@@ -62,7 +63,11 @@ final class OtpChallengeServiceTest extends TestCase
       uuidFactory: $uuidFactory,
     );
 
-    $verifyHandler = new VerifyOtpHandler($this->createStub(OtpRepositoryPort::class));
+    $verifyHandler = new VerifyOtpHandler(
+      otpRepository: $this->createStub(OtpRepositoryPort::class),
+      totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
+      totpService: $this->createStub(TotpServicePort::class),
+    );
 
     $service = new OtpChallengeService(
       generateHandler: $generateHandler,
@@ -92,7 +97,11 @@ final class OtpChallengeServiceTest extends TestCase
       ->with(self::isInstanceOf(ChallengeToken::class))
       ->willReturn(null);
 
-    $verifyHandler = new VerifyOtpHandler($repository);
+    $verifyHandler = new VerifyOtpHandler(
+      otpRepository: $repository,
+      totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
+      totpService: $this->createStub(TotpServicePort::class),
+    );
     $generateHandler = new GenerateOtpHandler(
       otpRepository: $this->createStub(OtpRepositoryPort::class),
       otpNotifier: $this->createStub(OtpNotifierPort::class),
@@ -136,7 +145,11 @@ final class OtpChallengeServiceTest extends TestCase
       ->method('save')
       ->with($otp);
 
-    $verifyHandler = new VerifyOtpHandler($repository);
+    $verifyHandler = new VerifyOtpHandler(
+      otpRepository: $repository,
+      totpEnrollmentRepository: $this->createStub(TotpEnrollmentRepositoryPort::class),
+      totpService: $this->createStub(TotpServicePort::class),
+    );
     $generateHandler = new GenerateOtpHandler(
       otpRepository: $this->createStub(OtpRepositoryPort::class),
       otpNotifier: $this->createStub(OtpNotifierPort::class),

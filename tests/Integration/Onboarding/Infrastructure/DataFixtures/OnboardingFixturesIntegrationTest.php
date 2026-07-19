@@ -64,6 +64,6 @@ final class OnboardingFixturesIntegrationTest extends KernelTestCase
     self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $session->targetOrganizationId);
     self::assertSame('Fireguard Seed Organization', $session->targetOrganizationName);
     self::assertSame(OrganizationOnboardingStep::all(), $session->completedSteps);
-    self::assertCount(5, $session->stepHistory);
+    self::assertCount(4, $session->stepHistory);
   }
 }

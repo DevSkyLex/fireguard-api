@@ -8,10 +8,13 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Otp\Application\Exception\OtpNotFoundException;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Application\Port\Outbound\Totp\{TotpEnrollmentRepositoryPort, TotpServicePort};
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\{VerifyOtpCommand, VerifyOtpHandler};
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
+use Otp\Domain\Model\Totp\TotpEnrollment;
+use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose, TotpSecret};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -48,7 +51,7 @@ final class VerifyOtpHandlerTest extends TestCase
       ->method('save')
       ->with($otp);
 
-    $handler = new VerifyOtpHandler(otpRepository: $repository);
+    $handler = $this->createHandler(otpRepository: $repository);
 
     $command = new VerifyOtpCommand(
       otpId: $otpId,
@@ -81,7 +84,7 @@ final class VerifyOtpHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
-    $handler = new VerifyOtpHandler(otpRepository: $repository);
+    $handler = $this->createHandler(otpRepository: $repository);
 
     $command = new VerifyOtpCommand(
       otpId: $otpId,
@@ -102,7 +105,7 @@ final class VerifyOtpHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $handler = new VerifyOtpHandler(otpRepository: $repository);
+    $handler = $this->createHandler(otpRepository: $repository);
 
     $command = new VerifyOtpCommand(
       otpId: '123e4567-e89b-12d3-a456-426614174000',
@@ -116,7 +119,7 @@ final class VerifyOtpHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenNoIdentifiersProvided(): void
   {
-    $handler = new VerifyOtpHandler(otpRepository: $this->createStub(OtpRepositoryPort::class));
+    $handler = $this->createHandler(otpRepository: $this->createStub(OtpRepositoryPort::class));
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -141,7 +144,7 @@ final class VerifyOtpHandlerTest extends TestCase
     $repository->expects(self::once())
       ->method('save');
 
-    $handler = new VerifyOtpHandler(otpRepository: $repository);
+    $handler = $this->createHandler(otpRepository: $repository);
 
     $command = new VerifyOtpCommand(
       challengeToken: $otp->challengeToken()->value,
@@ -176,7 +179,7 @@ final class VerifyOtpHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($otp);
 
-    $handler = new VerifyOtpHandler(otpRepository: $repository);
+    $handler = $this->createHandler(otpRepository: $repository);
 
     $command = new VerifyOtpCommand(
       otpId: '123e4567-e89b-12d3-a456-426614174011',
@@ -212,7 +215,7 @@ final class VerifyOtpHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($otp);
 
-    $handler = new VerifyOtpHandler(otpRepository: $repository);
+    $handler = $this->createHandler(otpRepository: $repository);
 
     $command = new VerifyOtpCommand(
       otpId: '123e4567-e89b-12d3-a456-426614174012',
@@ -223,5 +226,109 @@ final class VerifyOtpHandlerTest extends TestCase
 
     self::assertFalse($result->success);
     self::assertSame('Maximum verification attempts exceeded.', $result->error);
+  }
+
+  #[Test]
+  public function testInvokeVerifiesTotpChannelAgainstActiveEnrollmentSecret(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174020'),
+      userId: 'user-123',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      recipient: 'user-123',
+    );
+
+    $repository = $this->createMock(OtpRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findByChallengeToken')
+      ->willReturn($otp);
+    $repository->expects(self::once())
+      ->method('save');
+
+    $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
+    $enrollment = TotpEnrollment::startEnrollment(userId: 'user-123', secret: $secret, maxAttempts: 5);
+    $enrollment->confirmPending(true);
+
+    /** @var TotpEnrollmentRepositoryPort&MockObject $enrollmentRepository */
+    $enrollmentRepository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $enrollmentRepository->expects(self::once())
+      ->method('findByUserId')
+      ->with('user-123')
+      ->willReturn($enrollment);
+
+    /** @var TotpServicePort&MockObject $totpService */
+    $totpService = $this->createMock(TotpServicePort::class);
+    $totpService->expects(self::once())
+      ->method('verify')
+      ->with('654321', $secret)
+      ->willReturn(true);
+
+    $handler = $this->createHandler(
+      otpRepository: $repository,
+      totpEnrollmentRepository: $enrollmentRepository,
+      totpService: $totpService,
+    );
+
+    $result = $handler->__invoke(new VerifyOtpCommand(
+      challengeToken: $otp->challengeToken()->value,
+      code: '654321',
+    ));
+
+    self::assertTrue($result->success);
+  }
+
+  #[Test]
+  public function testInvokeFailsTotpChannelWhenNoActiveEnrollment(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174021'),
+      userId: 'user-123',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      recipient: 'user-123',
+    );
+
+    $repository = $this->createMock(OtpRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findByChallengeToken')
+      ->willReturn($otp);
+    $repository->expects(self::once())
+      ->method('save');
+
+    /** @var TotpEnrollmentRepositoryPort&MockObject $enrollmentRepository */
+    $enrollmentRepository = $this->createMock(TotpEnrollmentRepositoryPort::class);
+    $enrollmentRepository->expects(self::once())
+      ->method('findByUserId')
+      ->willReturn(null);
+
+    /** @var TotpServicePort&MockObject $totpService */
+    $totpService = $this->createMock(TotpServicePort::class);
+    $totpService->expects(self::never())->method('verify');
+
+    $handler = $this->createHandler(
+      otpRepository: $repository,
+      totpEnrollmentRepository: $enrollmentRepository,
+      totpService: $totpService,
+    );
+
+    $result = $handler->__invoke(new VerifyOtpCommand(
+      challengeToken: $otp->challengeToken()->value,
+      code: '654321',
+    ));
+
+    self::assertFalse($result->success);
+  }
+
+  private function createHandler(
+    ?OtpRepositoryPort $otpRepository = null,
+    ?TotpEnrollmentRepositoryPort $totpEnrollmentRepository = null,
+    ?TotpServicePort $totpService = null,
+  ): VerifyOtpHandler {
+    return new VerifyOtpHandler(
+      otpRepository: $otpRepository ?? $this->createStub(OtpRepositoryPort::class),
+      totpEnrollmentRepository: $totpEnrollmentRepository ?? $this->createStub(TotpEnrollmentRepositoryPort::class),
+      totpService: $totpService ?? $this->createStub(TotpServicePort::class),
+    );
   }
 }

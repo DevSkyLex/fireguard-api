@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Shared\Domain\Service\EventIdProvider;
 use Shared\Domain\Trait\RecordsDomainEvents;
 use Shared\Domain\ValueObject\{Email, TenantId};
-use User\Domain\Event\{UserCreatedEvent, UserEmailVerifiedEvent};
+use User\Domain\Event\{UserCreatedEvent, UserDeactivatedEvent, UserEmailVerifiedEvent};
 use User\Domain\Exception\{InvalidPasswordException, InvalidUserException};
 use User\Domain\ValueObject\{HashedPassword, Locale, UserId, UserProfile, UserStatus, Username};
 
@@ -180,13 +180,26 @@ final class User
   /**
    * Method deactivate.
    *
-   * Deactivates the user account.
+   * Deactivates the user account. Idempotent: calling this on an
+   * already-inactive user is a no-op (no event is re-recorded).
    *
    * @since 1.0.0
+   *
+   * @param EventIdProvider $eventIdProvider the event ID provider
    */
-  public function deactivate(): void
+  public function deactivate(EventIdProvider $eventIdProvider): void
   {
+    if (UserStatus::INACTIVE === $this->status) {
+      return;
+    }
+
     $this->status = UserStatus::INACTIVE;
+
+    $this->recordEvent(new UserDeactivatedEvent(
+      eventId: $eventIdProvider->nextEventId(),
+      userId: $this->id->value,
+      occurredAt: new DateTimeImmutable(),
+    ));
   }
 
   /**

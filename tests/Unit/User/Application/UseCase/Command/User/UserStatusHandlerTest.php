@@ -7,6 +7,7 @@ namespace Tests\Unit\User\Application\UseCase\Command\User;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Session\Application\Port\Outbound\SessionRepositoryPort;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\ValueObject\Email;
 use Tests\Helper\TestEventIdProvider;
@@ -14,6 +15,7 @@ use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Application\UseCase\Command\User\ActivateUser\{ActivateUserCommand, ActivateUserHandler};
 use User\Application\UseCase\Command\User\DeactivateUser\{DeactivateUserCommand, DeactivateUserHandler};
 use User\Application\UseCase\Command\User\VerifyUserEmail\{VerifyUserEmailCommand, VerifyUserEmailHandler};
+use User\Domain\Event\UserDeactivatedEvent;
 use User\Domain\Exception\UserNotFoundException;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
@@ -76,7 +78,12 @@ final class UserStatusHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $handler = new DeactivateUserHandler($repository);
+    $handler = new DeactivateUserHandler(
+      userRepository: $repository,
+      sessionRepository: $this->createStub(SessionRepositoryPort::class),
+      eventBus: $this->createStub(EventBusPort::class),
+      eventIdProvider: new TestEventIdProvider(),
+    );
 
     $this->expectException(UserNotFoundException::class);
 
@@ -84,9 +91,10 @@ final class UserStatusHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testDeactivateUserSavesUser(): void
+  public function testDeactivateUserSavesUserAndRevokesSessions(): void
   {
     $user = $this->createUser('550e8400-e29b-41d4-a716-446655440101');
+    $user->releaseEvents();
 
     /** @var UserRepositoryPort&MockObject $repository */
     $repository = $this->createMock(UserRepositoryPort::class);
@@ -97,10 +105,67 @@ final class UserStatusHandlerTest extends TestCase
       ->method('save')
       ->with($user);
 
-    $handler = new DeactivateUserHandler($repository);
+    /** @var SessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(SessionRepositoryPort::class);
+    $sessionRepository->expects(self::once())
+      ->method('revokeAllForUser')
+      ->with($user->id()->value)
+      ->willReturn(2);
+
+    /** @var EventBusPort&MockObject $eventBus */
+    $eventBus = $this->createMock(EventBusPort::class);
+    $eventBus->expects(self::once())
+      ->method('publish')
+      ->with(self::isInstanceOf(UserDeactivatedEvent::class));
+
+    $handler = new DeactivateUserHandler(
+      userRepository: $repository,
+      sessionRepository: $sessionRepository,
+      eventBus: $eventBus,
+      eventIdProvider: new TestEventIdProvider(),
+    );
     $handler->__invoke(new DeactivateUserCommand(id: $user->id()->value));
 
-    self::assertSame($user->id()->value, $user->id()->value);
+    self::assertTrue(false === $user->status()->isActive());
+  }
+
+  #[Test]
+  public function testDeactivateUserIsIdempotentButStillRevokesSessions(): void
+  {
+    $user = $this->createUser('550e8400-e29b-41d4-a716-446655440103');
+    $eventIdProvider = new TestEventIdProvider();
+    $user->deactivate($eventIdProvider);
+    $user->releaseEvents();
+
+    /** @var UserRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(UserRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($user);
+    $repository->expects(self::once())
+      ->method('save')
+      ->with($user);
+
+    /** @var SessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(SessionRepositoryPort::class);
+    $sessionRepository->expects(self::once())
+      ->method('revokeAllForUser')
+      ->with($user->id()->value)
+      ->willReturn(0);
+
+    /** @var EventBusPort&MockObject $eventBus */
+    $eventBus = $this->createMock(EventBusPort::class);
+    $eventBus->expects(self::never())
+      ->method('publish');
+
+    $handler = new DeactivateUserHandler(
+      userRepository: $repository,
+      sessionRepository: $sessionRepository,
+      eventBus: $eventBus,
+      eventIdProvider: $eventIdProvider,
+    );
+
+    $handler->__invoke(new DeactivateUserCommand(id: $user->id()->value));
   }
 
   #[Test]

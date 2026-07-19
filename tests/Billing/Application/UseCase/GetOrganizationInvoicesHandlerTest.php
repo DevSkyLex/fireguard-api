@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Billing\Application\UseCase;
 
-use Billing\Application\Port\Outbound\Stripe\StripeInvoice;
+use Billing\Application\Contract\Stripe\StripeInvoice;
 use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
 use Billing\Application\UseCase\Query\GetOrganizationInvoices\{
   GetOrganizationInvoicesHandler,

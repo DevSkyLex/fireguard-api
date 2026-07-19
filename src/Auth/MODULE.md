@@ -101,6 +101,8 @@ Response (200):
 Notes:
 - Returns a **new** `mfa_token` and `challenge_token` to use for verification.
 - Subject to cooldown and rate limiting.
+- Returns `400 Bad Request` with `errorCode: "totp_not_resendable"` when the
+  active challenge channel is `totp` (authenticator codes cannot be resent).
 
 #### POST `/api/auth/refresh`
 
@@ -258,10 +260,27 @@ sequenceDiagram
 ## MFA & OTP
 
 - `/api/auth/mfa/verify` completes MFA using a pre-auth token and OTP/TOTP code.
-- General OTP flows (email/SMS challenges and TOTP setup) are exposed in the OTP module:
-  see `src/Otp/MODULE.md`.
+- General OTP flows (email/SMS challenges and TOTP setup/confirm/disable) are
+  exposed in the OTP module: see `src/Otp/MODULE.md`.
 - OTP endpoints require `otp_*` permissions and are intended for authenticated
   user flows or internal service usage.
+
+### MFA channel selection
+
+- `LoginHandler` picks the MFA channel per login attempt: if the user has an
+  **ACTIVE** TOTP enrollment (checked via `Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort`,
+  implemented in the Otp module), the channel is `totp` and **no email is
+  sent** — the user enters the current code from their authenticator app.
+  Otherwise the channel falls back to `email`.
+- This is an either/or choice per login, not a multi-method selector: a user
+  with active TOTP no longer receives email MFA codes at login. This keeps
+  the pre-auth token/challenge model (one challenge token, one channel)
+  unchanged rather than introducing a method-selection step.
+- `/api/auth/mfa/resend` is a no-op (`400 Bad Request`, `errorCode:
+  "totp_not_resendable"`) when the active challenge's channel is `totp`,
+  since TOTP codes are generated locally and cannot be "resent".
+- If the `TotpEnrollmentCheckPort` check fails for any reason, login falls
+  back to `email` rather than blocking the user.
 
 ## Integration Examples
 

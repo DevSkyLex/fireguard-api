@@ -22,6 +22,8 @@ final readonly class MfaResendResult implements ResultMessage
   public const string ERROR_INVALID_CHALLENGE = 'invalid_challenge';
 
   public const string ERROR_RESEND_NOT_ALLOWED = 'resend_not_allowed';
+
+  public const string ERROR_TOTP_NOT_RESENDABLE = 'totp_not_resendable';
   // #endregion
 
   // #region Constructor
