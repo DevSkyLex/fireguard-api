@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Registre de sécurité</title>
+  <style>
+    body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1f2933; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    h2 { font-size: 14px; margin-top: 18px; margin-bottom: 6px; border-bottom: 1px solid #cbd2d9; padding-bottom: 4px; }
+    .meta { color: #52606d; margin-bottom: 12px; }
+    .meta div { margin-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    th, td { border: 1px solid #cbd2d9; padding: 4px 6px; text-align: left; }
+    th { background-color: #f5f7fa; text-transform: uppercase; font-size: 9px; letter-spacing: 0.04em; }
+    .status-compliant { color: #1a7f37; font-weight: bold; }
+    .status-at_risk { color: #9a6700; font-weight: bold; }
+    .status-non_compliant { color: #b3261e; font-weight: bold; }
+    .status-not_applicable { color: #52606d; font-weight: bold; }
+    .footer { margin-top: 18px; font-size: 9px; color: #7b8794; }
+  </style>
+</head>
+<body>
+  <h1>Registre de sécurité — {{ scope == 'facility' ? 'Facility' : 'Organization' }} report</h1>
+  <div class="meta">
+    <div>Generated at: {{ generatedAt }}</div>
+    <div>Organization: {{ organizationId }}</div>
+    {% if facilityId is not empty %}
+      <div>Facility: {{ facilityId }}</div>
+    {% endif %}
+    <div>Plan: {{ planKey|default('unknown') }}</div>
+    {% if organizationStatus is defined %}
+      <div>Overall status: <span class="status-{{ organizationStatus }}">{{ organizationStatus }}</span></div>
+    {% endif %}
+  </div>
+
+  {% if totals is defined and totals is not empty %}
+    <h2>Totals</h2>
+    <table>
+      <tr>
+        <th>Equipment total</th>
+        <th>Up to date</th>
+        <th>Due soon</th>
+        <th>Overdue</th>
+        <th>Unscheduled</th>
+        <th>Open NC (low/med/high/critical)</th>
+      </tr>
+      <tr>
+        <td>{{ totals.totalEquipmentCount }}</td>
+        <td>{{ totals.upToDateEquipmentCount }}</td>
+        <td>{{ totals.dueSoonEquipmentCount }}</td>
+        <td>{{ totals.overdueEquipmentCount }}</td>
+        <td>{{ totals.unscheduledEquipmentCount }}</td>
+        <td>{{ totals.openLowNonConformityCount }} / {{ totals.openMediumNonConformityCount }} / {{ totals.openHighNonConformityCount }} / {{ totals.openCriticalNonConformityCount }}</td>
+      </tr>
+    </table>
+  {% endif %}
+
+  <h2>Facilities</h2>
+  <table>
+    <tr>
+      <th>Facility</th>
+      <th>Type</th>
+      <th>Status</th>
+      <th>Equipment (up-to-date / due soon / overdue / unscheduled)</th>
+      <th>Open NC (low/med/high/critical)</th>
+      <th>Last inspection</th>
+    </tr>
+    {% for facility in facilities %}
+      <tr>
+        <td>{{ facility.path }}</td>
+        <td>{{ facility.type }}</td>
+        <td class="status-{{ facility.status }}">{{ facility.status }}</td>
+        <td>{{ facility.upToDateEquipmentCount }} / {{ facility.dueSoonEquipmentCount }} / {{ facility.overdueEquipmentCount }} / {{ facility.unscheduledEquipmentCount }}</td>
+        <td>{{ facility.openLowNonConformityCount }} / {{ facility.openMediumNonConformityCount }} / {{ facility.openHighNonConformityCount }} / {{ facility.openCriticalNonConformityCount }}</td>
+        <td>{{ facility.lastInspectionAt|default('—') }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+
+  <div class="footer">
+    Data as of {{ generatedAt }}. Equipment due status is refreshed by the hourly maintenance sweep and may be up to
+    one hour stale. This document is a point-in-time snapshot and is not stored; regenerate it at any time from the
+    live compliance register.
+  </div>
+</body>
+</html>

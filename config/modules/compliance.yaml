@@ -1,0 +1,52 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Compliance\Presentation\:
+    resource: '../../src/Compliance/Presentation'
+
+  Compliance\Application\Service\:
+    resource: '../../src/Compliance/Application/Service'
+
+  # PDF rendering (module-local adapter)
+  Compliance\Infrastructure\Pdf\DompdfSafetyRegisterRenderer: ~
+
+  # Outbound ports
+  Compliance\Application\Port\Outbound\SafetyRegisterPdfRendererPort:
+    alias: Compliance\Infrastructure\Pdf\DompdfSafetyRegisterRenderer
+
+  # Cross-module outbound ports (adapters live in the owning module)
+  Compliance\Application\Port\Outbound\ComplianceFacilityDirectoryPort:
+    alias: Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter
+
+  Compliance\Application\Port\Outbound\MaintenanceComplianceStatisticsPort:
+    alias: Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter
+
+  Compliance\Application\Port\Outbound\InspectionComplianceStatisticsPort:
+    alias: Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter
+
+  Compliance\Application\Port\Outbound\EquipmentComplianceStatisticsPort:
+    alias: Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter
+
+  Compliance\Application\Port\Outbound\ComplianceExportEntitlementPort:
+    alias: Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter
+
+  # L2.2: Assistant business-context seam — this module's own adapter,
+  # tagged `assistant.context_provider` (priority 30: the org-wide summary
+  # renders FIRST, ahead of Inspection's/Maintenance's more specific blocks).
+  # Assistant's own config/modules/assistant.yaml is never touched to add
+  # this source.
+  Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter:
+    tags:
+      - { name: 'assistant.context_provider', priority: 30 }
+
+  # Query handlers
+  Compliance\Application\UseCase\Query\GetComplianceOverview\GetComplianceOverviewHandler:
+    tags: ['messenger.message_handler']
+
+  Compliance\Application\UseCase\Query\GetFacilityCompliance\GetFacilityComplianceHandler:
+    tags: ['messenger.message_handler']
+
+  Compliance\Application\UseCase\Query\GetFacilityTree\GetFacilityTreeHandler:
+    tags: ['messenger.message_handler']
