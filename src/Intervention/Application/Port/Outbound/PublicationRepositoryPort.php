@@ -104,8 +104,12 @@ interface PublicationRepositoryPort
    * @since 1.0.0
    *
    * @param string $publicationId the publication id value
+   *
+   * @return bool true when THIS call transitioned the publication to
+   *              completed; false on the idempotent already-completed no-op
+   *              (at-least-once redelivery must not re-audit or re-notify)
    */
-  public function publish(string $publicationId): void;
+  public function publish(string $publicationId): bool;
 
   /**
    * Method markFailed.
@@ -116,6 +120,10 @@ interface PublicationRepositoryPort
    *
    * @param string $publicationId the publication id value
    * @param string $error the error value
+   *
+   * @return bool true when THIS call transitioned the publication to failed;
+   *              false when the record is missing, already completed or
+   *              already failed (no state transition to audit)
    */
-  public function markFailed(string $publicationId, string $error): void;
+  public function markFailed(string $publicationId, string $error): bool;
 }

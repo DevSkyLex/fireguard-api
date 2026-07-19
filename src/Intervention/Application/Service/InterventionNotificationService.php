@@ -115,6 +115,56 @@ final readonly class InterventionNotificationService
   }
 
   /**
+   * Method mentioned.
+   *
+   * Notifies a member that a teammate mentioned them in an intervention
+   * comment. Unlike workflow notifications, a mention is a direct address:
+   * it is delivered in-app AND by email, each channel honoring its own
+   * organization toggle. The member id comes from user input, so membership
+   * in the intervention's organization is verified here.
+   *
+   * @since 1.1.0
+   *
+   * @param string $interventionId the intervention id value
+   * @param string $organizationId the organization owning the intervention
+   * @param string $memberId the mentioned member id value
+   */
+  public function mentioned(string $interventionId, string $organizationId, string $memberId): void
+  {
+    try {
+      $member = $this->members->findById(OrganizationMemberId::fromString($memberId));
+      if (null === $member || !$member->isActive() || (string) $member->organizationId() !== $organizationId) {
+        return;
+      }
+
+      $policy = $this->policy->notificationPolicy($organizationId);
+
+      $channels = [];
+      if ($policy->inAppEnabled) {
+        $channels[] = NotificationChannel::MERCURE;
+      }
+      if ($policy->emailEnabled) {
+        $channels[] = NotificationChannel::EMAIL;
+      }
+      if ([] === $channels) {
+        return;
+      }
+
+      $this->notifications->send(new SendNotificationRequest(
+        type: 'intervention.comment_mention',
+        subject: 'Mentioned in a comment',
+        body: 'A teammate mentioned you in an intervention comment.',
+        channels: $channels,
+        payload: ['interventionId' => $interventionId],
+        recipientUserId: $member->userId(),
+        organizationId: $organizationId,
+      ));
+    } catch (Throwable) {
+      // Notifications must not make a successful intervention mutation fail.
+    }
+  }
+
+  /**
    * Method send.
    *
    * Executes the send operation.
@@ -150,6 +200,7 @@ final readonly class InterventionNotificationService
         channels: [NotificationChannel::MERCURE],
         payload: ['interventionId' => $interventionId],
         recipientUserId: $member->userId(),
+        organizationId: (string) $member->organizationId(),
       ));
     } catch (Throwable) {
       // Notifications must not make a successful intervention mutation fail.

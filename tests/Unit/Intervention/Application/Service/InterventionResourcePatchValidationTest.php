@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter;
+use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter;
 use Intervention\Domain\Exception\InterventionConflictException;
@@ -22,6 +24,7 @@ final class InterventionResourcePatchValidationTest extends TestCase
       new EquipmentInterventionResourceAdapter(
         $this->createStub(EntityManagerInterface::class),
         $this->createStub(FacilityValidationPort::class),
+        $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class),
       ),
       '/api/equipment/018f0b68-6758-7a12-8a1d-3f0d97f63c11',
       'Unsupported equipment patch fields: unknown.',
@@ -32,7 +35,10 @@ final class InterventionResourcePatchValidationTest extends TestCase
   public function itRejectsUnknownFacilityPatchFields(): void
   {
     $this->assertRejectsUnknownField(
-      new FacilityInterventionResourceAdapter($this->createStub(EntityManagerInterface::class)),
+      new FacilityInterventionResourceAdapter(
+        $this->createStub(EntityManagerInterface::class),
+        $this->createStub(FacilityArchivalGuardPort::class),
+      ),
       '/api/facilities/018f0b68-6758-7a12-8a1d-3f0d97f63c12',
       'Unsupported facility patch fields: unknown.',
     );

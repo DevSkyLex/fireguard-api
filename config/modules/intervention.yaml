@@ -23,6 +23,22 @@ services:
   Intervention\Application\Port\Outbound\InterventionResourceGatewayPort:
     alias: Intervention\Infrastructure\Adapter\Resource\DoctrineInterventionResourceGatewayAdapter
 
+  Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort:
+    alias: Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository
+
+  # R11b: generalized intervention attachments (multipart, phase-based write)
+  Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Intervention\Application\Port\Outbound\InterventionEquipmentDraftProviderPort:
     alias: Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter
 
@@ -35,6 +51,11 @@ services:
   Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort:
     alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter
 
+  # Cross-module inbound port: programmatic draft creation (maintenance
+  # campaigns, automation rules) through the same workflow gateway as the API.
+  Intervention\Application\Port\Inbound\InterventionDraftFactoryPort:
+    alias: Intervention\Application\Service\InterventionDraftFactory
+
   Intervention\Application\Port\Outbound\InterventionIssueQueryPort:
     alias: Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter
 
@@ -43,6 +64,12 @@ services:
 
   Intervention\Application\Port\Outbound\InterventionLabelPort:
     alias: Intervention\Infrastructure\Adapter\Label\DoctrineInterventionLabelAdapter
+
+  Intervention\Application\Port\Outbound\InterventionTemplatePort:
+    alias: Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter
+
+  Intervention\Application\Port\Outbound\InterventionRecurrencePort:
+    alias: Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter
 
   Intervention\Application\Service\InterventionChangeApplication:
     arguments:
@@ -74,6 +101,37 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Intervention\Infrastructure\Adapter\Label\DoctrineInterventionLabelAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module read model for the Calendar module (unified feed source)
+  Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Messaging\InterventionMessagingSubjectResolverAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['messaging.subject_resolver']
+
+  # Hosts the adapter for the Equipment-owned consumer port (Equipment
+  # implements Intervention's `intervention.change_applier` /
+  # `intervention.draft_publisher`; Intervention symmetrically implements
+  # Equipment's InterventionServiceReportPort here) — mirrors
+  # Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter.
+  Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -118,4 +176,56 @@ services:
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Query\Label\ListInterventionLabels\ListInterventionLabelsHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Template\CreateInterventionTemplate\CreateInterventionTemplateHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Template\UpdateInterventionTemplate\UpdateInterventionTemplateHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Template\DeleteInterventionTemplate\DeleteInterventionTemplateHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Template\InstantiateInterventionTemplate\InstantiateInterventionTemplateHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Template\ListInterventionTemplates\ListInterventionTemplatesHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Template\GetInterventionTemplate\GetInterventionTemplateHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence\CreateInterventionRecurrenceHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Recurrence\UpdateInterventionRecurrence\UpdateInterventionRecurrenceHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Recurrence\DeleteInterventionRecurrence\DeleteInterventionRecurrenceHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Recurrence\GetInterventionRecurrence\GetInterventionRecurrenceHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Recurrence\ListInterventionRecurrences\ListInterventionRecurrencesHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesHandler:
+    tags: ['messenger.message_handler']
+
+  # R9: team -> participants snapshot assignment. Consumes Organization's
+  # inbound TeamDirectoryPort directly, exactly like OrganizationAuthorizationPort
+  # above; no new alias needed (Organization\Application\Port\Inbound\TeamDirectoryPort
+  # is aliased in config/modules/organization.yaml and resolves from the merged container).
+  Intervention\Application\UseCase\Command\Assignment\AssignTeamToIntervention\AssignTeamToInterventionHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\AddInterventionAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttachment\DeleteInterventionAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\ListInterventionAttachmentsHandler:
     tags: ['messenger.message_handler']

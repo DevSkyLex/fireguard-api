@@ -55,7 +55,7 @@ final class ListInterventionActivitiesHandlerTest extends TestCase
   #[Test]
   public function itThrowsWhenTheInterventionCannotBeFound(): void
   {
-    $gateway = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $gateway = $this->createStub(InterventionWorkflowGatewayPort::class);
     $gateway->method('interventionContext')->willReturn(null);
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('listByIntervention');
@@ -72,7 +72,7 @@ final class ListInterventionActivitiesHandlerTest extends TestCase
   public function itRejectsAUserMissingTheReadPermission(): void
   {
     $context = new InterventionWorkflowContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress', null);
-    $gateway = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $gateway = $this->createStub(InterventionWorkflowGatewayPort::class);
     $gateway->method('interventionContext')->willReturn($context);
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('listByIntervention');

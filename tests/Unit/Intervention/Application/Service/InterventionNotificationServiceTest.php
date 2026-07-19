@@ -35,7 +35,8 @@ final class InterventionNotificationServiceTest extends TestCase
       ->with(self::callback(static fn (SendNotificationRequest $request): bool => 'intervention.assigned' === $request->type
         && [NotificationChannel::MERCURE] === $request->channels
         && self::USER_ID === $request->recipientUserId
-        && 'intervention-1' === $request->payload['interventionId']))
+        && 'intervention-1' === $request->payload['interventionId']
+        && self::ORGANIZATION_ID === $request->organizationId))
       ->willReturn($this->sent());
 
     new InterventionNotificationService($notifications, $members, $this->policy())
@@ -84,6 +85,53 @@ final class InterventionNotificationServiceTest extends TestCase
     self::addToAssertionCount(1);
   }
 
+  #[Test]
+  public function itDeliversAMentionInAppAndByEmail(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => 'intervention.comment_mention' === $request->type
+        && [NotificationChannel::MERCURE, NotificationChannel::EMAIL] === $request->channels
+        && self::USER_ID === $request->recipientUserId
+        && self::ORGANIZATION_ID === $request->organizationId))
+      ->willReturn($this->sent());
+
+    new InterventionNotificationService($notifications, $members, $this->policy())
+      ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
+  }
+
+  #[Test]
+  public function itDropsTheEmailChannelForMentionsWhenEmailDeliveryIsDisabled(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => [NotificationChannel::MERCURE] === $request->channels))
+      ->willReturn($this->sent());
+
+    new InterventionNotificationService($notifications, $members, $this->policy(emailEnabled: false))
+      ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
+  }
+
+  #[Test]
+  public function itNeverNotifiesAMentionedMemberFromAnotherOrganization(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new InterventionNotificationService($notifications, $members, $this->policy())
+      ->mentioned('intervention-1', '018f0b68-6758-7a12-8a1d-3f0d97f63c99', self::MEMBER_ID);
+
+    self::addToAssertionCount(1);
+  }
+
   private function member(): OrganizationMember
   {
     return OrganizationMember::reconstitute(
@@ -95,10 +143,11 @@ final class InterventionNotificationServiceTest extends TestCase
     );
   }
 
-  private function policy(bool $inAppEnabled = true, bool $interventionAssigned = true): OrganizationNotificationPolicyPort
+  private function policy(bool $inAppEnabled = true, bool $interventionAssigned = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings(
+      emailEnabled: $emailEnabled,
       inAppEnabled: $inAppEnabled,
       interventionAssigned: $interventionAssigned,
     ));

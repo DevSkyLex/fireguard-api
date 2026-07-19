@@ -16,6 +16,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 use function array_filter;
 use function array_values;
+use function in_array;
 
 /**
  * Adapter DoctrinePublicationAdapter.
@@ -205,16 +206,18 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
    *
    * @param string $publicationId the publication id value
    */
-  public function publish(string $publicationId): void
+  public function publish(string $publicationId): bool
   {
-    /** @var array{string, string, list<string>} $notification */
+    /** @var array{string, string, list<string>, bool} $notification */
     $notification = $this->entityManager->wrapInTransaction(function () use ($publicationId): array {
       $publication = $this->entityManager->find(PublicationRecord::class, $publicationId, LockMode::PESSIMISTIC_WRITE);
       if (!$publication instanceof PublicationRecord || !$publication->intervention instanceof InterventionRecord) {
         throw PublicationNotFoundException::withId($publicationId);
       }
       if ('completed' === $publication->status) {
-        return [$publication->intervention->id, $publication->intervention->name, []];
+        // Idempotent at-least-once replay: a concurrent delivery already
+        // completed this publication — no transition, no notification.
+        return [$publication->intervention->id, $publication->intervention->name, [], false];
       }
       $intervention = $this->entityManager->find(InterventionRecord::class, $publication->intervention->id, LockMode::PESSIMISTIC_WRITE);
       if (!$intervention instanceof InterventionRecord) {
@@ -250,9 +253,16 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         $intervention->id,
         $intervention->name,
         array_values(array_filter([$intervention->responsibleId, ...$intervention->participants], is_string(...))),
+        true,
       ];
     });
-    $this->notifications->published(...$notification);
+
+    [$interventionId, $interventionName, $recipients, $transitioned] = $notification;
+    if ($transitioned) {
+      $this->notifications->published($interventionId, $interventionName, $recipients);
+    }
+
+    return $transitioned;
   }
 
   /**
@@ -264,32 +274,37 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
    *
    * @param string $publicationId the publication id value
    * @param string $error the error value
+   *
+   * @return bool true when this call transitioned the publication to failed
    */
-  public function markFailed(string $publicationId, string $error): void
+  public function markFailed(string $publicationId, string $error): bool
   {
     if (!$this->entityManager->isOpen()) {
-      $this->entityManager->getConnection()->executeStatement(
-        'UPDATE intervention_publications SET status = :status, error = :error, completed_at = :completedAt WHERE id = :id AND status <> :completed',
+      $affected = $this->entityManager->getConnection()->executeStatement(
+        'UPDATE intervention_publications SET status = :status, error = :error, completed_at = :completedAt WHERE id = :id AND status <> :completed AND status <> :failed',
         [
           'status' => 'failed',
           'error' => $error,
           'completedAt' => new DateTimeImmutable(),
           'id' => $publicationId,
           'completed' => 'completed',
+          'failed' => 'failed',
         ],
         ['completedAt' => 'datetime_immutable'],
       );
 
-      return;
+      return $affected > 0;
     }
     $publication = $this->entityManager->find(PublicationRecord::class, $publicationId);
-    if (!$publication instanceof PublicationRecord || 'completed' === $publication->status) {
-      return;
+    if (!$publication instanceof PublicationRecord || in_array($publication->status, ['completed', 'failed'], true)) {
+      return false;
     }
     $publication->status = 'failed';
     $publication->error = $error;
     $publication->completedAt = new DateTimeImmutable();
     $this->entityManager->flush();
+
+    return true;
   }
 
   /**

@@ -37,6 +37,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
 use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function array_key_exists;
 use function array_keys;
@@ -48,7 +49,6 @@ use function is_array;
 use function is_numeric;
 use function is_string;
 use function max;
-use function mb_strtolower;
 use function min;
 use function sprintf;
 use function trim;
@@ -764,9 +764,8 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
       }
     }
-    if (is_string($filters['name'] ?? null) && '' !== trim($filters['name'])) {
-      $qb->andWhere('LOWER(m.name) LIKE :name')
-        ->setParameter('name', '%' . mb_strtolower(trim($filters['name'])) . '%');
+    if (is_string($filters['name'] ?? null)) {
+      TrigramSearchExpression::apply($qb, 'name', $filters['name'], 'm.name');
     }
     if (is_string($filters['responsibleId'] ?? null) && '' !== $filters['responsibleId']) {
       $qb->andWhere('m.responsibleId = :responsibleId')->setParameter('responsibleId', $filters['responsibleId']);
