@@ -1,0 +1,110 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Messaging\Presentation\Api\Processor\Channel;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProcessorInterface;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use Messaging\Application\UseCase\Command\Channel\SetChannelParent\{SetChannelParentCommand, SetChannelParentResult};
+use Messaging\Presentation\Api\Dto\Input\Channel\SetChannelParentInput;
+use Messaging\Presentation\Api\Dto\Output\ChannelOutput;
+use Messaging\Presentation\Api\Factory\ChannelOutputFactory;
+use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
+use Shared\Application\Port\Inbound\CommandBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Throwable;
+
+use function is_string;
+
+/**
+ * Processor SetChannelParentProcessor.
+ *
+ * Handles `PATCH /api/channels/{id}/parent` (L2.6 — set when
+ * `parentChannelId` is present, detach when it is `null`).
+ *
+ * @category Processor
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ *
+ * @implements ProcessorInterface<SetChannelParentInput, ChannelOutput>
+ */
+final readonly class SetChannelParentProcessor implements ProcessorInterface
+{
+  use MessagingExceptionMapperTrait;
+
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus value
+   * @param ChannelOutputFactory $mapper the mapper value
+   * @param Security $security the security value
+   */
+  public function __construct(
+    private CommandBusPort $commandBus,
+    private ChannelOutputFactory $mapper,
+    private Security $security,
+  ) {
+  }
+
+  /**
+   * Method process.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $data the data value
+   * @param Operation $operation the operation value
+   * @param array<string, mixed> $uriVariables the uri variables value
+   * @param array<string, mixed> $context the context value
+   *
+   * @return ChannelOutput the process result
+   */
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ChannelOutput
+  {
+    $user = $this->user();
+    $id = is_string($uriVariables['id'] ?? null) ? $uriVariables['id'] : null;
+    if (null === $id) {
+      throw new BadRequestHttpException('The id URI parameter is required.');
+    }
+
+    if (!$data instanceof SetChannelParentInput) {
+      throw new BadRequestHttpException('Invalid request body.');
+    }
+
+    try {
+      /** @var SetChannelParentResult $result */
+      $result = $this->commandBus->dispatch(new SetChannelParentCommand(
+        userId: $user->getId(),
+        conversationId: $id,
+        parentConversationId: $data->parentChannelId,
+      ));
+    } catch (Throwable $exception) {
+      throw $this->mapMessagingException($exception);
+    }
+
+    return $this->mapper->fromView($result->channel);
+  }
+
+  /**
+   * Method user.
+   *
+   * @since 1.0.0
+   *
+   * @return SecurityUser the user result
+   */
+  private function user(): SecurityUser
+  {
+    $user = $this->security->getUser();
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+
+    return $user;
+  }
+}
