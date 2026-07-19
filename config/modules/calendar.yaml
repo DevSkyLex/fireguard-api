@@ -1,0 +1,49 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Calendar\Presentation\:
+    resource: '../../src/Calendar/Presentation'
+
+  # Repository (main entity manager)
+  Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarEventRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort:
+    alias: Calendar\Infrastructure\Persistence\Doctrine\Repository\CalendarEventRepository
+
+  # Cross-module outbound ports (adapters live in the owning modules)
+  Calendar\Application\Port\Outbound\Member\CalendarMemberDirectoryPort:
+    alias: Organization\Infrastructure\Adapter\Calendar\OrganizationCalendarMemberDirectoryAdapter
+
+  Calendar\Application\Port\Outbound\Feed\InspectionCalendarFeedPort:
+    alias: Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter
+
+  Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort:
+    alias: Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter
+
+  Calendar\Application\Port\Outbound\Feed\MaintenanceCalendarFeedPort:
+    alias: Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter
+
+  # Unified feed aggregator: merges standalone events with the three
+  # cross-module feed ports, isolating and logging a failing source.
+  Calendar\Application\Service\CalendarFeedAggregator: ~
+
+  # Command handlers
+  Calendar\Application\UseCase\Command\Event\CreateCalendarEvent\CreateCalendarEventHandler:
+    tags: ['messenger.message_handler']
+
+  Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\UpdateCalendarEventHandler:
+    tags: ['messenger.message_handler']
+
+  Calendar\Application\UseCase\Command\Event\DeleteCalendarEvent\DeleteCalendarEventHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Calendar\Application\UseCase\Query\Event\GetCalendarEvent\GetCalendarEventHandler:
+    tags: ['messenger.message_handler']
+
+  Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\GetCalendarFeedHandler:
+    tags: ['messenger.message_handler']

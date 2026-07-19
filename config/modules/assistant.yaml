@@ -1,0 +1,107 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Assistant\Presentation\:
+    resource: '../../src/Assistant/Presentation'
+
+  Assistant\Infrastructure\Adapter\:
+    resource: '../../src/Assistant/Infrastructure/Adapter'
+
+  Assistant\Application\Service\:
+    resource: '../../src/Assistant/Application/Service'
+
+  # Outbound ports
+  Assistant\Application\Port\Outbound\AssistantThreadRepositoryPort:
+    alias: Assistant\Infrastructure\Persistence\Doctrine\Repository\AssistantThreadRepository
+
+  Assistant\Application\Port\Outbound\AssistantMessageRepositoryPort:
+    alias: Assistant\Infrastructure\Persistence\Doctrine\Repository\AssistantMessageRepository
+
+  # L2.3: hands a generation command to the dedicated `assistant` Messenger
+  # transport (config/packages/messenger.yaml) — replaces L2.1's
+  # NullAssistantGenerationDispatcherAdapter no-op stub.
+  Assistant\Application\Port\Outbound\AssistantGenerationDispatcherPort:
+    alias: Assistant\Infrastructure\Adapter\Messenger\MessengerAssistantGenerationDispatcherAdapter
+
+  Assistant\Infrastructure\Adapter\Messenger\MessengerAssistantGenerationDispatcherAdapter:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  # L2.3: the Ollama HTTP client, consumed only by the `assistant` transport's
+  # GenerateAssistantReplyHandler. `OLLAMA_BASE_URL` is OPERATOR deployment
+  # configuration (the same trust class as `MAILER_DSN`) — no organization
+  # setting or request input may ever influence it. A dedicated
+  # HttpClientInterface instance, mirroring `webhook.http_client` (no
+  # `framework.http_client` block is configured in this project).
+  assistant.http_client:
+    class: Symfony\Contracts\HttpClient\HttpClientInterface
+    factory: ['Symfony\Component\HttpClient\HttpClient', 'create']
+
+  Assistant\Application\Port\Outbound\AssistantGenerationClientPort:
+    alias: Assistant\Infrastructure\Adapter\Http\OllamaGenerationClientAdapter
+
+  Assistant\Infrastructure\Adapter\Http\OllamaGenerationClientAdapter:
+    arguments:
+      $httpClient: '@assistant.http_client'
+
+  # L2.3: a THIRD Mercure topic scheme, never reusing Messaging's or
+  # Notification's (see the port's docblock).
+  Assistant\Application\Port\Outbound\AssistantRealtimePublisherPort:
+    alias: Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter
+
+  Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherAdapter:
+    arguments:
+      $hub: '@mercure.hub.default'
+
+  # L2.2: business-context injection — `includeBusinessContext` gate. Cross-
+  # module adapter hosted in Organization (the provider module), never in
+  # Assistant. `isEnabledFor()` remains declared but not consumed by any
+  # handler — see MODULE.md ("Deferred cross-module work").
+  Assistant\Application\Port\Outbound\Organization\AssistantOrganizationSettingsPort:
+    alias: Organization\Infrastructure\Adapter\Assistant\OrganizationAssistantSettingsAdapter
+
+  # L2.2: business-context injection seam — consumes every owning module's
+  # tagged `assistant.context_provider` adapter (Compliance, Inspection,
+  # Maintenance at launch), already priority-ordered by the DI container.
+  Assistant\Application\Service\AssistantContextAssembler:
+    arguments:
+      $providers: !tagged_iterator assistant.context_provider
+
+  # Tenant/operator trust-boundary policy: the ONLY tenant-controlled model
+  # input (`StartAssistantThreadInput::$model`) is constrained to this
+  # operator-curated allowlist; `OLLAMA_BASE_URL` itself is never derived
+  # from any tenant value. An unconfigured (empty) allowlist denies every
+  # tenant-supplied model — see the service's own docblock.
+  Assistant\Domain\Service\AssistantModelPolicy:
+    arguments:
+      $allowedModels: '%env(csv:OLLAMA_ALLOWED_MODELS)%'
+
+  # Repositories (main entity manager)
+  Assistant\Infrastructure\Persistence\Doctrine\Repository\AssistantThreadRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Assistant\Infrastructure\Persistence\Doctrine\Repository\AssistantMessageRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Command handlers
+  Assistant\Application\UseCase\Command\Thread\StartAssistantThread\StartAssistantThreadHandler:
+    tags: ['messenger.message_handler']
+
+  Assistant\Application\UseCase\Command\Message\AskAssistantQuestion\AskAssistantQuestionHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.3: consumes the dedicated `assistant` Messenger transport
+  # (config/packages/messenger.yaml).
+  Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\GenerateAssistantReplyHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Assistant\Application\UseCase\Query\Thread\ListAssistantThreads\ListAssistantThreadsHandler:
+    tags: ['messenger.message_handler']
+
+  Assistant\Application\UseCase\Query\Thread\GetAssistantThread\GetAssistantThreadHandler:
+    tags: ['messenger.message_handler']
