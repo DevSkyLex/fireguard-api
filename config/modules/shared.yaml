@@ -32,6 +32,22 @@ services:
     arguments:
       $basePath: '%shared.file_storage.base_path%'
 
+  # Object storage: DSN-driven Flysystem operator (local disk in dev/test,
+  # S3/MinIO in staging/prod) backing FlysystemFileStorageAdapter below.
+  Shared\Infrastructure\Storage\FlysystemFactory:
+    arguments:
+      $projectDir: '%kernel.project_dir%'
+
+  shared.flysystem.default:
+    class: League\Flysystem\FilesystemOperator
+    factory: ['@Shared\Infrastructure\Storage\FlysystemFactory', 'create']
+    arguments:
+      $dsn: '%env(STORAGE_DSN)%'
+
+  Shared\Infrastructure\Symfony\Adapter\Outbound\FlysystemFileStorageAdapter:
+    arguments:
+      $filesystem: '@shared.flysystem.default'
+
   # Port to Adapter bindings (Inbound Ports)
   Shared\Application\Port\Inbound\CommandBusPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerCommandBusAdapter'
   Shared\Application\Port\Inbound\QueryBusPort: '@Shared\Infrastructure\Symfony\Adapter\Inbound\MessengerQueryBusAdapter'
@@ -49,7 +65,7 @@ services:
   Shared\Application\Port\Outbound\CachePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\CacheAdapter'
   Shared\Application\Port\Outbound\ClockPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\SystemClockAdapter'
   Shared\Application\Port\Outbound\EventBusPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter'
-  Shared\Application\Port\Outbound\FileStoragePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\FileStorageAdapter'
+  Shared\Application\Port\Outbound\FileStoragePort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\FlysystemFileStorageAdapter'
   Shared\Application\Port\Outbound\LoggerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\LoggerAdapter'
   Shared\Application\Port\Outbound\MailerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\MailerAdapter'
   Shared\Application\Port\Outbound\TransactionManagerPort: '@Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter'
