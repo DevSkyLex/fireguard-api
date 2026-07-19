@@ -82,6 +82,10 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
       ->method('findRoleIdsForMember')
       ->with(self::callback(static fn (OrganizationMemberId $id): bool => $memberId === (string) $id))
       ->willReturn([$roleId]);
+    $memberRepository->expects(self::once())
+      ->method('countActiveMembersGroupedByRoleId')
+      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
+      ->willReturn([$roleId => 6]);
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
@@ -118,6 +122,7 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
     self::assertSame($userId, $result->userId);
     self::assertCount(1, $result->roles);
     self::assertSame($roleId, $result->roles[0]->id);
+    self::assertSame(6, $result->roles[0]->memberCount);
     self::assertSame(['organization.read', 'organization.members.read'], $result->permissions);
   }
 

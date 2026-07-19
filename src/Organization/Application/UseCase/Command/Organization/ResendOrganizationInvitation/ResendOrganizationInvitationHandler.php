@@ -8,10 +8,11 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\NotificationChannel;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
+use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 
@@ -44,6 +45,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
    * @param OrganizationInvitationNotifier $invitationNotifier the invitation token/link/notification helper
    * @param LoggerPort $logger the logger port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
@@ -52,6 +54,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
     private OrganizationInvitationNotifier $invitationNotifier,
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -117,6 +120,14 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
       );
     });
 
+    $this->eventDispatcher->dispatch(new OrganizationInvitationSentEvent(
+      organizationId: $command->organizationId,
+      invitationId: $command->invitationId,
+      invitedEmail: (string) $invitation->email(),
+      invitedByUserId: $command->resentByUserId,
+      resend: true,
+    ));
+
     $existingUser = $this->userRepository->findByEmail($invitation->email());
     $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
     $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
@@ -131,6 +142,7 @@ final readonly class ResendOrganizationInvitationHandler implements CommandHandl
         expiresAt: $expiresAt,
         recipientUserId: $recipientUserId,
         locale: $emailLocale,
+        organizationId: (string) $invitation->organizationId(),
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Invitation resend notification dispatch failed.', [

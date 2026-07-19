@@ -153,12 +153,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'Change Organization plan',
-        description: 'Assigns a subscription plan to the organization. Self-service — requires the organization.settings.write permission.',
+        description: 'Assigns a subscription plan to the organization. Self-service — requires the organization.settings.write permission. When the target plan\'s caps sit below the current usage, the change is refused with HTTP 409 listing the exceeded resources; re-submit with acknowledgeOveruse: true to confirm the downgrade.',
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Organization plan updated'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - plan not selectable'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or plan not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Paid plan requires the billing checkout flow, or current usage exceeds the selected plan limits (confirm with acknowledgeOveruse)'),
         ],
       ),
     ),
@@ -226,12 +227,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['Organization'],
-        summary: 'Delete Organization',
-        description: 'Permanently deletes the organization and its owned data. Requires the organization.delete permission.',
+        summary: 'Archive Organization',
+        description: 'Archives the organization (reversible soft delete — NOT a permanent removal): it is hidden from the default listing and its owned data (facilities, equipment, inspections, interventions) is preserved rather than orphaned, and can be restored through the settings PATCH (isActive: true). Requires the organization.delete permission plus a danger-zone confirmation: the "slug" query parameter must exactly match the organization\'s current slug (case-insensitive, trimmed). A missing or mismatched confirmation is rejected with HTTP 422 and nothing is archived. Idempotent when already archived, provided the confirmation is still correct.',
+        parameters: [
+          new Parameter(
+            name: 'slug',
+            in: 'query',
+            required: true,
+            description: 'Danger-zone confirmation: the organization\'s current slug, typed by the caller.',
+            schema: ['type' => 'string'],
+          ),
+        ],
         responses: [
-          HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Organization deleted'),
+          HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Organization archived'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Missing or mismatched slug confirmation'),
         ],
       ),
     ),

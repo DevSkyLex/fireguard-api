@@ -63,6 +63,30 @@ final class OrganizationPermissionCatalog
   }
 
   /**
+   * Method complianceReadDependencies.
+   *
+   * Returns the full permission set required to access the compliance
+   * register (summary and single-facility detail), mirroring
+   * `dashboardReadDependencies()`: the register aggregates facilities,
+   * equipment, inspection non-conformities, and maintenance due-status, so
+   * reading it requires the underlying read permission for each.
+   *
+   * @since 1.0.0
+   *
+   * @return list<string>
+   */
+  public static function complianceReadDependencies(): array
+  {
+    return [
+      'organization.compliance.read',
+      'organization.facilities.read',
+      'organization.equipment.read',
+      'organization.inspection.read',
+      'organization.maintenance.read',
+    ];
+  }
+
+  /**
    * Method descriptionFor.
    *
    * Returns the description for a given permission name, or an empty string if unknown.
@@ -110,9 +134,14 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.roles.read', 'description' => 'View organization roles'],
       ['name' => 'organization.roles.manage', 'description' => 'Manage organization roles (create, update, assign)'],
 
+      // Team management
+      ['name' => 'organization.teams.read', 'description' => 'View organization teams and their members'],
+      ['name' => 'organization.teams.write', 'description' => 'Manage organization teams (create, update, add/remove members)'],
+      ['name' => 'organization.teams.manage', 'description' => 'Delete organization teams'],
+
       // Facility management
       ['name' => 'organization.facilities.read', 'description' => 'View organization facilities'],
-      ['name' => 'organization.facilities.write', 'description' => 'Manage organization facilities (create, update, archive, move)'],
+      ['name' => 'organization.facilities.write', 'description' => 'Manage organization facilities (create, update, archive, move, attachments)'],
 
       // Equipment management
       ['name' => 'organization.equipment.read', 'description' => 'View organization equipment and equipment dashboard statistics'],
@@ -120,15 +149,47 @@ final class OrganizationPermissionCatalog
 
       // Inspection management
       ['name' => 'organization.inspection.read', 'description' => 'View organization inspections, checklists, non-conformities, and inspection dashboard statistics'],
-      ['name' => 'organization.inspection.write', 'description' => 'Manage organization inspections, checklists, and non-conformities'],
+      ['name' => 'organization.inspection.write', 'description' => 'Manage organization inspections, checklists, non-conformities, and attachments/photos'],
 
       // Field intervention management
-      ['name' => 'organization.interventions.read', 'description' => 'View organization field interventions and validation issues'],
+      ['name' => 'organization.interventions.read', 'description' => 'View organization field interventions, validation issues, and attachments'],
       ['name' => 'organization.interventions.write', 'description' => 'Create and update organization field interventions'],
-      ['name' => 'organization.interventions.plan', 'description' => 'Prepare and assign organization field interventions'],
-      ['name' => 'organization.interventions.execute', 'description' => 'Execute assigned organization field intervention work'],
+      ['name' => 'organization.interventions.plan', 'description' => 'Prepare and assign organization field interventions (including attachments while in draft)'],
+      ['name' => 'organization.interventions.execute', 'description' => 'Execute assigned organization field intervention work (including attachments)'],
       ['name' => 'organization.interventions.review', 'description' => 'Review submitted organization field interventions'],
       ['name' => 'organization.interventions.publish', 'description' => 'Publish organization field interventions'],
+
+      // Preventive maintenance management
+      ['name' => 'organization.maintenance.read', 'description' => 'View organization preventive-maintenance schedules'],
+      ['name' => 'organization.maintenance.manage', 'description' => 'Manage preventive-maintenance schedule overrides and generate inspection campaigns'],
+
+      // Messaging
+      ['name' => 'organization.messaging.read', 'description' => 'View organization conversations and messages'],
+      ['name' => 'organization.messaging.write', 'description' => 'Post, edit, and delete own messages in organization conversations'],
+      ['name' => 'organization.messaging.manage', 'description' => 'Archive conversations and moderate (delete) other members\' messages'],
+
+      // Compliance register + regulatory export
+      ['name' => 'organization.compliance.read', 'description' => 'View the compliance register/summary (organization rollup and per-facility breakdown)'],
+      ['name' => 'organization.compliance.export', 'description' => 'Export the regulatory safety register PDF (also requires a pro/max plan)'],
+
+      // Four-eyes approval workflows
+      ['name' => 'organization.approvals.read', 'description' => 'View the organization\'s pending and decided four-eyes approval requests'],
+      ['name' => 'organization.approvals.request', 'description' => 'Initiate a regulated action gated behind approval (enforced only when the organization requires it)'],
+      ['name' => 'organization.approvals.decide', 'description' => 'Approve or reject four-eyes approval requests'],
+
+      // Outbound webhooks (admin/integration only — not part of the member system role)
+      ['name' => 'organization.webhooks.read', 'description' => 'View organization webhook subscriptions and their delivery logs'],
+      ['name' => 'organization.webhooks.manage', 'description' => 'Manage organization webhook subscriptions (create, update, delete, rotate secret, test, redeliver)'],
+
+      // AI assistant (admin-granted: a conversation transcript leaves the
+      // application boundary for the inference backend, so this is deliberately
+      // not part of the member system role — the organization opts in twice,
+      // once via `settings.assistant.enabled` and once by granting this)
+      ['name' => 'organization.assistant.use', 'description' => 'Ask the organization AI assistant and read its threads'],
+
+      // Calendar events
+      ['name' => 'organization.events.read', 'description' => 'View the organization calendar feed and its standalone events'],
+      ['name' => 'organization.events.write', 'description' => 'Create, update, and delete standalone organization calendar events'],
 
       // Wildcard
       ['name' => 'organization.*', 'description' => 'Full access to all organization operations (owner)'],

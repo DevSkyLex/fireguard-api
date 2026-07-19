@@ -41,6 +41,42 @@ final class OrganizationSettingsOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public OrganizationRegionalSettingsOutput $regional;
+
+  /**
+   * Property compliance.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public OrganizationComplianceSettingsOutput $compliance;
+
+  /**
+   * Property automation.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public OrganizationAutomationSettingsOutput $automation;
+
+  /**
+   * Property approval.
+   *
+   * @since 1.2.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public OrganizationApprovalSettingsOutput $approval;
+
+  /**
+   * Property assistant.
+   *
+   * @since 1.3.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public OrganizationAssistantSettingsOutput $assistant;
   // #endregion
 
   // #region Constructor
@@ -55,6 +91,10 @@ final class OrganizationSettingsOutput
   {
     $this->notifications = new OrganizationNotificationSettingsOutput();
     $this->regional = new OrganizationRegionalSettingsOutput();
+    $this->compliance = new OrganizationComplianceSettingsOutput();
+    $this->automation = new OrganizationAutomationSettingsOutput();
+    $this->approval = new OrganizationApprovalSettingsOutput();
+    $this->assistant = new OrganizationAssistantSettingsOutput();
   }
   // #endregion
 
@@ -77,6 +117,10 @@ final class OrganizationSettingsOutput
     $output = new self();
     $output->notifications = OrganizationNotificationSettingsOutput::fromDomain($settings->notifications);
     $output->regional = OrganizationRegionalSettingsOutput::fromDomain($settings->regional);
+    $output->compliance = OrganizationComplianceSettingsOutput::fromDomain($settings->compliance);
+    $output->automation = OrganizationAutomationSettingsOutput::fromDomain($settings->automation);
+    $output->approval = OrganizationApprovalSettingsOutput::fromDomain($settings->approval);
+    $output->assistant = OrganizationAssistantSettingsOutput::fromDomain($settings->assistant);
 
     return $output;
   }

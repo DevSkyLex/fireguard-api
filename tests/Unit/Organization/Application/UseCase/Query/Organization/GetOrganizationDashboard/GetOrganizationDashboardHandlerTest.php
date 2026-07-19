@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard;
 
+use DateInterval;
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\{GetOrganizationDashboardHandler, GetOrganizationDashboardQuery, GetOrganizationDashboardResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
@@ -16,6 +18,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\CachePort;
 
 use function array_column;
 use function get_object_vars;
@@ -122,7 +125,12 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ]);
     $nonConformityStatistics->expects(self::never())->method('countNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
-    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
+    $nonConformityStatistics->expects(self::once())->method('countNonConformitiesBySeverity')->with(self::ORG_ID)->willReturn([
+      'low' => 2,
+      'medium' => 3,
+      'high' => 3,
+      'critical' => 1,
+    ]);
     $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
@@ -158,7 +166,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
      *   facilities: array{total: int},
      *   equipment: array{operational: int},
      *   inspections: array{closed: int},
-     *   nonConformities: array{open: int}
+     *   nonConformities: array{open: int, severityLow: int, severityMedium: int, severityHigh: int, severityCritical: int}
      * } $overview
      */
     $overview = $result->overview;
@@ -206,6 +214,10 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertArrayNotHasKey('byStatus', $overview['equipment']);
     self::assertArrayNotHasKey('byResult', $overview['inspections']);
     self::assertArrayNotHasKey('bySeverity', $overview['nonConformities']);
+    self::assertSame(2, $overview['nonConformities']['severityLow']);
+    self::assertSame(3, $overview['nonConformities']['severityMedium']);
+    self::assertSame(3, $overview['nonConformities']['severityHigh']);
+    self::assertSame(1, $overview['nonConformities']['severityCritical']);
     self::assertSame(75.0, $health['memberActivationRate']);
     self::assertSame(70.0, $health['inspectionCompletionRate']);
     self::assertSame(71.43, $health['inspectionPassRate']);
@@ -226,7 +238,12 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertSame(1, $comparison['current']['nonConformitiesResolved']);
     self::assertSame(50.0, $comparison['health']['current']['nonConformityResolutionRate']);
     self::assertSame(0.0, $comparison['health']['deltas']['nonConformityResolutionRate']);
-    self::assertArrayNotHasKey('trends', get_object_vars($result));
+    self::assertArrayHasKey('trends', get_object_vars($result));
+    self::assertArrayHasKey('facilities', $result->trends);
+    self::assertArrayHasKey('members', $result->trends);
+    self::assertArrayHasKey('equipment', $result->trends);
+    self::assertArrayHasKey('inspections', $result->trends);
+    self::assertSame([], $result->recentInterventions);
   }
 
   #[Test]
@@ -246,7 +263,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $nonConformityStatistics->method('countNonConformityOverview')->willReturn(['total' => 0, 'open' => 0, 'in_progress' => 0, 'done' => 0, 'waived' => 0, 'overdue' => 0, 'critical_open' => 0]);
     $nonConformityStatistics->expects(self::never())->method('countNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
-    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
+    $nonConformityStatistics->expects(self::once())->method('countNonConformitiesBySeverity')->with(self::ORG_ID)->willReturn(['low' => 0, 'medium' => 0, 'high' => 0, 'critical' => 0]);
     $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
@@ -284,7 +301,8 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertSame('none', $comparison['mode']);
     self::assertSame([], $comparison['health']['current']);
     self::assertSame(0.0, $result->health['periodInspectionCompletionRate']);
-    self::assertArrayNotHasKey('trends', get_object_vars($result));
+    self::assertArrayHasKey('trends', get_object_vars($result));
+    self::assertSame([], $result->recentInterventions);
   }
 
   #[Test]
@@ -492,7 +510,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     });
     $nonConformityStatistics->expects(self::never())->method('countNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
-    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
+    $nonConformityStatistics->expects(self::once())->method('countNonConformitiesBySeverity')->with(self::ORG_ID)->willReturn(['low' => 1, 'medium' => 1, 'high' => 1, 'critical' => 1]);
     $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
@@ -542,7 +560,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
      *   facilities: array{total: int, active: int},
      *   equipment: array{total: int, operational: int},
      *   inspections: array{total: int, closed: int, pass: int},
-     *   nonConformities: array{total: int, open: int}
+     *   nonConformities: array{total: int, open: int, severityLow: int, severityMedium: int, severityHigh: int, severityCritical: int}
      * } $overview
      */
     $overview = $result->overview;
@@ -571,6 +589,10 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertSame(6, $overview['inspections']['pass']);
     self::assertSame(4, $overview['nonConformities']['total']);
     self::assertSame(4, $overview['nonConformities']['open']);
+    self::assertSame(1, $overview['nonConformities']['severityLow']);
+    self::assertSame(1, $overview['nonConformities']['severityMedium']);
+    self::assertSame(1, $overview['nonConformities']['severityHigh']);
+    self::assertSame(1, $overview['nonConformities']['severityCritical']);
     self::assertSame(100.0, $health['inspectionCompletionRate']);
     self::assertSame(100.0, $health['inspectionPassRate']);
     self::assertSame(50.0, $health['periodNonConformityResolutionRate']);
@@ -600,7 +622,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $nonConformityStatistics->method('countNonConformityOverview')->willReturn(['total' => 3, 'open' => 0, 'in_progress' => 0, 'done' => 'done' === $status ? 3 : 0, 'waived' => 'waived' === $status ? 3 : 0, 'overdue' => 0, 'critical_open' => 0]);
     $nonConformityStatistics->expects(self::never())->method('countNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesByStatus');
-    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
+    $nonConformityStatistics->expects(self::once())->method('countNonConformitiesBySeverity')->with(self::ORG_ID)->willReturn(['low' => 0, 'medium' => 0, 'high' => 0, 'critical' => 0]);
     $nonConformityStatistics->expects(self::never())->method('countOverdueNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countOpenCriticalNonConformities');
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
@@ -622,7 +644,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ));
 
     $alertCodes = array_column($result->alerts, 'code');
-    /** @var array{nonConformities: array{overdue: int, criticalOpen: int}} $overview */
+    /** @var array{nonConformities: array{overdue: int, criticalOpen: int, severityLow: int, severityMedium: int, severityHigh: int, severityCritical: int}} $overview */
     $overview = $result->overview;
     /** @var array{periodNonConformityResolutionRate: float} $health */
     $health = $result->health;
@@ -633,6 +655,10 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertNotContains('non_conformities_overdue', $alertCodes);
     self::assertSame(0, $overview['nonConformities']['overdue']);
     self::assertSame(0, $overview['nonConformities']['criticalOpen']);
+    self::assertSame(0, $overview['nonConformities']['severityLow']);
+    self::assertSame(0, $overview['nonConformities']['severityMedium']);
+    self::assertSame(0, $overview['nonConformities']['severityHigh']);
+    self::assertSame(0, $overview['nonConformities']['severityCritical']);
     self::assertSame(0.0, $health['periodNonConformityResolutionRate']);
     self::assertSame(0.0, $comparison['health']['current']['nonConformityResolutionRate']);
     self::assertSame(0.0, $comparison['health']['previous']['nonConformityResolutionRate']);
@@ -690,6 +716,263 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $handler->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID));
   }
 
+  #[Test]
+  public function testInvokeBuildsRunningTotalTrendSeriesAnchoredOnCurrentTotals(): void
+  {
+    $organizationRepository = $this->createOrganizationRepository();
+
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('countByOrganizationId')->willReturn(10);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn(10);
+    $memberRepository->expects(self::never())->method('countJoinedBetween');
+    $memberRepository->expects(self::once())
+      ->method('countJoinedByDay')
+      ->with(
+        self::callback(static fn (OrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        self::callback(static fn (DateTimeImmutable $from): bool => '2026-03-01' === $from->format('Y-m-d')),
+        self::callback(static fn (DateTimeImmutable $to): bool => '2026-03-03' === $to->format('Y-m-d')),
+        'UTC',
+      )
+      ->willReturn(['2026-03-02' => 1, '2026-03-03' => 1]);
+
+    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->method('countFacilityOverview')->willReturn(['total' => 7, 'active' => 7]);
+    $facilityStatistics->expects(self::once())->method('countFacilitiesCreatedByDay')->willReturn(['2026-03-03' => 3]);
+
+    $equipmentStatistics = $this->createMock(EquipmentStatisticsPort::class);
+    $equipmentStatistics->method('countEquipmentOverview')->willReturn(['total' => 20, 'in_stock' => 0, 'operational' => 20, 'under_maintenance' => 0, 'decommissioned' => 0]);
+    $equipmentStatistics->expects(self::once())->method('countEquipmentCreatedByDay')->willReturn(['2026-03-03' => 4]);
+
+    $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->method('countInspectionOverview')->willReturn(['total' => 10, 'draft' => 0, 'submitted' => 0, 'closed' => 10, 'pass' => 10, 'fail' => 0, 'partial' => 0]);
+    $inspectionStatistics->method('countInspectionPeriodMetrics')->willReturn(['total' => 0, 'closed' => 0, 'pass' => 0, 'fail' => 0, 'partial' => 0]);
+    $inspectionStatistics->expects(self::once())->method('countInspectionsPerformedByDay')->willReturn(['2026-03-01' => 1, '2026-03-02' => 1]);
+
+    $nonConformityStatistics = $this->createZeroNonConformityStatistics(1);
+
+    $handler = $this->createHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      facilityStatistics: $facilityStatistics,
+      equipmentStatistics: $equipmentStatistics,
+      inspectionStatistics: $inspectionStatistics,
+      nonConformityStatistics: $nonConformityStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-03T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+    ));
+
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 4],
+      ['bucket' => '2026-03-02', 'value' => 4],
+      ['bucket' => '2026-03-03', 'value' => 7],
+    ], $result->trends['facilities']);
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 8],
+      ['bucket' => '2026-03-02', 'value' => 9],
+      ['bucket' => '2026-03-03', 'value' => 10],
+    ], $result->trends['members']);
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 16],
+      ['bucket' => '2026-03-02', 'value' => 16],
+      ['bucket' => '2026-03-03', 'value' => 20],
+    ], $result->trends['equipment']);
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 9],
+      ['bucket' => '2026-03-02', 'value' => 10],
+      ['bucket' => '2026-03-03', 'value' => 10],
+    ], $result->trends['inspections']);
+  }
+
+  #[Test]
+  public function testInvokeIncludesEnrichedRecentInterventionsWhenPermissionGranted(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('countByOrganizationId')->willReturn(0);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn(0);
+    $memberRepository->method('countJoinedByDay')->willReturn([]);
+    $memberRepository->expects(self::once())
+      ->method('findUserIdsByMemberIds')
+      ->with(
+        self::callback(static fn (OrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        ['member-1'],
+      )
+      ->willReturn(['member-1' => 'user-1']);
+
+    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->method('countFacilityOverview')->willReturn(['total' => 0, 'active' => 0]);
+    $facilityStatistics->method('countFacilitiesCreatedByDay')->willReturn([]);
+    $facilityStatistics->expects(self::once())
+      ->method('getFacilityNamesByIds')
+      ->with(self::ORG_ID, ['site-1'])
+      ->willReturn(['site-1' => 'Site Paris']);
+
+    $dueAt = new DateTimeImmutable('2026-03-10T12:00:00+00:00');
+    $updatedAt = new DateTimeImmutable('2026-03-09T08:30:00+00:00');
+
+    $interventionStatistics = $this->createMock(InterventionStatisticsPort::class);
+    $interventionStatistics->expects(self::once())
+      ->method('findRecentInterventions')
+      ->with(self::ORG_ID, 5)
+      ->willReturn([
+        new RecentInterventionSummary(
+          id: 'intervention-1',
+          number: 42,
+          name: 'Contrôle annuel',
+          status: 'in_progress',
+          priority: 'high',
+          siteId: 'site-1',
+          responsibleMemberId: 'member-1',
+          dueAt: $dueAt,
+          updatedAt: $updatedAt,
+        ),
+        new RecentInterventionSummary(
+          id: 'intervention-2',
+          number: 41,
+          name: 'Inventaire',
+          status: 'draft',
+          priority: 'low',
+          siteId: null,
+          responsibleMemberId: null,
+          dueAt: null,
+          updatedAt: $updatedAt,
+        ),
+      ]);
+
+    $handler = $this->createHandler(
+      authorization: $this->createDashboardAuthorizationMock(hasInterventionsPermission: true),
+      memberRepository: $memberRepository,
+      facilityStatistics: $facilityStatistics,
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      interventionStatistics: $interventionStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      compareWithPreviousPeriod: false,
+    ));
+
+    self::assertCount(2, $result->recentInterventions);
+    self::assertSame([
+      'id' => 'intervention-1',
+      'number' => 42,
+      'name' => 'Contrôle annuel',
+      'status' => 'in_progress',
+      'priority' => 'high',
+      'siteId' => 'site-1',
+      'siteName' => 'Site Paris',
+      'responsibleId' => 'member-1',
+      'responsibleUserId' => 'user-1',
+      'dueAt' => '2026-03-10T12:00:00+00:00',
+      'updatedAt' => '2026-03-09T08:30:00+00:00',
+    ], $result->recentInterventions[0]);
+    self::assertSame([
+      'id' => 'intervention-2',
+      'number' => 41,
+      'name' => 'Inventaire',
+      'status' => 'draft',
+      'priority' => 'low',
+      'siteId' => null,
+      'siteName' => null,
+      'responsibleId' => null,
+      'responsibleUserId' => null,
+      'dueAt' => null,
+      'updatedAt' => '2026-03-09T08:30:00+00:00',
+    ], $result->recentInterventions[1]);
+  }
+
+  #[Test]
+  public function testInvokeReturnsEmptyRecentInterventionsWhenPermissionDenied(): void
+  {
+    $facilityStatistics = $this->createMock(FacilityStatisticsPort::class);
+    $facilityStatistics->method('countFacilityOverview')->willReturn(['total' => 0, 'active' => 0]);
+    $facilityStatistics->method('countFacilitiesCreatedByDay')->willReturn([]);
+    $facilityStatistics->expects(self::never())->method('getFacilityNamesByIds');
+
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('countByOrganizationId')->willReturn(0);
+    $memberRepository->method('countActiveByOrganizationId')->willReturn(0);
+    $memberRepository->method('countJoinedByDay')->willReturn([]);
+    $memberRepository->expects(self::never())->method('findUserIdsByMemberIds');
+
+    $interventionStatistics = $this->createMock(InterventionStatisticsPort::class);
+    $interventionStatistics->expects(self::never())->method('findRecentInterventions');
+
+    $handler = $this->createHandler(
+      authorization: $this->createDashboardAuthorizationMock(hasInterventionsPermission: false),
+      facilityStatistics: $facilityStatistics,
+      memberRepository: $memberRepository,
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      interventionStatistics: $interventionStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      compareWithPreviousPeriod: false,
+    ));
+
+    self::assertSame([], $result->recentInterventions);
+  }
+
+  #[Test]
+  public function testInvokeCacheKeyDiscriminatesByInterventionsPermissionFlag(): void
+  {
+    $cache = new class () implements CachePort {
+      /**
+       * @var array<string, mixed>
+       */
+      public array $store = [];
+
+      public function get(string $key, mixed $default = null): mixed
+      {
+        return $this->store[$key] ?? $default;
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        $this->store[$key] = $value;
+      }
+
+      public function delete(string $key): void
+      {
+        unset($this->store[$key]);
+      }
+
+      public function clear(): void
+      {
+        $this->store = [];
+      }
+    };
+
+    $handlerWithoutInterventions = $this->createHandler(
+      authorization: $this->createDashboardAuthorizationMock(hasInterventionsPermission: false),
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      cache: $cache,
+    );
+    $handlerWithInterventions = $this->createHandler(
+      authorization: $this->createDashboardAuthorizationMock(hasInterventionsPermission: true),
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      interventionStatistics: $this->createZeroInterventionStatistics(),
+      cache: $cache,
+    );
+
+    $handlerWithoutInterventions->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false));
+    $handlerWithInterventions->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false));
+
+    self::assertCount(2, $cache->store);
+  }
+
   /**
    * @return array<string, array{0: string}>
    */
@@ -704,7 +987,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
   /**
    * @param list<string> $deniedPermissions
    */
-  private function createDashboardAuthorizationMock(array $deniedPermissions = []): OrganizationAuthorizationPort
+  private function createDashboardAuthorizationMock(array $deniedPermissions = [], bool $hasInterventionsPermission = false): OrganizationAuthorizationPort
   {
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
@@ -720,6 +1003,9 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
           }
         }
       });
+    $authorization->method('hasPermission')->willReturnCallback(
+      static fn (string $userId, string $organizationId, string $permission): bool => $hasInterventionsPermission && 'organization.interventions.read' === $permission,
+    );
 
     return $authorization;
   }
@@ -751,6 +1037,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $memberRepository->method('countByOrganizationId')->willReturn(0);
     $memberRepository->method('countActiveByOrganizationId')->willReturn(0);
     $memberRepository->method('countJoinedBetween')->willReturn(0);
+    $memberRepository->method('countJoinedByDay')->willReturn([]);
 
     return $memberRepository;
   }
@@ -794,6 +1081,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $facilityStatistics->method('countFacilities')->willReturn(0);
     $facilityStatistics->method('countActiveFacilities')->willReturn(0);
     $facilityStatistics->method('countFacilitiesCreatedByDay')->willReturn([]);
+    $facilityStatistics->method('getFacilityNamesByIds')->willReturn([]);
 
     return $facilityStatistics;
   }
@@ -824,6 +1112,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $inspectionStatistics->method('countInspectionsByResult')->willReturn([]);
     $inspectionStatistics->expects(self::never())->method('countInspectionsByInspectorType');
     $inspectionStatistics->expects(self::exactly($periodMetricCallCount))->method('countInspectionPeriodMetrics')->willReturn(['total' => 0, 'closed' => 0, 'pass' => 0, 'fail' => 0, 'partial' => 0]);
+    $inspectionStatistics->method('countInspectionsPerformedByDay')->willReturn([]);
 
     return $inspectionStatistics;
   }
@@ -837,7 +1126,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $nonConformityStatistics->method('countNonConformityOverview')->willReturn(['total' => 0, 'open' => 0, 'in_progress' => 0, 'done' => 0, 'waived' => 0, 'overdue' => 0, 'critical_open' => 0]);
     $nonConformityStatistics->method('countNonConformities')->willReturn(0);
     $nonConformityStatistics->method('countNonConformitiesByStatus')->willReturn([]);
-    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesBySeverity');
+    $nonConformityStatistics->method('countNonConformitiesBySeverity')->willReturn(['low' => 0, 'medium' => 0, 'high' => 0, 'critical' => 0]);
     $nonConformityStatistics->method('countOverdueNonConformities')->willReturn(0);
     $nonConformityStatistics->method('countOpenCriticalNonConformities')->willReturn(0);
     $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
@@ -846,6 +1135,17 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $nonConformityStatistics->expects(self::exactly($periodMetricCallCount))->method('countNonConformityPeriodMetrics')->willReturn(['opened' => 0, 'resolved' => 0, 'activeAtStart' => 0]);
 
     return $nonConformityStatistics;
+  }
+
+  /**
+   * @return InterventionStatisticsPort&Stub
+   */
+  private function createZeroInterventionStatistics(): InterventionStatisticsPort
+  {
+    $interventionStatistics = $this->createStub(InterventionStatisticsPort::class);
+    $interventionStatistics->method('findRecentInterventions')->willReturn([]);
+
+    return $interventionStatistics;
   }
 
   private function createHandler(
@@ -858,6 +1158,8 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ?EquipmentStatisticsPort $equipmentStatistics = null,
     ?InspectionStatisticsPort $inspectionStatistics = null,
     ?NonConformityStatisticsPort $nonConformityStatistics = null,
+    ?InterventionStatisticsPort $interventionStatistics = null,
+    ?CachePort $cache = null,
   ): GetOrganizationDashboardHandler {
     return new GetOrganizationDashboardHandler(
       authorization: $authorization ?? $this->createDashboardAuthorizationMock(),
@@ -869,6 +1171,8 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
       equipmentStatistics: $equipmentStatistics ?? $this->createZeroEquipmentStatistics(),
       inspectionStatistics: $inspectionStatistics ?? $this->createZeroInspectionStatistics(0),
       nonConformityStatistics: $nonConformityStatistics ?? $this->createZeroNonConformityStatistics(0),
+      interventionStatistics: $interventionStatistics ?? $this->createZeroInterventionStatistics(),
+      cache: $cache,
     );
   }
 }

@@ -33,6 +33,7 @@ final readonly class GetOrganizationRoleResult implements ResultMessage
    * @param bool $isSystem whether the role is system-managed
    * @param DateTimeImmutable $createdAt the role creation datetime
    * @param string $description the role description
+   * @param int $memberCount the number of ACTIVE members assigned to this role
    */
   public function __construct(
     public string $id,
@@ -42,6 +43,7 @@ final readonly class GetOrganizationRoleResult implements ResultMessage
     public bool $isSystem,
     public DateTimeImmutable $createdAt,
     public string $description = '',
+    public int $memberCount = 0,
   ) {
   }
   // #endregion

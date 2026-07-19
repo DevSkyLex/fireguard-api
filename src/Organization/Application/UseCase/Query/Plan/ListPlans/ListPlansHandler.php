@@ -8,6 +8,7 @@ use Organization\Application\Port\Outbound\PlanRepositoryPort;
 use Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanResult;
 use Organization\Domain\Model\Plan\Plan;
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\TranslationPort;
 
 use function array_map;
 
@@ -31,9 +32,11 @@ final readonly class ListPlansHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param PlanRepositoryPort $planRepository the plan repository port
+   * @param TranslationPort $translator the translator, for each plan's marketing copy
    */
   public function __construct(
     private PlanRepositoryPort $planRepository,
+    private TranslationPort $translator,
   ) {
   }
   // #endregion
@@ -58,7 +61,7 @@ final readonly class ListPlansHandler implements QueryHandler
 
     return new ListPlansResult(
       plans: array_map(
-        static fn (Plan $plan): GetPlanResult => GetPlanResult::fromDomain($plan),
+        fn (Plan $plan): GetPlanResult => GetPlanResult::fromDomain($plan, $this->translator),
         $plans,
       ),
     );

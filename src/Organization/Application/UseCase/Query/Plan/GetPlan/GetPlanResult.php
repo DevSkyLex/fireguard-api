@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Plan\GetPlan;
 
 use DateTimeImmutable;
+use Organization\Domain\Catalog\PlanPresentationCatalog;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Message\ResultMessage;
+use Shared\Application\Port\Outbound\TranslationPort;
 
 use function array_map;
 
@@ -44,6 +46,8 @@ final readonly class GetPlanResult implements ResultMessage
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
    * @param ?string $description the optional description
+   * @param ?string $tagline the short marketing tagline, or null when the plan has none (see {@see PlanPresentationCatalog})
+   * @param list<string> $perks the marketing perk bullet list, in display order, empty when the plan has none
    */
   public function __construct(
     public string $id,
@@ -57,6 +61,8 @@ final readonly class GetPlanResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public ?string $description = null,
+    public ?string $tagline = null,
+    public array $perks = [],
   ) {
   }
   // #endregion
@@ -65,15 +71,18 @@ final readonly class GetPlanResult implements ResultMessage
   /**
    * Method fromDomain.
    *
-   * Builds a read model from a plan aggregate.
+   * Builds a read model from a plan aggregate. The tagline and perks are
+   * MARKETING copy resolved from {@see PlanPresentationCatalog} through the
+   * translator — they never influence what the plan grants (quotas do).
    *
    * @since 1.0.0
    *
    * @param Plan $plan the plan aggregate
+   * @param TranslationPort $translator the translator, to resolve the tagline/perks copy
    *
    * @return self the plan read model
    */
-  public static function fromDomain(Plan $plan): self
+  public static function fromDomain(Plan $plan, TranslationPort $translator): self
   {
     $quotas = array_map(
       static function (OrganizationQuotaResource $resource) use ($plan): array {
@@ -89,9 +98,19 @@ final readonly class GetPlanResult implements ResultMessage
       OrganizationQuotaResource::cases(),
     );
 
+    $planKey = (string) $plan->key();
+    $taglineId = PlanPresentationCatalog::taglineIdFor($planKey);
+    $tagline = null !== $taglineId
+      ? $translator->translate($taglineId, domain: PlanPresentationCatalog::TRANSLATION_DOMAIN)
+      : null;
+    $perks = array_map(
+      static fn (string $perkId): string => $translator->translate($perkId, domain: PlanPresentationCatalog::TRANSLATION_DOMAIN),
+      PlanPresentationCatalog::perkIdsFor($planKey),
+    );
+
     return new self(
       id: (string) $plan->id(),
-      key: (string) $plan->key(),
+      key: $planKey,
       name: $plan->name(),
       limits: $plan->limits(),
       quotas: $quotas,
@@ -101,6 +120,8 @@ final readonly class GetPlanResult implements ResultMessage
       createdAt: $plan->createdAt(),
       updatedAt: $plan->updatedAt(),
       description: $plan->description(),
+      tagline: $tagline,
+      perks: $perks,
     );
   }
   // #endregion

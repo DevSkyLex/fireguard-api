@@ -125,6 +125,11 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
         description: $organization->description(),
         logoUrl: $organization->logoUrl(),
         settings: $organization->settings(),
+        country: null !== $organization->country() ? (string) $organization->country() : null,
+        legalType: $organization->legalType()?->value,
+        legalName: $organization->legalName(),
+        registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
+        vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
       );
     }
 

@@ -7,17 +7,22 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationQuotaExceededException};
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\AddOrganizationMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 #[CoversClass(AddOrganizationMemberProcessor::class)]
 final class AddOrganizationMemberProcessorTest extends TestCase
@@ -38,7 +43,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $processor = new AddOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
 
@@ -84,7 +89,7 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $processor = new AddOrganizationMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
 
@@ -111,13 +116,87 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $processor = new AddOrganizationMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      quota: $this->createStub(OrganizationQuotaPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
 
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(new AddOrganizationMemberInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function testProcessThrowsForbiddenWhenAssigningRolesActorCannotGrant(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441200'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var OrganizationPermissionGrantGuardPort&MockObject $grantGuard */
+    $grantGuard = $this->createMock(OrganizationPermissionGrantGuardPort::class);
+    $grantGuard->expects(self::once())
+      ->method('assertCanAssignRoles')
+      ->willThrowException(OrganizationAccessDeniedException::cannotGrantPermission('organization.*'));
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new AddOrganizationMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      grantGuard: $grantGuard,
+      security: $security,
+    );
+
+    $input = new AddOrganizationMemberInput();
+    $input->userId = '550e8400-e29b-41d4-a716-446655441201';
+    $input->roleIds = ['550e8400-e29b-41d4-a716-446655441211'];
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessMapsWrappedQuotaExceededToHttp409(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441200');
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new AddOrganizationMemberCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441210',
+        userId: '550e8400-e29b-41d4-a716-446655441201',
+      )),
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5)],
+    );
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $processor = new AddOrganizationMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+
+    $input = new AddOrganizationMemberInput();
+    $input->userId = '550e8400-e29b-41d4-a716-446655441201';
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
   }
 
   private function createSecurityUser(string $id): SecurityUser

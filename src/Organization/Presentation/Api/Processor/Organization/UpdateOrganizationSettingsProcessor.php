@@ -9,14 +9,23 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Outbound\EquipmentTypeCatalogPort;
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\{
   UpdateOrganizationSettingsCommand,
   UpdateOrganizationSettingsResult
 };
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
+use Organization\Domain\Exception\{
+  OrganizationArchivedException,
+  OrganizationNotFoundException,
+  OrganizationSlugAlreadyExistsException
+};
 use Organization\Domain\ValueObject\OrganizationSettings;
 use Organization\Presentation\Api\Dto\Input\Organization\{
+  UpdateOrganizationApprovalInput,
+  UpdateOrganizationAssistantInput,
+  UpdateOrganizationAutomationInput,
+  UpdateOrganizationComplianceInput,
   UpdateOrganizationNotificationsInput,
   UpdateOrganizationRegionalInput,
   UpdateOrganizationSettingsInput
@@ -36,7 +45,12 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 use ValueError;
 
+use function array_key_exists;
+use function array_keys;
+use function implode;
+use function in_array;
 use function is_string;
+use function sprintf;
 
 /**
  * Processor UpdateOrganizationSettingsProcessor.
@@ -66,12 +80,14 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
    * @param CommandBusPort $commandBus the command bus
    * @param QueryBusPort $queryBus the query bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
+   * @param EquipmentTypeCatalogPort $equipmentTypeCatalog the equipment-type catalog port
    * @param Security $security the security service
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
     private OrganizationAuthorizationPort $authorization,
+    private EquipmentTypeCatalogPort $equipmentTypeCatalog,
     private Security $security,
   ) {
   }
@@ -117,8 +133,17 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
         isActive: $data->isActive,
         notifications: self::mapNotifications($data->notifications),
         regional: self::mapRegional($data->regional),
+        compliance: $this->mapCompliance($data->compliance),
+        automation: self::mapAutomation($data->automation),
+        approval: self::mapApproval($data->approval),
+        assistant: self::mapAssistant($data->assistant),
+        country: $data->country,
+        legalType: $data->legalType,
+        legalName: $data->legalName,
+        registrationNumber: $data->registrationNumber,
+        vatNumber: $data->vatNumber,
       ));
-    } catch (OrganizationSlugAlreadyExistsException $exception) {
+    } catch (OrganizationArchivedException|OrganizationSlugAlreadyExistsException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
@@ -167,6 +192,11 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
     $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
     $output->planId = $result->planId;
     $output->planName = $result->planName;
+    $output->country = $result->country;
+    $output->legalType = $result->legalType;
+    $output->legalName = $result->legalName;
+    $output->registrationNumber = $result->registrationNumber;
+    $output->vatNumber = $result->vatNumber;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 
@@ -232,6 +262,162 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
   }
 
   /**
+   * Method mapCompliance.
+   *
+   * Maps the optional compliance input to a partial snake_case section payload,
+   * validating periodicity keys against the equipment-type catalog (the domain
+   * value object cannot: it never depends on the Equipment module).
+   *
+   * @since 1.1.0
+   *
+   * @param ?UpdateOrganizationComplianceInput $input the compliance input
+   *
+   * @return ?array<string, mixed> the partial payload, or null when not provided
+   */
+  private function mapCompliance(?UpdateOrganizationComplianceInput $input): ?array
+  {
+    if (null === $input) {
+      return null;
+    }
+
+    if (null !== $input->inspectionPeriodicityDefaults) {
+      $knownTypes = $this->equipmentTypeCatalog->values();
+
+      foreach (array_keys($input->inspectionPeriodicityDefaults) as $equipmentType) {
+        if (!in_array((string) $equipmentType, $knownTypes, true)) {
+          throw new BadRequestHttpException(sprintf(
+            'Unknown equipment type "%s". Supported types: %s.',
+            (string) $equipmentType,
+            implode(', ', $knownTypes),
+          ));
+        }
+      }
+    }
+
+    return [
+      'non_conformity_sla_days' => $input->nonConformitySlaDays,
+      'inspection_periodicity_defaults' => $input->inspectionPeriodicityDefaults,
+      'reminder_window_days' => $input->reminderWindowDays,
+    ];
+  }
+
+  /**
+   * Method mapAutomation.
+   *
+   * @static
+   *
+   * Maps the optional automation input to a partial snake_case section payload.
+   *
+   * @since 1.1.0
+   *
+   * @param ?UpdateOrganizationAutomationInput $input the automation input
+   *
+   * @return ?array<string, bool|null> the partial payload, or null when not provided
+   */
+  private static function mapAutomation(?UpdateOrganizationAutomationInput $input): ?array
+  {
+    if (null === $input) {
+      return null;
+    }
+
+    return [
+      'auto_create_intervention_on_critical_nc' => $input->autoCreateInterventionOnCriticalNc,
+    ];
+  }
+
+  /**
+   * Method mapAssistant.
+   *
+   * @static
+   *
+   * Maps the optional assistant input to a partial snake_case section payload.
+   *
+   * The `model` key is only emitted when the caller actually sent one, because
+   * `OrganizationAssistantSettings::mergedWith()` treats a present-but-null
+   * `model` as "revert to the operator default" — emitting it unconditionally
+   * would silently clear the override whenever any other assistant field is
+   * patched. An empty string is the explicit way to revert.
+   *
+   * @since 1.3.0
+   *
+   * @param ?UpdateOrganizationAssistantInput $input the assistant input
+   *
+   * @return ?array<string, mixed> the partial payload, or null when not provided
+   */
+  private static function mapAssistant(?UpdateOrganizationAssistantInput $input): ?array
+  {
+    if (null === $input) {
+      return null;
+    }
+
+    $payload = [
+      'enabled' => $input->enabled,
+      'temperature' => $input->temperature,
+      'include_business_context' => $input->includeBusinessContext,
+    ];
+
+    if (null !== $input->model) {
+      $payload['model'] = '' === $input->model ? null : $input->model;
+    }
+
+    return $payload;
+  }
+
+  /**
+   * Method mapApproval.
+   *
+   * @static
+   *
+   * Maps the optional approval input to a partial snake_case section
+   * payload. Each `actionRules` entry's camelCase fields are translated to
+   * snake_case, only including the fields actually provided so an omitted
+   * field is left unchanged by `OrganizationApprovalSettings::mergedWith()`
+   * rather than being cleared.
+   *
+   * @since 1.2.0
+   *
+   * @param ?UpdateOrganizationApprovalInput $input the approval input
+   *
+   * @return ?array<string, mixed> the partial payload, or null when not provided
+   */
+  private static function mapApproval(?UpdateOrganizationApprovalInput $input): ?array
+  {
+    if (null === $input) {
+      return null;
+    }
+
+    $actionRules = null;
+    if (null !== $input->actionRules) {
+      $actionRules = [];
+      foreach ($input->actionRules as $actionType => $rule) {
+        if (null === $rule) {
+          $actionRules[$actionType] = null;
+
+          continue;
+        }
+
+        $mapped = [];
+        if (array_key_exists('enabled', $rule)) {
+          $mapped['enabled'] = $rule['enabled'];
+        }
+        if (array_key_exists('minApproverRole', $rule)) {
+          $mapped['min_approver_role'] = $rule['minApproverRole'];
+        }
+        if (array_key_exists('minSeverity', $rule)) {
+          $mapped['min_severity'] = $rule['minSeverity'];
+        }
+        $actionRules[$actionType] = $mapped;
+      }
+    }
+
+    return [
+      'action_rules' => $actionRules,
+      'allow_self_approval' => $input->allowSelfApproval,
+      'approval_ttl_days' => $input->approvalTtlDays,
+    ];
+  }
+
+  /**
    * Method rethrowDomainFailure.
    *
    * Unwraps a messenger runtime failure and rethrows the matching HTTP error.
@@ -246,7 +432,7 @@ final readonly class UpdateOrganizationSettingsProcessor implements ProcessorInt
 
     while (null !== $current) {
       foreach ($this->wrappedExceptions($current) as $candidate) {
-        if ($candidate instanceof OrganizationSlugAlreadyExistsException) {
+        if ($candidate instanceof OrganizationArchivedException || $candidate instanceof OrganizationSlugAlreadyExistsException) {
           throw new ConflictHttpException($candidate->getMessage(), $exception);
         }
 

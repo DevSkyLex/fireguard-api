@@ -36,6 +36,7 @@ final readonly class GetOrganizationDashboardTrendQuery implements QueryMessage
    * @param ?string $inspectorType optional inspector type filter applied to inspection trends
    * @param ?string $nonConformityStatus optional non-conformity status filter applied to non-conformity trends
    * @param ?string $nonConformitySeverity optional non-conformity severity filter applied to non-conformity trends
+   * @param list<string> $additionalMetrics optional extra metric identifiers requested alongside `metric` (via the `metrics` filter); each is added to the response's `seriesByMetric` map and computed over the same resolved period, timezone and granularity as the primary metric
    */
   public function __construct(
     public string $organizationId,
@@ -54,6 +55,7 @@ final readonly class GetOrganizationDashboardTrendQuery implements QueryMessage
     public ?string $inspectorType = null,
     public ?string $nonConformityStatus = null,
     public ?string $nonConformitySeverity = null,
+    public array $additionalMetrics = [],
   ) {
   }
 }

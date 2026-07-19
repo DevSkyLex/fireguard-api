@@ -222,6 +222,11 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
     $output->description = $result->description;
     $output->logoUrl = $result->logoUrl;
     $output->memberCount = $result->memberCount;
+    $output->country = $result->country;
+    $output->legalType = $result->legalType;
+    $output->legalName = $result->legalName;
+    $output->registrationNumber = $result->registrationNumber;
+    $output->vatNumber = $result->vatNumber;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 

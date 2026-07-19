@@ -25,6 +25,8 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_column;
 use function array_keys;
@@ -260,6 +262,8 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     $output->health = $normalizedHealth;
     $output->alerts = $normalizedAlerts;
     $output->comparison = $normalizedComparison;
+    $output->trends = $this->normalizeTrends($result->trends);
+    $output->recentInterventions = $this->normalizeRecentInterventions($result->recentInterventions);
 
     return $output;
   }
@@ -812,6 +816,136 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     }
 
     return $normalized;
+  }
+
+  /**
+   * Method normalizeTrends.
+   *
+   * Passes the per-KPI running-total sparkline series through unchanged
+   * (the handler already produces the exact shape); defensive defaults
+   * keep the output stable if a series is ever missing.
+   *
+   * @since 1.0.0
+   *
+   * @param array{facilities?: list<array{bucket: string, value: int}>, members?: list<array{bucket: string, value: int}>, equipment?: list<array{bucket: string, value: int}>, inspections?: list<array{bucket: string, value: int}>} $trends
+   *
+   * @return array{facilities: list<array{bucket: string, value: int}>, members: list<array{bucket: string, value: int}>, equipment: list<array{bucket: string, value: int}>, inspections: list<array{bucket: string, value: int}>}
+   */
+  private function normalizeTrends(array $trends): array
+  {
+    return [
+      'facilities' => $trends['facilities'] ?? [],
+      'members' => $trends['members'] ?? [],
+      'equipment' => $trends['equipment'] ?? [],
+      'inspections' => $trends['inspections'] ?? [],
+    ];
+  }
+
+  /**
+   * Method normalizeRecentInterventions.
+   *
+   * Enriches the handler's recent-interventions rows with the
+   * responsible member's resolved display name and avatar URL. Mirrors
+   * `ListOrganizationMembersProvider::findUser`'s batch-dedupe pattern
+   * and fallback chain (`trim(first + last) ?: username ?: member id`).
+   *
+   * @since 1.0.0
+   *
+   * @param list<array{
+   *   id: string,
+   *   number: int,
+   *   name: string,
+   *   status: string,
+   *   priority: string,
+   *   siteId: ?string,
+   *   siteName: ?string,
+   *   responsibleId: ?string,
+   *   responsibleUserId: ?string,
+   *   dueAt: ?string,
+   *   updatedAt: string,
+   * }> $recentInterventions
+   *
+   * @return list<array{
+   *   id: string,
+   *   number: int,
+   *   name: string,
+   *   status: string,
+   *   priority: string,
+   *   siteId: ?string,
+   *   siteName: ?string,
+   *   responsibleId: ?string,
+   *   responsibleName: ?string,
+   *   responsibleAvatarUrl: ?string,
+   *   dueAt: ?string,
+   *   updatedAt: string,
+   * }>
+   */
+  private function normalizeRecentInterventions(array $recentInterventions): array
+  {
+    if ([] === $recentInterventions) {
+      return [];
+    }
+
+    $userIds = [];
+    foreach ($recentInterventions as $row) {
+      if (null !== $row['responsibleUserId']) {
+        $userIds[$row['responsibleUserId']] = true;
+      }
+    }
+
+    $usersById = [];
+    foreach (array_keys($userIds) as $userId) {
+      $usersById[$userId] = $this->findUser($userId);
+    }
+
+    $normalized = [];
+    foreach ($recentInterventions as $row) {
+      $userResult = null !== $row['responsibleUserId'] ? ($usersById[$row['responsibleUserId']] ?? null) : null;
+      $responsibleName = null;
+      $responsibleAvatarUrl = null;
+
+      if ($userResult instanceof GetUserResult && null !== $userResult->user) {
+        $responsibleName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
+          ?: $userResult->user->username
+          ?: $row['responsibleId'];
+        $responsibleAvatarUrl = $userResult->user->avatarUrl;
+      } elseif (null !== $row['responsibleId']) {
+        $responsibleName = $row['responsibleId'];
+      }
+
+      $normalized[] = [
+        'id' => $row['id'],
+        'number' => $row['number'],
+        'name' => $row['name'],
+        'status' => $row['status'],
+        'priority' => $row['priority'],
+        'siteId' => $row['siteId'],
+        'siteName' => $row['siteName'],
+        'responsibleId' => $row['responsibleId'],
+        'responsibleName' => $responsibleName,
+        'responsibleAvatarUrl' => $responsibleAvatarUrl,
+        'dueAt' => $row['dueAt'],
+        'updatedAt' => $row['updatedAt'],
+      ];
+    }
+
+    return $normalized;
+  }
+
+  /**
+   * Resolves a user profile without making the dashboard fail when the
+   * user record is unavailable.
+   */
+  private function findUser(string $userId): ?GetUserResult
+  {
+    try {
+      /** @var GetUserResult $result */
+      $result = $this->queryBus->ask(new GetUserQuery($userId));
+    } catch (Throwable) {
+      return null;
+    }
+
+    return $result;
   }
 
   /**

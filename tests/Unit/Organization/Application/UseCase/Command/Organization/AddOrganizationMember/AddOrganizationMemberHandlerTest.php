@@ -8,19 +8,22 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler, AddOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
 
@@ -127,7 +130,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
           && [$defaultRoleId] === ($request->payload['roleIds'] ?? null)
           && is_string($request->payload['joinedAt'] ?? null)
           && $userId === $request->recipientUserId
-          && 'member@example.com' === $request->recipientEmail;
+          && 'member@example.com' === $request->recipientEmail
+          && $organizationId === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655449010',
@@ -155,6 +159,17 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event) use ($organizationId, $memberId, $userId): bool {
+        return $event instanceof OrganizationMemberAddedEvent
+          && $organizationId === $event->organizationId
+          && $memberId === $event->memberId
+          && $userId === $event->userId;
+      }));
+
     $handler = new AddOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
@@ -164,6 +179,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       logger: $logger,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
@@ -266,6 +283,17 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event) use ($organizationId, $memberId, $userId): bool {
+        return $event instanceof OrganizationMemberAddedEvent
+          && $organizationId === $event->organizationId
+          && $memberId === $event->memberId
+          && $userId === $event->userId;
+      }));
+
     $handler = new AddOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
@@ -275,6 +303,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
@@ -346,9 +376,9 @@ final class AddOrganizationMemberHandlerTest extends TestCase
         self::callback(static fn (OrganizationMemberId $id): bool => $memberId === (string) $id),
         self::callback(static fn (OrganizationRoleId $id): bool => $roleId === (string) $id),
       );
-    $memberRepository->expects(self::once())
+    $memberRepository->expects(self::exactly(2))
       ->method('findRoleIdsForMember')
-      ->willReturn([$roleId]);
+      ->willReturnOnConsecutiveCalls([], [$roleId]);
 
     /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
@@ -380,6 +410,18 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    // The user is already an active member: the operation is a role grant, so
+    // the handler audits the newly assigned role instead of member_added.
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (object $event): bool => $event instanceof OrganizationRoleAssignedEvent
+        && $organizationId === $event->organizationId
+        && $memberId === $event->memberId
+        && $roleId === $event->roleId
+        && 'technician' === $event->roleName));
+
     $handler = new AddOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
@@ -389,6 +431,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
@@ -430,6 +474,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -498,6 +544,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(OrganizationRoleNotFoundException::class);
@@ -612,6 +660,8 @@ final class AddOrganizationMemberHandlerTest extends TestCase
       logger: $logger,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new AddOrganizationMemberCommand(
@@ -625,5 +675,190 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     self::assertSame($organizationId, $result->organizationId);
     self::assertSame($userId, $result->userId);
     self::assertSame([$roleId], $result->roleIds);
+  }
+
+  #[Test]
+  public function testInvokeSkipsQuotaAssertionWhenEnforceQuotaIsFalse(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554408a0';
+    $userId = '550e8400-e29b-41d4-a716-4466554408a2';
+    $roleId = '550e8400-e29b-41d4-a716-4466554408a3';
+
+    [$organizationRepository, $userRepository, $memberRepository, $roleRepository] = $this->activeMemberFixtures(
+      $organizationId,
+      '550e8400-e29b-41d4-a716-4466554408a1',
+      $userId,
+      $roleId,
+    );
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::never())->method('assertCanAdd');
+
+    $handler = new AddOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      userRepository: $userRepository,
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $this->passthroughTransactionManager(),
+      quota: $quota,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $handler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: $organizationId,
+      userId: $userId,
+      roleIds: [$roleId],
+      sendMemberNotification: false,
+      enforceQuota: false,
+    ));
+  }
+
+  #[Test]
+  public function testInvokePropagatesQuotaExceededAndSkipsMemberWriteWhenEnforced(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554408b0';
+    $userId = '550e8400-e29b-41d4-a716-4466554408b2';
+    $roleId = '550e8400-e29b-41d4-a716-4466554408b3';
+
+    // The cap is checked as the first statement inside the transaction, before any
+    // member lookup/assignment, so the exception surfaces without a member write.
+    [$organizationRepository, $userRepository, $memberRepository, $roleRepository] = $this->activeMemberFixtures(
+      $organizationId,
+      '550e8400-e29b-41d4-a716-4466554408b1',
+      $userId,
+      $roleId,
+    );
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::once())
+      ->method('assertCanAdd')
+      ->with($organizationId, OrganizationQuotaResource::MEMBERS)
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::MEMBERS, 5));
+
+    $handler = new AddOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      userRepository: $userRepository,
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $this->passthroughTransactionManager(),
+      quota: $quota,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $handler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: $organizationId,
+      userId: $userId,
+      roleIds: [$roleId],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchMemberAddedEventWhenMemberIsAlreadyActive(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-4466554408c0';
+    $userId = '550e8400-e29b-41d4-a716-4466554408c2';
+    $roleId = '550e8400-e29b-41d4-a716-4466554408c3';
+
+    [$organizationRepository, $userRepository, $memberRepository, $roleRepository] = $this->activeMemberFixtures(
+      $organizationId,
+      '550e8400-e29b-41d4-a716-4466554408c1',
+      $userId,
+      $roleId,
+    );
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new AddOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      userRepository: $userRepository,
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $this->passthroughTransactionManager(),
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: $organizationId,
+      userId: $userId,
+      roleIds: [$roleId],
+      sendMemberNotification: false,
+    ));
+
+    self::assertTrue($result->isActive);
+  }
+
+  /**
+   * Builds the organization/user/member/role repository stubs for an existing
+   * active member so the quota-branch tests can focus on the enforceQuota flag.
+   *
+   * @return array{OrganizationRepositoryPort, UserRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort}
+   */
+  private function activeMemberFixtures(string $organizationId, string $memberId, string $userId, string $roleId): array
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Test'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $member = OrganizationMember::reconstitute(
+      id: new OrganizationMemberId($memberId),
+      organizationId: new OrganizationId($organizationId),
+      userId: $userId,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $role = OrganizationRole::reconstitute(
+      id: new OrganizationRoleId($roleId),
+      organizationId: new OrganizationId($organizationId),
+      name: new OrganizationRoleName('technician'),
+      permissions: ['organization.read'],
+      isSystem: false,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($organization);
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findById')->willReturn(UserTestFactory::createActive($userId));
+
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findByOrganizationAndUser')->willReturn($member);
+    $memberRepository->method('findRoleIdsForMember')->willReturn([$roleId]);
+
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findByIdsInOrganization')->willReturn([$role]);
+
+    return [$organizationRepository, $userRepository, $memberRepository, $roleRepository];
+  }
+
+  private function passthroughTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return $transactionManager;
   }
 }

@@ -43,6 +43,11 @@ final readonly class GetOrganizationResult implements ResultMessage
    * @param ?OrganizationSettings $settings the structured organization settings
    * @param ?string $planId the assigned plan identifier
    * @param ?string $planName the assigned plan display name
+   * @param ?string $country the legal country (ISO 3166-1 alpha-2)
+   * @param ?string $legalType the legal entity type
+   * @param ?string $legalName the registered legal name
+   * @param ?string $registrationNumber the company/registration number
+   * @param ?string $vatNumber the VAT number
    */
   public function __construct(
     public string $id,
@@ -60,6 +65,11 @@ final readonly class GetOrganizationResult implements ResultMessage
     public ?OrganizationSettings $settings = null,
     public ?string $planId = null,
     public ?string $planName = null,
+    public ?string $country = null,
+    public ?string $legalType = null,
+    public ?string $legalName = null,
+    public ?string $registrationNumber = null,
+    public ?string $vatNumber = null,
   ) {
   }
   // #endregion

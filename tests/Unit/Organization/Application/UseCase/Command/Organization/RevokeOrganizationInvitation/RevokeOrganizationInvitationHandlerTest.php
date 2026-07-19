@@ -11,6 +11,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\{RevokeOrganizationInvitationCommand, RevokeOrganizationInvitationHandler, RevokeOrganizationInvitationResult};
+use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus};
@@ -18,7 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -88,7 +89,8 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
           && $email === $request->recipientEmail
           && $organizationId === ($request->payload['organizationId'] ?? null)
           && $invitationId === ($request->payload['invitationId'] ?? null)
-          && is_string($request->payload['revokedAt'] ?? null);
+          && is_string($request->payload['revokedAt'] ?? null)
+          && $organizationId === $request->organizationId;
       }))
       ->willThrowException(new RuntimeException('Mailer unavailable.'));
 
@@ -114,12 +116,24 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event) use ($organizationId, $invitationId, $revokerUserId): bool {
+        return $event instanceof OrganizationInvitationRevokedEvent
+          && $organizationId === $event->organizationId
+          && $invitationId === $event->invitationId
+          && $revokerUserId === $event->revokedByUserId;
+      }));
+
     $handler = new RevokeOrganizationInvitationHandler(
       invitationRepository: $invitationRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new RevokeOrganizationInvitationCommand(
@@ -207,12 +221,19 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(OrganizationInvitationRevokedEvent::class));
+
     $handler = new RevokeOrganizationInvitationHandler(
       invitationRepository: $invitationRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new RevokeOrganizationInvitationCommand(
@@ -264,12 +285,17 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
     $transactionManager = $this->createMock(TransactionManagerPort::class);
     $transactionManager->expects(self::never())->method('transactional');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new RevokeOrganizationInvitationHandler(
       invitationRepository: $invitationRepository,
       userRepository: $userRepository,
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationInvitationNotFoundException::class);

@@ -11,6 +11,7 @@ use Organization\Application\Port\Outbound\{
   InspectionStatisticsPort,
   OrganizationInvitationRepositoryPort,
   OrganizationMemberRepositoryPort,
+  OrganizationQuotaLockPort,
   OrganizationRepositoryPort,
   PlanRepositoryPort
 };
@@ -193,10 +194,39 @@ final class OrganizationQuotaServiceTest extends TestCase
       $this->createStub(FacilityStatisticsPort::class),
       $this->createStub(EquipmentStatisticsPort::class),
       $this->createStub(InspectionStatisticsPort::class),
+      $this->createStub(OrganizationQuotaLockPort::class),
     );
 
     self::assertSame(5, $service->getLimit(self::ORGANIZATION_ID, OrganizationQuotaResource::MEMBERS));
     self::assertSame(2, $service->getUsage(self::ORGANIZATION_ID, OrganizationQuotaResource::MEMBERS));
+  }
+
+  #[Test]
+  public function testAssertCanAddAcquiresTheAdvisoryLockWhenLimited(): void
+  {
+    /** @var OrganizationQuotaLockPort&MockObject $quotaLock */
+    $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
+    $quotaLock->expects(self::once())
+      ->method('acquire')
+      ->with(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+
+    $service = $this->service(plan: $this->plan(['facilities' => 5]), facilityCount: 2, quotaLock: $quotaLock);
+
+    $service->assertCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+  }
+
+  #[Test]
+  public function testAssertCanAddSkipsTheLockWhenUnlimited(): void
+  {
+    /** @var OrganizationQuotaLockPort&MockObject $quotaLock */
+    $quotaLock = $this->createMock(OrganizationQuotaLockPort::class);
+    $quotaLock->expects(self::never())->method('acquire');
+
+    $service = $this->service(plan: $this->plan([]), facilityCount: 9999, quotaLock: $quotaLock);
+
+    $service->assertCanAdd(self::ORGANIZATION_ID, OrganizationQuotaResource::FACILITIES);
+
+    $this->addToAssertionCount(1);
   }
 
   private function service(
@@ -206,6 +236,7 @@ final class OrganizationQuotaServiceTest extends TestCase
     int $facilityCount = 0,
     int $equipmentCount = 0,
     int $inspectionCount = 0,
+    ?OrganizationQuotaLockPort $quotaLock = null,
   ): OrganizationQuotaService {
     $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
     $organizationRepository->method('findById')->willReturn($this->organization());
@@ -236,6 +267,7 @@ final class OrganizationQuotaServiceTest extends TestCase
       $facilityStatistics,
       $equipmentStatistics,
       $inspectionStatistics,
+      $quotaLock ?? $this->createStub(OrganizationQuotaLockPort::class),
     );
   }
 

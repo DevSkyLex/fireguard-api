@@ -15,7 +15,7 @@ use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan
   ChangeOrganizationPlanResult
 };
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
-use Organization\Domain\Exception\{OrganizationNotFoundException, PlanNotFoundException};
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationPlanUsageExceededException, PlanNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationSettings, PlanId};
 use Organization\Presentation\Api\Dto\Input\Organization\ChangeOrganizationPlanInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
@@ -122,9 +122,12 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
       $result = $this->commandBus->dispatch(new ChangeOrganizationPlanCommand(
         organizationId: $organizationId,
         planId: $data->planId,
+        acknowledgeOveruse: $data->acknowledgeOveruse,
       ));
     } catch (OrganizationNotFoundException|PlanNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (OrganizationPlanUsageExceededException $exception) {
+      throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
@@ -170,6 +173,11 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
     $output->settings = OrganizationSettingsOutput::fromDomain($result->settings ?? OrganizationSettings::default());
     $output->planId = $result->planId;
     $output->planName = $result->planName;
+    $output->country = $result->country;
+    $output->legalType = $result->legalType;
+    $output->legalName = $result->legalName;
+    $output->registrationNumber = $result->registrationNumber;
+    $output->vatNumber = $result->vatNumber;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
 
@@ -193,6 +201,10 @@ final readonly class ChangeOrganizationPlanProcessor implements ProcessorInterfa
       foreach ($this->wrappedExceptions($current) as $candidate) {
         if ($candidate instanceof OrganizationNotFoundException || $candidate instanceof PlanNotFoundException) {
           throw new NotFoundHttpException($candidate->getMessage(), $exception);
+        }
+
+        if ($candidate instanceof OrganizationPlanUsageExceededException) {
+          throw new ConflictHttpException($candidate->getMessage(), $exception);
         }
 
         if ($candidate instanceof InvalidArgumentException) {

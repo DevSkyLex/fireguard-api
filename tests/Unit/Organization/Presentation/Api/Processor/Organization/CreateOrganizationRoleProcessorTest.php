@@ -7,8 +7,9 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleResult};
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Processor\Organization\CreateOrganizationRoleProcessor;
@@ -38,6 +39,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
     $processor = new CreateOrganizationRoleProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
 
@@ -88,6 +90,7 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
     $processor = new CreateOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
 
@@ -121,12 +124,48 @@ final class CreateOrganizationRoleProcessorTest extends TestCase
     $processor = new CreateOrganizationRoleProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
 
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(new CreateOrganizationRoleInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function testProcessThrowsForbiddenWhenGrantingUnheldPermission(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441300'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var OrganizationPermissionGrantGuardPort&MockObject $grantGuard */
+    $grantGuard = $this->createMock(OrganizationPermissionGrantGuardPort::class);
+    $grantGuard->expects(self::once())
+      ->method('assertCanGrantPermissions')
+      ->willThrowException(OrganizationAccessDeniedException::cannotGrantPermission('organization.*'));
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new CreateOrganizationRoleProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      grantGuard: $grantGuard,
+      security: $security,
+    );
+
+    $input = new CreateOrganizationRoleInput();
+    $input->name = 'privileged';
+    $input->permissions = ['organization.*'];
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441310']);
   }
 
   private function createSecurityUser(string $id): SecurityUser

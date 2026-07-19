@@ -9,14 +9,16 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
-  NotFoundHttpException
+  NotFoundHttpException,
+  UnprocessableEntityHttpException
 };
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -26,12 +28,16 @@ use function is_string;
 /**
  * Processor DeleteOrganizationProcessor.
  *
- * Permanently deletes an organization on behalf of a user holding the
- * organization.delete permission.
+ * Archives an organization (reversible soft delete, never a hard/permanent
+ * delete — see MODULE.md) on behalf of a user holding the organization.delete
+ * permission. The danger-zone confirmation (the "slug" query parameter,
+ * matched against the organization's current slug) is required and enforced
+ * by the handler; this processor only forwards it and maps the resulting
+ * domain failure to HTTP 422.
  *
  * @category Processor
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -50,11 +56,13 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
    * @param CommandBusPort $commandBus the command bus
    * @param OrganizationAuthorizationPort $authorization the organization authorization port
    * @param Security $security the security service
+   * @param RequestStack $requestStack the request stack (for the required "slug" confirmation query parameter)
    */
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
+    private RequestStack $requestStack,
   ) {
   }
   // #endregion
@@ -63,7 +71,7 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
   /**
    * Method process.
    *
-   * Authorizes and dispatches the organization deletion command.
+   * Authorizes and dispatches the organization deletion (archive) command.
    *
    * @since 1.0.0
    *
@@ -88,10 +96,18 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
       throw new AccessDeniedHttpException('Missing organization.delete permission.');
     }
 
+    $slugQueryParam = $this->requestStack->getCurrentRequest()?->query->get('slug');
+    $slugConfirmation = is_string($slugQueryParam) ? $slugQueryParam : null;
+
     try {
-      $this->commandBus->dispatch(new DeleteOrganizationCommand(organizationId: $organizationId));
+      $this->commandBus->dispatch(new DeleteOrganizationCommand(
+        organizationId: $organizationId,
+        slugConfirmation: $slugConfirmation,
+      ));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (OrganizationDeletionConfirmationMismatchException $exception) {
+      throw new UnprocessableEntityHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
       $this->rethrowDomainFailure($exception);
 
@@ -118,6 +134,10 @@ final readonly class DeleteOrganizationProcessor implements ProcessorInterface
       foreach ($this->wrappedExceptions($current) as $candidate) {
         if ($candidate instanceof OrganizationNotFoundException) {
           throw new NotFoundHttpException($candidate->getMessage(), $exception);
+        }
+
+        if ($candidate instanceof OrganizationDeletionConfirmationMismatchException) {
+          throw new UnprocessableEntityHttpException($candidate->getMessage(), $exception);
         }
       }
 

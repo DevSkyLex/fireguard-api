@@ -124,6 +124,7 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       $output->userId = $member->userId;
       $output->displayName = $member->userId;
       $output->isActive = $member->isActive;
+      $output->isOwner = $member->isOwner;
       $output->joinedAt = $member->joinedAt->format('c');
       $output->roleIds = $member->roleIds;
       $output->roleNames = array_values(array_filter(array_map(

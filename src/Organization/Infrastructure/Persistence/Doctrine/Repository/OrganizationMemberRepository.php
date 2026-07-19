@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use DateTimeZone;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
+use Exception;
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Application\Service\OrganizationCacheInvalidator;
@@ -14,6 +17,8 @@ use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMemberMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
+use RuntimeException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_filter;
 use function array_map;
@@ -58,10 +63,14 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the Doctrine entity manager
+   * @param ?OrganizationCacheInvalidator $cacheInvalidator the cache invalidator
+   * @param string $storageTimeZone the persistence timezone for timestamp-without-timezone columns (e.g. `joined_at`)
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
     private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
+    #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
+    private readonly string $storageTimeZone = 'UTC',
   ) {
     $this->memberRepository = $entityManager->getRepository(OrganizationMemberRecord::class);
     $this->memberRoleRepository = $entityManager->getRepository(OrganizationMemberRoleRecord::class);
@@ -432,6 +441,97 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   }
 
   /**
+   * Method countJoinedByDay.
+   *
+   * Returns member join counts grouped by day for a period, honoring the
+   * UTC-storage timestamp-without-timezone convention used by `joined_at`.
+   * Mirrors `FacilityRepository::countByCreatedDayForOrganizationId`: a
+   * PostgreSQL fast path plus a portable QueryBuilder fallback.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param DateTimeImmutable $from the inclusive lower joined-at bound
+   * @param DateTimeImmutable $to the inclusive upper joined-at bound
+   * @param ?string $timeZone optional IANA timezone used to bucket days; defaults to the lower bound's timezone
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countJoinedByDay(OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, ?string $timeZone = null): array
+  {
+    $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $from);
+    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
+      return $this->countJoinedByDayPostgreSql($organizationId, $from, $to, $bucketTimeZone);
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{joinedAt: DateTimeImmutable}> $rows */
+    $rows = $this->memberRepository
+      ->createQueryBuilder('organizationMember')
+      ->select('organizationMember.joinedAt AS joinedAt')
+      ->where('organizationMember.organization = :organization')
+      ->andWhere('organizationMember.joinedAt >= :joinedAtFrom')
+      ->andWhere('organizationMember.joinedAt <= :joinedAtTo')
+      ->setParameter('organization', $organization)
+      ->setParameter('joinedAtFrom', $this->normalizeTimestampToStorageDateTime($from), Types::DATETIME_IMMUTABLE)
+      ->setParameter('joinedAtTo', $this->normalizeTimestampToStorageDateTime($to), Types::DATETIME_IMMUTABLE)
+      ->orderBy('organizationMember.joinedAt', 'ASC')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $bucket = $this->reinterpretStorageDateTime($row['joinedAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
+      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Method findUserIdsByMemberIds.
+   *
+   * Resolves user identifiers for a bounded set of organization member
+   * identifiers.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param list<string> $memberIds the member identifiers to resolve
+   *
+   * @return array<string, string> map of memberId => userId
+   */
+  public function findUserIdsByMemberIds(OrganizationId $organizationId, array $memberIds): array
+  {
+    if ([] === $memberIds) {
+      return [];
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{id: string, userId: string}> $rows */
+    $rows = $this->memberRepository
+      ->createQueryBuilder('organizationMember')
+      ->select('organizationMember.id AS id, organizationMember.userId AS userId')
+      ->where('organizationMember.organization = :organization')
+      ->andWhere('organizationMember.id IN (:memberIds)')
+      ->setParameter('organization', $organization)
+      ->setParameter('memberIds', $memberIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $userIdsByMemberId = [];
+    foreach ($rows as $row) {
+      $userIdsByMemberId[(string) $row['id']] = (string) $row['userId'];
+    }
+
+    return $userIdsByMemberId;
+  }
+
+  /**
    * Method getPermissionNamesForUserInOrganization.
    *
    * Resolves effective permission names for a user in an organization.
@@ -485,6 +585,55 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     return $permissions;
   }
 
+  /**
+   * Method countActiveMembersGroupedByRoleId.
+   *
+   * Counts ACTIVE members assigned to each role of an organization in a
+   * single grouped query over `organization_member_roles`, joined to
+   * `organization_members` and filtered on `is_active = true`. Mirrors
+   * `countByOrganizationIds`'s single-grouped-query batch pattern.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of roleId => active member count
+   */
+  public function countActiveMembersGroupedByRoleId(OrganizationId $organizationId): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{roleId: string|null, memberCount: int|string|null}> $rows */
+    $rows = $this->memberRoleRepository
+      ->createQueryBuilder('memberRole')
+      ->select('IDENTITY(memberRole.role) AS roleId')
+      ->addSelect('COUNT(memberRole.member) AS memberCount')
+      // The join alias is deliberately NOT `member`: `MEMBER` is a reserved DQL
+      // keyword (`MEMBER OF`), so `WHERE member.isActive = :isActive` fails to
+      // parse with "Expected T_MEMBER, got '='" at runtime.
+      ->innerJoin('memberRole.member', 'orgMember')
+      ->where('orgMember.organization = :organization')
+      ->andWhere('orgMember.isActive = :isActive')
+      ->groupBy('memberRole.role')
+      ->setParameter('organization', $organization)
+      ->setParameter('isActive', true)
+      ->getQuery()
+      ->getScalarResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $roleId = (string) ($row['roleId'] ?? '');
+      if ('' === $roleId) {
+        continue;
+      }
+
+      $counts[$roleId] = (int) ($row['memberCount'] ?? 0);
+    }
+
+    return $counts;
+  }
+
   private function invalidateMemberRecordProfile(OrganizationMemberRecord $memberRecord): void
   {
     $organizationId = $memberRecord->organization?->id;
@@ -498,6 +647,79 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   private function invalidateMemberProfile(string $organizationId, string $userId): void
   {
     $this->cacheInvalidator?->invalidateCurrentMemberProfile($organizationId, $userId);
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countJoinedByDayPostgreSql(OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, DateTimeZone $bucketTimeZone): array
+  {
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((joined_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS member_count
+        FROM organization_members
+        WHERE organization_id = :organizationId
+          AND joined_at >= :joinedAtFrom
+          AND joined_at <= :joinedAtTo
+        GROUP BY 1
+        ORDER BY 1 ASC
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'joinedAtFrom' => $this->normalizeTimestampForStorageTimeZone($from, $storageTimeZone),
+      'joinedAtTo' => $this->normalizeTimestampForStorageTimeZone($to, $storageTimeZone),
+    ];
+
+    /** @var list<array{bucket: string, member_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['bucket']] = (int) $row['member_count'];
+    }
+
+    return $counts;
+  }
+
+  private function resolveBucketTimeZone(?string $timeZone, DateTimeImmutable $lowerBound): DateTimeZone
+  {
+    if (null !== $timeZone && '' !== $timeZone) {
+      return new DateTimeZone($timeZone);
+    }
+
+    return $lowerBound->getTimezone();
+  }
+
+  private function resolveStorageTimeZone(): DateTimeZone
+  {
+    try {
+      return new DateTimeZone($this->storageTimeZone);
+    } catch (Exception $exception) {
+      throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
+    }
+  }
+
+  private function normalizeTimestampToStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
+  {
+    return $value->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
+  {
+    return DateTimeImmutable::createFromFormat(
+      'Y-m-d H:i:s.u',
+      $value->format('Y-m-d H:i:s.u'),
+      $this->resolveStorageTimeZone(),
+    ) ?: $value->setTimezone($this->resolveStorageTimeZone());
+  }
+
+  private function normalizeTimestampForStorageTimeZone(DateTimeImmutable $value, DateTimeZone $storageTimeZone): string
+  {
+    return $value->setTimezone($storageTimeZone)->format('Y-m-d H:i:s.u');
   }
   // #endregion
 }

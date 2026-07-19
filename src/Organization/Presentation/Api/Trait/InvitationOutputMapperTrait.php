@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Organization\Presentation\Api\Processor\Organization;
+namespace Organization\Presentation\Api\Trait;
 
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\InviteOrganizationMemberResult;
 use Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\ResendOrganizationInvitationResult;

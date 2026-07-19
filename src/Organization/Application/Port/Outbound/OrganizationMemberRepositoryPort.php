@@ -181,6 +181,41 @@ interface OrganizationMemberRepositoryPort
   public function countJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int;
 
   /**
+   * Method countJoinedByDay.
+   *
+   * Returns member join counts grouped by day for a period, honoring the
+   * UTC-storage timestamp-without-timezone convention used by
+   * `joined_at`. Used to build the dashboard members sparkline.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param DateTimeImmutable $from the inclusive lower joined-at bound
+   * @param DateTimeImmutable $to the inclusive upper joined-at bound
+   * @param ?string $timeZone optional IANA timezone used to bucket days; defaults to the lower bound's timezone
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
+  public function countJoinedByDay(OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, ?string $timeZone = null): array;
+
+  /**
+   * Method findUserIdsByMemberIds.
+   *
+   * Resolves user identifiers for a bounded set of organization member
+   * identifiers. Used to enrich cross-module summaries (e.g. the
+   * dashboard recent-interventions list) with the responsible member's
+   * user identity without exposing the member aggregate.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param list<string> $memberIds the member identifiers to resolve
+   *
+   * @return array<string, string> map of memberId => userId
+   */
+  public function findUserIdsByMemberIds(OrganizationId $organizationId, array $memberIds): array;
+
+  /**
    * Method getPermissionNamesForUserInOrganization.
    *
    * Resolves effective permission names for a user in an organization.
@@ -193,5 +228,22 @@ interface OrganizationMemberRepositoryPort
    * @return list<string> the effective permission names
    */
   public function getPermissionNamesForUserInOrganization(string $userId, OrganizationId $organizationId): array;
+
+  /**
+   * Method countActiveMembersGroupedByRoleId.
+   *
+   * Counts ACTIVE members assigned to each role of an organization in a
+   * single grouped query (`GROUP BY role_id` over
+   * `organization_member_roles`, joined to `organization_members` and
+   * filtered on `is_active = true`), avoiding one COUNT query per role.
+   * Roles with zero active assignments are simply absent from the map.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   *
+   * @return array<string, int> map of roleId => active member count
+   */
+  public function countActiveMembersGroupedByRoleId(OrganizationId $organizationId): array;
   // #endregion
 }

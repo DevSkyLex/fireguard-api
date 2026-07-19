@@ -32,6 +32,7 @@ final readonly class AddOrganizationMemberResult implements ResultMessage
    * @param list<string> $roleIds the assigned role identifiers
    * @param bool $isActive whether the membership is active
    * @param DateTimeImmutable $joinedAt the membership join datetime
+   * @param bool $wasCreatedOrReactivated whether the membership was actually created or reactivated (false when the user was already an active member)
    */
   public function __construct(
     public string $memberId,
@@ -40,6 +41,7 @@ final readonly class AddOrganizationMemberResult implements ResultMessage
     public array $roleIds,
     public bool $isActive,
     public DateTimeImmutable $joinedAt,
+    public bool $wasCreatedOrReactivated = false,
   ) {
   }
   // #endregion

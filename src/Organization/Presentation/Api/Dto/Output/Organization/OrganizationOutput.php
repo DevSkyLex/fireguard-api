@@ -142,6 +142,63 @@ final class OrganizationOutput
   public ?string $planName = null;
 
   /**
+   * Property country.
+   *
+   * Legal country of the organization (ISO 3166-1 alpha-2). Part of the
+   * optional legal profile used on reports, invoices and compliance
+   * documents.
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $country = null;
+
+  /**
+   * Property legalType.
+   *
+   * Legal entity type. See `GET /api/organizations/legal-types` for the
+   * supported values and their labels.
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $legalType = null;
+
+  /**
+   * Property legalName.
+   *
+   * Registered legal name, which may differ from the organization's display
+   * `name`.
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $legalName = null;
+
+  /**
+   * Property registrationNumber.
+   *
+   * Company/registration number in the jurisdiction identified by `country`.
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $registrationNumber = null;
+
+  /**
+   * Property vatNumber.
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $vatNumber = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

@@ -81,6 +81,11 @@ final readonly class GetOrganizationHandler implements QueryHandler
       settings: $organization->settings(),
       planId: $plan instanceof Plan ? (string) $plan->id() : null,
       planName: $plan instanceof Plan ? $plan->name() : null,
+      country: null !== $organization->country() ? (string) $organization->country() : null,
+      legalType: $organization->legalType()?->value,
+      legalName: $organization->legalName(),
+      registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
+      vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
     );
   }
   // #endregion

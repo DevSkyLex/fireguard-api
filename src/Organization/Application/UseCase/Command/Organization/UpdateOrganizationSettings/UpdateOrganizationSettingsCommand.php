@@ -40,6 +40,15 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
    * @param ?string $logoUrl the new logo URL set server-side after an upload, or null to leave unchanged
    * @param ?array<string, mixed> $notifications the partial notification settings, or null to leave unchanged
    * @param ?array<string, mixed> $regional the partial regional settings, or null to leave unchanged
+   * @param ?array<string, mixed> $compliance the partial compliance settings (map entries set to null revert to the catalog default), or null to leave unchanged
+   * @param ?array<string, mixed> $automation the partial automation toggles, or null to leave unchanged
+   * @param ?array<string, mixed> $approval the partial approval policy (action-rule entries set to null revert to "disabled"), or null to leave unchanged
+   * @param ?array<string, mixed> $assistant the partial AI-assistant policy (a null `model` reverts to the operator default), or null to leave unchanged
+   * @param ?string $country the new legal country in ISO 3166-1 alpha-2 (empty clears it), or null to leave unchanged
+   * @param ?string $legalType the new legal entity type (empty clears it), or null to leave unchanged
+   * @param ?string $legalName the new registered legal name (empty clears it), or null to leave unchanged
+   * @param ?string $registrationNumber the new company/registration number (empty clears it), or null to leave unchanged
+   * @param ?string $vatNumber the new VAT number (empty clears it), or null to leave unchanged
    */
   public function __construct(
     public string $organizationId,
@@ -50,6 +59,15 @@ final readonly class UpdateOrganizationSettingsCommand implements CommandMessage
     public ?string $logoUrl = null,
     public ?array $notifications = null,
     public ?array $regional = null,
+    public ?array $compliance = null,
+    public ?array $automation = null,
+    public ?array $approval = null,
+    public ?array $assistant = null,
+    public ?string $country = null,
+    public ?string $legalType = null,
+    public ?string $legalName = null,
+    public ?string $registrationNumber = null,
+    public ?string $vatNumber = null,
   ) {
   }
   // #endregion

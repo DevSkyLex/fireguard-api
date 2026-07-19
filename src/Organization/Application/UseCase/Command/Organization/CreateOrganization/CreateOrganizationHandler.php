@@ -8,6 +8,7 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
+use Organization\Domain\Event\Organization\OrganizationCreatedEvent;
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -15,7 +16,7 @@ use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, OrganizationRoleId, OrganizationRoleName, OrganizationSlug};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
@@ -51,6 +52,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
    * @param PlanRepositoryPort $planRepository the plan repository port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -60,6 +62,7 @@ final readonly class CreateOrganizationHandler implements CommandHandler
     private PlanRepositoryPort $planRepository,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -168,6 +171,12 @@ final readonly class CreateOrganizationHandler implements CommandHandler
 
       throw $exception;
     }
+
+    $this->eventDispatcher->dispatch(new OrganizationCreatedEvent(
+      organizationId: (string) $organizationId,
+      name: $command->name,
+      ownerUserId: $command->ownerUserId,
+    ));
 
     return $result;
   }

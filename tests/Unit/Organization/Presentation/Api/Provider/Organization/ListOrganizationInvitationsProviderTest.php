@@ -13,7 +13,7 @@ use Organization\Application\UseCase\Query\Organization\ListOrganizationInvitati
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitationsProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -116,8 +116,8 @@ final class ListOrganizationInvitationsProviderTest extends TestCase
       offset: 0,
     );
 
-    /** @var QueryBusPort&MockObject $queryBus */
-    $queryBus = $this->createMock(QueryBusPort::class);
+    /** @var QueryBusPort&Stub $queryBus */
+    $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturnCallback(
       static fn (object $query): object => $query instanceof ListOrganizationInvitationsQuery
         ? $invitationsResult

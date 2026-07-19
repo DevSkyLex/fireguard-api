@@ -6,9 +6,11 @@ namespace Organization\Application\UseCase\Command\Organization\DeleteOrganizati
 
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * UseCase DeleteOrganizationRoleHandler.
@@ -31,10 +33,12 @@ final readonly class DeleteOrganizationRoleHandler implements CommandHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher port
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -72,7 +76,15 @@ final readonly class DeleteOrganizationRoleHandler implements CommandHandler
       throw new InvalidArgumentException('System roles cannot be deleted.');
     }
 
+    $roleName = (string) $role->name();
+
     $this->roleRepository->remove($role);
+
+    $this->eventDispatcher->dispatch(new OrganizationRoleDeletedEvent(
+      organizationId: $command->organizationId,
+      roleId: $command->roleId,
+      roleName: $roleName,
+    ));
 
     return new DeleteOrganizationRoleResult(
       roleId: (string) $roleId,

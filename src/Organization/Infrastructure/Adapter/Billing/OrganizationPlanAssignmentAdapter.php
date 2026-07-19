@@ -60,6 +60,11 @@ final readonly class OrganizationPlanAssignmentAdapter implements OrganizationPl
     $this->commandBus->dispatch(new ChangeOrganizationPlanCommand(
       organizationId: $organizationId,
       planId: (string) $plan->id(),
+      // The webhook is the billing source of truth: the plan is applied even
+      // when current usage exceeds its caps — the handler then notifies the
+      // owner and records the overage in the audit event (grace path: nothing
+      // is deleted, new creations stay blocked until usage fits the plan).
+      acknowledgeOveruse: true,
     ));
   }
   // #endregion

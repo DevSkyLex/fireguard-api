@@ -31,5 +31,14 @@ final class ChangeOrganizationPlanInput
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Identifier of the subscription plan to assign', required: true)]
   public string $planId = '';
+
+  /**
+   * Property acknowledgeOveruse.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Confirm a downgrade whose limits sit below the current usage (the first attempt is refused with HTTP 409 listing the exceeded resources)', required: false)]
+  public bool $acknowledgeOveruse = false;
   // #endregion
 }

@@ -7,14 +7,16 @@ namespace Organization\Application\UseCase\Command\Organization\InviteOrganizati
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\NotificationChannel;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
+use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
@@ -61,6 +63,8 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
    * @param LoggerPort $logger the logger port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -72,6 +76,8 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     private LoggerPort $logger,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
+    private OrganizationQuotaPort $quota,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -164,11 +170,24 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       $roleIdsAsVo,
       $acceptUrl,
     ): InviteOrganizationMemberResult {
+      // Enforce the member cap inside the transaction (a pending invitation
+      // reserves a slot) so the advisory lock serializes it against concurrent
+      // adds/invitations (see OrganizationQuotaPort::assertCanAdd).
+      $this->quota->assertCanAdd((string) $invitation->organizationId(), OrganizationQuotaResource::MEMBERS);
+
       $this->invitationRepository->save($invitation);
       $this->invitationRepository->replaceRoleIds($invitation->id(), $roleIdsAsVo);
 
       return $this->buildResult($invitation, $acceptUrl);
     });
+
+    $this->eventDispatcher->dispatch(new OrganizationInvitationSentEvent(
+      organizationId: $command->organizationId,
+      invitationId: (string) $invitation->id(),
+      invitedEmail: $command->email,
+      invitedByUserId: $command->invitedByUserId,
+      resend: false,
+    ));
 
     $notification = null;
 
@@ -180,6 +199,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
         expiresAt: $invitation->expiresAt(),
         recipientUserId: $recipientUserId,
         locale: $emailLocale,
+        organizationId: (string) $organizationId,
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Invitation notification dispatch failed.', [
@@ -202,6 +222,16 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
           'invitationId' => (string) $invalidated->id(),
           'recipientEmail' => (string) $invalidated->email(),
         ]);
+
+        // The revocation is durable at this point (invalidateInvitation runs in
+        // its own transaction), so record the automatic revocation in the audit
+        // ledger — otherwise it would still show a live invitation.
+        $this->eventDispatcher->dispatch(new OrganizationInvitationRevokedEvent(
+          organizationId: (string) $invalidated->organizationId(),
+          invitationId: (string) $invalidated->id(),
+          revokedByUserId: $command->invitedByUserId,
+          reason: 'delivery_failed',
+        ));
 
         return $this->buildResult($invalidated);
       }

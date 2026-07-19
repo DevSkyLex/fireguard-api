@@ -100,6 +100,11 @@ final class GetOrganizationProviderTest extends TestCase
         createdAt: new DateTimeImmutable('2026-02-01T08:00:00+00:00'),
         updatedAt: new DateTimeImmutable('2026-02-01T08:00:00+00:00'),
         memberCount: 3,
+        country: 'FR',
+        legalType: 'limited_liability_company',
+        legalName: 'Fireguard Dijon SARL',
+        registrationNumber: 'RCS DIJON 812345678',
+        vatNumber: 'FR12345678901',
       ));
 
     $provider = new GetOrganizationProvider(
@@ -118,6 +123,11 @@ final class GetOrganizationProviderTest extends TestCase
     self::assertSame('active', $output->status);
     self::assertTrue($output->isActive);
     self::assertSame(3, $output->memberCount);
+    self::assertSame('FR', $output->country);
+    self::assertSame('limited_liability_company', $output->legalType);
+    self::assertSame('Fireguard Dijon SARL', $output->legalName);
+    self::assertSame('RCS DIJON 812345678', $output->registrationNumber);
+    self::assertSame('FR12345678901', $output->vatNumber);
   }
 
   private function createSecurityUser(string $id): SecurityUser

@@ -11,6 +11,7 @@ use Organization\Application\Port\Outbound\{
   InspectionStatisticsPort,
   OrganizationInvitationRepositoryPort,
   OrganizationMemberRepositoryPort,
+  OrganizationQuotaLockPort,
   OrganizationRepositoryPort,
   PlanRepositoryPort
 };
@@ -58,6 +59,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
    * @param FacilityStatisticsPort $facilityStatistics the facility statistics port
    * @param EquipmentStatisticsPort $equipmentStatistics the equipment statistics port
    * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics port
+   * @param OrganizationQuotaLockPort $quotaLock the advisory lock serializing check+insert
    */
   public function __construct(
     private readonly OrganizationRepositoryPort $organizationRepository,
@@ -67,6 +69,7 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     private readonly FacilityStatisticsPort $facilityStatistics,
     private readonly EquipmentStatisticsPort $equipmentStatistics,
     private readonly InspectionStatisticsPort $inspectionStatistics,
+    private readonly OrganizationQuotaLockPort $quotaLock,
   ) {
   }
   // #endregion
@@ -101,6 +104,10 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
       return;
     }
 
+    // Serialize against concurrent member additions/invitations before counting,
+    // so an acceptance running at the cap cannot slip past a simultaneous add.
+    $this->quotaLock->acquire($organizationId, OrganizationQuotaResource::MEMBERS);
+
     // Count only active members: the pending invitation being accepted already
     // reserved a slot at emission time, so it must not block its own acceptance.
     $activeMembers = $this->memberRepository->countActiveByOrganizationId(
@@ -119,6 +126,12 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     if (null === $limit) {
       return;
     }
+
+    // Take the per-(organization, resource) advisory lock before counting so two
+    // concurrent creators at limit-1 cannot both read an available slot and both
+    // insert (TOCTOU). Requires an active transaction (see the port contract);
+    // the lock is released when the caller's transaction commits or rolls back.
+    $this->quotaLock->acquire($organizationId, $resource);
 
     if ($this->getUsage($organizationId, $resource) >= $limit) {
       throw OrganizationQuotaExceededException::forResource($resource, $limit);

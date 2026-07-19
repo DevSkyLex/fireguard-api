@@ -26,6 +26,7 @@ final readonly class GetOrganizationDashboardTrendResult implements ResultMessag
    * @param array<string, int|float> $summary aggregated series summary
    * @param list<array{bucket: string, value: int}> $series normalized trend buckets
    * @param array<string, mixed> $comparison previous-period comparison metadata and series
+   * @param array<string, list<array{bucket: string, value: int}>> $seriesByMetric per-metric normalized series, keyed by metric identifier; populated only when the `metrics` filter requested more than the primary metric, so a chart combining several series (e.g. non-conformities opened vs resolved) can be rendered from one call
    */
   public function __construct(
     public string $generatedAt,
@@ -34,6 +35,7 @@ final readonly class GetOrganizationDashboardTrendResult implements ResultMessag
     public array $summary,
     public array $series,
     public array $comparison,
+    public array $seriesByMetric = [],
   ) {
   }
 }

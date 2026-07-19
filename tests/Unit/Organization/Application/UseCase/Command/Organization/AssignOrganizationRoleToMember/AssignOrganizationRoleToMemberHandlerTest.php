@@ -7,6 +7,7 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Assig
 use DateTimeImmutable;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\{AssignOrganizationRoleToMemberCommand, AssignOrganizationRoleToMemberHandler, AssignOrganizationRoleToMemberResult};
+use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -14,6 +15,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(AssignOrganizationRoleToMemberHandler::class)]
 final class AssignOrganizationRoleToMemberHandlerTest extends TestCase
@@ -59,9 +61,22 @@ final class AssignOrganizationRoleToMemberHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::once())->method('findById')->willReturn($role);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof OrganizationRoleAssignedEvent
+          && $organizationId === $event->organizationId
+          && $memberId === $event->memberId
+          && $roleId === $event->roleId
+          && 'inspector' === $event->roleName,
+      ));
+
     $handler = new AssignOrganizationRoleToMemberHandler(
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new AssignOrganizationRoleToMemberCommand(
@@ -89,9 +104,14 @@ final class AssignOrganizationRoleToMemberHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::never())->method('findById');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new AssignOrganizationRoleToMemberHandler(
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -123,9 +143,14 @@ final class AssignOrganizationRoleToMemberHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::never())->method('findById');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new AssignOrganizationRoleToMemberHandler(
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -166,9 +191,14 @@ final class AssignOrganizationRoleToMemberHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::once())->method('findById')->willReturn($role);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new AssignOrganizationRoleToMemberHandler(
       memberRepository: $memberRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationRoleNotFoundException::class);

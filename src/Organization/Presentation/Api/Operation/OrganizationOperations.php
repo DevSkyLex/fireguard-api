@@ -19,6 +19,8 @@ final class OrganizationOperations
 
   public const string LIST_ORGANIZATION_STATUSES = 'listOrganizationStatuses';
 
+  public const string LIST_ORGANIZATION_LEGAL_TYPES = 'listOrganizationLegalTypes';
+
   public const string LIST_ORGANIZATION_INVITATION_STATUSES = 'listOrganizationInvitationStatuses';
 
   public const string LIST_USER_ORGANIZATIONS = 'listUserOrganizations';
@@ -84,4 +86,20 @@ final class OrganizationOperations
   public const string RESEND_ORGANIZATION_INVITATION = 'resendOrganizationInvitation';
 
   public const string GET_ORGANIZATION_INVITATION_PREVIEW = 'getOrganizationInvitationPreview';
+
+  public const string CREATE_TEAM = 'createTeam';
+
+  public const string LIST_TEAMS = 'listTeams';
+
+  public const string GET_TEAM = 'getTeam';
+
+  public const string UPDATE_TEAM = 'updateTeam';
+
+  public const string DELETE_TEAM = 'deleteTeam';
+
+  public const string ADD_TEAM_MEMBER = 'addTeamMember';
+
+  public const string REMOVE_TEAM_MEMBER = 'removeTeamMember';
+
+  public const string LIST_TEAM_MEMBERS = 'listTeamMembers';
 }

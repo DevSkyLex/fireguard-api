@@ -122,6 +122,7 @@ final readonly class OrganizationInvitationNotifier
    * @param DateTimeImmutable $expiresAt the invitation expiration datetime
    * @param string|null $recipientUserId the recipient user identifier
    * @param string $locale the recipient locale for the email template (en/fr/es)
+   * @param string|null $organizationId the organization this invitation belongs to
    *
    * @return SentNotification the sent notification result
    */
@@ -132,6 +133,7 @@ final readonly class OrganizationInvitationNotifier
     DateTimeImmutable $expiresAt,
     ?string $recipientUserId = null,
     string $locale = 'en',
+    ?string $organizationId = null,
   ): SentNotification {
     $expiresAtIso = $expiresAt->format('c');
 
@@ -183,6 +185,7 @@ final readonly class OrganizationInvitationNotifier
       ],
       recipientUserId: $recipientUserId,
       recipientEmail: $email,
+      organizationId: $organizationId,
     ));
   }
 

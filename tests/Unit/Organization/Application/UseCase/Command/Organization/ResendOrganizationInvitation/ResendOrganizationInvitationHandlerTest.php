@@ -11,6 +11,7 @@ use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\{ResendOrganizationInvitationCommand, ResendOrganizationInvitationHandler, ResendOrganizationInvitationResult};
+use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationInvitationNotificationFailedException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
@@ -18,7 +19,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, O
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -80,7 +81,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
       ->method('send')
-      ->with(self::callback(static function (SendNotificationRequest $request) use ($email): bool {
+      ->with(self::callback(static function (SendNotificationRequest $request) use ($email, $organizationId): bool {
         $emailPayload = $request->deliveryPayload['email'] ?? null;
         $emailContext = is_array($emailPayload) ? ($emailPayload['context'] ?? null) : null;
         $emailAcceptUrl = is_array($emailContext) ? ($emailContext['acceptUrl'] ?? null) : null;
@@ -89,7 +90,8 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
           && [NotificationChannel::EMAIL] === $request->channels
           && $email === $request->recipientEmail
           && is_string($emailAcceptUrl)
-          && str_contains($emailAcceptUrl, '/organizations/invitations/accept?token=');
+          && str_contains($emailAcceptUrl, '/organizations/invitations/accept?token=')
+          && $organizationId === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655443350',
@@ -114,6 +116,17 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (object $event): bool => $event instanceof OrganizationInvitationSentEvent
+        && $organizationId === $event->organizationId
+        && $invitationId === $event->invitationId
+        && $email === $event->invitedEmail
+        && $inviterUserId === $event->invitedByUserId
+        && true === $event->resend));
+
     $invitationNotifier = new OrganizationInvitationNotifier(
       $notificationPort,
       'http://localhost:4200',
@@ -128,6 +141,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       invitationNotifier: $invitationNotifier,
       logger: $logger,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new ResendOrganizationInvitationCommand(
@@ -185,6 +199,10 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
     $transactionManager = $this->createMock(TransactionManagerPort::class);
     $transactionManager->expects(self::never())->method('transactional');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $invitationNotifier = new OrganizationInvitationNotifier(
       $notificationPort,
       'http://localhost:4200',
@@ -199,6 +217,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       invitationNotifier: $invitationNotifier,
       logger: $logger,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationInvitationNotFoundException::class);
@@ -280,6 +299,12 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       ->method('transactional')
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(OrganizationInvitationSentEvent::class));
+
     $invitationNotifier = new OrganizationInvitationNotifier(
       $notificationPort,
       'http://localhost:4200',
@@ -294,6 +319,7 @@ final class ResendOrganizationInvitationHandlerTest extends TestCase
       invitationNotifier: $invitationNotifier,
       logger: $logger,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationInvitationNotificationFailedException::class);

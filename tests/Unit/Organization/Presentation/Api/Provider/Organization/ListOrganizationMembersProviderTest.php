@@ -113,6 +113,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
               isActive: true,
               joinedAt: $joinedAt,
               roleIds: ['550e8400-e29b-41d4-a716-446655441713'],
+              isOwner: true,
             ),
           ],
           total: 1,
@@ -170,6 +171,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
     self::assertSame(['550e8400-e29b-41d4-a716-446655441713'], $items[0]->roleIds);
     self::assertSame(['Field inspector'], $items[0]->roleNames);
     self::assertSame($joinedAt->format('c'), $items[0]->joinedAt);
+    self::assertTrue($items[0]->isOwner);
   }
 
   #[Test]

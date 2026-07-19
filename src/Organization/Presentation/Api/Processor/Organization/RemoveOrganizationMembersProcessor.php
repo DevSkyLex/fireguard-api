@@ -7,15 +7,15 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\RemoveOrganizationMembersInput;
 use Organization\Presentation\Api\Dto\Output\Organization\RemoveOrganizationMembersOutput;
 use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
 
 use function is_string;
 
@@ -53,6 +53,7 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -93,6 +94,13 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
 
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.members.manage')) {
       throw new AccessDeniedHttpException('Missing organization.members.manage permission.');
+    }
+
+    // Refuse the whole batch upfront when it would deactivate every administrator.
+    try {
+      $this->lastAdminGuard->assertCanRemoveMembers($organizationId, $data->memberIds);
+    } catch (OrganizationLastAdminException $exception) {
+      throw new ConflictHttpException($exception->getMessage(), $exception);
     }
 
     $output = new RemoveOrganizationMembersOutput();

@@ -8,10 +8,10 @@ use BackedEnum;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
-use InvalidArgumentException;
+use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
-use Organization\Application\Support\DashboardDateTimeParser;
+use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, InterventionStatisticsPort, NonConformityStatisticsPort, OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Support\{DashboardDateTimeParser, DashboardSeriesBuilder};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationStatus};
@@ -19,13 +19,12 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
 
-use function array_sum;
+use function array_keys;
+use function count;
 use function hash;
-use function in_array;
 use function json_encode;
 use function max;
 use function round;
-use function timezone_identifiers_list;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -54,18 +53,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   private const string DEFAULT_DASHBOARD_TIME_ZONE = 'UTC';
 
   /**
-   * Constant MAX_TREND_PERIOD_DAYS.
-   *
-   * Maximum number of days allowed for dashboard trend periods
-   * to prevent performance issues.
-   *
-   * @since 1.0.0
-   *
-   * @var int
-   */
-  private const int DEFAULT_TREND_PERIOD_DAYS = 30;
-
-  /**
    * Constant STORAGE_TIME_ZONE.
    *
    * Internal persistence timezone used for timestamp-without-time-zone
@@ -77,19 +64,32 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    */
   private const string STORAGE_TIME_ZONE = 'UTC';
 
+  private const int DEFAULT_CACHE_TTL_SECONDS = 30;
+
   /**
-   * Constant MAX_TREND_PERIOD_DAYS.
+   * Constant INTERVENTIONS_READ_PERMISSION.
    *
-   * Maximum number of days allowed for dashboard trend
-   * periods to prevent performance issues.
+   * Permission gating the `recentInterventions` dashboard section.
+   * Deliberately NOT part of `OrganizationPermissionCatalog::dashboardReadDependencies()`
+   * so the section degrades to an empty list instead of a 403 for
+   * organizations/members without field-intervention access.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  private const string INTERVENTIONS_READ_PERMISSION = 'organization.interventions.read';
+
+  /**
+   * Constant RECENT_INTERVENTIONS_LIMIT.
+   *
+   * Maximum number of recent interventions surfaced on the dashboard.
    *
    * @since 1.0.0
    *
    * @var int
    */
-  private const int MAX_TREND_PERIOD_DAYS = 366;
-
-  private const int DEFAULT_CACHE_TTL_SECONDS = 30;
+  private const int RECENT_INTERVENTIONS_LIMIT = 5;
   // #endregion
 
   // #region Constructor
@@ -110,6 +110,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
    * @param EquipmentStatisticsPort $equipmentStatistics the equipment statistics service
    * @param InspectionStatisticsPort $inspectionStatistics the inspection statistics service
    * @param NonConformityStatisticsPort $nonConformityStatistics the non-conformity statistics service
+   * @param InterventionStatisticsPort $interventionStatistics the intervention statistics service
    */
   public function __construct(
     private OrganizationAuthorizationPort $authorization,
@@ -121,6 +122,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     private EquipmentStatisticsPort $equipmentStatistics,
     private InspectionStatisticsPort $inspectionStatistics,
     private NonConformityStatisticsPort $nonConformityStatistics,
+    private InterventionStatisticsPort $interventionStatistics,
     private ?CachePort $cache = null,
     private int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
   ) {
@@ -151,7 +153,18 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
-    $cacheKey = $this->buildCacheKey($query);
+    // Computed before the cache read so the permission flag can discriminate
+    // the cache key: cached payloads must never leak `recentInterventions`
+    // across differently-permissioned users. `overview.nonConformities.severity*`
+    // (L3.10) needs NO such discriminator: it is gated by
+    // `organization.inspection.read`, which is already a hard, non-optional
+    // dependency in `OrganizationPermissionCatalog::dashboardReadDependencies()`
+    // (asserted above, before this method even runs) — every caller who can
+    // reach the cache already holds it, unlike `organization.interventions.read`
+    // below, which is deliberately NOT a dashboard dependency.
+    $includeInterventions = $this->authorization->hasPermission($query->userId, $query->organizationId, self::INTERVENTIONS_READ_PERMISSION);
+
+    $cacheKey = $this->buildCacheKey($query, $includeInterventions);
     $cached = $this->readCache($cacheKey);
     if ($cached instanceof GetOrganizationDashboardResult) {
       return $cached;
@@ -160,11 +173,11 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
     $periodFrom = DashboardDateTimeParser::parseNullable($query->periodFrom, 'from');
     $periodTo = DashboardDateTimeParser::parseNullable($query->periodTo, 'to');
-    $dashboardTimeZone = $this->resolveDashboardTimeZone($query->timeZone, $periodFrom, $periodTo, $generatedAt);
+    $dashboardTimeZone = DashboardSeriesBuilder::resolveDashboardTimeZone($query->timeZone, $periodFrom, $periodTo, $generatedAt);
     $generatedAt = $generatedAt->setTimezone($dashboardTimeZone);
-    [$periodStart, $periodEnd] = $this->resolvePeriod($periodFrom, $periodTo, $generatedAt, $dashboardTimeZone);
-    $this->assertSupportedPeriod($periodStart, $periodEnd);
-    $comparisonPeriod = $query->compareWithPreviousPeriod ? $this->resolvePreviousPeriod($periodStart, $periodEnd) : null;
+    [$periodStart, $periodEnd] = DashboardSeriesBuilder::resolvePeriod($periodFrom, $periodTo, $generatedAt, $dashboardTimeZone);
+    DashboardSeriesBuilder::assertSupportedPeriod($periodStart, $periodEnd);
+    $comparisonPeriod = $query->compareWithPreviousPeriod ? DashboardSeriesBuilder::resolvePreviousPeriod($periodStart, $periodEnd) : null;
 
     $organizationId = OrganizationId::fromString($query->organizationId);
     $memberCount = $this->memberRepository->countByOrganizationId($organizationId);
@@ -177,11 +190,17 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       OrganizationInvitationStatus::cases(),
     );
 
-    $generatedAtFormatted = $this->formatIso8601($generatedAt);
+    $generatedAtFormatted = DashboardSeriesBuilder::formatIso8601($generatedAt);
     $facilityOverview = $this->facilityStatistics->countFacilityOverview($query->organizationId, $query->facilityType);
     $equipmentOverview = $this->equipmentStatistics->countEquipmentOverview($query->organizationId, $query->equipmentType, $query->equipmentStatus);
     $inspectionOverview = $this->inspectionStatistics->countInspectionOverview($query->organizationId, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
     $nonConformityOverview = $this->nonConformityStatistics->countNonConformityOverview($query->organizationId, $generatedAtFormatted, $query->nonConformitySeverity, $query->nonConformityStatus);
+    // L3.10: unconditional (no severity/status filter) org-wide breakdown, sourced
+    // from the same port used for `nonConformities.total`/status counts — single
+    // extra call, no new port method. Unlike the filtered `nonConformityOverview`
+    // above, this always reflects EVERY non-conformity regardless of the
+    // `nonConformityStatus`/`nonConformitySeverity` query filters.
+    $nonConformitySeverityOverview = $this->nonConformityStatistics->countNonConformitiesBySeverity($query->organizationId);
 
     $facilityCount = $facilityOverview['total'];
     $activeFacilityCount = $facilityOverview['active'];
@@ -205,8 +224,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     $overdueNonConformityCount = $nonConformityOverview['overdue'];
     $openCriticalNonConformityCount = $nonConformityOverview['critical_open'];
 
-    $periodStartFormatted = $this->formatIso8601($periodStart);
-    $periodEndFormatted = $this->formatIso8601($periodEnd);
+    $periodStartFormatted = DashboardSeriesBuilder::formatIso8601($periodStart);
+    $periodEndFormatted = DashboardSeriesBuilder::formatIso8601($periodEnd);
     $currentPeriodInspectionMetrics = $this->buildInspectionPeriodMetrics($query->organizationId, $periodStart, $periodEnd, $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
     $currentNonConformityPeriodMetrics = $this->buildNonConformityPeriodMetrics($query->organizationId, $periodStart, $periodEnd, $query->nonConformitySeverity, $query->nonConformityStatus);
     $currentNonConformityOpenedCount = $currentNonConformityPeriodMetrics['opened'];
@@ -216,15 +235,20 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       'inspectionPassRate' => $this->percentage($currentPeriodInspectionMetrics['pass'], $currentPeriodInspectionMetrics['pass'] + $currentPeriodInspectionMetrics['fail'] + $currentPeriodInspectionMetrics['partial']),
       'nonConformityResolutionRate' => $this->buildNonConformityPeriodResolutionRate($currentNonConformityOpenedCount, $currentNonConformityResolvedCount, $currentNonConformityPeriodMetrics['activeAtStart']),
     ];
-    $currentFacilityCreatedCount = null !== $comparisonPeriod
-      ? $this->countPeriodFacilitiesCreated($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->facilityType)
-      : 0;
+
+    // Per-day maps are always computed (regardless of the `compare` filter):
+    // the dashboard sparklines (`trends`) need them unconditionally, and
+    // their sums are reused for the period-over-period comparison "current"
+    // values below.
+    $facilitiesCreatedByDay = $this->countFacilitiesCreatedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->facilityType);
+    $currentFacilityCreatedCount = DashboardSeriesBuilder::sumSeries($facilitiesCreatedByDay);
+    $membersJoinedByDay = $this->memberRepository->countJoinedByDay($organizationId, $periodStart, $periodEnd, $dashboardTimeZone->getName());
     $currentMemberJoinedCount = null !== $comparisonPeriod
       ? $this->countMembersJoinedBetween($organizationId, $periodStart, $periodEnd)
       : 0;
-    $currentEquipmentCreatedCount = null !== $comparisonPeriod
-      ? $this->countPeriodEquipmentCreated($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->equipmentType, $query->equipmentStatus)
-      : 0;
+    $equipmentCreatedByDay = $this->countEquipmentCreatedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->equipmentType, $query->equipmentStatus);
+    $currentEquipmentCreatedCount = DashboardSeriesBuilder::sumSeries($equipmentCreatedByDay);
+    $inspectionsPerformedByDay = $this->countInspectionsPerformedByDay($query->organizationId, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName(), $query->inspectionStatus, $query->inspectionResult, $query->inspectorType);
 
     $overview = [
       'members' => [
@@ -273,6 +297,10 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'waived' => $waivedNonConformityCount,
         'overdue' => $overdueNonConformityCount,
         'criticalOpen' => $openCriticalNonConformityCount,
+        'severityLow' => $nonConformitySeverityOverview['low'] ?? 0,
+        'severityMedium' => $nonConformitySeverityOverview['medium'] ?? 0,
+        'severityHigh' => $nonConformitySeverityOverview['high'] ?? 0,
+        'severityCritical' => $nonConformitySeverityOverview['critical'] ?? 0,
       ],
     ];
     $health = ['memberActivationRate' => $this->percentage($activeMemberCount, $memberCount), 'inspectionCompletionRate' => $this->percentage($closedInspectionCount, $inspectionTotalCount), 'inspectionPassRate' => $this->percentage($passInspectionCount, $passInspectionCount + $failInspectionCount + $partialInspectionCount), 'equipmentAvailabilityRate' => $this->percentage($operationalEquipmentCount, max(0, $equipmentTotalCount - $decommissionedEquipmentCount)), 'nonConformityResolutionRate' => $this->percentage($doneNonConformityCount + $waivedNonConformityCount, $nonConformityTotalCount), 'periodInspectionCompletionRate' => $currentPeriodHealth['inspectionCompletionRate'], 'periodInspectionPassRate' => $currentPeriodHealth['inspectionPassRate'], 'periodNonConformityResolutionRate' => $currentPeriodHealth['nonConformityResolutionRate']];
@@ -289,6 +317,17 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     if ($underMaintenanceEquipmentCount > 0) {
       $alerts[] = ['code' => 'equipment_under_maintenance', 'severity' => 'medium', 'count' => $underMaintenanceEquipmentCount];
     }
+
+    $trends = [
+      'facilities' => $this->buildRunningTotalSeries($facilitiesCreatedByDay, $facilityCount, $periodStart, $periodEnd, $dashboardTimeZone),
+      'members' => $this->buildRunningTotalSeries($membersJoinedByDay, $memberCount, $periodStart, $periodEnd, $dashboardTimeZone),
+      'equipment' => $this->buildRunningTotalSeries($equipmentCreatedByDay, $equipmentTotalCount, $periodStart, $periodEnd, $dashboardTimeZone),
+      'inspections' => $this->buildRunningTotalSeries($inspectionsPerformedByDay, $inspectionTotalCount, $periodStart, $periodEnd, $dashboardTimeZone),
+    ];
+
+    $recentInterventions = $includeInterventions
+      ? $this->buildRecentInterventions($query->organizationId, $organizationId)
+      : [];
 
     $result = new GetOrganizationDashboardResult(
       generatedAt: $generatedAtFormatted,
@@ -312,6 +351,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         $currentPeriodHealth,
         $comparisonPeriod,
       ),
+      trends: $trends,
+      recentInterventions: $recentInterventions,
     );
     $this->writeCache($cacheKey, $result);
 
@@ -341,7 +382,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     );
   }
 
-  private function buildCacheKey(GetOrganizationDashboardQuery $query): string
+  private function buildCacheKey(GetOrganizationDashboardQuery $query, bool $includeInterventions): string
   {
     try {
       $payload = json_encode([
@@ -358,6 +399,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'inspectorType' => $query->inspectorType,
         'nonConformityStatus' => $query->nonConformityStatus,
         'nonConformitySeverity' => $query->nonConformitySeverity,
+        'includeInterventions' => $includeInterventions,
       ], JSON_THROW_ON_ERROR);
     } catch (Throwable) {
       $payload = $query->organizationId;
@@ -414,143 +456,6 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * Method resolveDashboardTimeZone.
-   *
-   * Determine the appropriate time zone for dashboard data
-   * aggregation based on provided filters and defaults.
-   *
-   * @since 1.0.0
-   *
-   * @param string|null $timeZone the optional time zone filter provided in the query
-   * @param DateTimeImmutable|null $periodFrom the optional "from" datetime filter
-   * @param DateTimeImmutable|null $periodTo the optional "to" datetime filter
-   * @param DateTimeImmutable $fallbackNow the current datetime to use as a
-   *                                       fallback reference for time zone resolution
-   *
-   * @throws InvalidArgumentException if the provided "timezone" filter is invalid or
-   *                                  if there are mixed time zones without an explicit "timezone" filter
-   *
-   * @return DateTimeZone the resolved time zone to be used for dashboard data aggregation
-   */
-  private function resolveDashboardTimeZone(?string $timeZone, ?DateTimeImmutable $periodFrom, ?DateTimeImmutable $periodTo, DateTimeImmutable $fallbackNow): DateTimeZone
-  {
-    if (null !== $timeZone) {
-      if (!in_array($timeZone, timezone_identifiers_list(), true)) {
-        throw new InvalidArgumentException('Invalid "timezone" filter. Use a valid IANA timezone such as Europe/Paris.');
-      }
-
-      return new DateTimeZone($timeZone);
-    }
-    if ($periodFrom instanceof DateTimeImmutable && $periodTo instanceof DateTimeImmutable && $periodFrom->getTimezone()->getName() !== $periodTo->getTimezone()->getName()) {
-      throw new InvalidArgumentException('Mixed timezone offsets require the "timezone" filter.');
-    }
-
-    return $this->normalizeImplicitDashboardTimeZone($periodFrom?->getTimezone() ?? $periodTo?->getTimezone() ?? $fallbackNow->getTimezone(), $periodFrom ?? $periodTo ?? $fallbackNow);
-  }
-
-  /**
-   * Method normalizeImplicitDashboardTimeZone.
-   *
-   * Normalize a time zone for dashboard use when no explicit "timezone"
-   * filter is provided, ensuring it is either a valid IANA timezone
-   * or defaults to UTC if it has a zero offset.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeZone $timeZone the time zone to normalize
-   * @param DateTimeImmutable $reference the reference datetime to determine the offset of the time
-   *
-   * @throws InvalidArgumentException if the time zone is not a valid
-   *                                  IANA timezone and does not have a zero offset (UTC)
-   *
-   * @return DateTimeZone the normalized time zone to be used for dashboard data aggregation
-   */
-  private function normalizeImplicitDashboardTimeZone(DateTimeZone $timeZone, DateTimeImmutable $reference): DateTimeZone
-  {
-    if (in_array($timeZone->getName(), timezone_identifiers_list(), true)) {
-      return $timeZone;
-    }
-    if (0 === $timeZone->getOffset($reference)) {
-      return new DateTimeZone('UTC');
-    }
-
-    throw new InvalidArgumentException('Non-UTC offset datetimes require the "timezone" filter.');
-  }
-
-  /**
-   * Method resolvePeriod.
-   *
-   * Determine the start and end datetimes for the dashboard
-   * period based on provided filters and defaults.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable|null $periodFrom the optional "from" datetime filter
-   * @param DateTimeImmutable|null $periodTo the optional "to" datetime filter
-   * @param DateTimeImmutable $now the current datetime to use as a reference
-   *                               for default period calculation
-   * @param DateTimeZone $dashboardTimeZone the time zone to use for period calculation
-   *
-   * @return array{0: DateTimeImmutable, 1: DateTimeImmutable} an array containing the resolved period
-   *                                                           start and end datetimes, both set to the dashboard time zone
-   */
-  private function resolvePeriod(?DateTimeImmutable $periodFrom, ?DateTimeImmutable $periodTo, DateTimeImmutable $now, DateTimeZone $dashboardTimeZone): array
-  {
-    $periodEnd = ($periodTo ?? $now)->setTimezone($dashboardTimeZone);
-    $periodStart = null !== $periodFrom ? $periodFrom->setTimezone($dashboardTimeZone) : $periodEnd->sub(new DateInterval('P' . (self::DEFAULT_TREND_PERIOD_DAYS - 1) . 'D'))->setTime(0, 0);
-
-    return [$periodStart, $periodEnd];
-  }
-
-  /**
-   * Method assertSupportedPeriod.
-   *
-   * Validate that the provided period start and end datetimes
-   * are in a supported range and order for dashboard generation.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $periodStart the start datetime of the period to validate
-   * @param DateTimeImmutable $periodEnd the end datetime of the period to validate
-   *
-   * @throws InvalidArgumentException if the "from" datetime is after the "to" datetime
-   *                                  or if the period exceeds the maximum allowed range
-   *
-   * @return void No return value. Throws exception if the period is invalid.
-   */
-  private function assertSupportedPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): void
-  {
-    if ($periodStart->getTimestamp() > $periodEnd->getTimestamp()) {
-      throw new InvalidArgumentException('The "from" datetime filter must be before or equal to "to".');
-    }
-    if ((int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1 > self::MAX_TREND_PERIOD_DAYS) {
-      throw new InvalidArgumentException('Dashboard period cannot exceed 366 days.');
-    }
-  }
-
-  /**
-   * Method resolvePreviousPeriod.
-   *
-   * Calculate the previous period's start and end datetimes based on the current
-   * period, ensuring the same duration and time zone.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $periodStart the start datetime of the current period
-   * @param DateTimeImmutable $periodEnd the end datetime of the current period
-   *
-   * @return array{from: DateTimeImmutable, to: DateTimeImmutable} an array containing
-   *                                                               the 'from' and 'to' datetimes for the previous period, both
-   *                                                               set to the dashboard time zone
-   */
-  private function resolvePreviousPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): array
-  {
-    $shift = new DateInterval('P' . max(1, (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1) . 'D');
-
-    return ['from' => $periodStart->sub($shift), 'to' => $periodEnd->sub($shift)];
-  }
-
-  /**
    * Method buildInspectionPeriodMetrics.
    *
    * Calculate inspection metrics for a given period and optional filters,
@@ -578,8 +483,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   ): array {
     return $this->inspectionStatistics->countInspectionPeriodMetrics(
       $organizationId,
-      $this->formatIso8601($periodStart),
-      $this->formatIso8601($periodEnd),
+      DashboardSeriesBuilder::formatIso8601($periodStart),
+      DashboardSeriesBuilder::formatIso8601($periodEnd),
       $status,
       $result,
       $inspectorType,
@@ -596,12 +501,12 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     ?string $severity = null,
     ?string $status = null,
   ): array {
-    $periodStartFormatted = $this->formatIso8601($periodStart);
+    $periodStartFormatted = DashboardSeriesBuilder::formatIso8601($periodStart);
 
     return $this->nonConformityStatistics->countNonConformityPeriodMetrics(
       $organizationId,
       $periodStartFormatted,
-      $this->formatIso8601($periodEnd),
+      DashboardSeriesBuilder::formatIso8601($periodEnd),
       $periodStartFormatted,
       $severity,
       $status,
@@ -643,8 +548,8 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     if (null === $comparisonPeriod) {
       return ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]];
     }
-    $from = $this->formatIso8601($comparisonPeriod['from']);
-    $to = $this->formatIso8601($comparisonPeriod['to']);
+    $from = DashboardSeriesBuilder::formatIso8601($comparisonPeriod['from']);
+    $to = DashboardSeriesBuilder::formatIso8601($comparisonPeriod['to']);
     $comparisonTimeZone = $comparisonPeriod['from']->getTimezone()->getName();
     $comparisonOrganizationId = OrganizationId::fromString($query->organizationId);
     $previousFacilityCreatedCount = $this->countPeriodFacilitiesCreated($query->organizationId, $from, $to, $comparisonTimeZone, $query->facilityType);
@@ -672,26 +577,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       'nonConformitiesResolved' => $previousNonConformityResolvedCount,
     ];
 
-    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => $this->relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'facilitiesCreated' => $this->relativeDelta($current['facilitiesCreated'], $previous['facilitiesCreated']), 'membersJoined' => $this->relativeDelta($current['membersJoined'], $previous['membersJoined']), 'equipmentCreated' => $this->relativeDelta($current['equipmentCreated'], $previous['equipmentCreated']), 'nonConformitiesOpened' => $this->relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => $this->relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => $this->relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
-  }
-
-  /**
-   * Method relativeDelta.
-   *
-   * Calculate the relative percentage change between two integer
-   * values, handling division by zero and rounding.
-   *
-   * @since 1.0.0
-   *
-   * @param int $current the current value for which to calculate the delta
-   * @param int $previous the previous value to compare against for the delta calculation
-   *
-   * @return float the calculated relative delta as a percentage, rounded to 2 decimal
-   *               places. If the previous value is zero, returns 100.0 if the current value is greater than zero, or 0.0 otherwise.
-   */
-  private function relativeDelta(int $current, int $previous): float
-  {
-    return 0 === $previous ? ($current > 0 ? 100.0 : 0.0) : round((($current - $previous) / $previous) * 100, 2);
+    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'current' => $current, 'previous' => $previous, 'deltas' => ['inspectionsPerformed' => DashboardSeriesBuilder::relativeDelta($current['inspectionsPerformed'], $previous['inspectionsPerformed']), 'facilitiesCreated' => DashboardSeriesBuilder::relativeDelta($current['facilitiesCreated'], $previous['facilitiesCreated']), 'membersJoined' => DashboardSeriesBuilder::relativeDelta($current['membersJoined'], $previous['membersJoined']), 'equipmentCreated' => DashboardSeriesBuilder::relativeDelta($current['equipmentCreated'], $previous['equipmentCreated']), 'nonConformitiesOpened' => DashboardSeriesBuilder::relativeDelta($current['nonConformitiesOpened'], $previous['nonConformitiesOpened']), 'nonConformitiesResolved' => DashboardSeriesBuilder::relativeDelta($current['nonConformitiesResolved'], $previous['nonConformitiesResolved'])], 'health' => ['current' => $currentPeriodHealth, 'previous' => $previousPeriodHealth, 'deltas' => ['inspectionCompletionRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionCompletionRate'], $previousPeriodHealth['inspectionCompletionRate']), 'inspectionPassRate' => $this->relativeDeltaFloat($currentPeriodHealth['inspectionPassRate'], $previousPeriodHealth['inspectionPassRate']), 'nonConformityResolutionRate' => $this->relativeDeltaFloat($currentPeriodHealth['nonConformityResolutionRate'], $previousPeriodHealth['nonConformityResolutionRate'])]]];
   }
 
   /**
@@ -715,40 +601,126 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
   }
 
   /**
-   * Method sumSeries.
+   * Method buildRunningTotalSeries.
    *
-   * Calculate the sum of values in a series represented
-   * as an associative array, where keys are bucket identifiers
-   * and values are counts.
+   * Builds a per-day running-total sparkline series from a by-day
+   * creation/occurrence map, anchored on the CURRENT KPI total. Walks
+   * the period backward from the last day to the first, subtracting
+   * each day's count so that `value(bucket b) = anchorTotal -
+   * sum(byDayMap[b+1..periodEnd])`, clamped at zero.
+   *
+   * This is exact when the period ends at (or near) "now" (the default
+   * dashboard window), because the anchor IS the current total. For an
+   * explicitly historical window (a `to` in the past), the anchor still
+   * reflects the CURRENT total, so the series is an approximation of
+   * what the historical totals actually were at each bucket.
    *
    * @since 1.0.0
    *
-   * @param array<string, int> $series the series of counts to sum,
-   *                                   indexed by bucket identifiers
+   * @param array<string, int> $byDayMap map of YYYY-MM-DD => count created/occurred that day
+   * @param int $anchorTotal the current KPI total the series is anchored on
+   * @param DateTimeImmutable $periodStart the inclusive period start
+   * @param DateTimeImmutable $periodEnd the inclusive period end
+   * @param DateTimeZone $timeZone the timezone used to enumerate day buckets
    *
-   * @return int the total sum of the counts in the series
+   * @return list<array{bucket: string, value: int}> one point per day, in chronological order
    */
-  private function sumSeries(array $series): int
+  private function buildRunningTotalSeries(array $byDayMap, int $anchorTotal, DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, DateTimeZone $timeZone): array
   {
-    return (int) array_sum($series);
+    $days = [];
+    for (
+      $cursor = $periodStart->setTimezone($timeZone)->setTime(0, 0),
+      $lastDay = $periodEnd->setTimezone($timeZone)->setTime(0, 0);
+      $cursor <= $lastDay;
+      $cursor = $cursor->add(new DateInterval('P1D'))
+    ) {
+      $days[] = $cursor->format('Y-m-d');
+    }
+
+    $cumulativeAfter = 0;
+    $valueByDay = [];
+    for ($index = count($days) - 1; $index >= 0; --$index) {
+      $day = $days[$index];
+      $valueByDay[$day] = max(0, $anchorTotal - $cumulativeAfter);
+      $cumulativeAfter += $byDayMap[$day] ?? 0;
+    }
+
+    $series = [];
+    foreach ($days as $day) {
+      $series[] = ['bucket' => $day, 'value' => $valueByDay[$day]];
+    }
+
+    return $series;
   }
 
   /**
-   * Method formatIso8601.
+   * Method buildRecentInterventions.
    *
-   * Format a DateTimeImmutable value into an ISO 8601
-   * string with microsecond precision only if necessary.
+   * Resolves the 5 most recently updated organization interventions,
+   * enriched with the assigned facility name and the responsible
+   * member's resolved user identifier (the display name and avatar are
+   * resolved by the Presentation provider, which alone talks to the
+   * User module).
    *
    * @since 1.0.0
    *
-   * @param DateTimeImmutable $value the datetime value to format
+   * @param string $organizationId the organization identifier
+   * @param OrganizationId $organizationIdValueObject the organization identifier value object
    *
-   * @return string the formatted ISO 8601 string representation of
-   *                the datetime value, including microseconds if they are not zero
+   * @return list<array{
+   *   id: string,
+   *   number: int,
+   *   name: string,
+   *   status: string,
+   *   priority: string,
+   *   siteId: ?string,
+   *   siteName: ?string,
+   *   responsibleId: ?string,
+   *   responsibleUserId: ?string,
+   *   dueAt: ?string,
+   *   updatedAt: string,
+   * }>
    */
-  private function formatIso8601(DateTimeImmutable $value): string
+  private function buildRecentInterventions(string $organizationId, OrganizationId $organizationIdValueObject): array
   {
-    return '000000' === $value->format('u') ? $value->format('Y-m-d\\TH:i:sP') : $value->format('Y-m-d\\TH:i:s.uP');
+    /** @var list<RecentInterventionSummary> $summaries */
+    $summaries = $this->interventionStatistics->findRecentInterventions($organizationId, self::RECENT_INTERVENTIONS_LIMIT);
+    if ([] === $summaries) {
+      return [];
+    }
+
+    $siteIds = [];
+    $memberIds = [];
+    foreach ($summaries as $summary) {
+      if (null !== $summary->siteId) {
+        $siteIds[$summary->siteId] = true;
+      }
+      if (null !== $summary->responsibleMemberId) {
+        $memberIds[$summary->responsibleMemberId] = true;
+      }
+    }
+
+    $siteNames = [] !== $siteIds ? $this->facilityStatistics->getFacilityNamesByIds($organizationId, array_keys($siteIds)) : [];
+    $userIdsByMemberId = [] !== $memberIds ? $this->memberRepository->findUserIdsByMemberIds($organizationIdValueObject, array_keys($memberIds)) : [];
+
+    $rows = [];
+    foreach ($summaries as $summary) {
+      $rows[] = [
+        'id' => $summary->id,
+        'number' => $summary->number,
+        'name' => $summary->name,
+        'status' => $summary->status,
+        'priority' => $summary->priority,
+        'siteId' => $summary->siteId,
+        'siteName' => null !== $summary->siteId ? ($siteNames[$summary->siteId] ?? null) : null,
+        'responsibleId' => $summary->responsibleMemberId,
+        'responsibleUserId' => null !== $summary->responsibleMemberId ? ($userIdsByMemberId[$summary->responsibleMemberId] ?? null) : null,
+        'dueAt' => null !== $summary->dueAt ? DashboardSeriesBuilder::formatIso8601($summary->dueAt) : null,
+        'updatedAt' => DashboardSeriesBuilder::formatIso8601($summary->updatedAt),
+      ];
+    }
+
+    return $rows;
   }
 
   /**
@@ -801,7 +773,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
 
   private function countPeriodFacilitiesCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $type = null): int
   {
-    return $this->sumSeries($this->countFacilitiesCreatedByDay(
+    return DashboardSeriesBuilder::sumSeries($this->countFacilitiesCreatedByDay(
       $organizationId,
       $createdAtFrom,
       $createdAtTo,
@@ -831,7 +803,7 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
 
   private function countPeriodEquipmentCreated(string $organizationId, string $createdAtFrom, string $createdAtTo, string $timeZone, ?string $type = null, ?string $status = null): int
   {
-    return $this->sumSeries($this->countEquipmentCreatedByDay(
+    return DashboardSeriesBuilder::sumSeries($this->countEquipmentCreatedByDay(
       $organizationId,
       $createdAtFrom,
       $createdAtTo,
@@ -839,6 +811,28 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
       $type,
       $status,
     ));
+  }
+
+  /**
+   * @return array<string, int>
+   */
+  private function countInspectionsPerformedByDay(string $organizationId, string $performedAtFrom, string $performedAtTo, ?string $timeZone = null, ?string $status = null, ?string $result = null, ?string $inspectorType = null): array
+  {
+    $arguments = [$organizationId, $performedAtFrom, $performedAtTo];
+    if (null !== $timeZone) {
+      $arguments['timeZone'] = $timeZone;
+    }
+    if (null !== $status) {
+      $arguments['status'] = $status;
+    }
+    if (null !== $result) {
+      $arguments['result'] = $result;
+    }
+    if (null !== $inspectorType) {
+      $arguments['inspectorType'] = $inspectorType;
+    }
+
+    return $this->inspectionStatistics->countInspectionsPerformedByDay(...$arguments);
   }
 
   private function countMembersJoinedBetween(OrganizationId $organizationId, DateTimeImmutable $joinedAtFrom, DateTimeImmutable $joinedAtTo): int

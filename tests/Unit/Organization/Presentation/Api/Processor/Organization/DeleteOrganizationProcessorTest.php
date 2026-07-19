@@ -8,14 +8,20 @@ use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationCommand;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationDeletionConfirmationMismatchException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\DeleteOrganizationProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpFoundation\{Request, RequestStack};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  NotFoundHttpException,
+  UnprocessableEntityHttpException
+};
 
 #[CoversClass(DeleteOrganizationProcessor::class)]
 final class DeleteOrganizationProcessorTest extends TestCase
@@ -34,6 +40,7 @@ final class DeleteOrganizationProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      requestStack: $this->emptyRequestStack(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -51,6 +58,7 @@ final class DeleteOrganizationProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      requestStack: $this->emptyRequestStack(),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -75,6 +83,7 @@ final class DeleteOrganizationProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
       security: $security,
+      requestStack: $this->emptyRequestStack(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -83,7 +92,7 @@ final class DeleteOrganizationProcessorTest extends TestCase
   }
 
   #[Test]
-  public function testProcessDispatchesCommandAndReturnsNull(): void
+  public function testProcessForwardsSlugQueryParameterAndReturnsNull(): void
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser());
@@ -96,18 +105,76 @@ final class DeleteOrganizationProcessorTest extends TestCase
     $commandBus->expects(self::once())
       ->method('dispatch')
       ->with(self::callback(static function (DeleteOrganizationCommand $command): bool {
-        return self::ORGANIZATION_ID === $command->organizationId;
+        return self::ORGANIZATION_ID === $command->organizationId
+          && 'fireguard-nice' === $command->slugConfirmation;
       }));
 
     $processor = new DeleteOrganizationProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
+      requestStack: $this->requestStackWithSlug('fireguard-nice'),
     );
 
     $result = $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
 
     self::assertNull($result);
+  }
+
+  #[Test]
+  public function testProcessForwardsNullSlugConfirmationWhenQueryParameterAbsent(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (DeleteOrganizationCommand $command): bool {
+        return self::ORGANIZATION_ID === $command->organizationId
+          && null === $command->slugConfirmation;
+      }))
+      ->willThrowException(OrganizationDeletionConfirmationMismatchException::missing());
+
+    $processor = new DeleteOrganizationProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->emptyRequestStack(),
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsUnprocessableEntityWhenConfirmationMismatched(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(OrganizationDeletionConfirmationMismatchException::mismatched());
+
+    $processor = new DeleteOrganizationProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->requestStackWithSlug('wrong-slug'),
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
   }
 
   #[Test]
@@ -127,6 +194,7 @@ final class DeleteOrganizationProcessorTest extends TestCase
       commandBus: $commandBus,
       authorization: $authorization,
       security: $security,
+      requestStack: $this->requestStackWithSlug('fireguard-nice'),
     );
 
     $this->expectException(NotFoundHttpException::class);
@@ -144,5 +212,24 @@ final class DeleteOrganizationProcessorTest extends TestCase
       scopes: [],
       isActive: true,
     );
+  }
+
+  private function emptyRequestStack(): RequestStack
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    return $requestStack;
+  }
+
+  private function requestStackWithSlug(string $slug): RequestStack
+  {
+    $request = new Request();
+    $request->query->set('slug', $slug);
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    return $requestStack;
   }
 }

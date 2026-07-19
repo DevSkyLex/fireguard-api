@@ -6,13 +6,21 @@ namespace Organization\Domain\Model\Organization;
 
 use DateTimeImmutable;
 use Organization\Domain\ValueObject\{
+  OrganizationApprovalSettings,
+  OrganizationAssistantSettings,
+  OrganizationAutomationSettings,
+  OrganizationComplianceSettings,
+  OrganizationCountry,
   OrganizationId,
+  OrganizationLegalType,
   OrganizationName,
   OrganizationNotificationSettings,
   OrganizationRegionalSettings,
+  OrganizationRegistrationNumber,
   OrganizationSettings,
   OrganizationSlug,
   OrganizationStatus,
+  OrganizationVatNumber,
   PlanId
 };
 
@@ -59,6 +67,12 @@ final class Organization
    * @param ?string $description the optional organization description
    * @param ?string $logoUrl the optional organization logo URL
    * @param ?OrganizationSettings $settings the structured organization settings
+   * @param ?PlanId $planId the optional assigned subscription plan identifier
+   * @param ?OrganizationCountry $country the optional legal country (ISO 3166-1 alpha-2)
+   * @param ?OrganizationLegalType $legalType the optional legal entity type
+   * @param ?string $legalName the optional registered legal name
+   * @param ?OrganizationRegistrationNumber $registrationNumber the optional company/registration number
+   * @param ?OrganizationVatNumber $vatNumber the optional VAT number
    */
   private function __construct(
     private OrganizationId $id,
@@ -73,6 +87,11 @@ final class Organization
     private ?string $logoUrl = null,
     ?OrganizationSettings $settings = null,
     private ?PlanId $planId = null,
+    private ?OrganizationCountry $country = null,
+    private ?OrganizationLegalType $legalType = null,
+    private ?string $legalName = null,
+    private ?OrganizationRegistrationNumber $registrationNumber = null,
+    private ?OrganizationVatNumber $vatNumber = null,
   ) {
     $this->settings = $settings ?? OrganizationSettings::default();
   }
@@ -147,6 +166,11 @@ final class Organization
    * @param ?string $logoUrl the optional organization logo URL
    * @param ?OrganizationSettings $settings the optional structured organization settings
    * @param ?PlanId $planId the optional assigned subscription plan identifier
+   * @param ?OrganizationCountry $country the optional legal country (ISO 3166-1 alpha-2)
+   * @param ?OrganizationLegalType $legalType the optional legal entity type
+   * @param ?string $legalName the optional registered legal name
+   * @param ?OrganizationRegistrationNumber $registrationNumber the optional company/registration number
+   * @param ?OrganizationVatNumber $vatNumber the optional VAT number
    *
    * @return self the reconstituted organization aggregate
    */
@@ -164,6 +188,11 @@ final class Organization
     ?string $logoUrl = null,
     ?OrganizationSettings $settings = null,
     ?PlanId $planId = null,
+    ?OrganizationCountry $country = null,
+    ?OrganizationLegalType $legalType = null,
+    ?string $legalName = null,
+    ?OrganizationRegistrationNumber $registrationNumber = null,
+    ?OrganizationVatNumber $vatNumber = null,
   ): self {
     return new self(
       id: $id,
@@ -178,6 +207,11 @@ final class Organization
       logoUrl: $logoUrl,
       settings: $settings,
       planId: $planId,
+      country: $country,
+      legalType: $legalType,
+      legalName: $legalName,
+      registrationNumber: $registrationNumber,
+      vatNumber: $vatNumber,
     );
   }
 
@@ -364,6 +398,47 @@ final class Organization
   }
 
   /**
+   * Method archive.
+   *
+   * Moves the organization to the archived (soft-deleted) status. Its data is
+   * preserved so the organization can later be restored via {@see self::restore()}.
+   *
+   * @since 1.0.0
+   */
+  public function archive(): void
+  {
+    $this->status = OrganizationStatus::ARCHIVED;
+    $this->touch();
+  }
+
+  /**
+   * Method restore.
+   *
+   * Restores an archived organization back to active status.
+   *
+   * @since 1.0.0
+   */
+  public function restore(): void
+  {
+    $this->status = OrganizationStatus::ACTIVE;
+    $this->touch();
+  }
+
+  /**
+   * Method isArchived.
+   *
+   * Checks whether the organization has been archived (soft-deleted).
+   *
+   * @since 1.0.0
+   *
+   * @return bool true when archived, false otherwise
+   */
+  public function isArchived(): bool
+  {
+    return OrganizationStatus::ARCHIVED === $this->status;
+  }
+
+  /**
    * Method description.
    *
    * Returns the organization description.
@@ -505,6 +580,213 @@ final class Organization
   public function updateRegionalSettings(OrganizationRegionalSettings $regional): void
   {
     $this->settings = $this->settings->withRegional($regional);
+    $this->touch();
+  }
+
+  /**
+   * Method updateComplianceSettings.
+   *
+   * Replaces the organization compliance policy sub-section.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationComplianceSettings $compliance the new compliance settings
+   */
+  public function updateComplianceSettings(OrganizationComplianceSettings $compliance): void
+  {
+    $this->settings = $this->settings->withCompliance($compliance);
+    $this->touch();
+  }
+
+  /**
+   * Method updateAutomationSettings.
+   *
+   * Replaces the organization automation toggles sub-section.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationAutomationSettings $automation the new automation settings
+   */
+  public function updateAutomationSettings(OrganizationAutomationSettings $automation): void
+  {
+    $this->settings = $this->settings->withAutomation($automation);
+    $this->touch();
+  }
+
+  /**
+   * Method updateApprovalSettings.
+   *
+   * Replaces the organization four-eyes approval policy sub-section.
+   *
+   * @since 1.2.0
+   *
+   * @param OrganizationApprovalSettings $approval the new approval settings
+   */
+  public function updateApprovalSettings(OrganizationApprovalSettings $approval): void
+  {
+    $this->settings = $this->settings->withApproval($approval);
+    $this->touch();
+  }
+
+  /**
+   * Method updateAssistantSettings.
+   *
+   * Replaces the organization AI-assistant policy sub-section.
+   *
+   * @since 1.3.0
+   *
+   * @param OrganizationAssistantSettings $assistant the new assistant settings
+   */
+  public function updateAssistantSettings(OrganizationAssistantSettings $assistant): void
+  {
+    $this->settings = $this->settings->withAssistant($assistant);
+    $this->touch();
+  }
+
+  /**
+   * Method country.
+   *
+   * Returns the organization's legal country (ISO 3166-1 alpha-2).
+   *
+   * @since 1.4.0
+   *
+   * @return ?OrganizationCountry the legal country when set
+   */
+  public function country(): ?OrganizationCountry
+  {
+    return $this->country;
+  }
+
+  /**
+   * Method changeCountry.
+   *
+   * Updates the organization's legal country.
+   *
+   * @since 1.4.0
+   *
+   * @param ?OrganizationCountry $country the new legal country, or null to clear it
+   */
+  public function changeCountry(?OrganizationCountry $country): void
+  {
+    $this->country = $country;
+    $this->touch();
+  }
+
+  /**
+   * Method legalType.
+   *
+   * Returns the organization's legal entity type.
+   *
+   * @since 1.4.0
+   *
+   * @return ?OrganizationLegalType the legal type when set
+   */
+  public function legalType(): ?OrganizationLegalType
+  {
+    return $this->legalType;
+  }
+
+  /**
+   * Method changeLegalType.
+   *
+   * Updates the organization's legal entity type.
+   *
+   * @since 1.4.0
+   *
+   * @param ?OrganizationLegalType $legalType the new legal type, or null to clear it
+   */
+  public function changeLegalType(?OrganizationLegalType $legalType): void
+  {
+    $this->legalType = $legalType;
+    $this->touch();
+  }
+
+  /**
+   * Method legalName.
+   *
+   * Returns the organization's registered legal name.
+   *
+   * @since 1.4.0
+   *
+   * @return ?string the legal name when set
+   */
+  public function legalName(): ?string
+  {
+    return $this->legalName;
+  }
+
+  /**
+   * Method changeLegalName.
+   *
+   * Updates the organization's registered legal name, normalizing empty
+   * values to null.
+   *
+   * @since 1.4.0
+   *
+   * @param ?string $legalName the new legal name
+   */
+  public function changeLegalName(?string $legalName): void
+  {
+    $normalized = null !== $legalName ? trim($legalName) : null;
+    $this->legalName = '' === $normalized ? null : $normalized;
+    $this->touch();
+  }
+
+  /**
+   * Method registrationNumber.
+   *
+   * Returns the organization's company/registration number.
+   *
+   * @since 1.4.0
+   *
+   * @return ?OrganizationRegistrationNumber the registration number when set
+   */
+  public function registrationNumber(): ?OrganizationRegistrationNumber
+  {
+    return $this->registrationNumber;
+  }
+
+  /**
+   * Method changeRegistrationNumber.
+   *
+   * Updates the organization's company/registration number.
+   *
+   * @since 1.4.0
+   *
+   * @param ?OrganizationRegistrationNumber $registrationNumber the new registration number, or null to clear it
+   */
+  public function changeRegistrationNumber(?OrganizationRegistrationNumber $registrationNumber): void
+  {
+    $this->registrationNumber = $registrationNumber;
+    $this->touch();
+  }
+
+  /**
+   * Method vatNumber.
+   *
+   * Returns the organization's VAT number.
+   *
+   * @since 1.4.0
+   *
+   * @return ?OrganizationVatNumber the VAT number when set
+   */
+  public function vatNumber(): ?OrganizationVatNumber
+  {
+    return $this->vatNumber;
+  }
+
+  /**
+   * Method changeVatNumber.
+   *
+   * Updates the organization's VAT number.
+   *
+   * @since 1.4.0
+   *
+   * @param ?OrganizationVatNumber $vatNumber the new VAT number, or null to clear it
+   */
+  public function changeVatNumber(?OrganizationVatNumber $vatNumber): void
+  {
+    $this->vatNumber = $vatNumber;
     $this->touch();
   }
 

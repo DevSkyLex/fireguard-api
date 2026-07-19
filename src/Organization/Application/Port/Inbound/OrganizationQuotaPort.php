@@ -57,6 +57,11 @@ interface OrganizationQuotaPort
    * Asserts that the organization can add one more of the provided resource
    * without exceeding the plan cap.
    *
+   * Serializes the check with the insert via a transaction-scoped advisory lock,
+   * so it MUST be called inside the same transaction that persists the new
+   * resource; otherwise the lock is released immediately and the TOCTOU race it
+   * guards against reopens.
+   *
    * @since 1.0.0
    *
    * @param string $organizationId the organization identifier
@@ -75,6 +80,9 @@ interface OrganizationQuotaPort
    * only active members (not pending invitations), so the pending invitation
    * being accepted never blocks its own acceptance, while a plan downgrade that
    * left the organization already at/over its cap still blocks it.
+   *
+   * Like {@see assertCanAdd()} it serializes on the members advisory lock and so
+   * MUST run inside the transaction that provisions the membership.
    *
    * @since 1.0.0
    *

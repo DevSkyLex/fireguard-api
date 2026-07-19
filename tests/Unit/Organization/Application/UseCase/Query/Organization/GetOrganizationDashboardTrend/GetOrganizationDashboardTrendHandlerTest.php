@@ -478,6 +478,192 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
     self::assertSame(100.0, $comparison['summary']['delta']);
   }
 
+  #[Test]
+  public function testInvokeBuildsSeriesByMetricWhenAdditionalMetricsRequested(): void
+  {
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::exactly(2))
+      ->method('hasPermission')
+      ->with(self::USER_ID, self::ORG_ID, 'organization.inspection.read')
+      ->willReturn(true);
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($this->createOrganization());
+
+    $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
+    $nonConformityStatistics->expects(self::once())
+      ->method('countNonConformitiesCreatedByDay')
+      ->with(self::ORG_ID, '2026-03-01T00:00:00+00:00', '2026-03-02T23:59:59+00:00', 'UTC')
+      ->willReturn(['2026-03-01' => 2]);
+    $nonConformityStatistics->expects(self::once())
+      ->method('countNonConformitiesResolvedByDay')
+      ->with(self::ORG_ID, '2026-03-01T00:00:00+00:00', '2026-03-02T23:59:59+00:00', 'UTC')
+      ->willReturn(['2026-03-02' => 1]);
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $nonConformityStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+      additionalMetrics: [GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED],
+    ));
+
+    self::assertSame(GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED, $result->metric);
+    self::assertSame([
+      ['bucket' => '2026-03-01', 'value' => 2],
+      ['bucket' => '2026-03-02', 'value' => 0],
+    ], $result->series);
+    self::assertSame([
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED => [
+        ['bucket' => '2026-03-01', 'value' => 2],
+        ['bucket' => '2026-03-02', 'value' => 0],
+      ],
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED => [
+        ['bucket' => '2026-03-01', 'value' => 0],
+        ['bucket' => '2026-03-02', 'value' => 1],
+      ],
+    ], $result->seriesByMetric);
+  }
+
+  #[Test]
+  public function testInvokeOmitsSeriesByMetricWhenNoAdditionalMetricsRequested(): void
+  {
+    $authorization = $this->createMetricAuthorizationMock();
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($this->createOrganization());
+
+    $inspectionStatistics = $this->createStub(InspectionStatisticsPort::class);
+    $inspectionStatistics->method('countInspectionsPerformedByDay')->willReturn([]);
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $inspectionStatistics,
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      compareWithPreviousPeriod: false,
+    ));
+
+    self::assertSame([], $result->seriesByMetric);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenAdditionalMetricIsUnsupported(): void
+  {
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::never())->method('findById');
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createStub(InspectionStatisticsPort::class),
+      nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+      additionalMetrics: ['unsupported_metric'],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTooManyMetricsRequested(): void
+  {
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::never())->method('findById');
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createStub(InspectionStatisticsPort::class),
+      nonConformityStatistics: $this->createStub(NonConformityStatisticsPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('At most 4 dashboard trend metrics may be requested at once.');
+
+    $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      additionalMetrics: [
+        GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED,
+        GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED,
+        GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+        GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+      ],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenAdditionalMetricPermissionIsMissing(): void
+  {
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::exactly(2))
+      ->method('hasPermission')
+      ->willReturnCallback(static function (string $userId, string $organizationId, string $permission): bool {
+        self::assertSame(self::USER_ID, $userId);
+        self::assertSame(self::ORG_ID, $organizationId);
+
+        return 'organization.inspection.read' === $permission;
+      });
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::never())->method('findById');
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $authorization,
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+    );
+
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectExceptionMessage('Missing organization.equipment.read permission.');
+
+    $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      additionalMetrics: [GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED],
+    ));
+  }
+
   private function createOrganization(): Organization
   {
     return Organization::create(

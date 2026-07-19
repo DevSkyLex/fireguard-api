@@ -29,10 +29,12 @@ final readonly class ChangeOrganizationPlanCommand implements CommandMessage
    *
    * @param string $organizationId the organization identifier
    * @param string $planId the target plan identifier
+   * @param bool $acknowledgeOveruse whether the caller accepts applying a plan whose caps are below the current usage (Stripe webhook path and confirmed self-service downgrades)
    */
   public function __construct(
     public string $organizationId,
     public string $planId,
+    public bool $acknowledgeOveruse = false,
   ) {
   }
   // #endregion

@@ -6,16 +6,16 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationRoleFromMemberProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 #[CoversClass(RemoveOrganizationRoleFromMemberProcessor::class)]
 final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
@@ -29,6 +29,7 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -50,6 +51,7 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -77,6 +79,7 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -114,6 +117,7 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -142,6 +146,7 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -170,6 +175,7 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -198,10 +204,46 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(null, new Delete(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+      'roleId' => '550e8400-e29b-41d4-a716-446655441411',
+    ]);
+  }
+
+  #[Test]
+  public function testProcessThrowsConflictWhenUnassigningLastAdminRole(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanUnassignRole')
+      ->willThrowException(OrganizationLastAdminException::cannotUnassignLastAdminRole());
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new RemoveOrganizationRoleFromMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      lastAdminGuard: $lastAdminGuard,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
 
     $processor->process(null, new Delete(), [
       'organizationId' => '550e8400-e29b-41d4-a716-446655441410',

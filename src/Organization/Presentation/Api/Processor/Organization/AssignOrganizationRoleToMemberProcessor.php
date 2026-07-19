@@ -8,9 +8,9 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\{AssignOrganizationRoleToMemberCommand, AssignOrganizationRoleToMemberResult};
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AssignOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -48,6 +48,7 @@ final readonly class AssignOrganizationRoleToMemberProcessor implements Processo
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationPermissionGrantGuardPort $grantGuard,
     private Security $security,
   ) {
   }
@@ -87,12 +88,16 @@ final readonly class AssignOrganizationRoleToMemberProcessor implements Processo
     }
 
     try {
+      $this->grantGuard->assertCanAssignRoles($user->getId(), $organizationId, [$data->roleId]);
+
       /** @var AssignOrganizationRoleToMemberResult $result */
       $result = $this->commandBus->dispatch(new AssignOrganizationRoleToMemberCommand(
         organizationId: $organizationId,
         memberId: $memberId,
         roleId: $data->roleId,
       ));
+    } catch (OrganizationAccessDeniedException $exception) {
+      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
     } catch (OrganizationMemberNotFoundException|OrganizationRoleNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

@@ -6,11 +6,13 @@ namespace Organization\Application\UseCase\Command\Organization\CreateOrganizati
 
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_unique;
 use function array_values;
@@ -39,11 +41,13 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
    * @param UuidFactory $uuidFactory the UUID factory
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private UuidFactory $uuidFactory,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -94,6 +98,13 @@ final readonly class CreateOrganizationRoleHandler implements CommandHandler
     );
 
     $this->roleRepository->save($role);
+
+    $this->eventDispatcher->dispatch(new OrganizationRoleCreatedEvent(
+      organizationId: $command->organizationId,
+      roleId: (string) $role->id(),
+      roleName: (string) $role->name(),
+      permissions: $role->permissions(),
+    ));
 
     return new CreateOrganizationRoleResult(
       id: (string) $role->id(),

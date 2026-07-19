@@ -1,0 +1,20 @@
+plan:
+  free:
+    tagline: "Get started with core fire-safety tracking, at no cost."
+    perks:
+      - "Core inspection & equipment tracking"
+      - "Facility and asset management"
+      - "Community email support"
+  pro:
+    tagline: "Room to grow, with compliance reporting built in."
+    perks:
+      - "Regulatory safety register export (PDF)"
+      - "Team messaging channels"
+      - "Priority email support"
+  max:
+    tagline: "Maximum headroom with governance for large teams."
+    perks:
+      - "Regulatory safety register export (PDF)"
+      - "Four-eyes approval workflows"
+      - "Signed webhooks & integrations"
+      - "Priority support"

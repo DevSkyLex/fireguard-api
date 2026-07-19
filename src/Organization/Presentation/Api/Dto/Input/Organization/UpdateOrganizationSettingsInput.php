@@ -84,5 +84,108 @@ final class UpdateOrganizationSettingsInput
   #[Groups([OrganizationSerializationGroup::WRITE])]
   #[ApiProperty(description: 'Partial organization regional and formatting settings', required: false)]
   public ?UpdateOrganizationRegionalInput $regional = null;
+
+  /**
+   * Property compliance.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Valid]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Partial organization compliance policy (SLAs, inspection periodicities, reminder window)', required: false)]
+  public ?UpdateOrganizationComplianceInput $compliance = null;
+
+  /**
+   * Property automation.
+   *
+   * @since 1.1.0
+   */
+  #[Assert\Valid]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Partial organization automation toggles', required: false)]
+  public ?UpdateOrganizationAutomationInput $automation = null;
+
+  /**
+   * Property approval.
+   *
+   * @since 1.2.0
+   */
+  #[Assert\Valid]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Partial organization four-eyes approval policy', required: false)]
+  public ?UpdateOrganizationApprovalInput $approval = null;
+
+  /**
+   * Property assistant.
+   *
+   * @since 1.3.0
+   */
+  #[Assert\Valid]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Partial organization AI-assistant policy', required: false)]
+  public ?UpdateOrganizationAssistantInput $assistant = null;
+
+  /**
+   * Property country.
+   *
+   * ISO 3166-1 alpha-2 legal country code. Send an empty string to clear it.
+   *
+   * @since 1.4.0
+   */
+  #[Assert\Regex(pattern: '/^[A-Za-z]{2}$/', message: 'Country must be an ISO 3166-1 alpha-2 code.')]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'ISO 3166-1 alpha-2 legal country code (empty string clears it)', required: false, example: 'FR')]
+  public ?string $country = null;
+
+  /**
+   * Property legalType.
+   *
+   * Legal entity type. See `GET /api/organizations/legal-types` for the
+   * supported values. Send an empty string to clear it.
+   *
+   * @since 1.4.0
+   */
+  #[Assert\Length(max: 32)]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Legal entity type (empty string clears it)', required: false, example: 'limited_liability_company')]
+  public ?string $legalType = null;
+
+  /**
+   * Property legalName.
+   *
+   * Registered legal name, which may differ from the organization's display
+   * name. Send an empty string to clear it.
+   *
+   * @since 1.4.0
+   */
+  #[Assert\Length(max: 255)]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Registered legal name (empty string clears it)', required: false, example: 'Fireguard Paris SARL')]
+  public ?string $legalName = null;
+
+  /**
+   * Property registrationNumber.
+   *
+   * Company/registration number in the jurisdiction identified by `country`.
+   * Send an empty string to clear it.
+   *
+   * @since 1.4.0
+   */
+  #[Assert\Length(max: 64)]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Company/registration number (empty string clears it)', required: false, example: 'RCS PARIS 812345678')]
+  public ?string $registrationNumber = null;
+
+  /**
+   * Property vatNumber.
+   *
+   * Send an empty string to clear it.
+   *
+   * @since 1.4.0
+   */
+  #[Assert\Length(max: 64)]
+  #[Groups([OrganizationSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'VAT number (empty string clears it)', required: false, example: 'FR12345678901')]
+  public ?string $vatNumber = null;
   // #endregion
 }

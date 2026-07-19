@@ -102,6 +102,18 @@ final class OrganizationMemberOutput
   public bool $isActive = true;
 
   /**
+   * Property isOwner.
+   *
+   * Whether this member is the organization owner (`userId` matches
+   * `Organization::ownerUserId`).
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $isOwner = false;
+
+  /**
    * Property joinedAt.
    *
    * @since 1.0.0

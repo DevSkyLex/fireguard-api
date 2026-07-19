@@ -72,6 +72,14 @@ final class OrganizationRoleRepositoryTest extends TestCase
       'organization.facilities.read',
       'organization.equipment.read',
       'organization.inspection.read',
+      'organization.interventions.read',
+      'organization.maintenance.read',
+      'organization.teams.read',
+      'organization.messaging.read',
+      'organization.compliance.read',
+      'organization.approvals.read',
+      'organization.approvals.request',
+      'organization.events.read',
     ], $roles[0]->permissions());
   }
 

@@ -79,5 +79,22 @@ interface FacilityStatisticsPort
     ?string $timeZone = null,
     ?string $type = null,
   ): array;
+
+  /**
+   * Method getFacilityNamesByIds.
+   *
+   * Resolves facility display names for a bounded set of identifiers,
+   * scoped to the organization. Used to enrich cross-module summaries
+   * (e.g. the dashboard recent-interventions list) without exposing the
+   * Facility domain outside its module.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> map of facilityId => name
+   */
+  public function getFacilityNamesByIds(string $organizationId, array $facilityIds): array;
   // #endregion
 }

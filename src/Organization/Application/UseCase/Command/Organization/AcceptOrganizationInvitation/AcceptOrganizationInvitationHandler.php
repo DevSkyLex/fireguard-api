@@ -13,10 +13,12 @@ use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberHandler};
+use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
+use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
 
 use function sprintf;
@@ -47,6 +49,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
    * @param OrganizationQuotaPort $quota the organization quota port
    * @param TransactionManagerPort $transactionManager the transaction manager
    * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
@@ -57,6 +60,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
     private OrganizationInvitationTokenHasher $tokenHasher,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -107,11 +111,14 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       throw new InvalidArgumentException('Invitation email does not match the authenticated user.');
     }
 
+    $memberWasAdded = false;
+
     /** @var AcceptOrganizationInvitationResult $result */
     $result = $this->transactionManager->transactional(function () use (
       $invitation,
       $command,
       $now,
+      &$memberWasAdded,
     ): AcceptOrganizationInvitationResult {
       // Enforce the plan's member cap on the acceptance path too: the direct-add
       // and invite processors gate on active members + pending invitations, but
@@ -126,7 +133,16 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
         userId: $command->userId,
         roleIds: $roleIds,
         sendMemberNotification: false,
+        // The acceptance path already took the members lock and enforced the cap
+        // via assertCanAcceptMember (active-only count); re-running assertCanAdd
+        // here would double-count the pending invitation being accepted.
+        enforceQuota: false,
+        // The nested handler runs inside THIS transaction: it must not audit
+        // yet, or a rollback of the outer accept would leave a phantom
+        // member_added ledger row. This handler dispatches post-commit below.
+        emitMemberAddedEvent: false,
       ));
+      $memberWasAdded = $memberResult->wasCreatedOrReactivated;
 
       $invitation->accept($command->userId, $now);
       $this->invitationRepository->save($invitation);
@@ -142,6 +158,24 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
       );
     });
 
+    if ($memberWasAdded) {
+      $this->eventDispatcher->dispatch(new OrganizationMemberAddedEvent(
+        organizationId: (string) $invitation->organizationId(),
+        memberId: $result->memberId,
+        userId: $command->userId,
+        roleIds: $result->roleIds,
+      ));
+    }
+
+    $this->eventDispatcher->dispatch(new OrganizationInvitationAcceptedEvent(
+      organizationId: (string) $invitation->organizationId(),
+      invitationId: (string) $invitation->id(),
+      memberId: $result->memberId,
+      userId: $command->userId,
+      userEmail: $command->userEmail,
+      roleIds: $result->roleIds,
+    ));
+
     $this->dispatchMercure(
       type: NotificationType::ORGANIZATION_INVITATION_ACCEPTED,
       subject: 'Invitation accepted',
@@ -154,6 +188,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
         'acceptedAt' => $now->format('c'),
       ],
       recipientUserId: $invitation->invitedByUserId(),
+      organizationId: (string) $invitation->organizationId(),
       failureMessage: 'Invitation accepted notification dispatch failed.',
       logContext: [
         'organizationId' => (string) $invitation->organizationId(),
@@ -179,6 +214,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
           'joinedAt' => $result->joinedAt->format('c'),
         ],
         recipientUserId: $ownerUserId,
+        organizationId: (string) $invitation->organizationId(),
         failureMessage: 'Member joined notification dispatch failed.',
         logContext: [
           'organizationId' => (string) $invitation->organizationId(),
@@ -205,6 +241,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
    * @param string $body the notification body
    * @param array<string, mixed> $payload the Mercure payload
    * @param string $recipientUserId the recipient user identifier
+   * @param string $organizationId the organization the invitation/membership belongs to
    * @param string $failureMessage the log message written on dispatch failure
    * @param array<string, mixed> $logContext extra context added to the failure log
    */
@@ -214,6 +251,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
     string $body,
     array $payload,
     string $recipientUserId,
+    string $organizationId,
     string $failureMessage,
     array $logContext,
   ): void {
@@ -225,6 +263,7 @@ final readonly class AcceptOrganizationInvitationHandler implements CommandHandl
         channels: [NotificationChannel::MERCURE],
         payload: $payload,
         recipientUserId: $recipientUserId,
+        organizationId: $organizationId,
       ));
     } catch (Throwable $exception) {
       $this->logger->warning($failureMessage, [...$logContext, 'error' => $exception->getMessage()]);

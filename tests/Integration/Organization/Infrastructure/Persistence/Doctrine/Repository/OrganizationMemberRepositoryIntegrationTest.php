@@ -7,7 +7,7 @@ namespace Tests\Integration\Organization\Infrastructure\Persistence\Doctrine\Rep
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Domain\ValueObject\OrganizationId;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -105,6 +105,95 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
 
     self::assertSame(3, $count);
     self::assertSame(1, $secondaryCount);
+  }
+
+  /**
+   * Executes the grouped role-count query against a real database.
+   *
+   * The unit-level counterpart mocks the QueryBuilder, so it asserts the shape
+   * of the calls but never parses the resulting DQL — which is exactly how a
+   * reserved-keyword join alias (`member`, colliding with `MEMBER OF`) once
+   * shipped and produced a 500 on `GET /organizations/{id}/roles`. This test
+   * exists to execute the query for real.
+   */
+  #[Test]
+  public function testCountActiveMembersGroupedByRoleIdExcludesInactiveMembersAndScopesByOrganization(): void
+  {
+    $organization = $this->createOrganization(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0601',
+      name: 'Role Count Org',
+      slug: 'role-count-org',
+    );
+    $otherOrganization = $this->createOrganization(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0602',
+      name: 'Role Count Org B',
+      slug: 'role-count-org-b',
+    );
+    $this->entityManager->persist($organization);
+    $this->entityManager->persist($otherOrganization);
+
+    $role = $this->createRole('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0701', $organization, 'inspector');
+    $foreignRole = $this->createRole('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0702', $otherOrganization, 'inspector');
+    $this->entityManager->persist($role);
+    $this->entityManager->persist($foreignRole);
+
+    $activeMember = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0801',
+      organization: $organization,
+      userId: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0901',
+      joinedAt: new DateTimeImmutable('2026-03-01T00:00:00+00:00'),
+    );
+    $inactiveMember = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0802',
+      organization: $organization,
+      userId: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0902',
+      joinedAt: new DateTimeImmutable('2026-03-01T00:00:00+00:00'),
+      isActive: false,
+    );
+    $foreignMember = $this->createMember(
+      id: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0803',
+      organization: $otherOrganization,
+      userId: '6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0903',
+      joinedAt: new DateTimeImmutable('2026-03-01T00:00:00+00:00'),
+    );
+    $this->entityManager->persist($activeMember);
+    $this->entityManager->persist($inactiveMember);
+    $this->entityManager->persist($foreignMember);
+
+    $this->entityManager->persist($this->createMemberRole($activeMember, $role));
+    $this->entityManager->persist($this->createMemberRole($inactiveMember, $role));
+    $this->entityManager->persist($this->createMemberRole($foreignMember, $foreignRole));
+    $this->entityManager->flush();
+
+    $counts = $this->repository->countActiveMembersGroupedByRoleId(
+      OrganizationId::fromString('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0601'),
+    );
+
+    self::assertSame([$role->id => 1], $counts, 'Only the active member of this organization must be counted.');
+  }
+
+  private function createRole(string $id, OrganizationRecord $organization, string $name): OrganizationRoleRecord
+  {
+    $role = new OrganizationRoleRecord();
+    $role->id = $id;
+    $role->organization = $organization;
+    $role->name = $name;
+    $role->description = 'Role count fixture';
+    $role->permissions = ['organization.read'];
+    $role->isSystem = false;
+    $role->createdAt = new DateTimeImmutable('2026-03-01T00:00:00+00:00');
+
+    return $role;
+  }
+
+  private function createMemberRole(OrganizationMemberRecord $member, OrganizationRoleRecord $role): OrganizationMemberRoleRecord
+  {
+    $memberRole = new OrganizationMemberRoleRecord();
+    $memberRole->member = $member;
+    $memberRole->role = $role;
+    $memberRole->assignedAt = new DateTimeImmutable('2026-03-01T00:00:00+00:00');
+
+    return $memberRole;
   }
 
   private function createOrganization(string $id, string $name, string $slug): OrganizationRecord

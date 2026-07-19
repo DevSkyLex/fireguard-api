@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\{DeleteOrganizationRoleCommand, DeleteOrganizationRoleHandler, DeleteOrganizationRoleResult};
+use Organization\Domain\Event\Role\OrganizationRoleDeletedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -15,6 +16,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, Organizat
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(DeleteOrganizationRoleHandler::class)]
 final class DeleteOrganizationRoleHandlerTest extends TestCase
@@ -57,9 +59,21 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn($role);
     $roleRepository->expects(self::once())->method('remove')->with($role);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof OrganizationRoleDeletedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::ROLE_ID === $event->roleId
+          && 'inspector' === $event->roleName,
+      ));
+
     $handler = new DeleteOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new DeleteOrganizationRoleCommand(
@@ -84,9 +98,14 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::never())->method('findById');
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new DeleteOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -117,9 +136,14 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn(null);
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new DeleteOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationRoleNotFoundException::class);
@@ -159,9 +183,14 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn($roleFromAnotherOrg);
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new DeleteOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationRoleNotFoundException::class);
@@ -201,9 +230,14 @@ final class DeleteOrganizationRoleHandlerTest extends TestCase
     $roleRepository->expects(self::once())->method('findById')->willReturn($systemRole);
     $roleRepository->expects(self::never())->method('remove');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new DeleteOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);

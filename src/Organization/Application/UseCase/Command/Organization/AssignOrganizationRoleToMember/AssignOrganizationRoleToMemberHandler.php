@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember;
 
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * UseCase AssignOrganizationRoleToMemberHandler.
@@ -31,10 +33,12 @@ final readonly class AssignOrganizationRoleToMemberHandler implements CommandHan
    *
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -67,6 +71,13 @@ final readonly class AssignOrganizationRoleToMemberHandler implements CommandHan
     }
 
     $this->memberRepository->assignRole($memberId, $roleId);
+
+    $this->eventDispatcher->dispatch(new OrganizationRoleAssignedEvent(
+      organizationId: $command->organizationId,
+      memberId: $command->memberId,
+      roleId: $command->roleId,
+      roleName: (string) $role->name(),
+    ));
 
     return new AssignOrganizationRoleToMemberResult(
       memberId: (string) $memberId,

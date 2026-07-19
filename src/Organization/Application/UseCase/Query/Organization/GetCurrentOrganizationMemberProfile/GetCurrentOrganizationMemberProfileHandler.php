@@ -99,17 +99,20 @@ final readonly class GetCurrentOrganizationMemberProfileHandler implements Query
       $this->memberRepository->findRoleIdsForMember($member->id()),
     );
     $roles = $this->roleRepository->findByIdsInOrganization($organizationId, $roleIds);
+    $memberCountsByRoleId = $this->memberRepository->countActiveMembersGroupedByRoleId($organizationId);
 
     $roleResults = [];
     foreach ($roles as $role) {
+      $roleId = (string) $role->id();
       $roleResults[] = new GetCurrentOrganizationMemberProfileRoleResult(
-        id: (string) $role->id(),
+        id: $roleId,
         organizationId: (string) $role->organizationId(),
         name: (string) $role->name(),
         permissions: $role->permissions(),
         isSystem: $role->isSystem(),
         createdAt: $role->createdAt(),
         description: $role->description(),
+        memberCount: $memberCountsByRoleId[$roleId] ?? 0,
       );
     }
 

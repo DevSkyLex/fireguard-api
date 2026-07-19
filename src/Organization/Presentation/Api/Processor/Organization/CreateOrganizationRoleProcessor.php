@@ -8,10 +8,10 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -50,6 +50,7 @@ final readonly class CreateOrganizationRoleProcessor implements ProcessorInterfa
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationPermissionGrantGuardPort $grantGuard,
     private Security $security,
   ) {
   }
@@ -88,6 +89,8 @@ final readonly class CreateOrganizationRoleProcessor implements ProcessorInterfa
     }
 
     try {
+      $this->grantGuard->assertCanGrantPermissions($user->getId(), $organizationId, $data->permissions);
+
       /** @var CreateOrganizationRoleResult $result */
       $result = $this->commandBus->dispatch(new CreateOrganizationRoleCommand(
         organizationId: $organizationId,
@@ -95,6 +98,8 @@ final readonly class CreateOrganizationRoleProcessor implements ProcessorInterfa
         permissions: $data->permissions,
         description: $data->description,
       ));
+    } catch (OrganizationAccessDeniedException $exception) {
+      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

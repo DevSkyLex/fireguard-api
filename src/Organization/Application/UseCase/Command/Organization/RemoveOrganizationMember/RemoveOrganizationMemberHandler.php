@@ -9,10 +9,11 @@ use Notification\Application\Contract\Notification\{NotificationChannel, SendNot
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 use Throwable;
 
 use function sprintf;
@@ -38,12 +39,14 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher port
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -86,6 +89,12 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
     $member->deactivate();
     $this->memberRepository->save($member);
 
+    $this->eventDispatcher->dispatch(new OrganizationMemberRemovedEvent(
+      organizationId: (string) $organizationId,
+      memberId: (string) $memberId,
+      userId: $member->userId(),
+    ));
+
     $removedAt = new DateTimeImmutable();
 
     try {
@@ -101,6 +110,7 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
           'removedAt' => $removedAt->format('c'),
         ],
         recipientUserId: $member->userId(),
+        organizationId: (string) $organizationId,
       ));
     } catch (Throwable $exception) {
       $this->logger->warning('Organization member removed notification dispatch failed.', [

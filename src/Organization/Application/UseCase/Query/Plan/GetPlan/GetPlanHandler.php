@@ -8,6 +8,7 @@ use Organization\Application\Port\Outbound\PlanRepositoryPort;
 use Organization\Domain\Exception\PlanNotFoundException;
 use Organization\Domain\ValueObject\PlanId;
 use Shared\Application\Message\QueryHandler;
+use Shared\Application\Port\Outbound\TranslationPort;
 
 /**
  * UseCase GetPlanHandler.
@@ -29,9 +30,11 @@ final readonly class GetPlanHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param PlanRepositoryPort $planRepository the plan repository port
+   * @param TranslationPort $translator the translator, for the plan's marketing copy
    */
   public function __construct(
     private PlanRepositoryPort $planRepository,
+    private TranslationPort $translator,
   ) {
   }
   // #endregion
@@ -56,7 +59,7 @@ final readonly class GetPlanHandler implements QueryHandler
       throw PlanNotFoundException::withId($query->planId);
     }
 
-    return GetPlanResult::fromDomain($plan);
+    return GetPlanResult::fromDomain($plan, $this->translator);
   }
   // #endregion
 }

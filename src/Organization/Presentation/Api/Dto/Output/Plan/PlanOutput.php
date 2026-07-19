@@ -60,6 +60,37 @@ final class PlanOutput
   public ?string $description = null;
 
   /**
+   * Property tagline.
+   *
+   * Short marketing tagline for the plan comparison card, or null when the
+   * plan has none configured. Display copy only — never used to derive what
+   * the plan grants (see {@see self::$limits} / {@see self::$quotas} for
+   * that).
+   *
+   * @since 1.0.0
+   */
+  #[Groups([PlanSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $tagline = null;
+
+  /**
+   * Property perks.
+   *
+   * Marketing perk bullet list for the plan comparison card, in display
+   * order; empty when the plan has none configured. Display copy only — NOT
+   * an entitlement list: quotas and the relevant module's entitlement port
+   * (e.g. Compliance's export entitlement) remain the sole source of truth
+   * for what the plan actually grants.
+   *
+   * @var list<string>
+   *
+   * @since 1.0.0
+   */
+  #[Groups([PlanSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $perks = [];
+
+  /**
    * Property limits.
    *
    * Per-resource quantity caps keyed by resource; an absent resource is unlimited.
@@ -151,6 +182,8 @@ final class PlanOutput
     $output->key = $result->key;
     $output->name = $result->name;
     $output->description = $result->description;
+    $output->tagline = $result->tagline;
+    $output->perks = $result->perks;
     $output->limits = $result->limits;
     $output->quotas = array_map(
       static function (array $quota): PlanQuotaOutput {

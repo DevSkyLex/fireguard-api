@@ -7,12 +7,12 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 use function is_string;
 
@@ -44,6 +44,7 @@ final readonly class RemoveOrganizationMemberProcessor implements ProcessorInter
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -82,10 +83,13 @@ final readonly class RemoveOrganizationMemberProcessor implements ProcessorInter
     }
 
     try {
+      $this->lastAdminGuard->assertCanRemoveMember($organizationId, $memberId);
       $this->commandBus->dispatch(new RemoveOrganizationMemberCommand(
         organizationId: $organizationId,
         memberId: $memberId,
       ));
+    } catch (OrganizationLastAdminException $exception) {
+      throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (OrganizationMemberNotFoundException|OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     }

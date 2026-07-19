@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend;
 
-use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
-use Organization\Application\Support\DashboardDateTimeParser;
+use Organization\Application\Support\{DashboardDateTimeParser, DashboardSeriesBuilder};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationId;
@@ -18,13 +17,11 @@ use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\CachePort;
 use Throwable;
 
-use function array_sum;
+use function count;
 use function hash;
 use function in_array;
 use function json_encode;
-use function max;
-use function round;
-use function timezone_identifiers_list;
+use function sprintf;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -51,11 +48,15 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
 
   private const string DEFAULT_DASHBOARD_TIME_ZONE = 'UTC';
 
-  private const int DEFAULT_TREND_PERIOD_DAYS = 30;
-
-  private const int MAX_TREND_PERIOD_DAYS = 366;
-
   private const int DEFAULT_CACHE_TTL_SECONDS = 30;
+
+  /**
+   * Largest number of distinct metrics a single trend request may combine
+   * (primary metric + `additionalMetrics`), e.g. the two-series non-conformity
+   * chart (opened + resolved). Bounds the per-request fan-out into the
+   * statistics ports regardless of how many metrics the catalog grows to.
+   */
+  private const int MAX_REQUESTED_METRICS = 4;
 
   /**
    * Constructor.
@@ -82,15 +83,16 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
   public function __invoke(GetOrganizationDashboardTrendQuery $query): GetOrganizationDashboardTrendResult
   {
     $metric = $this->assertSupportedMetric($query->metric);
+    $requestedMetrics = $this->resolveRequestedMetrics($metric, $query->additionalMetrics);
 
-    $this->assertMetricPermissions($query->userId, $query->organizationId, $metric);
+    $this->assertMetricsPermissions($query->userId, $query->organizationId, $requestedMetrics);
 
     $organization = $this->organizationRepository->findById(OrganizationId::fromString($query->organizationId));
     if (null === $organization) {
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
-    $cacheKey = $this->buildCacheKey($query);
+    $cacheKey = $this->buildCacheKey($query, $requestedMetrics);
     $cached = $this->readCache($cacheKey);
     if ($cached instanceof GetOrganizationDashboardTrendResult) {
       return $cached;
@@ -99,24 +101,26 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
     $periodFrom = DashboardDateTimeParser::parseNullable($query->periodFrom, 'from');
     $periodTo = DashboardDateTimeParser::parseNullable($query->periodTo, 'to');
-    $dashboardTimeZone = $this->resolveDashboardTimeZone($query->timeZone, $periodFrom, $periodTo, $generatedAt);
+    $dashboardTimeZone = DashboardSeriesBuilder::resolveDashboardTimeZone($query->timeZone, $periodFrom, $periodTo, $generatedAt);
     $generatedAt = $generatedAt->setTimezone($dashboardTimeZone);
-    [$periodStart, $periodEnd] = $this->resolvePeriod($periodFrom, $periodTo, $generatedAt, $dashboardTimeZone);
-    $this->assertSupportedPeriod($periodStart, $periodEnd);
-    $granularity = $this->resolveGranularity($query->granularity, $periodStart, $periodEnd);
-    $comparisonPeriod = $query->compareWithPreviousPeriod ? $this->resolvePreviousPeriod($periodStart, $periodEnd) : null;
-    $periodStartFormatted = $this->formatIso8601($periodStart);
-    $periodEndFormatted = $this->formatIso8601($periodEnd);
+    [$periodStart, $periodEnd] = DashboardSeriesBuilder::resolvePeriod($periodFrom, $periodTo, $generatedAt, $dashboardTimeZone);
+    DashboardSeriesBuilder::assertSupportedPeriod($periodStart, $periodEnd);
+    $granularity = DashboardSeriesBuilder::resolveGranularity($query->granularity, $periodStart, $periodEnd);
+    $comparisonPeriod = $query->compareWithPreviousPeriod ? DashboardSeriesBuilder::resolvePreviousPeriod($periodStart, $periodEnd) : null;
+    $periodStartFormatted = DashboardSeriesBuilder::formatIso8601($periodStart);
+    $periodEndFormatted = DashboardSeriesBuilder::formatIso8601($periodEnd);
     $currentCounts = $this->loadMetricCounts($metric, $query, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName());
-    $currentTotal = $this->sumSeries($currentCounts);
+    $currentTotal = DashboardSeriesBuilder::sumSeries($currentCounts);
+    $primarySeries = DashboardSeriesBuilder::normalizeSeries($periodStart, $periodEnd, $granularity, $currentCounts);
 
     $result = new GetOrganizationDashboardTrendResult(
-      generatedAt: $this->formatIso8601($generatedAt),
+      generatedAt: DashboardSeriesBuilder::formatIso8601($generatedAt),
       metric: $metric,
       period: ['from' => $periodStartFormatted, 'to' => $periodEndFormatted, 'granularity' => $granularity, 'comparison' => null !== $comparisonPeriod ? 'previous_period' : 'none', 'timezone' => $dashboardTimeZone->getName()],
       summary: ['total' => $currentTotal],
-      series: $this->normalizeSeries($periodStart, $periodEnd, $granularity, $currentCounts),
+      series: $primarySeries,
       comparison: $this->buildComparison($metric, $query, $comparisonPeriod, $granularity, $currentTotal),
+      seriesByMetric: $this->buildSeriesByMetric($requestedMetrics, $metric, $primarySeries, $query, $periodStart, $periodEnd, $granularity, $periodStartFormatted, $periodEndFormatted, $dashboardTimeZone->getName()),
     );
     $this->writeCache($cacheKey, $result);
 
@@ -132,21 +136,100 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     return $metric;
   }
 
-  private function assertMetricPermissions(string $userId, string $organizationId, string $metric): void
+  /**
+   * Resolves the deduplicated, capped list of metrics this request must
+   * compute a series for: the primary metric first, followed by every
+   * distinct, supported entry from `additionalMetrics` (the `metrics` filter).
+   *
+   * @param list<string> $additionalMetrics
+   *
+   * @return list<string>
+   */
+  private function resolveRequestedMetrics(string $metric, array $additionalMetrics): array
   {
-    foreach (OrganizationPermissionCatalog::dashboardTrendReadDependencies($metric) as $permission) {
-      if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
-        throw OrganizationAccessDeniedException::missingPermission($permission);
+    $metrics = [$metric];
+    foreach ($additionalMetrics as $additionalMetric) {
+      $additionalMetric = $this->assertSupportedMetric($additionalMetric);
+      if (!in_array($additionalMetric, $metrics, true)) {
+        $metrics[] = $additionalMetric;
+      }
+    }
+
+    if (count($metrics) > self::MAX_REQUESTED_METRICS) {
+      throw new InvalidArgumentException(sprintf('At most %d dashboard trend metrics may be requested at once.', self::MAX_REQUESTED_METRICS));
+    }
+
+    return $metrics;
+  }
+
+  /**
+   * Checks every permission required by every requested metric — a loop over
+   * {@see OrganizationPermissionCatalog::dashboardTrendReadDependencies()} so a
+   * caller cannot read a metric it lacks rights to by hiding it behind one it
+   * is allowed to see.
+   *
+   * @param list<string> $metrics
+   */
+  private function assertMetricsPermissions(string $userId, string $organizationId, array $metrics): void
+  {
+    foreach ($metrics as $metric) {
+      foreach (OrganizationPermissionCatalog::dashboardTrendReadDependencies($metric) as $permission) {
+        if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
+          throw OrganizationAccessDeniedException::missingPermission($permission);
+        }
       }
     }
   }
 
-  private function buildCacheKey(GetOrganizationDashboardTrendQuery $query): string
+  /**
+   * Builds the `seriesByMetric` map when more than the primary metric was
+   * requested, so a chart combining several metrics (e.g. non-conformities
+   * opened vs resolved) can render from a single call. Every entry shares the
+   * same resolved period, timezone and granularity as the primary series.
+   *
+   * @param list<string> $requestedMetrics
+   * @param list<array{bucket: string, value: int}> $primarySeries
+   *
+   * @return array<string, list<array{bucket: string, value: int}>>
+   */
+  private function buildSeriesByMetric(
+    array $requestedMetrics,
+    string $primaryMetric,
+    array $primarySeries,
+    GetOrganizationDashboardTrendQuery $query,
+    DateTimeImmutable $periodStart,
+    DateTimeImmutable $periodEnd,
+    string $granularity,
+    string $periodStartFormatted,
+    string $periodEndFormatted,
+    string $timeZone,
+  ): array {
+    if (count($requestedMetrics) <= 1) {
+      return [];
+    }
+
+    $seriesByMetric = [$primaryMetric => $primarySeries];
+    foreach ($requestedMetrics as $additionalMetric) {
+      if ($additionalMetric === $primaryMetric) {
+        continue;
+      }
+      $counts = $this->loadMetricCounts($additionalMetric, $query, $periodStartFormatted, $periodEndFormatted, $timeZone);
+      $seriesByMetric[$additionalMetric] = DashboardSeriesBuilder::normalizeSeries($periodStart, $periodEnd, $granularity, $counts);
+    }
+
+    return $seriesByMetric;
+  }
+
+  /**
+   * @param list<string> $requestedMetrics
+   */
+  private function buildCacheKey(GetOrganizationDashboardTrendQuery $query, array $requestedMetrics): string
   {
     try {
       $payload = json_encode([
         'organizationId' => $query->organizationId,
         'metric' => $query->metric,
+        'requestedMetrics' => $requestedMetrics,
         'periodFrom' => $query->periodFrom,
         'periodTo' => $query->periodTo,
         'compareWithPreviousPeriod' => $query->compareWithPreviousPeriod,
@@ -196,77 +279,6 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     }
   }
 
-  private function resolveDashboardTimeZone(?string $timeZone, ?DateTimeImmutable $periodFrom, ?DateTimeImmutable $periodTo, DateTimeImmutable $fallbackNow): DateTimeZone
-  {
-    if (null !== $timeZone) {
-      if (!in_array($timeZone, timezone_identifiers_list(), true)) {
-        throw new InvalidArgumentException('Invalid "timezone" filter. Use a valid IANA timezone such as Europe/Paris.');
-      }
-
-      return new DateTimeZone($timeZone);
-    }
-    if ($periodFrom instanceof DateTimeImmutable && $periodTo instanceof DateTimeImmutable && $periodFrom->getTimezone()->getName() !== $periodTo->getTimezone()->getName()) {
-      throw new InvalidArgumentException('Mixed timezone offsets require the "timezone" filter.');
-    }
-
-    return $this->normalizeImplicitDashboardTimeZone($periodFrom?->getTimezone() ?? $periodTo?->getTimezone() ?? $fallbackNow->getTimezone(), $periodFrom ?? $periodTo ?? $fallbackNow);
-  }
-
-  private function normalizeImplicitDashboardTimeZone(DateTimeZone $timeZone, DateTimeImmutable $reference): DateTimeZone
-  {
-    if (in_array($timeZone->getName(), timezone_identifiers_list(), true)) {
-      return $timeZone;
-    }
-    if (0 === $timeZone->getOffset($reference)) {
-      return new DateTimeZone('UTC');
-    }
-
-    throw new InvalidArgumentException('Non-UTC offset datetimes require the "timezone" filter.');
-  }
-
-  /**
-   * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
-   */
-  private function resolvePeriod(?DateTimeImmutable $periodFrom, ?DateTimeImmutable $periodTo, DateTimeImmutable $now, DateTimeZone $dashboardTimeZone): array
-  {
-    $periodEnd = ($periodTo ?? $now)->setTimezone($dashboardTimeZone);
-    $periodStart = null !== $periodFrom ? $periodFrom->setTimezone($dashboardTimeZone) : $periodEnd->sub(new DateInterval('P' . (self::DEFAULT_TREND_PERIOD_DAYS - 1) . 'D'))->setTime(0, 0);
-
-    return [$periodStart, $periodEnd];
-  }
-
-  private function assertSupportedPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): void
-  {
-    if ($periodStart->getTimestamp() > $periodEnd->getTimestamp()) {
-      throw new InvalidArgumentException('The "from" datetime filter must be before or equal to "to".');
-    }
-    if ((int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1 > self::MAX_TREND_PERIOD_DAYS) {
-      throw new InvalidArgumentException('Dashboard period cannot exceed 366 days.');
-    }
-  }
-
-  private function resolveGranularity(string $granularity, DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): string
-  {
-    if ('auto' !== $granularity) {
-      return match ($granularity) {
-        'week', 'month' => $granularity, default => 'day'
-      };
-    }
-    $days = (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1;
-
-    return $days > 180 ? 'month' : ($days > 45 ? 'week' : 'day');
-  }
-
-  /**
-   * @return array{from: DateTimeImmutable, to: DateTimeImmutable}
-   */
-  private function resolvePreviousPeriod(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd): array
-  {
-    $shift = new DateInterval('P' . max(1, (int) $periodStart->setTime(0, 0)->diff($periodEnd->setTime(0, 0))->days + 1) . 'D');
-
-    return ['from' => $periodStart->sub($shift), 'to' => $periodEnd->sub($shift)];
-  }
-
   /**
    * @return array<string, int>
    */
@@ -292,94 +304,12 @@ final readonly class GetOrganizationDashboardTrendHandler implements QueryHandle
     if (null === $comparisonPeriod) {
       return ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []];
     }
-    $from = $this->formatIso8601($comparisonPeriod['from']);
-    $to = $this->formatIso8601($comparisonPeriod['to']);
+    $from = DashboardSeriesBuilder::formatIso8601($comparisonPeriod['from']);
+    $to = DashboardSeriesBuilder::formatIso8601($comparisonPeriod['to']);
     $counts = $this->loadMetricCounts($metric, $query, $from, $to, $comparisonPeriod['from']->getTimezone()->getName());
-    $previousTotal = $this->sumSeries($counts);
+    $previousTotal = DashboardSeriesBuilder::sumSeries($counts);
 
-    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'summary' => ['total' => $previousTotal, 'delta' => $this->relativeDelta($currentTotal, $previousTotal)], 'series' => $this->normalizeSeries($comparisonPeriod['from'], $comparisonPeriod['to'], $granularity, $counts)];
-  }
-
-  private function relativeDelta(int $current, int $previous): float
-  {
-    if (0 === $previous) {
-      return $current > 0 ? 100.0 : 0.0;
-    }
-
-    return round((($current - $previous) / $previous) * 100, 2);
-  }
-
-  /**
-   * @param array<string, int> $series
-   */
-  private function sumSeries(array $series): int
-  {
-    return (int) array_sum($series);
-  }
-
-  /**
-   * @param array<string, int> $counts
-   *
-   * @return list<array{bucket: string, value: int}>
-   */
-  private function normalizeSeries(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, string $granularity, array $counts): array
-  {
-    $series = $this->initializeSeriesBuckets($periodStart, $periodEnd, $granularity);
-    for ($cursor = $periodStart->setTime(0, 0), $lastDay = $periodEnd->setTime(0, 0); $cursor <= $lastDay; $cursor = $cursor->add(new DateInterval('P1D'))) {
-      $bucket = $this->bucketKeyForDate($cursor, $granularity);
-      $series[$bucket] += $counts[$cursor->format('Y-m-d')] ?? 0;
-    }
-    $normalized = [];
-    foreach ($series as $bucket => $value) {
-      $normalized[] = ['bucket' => $bucket, 'value' => $value];
-    }
-
-    return $normalized;
-  }
-
-  /**
-   * @return array<string, int>
-   */
-  private function initializeSeriesBuckets(DateTimeImmutable $periodStart, DateTimeImmutable $periodEnd, string $granularity): array
-  {
-    $series = [];
-    for ($cursor = $this->bucketStartForDate($periodStart, $granularity), $lastBucket = $this->bucketStartForDate($periodEnd, $granularity); $cursor <= $lastBucket; $cursor = $this->advanceBucket($cursor, $granularity)) {
-      $series[$this->bucketKeyForDate($cursor, $granularity)] = 0;
-    }
-
-    return $series;
-  }
-
-  private function bucketStartForDate(DateTimeImmutable $date, string $granularity): DateTimeImmutable
-  {
-    return match ($granularity) {
-      'week' => $date->setISODate((int) $date->format('o'), (int) $date->format('W'))->setTime(0, 0),
-      'month' => $date->setDate((int) $date->format('Y'), (int) $date->format('m'), 1)->setTime(0, 0),
-      default => $date->setTime(0, 0),
-    };
-  }
-
-  private function advanceBucket(DateTimeImmutable $bucketStart, string $granularity): DateTimeImmutable
-  {
-    return match ($granularity) {
-      'week' => $bucketStart->add(new DateInterval('P7D')),
-      'month' => $bucketStart->add(new DateInterval('P1M')),
-      default => $bucketStart->add(new DateInterval('P1D')),
-    };
-  }
-
-  private function bucketKeyForDate(DateTimeImmutable $date, string $granularity): string
-  {
-    return match ($granularity) {
-      'week' => $date->format('o-\\WW'),
-      'month' => $date->format('Y-m'),
-      default => $date->format('Y-m-d'),
-    };
-  }
-
-  private function formatIso8601(DateTimeImmutable $value): string
-  {
-    return '000000' === $value->format('u') ? $value->format('Y-m-d\\TH:i:sP') : $value->format('Y-m-d\\TH:i:s.uP');
+    return ['mode' => 'previous_period', 'from' => $from, 'to' => $to, 'summary' => ['total' => $previousTotal, 'delta' => DashboardSeriesBuilder::relativeDelta($currentTotal, $previousTotal)], 'series' => DashboardSeriesBuilder::normalizeSeries($comparisonPeriod['from'], $comparisonPeriod['to'], $granularity, $counts)];
   }
 
   /**

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\{CreateOrganizationRoleCommand, CreateOrganizationRoleHandler, CreateOrganizationRoleResult};
+use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
@@ -16,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(CreateOrganizationRoleHandler::class)]
 final class CreateOrganizationRoleHandlerTest extends TestCase
@@ -61,10 +63,23 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       ->with(OrganizationRoleId::class)
       ->willReturn(new OrganizationRoleId($roleId));
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof OrganizationRoleCreatedEvent
+          && $organizationId === $event->organizationId
+          && $roleId === $event->roleId
+          && 'inspector' === $event->roleName
+          && ['organization.read', 'organization.members.read'] === $event->permissions,
+      ));
+
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new CreateOrganizationRoleCommand(
@@ -95,10 +110,15 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
       uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -147,10 +167,15 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
       ->willReturn($existingRole);
     $roleRepository->expects(self::never())->method('save');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new CreateOrganizationRoleHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Domain\ValueObject;
 
 use Organization\Domain\ValueObject\{
+  OrganizationAutomationSettings,
+  OrganizationComplianceSettings,
   OrganizationNotificationSettings,
   OrganizationRegionalSettings,
   OrganizationSettings
@@ -93,6 +95,40 @@ final class OrganizationSettingsTest extends TestCase
     self::assertSame('UTC', $settings->regional->timezone, 'original is unchanged');
     self::assertSame('Europe/Paris', $updated->regional->timezone);
     self::assertEquals($settings->notifications, $updated->notifications, 'notifications section is preserved');
+  }
+
+  #[Test]
+  public function testWithComplianceReturnsNewImmutableInstance(): void
+  {
+    $settings = OrganizationSettings::default();
+    $updated = $settings->withCompliance(new OrganizationComplianceSettings(reminderWindowDays: 45));
+
+    self::assertNotSame($settings, $updated);
+    self::assertSame(30, $settings->compliance->reminderWindowDays, 'original is unchanged');
+    self::assertSame(45, $updated->compliance->reminderWindowDays);
+    self::assertEquals($settings->notifications, $updated->notifications, 'notifications section is preserved');
+  }
+
+  #[Test]
+  public function testWithAutomationReturnsNewImmutableInstance(): void
+  {
+    $settings = OrganizationSettings::default();
+    $updated = $settings->withAutomation(new OrganizationAutomationSettings(autoCreateInterventionOnCriticalNc: true));
+
+    self::assertNotSame($settings, $updated);
+    self::assertFalse($settings->automation->autoCreateInterventionOnCriticalNc, 'original is unchanged');
+    self::assertTrue($updated->automation->autoCreateInterventionOnCriticalNc);
+    self::assertEquals($settings->regional, $updated->regional, 'regional section is preserved');
+  }
+
+  #[Test]
+  public function testToArrayCarriesSchemaVersion(): void
+  {
+    $data = OrganizationSettings::default()->toArray();
+
+    self::assertSame(OrganizationSettings::SCHEMA_VERSION, $data['version']);
+    self::assertArrayHasKey('compliance', $data);
+    self::assertArrayHasKey('automation', $data);
   }
 
   #[Test]
