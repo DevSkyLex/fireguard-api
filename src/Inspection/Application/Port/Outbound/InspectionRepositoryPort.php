@@ -56,6 +56,22 @@ interface InspectionRepositoryPort
   public function findById(InspectionId $id): ?Inspection;
 
   /**
+   * Method findPublishedById.
+   *
+   * Finds a PUBLISHED inspection by identifier. Draft intervention
+   * scratchpads are invisible to this lookup: the lifecycle commands
+   * (submit, close, cancel) must not act on — nor audit — records that
+   * only exist inside an unpublished intervention.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionId $id the inspection identifier
+   *
+   * @return ?Inspection the published inspection aggregate when found
+   */
+  public function findPublishedById(InspectionId $id): ?Inspection;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists inspections for an organization with optional filters.

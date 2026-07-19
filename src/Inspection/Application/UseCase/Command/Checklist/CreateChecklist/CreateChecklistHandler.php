@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Command\Checklist\CreateChecklist;
 
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Inspection\Application\Port\Outbound\ChecklistRepositoryPort;
+use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Domain\Exception\InvalidValueException;
+use Throwable;
 
 use function array_map;
+use function str_contains;
+use function strtolower;
 
 /**
  * UseCase CreateChecklistHandler.
@@ -64,17 +69,27 @@ final readonly class CreateChecklistHandler implements CommandHandler
         name: $command->name,
         version: $command->version,
         items: $items,
+        referenceCode: $command->referenceCode,
       );
     } catch (InvalidValueException $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $this->checklistRepository->save($checklist);
+    try {
+      $this->checklistRepository->save($checklist);
+    } catch (Throwable $exception) {
+      if ($this->isDuplicateReferenceCodeViolation($exception)) {
+        throw ChecklistReferenceCodeAlreadyExistsException::withReferenceCode((string) $checklist->referenceCode());
+      }
+
+      throw $exception;
+    }
 
     return new CreateChecklistResult(
       checklistId: (string) $checklist->id(),
       organizationId: (string) $checklist->organizationId(),
       name: $checklist->name(),
+      referenceCode: $checklist->referenceCode(),
       version: $checklist->version(),
       status: $checklist->status()->value,
       items: array_map(
@@ -90,6 +105,37 @@ final readonly class CreateChecklistHandler implements CommandHandler
       createdAt: $checklist->createdAt(),
       updatedAt: $checklist->updatedAt(),
     );
+  }
+
+  /**
+   * Method isDuplicateReferenceCodeViolation.
+   *
+   * Detects whether a persistence failure was caused by the unique
+   * (organization_id, reference_code) constraint.
+   *
+   * @since 1.0.0
+   *
+   * @param Throwable $exception the persistence exception
+   *
+   * @return bool true when the failure is caused by reference code uniqueness
+   */
+  private function isDuplicateReferenceCodeViolation(Throwable $exception): bool
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      if ($current instanceof UniqueConstraintViolationException) {
+        $message = strtolower($current->getMessage());
+
+        if (str_contains($message, 'uniq_checklist_organization_reference_code')) {
+          return true;
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+
+    return false;
   }
   // #endregion
 }

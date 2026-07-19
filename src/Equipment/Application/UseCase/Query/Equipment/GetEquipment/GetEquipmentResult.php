@@ -25,6 +25,7 @@ final readonly class GetEquipmentResult implements ResultMessage
    * @since 1.0.0
    *
    * @param list<array{id: string, name: string, organizationId: string}> $tags
+   * @param string $maintenanceDueStatus the maintenance due status value (`unscheduled`|`up_to_date`|`due_soon`|`overdue`), resolved cross-module from the Maintenance module; `unscheduled` when the equipment has no maintenance schedule
    */
   public function __construct(
     public string $equipmentId,
@@ -42,6 +43,7 @@ final readonly class GetEquipmentResult implements ResultMessage
     public array $tags,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public string $maintenanceDueStatus = 'unscheduled',
   ) {
   }
   // #endregion

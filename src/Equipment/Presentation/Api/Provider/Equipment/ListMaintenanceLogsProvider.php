@@ -117,6 +117,12 @@ final readonly class ListMaintenanceLogsProvider implements ProviderInterface
       $output->organizationId = $log['organizationId'];
       $output->startedAt = $log['startedAt'];
       $output->completedAt = $log['completedAt'];
+      $output->source = $log['source'];
+      $output->interventionId = $log['interventionId'];
+      $output->interventionNumber = $log['interventionNumber'];
+      $output->workItemAction = $log['workItemAction'];
+      $output->actorId = $log['actorId'];
+      $output->summary = $log['summary'];
       $outputs[] = $output;
     }
 

@@ -9,6 +9,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
+use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Presentation\Api\Dto\Input\Inspection\PatchCanonicalInspectionInput;
 use Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor;
@@ -21,10 +22,12 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, UnprocessableEntityHttpException};
 
 #[CoversClass(CanonicalInspectionMutationProcessor::class)]
 final class CanonicalInspectionMutationProcessorTest extends TestCase
@@ -63,6 +66,90 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
 
     self::assertNull($result);
     self::assertSame(3, $record->revision);
+  }
+
+  #[Test]
+  public function testDeletingPublishedInspectionCancelsItInsteadOfClosing(): void
+  {
+    // A published inspection (submitted) is logically annulled, not force-closed:
+    // its status becomes `cancelled` and its non-conformities are left untouched.
+    $record = $this->record();
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('remove');
+    $entityManager->expects(self::once())->method('flush');
+
+    $result = $this->processor(
+      $record,
+      $this->request('DELETE'),
+      $entityManager,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+
+    self::assertNull($result);
+    self::assertSame('cancelled', $record->status);
+    self::assertSame(4, $record->revision);
+  }
+
+  #[Test]
+  public function testDeletingAlreadyCancelledInspectionIsIdempotent(): void
+  {
+    // A repeat DELETE must not bump the revision, matching the facility and
+    // equipment canonical surfaces.
+    $record = $this->record();
+    $record->status = 'cancelled';
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('remove');
+    $entityManager->expects(self::once())->method('flush');
+
+    $result = $this->processor(
+      $record,
+      $this->request('DELETE'),
+      $entityManager,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+
+    self::assertNull($result);
+    self::assertSame('cancelled', $record->status);
+    self::assertSame(3, $record->revision);
+  }
+
+  #[Test]
+  public function testRejectsDeletingClosedPublishedInspection(): void
+  {
+    // Closed is terminal: it cannot be cancelled, mirroring Inspection::cancel().
+    $record = $this->record();
+    $record->status = 'closed';
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('flush');
+    $entityManager->expects(self::never())->method('remove');
+
+    $this->expectException(ConflictHttpException::class);
+
+    $this->processor(
+      $record,
+      $this->request('DELETE'),
+      $entityManager,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testRejectsPatchingCancelledInspection(): void
+  {
+    // Cancelled is terminal on the canonical surface too: no further mutation.
+    $record = $this->record();
+    $record->status = 'cancelled';
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('flush');
+
+    $this->expectException(ConflictHttpException::class);
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"submitted"}'),
+      $entityManager,
+    )->process($this->patchStatus('submitted'), new Patch(), ['id' => self::INSPECTION_ID]);
   }
 
   #[Test]
@@ -131,14 +218,194 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
     self::assertSame(4, $result?->revision);
   }
 
+  #[Test]
+  public function testDeletingPublishedInspectionDispatchesCancelledEvent(): void
+  {
+    // Audit ledger: cancelling a published inspection through the canonical
+    // DELETE emits an InspectionCancelledEvent carrying the pre-cancel status.
+    $record = $this->record();
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof InspectionCancelledEvent
+        && self::ORGANIZATION_ID === $event->organizationId
+        && self::INSPECTION_ID === $event->inspectionId
+        && '550e8400-e29b-41d4-a716-446655440025' === $event->equipmentId
+        && 'submitted' === $event->previousStatus,
+    ));
+
+    $result = $this->processor(
+      $record,
+      $this->request('DELETE'),
+      eventDispatcher: $eventDispatcher,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+
+    self::assertNull($result);
+    self::assertSame('cancelled', $record->status);
+  }
+
+  #[Test]
+  public function testClosingPublishedInspectionDispatchesClosedEvent(): void
+  {
+    // Audit ledger: a published submitted -> closed PATCH emits an
+    // InspectionClosedEvent carrying the recorded result.
+    $record = $this->record();
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof InspectionClosedEvent
+        && self::ORGANIZATION_ID === $event->organizationId
+        && self::INSPECTION_ID === $event->inspectionId
+        && '550e8400-e29b-41d4-a716-446655440025' === $event->equipmentId
+        && 'pass' === $event->result,
+    ));
+
+    $result = $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"closed"}'),
+      eventDispatcher: $eventDispatcher,
+    )->process($this->patchStatus('closed'), new Patch(), ['id' => self::INSPECTION_ID]);
+
+    self::assertSame('closed', $record->status);
+    self::assertSame(4, $result?->revision);
+  }
+
+  #[Test]
+  public function testRepeatDeleteOnCancelledInspectionDispatchesNothing(): void
+  {
+    // The idempotent repeat DELETE leaves the record untouched: no ledger row.
+    $record = $this->record();
+    $record->status = 'cancelled';
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->processor(
+      $record,
+      $this->request('DELETE'),
+      eventDispatcher: $eventDispatcher,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testDeletingDraftInspectionDispatchesNothing(): void
+  {
+    // A draft (intervention scratchpad) hard-delete never reaches the ledger.
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
+    );
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->processor(
+      $record,
+      $this->request('DELETE'),
+      resources: $resources,
+      eventDispatcher: $eventDispatcher,
+    )->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testPatchingDraftInspectionDispatchesNothing(): void
+  {
+    // Draft scratchpad edits are not audited, even on a status change.
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+    $record->status = 'draft';
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress'),
+    );
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"submitted"}'),
+      resources: $resources,
+      eventDispatcher: $eventDispatcher,
+    )->process($this->patchStatus('submitted'), new Patch(), ['id' => self::INSPECTION_ID]);
+
+    self::assertSame('submitted', $record->status);
+  }
+
+  #[Test]
+  public function testSubmittingPublishedInspectionDispatchesSubmittedEvent(): void
+  {
+    // Audit ledger: a published draft -> submitted PATCH emits an
+    // InspectionSubmittedEvent carrying the recorded result.
+    $record = $this->record();
+    $record->status = 'draft';
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof InspectionSubmittedEvent
+        && self::ORGANIZATION_ID === $event->organizationId
+        && self::INSPECTION_ID === $event->inspectionId
+        && '550e8400-e29b-41d4-a716-446655440025' === $event->equipmentId
+        && 'pass' === $event->result,
+    ));
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"submitted"}'),
+      eventDispatcher: $eventDispatcher,
+    )->process($this->patchStatus('submitted'), new Patch(), ['id' => self::INSPECTION_ID]);
+
+    self::assertSame('submitted', $record->status);
+  }
+
+  #[Test]
+  public function testRolledBackMutationDispatchesNothing(): void
+  {
+    // The audit events are collected during the mutation but dispatched only
+    // after the transaction commits: a commit failure (rollback) must leave
+    // no ledger row — the ledger is append-only and hash-chained, so a
+    // phantom entry could never be removed.
+    $record = $this->record();
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static function (callable $callback): mixed {
+        $callback();
+
+        throw new RuntimeException('commit failed');
+      },
+    );
+    $entityManager->method('find')->with(InspectionRecord::class, self::INSPECTION_ID)->willReturn($record);
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->expectException(RuntimeException::class);
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"closed"}'),
+      $entityManager,
+      eventDispatcher: $eventDispatcher,
+    )->process($this->patchStatus('closed'), new Patch(), ['id' => self::INSPECTION_ID]);
+  }
+
   private function processor(
     InspectionRecord $record,
     RequestStack $requestStack,
     ?EntityManagerInterface $entityManager = null,
     ?InterventionResourceGatewayPort $resources = null,
+    ?EventDispatcherPort $eventDispatcher = null,
   ): CanonicalInspectionMutationProcessor {
     $entityManager ??= $this->entityManager($record);
     $resources ??= $this->createStub(InterventionResourceGatewayPort::class);
+    $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
     $security = $this->createStub(Security::class);
@@ -161,6 +428,7 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
       $manager,
       new RevisionGuard($requestStack),
       new MergePatchFields($requestStack),
+      $eventDispatcher,
     );
   }
 

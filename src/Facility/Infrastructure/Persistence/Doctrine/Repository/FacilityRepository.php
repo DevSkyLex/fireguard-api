@@ -17,9 +17,9 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-use function addcslashes;
 use function array_map;
 use function count;
 use function mb_strtolower;
@@ -120,6 +120,17 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     $record = $this->repository->find((string) $id);
 
     if (!$record instanceof FacilityRecord) {
+      return null;
+    }
+
+    return FacilityMapper::toDomain($record);
+  }
+
+  public function findPublishedById(FacilityId $id): ?Facility
+  {
+    $record = $this->repository->find((string) $id);
+
+    if (!$record instanceof FacilityRecord || 'published' !== $record->recordStatus) {
       return null;
     }
 
@@ -275,44 +286,34 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
   ): array {
-    $pendingParentIds = [(string) $facilityId];
-    $records = [];
-    $seen = [];
-
-    while ([] !== $pendingParentIds) {
-      $nextParentIds = [];
-
-      foreach ($pendingParentIds as $parentId) {
-        $children = $this->findChildRecords($organizationId, $parentId);
-
-        foreach ($children as $child) {
-          if (isset($seen[$child->id])) {
-            continue;
-          }
-
-          $seen[$child->id] = true;
-          $nextParentIds[] = $child->id;
-
-          if (!$includeArchived && FacilityStatus::ARCHIVED->value === $child->status) {
-            continue;
-          }
-
-          if (!$this->matchesSearch($child, $search)) {
-            continue;
-          }
-
-          $records[] = $child;
-        }
-      }
-
-      $pendingParentIds = $nextParentIds;
+    $descendantIds = $this->descendantIds($organizationId, (string) $facilityId);
+    if ([] === $descendantIds) {
+      return [];
     }
 
-    $this->sortRecords($records, $sorting);
+    /** @var list<FacilityRecord> $records */
+    $records = $this->repository->findBy(['id' => $descendantIds]);
+
+    $filtered = [];
+    foreach ($records as $record) {
+      // Archived facilities are traversed so their live descendants are reached,
+      // but excluded from the result unless explicitly requested.
+      if (!$includeArchived && FacilityStatus::ARCHIVED->value === $record->status) {
+        continue;
+      }
+
+      if (!$this->matchesSearch($record, $search)) {
+        continue;
+      }
+
+      $filtered[] = $record;
+    }
+
+    $this->sortRecords($filtered, $sorting);
 
     return array_map(
       static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
-      $records,
+      $filtered,
     );
   }
 
@@ -521,6 +522,46 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
+   * Method getFacilityNamesByIds.
+   *
+   * Resolves facility display names for a bounded set of identifiers,
+   * scoped to the organization.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> map of facilityId => name
+   */
+  public function getFacilityNamesByIds(FacilityOrganizationId $organizationId, array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{id: string, name: string}> $rows */
+    $rows = $this->repository->createQueryBuilder('f')
+      ->select('f.id AS id, f.name AS name')
+      ->where('f.organization = :organization')
+      ->andWhere('f.id IN (:facilityIds)')
+      ->setParameter('organization', $organization)
+      ->setParameter('facilityIds', $facilityIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $names = [];
+    foreach ($rows as $row) {
+      $names[(string) $row['id']] = (string) $row['name'];
+    }
+
+    return $names;
+  }
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities by organization identifier.
@@ -566,6 +607,99 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
       $records,
     );
+  }
+
+  /**
+   * Method hasActiveDescendants.
+   *
+   * Reports whether the facility has at least one active (non-archived,
+   * published) descendant anywhere in its sub-tree, without hydrating the tree:
+   * a single recursive CTE with an existence probe. The walk covers published
+   * records only, but does traverse archived intermediate nodes so a live
+   * descendant under an archived branch is still detected.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $facilityId the root facility identifier
+   *
+   * @return bool whether an active descendant exists
+   */
+  public function hasActiveDescendants(FacilityOrganizationId $organizationId, FacilityId $facilityId): bool
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE descendants AS (
+          SELECT id, status
+          FROM facilities
+          WHERE parent_facility_id = :rootId
+            AND organization_id = :organizationId
+            AND record_status = :published
+          UNION
+          SELECT child.id, child.status
+          FROM facilities child
+          INNER JOIN descendants ON child.parent_facility_id = descendants.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT id FROM descendants WHERE status <> :archived LIMIT 1
+      SQL;
+
+    $match = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => (string) $facilityId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+      'archived' => FacilityStatus::ARCHIVED->value,
+    ])->fetchOne();
+
+    return false !== $match;
+  }
+
+  /**
+   * Method descendantIds.
+   *
+   * Returns the ids of every facility beneath the given root (children,
+   * grandchildren, ...) within the organization in a single recursive CTE,
+   * replacing the former per-node breadth-first walk (one query per node).
+   * `UNION` (not `UNION ALL`) de-duplicates, making the walk cycle-safe. Only
+   * published records are walked (draft intervention scratchpads are invisible
+   * here, matching the former walk); the lifecycle status is deliberately NOT
+   * filtered so an archived intermediate node never hides its live descendants —
+   * the caller decides which statuses to keep.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param string $rootId the root facility identifier
+   *
+   * @return list<string> the descendant facility ids
+   */
+  private function descendantIds(FacilityOrganizationId $organizationId, string $rootId): array
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE descendants AS (
+          SELECT id
+          FROM facilities
+          WHERE parent_facility_id = :rootId
+            AND organization_id = :organizationId
+            AND record_status = :published
+          UNION
+          SELECT child.id
+          FROM facilities child
+          INNER JOIN descendants ON child.parent_facility_id = descendants.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT id FROM descendants
+      SQL;
+
+    /** @var list<string> $ids */
+    $ids = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => $rootId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+    ])->fetchFirstColumn();
+
+    return $ids;
   }
 
   /**
@@ -639,19 +773,16 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         ->setParameter('code', $code);
     }
 
-    if (null !== $search && '' !== $search) {
-      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
-
-      $queryBuilder
-        ->andWhere('(
-          LOWER(f.name) LIKE :search OR
-          LOWER(f.type) LIKE :search OR
-          LOWER(COALESCE(f.code, \'\')) LIKE :search OR
-          LOWER(f.status) LIKE :search OR
-          LOWER(COALESCE(f.address, \'\')) LIKE :search
-        )')
-        ->setParameter('search', $normalizedSearch);
-    }
+    TrigramSearchExpression::apply(
+      $queryBuilder,
+      'search',
+      $search,
+      'f.name',
+      'f.type',
+      'f.code',
+      'f.status',
+      'f.address',
+    );
 
     return $queryBuilder;
   }
@@ -685,27 +816,6 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       null,
       $search,
     );
-  }
-
-  /**
-   * @return list<FacilityRecord>
-   */
-  private function findChildRecords(FacilityOrganizationId $organizationId, string $parentId): array
-  {
-    /** @var list<FacilityRecord> $records */
-    $records = $this->createListQueryBuilder(
-      $organizationId,
-      true,
-      null,
-      null,
-      $parentId,
-      null,
-      null,
-    )
-      ->getQuery()
-      ->getResult();
-
-    return $records;
   }
 
   /**

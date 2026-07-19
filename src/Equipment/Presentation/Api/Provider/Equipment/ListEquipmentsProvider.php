@@ -83,6 +83,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $brand = $request?->query->get('brand');
     $model = $request?->query->get('model');
     $subType = $request?->query->get('subType');
+    $maintenanceDueStatus = $request?->query->get('maintenanceDueStatus');
 
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
@@ -110,6 +111,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt'], 'createdAt'),
+        maintenanceDueStatus: is_string($maintenanceDueStatus) && '' !== $maintenanceDueStatus ? $maintenanceDueStatus : null,
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -158,6 +160,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
+    $output->maintenanceDueStatus = $result->maintenanceDueStatus;
 
     return $output;
   }

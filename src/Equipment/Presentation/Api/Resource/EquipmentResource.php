@@ -119,6 +119,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Filter by exact equipment subtype.',
             schema: ['type' => 'string'],
           ),
+          new Parameter(
+            name: 'maintenanceDueStatus',
+            in: 'query',
+            required: false,
+            description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
+            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment list retrieved'),
@@ -177,6 +184,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             required: false,
             description: 'Filter by exact equipment subtype.',
             schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'maintenanceDueStatus',
+            in: 'query',
+            required: false,
+            description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
+            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
           ),
         ],
         responses: [

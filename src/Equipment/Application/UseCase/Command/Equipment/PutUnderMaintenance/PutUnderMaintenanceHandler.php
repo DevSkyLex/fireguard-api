@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance;
 
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus, MaintenanceLogId};
@@ -16,7 +17,7 @@ use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -43,6 +44,7 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private UuidFactory $uuidFactory,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -62,19 +64,31 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $equipment = $this->equipmentRepository->findById($equipmentId);
+    $equipment = $this->equipmentRepository->findPublishedById($equipmentId);
 
     if (null === $equipment || (string) $equipment->organizationId() !== (string) $organizationId) {
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
-    $wasAlreadyUnderMaintenance = EquipmentStatus::UNDER_MAINTENANCE === $equipment->status();
+    $previousStatus = $equipment->status();
+    $wasAlreadyUnderMaintenance = EquipmentStatus::UNDER_MAINTENANCE === $previousStatus;
 
     $equipment->putUnderMaintenance();
 
     $this->equipmentRepository->save($equipment);
 
     if (!$wasAlreadyUnderMaintenance) {
+      // Emitted IMMEDIATELY after the durable equipment save (before the
+      // fallible maintenance-log write): a transient log failure must not
+      // leave the committed status transition permanently unrecorded — the
+      // idempotent retry would skip this branch and never emit.
+      $this->eventDispatcher->dispatch(new EquipmentPutUnderMaintenanceEvent(
+        organizationId: (string) $organizationId,
+        equipmentId: (string) $equipment->id(),
+        facilityId: $equipment->facilityId()?->__toString(),
+        previousStatus: $previousStatus->value,
+      ));
+
       /** @var MaintenanceLogId $logId */
       $logId = $this->uuidFactory->create(MaintenanceLogId::class);
       $log = EquipmentMaintenanceLog::open($logId, $equipmentId, $organizationId);
@@ -108,6 +122,7 @@ final readonly class PutUnderMaintenanceHandler implements CommandHandler
             'updatedAt' => $equipment->updatedAt()->format('c'),
           ],
           recipientUserId: $organization->ownerUserId(),
+          organizationId: (string) $organizationId,
         ));
       } catch (Throwable $exception) {
         $this->logger->warning('Equipment under maintenance notification dispatch failed.', [

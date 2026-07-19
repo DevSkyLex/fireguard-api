@@ -6,12 +6,14 @@ namespace Equipment\Infrastructure\Adapter\Intervention;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceAssignment};
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
+use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Throwable;
 
 use function array_diff;
@@ -61,10 +63,12 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
    *
    * @param EntityManagerInterface $entityManager the entity manager value
    * @param FacilityValidationPort $facilityValidation the facility validation value
+   * @param EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer the maintenance-log synchronizer
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private FacilityValidationPort $facilityValidation,
+    private EquipmentMaintenanceLogSynchronizerPort $maintenanceLogSynchronizer,
   ) {
   }
 
@@ -313,19 +317,39 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
       }
     }
 
-    if ('operational' === $record->status && null === $record->facilityId) {
-      throw new InterventionConflictException('Operational equipment must be assigned to a facility.');
+    // In-service equipment (operational or under maintenance) requires a facility,
+    // mirroring the aggregate: clearing it while in service would strand the asset in
+    // an illegal state (and, for under_maintenance, leak its open maintenance log).
+    if (in_array($record->status, ['operational', 'under_maintenance'], true) && null === $record->facilityId) {
+      throw new InterventionConflictException('In-service equipment must be assigned to a facility.');
     }
 
     // A published equipment change follows the domain status machine even on the
     // intervention publication path: a decommissioned asset is terminal and no
     // illegal transition may be applied directly to the record.
-    if ($record->status !== $previousStatus) {
+    $statusChanged = $record->status !== $previousStatus;
+    if ($statusChanged) {
       $this->assertLegalStatusTransition($previousStatus, $record->status);
+      // Stamp the first commissioning date on entering service (preserved on
+      // re-commission), mirroring Equipment::commission().
+      if ('operational' === $record->status && 'operational' !== $previousStatus) {
+        $record->commissionedAt ??= new DateTimeImmutable();
+      }
     }
 
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
+
+    if ($statusChanged) {
+      // Keep the maintenance-log history in step with the transition (mirrors the
+      // PutUnderMaintenance / Commission / Decommission handlers).
+      $this->maintenanceLogSynchronizer->syncForStatusTransition(
+        $record->id,
+        $organizationId,
+        $previousStatus,
+        $record->status,
+      );
+    }
   }
 
   /**
@@ -339,15 +363,39 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
    */
   public function publishDrafts(string $interventionId): void
   {
-    $this->entityManager->createQueryBuilder()
-      ->update(EquipmentRecord::class, 'record')
-      ->set('record.recordStatus', ':published')
-      ->set('record.revision', 'record.revision + 1')
-      ->where('record.interventionId = :interventionId')
-      ->setParameter('published', 'published')
-      ->setParameter('interventionId', $interventionId)
-      ->getQuery()
-      ->execute();
+    /** @var list<EquipmentRecord> $records */
+    $records = $this->entityManager->getRepository(EquipmentRecord::class)->findBy([
+      'interventionId' => $interventionId,
+      'recordStatus' => 'draft',
+    ]);
+
+    foreach ($records as $record) {
+      // Materialize the side-effects the record skipped while it was a draft
+      // scratchpad (drafts are exempt from them on the canonical surface). A draft
+      // is "born" in stock, so the effective transition is in_stock -> its final
+      // status: an asset published in service carries its first-commissioning date,
+      // and one published under maintenance gets an open maintenance log — mirroring
+      // the Commission / PutUnderMaintenance handlers.
+      if (in_array($record->status, ['operational', 'under_maintenance'], true)) {
+        $record->commissionedAt ??= new DateTimeImmutable();
+      }
+
+      $record->recordStatus = 'published';
+      ++$record->revision;
+      $record->updatedAt = new DateTimeImmutable();
+
+      $organization = $record->organization;
+      if ($organization instanceof OrganizationRecord && 'under_maintenance' === $record->status) {
+        $this->maintenanceLogSynchronizer->syncForStatusTransition(
+          $record->id,
+          $organization->id,
+          'in_stock',
+          'under_maintenance',
+        );
+      }
+    }
+
+    $this->entityManager->flush();
   }
 
   /**

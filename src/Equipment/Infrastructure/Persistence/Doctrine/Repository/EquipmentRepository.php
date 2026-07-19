@@ -19,12 +19,11 @@ use Exception;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
-use function addcslashes;
 use function array_map;
-use function mb_strtolower;
 use function str_contains;
 use function strtolower;
 use function strtoupper;
@@ -116,6 +115,17 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
     $record = $this->repository->find((string) $id);
 
     if (!$record instanceof EquipmentRecord) {
+      return null;
+    }
+
+    return EquipmentMapper::toDomain($record);
+  }
+
+  public function findPublishedById(EquipmentId $id): ?Equipment
+  {
+    $record = $this->repository->find((string) $id);
+
+    if (!$record instanceof EquipmentRecord || 'published' !== $record->recordStatus) {
       return null;
     }
 
@@ -471,21 +481,18 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
         ->setParameter('subType', $subType);
     }
 
-    if (null !== $search && '' !== $search) {
-      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
-
-      $queryBuilder
-        ->andWhere('(
-          LOWER(e.type) LIKE :search OR
-          LOWER(COALESCE(e.subType, \'\')) LIKE :search OR
-          LOWER(COALESCE(e.brand, \'\')) LIKE :search OR
-          LOWER(COALESCE(e.model, \'\')) LIKE :search OR
-          LOWER(COALESCE(e.serialNumber, \'\')) LIKE :search OR
-          LOWER(e.status) LIKE :search OR
-          LOWER(COALESCE(e.locationLabel, \'\')) LIKE :search
-        )')
-        ->setParameter('search', $normalizedSearch);
-    }
+    TrigramSearchExpression::apply(
+      $queryBuilder,
+      'search',
+      $search,
+      'e.type',
+      'e.subType',
+      'e.brand',
+      'e.model',
+      'e.serialNumber',
+      'e.status',
+      'e.locationLabel',
+    );
 
     return $queryBuilder;
   }

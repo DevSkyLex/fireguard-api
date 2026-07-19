@@ -1,0 +1,174 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Facility\Application\Service;
+
+use DateTimeImmutable;
+use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, ProvisionOutcome};
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Service\FacilityProvisioningService;
+use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
+use Facility\Domain\Exception\FacilityCodeAlreadyExistsException;
+use Facility\Domain\Model\Facility\Facility;
+use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Sorting\Sorting;
+use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Port\Inbound\CommandBusPort;
+
+/**
+ * Test FacilityProvisioningServiceTest.
+ *
+ * @category Service Tests
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+#[CoversClass(FacilityProvisioningService::class)]
+final class FacilityProvisioningServiceTest extends TestCase
+{
+  private const string ORGANIZATION_ID = '018f0b68-6758-7a12-8a1d-3f0d97f69a01';
+
+  private const string PARENT_ID = '018f0b68-6758-7a12-8a1d-3f0d97f69a02';
+
+  #[Test]
+  public function itReturnsCreatedWithTheResourceIdOnSuccess(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::isInstanceOf(CreateFacilityCommand::class))
+      ->willReturn($this->fakeResult('facility-1'));
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
+    self::assertSame('facility-1', $result->resourceId);
+  }
+
+  #[Test]
+  public function itResolvesAParentCodeToAParentFacilityIdBeforeDispatching(): void
+  {
+    $parent = Facility::create(
+      id: FacilityId::fromString(self::PARENT_ID),
+      organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
+      type: FacilityType::SITE,
+      name: new FacilityName('Headquarters'),
+      code: 'HQ',
+    );
+
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->with(self::isInstanceOf(FacilityOrganizationId::class), false, null, null, null, 'HQ', null, self::isInstanceOf(Sorting::class), 1, 0)
+      ->willReturn([$parent]);
+
+    $captured = null;
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(function (CreateFacilityCommand $command) use (&$captured): CreateFacilityResult {
+        $captured = $command;
+
+        return $this->fakeResult('facility-2');
+      });
+
+    $request = new ProvisionFacilityRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'building',
+      name: 'Building B',
+      parentCode: 'HQ',
+    );
+
+    new FacilityProvisioningService($commandBus, $facilityRepository)->provision($request);
+
+    self::assertInstanceOf(CreateFacilityCommand::class, $captured);
+    self::assertSame(self::PARENT_ID, $captured->parentFacilityId);
+  }
+
+  #[Test]
+  public function itReturnsInvalidForAnUnknownParentCodeWithoutDispatching(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $request = new ProvisionFacilityRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'building',
+      name: 'Building B',
+      parentCode: 'UNKNOWN',
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($request);
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertNotNull($result->message);
+  }
+
+  #[Test]
+  public function itReturnsQuotaExceededWhenTheQuotaIsRaisedDirectly(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 5),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::QUOTA_EXCEEDED, $result->outcome);
+  }
+
+  #[Test]
+  public function itUnwrapsACodeAlreadyExistsExceptionFromAMessengerRuntimeException(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(FacilityCodeAlreadyExistsException::withCode('SITE-1')),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+  }
+
+  private function request(): ProvisionFacilityRequest
+  {
+    return new ProvisionFacilityRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'site',
+      name: 'Main site',
+    );
+  }
+
+  private function fakeResult(string $facilityId): CreateFacilityResult
+  {
+    return new CreateFacilityResult(
+      facilityId: $facilityId,
+      organizationId: self::ORGANIZATION_ID,
+      parentFacilityId: null,
+      type: 'site',
+      name: 'Main site',
+      code: null,
+      status: 'active',
+      address: null,
+      metadata: [],
+      createdAt: new DateTimeImmutable(),
+      updatedAt: new DateTimeImmutable(),
+    );
+  }
+}

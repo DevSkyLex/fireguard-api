@@ -6,6 +6,8 @@ namespace Facility\Infrastructure\Adapter\Intervention;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
@@ -48,9 +50,12 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
    * @since 1.0.0
    *
    * @param EntityManagerInterface $entityManager the entity manager value
+   * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
    */
-  public function __construct(private EntityManagerInterface $entityManager)
-  {
+  public function __construct(
+    private EntityManagerInterface $entityManager,
+    private FacilityArchivalGuardPort $archivalGuard,
+  ) {
   }
 
   /**
@@ -311,6 +316,15 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
       && 'archived' === $record->parentFacility->status
     ) {
       throw new InterventionConflictException('Cannot restore a facility while its parent is archived.');
+    }
+
+    // Archiving must not orphan a live dependent, mirroring the canonical surface.
+    if ('archived' !== $previousStatus && 'archived' === $record->status) {
+      try {
+        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
+      } catch (FacilityHasActiveDependentsException $exception) {
+        throw new InterventionConflictException($exception->getMessage());
+      }
     }
 
     ++$record->revision;

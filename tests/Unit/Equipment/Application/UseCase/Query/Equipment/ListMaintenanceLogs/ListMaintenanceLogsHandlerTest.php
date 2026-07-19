@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs;
 
+use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort};
 use Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\{ListMaintenanceLogsHandler, ListMaintenanceLogsQuery, ListMaintenanceLogsResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId, MaintenanceLogSource};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -184,6 +185,59 @@ final class ListMaintenanceLogsHandlerTest extends TestCase
     self::assertSame(self::ORG_ID, $result->logs[0]['organizationId']);
     self::assertNull($result->logs[0]['completedAt']);
     self::assertNotEmpty($result->logs[0]['startedAt']);
+    self::assertSame('status_transition', $result->logs[0]['source']);
+    self::assertNull($result->logs[0]['interventionId']);
+    self::assertNull($result->logs[0]['interventionNumber']);
+    self::assertNull($result->logs[0]['workItemAction']);
+    self::assertNull($result->logs[0]['actorId']);
+    self::assertNull($result->logs[0]['summary']);
     self::assertSame(1, $result->total);
+  }
+
+  #[Test]
+  public function testInvokeSurfacesInterventionServiceHistoryFields(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $log = EquipmentMaintenanceLog::recordInterventionService(
+      id: MaintenanceLogId::fromString(self::LOG_ID),
+      equipmentId: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      occurredAt: new DateTimeImmutable('2026-07-10T12:00:00+00:00'),
+      interventionId: '550e8400-e29b-41d4-a716-446655499100',
+      interventionNumber: 12,
+      workItemAction: 'status_change',
+      actorId: '550e8400-e29b-41d4-a716-446655499101',
+      summary: 'Replaced detector',
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    $maintenanceLogRepository = $this->createStub(MaintenanceLogRepositoryPort::class);
+    $maintenanceLogRepository->method('countByEquipmentId')->willReturn(1);
+    $maintenanceLogRepository->method('findByEquipmentId')->willReturn([$log]);
+
+    $handler = new ListMaintenanceLogsHandler(
+      equipmentRepository: $equipmentRepository,
+      maintenanceLogRepository: $maintenanceLogRepository,
+    );
+
+    $result = $handler->__invoke(new ListMaintenanceLogsQuery(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      pagination: new Pagination(offset: 0, limit: 20),
+    ));
+
+    self::assertSame(MaintenanceLogSource::INTERVENTION->value, $result->logs[0]['source']);
+    self::assertSame('550e8400-e29b-41d4-a716-446655499100', $result->logs[0]['interventionId']);
+    self::assertSame(12, $result->logs[0]['interventionNumber']);
+    self::assertSame('status_change', $result->logs[0]['workItemAction']);
+    self::assertSame('550e8400-e29b-41d4-a716-446655499101', $result->logs[0]['actorId']);
+    self::assertSame('Replaced detector', $result->logs[0]['summary']);
   }
 }

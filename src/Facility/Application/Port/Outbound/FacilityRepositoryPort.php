@@ -45,6 +45,22 @@ interface FacilityRepositoryPort
   public function findById(FacilityId $id): ?Facility;
 
   /**
+   * Method findPublishedById.
+   *
+   * Finds a PUBLISHED facility by identifier. Draft intervention
+   * scratchpads are invisible to this lookup: the lifecycle commands
+   * (archive, restore, move) must not act on — nor audit — records
+   * that only exist inside an unpublished intervention.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $id the facility identifier
+   *
+   * @return ?Facility the published facility aggregate when found
+   */
+  public function findPublishedById(FacilityId $id): ?Facility;
+
+  /**
    * Method findChildren.
    *
    * Lists direct children for a facility.
@@ -98,6 +114,21 @@ interface FacilityRepositoryPort
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
   ): array;
+
+  /**
+   * Method hasActiveDescendants.
+   *
+   * Reports whether the facility has at least one active (non-archived,
+   * published) descendant anywhere in its sub-tree, without loading the tree.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $facilityId the root facility identifier
+   *
+   * @return bool whether an active descendant exists
+   */
+  public function hasActiveDescendants(FacilityOrganizationId $organizationId, FacilityId $facilityId): bool;
 
   /**
    * Method countByOrganizationId.
@@ -178,6 +209,21 @@ interface FacilityRepositoryPort
     ?string $timeZone = null,
     ?string $type = null,
   ): array;
+
+  /**
+   * Method getFacilityNamesByIds.
+   *
+   * Resolves facility display names for a bounded set of identifiers,
+   * scoped to the organization.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> map of facilityId => name
+   */
+  public function getFacilityNamesByIds(FacilityOrganizationId $organizationId, array $facilityIds): array;
 
   /**
    * Method findByOrganizationId.

@@ -42,6 +42,7 @@ final class ChecklistMapper
       items: $items,
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
+      referenceCode: $record->referenceCode,
     );
   }
 
@@ -50,6 +51,7 @@ final class ChecklistMapper
     $record = new ChecklistRecord();
     $record->id = (string) $checklist->id();
     $record->name = $checklist->name();
+    $record->referenceCode = $checklist->referenceCode();
     $record->version = $checklist->version();
     $record->status = $checklist->status()->value;
     $record->createdAt = $checklist->createdAt();

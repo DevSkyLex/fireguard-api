@@ -17,11 +17,10 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-use function addcslashes;
 use function array_map;
-use function mb_strtolower;
 use function strtoupper;
 
 /**
@@ -134,6 +133,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $record = $this->repository->find((string) $id);
 
     if (!$record instanceof InspectionRecord) {
+      return null;
+    }
+
+    return InspectionMapper::toDomain($this->reinterpretRecordDateTimesFromStorage($record));
+  }
+
+  public function findPublishedById(InspectionId $id): ?Inspection
+  {
+    $record = $this->repository->find((string) $id);
+
+    if (!$record instanceof InspectionRecord || 'published' !== $record->recordStatus) {
       return null;
     }
 
@@ -681,20 +691,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
         ->setParameter('checklistId', $checklistId);
     }
 
-    if (null !== $search && '' !== $search) {
-      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
-
-      $queryBuilder
-        ->andWhere('(
-          LOWER(i.result) LIKE :search OR
-          LOWER(i.status) LIKE :search OR
-          LOWER(i.inspectorName) LIKE :search OR
-          LOWER(i.equipmentId) LIKE :search OR
-          LOWER(COALESCE(i.facilityId, \'\')) LIKE :search OR
-          LOWER(COALESCE(i.checklistId, \'\')) LIKE :search
-        )')
-        ->setParameter('search', $normalizedSearch);
-    }
+    TrigramSearchExpression::apply(
+      $queryBuilder,
+      'search',
+      $search,
+      'i.result',
+      'i.status',
+      'i.inspectorName',
+      'i.equipmentId',
+      'i.facilityId',
+      'i.checklistId',
+    );
 
     return $queryBuilder;
   }

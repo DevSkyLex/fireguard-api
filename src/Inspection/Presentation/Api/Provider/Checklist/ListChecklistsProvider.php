@@ -9,9 +9,8 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistResult;
-use Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsQuery;
-use Inspection\Presentation\Api\Dto\Output\Checklist\{ChecklistItemOutput, ChecklistOutput};
+use Inspection\Application\UseCase\Query\Checklist\ListChecklists\{ListChecklistResult, ListChecklistsQuery};
+use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -80,7 +79,7 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     $sorting = SortingExtractor::fromContext($context, ['name', 'version', 'status', 'createdAt'], 'createdAt');
 
     try {
-      /** @var PaginatedResult<GetChecklistResult> $queryResult */
+      /** @var PaginatedResult<ListChecklistResult> $queryResult */
       $queryResult = $this->queryBus->ask(new ListChecklistsQuery(
         organizationId: $organizationId,
         status: is_string($status) && '' !== $status ? $status : null,
@@ -112,28 +111,32 @@ final readonly class ListChecklistsProvider implements ProviderInterface
     );
   }
 
-  private function mapResult(GetChecklistResult $result): ChecklistOutput
+  /**
+   * Method mapResult.
+   *
+   * Maps a checklist to its list-row representation. The full `items` array
+   * is intentionally NOT populated here (breaking change vs. the previous
+   * contract, which shipped every row's items): `itemCount` gives the
+   * client what it actually needs for a list view, and the single-GET
+   * endpoint remains the place to fetch the full item list. `itemCount`
+   * comes straight from `ListChecklistResult` (L1.10b: a count-only
+   * projection resolved in the handler via a single grouped query, never
+   * from hydrating and discarding the full item list here).
+   *
+   * @since 1.0.0
+   */
+  private function mapResult(ListChecklistResult $result): ChecklistOutput
   {
     $output = new ChecklistOutput();
     $output->id = $result->checklistId;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
+    $output->referenceCode = $result->referenceCode;
     $output->version = $result->version;
     $output->status = $result->status;
+    $output->itemCount = $result->itemCount;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
-
-    $itemOutputs = [];
-    foreach ($result->items as $item) {
-      $itemOutput = new ChecklistItemOutput();
-      $itemOutput->id = $item->itemId;
-      $itemOutput->label = $item->label;
-      $itemOutput->position = $item->position;
-      $itemOutput->required = $item->required;
-      $itemOutput->description = $item->description;
-      $itemOutputs[] = $itemOutput;
-    }
-    $output->items = $itemOutputs;
 
     return $output;
   }

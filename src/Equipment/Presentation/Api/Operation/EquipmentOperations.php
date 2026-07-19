@@ -148,5 +148,12 @@ final class EquipmentOperations
    * @var string
    */
   public const string LIST_MAINTENANCE_LOGS = 'equipment_list_maintenance_logs';
+
+  /**
+   * Constant GET_EQUIPMENT_KPIS.
+   *
+   * @var string
+   */
+  public const string GET_EQUIPMENT_KPIS = 'equipment_get_kpis';
   // #endregion
 }

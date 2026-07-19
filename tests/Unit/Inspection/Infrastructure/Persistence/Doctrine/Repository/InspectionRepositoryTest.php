@@ -16,6 +16,9 @@ use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionReposito
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
+
+use function str_contains;
 
 #[CoversClass(InspectionRepository::class)]
 final class InspectionRepositoryTest extends TestCase
@@ -309,5 +312,63 @@ final class InspectionRepositoryTest extends TestCase
         inspectorType: 'user',
       ),
     );
+  }
+
+  #[Test]
+  public function testCountByOrganizationIdPushesWildcardSafeSearchPredicateIntoSql(): void
+  {
+    $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440041');
+    $doctrineRepository = $this->createStub(EntityRepository::class);
+    $query = $this->createMock(Query::class);
+    $query->expects(self::once())->method('getSingleScalarResult')->willReturn('0');
+
+    $capturedWhereClauses = [];
+    $capturedParameters = [];
+    $queryBuilder = $this->createMock(QueryBuilder::class);
+    $queryBuilder->method('select')->willReturnSelf();
+    $queryBuilder->method('from')->willReturnSelf();
+    $queryBuilder->method('where')->willReturnSelf();
+    $queryBuilder->method('andWhere')->willReturnCallback(function (string $expression) use (&$capturedWhereClauses, $queryBuilder): QueryBuilder {
+      $capturedWhereClauses[] = $expression;
+
+      return $queryBuilder;
+    });
+    $queryBuilder->method('setParameter')->willReturnCallback(function (string $name, mixed $value) use (&$capturedParameters, $queryBuilder): QueryBuilder {
+      $capturedParameters[$name] = $value;
+
+      return $queryBuilder;
+    });
+    $queryBuilder->expects(self::once())->method('getQuery')->willReturn($query);
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
+    $entityManager->expects(self::once())->method('getReference')->with(OrganizationRecord::class, (string) $organizationId)->willReturn(new OrganizationRecord());
+    $entityManager->expects(self::once())->method('createQueryBuilder')->willReturn($queryBuilder);
+
+    $repository = new InspectionRepository(
+      entityManager: $entityManager,
+      storageTimeZone: 'UTC',
+    );
+
+    $repository->countByOrganizationId(
+      organizationId: $organizationId,
+      search: 'A_B pass',
+    );
+
+    $searchClause = null;
+    foreach ($capturedWhereClauses as $clause) {
+      if (str_contains($clause, 'i.inspectorName')) {
+        $searchClause = $clause;
+      }
+    }
+
+    self::assertNotNull($searchClause, 'The search predicate must be pushed down into the query builder.');
+    self::assertSame(
+      "(LOWER(i.result) LIKE :search ESCAPE '\\' OR LOWER(i.status) LIKE :search ESCAPE '\\' OR LOWER(i.inspectorName) LIKE :search ESCAPE '\\' OR LOWER(i.equipmentId) LIKE :search ESCAPE '\\' OR LOWER(i.facilityId) LIKE :search ESCAPE '\\' OR LOWER(i.checklistId) LIKE :search ESCAPE '\\')",
+      $searchClause,
+    );
+
+    self::assertSame(TrigramSearchExpression::likeValue('A_B pass'), $capturedParameters['search']);
+    self::assertSame('%a\\_b pass%', $capturedParameters['search']);
   }
 }

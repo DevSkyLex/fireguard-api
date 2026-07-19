@@ -64,5 +64,74 @@ final class MaintenanceLogOutput
   #[Groups([EquipmentSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $completedAt = null;
+
+  /**
+   * Property source.
+   *
+   * What produced this entry: `status_transition` or `intervention`.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $source = 'status_transition';
+
+  /**
+   * Property interventionId.
+   *
+   * The source intervention identifier, set for `intervention` entries only.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $interventionId = null;
+
+  /**
+   * Property interventionNumber.
+   *
+   * The source intervention's human-readable number, set for `intervention`
+   * entries only.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?int $interventionNumber = null;
+
+  /**
+   * Property workItemAction.
+   *
+   * The linked work item action, or a derived label, set for
+   * `intervention` entries only.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $workItemAction = null;
+
+  /**
+   * Property actorId.
+   *
+   * The acting user identifier, when known, set for `intervention` entries only.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $actorId = null;
+
+  /**
+   * Property summary.
+   *
+   * A free-form summary of the service performed, set for `intervention`
+   * entries only.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?string $summary = null;
   // #endregion
 }

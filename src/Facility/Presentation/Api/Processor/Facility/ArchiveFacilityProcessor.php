@@ -8,14 +8,14 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityResult};
-use Facility\Domain\Exception\FacilityNotFoundException;
+use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException};
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
 
@@ -34,6 +34,8 @@ use function is_string;
  */
 final readonly class ArchiveFacilityProcessor implements ProcessorInterface
 {
+  use MessengerExceptionUnwrapperTrait;
+
   // #region Constructor
   public function __construct(
     private CommandBusPort $commandBus,
@@ -83,6 +85,11 @@ final readonly class ArchiveFacilityProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $activeDependents = $this->findException($exception, FacilityHasActiveDependentsException::class);
+      if ($activeDependents instanceof FacilityHasActiveDependentsException) {
+        throw new ConflictHttpException($activeDependents->getMessage(), $exception);
+      }
+
       $notFound = $this->findFacilityNotFoundException($exception);
       if ($notFound instanceof FacilityNotFoundException) {
         throw new NotFoundHttpException($notFound->getMessage(), $exception);

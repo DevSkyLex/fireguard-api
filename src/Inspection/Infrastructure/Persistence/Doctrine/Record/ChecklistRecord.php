@@ -14,6 +14,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_checklist_organization', columns: ['organization_id'])]
 #[ORM\Index(name: 'idx_checklist_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_checklist_organization_status', columns: ['organization_id', 'status'])]
+#[ORM\UniqueConstraint(name: 'uniq_checklist_organization_reference_code', columns: ['organization_id', 'reference_code'])]
 class ChecklistRecord
 {
   #[ORM\Id]
@@ -23,6 +24,14 @@ class ChecklistRecord
   #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'checklists')]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;
+
+  /**
+   * Human-facing reference code (`CHK-EXT-Q`), unique per organization when
+   * set. Nullable: every checklist created before this column existed has
+   * none, and the code is optional metadata rather than an identity.
+   */
+  #[ORM\Column(name: 'reference_code', type: 'string', length: 40, nullable: true)]
+  public ?string $referenceCode = null;
 
   #[ORM\Column(name: 'name', type: 'string', length: 255)]
   public string $name;

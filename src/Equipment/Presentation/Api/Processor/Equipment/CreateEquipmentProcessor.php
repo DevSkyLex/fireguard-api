@@ -24,9 +24,9 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
-use Shared\Application\Exception\MessengerRuntimeException;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
 use Shared\Presentation\Api\Http\ResourceIriParser;
@@ -56,6 +56,7 @@ use function is_string;
 final readonly class CreateEquipmentProcessor implements ProcessorInterface
 {
   use EquipmentExceptionUnwrapperTrait;
+  use MessengerExceptionUnwrapperTrait;
 
   // #region Constructor
   /**
@@ -75,7 +76,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
-    private OrganizationQuotaPort $quota,
     private Security $security,
     private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
@@ -142,7 +142,6 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
-    $this->quota->assertCanAdd($organizationId, OrganizationQuotaResource::EQUIPMENT);
     $this->assertOfflineCreate($data->clientId, null !== $resourceId);
 
     try {
@@ -162,6 +161,11 @@ final readonly class CreateEquipmentProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+      }
+
       $serial = $this->findEquipmentSerialNumberAlreadyExistsException($exception);
       if ($serial instanceof EquipmentSerialNumberAlreadyExistsException) {
         throw new ConflictHttpException($serial->getMessage(), $exception);

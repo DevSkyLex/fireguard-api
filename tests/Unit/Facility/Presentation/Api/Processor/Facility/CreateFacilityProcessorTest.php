@@ -12,7 +12,9 @@ use Facility\Domain\Exception\FacilityCodeAlreadyExistsException;
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -68,7 +70,6 @@ final class CreateFacilityProcessorTest extends TestCase
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -79,6 +80,56 @@ final class CreateFacilityProcessorTest extends TestCase
       data: $input,
       operation: new Post(),
       uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655441001'],
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsWrappedQuotaExceededToHttp409(): void
+  {
+    $input = new CreateFacilityInput();
+    $input->type = 'site';
+    $input->name = 'HQ';
+
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441100');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new CreateFacilityCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441101',
+        type: 'site',
+        name: 'HQ',
+      )),
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 2)],
+    );
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $processor = new CreateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655441101'],
     );
   }
 
@@ -130,7 +181,6 @@ final class CreateFacilityProcessorTest extends TestCase
     $processor = new CreateFacilityProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 

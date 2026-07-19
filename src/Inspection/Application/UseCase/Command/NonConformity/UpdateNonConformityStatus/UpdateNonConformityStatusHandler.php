@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus;
 
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent;
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityId, NonConformityStatus};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -27,6 +29,7 @@ final readonly class UpdateNonConformityStatusHandler implements CommandHandler
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -61,9 +64,22 @@ final readonly class UpdateNonConformityStatusHandler implements CommandHandler
       throw NonConformityNotFoundException::withId($command->nonConformityId);
     }
 
+    $previousStatus = $nonConformity->status()->value;
+
     $nonConformity->updateStatus($status);
 
     $this->nonConformityRepository->save($nonConformity);
+
+    // A same-status update is a no-op, not a transition: skip the audit event.
+    if ($previousStatus !== $nonConformity->status()->value) {
+      $this->eventDispatcher->dispatch(new NonConformityStatusChangedEvent(
+        organizationId: $command->organizationId,
+        inspectionId: $command->inspectionId,
+        nonConformityId: $command->nonConformityId,
+        previousStatus: $previousStatus,
+        status: $nonConformity->status()->value,
+      ));
+    }
 
     return new UpdateNonConformityStatusResult(
       nonConformityId: (string) $nonConformity->id(),

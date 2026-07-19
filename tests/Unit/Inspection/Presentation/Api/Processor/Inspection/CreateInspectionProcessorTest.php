@@ -13,7 +13,9 @@ use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -21,7 +23,9 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 #[CoversClass(CreateInspectionProcessor::class)]
 final class CreateInspectionProcessorTest extends TestCase
@@ -44,7 +48,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -67,7 +70,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -93,7 +95,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $this->createStub(CommandBusPort::class),
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -158,7 +159,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -200,7 +200,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -240,7 +239,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -305,7 +303,6 @@ final class CreateInspectionProcessorTest extends TestCase
       commandBus: $commandBus,
       outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
-      quota: $this->createStub(OrganizationQuotaPort::class),
       security: $security,
     );
 
@@ -317,6 +314,56 @@ final class CreateInspectionProcessorTest extends TestCase
 
     self::assertInstanceOf(InspectionOutput::class, $output);
     self::assertSame(self::INSP_ID, $output->id);
+  }
+
+  #[Test]
+  public function testProcessMapsWrappedQuotaExceededToHttp409(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new CreateInspectionCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        result: 'pass',
+        performedAt: '2026-01-15T10:00:00+00:00',
+        inspectorType: 'user',
+        inspectorName: 'John Doe',
+        inspectorUserId: self::USER_ID,
+      )),
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS, 100)],
+    );
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $input = new CreateInspectionInput();
+    $input->equipmentId = self::EQUIP_ID;
+    $input->result = 'pass';
+    $input->performedAt = '2026-01-15T10:00:00+00:00';
+    $input->inspectorType = 'user';
+    $input->inspectorName = 'John Doe';
+    $input->inspectorUserId = self::USER_ID;
+
+    $processor = new CreateInspectionProcessor(
+      commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
   }
 
   private function createSecurityUser(): SecurityUser

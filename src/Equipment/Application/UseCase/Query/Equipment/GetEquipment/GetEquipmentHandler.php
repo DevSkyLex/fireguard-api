@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Query\Equipment\GetEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
 use InvalidArgumentException;
@@ -28,6 +28,7 @@ final readonly class GetEquipmentHandler implements QueryHandler
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
+    private MaintenanceDueStatusPort $maintenanceDueStatusPort,
   ) {
   }
   // #endregion
@@ -55,6 +56,11 @@ final readonly class GetEquipmentHandler implements QueryHandler
 
     $tags = $this->tagRepository->findByEquipmentId($equipmentId);
 
+    $dueStatuses = $this->maintenanceDueStatusPort->dueStatusesForEquipment(
+      (string) $equipment->organizationId(),
+      [(string) $equipment->id()],
+    );
+
     return new GetEquipmentResult(
       equipmentId: (string) $equipment->id(),
       organizationId: (string) $equipment->organizationId(),
@@ -78,6 +84,7 @@ final readonly class GetEquipmentHandler implements QueryHandler
       ),
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
+      maintenanceDueStatus: $dueStatuses[(string) $equipment->id()] ?? 'unscheduled',
     );
   }
   // #endregion

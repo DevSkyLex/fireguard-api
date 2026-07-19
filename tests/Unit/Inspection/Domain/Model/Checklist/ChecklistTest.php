@@ -118,6 +118,116 @@ final class ChecklistTest extends TestCase
     $checklist->archive();
   }
 
+  #[Test]
+  public function testCreateNormalizesReferenceCode(): void
+  {
+    $checklist = Checklist::create(
+      id: ChecklistId::fromString(self::CL_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
+      name: 'Fire Safety Checklist',
+      version: 'v1.0',
+      referenceCode: '  CHK-EXT-Q  ',
+    );
+
+    self::assertSame('CHK-EXT-Q', $checklist->referenceCode());
+  }
+
+  #[Test]
+  public function testCreateTreatsBlankReferenceCodeAsNull(): void
+  {
+    $checklist = Checklist::create(
+      id: ChecklistId::fromString(self::CL_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
+      name: 'Fire Safety Checklist',
+      version: 'v1.0',
+      referenceCode: '   ',
+    );
+
+    self::assertNull($checklist->referenceCode());
+  }
+
+  #[Test]
+  public function testCreateThrowsWhenReferenceCodeTooLong(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('reference code must be at most 40 characters');
+
+    Checklist::create(
+      id: ChecklistId::fromString(self::CL_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
+      name: 'Fire Safety Checklist',
+      version: 'v1.0',
+      referenceCode: str_repeat('x', 41),
+    );
+  }
+
+  #[Test]
+  public function testUpdateChangesNameAndReferenceCode(): void
+  {
+    $checklist = $this->makeChecklist();
+
+    $checklist->update(
+      name: 'Renamed Checklist',
+      hasName: true,
+      referenceCode: 'CHK-EXT-Q',
+      hasReferenceCode: true,
+    );
+
+    self::assertSame('Renamed Checklist', $checklist->name());
+    self::assertSame('CHK-EXT-Q', $checklist->referenceCode());
+  }
+
+  #[Test]
+  public function testUpdateClearsReferenceCodeWhenProvidedAsNull(): void
+  {
+    $checklist = Checklist::create(
+      id: ChecklistId::fromString(self::CL_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
+      name: 'Fire Safety Checklist',
+      version: 'v1.0',
+      referenceCode: 'CHK-EXT-Q',
+    );
+
+    $checklist->update(referenceCode: null, hasReferenceCode: true);
+
+    self::assertNull($checklist->referenceCode());
+  }
+
+  #[Test]
+  public function testUpdateLeavesFieldsUnchangedWhenNotProvided(): void
+  {
+    $checklist = $this->makeChecklist();
+
+    $checklist->update();
+
+    self::assertSame('Fire Safety Checklist', $checklist->name());
+    self::assertNull($checklist->referenceCode());
+    self::assertCount(0, $checklist->items());
+  }
+
+  #[Test]
+  public function testUpdateReplacesItemList(): void
+  {
+    $checklist = $this->makeChecklist();
+    $newItem = ChecklistItem::create(id: 'item-2', label: 'Check hose', position: 0);
+
+    $checklist->update(items: [$newItem], hasItems: true);
+
+    self::assertCount(1, $checklist->items());
+    self::assertSame('item-2', $checklist->items()[0]->id());
+  }
+
+  #[Test]
+  public function testUpdateThrowsWhenChecklistArchived(): void
+  {
+    $checklist = $this->makeChecklist();
+    $checklist->archive();
+
+    $this->expectException(ChecklistArchivedException::class);
+
+    $checklist->update(name: 'Renamed', hasName: true);
+  }
+
   // #region Helpers
   private function makeChecklist(): Checklist
   {

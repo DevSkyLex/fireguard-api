@@ -6,6 +6,7 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
@@ -134,6 +135,129 @@ final class FacilityRepositoryTest extends KernelTestCase
     );
 
     self::assertSame(2, $allCounts[$parentA->id]);
+  }
+
+  #[Test]
+  public function testFindDescendantsWalksTheWholeSubtreeAcrossArchivedNodes(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-descendants-a');
+    $otherOrganization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443001', 'facility-repository-descendants-b');
+
+    $root = $this->createFacility('550e8400-e29b-41d4-a716-446655443040', $organization, null, 'Root');
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443041', $organization, $root, 'Child');
+    $child = $this->entityManager->find(FacilityRecord::class, '550e8400-e29b-41d4-a716-446655443041');
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443042', $organization, $child, 'Grandchild');
+    $archivedBranch = $this->createFacility('550e8400-e29b-41d4-a716-446655443043', $organization, $root, 'Archived Branch', 'archived');
+    // A live node beneath an ARCHIVED intermediate node must still be reached.
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443044', $organization, $archivedBranch, 'Live Under Archived');
+    // A cross-organization subtree must never leak in.
+    $otherRoot = $this->createFacility('550e8400-e29b-41d4-a716-446655443045', $otherOrganization, null, 'Other Root');
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443046', $otherOrganization, $otherRoot, 'Other Child');
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $repository = new FacilityRepository($this->entityManager);
+    $organizationId = new FacilityOrganizationId($organization->id);
+    $rootId = new FacilityId($root->id);
+
+    // Default: archived nodes are traversed so their live descendants are reached,
+    // but the archived nodes themselves are omitted (ordered by name).
+    self::assertSame(
+      [
+        '550e8400-e29b-41d4-a716-446655443041', // Child
+        '550e8400-e29b-41d4-a716-446655443042', // Grandchild
+        '550e8400-e29b-41d4-a716-446655443044', // Live Under Archived
+      ],
+      $this->descendantIds($repository->findDescendants($organizationId, $rootId)),
+    );
+
+    // includeArchived also returns the archived intermediate node.
+    self::assertSame(
+      [
+        '550e8400-e29b-41d4-a716-446655443043', // Archived Branch
+        '550e8400-e29b-41d4-a716-446655443041', // Child
+        '550e8400-e29b-41d4-a716-446655443042', // Grandchild
+        '550e8400-e29b-41d4-a716-446655443044', // Live Under Archived
+      ],
+      $this->descendantIds($repository->findDescendants($organizationId, $rootId, includeArchived: true)),
+    );
+  }
+
+  #[Test]
+  public function testHasActiveDescendantsProbesTheSubtreeAndIgnoresDrafts(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-active-desc');
+
+    $root = $this->createFacility('550e8400-e29b-41d4-a716-446655443050', $organization, null, 'Root');
+    $archivedChild = $this->createFacility('550e8400-e29b-41d4-a716-446655443051', $organization, $root, 'Archived Child', 'archived');
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443052', $organization, $archivedChild, 'Live Grandchild');
+
+    $archivedOnlyRoot = $this->createFacility('550e8400-e29b-41d4-a716-446655443053', $organization, null, 'Archived Only Root');
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443054', $organization, $archivedOnlyRoot, 'Archived Leaf', 'archived');
+
+    $draftOnlyRoot = $this->createFacility('550e8400-e29b-41d4-a716-446655443055', $organization, null, 'Draft Only Root');
+    $draftChild = $this->createFacility('550e8400-e29b-41d4-a716-446655443056', $organization, $draftOnlyRoot, 'Draft Child');
+    $draftChild->recordStatus = 'draft';
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $repository = new FacilityRepository($this->entityManager);
+    $organizationId = new FacilityOrganizationId($organization->id);
+
+    // A live descendant beneath an archived branch is detected.
+    self::assertTrue($repository->hasActiveDescendants($organizationId, new FacilityId($root->id)));
+    // Only archived descendants: nothing blocks archiving.
+    self::assertFalse($repository->hasActiveDescendants($organizationId, new FacilityId($archivedOnlyRoot->id)));
+    // A draft (intervention scratchpad) child does not count as a dependent,
+    // and is invisible to the descendants listing too.
+    self::assertFalse($repository->hasActiveDescendants($organizationId, new FacilityId($draftOnlyRoot->id)));
+    self::assertSame([], $repository->findDescendants($organizationId, new FacilityId($draftOnlyRoot->id), includeArchived: true));
+  }
+
+  #[Test]
+  public function testFindByOrganizationIdPushesWildcardSafeSearchPredicateIntoSql(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-search-a');
+
+    // Contains a literal underscore, which is also a SQL LIKE wildcard
+    // (matches any single character) unless properly escaped.
+    $literalMatch = $this->createFacility('550e8400-e29b-41d4-a716-446655443060', $organization, null, 'a_b Site');
+    // Would ALSO match the unescaped pattern "%a_b%" (the "_" acting as a
+    // wildcard), which is exactly the bug this predicate must not reintroduce.
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443061', $organization, null, 'axb Site');
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443062', $organization, null, 'Completely Unrelated');
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $repository = new FacilityRepository($this->entityManager);
+    $organizationId = new FacilityOrganizationId($organization->id);
+
+    $results = $repository->findByOrganizationId(organizationId: $organizationId, search: 'a_b');
+
+    self::assertCount(1, $results);
+    self::assertSame($literalMatch->id, (string) $results[0]->id());
+    self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, search: 'a_b'));
+
+    // Case-insensitive, partial match against the name field.
+    self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, search: 'UNRELATED'));
+  }
+
+  /**
+   * @param list<Facility> $facilities
+   *
+   * @return list<string>
+   */
+  private function descendantIds(array $facilities): array
+  {
+    $ids = [];
+    foreach ($facilities as $facility) {
+      $ids[] = (string) $facility->id();
+    }
+
+    return $ids;
   }
 
   private function createOrganization(string $id, string $slug): OrganizationRecord

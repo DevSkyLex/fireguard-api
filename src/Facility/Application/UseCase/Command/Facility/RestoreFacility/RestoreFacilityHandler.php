@@ -6,10 +6,12 @@ namespace Facility\Application\UseCase\Command\Facility\RestoreFacility;
 
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Event\Facility\FacilityRestoredEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -20,6 +22,7 @@ final readonly class RestoreFacilityHandler implements CommandHandler
 {
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
 
@@ -32,11 +35,16 @@ final readonly class RestoreFacilityHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $facility = $this->facilityRepository->findById($facilityId);
+    $facility = $this->facilityRepository->findPublishedById($facilityId);
 
     if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
       throw FacilityNotFoundException::withId($command->facilityId);
     }
+
+    // Captured BEFORE the mutation: the restored event is only emitted when
+    // the facility actually transitions back to active (idempotent repeats
+    // on an already-active facility stay silent).
+    $wasArchived = !$facility->status()->isActive();
 
     $parentId = $facility->parentFacilityId();
     if (null !== $parentId) {
@@ -61,6 +69,15 @@ final readonly class RestoreFacilityHandler implements CommandHandler
       }
 
       throw $exception;
+    }
+
+    // Post-commit: the repository save above flushed the transition, so the
+    // audit event can no longer be rolled back from under its consumers.
+    if ($wasArchived) {
+      $this->eventDispatcher->dispatch(new FacilityRestoredEvent(
+        organizationId: (string) $organizationId,
+        facilityId: (string) $facility->id(),
+      ));
     }
 
     return new RestoreFacilityResult(

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Post;
+use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
+use Approval\Application\Port\Inbound\ApprovalGatePort;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentResult};
@@ -18,9 +20,12 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\{JsonResponse, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+
+use function json_decode;
 
 #[CoversClass(DecommissionEquipmentProcessor::class)]
 final class DecommissionEquipmentProcessorTest extends TestCase
@@ -47,9 +52,13 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
 
+    $approvalGate = $this->createMock(ApprovalGatePort::class);
+    $approvalGate->expects(self::never())->method('evaluate');
+
     $processor = new DecommissionEquipmentProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      approvalGate: $approvalGate,
       security: $security,
     );
 
@@ -85,6 +94,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $processor = new DecommissionEquipmentProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      approvalGate: $this->applyNowGate(),
       security: $security,
     );
 
@@ -120,6 +130,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $processor = new DecommissionEquipmentProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      approvalGate: $this->applyNowGate(),
       security: $security,
     );
 
@@ -167,6 +178,7 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     $processor = new DecommissionEquipmentProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
+      approvalGate: $this->applyNowGate(),
       security: $security,
     );
 
@@ -179,6 +191,62 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     self::assertInstanceOf(EquipmentOutput::class, $output);
     self::assertSame(self::EQUIP_ID, $output->id);
     self::assertSame('decommissioned', $output->status);
+  }
+
+  #[Test]
+  public function testProcessReturns202WhenGateDefersTheAction(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655455014');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $expiresAt = new DateTimeImmutable('2026-04-01T00:00:00+00:00');
+    $approvalGate = $this->createMock(ApprovalGatePort::class);
+    $approvalGate->expects(self::once())
+      ->method('evaluate')
+      ->with(self::callback(static function (ApprovalGateRequest $request): bool {
+        self::assertSame('equipment_decommission', $request->actionType);
+        self::assertSame(self::EQUIP_ID, $request->subjectId);
+
+        return true;
+      }))
+      ->willReturn(ApprovalGateDecision::deferred('request-1', 'pending', $expiresAt));
+
+    $processor = new DecommissionEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      approvalGate: $approvalGate,
+      security: $security,
+    );
+
+    $response = $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_ACCEPTED, $response->getStatusCode());
+    /** @var array{status: string, approvalRequestId: string, approvalStatus: string} $payload */
+    $payload = json_decode((string) $response->getContent(), true);
+    self::assertSame('pending_approval', $payload['status']);
+    self::assertSame('request-1', $payload['approvalRequestId']);
+    self::assertSame('pending', $payload['approvalStatus']);
+  }
+
+  private function applyNowGate(): ApprovalGatePort
+  {
+    $approvalGate = $this->createStub(ApprovalGatePort::class);
+    $approvalGate->method('evaluate')->willReturn(ApprovalGateDecision::applyNow());
+
+    return $approvalGate;
   }
 
   private function createSecurityUser(string $id): SecurityUser

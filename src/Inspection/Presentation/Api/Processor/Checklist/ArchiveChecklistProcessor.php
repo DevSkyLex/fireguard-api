@@ -19,6 +19,7 @@ use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
+use function count;
 use function is_string;
 
 /** @implements ProcessorInterface<mixed, ChecklistOutput> */
@@ -90,6 +91,7 @@ final readonly class ArchiveChecklistProcessor implements ProcessorInterface
     $output->id = $result->checklistId;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
+    $output->referenceCode = $result->referenceCode;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');
@@ -106,6 +108,7 @@ final readonly class ArchiveChecklistProcessor implements ProcessorInterface
       $itemOutputs[] = $itemOutput;
     }
     $output->items = $itemOutputs;
+    $output->itemCount = count($itemOutputs);
 
     return $output;
   }

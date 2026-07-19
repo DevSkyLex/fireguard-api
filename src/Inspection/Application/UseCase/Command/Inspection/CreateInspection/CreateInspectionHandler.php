@@ -19,8 +19,11 @@ use Inspection\Domain\ValueObject\{
   InspectorType
 };
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -48,6 +51,8 @@ final readonly class CreateInspectionHandler implements CommandHandler
    * @param FacilityValidationPort $facilityValidation the facility validation value
    * @param ChecklistValidationPort $checklistValidation the checklist validation value
    * @param UuidFactory $uuidFactory the uuid factory value
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
@@ -55,6 +60,8 @@ final readonly class CreateInspectionHandler implements CommandHandler
     private FacilityValidationPort $facilityValidation,
     private ChecklistValidationPort $checklistValidation,
     private UuidFactory $uuidFactory,
+    private OrganizationQuotaPort $quota,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -132,7 +139,13 @@ final readonly class CreateInspectionHandler implements CommandHandler
       throw $exception;
     }
 
-    $this->inspectionRepository->save($inspection);
+    // Enforce the plan quota and persist atomically: assertCanAdd takes a
+    // transaction-scoped advisory lock so concurrent creates at the cap cannot
+    // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
+    $this->transactionManager->transactional(function () use ($command, $inspection): void {
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::INSPECTIONS);
+      $this->inspectionRepository->save($inspection);
+    });
 
     return new CreateInspectionResult(
       inspectionId: (string) $inspection->id(),

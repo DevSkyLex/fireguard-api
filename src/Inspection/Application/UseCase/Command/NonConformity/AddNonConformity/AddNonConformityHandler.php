@@ -7,6 +7,7 @@ namespace Inspection\Application\UseCase\Command\NonConformity\AddNonConformity;
 use DateTimeImmutable;
 use Exception;
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
+use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionNotFoundException};
 use Inspection\Domain\Model\NonConformity\NonConformity;
 use Inspection\Domain\ValueObject\{
@@ -19,6 +20,7 @@ use Inspection\Domain\ValueObject\{
 use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -38,6 +40,7 @@ final readonly class AddNonConformityHandler implements CommandHandler
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,
     private UuidFactory $uuidFactory,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -93,6 +96,13 @@ final readonly class AddNonConformityHandler implements CommandHandler
     }
 
     $this->nonConformityRepository->save($nonConformity);
+
+    $this->eventDispatcher->dispatch(new NonConformityRecordedEvent(
+      organizationId: $command->organizationId,
+      inspectionId: $command->inspectionId,
+      nonConformityId: (string) $nonConformity->id(),
+      severity: $nonConformity->severity()->value,
+    ));
 
     return new AddNonConformityResult(
       nonConformityId: (string) $nonConformity->id(),

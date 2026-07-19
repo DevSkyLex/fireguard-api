@@ -11,6 +11,7 @@ use Inspection\Application\UseCase\Command\Inspection\CancelInspection\{
   CancelInspectionHandler,
   CancelInspectionResult
 };
+use Inspection\Domain\Event\Inspection\InspectionCancelledEvent;
 use Inspection\Domain\Exception\{
   InspectionAlreadyCancelledException,
   InspectionAlreadyClosedException,
@@ -27,6 +28,7 @@ use Inspection\Domain\ValueObject\{
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(CancelInspectionHandler::class)]
 final class CancelInspectionHandlerTest extends TestCase
@@ -44,12 +46,27 @@ final class CancelInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     // Logical cancellation persists the row instead of deleting it.
     $repository->expects(self::never())->method('remove');
     $repository->expects(self::once())->method('save')->with($inspection);
 
-    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof InspectionCancelledEvent
+          && self::ORG_ID === $event->organizationId
+          && self::INSP_ID === $event->inspectionId
+          && self::EQUIP_ID === $event->equipmentId
+          && 'draft' === $event->previousStatus,
+      ));
+
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $result = $handler->__invoke(new CancelInspectionCommand(
       organizationId: self::ORG_ID,
@@ -69,11 +86,24 @@ final class CancelInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::never())->method('remove');
     $repository->expects(self::once())->method('save')->with($inspection);
 
-    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    // The event captures the pre-mutation status of the aggregate.
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof InspectionCancelledEvent
+          && 'submitted' === $event->previousStatus,
+      ));
+
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $handler->__invoke(new CancelInspectionCommand(
       organizationId: self::ORG_ID,
@@ -87,9 +117,16 @@ final class CancelInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findPublishedById')->willReturn(null);
 
-    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $this->expectException(InspectionNotFoundException::class);
 
@@ -105,9 +142,16 @@ final class CancelInspectionHandlerTest extends TestCase
     $inspection = $this->makeDraftInspection();
 
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
 
-    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $this->expectException(InspectionNotFoundException::class);
 
@@ -124,11 +168,19 @@ final class CancelInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::never())->method('save');
     $repository->expects(self::never())->method('remove');
 
-    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    // The aggregate rejects the transition, so nothing is persisted nor emitted.
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $this->expectException(InspectionAlreadyClosedException::class);
 
@@ -145,11 +197,20 @@ final class CancelInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::never())->method('save');
     $repository->expects(self::never())->method('remove');
 
-    $handler = new CancelInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    // An already-cancelled inspection is rejected before any state change,
+    // so no duplicate cancellation event may reach the ledger.
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $this->expectException(InspectionAlreadyCancelledException::class);
 

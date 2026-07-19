@@ -60,4 +60,25 @@ final class FacilityStatisticsAdapterTest extends TestCase
       'area' => 0,
     ], $adapter->countFacilitiesByType(self::ORG_ID));
   }
+
+  #[Test]
+  public function testGetFacilityNamesByIdsDelegatesToRepository(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('getFacilityNamesByIds')
+      ->with(
+        self::callback(static fn (FacilityOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        ['facility-1', 'facility-2'],
+      )
+      ->willReturn(['facility-1' => 'Site Paris', 'facility-2' => 'Site Lyon']);
+
+    $adapter = new FacilityStatisticsAdapter($repository);
+
+    self::assertSame(
+      ['facility-1' => 'Site Paris', 'facility-2' => 'Site Lyon'],
+      $adapter->getFacilityNamesByIds(self::ORG_ID, ['facility-1', 'facility-2']),
+    );
+  }
 }

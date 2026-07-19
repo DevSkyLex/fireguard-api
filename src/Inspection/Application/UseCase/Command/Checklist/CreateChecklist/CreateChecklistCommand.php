@@ -27,12 +27,14 @@ final readonly class CreateChecklistCommand implements CommandMessage
    * @param string $name the checklist name
    * @param string $version the version label
    * @param list<array{label: string, description?: ?string, required?: bool, position?: int}> $items the checklist items
+   * @param ?string $referenceCode optional human-facing reference code, unique per organization
    */
   public function __construct(
     public string $organizationId,
     public string $name,
     public string $version,
     public array $items = [],
+    public ?string $referenceCode = null,
   ) {
   }
   // #endregion

@@ -24,8 +24,8 @@ use Intervention\Domain\Exception\{
 };
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationQuotaPort};
-use Organization\Domain\ValueObject\OrganizationQuotaResource;
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\{ClientResourceAlreadyExistsHttpException, CreationPreconditionGuard};
@@ -65,7 +65,6 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private InspectionOutputFactory $outputMapper,
     private OrganizationAuthorizationPort $authorization,
-    private OrganizationQuotaPort $quota,
     private Security $security,
     private ?InterventionResourceManager $interventionResourceManager = null,
     private ?CreationPreconditionGuard $creationPreconditionGuard = null,
@@ -134,7 +133,6 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, $permission)) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
-    $this->quota->assertCanAdd($organizationId, OrganizationQuotaResource::INSPECTIONS);
     $this->assertOfflineCreate($data->clientId, null !== $resourceId);
 
     // A USER inspection requires the acting user when the client does not name a
@@ -164,6 +162,11 @@ final readonly class CreateInspectionProcessor implements ProcessorInterface
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+      }
+
       $invalidArgument = $this->findInvalidArgumentException($exception);
       if ($invalidArgument instanceof InvalidArgumentException) {
         throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);

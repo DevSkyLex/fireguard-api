@@ -9,6 +9,8 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
@@ -18,6 +20,7 @@ use Intervention\Domain\Exception\{InterventionConflictException, InterventionNo
 use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -30,6 +33,14 @@ use function trim;
 
 /**
  * Processor CanonicalFacilityMutationProcessor.
+ *
+ * Canonical DELETE contract (kept uniform across the facility / equipment /
+ * inspection flat surfaces): a draft (intervention scratchpad) record is
+ * hard-deleted, refused while it still has children or live dependents; a
+ * published record moves to the entity's retirement state — here `archived`,
+ * the only REVERSIBLE one (restore) — idempotently (a repeat DELETE is a no-op)
+ * and guarded so archiving never orphans an active dependent (child facility,
+ * equipment, in-progress inspection → HTTP 409).
  *
  * @category Processor
  *
@@ -56,6 +67,8 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    * @param InterventionResourceManager $interventionResourceManager the intervention resource manager value
    * @param RevisionGuard $revisionGuard the revision guard value
    * @param MergePatchFields $mergePatchFields the merge patch fields value
+   * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher value
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -66,6 +79,8 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     private InterventionResourceManager $interventionResourceManager,
     private RevisionGuard $revisionGuard,
     private MergePatchFields $mergePatchFields,
+    private FacilityArchivalGuardPort $archivalGuard,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
 
@@ -85,9 +100,23 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): ?FacilityOutput
   {
-    return $this->entityManager->wrapInTransaction(
-      fn (): ?FacilityOutput => $this->processMutation($data, $operation, $uriVariables),
+    // Audit events are collected during the mutation and dispatched only after
+    // wrapInTransaction has COMMITTED: the flushes inside run at transaction
+    // nesting level >= 1 (savepoints), so dispatching there could record a
+    // ledger row (auth database, independent commit) for a mutation the main
+    // database later rolls back — a phantom entry in an append-only ledger.
+    $pendingEvents = [];
+    $output = $this->entityManager->wrapInTransaction(
+      function () use ($data, $operation, $uriVariables, &$pendingEvents): ?FacilityOutput {
+        return $this->processMutation($data, $operation, $uriVariables, $pendingEvents);
+      },
     );
+
+    foreach ($pendingEvents as $event) {
+      $this->eventDispatcher->dispatch($event);
+    }
+
+    return $output;
   }
 
   /**
@@ -100,10 +129,11 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    * @param mixed $data the data value
    * @param Operation $operation the operation value
    * @param array<string, mixed> $uriVariables the uri variables value
+   * @param list<object> $pendingEvents collector for audit events to dispatch post-commit
    *
    * @return ?FacilityOutput the mutation result
    */
-  private function processMutation(mixed $data, Operation $operation, array $uriVariables): ?FacilityOutput
+  private function processMutation(mixed $data, Operation $operation, array $uriVariables, array &$pendingEvents): ?FacilityOutput
   {
     $id = $uriVariables['id'] ?? null;
     if (!is_string($id)) {
@@ -116,7 +146,15 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     $this->assertPermission($record);
     $this->revisionGuard->assertMatches($record->revision);
 
+    // assertPermission has already established a non-null organization on the record.
+    $organization = $record->organization;
+    if (!$organization instanceof OrganizationRecord) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+    $organizationId = $organization->id;
+
     if ('DELETE' === $this->requestStack->getCurrentRequest()?->getMethod()) {
+      $archivedNow = false;
       if ('draft' === $record->recordStatus) {
         // A hard delete would set every child's parent_facility_id to NULL
         // (FK `ON DELETE SET NULL`), silently promoting the sub-tree to root.
@@ -124,14 +162,30 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
         if ($this->entityManager->getRepository(FacilityRecord::class)->count(['parentFacility' => $record]) > 0) {
           throw new ConflictHttpException('Cannot delete a facility that still has child facilities; move or remove them first.');
         }
+        // Hard-deleting would also leave equipment/inspection records pointing
+        // at a facility id that no longer exists; refuse while dependents exist.
+        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
         $this->entityManager->remove($record);
-      } else {
+      } elseif ('archived' !== $record->status) {
+        // Archiving must not orphan a live dependent (mapped to HTTP 409). A
+        // repeat DELETE on an already-archived facility stays an idempotent
+        // no-op, mirroring the archive use case and the PATCH transition guard.
+        $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
         $record->status = 'archived';
         ++$record->revision;
         $record->updatedAt = new DateTimeImmutable();
+        $archivedNow = true;
       }
       $this->entityManager->flush();
       $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
+      // Audit ledger: collected here, dispatched after the transaction commits.
+      // Draft hard-deletes and idempotent repeat DELETEs emit nothing.
+      if ($archivedNow) {
+        $pendingEvents[] = new FacilityArchivedEvent(
+          organizationId: $organizationId,
+          facilityId: $record->id,
+        );
+      }
 
       return null;
     }
@@ -142,6 +196,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     $input = $data;
     $fields = $this->mergePatchFields->all();
     $previousStatus = $record->status;
+    $previousParentFacilityId = $record->parentFacility?->id;
     if (array_key_exists('type', $fields)) {
       if (null === $input->type) {
         throw new UnprocessableEntityHttpException('Facility type cannot be null.');
@@ -208,10 +263,40 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     ) {
       throw new UnprocessableEntityHttpException('Cannot restore a facility while its parent is archived.');
     }
+    // Archiving via a status PATCH is guarded like the DELETE surface: a published
+    // facility cannot be archived while it still has active dependents (409).
+    if ('published' === $record->recordStatus && 'archived' !== $previousStatus && 'archived' === $record->status) {
+      $this->archivalGuard->assertNoActiveDependents($organizationId, $record->id);
+    }
     ++$record->revision;
     $record->updatedAt = new DateTimeImmutable();
     $this->entityManager->flush();
     $this->interventionResourceManager->touchDraftIntervention($record->interventionId);
+    // Audit ledger: only published-record lifecycle changes are collected (and
+    // dispatched after the commit). Draft scratchpad PATCHes emit nothing, and
+    // unchanged values (same status, same parent) emit nothing either.
+    if ('published' === $record->recordStatus) {
+      if ('archived' !== $previousStatus && 'archived' === $record->status) {
+        $pendingEvents[] = new FacilityArchivedEvent(
+          organizationId: $organizationId,
+          facilityId: $record->id,
+        );
+      } elseif ('archived' === $previousStatus && 'active' === $record->status) {
+        $pendingEvents[] = new FacilityRestoredEvent(
+          organizationId: $organizationId,
+          facilityId: $record->id,
+        );
+      }
+      $newParentFacilityId = $record->parentFacility?->id;
+      if ($newParentFacilityId !== $previousParentFacilityId) {
+        $pendingEvents[] = new FacilityMovedEvent(
+          organizationId: $organizationId,
+          facilityId: $record->id,
+          previousParentFacilityId: $previousParentFacilityId,
+          newParentFacilityId: $newParentFacilityId,
+        );
+      }
+    }
 
     $output = $this->provider->provide($operation, ['id' => $record->id]);
     if (!$output instanceof FacilityOutput) {

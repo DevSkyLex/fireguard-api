@@ -41,7 +41,7 @@ final class EditInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::once())->method('save');
 
     $handler = new EditInspectionHandler(
@@ -68,7 +68,7 @@ final class EditInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findPublishedById')->willReturn(null);
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
@@ -91,7 +91,7 @@ final class EditInspectionHandlerTest extends TestCase
     $inspection = $this->makeDraftInspection();
 
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
@@ -114,7 +114,7 @@ final class EditInspectionHandlerTest extends TestCase
     $inspection = $this->makeDraftInspection();
 
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
 
     $handler = new EditInspectionHandler(
       inspectionRepository: $repository,
@@ -141,7 +141,7 @@ final class EditInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::once())->method('save');
 
     /** @var EquipmentValidationPort&MockObject $equipmentValidation */
@@ -172,7 +172,7 @@ final class EditInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::once())->method('save');
 
     /** @var FacilityValidationPort&MockObject $facilityValidation */
@@ -203,7 +203,7 @@ final class EditInspectionHandlerTest extends TestCase
 
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
     $repository->expects(self::once())->method('save');
 
     /** @var ChecklistValidationPort&MockObject $checklistValidation */

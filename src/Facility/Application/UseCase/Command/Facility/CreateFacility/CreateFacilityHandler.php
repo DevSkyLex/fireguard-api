@@ -24,8 +24,11 @@ use Facility\Domain\ValueObject\{
   FacilityType
 };
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -54,10 +57,14 @@ final readonly class CreateFacilityHandler implements CommandHandler
    *
    * @param FacilityRepositoryPort $facilityRepository the facility repository value
    * @param UuidFactory $uuidFactory the uuid factory value
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private UuidFactory $uuidFactory,
+    private OrganizationQuotaPort $quota,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -115,23 +122,30 @@ final readonly class CreateFacilityHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    try {
-      $this->facilityRepository->save($facility);
-    } catch (Throwable $exception) {
-      if ($this->isDuplicateCodeConstraintViolation($exception)) {
-        throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
-      }
+    // Enforce the plan quota and persist in one transaction: assertCanAdd takes a
+    // transaction-scoped advisory lock so two concurrent creates at the cap cannot
+    // both pass the count and both insert (see OrganizationQuotaPort::assertCanAdd).
+    $this->transactionManager->transactional(function () use ($command, $facility, $parentId): void {
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
 
-      if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
-      }
+      try {
+        $this->facilityRepository->save($facility);
+      } catch (Throwable $exception) {
+        if ($this->isDuplicateCodeConstraintViolation($exception)) {
+          throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
+        }
 
-      if ($this->isParentConstraintViolation($exception)) {
-        throw FacilityNotFoundException::withId((string) ($parentId ?? 'unknown'));
-      }
+        if ($this->isOrganizationConstraintViolation($exception)) {
+          throw new InvalidArgumentException('Organization not found.');
+        }
 
-      throw $exception;
-    }
+        if ($this->isParentConstraintViolation($exception)) {
+          throw FacilityNotFoundException::withId((string) ($parentId ?? 'unknown'));
+        }
+
+        throw $exception;
+      }
+    });
 
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),

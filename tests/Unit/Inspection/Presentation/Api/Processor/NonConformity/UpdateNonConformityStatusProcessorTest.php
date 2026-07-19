@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Presentation\Api\Processor\NonConformity;
 
 use ApiPlatform\Metadata\Patch;
+use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
+use Approval\Application\Port\Inbound\ApprovalGatePort;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\{UpdateNonConformityStatusCommand, UpdateNonConformityStatusResult};
+use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityResult;
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityAlreadyResolvedException, NonConformityNotFoundException};
 use Inspection\Presentation\Api\Dto\Input\NonConformity\UpdateNonConformityStatusInput;
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
@@ -17,10 +20,13 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\{JsonResponse, Response};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
+
+use function json_decode;
 
 #[CoversClass(UpdateNonConformityStatusProcessor::class)]
 final class UpdateNonConformityStatusProcessorTest extends TestCase
@@ -41,7 +47,9 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
 
     $processor = new UpdateNonConformityStatusProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      approvalGate: $this->createStub(ApprovalGatePort::class),
       security: $security,
     );
 
@@ -62,7 +70,9 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
 
     $processor = new UpdateNonConformityStatusProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      approvalGate: $this->createStub(ApprovalGatePort::class),
       security: $security,
     );
 
@@ -112,9 +122,14 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
     $input = new UpdateNonConformityStatusInput();
     $input->status = 'done';
 
+    $approvalGate = $this->createMock(ApprovalGatePort::class);
+    $approvalGate->expects(self::never())->method('evaluate');
+
     $processor = new UpdateNonConformityStatusProcessor(
       commandBus: $commandBus,
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
+      approvalGate: $approvalGate,
       security: $security,
     );
 
@@ -196,6 +211,135 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testProcessConsultsGateAndAppliesImmediatelyWhenWaivingAndGateAllows(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetNonConformityResult(
+      nonConformityId: self::NC_ID,
+      inspectionId: self::INSP_ID,
+      description: 'Fire extinguisher expired',
+      severity: 'low',
+      status: 'open',
+      dueAt: null,
+      resolvedAt: null,
+      notes: null,
+      createdAt: $now,
+      updatedAt: $now,
+    ));
+
+    $approvalGate = $this->createMock(ApprovalGatePort::class);
+    $approvalGate->expects(self::once())
+      ->method('evaluate')
+      ->with(self::callback(static function (ApprovalGateRequest $request): bool {
+        return 'nc_waiver' === $request->actionType
+          && self::NC_ID === $request->subjectId
+          && 'low' === ($request->payload['severity'] ?? null);
+      }))
+      ->willReturn(ApprovalGateDecision::applyNow());
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn(new UpdateNonConformityStatusResult(
+        nonConformityId: self::NC_ID,
+        inspectionId: self::INSP_ID,
+        description: 'Fire extinguisher expired',
+        severity: 'low',
+        status: 'waived',
+        dueAt: null,
+        resolvedAt: '2026-01-15T11:00:00+00:00',
+        notes: null,
+        createdAt: $now,
+        updatedAt: $now,
+      ));
+
+    $input = new UpdateNonConformityStatusInput();
+    $input->status = 'waived';
+
+    $processor = new UpdateNonConformityStatusProcessor(
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+      authorization: $authorization,
+      approvalGate: $approvalGate,
+      security: $security,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+
+    self::assertInstanceOf(NonConformityOutput::class, $output);
+    self::assertSame('waived', $output->status);
+  }
+
+  #[Test]
+  public function testProcessReturns202WhenWaivingIsDeferred(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetNonConformityResult(
+      nonConformityId: self::NC_ID,
+      inspectionId: self::INSP_ID,
+      description: 'Sprinkler head corroded',
+      severity: 'critical',
+      status: 'open',
+      dueAt: null,
+      resolvedAt: null,
+      notes: null,
+      createdAt: $now,
+      updatedAt: $now,
+    ));
+
+    $expiresAt = new DateTimeImmutable('2026-01-29T11:00:00+00:00');
+    $approvalGate = $this->createStub(ApprovalGatePort::class);
+    $approvalGate->method('evaluate')->willReturn(ApprovalGateDecision::deferred('request-1', 'pending', $expiresAt));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $input = new UpdateNonConformityStatusInput();
+    $input->status = 'waived';
+
+    $processor = new UpdateNonConformityStatusProcessor(
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+      authorization: $authorization,
+      approvalGate: $approvalGate,
+      security: $security,
+    );
+
+    $response = $processor->process(
+      data: $input,
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+
+    self::assertInstanceOf(JsonResponse::class, $response);
+    self::assertSame(Response::HTTP_ACCEPTED, $response->getStatusCode());
+    /** @var array{status: string, approvalRequestId: string} $payload */
+    $payload = json_decode((string) $response->getContent(), true);
+    self::assertSame('pending_approval', $payload['status']);
+    self::assertSame('request-1', $payload['approvalRequestId']);
+  }
+
   private function makeAuthorizedProcessor(Throwable $commandException): UpdateNonConformityStatusProcessor
   {
     $security = $this->createStub(Security::class);
@@ -209,7 +353,9 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
 
     return new UpdateNonConformityStatusProcessor(
       commandBus: $commandBus,
+      queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
+      approvalGate: $this->createStub(ApprovalGatePort::class),
       security: $security,
     );
   }

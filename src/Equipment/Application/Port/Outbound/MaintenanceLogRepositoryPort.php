@@ -77,5 +77,21 @@ interface MaintenanceLogRepositoryPort
    * @return int the total count
    */
   public function countByEquipmentId(EquipmentOrganizationId $organizationId, EquipmentId $equipmentId): int;
+
+  /**
+   * Method appendInterventionServiceEntry.
+   *
+   * Idempotently appends a completed, point-in-time service entry
+   * synthesized from a published intervention. A raw insert guarded by a
+   * unique constraint on `$dedupKey`: a duplicate (at-least-once event
+   * redelivery, or a later publication re-reading an already-applied
+   * change) is a routine no-op, never an error.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentMaintenanceLog $entry the service entry to append
+   * @param string $dedupKey the idempotency key guarding the insert
+   */
+  public function appendInterventionServiceEntry(EquipmentMaintenanceLog $entry, string $dedupKey): void;
   // #endregion
 }

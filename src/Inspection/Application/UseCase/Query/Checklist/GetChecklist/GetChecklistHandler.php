@@ -71,6 +71,7 @@ final readonly class GetChecklistHandler implements QueryHandler
       items: $items,
       createdAt: $checklist->createdAt(),
       updatedAt: $checklist->updatedAt(),
+      referenceCode: $checklist->referenceCode(),
     );
   }
   // #endregion

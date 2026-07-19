@@ -36,18 +36,20 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
 
   private const RESULTS = ['pass', 'fail', 'partial'];
 
-  private const STATUSES = ['draft', 'submitted', 'closed'];
+  private const STATUSES = ['draft', 'submitted', 'closed', 'cancelled'];
 
   /**
    * Legal inspection status transitions, mirroring the `Inspection` aggregate:
-   * draft -> submitted -> closed. `closed` is terminal.
+   * draft -> submitted -> closed, plus logical annulment (draft/submitted ->
+   * cancelled). `closed` and `cancelled` are terminal.
    *
    * @var array<string, list<string>>
    */
   private const array ALLOWED_STATUS_TRANSITIONS = [
-    'draft' => ['submitted'],
-    'submitted' => ['closed'],
+    'draft' => ['submitted', 'cancelled'],
+    'submitted' => ['closed', 'cancelled'],
     'closed' => [],
+    'cancelled' => [],
   ];
 
   /**
@@ -253,8 +255,8 @@ final readonly class InspectionInterventionResourceAdapter implements Interventi
     if (!$record instanceof InspectionRecord || $record->organization?->id !== $organizationId || 'published' !== $record->recordStatus) {
       throw new InterventionConflictException('Proposed inspection change target is invalid.');
     }
-    if ('closed' === $record->status) {
-      throw new InterventionConflictException('Closed inspections are immutable.');
+    if ('closed' === $record->status || 'cancelled' === $record->status) {
+      throw new InterventionConflictException('Closed or cancelled inspections are immutable.');
     }
     $previousStatus = $record->status;
 

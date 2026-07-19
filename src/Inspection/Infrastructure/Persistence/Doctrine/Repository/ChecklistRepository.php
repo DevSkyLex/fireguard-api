@@ -48,6 +48,7 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     if ($existing instanceof ChecklistRecord) {
       $existing->organization = $organization;
       $existing->name = $record->name;
+      $existing->referenceCode = $record->referenceCode;
       $existing->version = $record->version;
       $existing->status = $record->status;
       $existing->updatedAt = $record->updatedAt;
@@ -122,15 +123,12 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     /** @var list<ChecklistRecord> $records */
     $records = $qb->getQuery()->getResult();
 
+    // L1.10b: the list path never hydrates items — neither eagerly (no
+    // fetch-join above) nor via a per-row query here. Callers needing item
+    // counts must use countItemsGroupedByChecklistId(); a lazy `items`
+    // collection touched inside a loop would be an N+1.
     return array_map(
-      function (ChecklistRecord $record): Checklist {
-        $itemRecords = $this->itemRepository->findBy(
-          ['checklist' => $record],
-          ['position' => 'ASC'],
-        );
-
-        return ChecklistMapper::toDomain($record, $itemRecords);
-      },
+      static fn (ChecklistRecord $record): Checklist => ChecklistMapper::toDomain($record, []),
       $records,
     );
   }
@@ -144,6 +142,55 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     $qb->select('COUNT(c.id)');
 
     return (int) $qb->getQuery()->getSingleScalarResult();
+  }
+
+  /**
+   * Method countItemsGroupedByChecklistId.
+   *
+   * Single grouped query over `checklist_items` joined to `checklists`,
+   * scoped to the organization and to the requested checklist IDs. Mirrors
+   * `OrganizationMemberRepository::countActiveMembersGroupedByRoleId()`.
+   *
+   * @param list<string> $checklistIds
+   *
+   * @return array<string, int>
+   */
+  public function countItemsGroupedByChecklistId(
+    ChecklistOrganizationId $organizationId,
+    array $checklistIds,
+  ): array {
+    if ([] === $checklistIds) {
+      return [];
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{checklistId: string|null, itemCount: int|string|null}> $rows */
+    $rows = $this->itemRepository
+      ->createQueryBuilder('checklistItem')
+      ->select('IDENTITY(checklistItem.checklist) AS checklistId')
+      ->addSelect('COUNT(checklistItem.id) AS itemCount')
+      ->innerJoin('checklistItem.checklist', 'checklistRecord')
+      ->where('checklistRecord.organization = :organization')
+      ->andWhere('IDENTITY(checklistItem.checklist) IN (:checklistIds)')
+      ->groupBy('checklistItem.checklist')
+      ->setParameter('organization', $organization)
+      ->setParameter('checklistIds', $checklistIds)
+      ->getQuery()
+      ->getScalarResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $checklistId = (string) ($row['checklistId'] ?? '');
+      if ('' === $checklistId) {
+        continue;
+      }
+
+      $counts[$checklistId] = (int) ($row['itemCount'] ?? 0);
+    }
+
+    return $counts;
   }
 
   private function createListQueryBuilder(

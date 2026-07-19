@@ -13,10 +13,14 @@ use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{
 };
 use Inspection\Domain\ValueObject\{InspectionId, InspectionStatus};
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -59,13 +63,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $command = new CreateInspectionCommand(
       organizationId: self::ORG_ID,
@@ -109,13 +107,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $command = new CreateInspectionCommand(
       organizationId: self::ORG_ID,
@@ -148,13 +140,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $command = new CreateInspectionCommand(
       organizationId: 'not-a-uuid',
@@ -185,13 +171,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $command = new CreateInspectionCommand(
       organizationId: self::ORG_ID,
@@ -227,13 +207,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -267,13 +241,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Invalid UUID provided.');
@@ -308,13 +276,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -349,13 +311,7 @@ final class CreateInspectionHandlerTest extends TestCase
 
     $checklistValidation = $this->createStub(ChecklistValidationPort::class);
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -390,13 +346,7 @@ final class CreateInspectionHandlerTest extends TestCase
       ->method('assertChecklistIsUsable')
       ->willThrowException(new InvalidArgumentException('Checklist with ID "550e8400-e29b-41d4-a716-446655440020" not found.'));
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -431,13 +381,7 @@ final class CreateInspectionHandlerTest extends TestCase
       ->method('assertChecklistIsUsable')
       ->willThrowException(new InvalidArgumentException('Checklist with ID "550e8400-e29b-41d4-a716-446655440020" is archived and cannot be used.'));
 
-    $handler = new CreateInspectionHandler(
-      inspectionRepository: $repository,
-      equipmentValidation: $equipmentValidation,
-      facilityValidation: $facilityValidation,
-      checklistValidation: $checklistValidation,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $equipmentValidation, $facilityValidation, $checklistValidation, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -451,6 +395,73 @@ final class CreateInspectionHandlerTest extends TestCase
       inspectorUserId: 'user-abc',
       checklistId: '550e8400-e29b-41d4-a716-446655440020',
     ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsAndSkipsSaveWhenQuotaExceeded(): void
+  {
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(InspectionId::fromString(self::INSP_ID));
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::once())
+      ->method('assertCanAdd')
+      ->with(self::ORG_ID, OrganizationQuotaResource::INSPECTIONS)
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS, 100));
+
+    $handler = $this->handler(
+      $repository,
+      $this->createStub(EquipmentValidationPort::class),
+      $this->createStub(FacilityValidationPort::class),
+      $this->createStub(ChecklistValidationPort::class),
+      $uuidFactory,
+      $quota,
+    );
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+    ));
+  }
+
+  /**
+   * Builds the handler with a pass-through transaction manager (invokes the
+   * operation inline) and a permissive quota port unless one is supplied.
+   */
+  private function handler(
+    InspectionRepositoryPort $repository,
+    EquipmentValidationPort $equipmentValidation,
+    FacilityValidationPort $facilityValidation,
+    ChecklistValidationPort $checklistValidation,
+    UuidFactory $uuidFactory,
+    ?OrganizationQuotaPort $quota = null,
+  ): CreateInspectionHandler {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return new CreateInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $equipmentValidation,
+      facilityValidation: $facilityValidation,
+      checklistValidation: $checklistValidation,
+      uuidFactory: $uuidFactory,
+      quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
+      transactionManager: $transactionManager,
+    );
   }
   // #endregion
 }

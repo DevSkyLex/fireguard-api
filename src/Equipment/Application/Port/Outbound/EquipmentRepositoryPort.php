@@ -45,6 +45,22 @@ interface EquipmentRepositoryPort
   public function findById(EquipmentId $id): ?Equipment;
 
   /**
+   * Method findPublishedById.
+   *
+   * Finds PUBLISHED equipment by identifier. Draft intervention
+   * scratchpads are invisible to this lookup: the lifecycle commands
+   * (commission, maintenance, decommission) must not act on — nor
+   * audit — records that only exist inside an unpublished intervention.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentId $id the equipment identifier
+   *
+   * @return ?Equipment the published equipment aggregate when found
+   */
+  public function findPublishedById(EquipmentId $id): ?Equipment;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists equipment for an organization with optional filters.

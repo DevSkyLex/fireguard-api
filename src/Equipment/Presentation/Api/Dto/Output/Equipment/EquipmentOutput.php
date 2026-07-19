@@ -164,6 +164,21 @@ final class EquipmentOutput
   public array $tags = [];
 
   /**
+   * Property maintenanceDueStatus.
+   *
+   * Resolved cross-module from the Maintenance module
+   * (`unscheduled`|`up_to_date`|`due_soon`|`overdue`); `unscheduled` when the
+   * equipment has no maintenance schedule. There is no per-equipment
+   * equivalent of a mockup "non-conformity" state: non-conformities attach
+   * to inspections, not to equipment (see `src/Equipment/MODULE.md`).
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $maintenanceDueStatus = 'unscheduled';
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

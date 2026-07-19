@@ -47,4 +47,6 @@ final class InspectionOperations
   public const string GET_CHECKLIST = 'inspection_get_checklist';
 
   public const string ARCHIVE_CHECKLIST = 'inspection_archive_checklist';
+
+  public const string UPDATE_CHECKLIST = 'inspection_update_checklist';
 }

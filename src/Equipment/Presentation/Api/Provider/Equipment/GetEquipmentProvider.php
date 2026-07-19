@@ -113,6 +113,7 @@ final readonly class GetEquipmentProvider implements ProviderInterface
     $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
+    $output->maintenanceDueStatus = $result->maintenanceDueStatus;
 
     return $output;
   }

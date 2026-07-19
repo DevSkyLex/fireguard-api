@@ -99,5 +99,16 @@ final readonly class FacilityStatisticsAdapter implements FacilityStatisticsPort
       type: $type,
     );
   }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function getFacilityNamesByIds(string $organizationId, array $facilityIds): array
+  {
+    return $this->facilityRepository->getFacilityNamesByIds(
+      organizationId: FacilityOrganizationId::fromString($organizationId),
+      facilityIds: $facilityIds,
+    );
+  }
   // #endregion
 }
