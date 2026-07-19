@@ -10,7 +10,7 @@ use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
+use Organization\Infrastructure\DataFixtures\{OrganizationFixtures, PlanFixtures};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use ReflectionClass;
 use Shared\Infrastructure\Console\LoadSeedFixturesCommand;
@@ -69,6 +69,7 @@ final class LoadSeedFixturesCommandTest extends KernelTestCase
       InspectionFixtures::class,
       OnboardingFixtures::class,
       OrganizationFixtures::class,
+      PlanFixtures::class,
     ], $mainFixtureTypes, 'Main seed fixtures should come from the main tag set.');
 
     foreach ([...$authFixtures, ...$mainFixtures] as $fixture) {

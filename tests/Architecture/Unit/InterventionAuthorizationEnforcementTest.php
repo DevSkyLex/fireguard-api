@@ -51,10 +51,14 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
    * be justified: ExecutePublicationHandler runs asynchronously off the message
    * queue with no user context — its authorization happens upstream in
    * RequestPublicationHandler before the job is dispatched.
+   * MaterializeDueRecurrencesHandler is the scheduler-driven sweep that turns
+   * due recurrences into drafts: it acts as the platform (system actor, no
+   * user), and the recurrence itself was authorized at creation time
+   * (organization.interventions.plan in CreateInterventionRecurrenceHandler).
    *
    * @var list<string>
    */
-  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler'];
+  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler'];
   // #endregion
 
   // #region Methods

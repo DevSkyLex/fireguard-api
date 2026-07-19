@@ -402,6 +402,33 @@ final class InspectionApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testUpdateChecklistRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . self::DUMMY_UUID . '/checklists/' . self::DUMMY_UUID,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
+      content: (string) json_encode(['name' => 'Renamed Checklist']),
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'PATCH /checklists/{id} endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated PATCH /checklists/{id}, got ' . $statusCode,
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Edit and cancel inspection endpoints
   // -------------------------------------------------------------------------

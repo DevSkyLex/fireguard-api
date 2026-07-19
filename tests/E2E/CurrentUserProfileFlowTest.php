@@ -99,6 +99,53 @@ final class CurrentUserProfileFlowTest extends OAuth2WebTestCase
     }
   }
 
+  #[Test]
+  public function testCurrentUserCanDeactivateOwnAccountAndItIsIdempotent(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    self::assertNotNull($token, 'Should be able to obtain access token.');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/me/deactivate',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    self::assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'Self-service deactivation should succeed. Response: ' . $client->getResponse()->getContent(),
+    );
+
+    $profile = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertSame(self::DEV_CLIENT_ID, $profile['id'] ?? null);
+    self::assertSame('inactive', $profile['status'] ?? null);
+
+    // Idempotent: deactivating an already-inactive account must not fail.
+    $client->request(
+      method: 'POST',
+      uri: '/api/me/deactivate',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    self::assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'Repeated self-service deactivation should stay idempotent. Response: ' . $client->getResponse()->getContent(),
+    );
+
+    $profileAgain = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    self::assertSame('inactive', $profileAgain['status'] ?? null);
+  }
+
   private function minimalPngBinary(): string
   {
     $binary = base64_decode(

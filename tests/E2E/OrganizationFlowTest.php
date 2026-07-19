@@ -7,6 +7,7 @@ namespace App\Tests\E2E;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
+use function array_column;
 use function basename;
 use function is_array;
 use function is_string;
@@ -64,7 +65,16 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertTrue(is_array($health['metrics'] ?? null), 'Health metrics should be normalized.');
     $this->assertTrue(is_array($comparison['metrics'] ?? null), 'Comparison metrics should be normalized.');
     $this->assertTrue(is_array($comparisonHealth['metrics'] ?? null), 'Comparison health metrics should be normalized.');
-    $this->assertArrayNotHasKey('trends', $dashboardData);
+    $this->assertArrayHasKey('trends', $dashboardData);
+    /** @var array{facilities?: mixed, members?: mixed, equipment?: mixed, inspections?: mixed} $trends */
+    $trends = is_array($dashboardData['trends'] ?? null) ? $dashboardData['trends'] : [];
+    $this->assertArrayHasKey('facilities', $trends);
+    $this->assertArrayHasKey('members', $trends);
+    $this->assertArrayHasKey('equipment', $trends);
+    $this->assertArrayHasKey('inspections', $trends);
+    $this->assertTrue(is_array($trends['facilities'] ?? null), 'Each trend section should be an iterable sparkline series.');
+    $this->assertArrayHasKey('recentInterventions', $dashboardData);
+    $this->assertTrue(is_array($dashboardData['recentInterventions'] ?? null), 'recentInterventions should be an iterable list.');
     $this->assertArrayNotHasKey('trendMetrics', $dashboardData);
     $this->assertArrayNotHasKey('memberActivationRate', $health);
     $this->assertArrayNotHasKey('total', $members);
@@ -396,6 +406,120 @@ final class OrganizationFlowTest extends OAuth2WebTestCase
     $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'facilities-created');
     $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'non-conformities-opened');
     $this->assertOrganizationDashboardTrendDenied($client, $ownerOneToken, $organizationTwoId, 'non-conformities-resolved');
+  }
+
+  public function testUpdateOrganizationLegalProfile(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $ownerEmail = 'organization-legal-owner-' . uniqid() . '@example.com';
+    $ownerPassword = 'OwnerPassword123!';
+
+    $this->createAndActivateUser($client, $ownerEmail, $ownerPassword);
+    $ownerToken = $this->loginAndGetUserAccessToken($client, $ownerEmail, $ownerPassword);
+    $organizationId = $this->createOrganization($client, $ownerToken, 'Organization Legal ' . uniqid());
+
+    $this->assertNotNull($organizationId, 'Organization should be created successfully.');
+
+    // Legal profile is entirely optional: a freshly created organization has none.
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+    );
+    $initialData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $this->assertNull($initialData['country'] ?? null, 'A fresh organization should have no legal country.');
+    $this->assertNull($initialData['legalType'] ?? null, 'A fresh organization should have no legal type.');
+
+    // Reference catalog: legal types are exposed for the settings select.
+    $client->request(
+      method: 'GET',
+      uri: '/api/organizations/legal-types',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+    );
+    $this->assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    $legalTypesData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $legalTypeOptions = $this->getCollectionMembers($legalTypesData);
+    $this->assertNotEmpty($legalTypeOptions, 'Legal type reference catalog should not be empty.');
+    $this->assertContains('limited_liability_company', array_column($legalTypeOptions, 'value'));
+
+    // Set the legal profile.
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'CONTENT_TYPE' => 'application/merge-patch+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'country' => 'FR',
+        'legalType' => 'limited_liability_company',
+        'legalName' => 'Fireguard Paris SARL',
+        'registrationNumber' => 'RCS PARIS 812345678',
+        'vatNumber' => 'FR12345678901',
+      ]) ?: '',
+    );
+
+    $updateResponse = $client->getResponse();
+    $this->assertSame(
+      Response::HTTP_OK,
+      $updateResponse->getStatusCode(),
+      'Updating the legal profile should succeed. Response: ' . $updateResponse->getContent(),
+    );
+
+    $updatedData = $this->decodeJsonResponse($updateResponse->getContent() ?: '{}');
+    $this->assertSame('FR', $updatedData['country'] ?? null);
+    $this->assertSame('limited_liability_company', $updatedData['legalType'] ?? null);
+    $this->assertSame('Fireguard Paris SARL', $updatedData['legalName'] ?? null);
+    $this->assertSame('RCS PARIS 812345678', $updatedData['registrationNumber'] ?? null);
+    $this->assertSame('FR12345678901', $updatedData['vatNumber'] ?? null);
+
+    // An unrecognized country is rejected.
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'CONTENT_TYPE' => 'application/merge-patch+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode(['country' => 'ZZ']) ?: '',
+    );
+    $this->assertSame(Response::HTTP_BAD_REQUEST, $client->getResponse()->getStatusCode());
+
+    // Clearing fields via empty strings.
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . $organizationId,
+      server: [
+        'CONTENT_TYPE' => 'application/merge-patch+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $ownerToken,
+      ],
+      content: json_encode([
+        'country' => '',
+        'legalType' => '',
+        'legalName' => '',
+        'registrationNumber' => '',
+        'vatNumber' => '',
+      ]) ?: '',
+    );
+
+    $clearedResponse = $client->getResponse();
+    $this->assertSame(Response::HTTP_OK, $clearedResponse->getStatusCode());
+    $clearedData = $this->decodeJsonResponse($clearedResponse->getContent() ?: '{}');
+    $this->assertNull($clearedData['country'] ?? null);
+    $this->assertNull($clearedData['legalType'] ?? null);
+    $this->assertNull($clearedData['legalName'] ?? null);
+    $this->assertNull($clearedData['registrationNumber'] ?? null);
+    $this->assertNull($clearedData['vatNumber'] ?? null);
   }
 
   public function testOrganizationEndpointsRequireAuthentication(): void
