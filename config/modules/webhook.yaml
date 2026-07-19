@@ -1,0 +1,102 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Webhook\Presentation\:
+    resource: '../../src/Webhook/Presentation'
+
+  Webhook\Infrastructure\EventSubscriber\:
+    resource: '../../src/Webhook/Infrastructure/EventSubscriber'
+
+  Webhook\Infrastructure\Adapter\:
+    resource: '../../src/Webhook/Infrastructure/Adapter'
+
+  # Outbound ports
+  Webhook\Application\Port\Outbound\WebhookSubscriptionRepositoryPort:
+    alias: Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookSubscriptionRepository
+
+  Webhook\Application\Port\Outbound\WebhookDeliveryRepositoryPort:
+    alias: Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookDeliveryRepository
+
+  Webhook\Application\Port\Outbound\WebhookDeliveryQueuePort:
+    alias: Webhook\Infrastructure\Adapter\Messenger\MessengerWebhookDeliveryQueueAdapter
+
+  Webhook\Application\Port\Outbound\WebhookSecretCipherPort:
+    alias: Webhook\Infrastructure\Adapter\Crypto\OpensslWebhookSecretCipherAdapter
+
+  Webhook\Application\Port\Outbound\WebhookHttpClientPort:
+    alias: Webhook\Infrastructure\Adapter\Http\SymfonyHttpWebhookClientAdapter
+
+  # SSRF hardening policy, shared by the validator, the two handlers that
+  # accept a target URL, and the HTTP adapter's send-time re-validation.
+  Webhook\Domain\Service\WebhookUrlPolicy:
+    arguments:
+      $allowInsecureUrls: '%env(bool:WEBHOOK_ALLOW_INSECURE_URLS)%'
+
+  # A dedicated HttpClientInterface instance rather than relying on
+  # FrameworkBundle's `http_client` service autoregistration (which is only
+  # configured today via the transitive symfony/mercure-bundle dependency,
+  # not an explicit `framework.http_client` block).
+  webhook.http_client:
+    class: Symfony\Contracts\HttpClient\HttpClientInterface
+    factory: ['Symfony\Component\HttpClient\HttpClient', 'create']
+
+  Webhook\Infrastructure\Adapter\Http\SymfonyHttpWebhookClientAdapter:
+    arguments:
+      $httpClient: '@webhook.http_client'
+
+  # Repositories (main entity manager)
+  Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookSubscriptionRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Webhook\Infrastructure\Persistence\Doctrine\Repository\WebhookDeliveryRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Fire-and-forget async dispatch (mirrors Import's MessengerImportJobQueueAdapter)
+  Webhook\Infrastructure\Adapter\Messenger\MessengerWebhookDeliveryQueueAdapter:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  # Curated-event subscriber: dispatches directly onto the raw message bus,
+  # not CommandBusPort (see its docblock).
+  Webhook\Infrastructure\EventSubscriber\WebhookEventSubscriber:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  # Command handlers
+  Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription\CreateWebhookSubscriptionHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscription\UpdateWebhookSubscriptionHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Subscription\DeleteWebhookSubscription\DeleteWebhookSubscriptionHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Subscription\RotateWebhookSecret\RotateWebhookSecretHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Subscription\PingWebhookSubscription\PingWebhookSubscriptionHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Command\Delivery\RedeliverWebhook\RedeliverWebhookHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Webhook\Application\UseCase\Query\Subscription\GetWebhookSubscription\GetWebhookSubscriptionHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Query\Subscription\ListWebhookSubscriptions\ListWebhookSubscriptionsHandler:
+    tags: ['messenger.message_handler']
+
+  Webhook\Application\UseCase\Query\Delivery\ListWebhookDeliveries\ListWebhookDeliveriesHandler:
+    tags: ['messenger.message_handler']
