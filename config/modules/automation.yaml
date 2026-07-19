@@ -1,0 +1,33 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Automation\Infrastructure\:
+    resource: '../../src/Automation/Infrastructure'
+
+  # Outbound ports
+  Automation\Application\Port\Outbound\AutomationRunPort:
+    alias: Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository
+
+  # Cross-module outbound port (adapter lives in the owning module)
+  Automation\Application\Port\Outbound\AutomationPolicyPort:
+    alias: Organization\Infrastructure\Adapter\Automation\OrganizationAutomationPolicyAdapter
+
+  # Enqueues the async rule execution. NOT the command bus: that adapter
+  # requires a HandledStamp, which an async-routed message never carries.
+  Automation\Application\Port\Outbound\AutomationRuleQueuePort:
+    alias: Automation\Infrastructure\Adapter\Messenger\MessengerAutomationRuleQueueAdapter
+
+  Automation\Infrastructure\Adapter\Messenger\MessengerAutomationRuleQueueAdapter:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  # Repository
+  Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Command handlers
+  Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleHandler:
+    tags: ['messenger.message_handler']

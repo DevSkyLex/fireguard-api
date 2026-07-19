@@ -1,0 +1,84 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Maintenance\Presentation\:
+    resource: '../../src/Maintenance/Presentation'
+
+  Maintenance\Application\Service\:
+    resource: '../../src/Maintenance/Application/Service'
+
+  Maintenance\Domain\Service\:
+    resource: '../../src/Maintenance/Domain/Service'
+
+  Maintenance\Infrastructure\Scheduler\:
+    resource: '../../src/Maintenance/Infrastructure/Scheduler'
+
+  # Outbound ports
+  Maintenance\Application\Port\Outbound\Schedule\MaintenanceScheduleRepositoryPort:
+    alias: Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceScheduleRepository
+
+  # Cross-module outbound ports (adapters live in the owning module)
+  Maintenance\Application\Port\Outbound\Directory\MaintenanceEquipmentDirectoryPort:
+    alias: Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter
+
+  Maintenance\Application\Port\Outbound\Compliance\MaintenanceCompliancePolicyPort:
+    alias: Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter
+
+  # Cross-module outbound port for the Equipment module (adapter hosted here,
+  # in the module owning the read model): per-equipment maintenance due status.
+  Equipment\Application\Port\Outbound\MaintenanceDueStatusPort:
+    alias: Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter
+
+  Maintenance\Infrastructure\Adapter\Equipment\EquipmentMaintenanceDueStatusAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module read model for the Calendar module (unified feed source)
+  Maintenance\Infrastructure\Adapter\Calendar\MaintenanceCalendarFeedAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Inbound port
+  Maintenance\Application\Port\Inbound\MaintenanceSchedulePort:
+    alias: Maintenance\Application\Service\MaintenanceScheduleService
+
+  # Adapter implementing the Inspection module's outbound synchronizer port
+  Maintenance\Infrastructure\Adapter\Inspection\MaintenanceScheduleSynchronizerAdapter: ~
+
+  # Cross-module read model for the Compliance module (due-status statistics)
+  Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # L2.2: Assistant business-context seam — this module's own adapter,
+  # tagged `assistant.context_provider` (priority 10: rendered last, after
+  # Compliance's org-wide summary and Inspection's open non-conformities).
+  # Assistant's own config/modules/assistant.yaml is never touched to add
+  # this source.
+  Maintenance\Infrastructure\Adapter\Assistant\MaintenanceAssistantContextProviderAdapter:
+    tags:
+      - { name: 'assistant.context_provider', priority: 10 }
+
+  # Repository
+  Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceScheduleRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Command handlers
+  Maintenance\Application\UseCase\Command\Schedule\SetMaintenanceScheduleOverride\SetMaintenanceScheduleOverrideHandler:
+    tags: ['messenger.message_handler']
+
+  Maintenance\Application\UseCase\Command\Campaign\GenerateInspectionCampaign\GenerateInspectionCampaignHandler:
+    tags: ['messenger.message_handler']
+
+  Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Maintenance\Application\UseCase\Query\Schedule\ListMaintenanceSchedules\ListMaintenanceSchedulesHandler:
+    tags: ['messenger.message_handler']
+
+  Maintenance\Application\UseCase\Query\Schedule\GetMaintenanceSchedule\GetMaintenanceScheduleHandler:
+    tags: ['messenger.message_handler']
