@@ -6,6 +6,7 @@ namespace Notification\Infrastructure\Adapter\Channel;
 
 use Notification\Application\Port\Outbound\MercureNotificationChannelPort;
 use Notification\Domain\Model\Notification\Notification;
+use Notification\Domain\ValueObject\NotificationType;
 use Symfony\Component\Mercure\{HubInterface, Update};
 
 use function json_encode;
@@ -61,9 +62,15 @@ final readonly class MercureNotificationChannelAdapter implements MercureNotific
       return;
     }
 
+    // Must stay field-for-field identical to `NotificationOutput`: a client
+    // merges a pushed notification into the same list the REST endpoint filled,
+    // so a key missing here is a key missing on half the rows. `category` and
+    // `organizationId` were absent, which broke per-category rendering and
+    // organization scoping for live notifications only.
     $payload = [
       'id' => (string) $notification->id(),
       'type' => $notification->type(),
+      'category' => NotificationType::category($notification->type()),
       'subject' => $notification->subject(),
       'body' => $notification->body(),
       'channels' => $notification->channels(),
@@ -71,6 +78,7 @@ final readonly class MercureNotificationChannelAdapter implements MercureNotific
       'isRead' => $notification->isRead(),
       'readAt' => null !== $notification->readAt() ? $notification->readAt()->format('c') : null,
       'createdAt' => $notification->createdAt()->format('c'),
+      'organizationId' => $notification->organizationId(),
     ];
 
     $update = new Update(

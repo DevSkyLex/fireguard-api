@@ -110,7 +110,7 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         subType: is_string($subType) && '' !== $subType ? $subType : null,
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
-        sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt'], 'createdAt'),
+        sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
         maintenanceDueStatus: is_string($maintenanceDueStatus) && '' !== $maintenanceDueStatus ? $maintenanceDueStatus : null,
       ));
     } catch (InvalidArgumentException $exception) {

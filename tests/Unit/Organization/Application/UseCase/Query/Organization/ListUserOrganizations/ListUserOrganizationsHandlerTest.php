@@ -6,11 +6,12 @@ namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListUse
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\{ListUserOrganizationsHandler, ListUserOrganizationsQuery};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
+use Organization\Domain\Model\Plan\Plan;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName, PlanId, PlanKey};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -106,9 +107,20 @@ final class ListUserOrganizationsHandlerTest extends TestCase
       )
       ->willReturn(1);
 
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findAll')->willReturn([]);
+    $planRepository->method('findDefault')->willReturn(Plan::create(
+      id: PlanId::fromString('550e8400-e29b-41d4-a716-4466554408ff'),
+      key: new PlanKey('free'),
+      name: 'Free',
+      limits: [],
+      isDefault: true,
+    ));
+
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
+      planRepository: $planRepository,
     );
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery(
@@ -124,6 +136,10 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     self::assertSame($organizationId, $result->items[0]->id);
     self::assertSame('Fireguard Nantes', $result->items[0]->name);
     self::assertSame(2, $result->items[0]->memberCount);
+    // The list used to omit the plan entirely, so the organization switcher fed
+    // the app an active organization with no plan while GetOrganization had one.
+    self::assertSame('550e8400-e29b-41d4-a716-4466554408ff', $result->items[0]->planId);
+    self::assertSame('Free', $result->items[0]->planName);
     self::assertSame(1, $result->total);
     self::assertSame(10, $result->limit);
     self::assertSame(5, $result->offset);
@@ -143,9 +159,20 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     $organizationRepository->expects(self::never())->method('findByIds');
     $organizationRepository->expects(self::never())->method('countByIds');
 
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findAll')->willReturn([]);
+    $planRepository->method('findDefault')->willReturn(Plan::create(
+      id: PlanId::fromString('550e8400-e29b-41d4-a716-4466554408ff'),
+      key: new PlanKey('free'),
+      name: 'Free',
+      limits: [],
+      isDefault: true,
+    ));
+
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $memberRepository,
       organizationRepository: $organizationRepository,
+      planRepository: $planRepository,
     );
 
     $result = $handler->__invoke(new ListUserOrganizationsQuery('550e8400-e29b-41d4-a716-446655440800'));
@@ -163,6 +190,7 @@ final class ListUserOrganizationsHandlerTest extends TestCase
     $handler = new ListUserOrganizationsHandler(
       memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
       organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      planRepository: $this->createStub(PlanRepositoryPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

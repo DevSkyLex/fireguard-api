@@ -67,6 +67,7 @@ final readonly class ListInterventionWorkflowHandler implements QueryHandler
       $query->filters,
       $query->page,
       $query->itemsPerPage,
+      $query->sorting,
     ));
   }
 }

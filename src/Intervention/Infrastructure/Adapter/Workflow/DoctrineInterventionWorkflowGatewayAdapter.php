@@ -36,6 +36,7 @@ use Intervention\Infrastructure\Persistence\Doctrine\Record\{
 };
 use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
@@ -51,6 +52,7 @@ use function is_string;
 use function max;
 use function min;
 use function sprintf;
+use function strtoupper;
 use function trim;
 
 /**
@@ -219,7 +221,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    *
    * @return InterventionWorkflowPage the list result
    */
-  public function list(string $resource, string $scopeId, array $filters, int $page, int $itemsPerPage): InterventionWorkflowPage
+  public function list(string $resource, string $scopeId, array $filters, int $page, int $itemsPerPage, Sorting $sorting = new Sorting('updatedAt', SortDirection::DESC)): InterventionWorkflowPage
   {
     $page = max(1, $page);
     $itemsPerPage = max(1, min(100, $itemsPerPage));
@@ -235,6 +237,15 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       'work_item' => 'w',
       default => 'c',
     };
+
+    // Each list query ships a sensible default order; an explicit request
+    // replaces it. Ordering was previously hard-wired, so `order[...]` reached
+    // the provider and went nowhere — a paginated caller could not decide which
+    // rows the first pages hold.
+    if ('intervention' === $resource) {
+      $qb->orderBy('m.' . $this->interventionSortField($sorting->field), strtoupper($sorting->direction->value))
+        ->addOrderBy('m.id', 'ASC');
+    }
     $total = (int) $countQb->resetDQLPart('orderBy')->select('COUNT(' . $alias . '.id)')->getQuery()->getSingleScalarResult();
     /** @var list<InterventionRecord|InterventionWorkItemRecord|InterventionChangeRecord> $records */
     $records = $qb
@@ -738,6 +749,26 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $this->entityManager->flush();
 
     return $this->views->changeView($record);
+  }
+
+  /**
+   * Method interventionSortField.
+   *
+   * Maps a requested sort field to a column, falling back to `updatedAt` so an
+   * unknown field can never reach DQL.
+   *
+   * @since 1.0.0
+   *
+   * @param string $field the requested field
+   *
+   * @return string the record property to order by
+   */
+  private function interventionSortField(string $field): string
+  {
+    return match ($field) {
+      'name', 'status', 'type', 'priority', 'plannedStartAt', 'dueAt', 'createdAt' => $field,
+      default => 'updatedAt',
+    };
   }
 
   /**

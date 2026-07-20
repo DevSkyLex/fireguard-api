@@ -149,6 +149,10 @@ final readonly class ListFacilityDescendantsProvider implements ProviderInterfac
     $output->code = $facility->code;
     $output->status = $facility->status;
     $output->address = $facility->address;
+    // See ListFacilityChildrenProvider: the tree endpoints must return the same
+    // fields as the flat list, coordinates included.
+    $output->latitude = $facility->latitude;
+    $output->longitude = $facility->longitude;
     $output->metadata = $facility->metadata;
     $output->createdAt = $facility->createdAt->format('c');
     $output->updatedAt = $facility->updatedAt->format('c');

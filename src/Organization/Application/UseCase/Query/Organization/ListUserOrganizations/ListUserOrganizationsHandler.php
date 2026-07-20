@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\ListUserOrganizations;
 
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
+use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
@@ -37,10 +38,12 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
    *
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
+   * @param PlanRepositoryPort $planRepository the plan repository
    */
   public function __construct(
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRepositoryPort $organizationRepository,
+    private PlanRepositoryPort $planRepository,
   ) {
   }
   // #endregion
@@ -108,9 +111,23 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
       array_map(static fn ($organization): OrganizationId => $organization->id(), $organizations),
     );
 
+    // GetOrganization resolves the plan (falling back to the default one) and
+    // the list must agree with it: the organization switcher fills the active
+    // organization from this list, so omitting the plan left the plan selector
+    // unable to tell which plan is current. The catalog is small and fixed, so
+    // one read beats a lookup per row.
+    $plans = [];
+    foreach ($this->planRepository->findAll() as $plan) {
+      $plans[(string) $plan->id()] = $plan;
+    }
+    $defaultPlan = $this->planRepository->findDefault();
+
     $results = [];
     foreach ($organizations as $organization) {
       $organizationId = (string) $organization->id();
+      $planId = $organization->planId();
+      $plan = null !== $planId ? ($plans[(string) $planId] ?? null) : null;
+      $plan ??= $defaultPlan;
       $results[] = new GetOrganizationResult(
         id: $organizationId,
         name: (string) $organization->name(),
@@ -130,6 +147,8 @@ final readonly class ListUserOrganizationsHandler implements QueryHandler
         legalName: $organization->legalName(),
         registrationNumber: null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null,
         vatNumber: null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null,
+        planId: $plan instanceof Plan ? (string) $plan->id() : null,
+        planName: $plan instanceof Plan ? $plan->name() : null,
       );
     }
 

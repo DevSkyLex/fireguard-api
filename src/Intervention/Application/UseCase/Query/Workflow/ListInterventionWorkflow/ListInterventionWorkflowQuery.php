@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow;
 
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Message\QueryMessage;
 
 /**
@@ -28,6 +29,7 @@ final readonly class ListInterventionWorkflowQuery implements QueryMessage
    * @param array<string, mixed> $filters
    * @param int $page the page value
    * @param int $itemsPerPage the items per page value
+   * @param Sorting $sorting the requested ordering
    */
   public function __construct(
     public string $userId,
@@ -36,6 +38,7 @@ final readonly class ListInterventionWorkflowQuery implements QueryMessage
     public array $filters,
     public int $page,
     public int $itemsPerPage,
+    public Sorting $sorting = new Sorting('updatedAt', SortDirection::DESC),
   ) {
   }
 }

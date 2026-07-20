@@ -113,6 +113,8 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $output->description = $organization->description;
       $output->logoUrl = $organization->logoUrl;
       $output->memberCount = $organization->memberCount;
+      $output->planId = $organization->planId;
+      $output->planName = $organization->planName;
       $output->settings = OrganizationSettingsOutput::fromDomain($organization->settings ?? OrganizationSettings::default());
       $output->country = $organization->country;
       $output->legalType = $organization->legalType;

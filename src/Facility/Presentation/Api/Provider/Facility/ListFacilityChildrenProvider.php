@@ -177,6 +177,11 @@ final readonly class ListFacilityChildrenProvider implements ProviderInterface
     $output->code = $facility->code;
     $output->status = $facility->status;
     $output->address = $facility->address;
+    // Same mapping as the flat list: a facility read through the tree must not
+    // come back without its coordinates, or a client that edits it round-trips
+    // a null and erases them.
+    $output->latitude = $facility->latitude;
+    $output->longitude = $facility->longitude;
     $output->metadata = $facility->metadata;
     $output->createdAt = $facility->createdAt->format('c');
     $output->updatedAt = $facility->updatedAt->format('c');

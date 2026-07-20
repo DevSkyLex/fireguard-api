@@ -10,6 +10,7 @@ use Intervention\Application\Contract\Workflow\{
   InterventionWorkflowPage,
   InterventionWorkflowView
 };
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Interface InterventionWorkflowGatewayPort.
@@ -86,8 +87,9 @@ interface InterventionWorkflowGatewayPort
    * @param array<string, mixed> $filters
    * @param int $page the page value
    * @param int $itemsPerPage the items per page value
+   * @param Sorting $sorting the requested ordering
    *
    * @return InterventionWorkflowPage the list result
    */
-  public function list(string $resource, string $scopeId, array $filters, int $page, int $itemsPerPage): InterventionWorkflowPage;
+  public function list(string $resource, string $scopeId, array $filters, int $page, int $itemsPerPage, Sorting $sorting = new Sorting('updatedAt', SortDirection::DESC)): InterventionWorkflowPage;
 }

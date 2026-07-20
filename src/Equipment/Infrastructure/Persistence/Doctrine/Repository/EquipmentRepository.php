@@ -166,6 +166,7 @@ final readonly class EquipmentRepository implements EquipmentRepositoryPort
       'status' => 'e.status',
       'brand' => 'e.brand',
       'model' => 'e.model',
+      'updatedAt' => 'e.updatedAt',
       default => 'e.createdAt',
     };
 

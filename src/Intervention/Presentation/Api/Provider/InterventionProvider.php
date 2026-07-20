@@ -14,8 +14,10 @@ use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{Li
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Http\ResourceIriParser;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
@@ -121,6 +123,12 @@ final readonly class InterventionProvider implements ProviderInterface
         $filters,
         $page,
         $itemsPerPage,
+        SortingExtractor::fromContext(
+          $context,
+          ['name', 'status', 'type', 'priority', 'plannedStartAt', 'dueAt', 'createdAt', 'updatedAt'],
+          'updatedAt',
+          SortDirection::DESC,
+        ),
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);
