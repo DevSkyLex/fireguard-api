@@ -7,8 +7,10 @@ namespace Notification\Presentation\Api\Provider\MercureSubscription;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Notification\Presentation\Api\Dto\Output\MercureSubscription\MercureSubscriptionOutput;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 
@@ -40,11 +42,14 @@ final readonly class GetMercureSubscriptionProvider implements ProviderInterface
    * @param Security $security the security service
    * @param TokenFactoryInterface $defaultFactory the Mercure JWT token factory
    * @param string $topicPrefix the Mercure topic prefix (default: /users)
+   * @param int $tokenTtl the subscriber token lifetime in seconds
    */
   public function __construct(
     private Security $security,
     private TokenFactoryInterface $defaultFactory,
     private string $topicPrefix = '/users',
+    #[Autowire(value: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%')]
+    private int $tokenTtl = 900,
   ) {
   }
   // #endregion
@@ -73,6 +78,7 @@ final readonly class GetMercureSubscriptionProvider implements ProviderInterface
     $token = $this->defaultFactory->create(
       subscribe: [$topic],
       publish: [],
+      additionalClaims: ['exp' => new DateTimeImmutable(sprintf('+%d seconds', $this->tokenTtl))],
     );
 
     $output = new MercureSubscriptionOutput();

@@ -104,10 +104,25 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
     $tokenFactory = $this->createMock(TokenFactoryInterface::class);
     $tokenFactory->expects(self::once())
       ->method('create')
-      ->with(['/organizations/' . self::ORGANIZATION_ID . '/assistant/threads/' . self::THREAD_ID], [])
+      ->with(
+        ['/organizations/' . self::ORGANIZATION_ID . '/assistant/threads/' . self::THREAD_ID],
+        [],
+        self::callback(static function (array $claims): bool {
+          self::assertArrayHasKey('exp', $claims);
+          self::assertInstanceOf(DateTimeImmutable::class, $claims['exp']);
+
+          // Minted with the 60s TTL passed below, so it must expire inside the
+          // next minute — proving the token is short-lived rather than eternal.
+          $secondsFromNow = $claims['exp']->getTimestamp() - new DateTimeImmutable()->getTimestamp();
+          self::assertGreaterThan(0, $secondsFromNow);
+          self::assertLessThanOrEqual(60, $secondsFromNow);
+
+          return true;
+        }),
+      )
       ->willReturn('jwt-token');
 
-    $provider = new GetAssistantThreadSubscriptionProvider($queryBus, $security, $tokenFactory);
+    $provider = new GetAssistantThreadSubscriptionProvider($queryBus, $security, $tokenFactory, tokenTtl: 60);
 
     $output = $provider->provide(new Get(), [
       'organizationId' => self::ORGANIZATION_ID,

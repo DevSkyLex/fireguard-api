@@ -11,13 +11,16 @@ use Assistant\Infrastructure\Adapter\Realtime\MercureAssistantRealtimePublisherA
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadSubscriptionOutput;
 use Assistant\Presentation\Api\Trait\AssistantExceptionMapperTrait;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 use Throwable;
 
 use function is_string;
+use function sprintf;
 
 /**
  * Provider GetAssistantThreadSubscriptionProvider.
@@ -58,11 +61,14 @@ final readonly class GetAssistantThreadSubscriptionProvider implements ProviderI
    * @param QueryBusPort $queryBus the query bus value
    * @param Security $security the security service
    * @param TokenFactoryInterface $defaultFactory the Mercure JWT token factory
+   * @param int $tokenTtl the subscriber token lifetime in seconds
    */
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
     private TokenFactoryInterface $defaultFactory,
+    #[Autowire(value: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%')]
+    private int $tokenTtl = 900,
   ) {
   }
   // #endregion
@@ -107,7 +113,11 @@ final readonly class GetAssistantThreadSubscriptionProvider implements ProviderI
     }
 
     $topic = MercureAssistantRealtimePublisherAdapter::topic($result->thread->organizationId, $result->thread->id);
-    $token = $this->defaultFactory->create(subscribe: [$topic], publish: []);
+    $token = $this->defaultFactory->create(
+      subscribe: [$topic],
+      publish: [],
+      additionalClaims: ['exp' => new DateTimeImmutable(sprintf('+%d seconds', $this->tokenTtl))],
+    );
 
     $output = new AssistantThreadSubscriptionOutput();
     $output->token = $token;

@@ -204,16 +204,46 @@ To receive real-time notification updates, clients must:
 
 1. Call `GET /api/notifications/subscription` (Bearer token required).
 2. Receive `{ "token": "<subscriber JWT>", "topic": "/users/{id}/notifications" }`.
-3. Open an SSE connection to the Mercure hub public URL:
+3. Open an SSE connection to the Mercure hub public URL, passing the token in an
+   `Authorization` header:
    ```
-   EventSource(MERCURE_PUBLIC_URL + '?topic=' + encodeURIComponent(topic), {
-     headers: { Authorization: 'Bearer ' + token }
+   fetch(MERCURE_PUBLIC_URL + '?topic=' + encodeURIComponent(topic), {
+     headers: { Authorization: 'Bearer ' + token },
    })
    ```
-   (or pass the token via the `mercureAuthorization` cookie if the client supports it).
 
 The subscriber JWT is scoped to the user's own topic only (subscribe-only, no publish).
-It is signed with the same `MERCURE_JWT_SECRET` used by the hub.
+It is signed with the same `MERCURE_JWT_SECRET` used by the hub, and carries an `exp`
+claim controlled by `mercure_subscriber_token_ttl` (override:
+`MERCURE_SUBSCRIBER_TOKEN_TTL`, default 900s). The bundle's own token factory sets no
+expiry, so the claim is applied explicitly by each subscription provider.
+
+The hub validates `exp` only when a connection is opened; an established stream is not
+dropped when its token expires. The TTL therefore bounds how long a leaked token can
+open a *new* stream. Clients must re-request a subscription on every reconnect rather
+than replaying the previous token.
+
+### Why not the `mercureAuthorization` cookie
+
+The hub accepts a `mercureAuthorization` cookie, and it would keep the credential out
+of the URL just as well. It is deliberately **not** used here, for two reasons:
+
+- **One cookie, many scopes.** Three endpoints mint narrowly-scoped subscriber tokens
+  (`/users/{id}/notifications`, `/organizations/{o}/conversations/{c}`,
+  `/organizations/{o}/assistant/threads/{t}`), and the notification and messaging
+  streams run concurrently. A cookie is a single slot per origin, so the last
+  subscription to be requested overwrites the others. Because all updates are published
+  `private: true`, the mismatched stream still connects with HTTP 200 and simply
+  receives nothing — a silent failure with no error for the client's retry layer to act
+  on.
+- **Cross-subdomain exposure.** The API (`api.`) and the hub (`mercure.`) are different
+  hosts, so the cookie would need `Domain=.fireguard.valentin-fortin.pro`, sending it to
+  every present and future subdomain. Every other cookie in this codebase is
+  `__Host-`-prefixed and domain-less, which forbids exactly that.
+
+An `Authorization` header preserves per-resource scoping and per-conversation
+authorization; the hub allows it cross-origin (`Access-Control-Allow-Headers:
+Authorization`) for any origin listed in `MERCURE_CORS_ORIGINS`.
 
 ## Visibility Model
 

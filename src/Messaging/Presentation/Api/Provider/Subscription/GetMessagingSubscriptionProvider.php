@@ -7,17 +7,20 @@ namespace Messaging\Presentation\Api\Provider\Subscription;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Messaging\Application\UseCase\Query\Conversation\GetConversation\{GetConversationQuery, GetConversationResult};
 use Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter;
 use Messaging\Presentation\Api\Dto\Output\MessagingSubscriptionOutput;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 use Throwable;
 
 use function is_string;
+use function sprintf;
 
 /**
  * Provider GetMessagingSubscriptionProvider.
@@ -50,11 +53,14 @@ final readonly class GetMessagingSubscriptionProvider implements ProviderInterfa
    * @param QueryBusPort $queryBus the query bus value
    * @param Security $security the security service
    * @param TokenFactoryInterface $defaultFactory the Mercure JWT token factory
+   * @param int $tokenTtl the subscriber token lifetime in seconds
    */
   public function __construct(
     private QueryBusPort $queryBus,
     private Security $security,
     private TokenFactoryInterface $defaultFactory,
+    #[Autowire(value: '%env(default:mercure_subscriber_token_ttl:int:MERCURE_SUBSCRIBER_TOKEN_TTL)%')]
+    private int $tokenTtl = 900,
   ) {
   }
 
@@ -89,7 +95,11 @@ final readonly class GetMessagingSubscriptionProvider implements ProviderInterfa
     }
 
     $topic = MercureMessagingRealtimePublisherAdapter::topic($result->conversation->organizationId, $conversationId);
-    $token = $this->defaultFactory->create(subscribe: [$topic], publish: []);
+    $token = $this->defaultFactory->create(
+      subscribe: [$topic],
+      publish: [],
+      additionalClaims: ['exp' => new DateTimeImmutable(sprintf('+%d seconds', $this->tokenTtl))],
+    );
 
     $output = new MessagingSubscriptionOutput();
     $output->token = $token;
