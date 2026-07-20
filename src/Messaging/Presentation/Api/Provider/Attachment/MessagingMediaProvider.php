@@ -120,6 +120,7 @@ final readonly class MessagingMediaProvider implements ProviderInterface
     $output->message = '/api/messages/' . $record->message->id;
     $output->conversation = '/api/conversations/' . $record->conversationId;
     $output->uploadedByMember = '/api/organizations/' . $record->organizationId . '/members/' . $record->uploadedByMemberId;
+    $output->contentUrl = '/api/messaging-attachments/' . $record->id . '/content';
     $output->fileName = $record->fileName;
     $output->mimeType = $record->mimeType;
     $output->size = $record->size;

@@ -13,7 +13,9 @@ use ApiPlatform\Metadata\ApiProperty;
  * the conversation Files tab, so the two surfaces cannot drift apart.
  *
  * Deliberately exposes no `storagePath`: the storage key is an internal
- * addressing detail of the object store and must never reach a client.
+ * addressing detail of the object store and must never reach a client. The
+ * client downloads the bytes through `contentUrl` instead — an opaque,
+ * access-controlled route, never the raw storage key.
  *
  * @category DTO
  *
@@ -57,6 +59,18 @@ final class MessageAttachmentOutput
    * @since 1.0.0
    */
   public string $uploadedByMember = '';
+
+  /**
+   * Property contentUrl.
+   *
+   * The download route serving the file's raw bytes
+   * (`GET /api/messaging-attachments/{id}/content`). Access-controlled like
+   * reading the owning conversation; lets the frontend link the attachment
+   * instead of showing name/size metadata only.
+   *
+   * @since 1.0.0
+   */
+  public string $contentUrl = '';
 
   /**
    * Property fileName.

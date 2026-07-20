@@ -222,6 +222,10 @@ services:
   Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\ListConversationAttachmentsHandler:
     tags: ['messenger.message_handler']
 
+  # Attachment content download (GET /messaging-attachments/{id}/content)
+  Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment\DownloadMessageAttachmentHandler:
+    tags: ['messenger.message_handler']
+
   Messaging\Application\UseCase\Query\Message\ListPinnedMessages\ListPinnedMessagesHandler:
     tags: ['messenger.message_handler']
 

@@ -201,6 +201,19 @@ final class MessagingApiTest extends WebTestCase
   }
 
   #[Test]
+  public function testDownloadMessageAttachmentRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/messaging-attachments/' . self::DUMMY_UUID . '/content');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(404, $statusCode, 'GET /messaging-attachments/{id}/content endpoint should exist (got 404)');
+    self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated GET /messaging-attachments/{id}/content, got ' . $statusCode);
+  }
+
+  #[Test]
   public function testPinMessageRequiresAuthentication(): void
   {
     $client = static::createClient();

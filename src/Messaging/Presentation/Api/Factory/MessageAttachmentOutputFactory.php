@@ -35,6 +35,7 @@ final class MessageAttachmentOutputFactory
     $output->message = '/api/messages/' . $attachment->messageId();
     $output->conversation = '/api/conversations/' . $attachment->conversationId();
     $output->uploadedByMember = '/api/organizations/' . $attachment->organizationId() . '/members/' . $attachment->uploadedByMemberId();
+    $output->contentUrl = '/api/messaging-attachments/' . (string) $attachment->id() . '/content';
     $output->fileName = $attachment->fileName();
     $output->mimeType = $attachment->mimeType();
     $output->size = $attachment->size();

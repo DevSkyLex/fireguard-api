@@ -70,6 +70,7 @@ not a stopgap.
 | POST | `/api/messages/{messageId}/attachments` | Upload a multipart file attachment to a message; `201` | `organization.messaging.write` + the subject's own read permission |
 | GET | `/api/conversations/{conversationId}/attachments` | The conversation Files tab, most recently uploaded first (30/page, client page size) | same access rule as `ListMessages` |
 | DELETE | `/api/messaging-attachments/{id}` | Delete an attachment (uploader self-delete, or manager moderation); `204`, requires `If-Match` | uploader, or `organization.messaging.manage` |
+| GET | `/api/messaging-attachments/{id}/content` | Download an attachment's stored file bytes — streams from the object store with `Content-Type` and `Content-Disposition: attachment; filename="…"` (also `X-Content-Type-Options: nosniff`, `Cache-Control: private, no-store`) | same access rule as `ListMessages` (the owning conversation's read gate) |
 | POST | `/api/messages/{id}/pin` | Pin a message in its conversation; idempotent, `200` (not `201` — no new resource URI is created) | `organization.messaging.write` + the subject's own read permission |
 | DELETE | `/api/messages/{id}/pin` | Unpin a message; idempotent — unpinning a non-pinned message never errors; `204` | the pinning member, or `organization.messaging.manage` (only enforced when the message IS pinned) |
 | GET | `/api/conversations/{conversationId}/pinned-messages` | The conversation Pins tab, most recently pinned first (30/page, client page size) | same access rule as `ListMessages` |
@@ -491,7 +492,12 @@ updates (re-tested when v2 introduces `visibility: participants`).
   unfavorite), `MessageResource` (list/post/edit/delete/pin/unpin/
   list-pinned/add-reaction/remove-reaction/save/unsave/list-saved-messages/
   post-reply/list-replies — the last two L2.5),
-  `MessagingAttachmentResource` (upload/list Files tab/delete), and
+  `MessagingAttachmentResource` (upload/list Files tab/delete),
+  `MessagingAttachmentContentResource` (the binary download
+  `GET /messaging-attachments/{id}/content`, on its OWN resource so it never
+  perturbs `MessageAttachmentOutput`'s IRI/serialization — the same
+  separation `Compliance\...\SafetyRegisterExportResource` uses for a binary
+  `Response`), and
   `DirectConversationResource` (L2.4 — a single get-or-create endpoint;
   every other conversation-scoped operation reuses `ConversationResource`'s
   and `MessageResource`'s existing routes unchanged, a direct conversation
@@ -505,7 +511,22 @@ updates (re-tested when v2 introduces `visibility: participants`).
   MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
   delete) but keep authorization entirely inside the command handlers via
   `MessagingAccessPolicy` — the processor never re-implements a permission
-  check. `MessageOutputFactory::fromViews()` batch-loads a whole message
+  check. Downloading follows the same delegation on the OPPOSITE (read)
+  side: `DownloadMessagingAttachmentController` (a thin invokable controller,
+  the binary-`Response` pattern shared with `Audit`/`Compliance`'s export
+  controllers) only authenticates and dispatches
+  `DownloadMessageAttachmentQuery`; the query handler runs the read gate and
+  reads the bytes through `FileStoragePort`, and the shared
+  `Shared\Presentation\Api\Attachment\AttachmentDownloadResponder` (the
+  read-side counterpart of `MultipartAttachmentGuard`) applies the safe
+  header policy — always `Content-Disposition: attachment` +
+  `X-Content-Type-Options: nosniff` so a user-uploaded file can never render
+  as HTML/SVG in the app origin. `MessageAttachmentOutput` now carries a
+  `contentUrl` (`/api/messaging-attachments/{id}/content`), populated by both
+  `MessageAttachmentOutputFactory::fromAttachment()` and
+  `MessagingMediaProvider::output()`, so the frontend links the file instead
+  of showing name/size metadata only — the raw `storagePath` is still never
+  exposed. `MessageOutputFactory::fromViews()` batch-loads a whole message
   page's attachments, reactions, AND the current member's saved state in one
   query each (`MessagingAttachmentRepositoryPort::findByMessageIds()`,
   `MessagingReactionRepositoryPort::findByMessageIds()`,
@@ -519,9 +540,10 @@ updates (re-tested when v2 introduces `visibility: participants`).
   `ChannelOutputFactory::fromView()` take an `isFavorite` parameter
   threaded from the query Handler's Result (like `unreadCount`), not
   resolved by the factory itself (unlike `isSaved`) — see Flows.
-- **Application** (`src/Messaging/Application`): 35 use cases (24 commands, 11
+- **Application** (`src/Messaging/Application`): 36 use cases (24 commands, 12
   queries — L2.4 adds `GetOrCreateDirectConversation`, L2.5 adds `PostReply`/
-  `ListReplies`, L2.7 adds `PingPresence`/`GetPresence`), outbound ports,
+  `ListReplies`, L2.7 adds `PingPresence`/`GetPresence`, plus
+  `DownloadMessageAttachment` for the attachment content route), outbound ports,
   contracts, and services (`MessagingSubjectResolverRegistry`,
   `MessagingAccessPolicy`, `MessagingNotificationService`,
   `MessagingPresenceCacheKeys`).
@@ -709,10 +731,14 @@ Attachments reuse these exact three permissions through
 Uploading (`AddMessageAttachmentHandler`) requires the same write gate as
 posting a message (`.write` + the subject's own read permission, or channel
 participation). Listing the Files tab (`ListConversationAttachmentsHandler`)
-requires the same read gate as `ListMessagesHandler`. Deleting
-(`DeleteMessageAttachmentHandler`) mirrors `DeleteMessageHandler`'s
-self-vs-moderation split: the uploading member may always delete their own
-upload; deleting someone else's requires `.manage`.
+**and downloading a file's bytes** (`DownloadMessageAttachmentHandler`, `GET
+/messaging-attachments/{id}/content`) both require the same read gate as
+`ListMessagesHandler` — a single read access path for a conversation's
+content, so a member who can open the Files tab can download any file listed
+in it and no one else can. Deleting (`DeleteMessageAttachmentHandler`)
+mirrors `DeleteMessageHandler`'s self-vs-moderation split: the uploading
+member may always delete their own upload; deleting someone else's requires
+`.manage`.
 
 Pins (L1.3) reuse the same three permissions, no dedicated permission
 either. **Who may pin?** `PinMessageHandler` requires `.write` (+ the
