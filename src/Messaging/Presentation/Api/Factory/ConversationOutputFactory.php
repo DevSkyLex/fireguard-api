@@ -73,6 +73,7 @@ final class ConversationOutputFactory
     $output->name = $view->name;
     $output->team = null === $view->teamId ? null : '/api/organizations/' . $view->organizationId . '/teams/' . $view->teamId;
     $output->isFavorite = $isFavorite;
+    $output->parentConversationId = $view->parentConversationId;
 
     return $output;
   }

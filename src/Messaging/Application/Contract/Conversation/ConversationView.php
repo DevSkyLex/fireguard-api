@@ -38,6 +38,7 @@ final readonly class ConversationView
    * @param ?string $name the channel display name, null for a subject thread
    * @param ?string $teamId the bound organization team identifier, if any
    * @param ?string $createdByMemberId the creating member's identifier, null for a subject thread
+   * @param ?string $parentConversationId the parent channel's identifier, if this channel is nested under another (L2.6)
    */
   public function __construct(
     public string $id,
@@ -53,6 +54,7 @@ final readonly class ConversationView
     public ?string $name = null,
     public ?string $teamId = null,
     public ?string $createdByMemberId = null,
+    public ?string $parentConversationId = null,
   ) {
   }
   // #endregion

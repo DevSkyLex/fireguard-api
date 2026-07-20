@@ -150,4 +150,16 @@ final class ConversationOutput
    * @since 1.2.0
    */
   public bool $isFavorite = false;
+
+  /**
+   * Property parentConversationId.
+   *
+   * The parent channel's identifier when this channel is nested under
+   * another (L2.6). Bare identifier, mirroring `ChannelOutput::$parent` —
+   * the sidebar tree only needs to group rows it already holds. Null for
+   * root channels, direct conversations and subject threads.
+   *
+   * @since 1.3.0
+   */
+  public ?string $parentConversationId = null;
 }

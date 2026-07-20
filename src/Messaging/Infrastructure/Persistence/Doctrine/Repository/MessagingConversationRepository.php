@@ -398,6 +398,7 @@ final readonly class MessagingConversationRepository implements MessagingConvers
       $record->name,
       $record->teamId,
       $record->createdByMemberId,
+      $record->parentConversation?->id,
     );
   }
 
