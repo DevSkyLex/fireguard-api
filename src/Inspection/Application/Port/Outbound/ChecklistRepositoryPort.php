@@ -72,6 +72,25 @@ interface ChecklistRepositoryPort
   ): int;
 
   /**
+   * Method findNamesByIds.
+   *
+   * Resolves the display name of each given checklist, in one round trip.
+   *
+   * Batched for the same reason the item counts above are: a listing that asks
+   * once per row turns a page into a page of queries.
+   *
+   * Unresolvable identifiers are absent from the result rather than mapped to
+   * an empty string.
+   *
+   * @since 1.1.0
+   *
+   * @param list<string> $checklistIds the checklist identifiers to resolve
+   *
+   * @return array<string, string> display name keyed by checklist identifier
+   */
+  public function findNamesByIds(array $checklistIds): array;
+
+  /**
    * Method countItemsGroupedByChecklistId.
    *
    * Counts items for a bounded set of checklists in a single grouped query

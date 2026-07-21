@@ -81,6 +81,7 @@ final class InspectionOutputFactory
       updatedAt: $result->updatedAt->format('c'),
       equipmentSerialNumber: $result->equipmentSerialNumber,
       facilityName: $result->facilityName,
+      checklistName: $result->checklistName,
     );
   }
 
@@ -131,6 +132,7 @@ final class InspectionOutputFactory
    * @param ?string $facilityId the facility id value
    * @param ?string $equipmentSerialNumber the resolved equipment serial number, when known
    * @param ?string $facilityName the resolved facility display name, when known
+   * @param ?string $checklistName the resolved checklist display name, when known
    * @param string $result the result value
    * @param string $status the status value
    * @param string $performedAt the performed at value
@@ -167,6 +169,7 @@ final class InspectionOutputFactory
     string $updatedAt,
     ?string $equipmentSerialNumber = null,
     ?string $facilityName = null,
+    ?string $checklistName = null,
   ): InspectionOutput {
     $output = new InspectionOutput();
     $output->id = $inspectionId;
@@ -175,6 +178,7 @@ final class InspectionOutputFactory
     $output->facilityId = $facilityId;
     $output->equipmentSerialNumber = $equipmentSerialNumber;
     $output->facilityName = $facilityName;
+    $output->checklistName = $checklistName;
     $output->result = $result;
     $output->status = $status;
     $output->performedAt = $performedAt;

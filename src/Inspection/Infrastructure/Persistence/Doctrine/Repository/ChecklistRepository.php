@@ -145,6 +145,39 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
   }
 
   /**
+   * Method findNamesByIds.
+   *
+   * Single query resolving checklist display names, so a caller rendering a
+   * page of inspections asks once rather than once per row.
+   *
+   * @param list<string> $checklistIds
+   *
+   * @return array<string, string>
+   */
+  public function findNamesByIds(array $checklistIds): array
+  {
+    if ([] === $checklistIds) {
+      return [];
+    }
+
+    /** @var list<array{id: string, name: string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('checklist.id AS id', 'checklist.name AS name')
+      ->from(ChecklistRecord::class, 'checklist')
+      ->where('checklist.id IN (:checklistIds)')
+      ->setParameter('checklistIds', $checklistIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $names = [];
+    foreach ($rows as $row) {
+      $names[$row['id']] = $row['name'];
+    }
+
+    return $names;
+  }
+
+  /**
    * Method countItemsGroupedByChecklistId.
    *
    * Single grouped query over `checklist_items` joined to `checklists`,

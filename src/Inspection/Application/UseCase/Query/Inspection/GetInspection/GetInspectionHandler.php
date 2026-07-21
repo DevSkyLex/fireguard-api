@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Inspection\GetInspection;
 
-use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
+use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId};
@@ -29,6 +29,7 @@ final readonly class GetInspectionHandler implements QueryHandler
     private NonConformityRepositoryPort $nonConformityRepository,
     private EquipmentNamingPort $equipmentNaming,
     private FacilityNamingPort $facilityNaming,
+    private ChecklistRepositoryPort $checklistRepository,
   ) {
   }
   // #endregion
@@ -79,6 +80,11 @@ final readonly class GetInspectionHandler implements QueryHandler
       equipmentSerialNumber: $this->equipmentNaming->findSerialNumbersByIds(
         [(string) $inspection->equipmentId()],
       )[(string) $inspection->equipmentId()] ?? null,
+      checklistName: null !== $inspection->checklistId()
+        ? ($this->checklistRepository->findNamesByIds(
+          [(string) $inspection->checklistId()],
+        )[(string) $inspection->checklistId()] ?? null)
+        : null,
       facilityName: null !== $inspection->facilityId()
         ? ($this->facilityNaming->findNamesByIds(
           [(string) $inspection->facilityId()],

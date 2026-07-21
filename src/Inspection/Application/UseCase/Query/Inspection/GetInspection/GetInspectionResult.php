@@ -39,6 +39,7 @@ final readonly class GetInspectionResult implements ResultMessage
     public DateTimeImmutable $updatedAt,
     public ?string $equipmentSerialNumber = null,
     public ?string $facilityName = null,
+    public ?string $checklistName = null,
   ) {
   }
   // #endregion

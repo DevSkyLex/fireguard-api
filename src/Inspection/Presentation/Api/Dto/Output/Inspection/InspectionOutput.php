@@ -108,6 +108,19 @@ final class InspectionOutput
   public ?string $facilityName = null;
 
   /**
+   * Property checklistName.
+   *
+   * Display name of the checklist the inspection followed. Resolved on read
+   * from the module's own checklist aggregate; the inspection record stores
+   * only the identifier.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([InspectionSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Display name of the followed checklist')]
+  public ?string $checklistName = null;
+
+  /**
    * Property result.
    *
    * @since 1.0.0

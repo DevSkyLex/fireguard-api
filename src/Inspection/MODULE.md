@@ -232,8 +232,9 @@ Aggregates and entities:
 - `result` (`pass`, `fail`, `partial`)
 - `status` (`draft`, `submitted`, `closed`)
 - `facilityId` (optional)
-- `equipmentSerialNumber`, `facilityName` (read-only, resolved on read through
-  `EquipmentNamingPort` / `FacilityNamingPort`, batched once per listing). The module stores
+- `equipmentSerialNumber`, `facilityName`, `checklistName` (read-only, resolved on read through
+  `EquipmentNamingPort` / `FacilityNamingPort` / `ChecklistRepositoryPort::findNamesByIds`,
+  batched once per listing). The checklist needs no port — it is this module's own aggregate. The module stores
   only identifiers; these exist because a UUID names nothing to the agent standing in front of
   the device. Both are deliberately separate from the validation ports — those throw, and a
   label lookup running on every list page must not go through a contract whose job is to
