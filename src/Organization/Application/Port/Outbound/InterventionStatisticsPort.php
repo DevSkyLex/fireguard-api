@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\Port\Outbound;
 
+use DateTimeImmutable;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
 
 /**
@@ -35,5 +36,27 @@ interface InterventionStatisticsPort
    * @return list<RecentInterventionSummary> the recent intervention summaries
    */
   public function findRecentInterventions(string $organizationId, int $limit): array;
+
+  /**
+   * Method countOverview.
+   *
+   * Counts an organization's interventions for the dashboard headline: the
+   * total, the ones still in flight, and the ones past their due date.
+   *
+   * "Open" excludes `published` and `abandoned` — the two end states. An
+   * intervention that is over is not work in progress.
+   *
+   * "Overdue" counts only open interventions whose `dueAt` is in the past. A
+   * published intervention that finished late is history, not a thing to act
+   * on, and counting it would make the figure grow forever.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param DateTimeImmutable $now the instant to measure lateness against
+   *
+   * @return array{total: int, open: int, overdue: int} the overview counts
+   */
+  public function countOverview(string $organizationId, DateTimeImmutable $now): array;
   // #endregion
 }

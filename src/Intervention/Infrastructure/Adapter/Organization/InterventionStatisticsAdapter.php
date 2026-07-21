@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Infrastructure\Adapter\Organization;
 
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Application\Contract\Intervention\RecentInterventionSummary;
@@ -30,6 +31,14 @@ use function max;
  */
 final readonly class InterventionStatisticsAdapter implements InterventionStatisticsPort
 {
+  /**
+   * The two end states. An intervention that reached either is over, so it is
+   * neither open work nor something that can still become late.
+   *
+   * @var list<string>
+   */
+  private const array CLOSED_STATUSES = ['published', 'abandoned'];
+
   // #region Constructor
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -71,6 +80,40 @@ final readonly class InterventionStatisticsAdapter implements InterventionStatis
       ),
       $records,
     );
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public function countOverview(string $organizationId, DateTimeImmutable $now): array
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+
+    $base = $this->entityManager->createQueryBuilder()
+      ->select('COUNT(intervention.id)')
+      ->from(InterventionRecord::class, 'intervention')
+      ->where('intervention.organization = :organization')
+      ->setParameter('organization', $organization);
+
+    $total = (int) (clone $base)->getQuery()->getSingleScalarResult();
+
+    $open = (int) (clone $base)
+      ->andWhere('intervention.status NOT IN (:closed)')
+      ->setParameter('closed', self::CLOSED_STATUSES)
+      ->getQuery()
+      ->getSingleScalarResult();
+
+    $overdue = (int) (clone $base)
+      ->andWhere('intervention.status NOT IN (:closed)')
+      ->andWhere('intervention.dueAt IS NOT NULL')
+      ->andWhere('intervention.dueAt < :now')
+      ->setParameter('closed', self::CLOSED_STATUSES)
+      ->setParameter('now', $now)
+      ->getQuery()
+      ->getSingleScalarResult();
+
+    return ['total' => $total, 'open' => $open, 'overdue' => $overdue];
   }
   // #endregion
 }

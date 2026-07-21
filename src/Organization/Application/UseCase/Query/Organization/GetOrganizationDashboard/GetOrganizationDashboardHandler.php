@@ -171,6 +171,10 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
     }
 
     $generatedAt = new DateTimeImmutable('now', new DateTimeZone(self::DEFAULT_DASHBOARD_TIME_ZONE));
+
+    $interventionOverview = $includeInterventions
+      ? $this->interventionStatistics->countOverview($query->organizationId, $generatedAt)
+      : ['total' => 0, 'open' => 0, 'overdue' => 0];
     $periodFrom = DashboardDateTimeParser::parseNullable($query->periodFrom, 'from');
     $periodTo = DashboardDateTimeParser::parseNullable($query->periodTo, 'to');
     $dashboardTimeZone = DashboardSeriesBuilder::resolveDashboardTimeZone($query->timeZone, $periodFrom, $periodTo, $generatedAt);
@@ -289,6 +293,11 @@ final readonly class GetOrganizationDashboardHandler implements QueryHandler
         'fail' => $failInspectionCount,
         'partial' => $partialInspectionCount,
       ],
+      // Gated on `organization.interventions.read` like the recent-interventions
+      // list: the dashboard does not require that permission, so a member
+      // without it gets no intervention section rather than zeroes, which would
+      // read as "no work" instead of "not your business".
+      ...($includeInterventions ? ['interventions' => $interventionOverview] : []),
       'nonConformities' => [
         'total' => $nonConformityTotalCount,
         'open' => $openNonConformityCount,

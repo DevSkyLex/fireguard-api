@@ -244,6 +244,9 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     self::assertArrayHasKey('equipment', $result->trends);
     self::assertArrayHasKey('inspections', $result->trends);
     self::assertSame([], $result->recentInterventions);
+    // Absent, not zeroed: a member without the permission must not read "no
+    // interventions" when the truth is "not your business".
+    self::assertArrayNotHasKey('interventions', $result->overview);
   }
 
   #[Test]
@@ -904,6 +907,7 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
 
     $interventionStatistics = $this->createMock(InterventionStatisticsPort::class);
     $interventionStatistics->expects(self::never())->method('findRecentInterventions');
+    $interventionStatistics->expects(self::never())->method('countOverview');
 
     $handler = $this->createHandler(
       authorization: $this->createDashboardAuthorizationMock(hasInterventionsPermission: false),
@@ -921,6 +925,35 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     ));
 
     self::assertSame([], $result->recentInterventions);
+    self::assertArrayNotHasKey('interventions', $result->overview);
+  }
+
+  #[Test]
+  public function testInvokeExposesInterventionOverviewCountsWhenPermitted(): void
+  {
+    $interventionStatistics = $this->createMock(InterventionStatisticsPort::class);
+    $interventionStatistics->method('findRecentInterventions')->willReturn([]);
+    $interventionStatistics->expects(self::once())
+      ->method('countOverview')
+      ->willReturn(['total' => 31, 'open' => 12, 'overdue' => 4]);
+
+    $handler = $this->createHandler(
+      authorization: $this->createDashboardAuthorizationMock(hasInterventionsPermission: true),
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      interventionStatistics: $interventionStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      compareWithPreviousPeriod: false,
+    ));
+
+    self::assertSame(
+      ['total' => 31, 'open' => 12, 'overdue' => 4],
+      $result->overview['interventions'],
+    );
   }
 
   #[Test]

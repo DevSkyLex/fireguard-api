@@ -129,6 +129,9 @@ final readonly class GetOrganizationDashboardProvider implements ProviderInterfa
     'equipment' => 'operational',
     'inspections' => 'closed',
     'nonConformities' => 'open',
+    // Open, not total: the headline figure is the work still in flight, the
+    // same reading `nonConformities` takes.
+    'interventions' => 'open',
   ];
 
   private const string HEALTH_UNIT_PERCENT = 'percent';
