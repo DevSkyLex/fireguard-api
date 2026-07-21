@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Inspection\Application\UseCase\Query\Inspection\GetInspection;
 
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId, NonConformityInspectionId};
@@ -26,6 +27,8 @@ final readonly class GetInspectionHandler implements QueryHandler
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,
+    private EquipmentNamingPort $equipmentNaming,
+    private FacilityNamingPort $facilityNaming,
   ) {
   }
   // #endregion
@@ -73,6 +76,14 @@ final readonly class GetInspectionHandler implements QueryHandler
       nonConformitiesCount: $nonConformitiesCount,
       createdAt: $inspection->createdAt(),
       updatedAt: $inspection->updatedAt(),
+      equipmentSerialNumber: $this->equipmentNaming->findSerialNumbersByIds(
+        [(string) $inspection->equipmentId()],
+      )[(string) $inspection->equipmentId()] ?? null,
+      facilityName: null !== $inspection->facilityId()
+        ? ($this->facilityNaming->findNamesByIds(
+          [(string) $inspection->facilityId()],
+        )[(string) $inspection->facilityId()] ?? null)
+        : null,
     );
   }
   // #endregion

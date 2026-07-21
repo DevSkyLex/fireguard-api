@@ -232,6 +232,13 @@ Aggregates and entities:
 - `result` (`pass`, `fail`, `partial`)
 - `status` (`draft`, `submitted`, `closed`)
 - `facilityId` (optional)
+- `equipmentSerialNumber`, `facilityName` (read-only, resolved on read through
+  `EquipmentNamingPort` / `FacilityNamingPort`, batched once per listing). The module stores
+  only identifiers; these exist because a UUID names nothing to the agent standing in front of
+  the device. Both are deliberately separate from the validation ports — those throw, and a
+  label lookup running on every list page must not go through a contract whose job is to
+  reject writes. Null when unresolvable; consumers fall back to the identifier rather than
+  render a blank.
 - `checklistId` (optional)
 - `notes`, `signature` (optional)
 - `performedAt`

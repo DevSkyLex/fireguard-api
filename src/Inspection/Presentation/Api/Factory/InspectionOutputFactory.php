@@ -79,6 +79,8 @@ final class InspectionOutputFactory
       nonConformitiesCount: $result->nonConformitiesCount,
       createdAt: $result->createdAt->format('c'),
       updatedAt: $result->updatedAt->format('c'),
+      equipmentSerialNumber: $result->equipmentSerialNumber,
+      facilityName: $result->facilityName,
     );
   }
 
@@ -127,6 +129,8 @@ final class InspectionOutputFactory
    * @param string $organizationId the organization id value
    * @param string $equipmentId the equipment id value
    * @param ?string $facilityId the facility id value
+   * @param ?string $equipmentSerialNumber the resolved equipment serial number, when known
+   * @param ?string $facilityName the resolved facility display name, when known
    * @param string $result the result value
    * @param string $status the status value
    * @param string $performedAt the performed at value
@@ -161,12 +165,16 @@ final class InspectionOutputFactory
     int $nonConformitiesCount,
     string $createdAt,
     string $updatedAt,
+    ?string $equipmentSerialNumber = null,
+    ?string $facilityName = null,
   ): InspectionOutput {
     $output = new InspectionOutput();
     $output->id = $inspectionId;
     $output->organizationId = $organizationId;
     $output->equipmentId = $equipmentId;
     $output->facilityId = $facilityId;
+    $output->equipmentSerialNumber = $equipmentSerialNumber;
+    $output->facilityName = $facilityName;
     $output->result = $result;
     $output->status = $status;
     $output->performedAt = $performedAt;

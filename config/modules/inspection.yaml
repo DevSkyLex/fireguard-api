@@ -138,6 +138,26 @@ services:
 
   Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter: ~
 
+  # Read-side label lookups, deliberately separate from the validation ports
+  # above: resolving a name must not go through a contract that throws.
+  #
+  # Both are wired to `main` explicitly. Autowiring hands over the default
+  # entity manager, which maps neither record — a perfectly typed adapter whose
+  # every query fails at runtime.
+  Inspection\Application\Port\Outbound\EquipmentNamingPort:
+    alias: Equipment\Infrastructure\Adapter\Inspection\EquipmentNamingAdapter
+
+  Equipment\Infrastructure\Adapter\Inspection\EquipmentNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Application\Port\Outbound\FacilityNamingPort:
+    alias: Facility\Infrastructure\Adapter\Inspection\FacilityNamingAdapter
+
+  Facility\Infrastructure\Adapter\Inspection\FacilityNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter: ~
 
   # Command Handlers

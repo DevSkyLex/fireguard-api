@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Query\Inspection\ListInspections;
 
 use DateTimeImmutable;
+use Inspection\Application\Port\Outbound\{EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Application\UseCase\Query\Inspection\ListInspections\{ListInspectionsHandler, ListInspectionsQuery};
@@ -92,6 +93,8 @@ final class ListInspectionsHandlerTest extends TestCase
     $handler = new ListInspectionsHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $nonConformityRepository,
+      equipmentNaming: $this->createStub(EquipmentNamingPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new ListInspectionsQuery(
@@ -134,6 +137,8 @@ final class ListInspectionsHandlerTest extends TestCase
     $handler = new ListInspectionsHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $nonConformityRepository,
+      equipmentNaming: $this->createStub(EquipmentNamingPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new ListInspectionsQuery(
@@ -153,6 +158,8 @@ final class ListInspectionsHandlerTest extends TestCase
     $handler = new ListInspectionsHandler(
       inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
       nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      equipmentNaming: $this->createStub(EquipmentNamingPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);

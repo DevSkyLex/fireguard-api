@@ -80,6 +80,34 @@ final class InspectionOutput
   public ?string $facilityId = null;
 
   /**
+   * Property equipmentSerialNumber.
+   *
+   * Serial number of the inspected equipment, resolved through the Equipment
+   * module's naming port. The Inspection module stores only the identifier,
+   * and a UUID names nothing to the agent holding the device.
+   *
+   * Null when the equipment records no serial number, or when it could not be
+   * resolved.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([InspectionSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Serial number of the inspected equipment')]
+  public ?string $equipmentSerialNumber = null;
+
+  /**
+   * Property facilityName.
+   *
+   * Display name of the facility the inspection took place in, resolved
+   * through the Facility module's naming port.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([InspectionSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Display name of the inspected facility')]
+  public ?string $facilityName = null;
+
+  /**
    * Property result.
    *
    * @since 1.0.0
