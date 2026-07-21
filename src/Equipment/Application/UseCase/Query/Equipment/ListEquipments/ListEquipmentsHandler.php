@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\Tag\Tag;
@@ -16,6 +17,7 @@ use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
 use function array_filter;
+use function array_keys;
 use function array_map;
 use function array_slice;
 use function array_values;
@@ -55,6 +57,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private MaintenanceDueStatusPort $maintenanceDueStatusPort,
+    private FacilityNamingPort $facilityNaming,
   ) {
   }
   // #endregion
@@ -194,12 +197,24 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       $page,
     ));
 
+    $facilityIds = [];
+    foreach ($page as $equipment) {
+      $facilityId = $equipment->facilityId()?->__toString();
+      if (null !== $facilityId) {
+        $facilityIds[$facilityId] = true;
+      }
+    }
+
+    $facilityNames = $this->facilityNaming->findNamesByIds(array_keys($facilityIds));
+
     $results = [];
     foreach ($page as $equipment) {
+      $facilityId = $equipment->facilityId()?->__toString();
       $results[] = $this->toResult(
         $equipment,
         $tagsByEquipmentId[(string) $equipment->id()] ?? [],
         $dueStatusesByEquipmentId[(string) $equipment->id()] ?? 'unscheduled',
+        null !== $facilityId ? ($facilityNames[$facilityId] ?? null) : null,
       );
     }
 
@@ -218,8 +233,9 @@ final readonly class ListEquipmentsHandler implements QueryHandler
    *
    * @param list<Tag> $tags the equipment's tags
    * @param string $maintenanceDueStatus the resolved maintenance due status value
+   * @param ?string $facilityName the resolved facility display name, when assigned
    */
-  private function toResult(Equipment $equipment, array $tags, string $maintenanceDueStatus): GetEquipmentResult
+  private function toResult(Equipment $equipment, array $tags, string $maintenanceDueStatus, ?string $facilityName = null): GetEquipmentResult
   {
     return new GetEquipmentResult(
       equipmentId: (string) $equipment->id(),
@@ -245,6 +261,7 @@ final readonly class ListEquipmentsHandler implements QueryHandler
       createdAt: $equipment->createdAt(),
       updatedAt: $equipment->updatedAt(),
       maintenanceDueStatus: $maintenanceDueStatus,
+      facilityName: $facilityName,
     );
   }
   // #endregion

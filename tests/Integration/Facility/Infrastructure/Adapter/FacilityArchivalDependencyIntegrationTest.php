@@ -6,6 +6,7 @@ namespace Tests\Integration\Facility\Infrastructure\Adapter;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityInspectionDependencyPort};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -32,6 +33,8 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
 
   private FacilityInspectionDependencyPort $inspectionDependency;
 
+  private FacilityNamingPort $facilityNaming;
+
   protected function setUp(): void
   {
     self::bootKernel();
@@ -45,6 +48,9 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
     /** @var FacilityInspectionDependencyPort $inspectionDependency */
     $inspectionDependency = $container->get(FacilityInspectionDependencyPort::class);
     $this->inspectionDependency = $inspectionDependency;
+    /** @var FacilityNamingPort $facilityNaming */
+    $facilityNaming = $container->get(FacilityNamingPort::class);
+    $this->facilityNaming = $facilityNaming;
 
     $this->removeOrganization(self::ORGANIZATION_ID);
   }
@@ -91,6 +97,54 @@ final class FacilityArchivalDependencyIntegrationTest extends KernelTestCase
     self::assertTrue($this->inspectionDependency->hasActiveInspectionInFacility(self::ORGANIZATION_ID, self::FACILITY_WITH_ACTIVE));
     // A closed inspection is historical, so it no longer blocks archiving.
     self::assertFalse($this->inspectionDependency->hasActiveInspectionInFacility(self::ORGANIZATION_ID, self::FACILITY_WITHOUT_ACTIVE));
+  }
+
+  #[Test]
+  public function testCountsActiveEquipmentPerFacilityInOneCall(): void
+  {
+    $organization = $this->createOrganization();
+    $this->createFacility(self::FACILITY_WITH_ACTIVE, $organization);
+    $this->createFacility(self::FACILITY_WITHOUT_ACTIVE, $organization);
+
+    $this->createEquipment('550e8400-e29b-41d4-a716-446655444040', $organization, self::FACILITY_WITH_ACTIVE, 'operational');
+    $this->createEquipment('550e8400-e29b-41d4-a716-446655444041', $organization, self::FACILITY_WITH_ACTIVE, 'operational');
+    // Decommissioned equipment is still equipment, but not active equipment.
+    $this->createEquipment('550e8400-e29b-41d4-a716-446655444042', $organization, self::FACILITY_WITH_ACTIVE, 'decommissioned');
+    $this->createEquipment('550e8400-e29b-41d4-a716-446655444043', $organization, self::FACILITY_WITHOUT_ACTIVE, 'decommissioned');
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $counts = $this->equipmentDependency->countActiveEquipmentByFacility(
+      self::ORGANIZATION_ID,
+      [self::FACILITY_WITH_ACTIVE, self::FACILITY_WITHOUT_ACTIVE],
+    );
+
+    self::assertSame(2, $counts[self::FACILITY_WITH_ACTIVE] ?? 0);
+    // Absent rather than zero — the caller defaults it.
+    self::assertArrayNotHasKey(self::FACILITY_WITHOUT_ACTIVE, $counts);
+  }
+
+  // Resolved through the container, not constructed by hand: this adapter needs
+  // the `main` entity manager, and autowiring the default one produced a
+  // perfectly typed object whose every query failed at runtime.
+  #[Test]
+  public function testResolvesFacilityNamesThroughTheContainerWiredAdapter(): void
+  {
+    $organization = $this->createOrganization();
+    $this->createFacility(self::FACILITY_WITH_ACTIVE, $organization);
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $names = $this->facilityNaming->findNamesByIds([
+      self::FACILITY_WITH_ACTIVE,
+      '550e8400-e29b-41d4-a716-446655444099',
+    ]);
+
+    self::assertSame('Facility ' . self::FACILITY_WITH_ACTIVE, $names[self::FACILITY_WITH_ACTIVE] ?? null);
+    // An identifier we cannot resolve is absent, never a blank name.
+    self::assertArrayNotHasKey('550e8400-e29b-41d4-a716-446655444099', $names);
   }
 
   private function createOrganization(): OrganizationRecord

@@ -95,7 +95,12 @@ Aggregates and entities:
 - `facilityId` (optional)
 - `subType` (optional)
 - `brand`, `model`, `serialNumber` (serialNumber is unique per organization)
-- `locationLabel` (optional free-text)
+- `locationLabel` (optional free-text — the spot *inside* a facility, not the facility)
+- `facilityName` (read-only display name of the assigned facility). The module stores only
+  `facilityId`; the name is resolved through `FacilityNamingPort`, batched once per listing.
+  Deliberately separate from `FacilityValidationPort`: that contract throws, and a label
+  lookup must not go through something whose job is to reject writes. Null when unassigned
+  or unresolvable — an unresolved name is not a blank name.
 - `installedAt`, `commissionedAt` (optional)
 
 Status transitions:

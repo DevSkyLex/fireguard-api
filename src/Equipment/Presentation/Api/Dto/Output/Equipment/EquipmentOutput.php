@@ -126,6 +126,20 @@ final class EquipmentOutput
   public ?string $locationLabel = null;
 
   /**
+   * Property facilityName.
+   *
+   * Display name of the assigned facility, resolved through the Facility
+   * module's naming port — the Equipment module stores only the identifier.
+   * Null when the equipment is unassigned, or when the facility could not be
+   * resolved: an unresolved name is not a blank name.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Display name of the assigned facility')]
+  public ?string $facilityName = null;
+
+  /**
    * Property status.
    *
    * @since 1.0.0

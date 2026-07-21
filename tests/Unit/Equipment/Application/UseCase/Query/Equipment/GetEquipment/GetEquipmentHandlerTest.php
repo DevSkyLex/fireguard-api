@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetEquipment;
 
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentHandler, GetEquipmentQuery, GetEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -32,6 +33,7 @@ final class GetEquipmentHandlerTest extends TestCase
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -55,6 +57,7 @@ final class GetEquipmentHandlerTest extends TestCase
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -84,6 +87,7 @@ final class GetEquipmentHandlerTest extends TestCase
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
       maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -126,6 +130,7 @@ final class GetEquipmentHandlerTest extends TestCase
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new GetEquipmentQuery(
@@ -173,6 +178,7 @@ final class GetEquipmentHandlerTest extends TestCase
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
       maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new GetEquipmentQuery(

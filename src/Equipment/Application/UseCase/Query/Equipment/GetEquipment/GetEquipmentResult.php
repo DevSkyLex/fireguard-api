@@ -44,6 +44,7 @@ final readonly class GetEquipmentResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public string $maintenanceDueStatus = 'unscheduled',
+    public ?string $facilityName = null,
   ) {
   }
   // #endregion
