@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\GetFacilityChildren;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
@@ -14,10 +14,13 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 
+use function array_map;
+
 final readonly class GetFacilityChildrenHandler implements QueryHandler
 {
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private FacilityEquipmentDependencyPort $equipmentDependency,
   ) {
   }
 
@@ -55,6 +58,11 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
       $query->includeArchived,
     );
 
+    $equipmentCounts = $this->equipmentDependency->countActiveEquipmentByFacility(
+      (string) $organizationId,
+      array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($children)),
+    );
+
     $results = [];
     foreach ($children as $child) {
       $results[] = new GetFacilityResult(
@@ -70,6 +78,7 @@ final readonly class GetFacilityChildrenHandler implements QueryHandler
         createdAt: $child->createdAt(),
         updatedAt: $child->updatedAt(),
         hasChildren: ($childCounts[(string) $child->id()] ?? 0) > 0,
+        equipmentCount: $equipmentCounts[(string) $child->id()] ?? 0,
       );
     }
 

@@ -34,5 +34,27 @@ interface FacilityEquipmentDependencyPort
    * @return bool whether active equipment is assigned to the facility
    */
   public function hasActiveEquipmentInFacility(string $organizationId, string $facilityId): bool;
+
+  /**
+   * Method countActiveEquipmentByFacility.
+   *
+   * Counts the active (non-decommissioned, published) equipment assigned to
+   * each of the given facilities, in one round trip.
+   *
+   * Batched rather than per-facility on purpose: the callers are list queries,
+   * and asking once per row is how a page of twenty facilities becomes twenty
+   * queries.
+   *
+   * Facilities with no equipment are absent from the result rather than mapped
+   * to zero; callers default them.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $facilityIds the facilities to count for
+   *
+   * @return array<string, int> equipment count keyed by facility identifier
+   */
+  public function countActiveEquipmentByFacility(string $organizationId, array $facilityIds): array;
   // #endregion
 }

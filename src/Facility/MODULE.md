@@ -75,6 +75,10 @@ Main fields:
 - `organizationId`
 - `parentFacilityId` (optional)
 - `hasChildren` (read-only, indicates whether the node has visible direct children)
+- `equipmentCount` (read-only, active non-decommissioned published equipment assigned to
+  the facility). The module owns no equipment data: the figure is read through
+  `FacilityEquipmentDependencyPort::countActiveEquipmentByFacility`, batched once per query
+  rather than once per row. A facility absent from the port's answer counts as zero.
 - `type` (`site`, `building`, `floor`, `zone`, `area`)
 - `name`
 - `code` (optional)

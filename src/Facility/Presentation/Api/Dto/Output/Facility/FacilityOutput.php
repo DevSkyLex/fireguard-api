@@ -81,6 +81,19 @@ final class FacilityOutput
   public bool $hasChildren = false;
 
   /**
+   * Property equipmentCount.
+   *
+   * Active (non-decommissioned, published) equipment assigned to this facility.
+   * Read through the Equipment module's outbound port — the Facility module
+   * owns no equipment data of its own.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Active equipment assigned to this facility')]
+  public int $equipmentCount = 0;
+
+  /**
    * Property type.
    *
    * @since 1.0.0

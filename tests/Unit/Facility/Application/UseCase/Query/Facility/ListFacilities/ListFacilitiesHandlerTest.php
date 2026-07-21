@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\ListFacilities;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\ListFacilities\{ListFacilitiesHandler, ListFacilitiesQuery};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
@@ -65,7 +65,12 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->method('countChildrenByParentIds')
       ->willReturn(['550e8400-e29b-41d4-a716-446655441801' => 2]);
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: (string) $organizationId,
@@ -104,7 +109,12 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->method('countChildrenByParentIds')
       ->willReturn([]);
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: '550e8400-e29b-41d4-a716-446655441820',
@@ -122,7 +132,12 @@ final class ListFacilitiesHandlerTest extends TestCase
   {
     $repository = $this->createStub(FacilityRepositoryPort::class);
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -137,7 +152,12 @@ final class ListFacilitiesHandlerTest extends TestCase
   {
     $repository = $this->createStub(FacilityRepositoryPort::class);
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -152,6 +172,7 @@ final class ListFacilitiesHandlerTest extends TestCase
   {
     $handler = new ListFacilitiesHandler(
       facilityRepository: $this->createStub(FacilityRepositoryPort::class),
+      equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -190,7 +211,12 @@ final class ListFacilitiesHandlerTest extends TestCase
       ->method('countChildrenByParentIds')
       ->willReturn(['550e8400-e29b-41d4-a716-446655441841' => 0]);
 
-    $handler = new ListFacilitiesHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new ListFacilitiesHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new ListFacilitiesQuery(
       organizationId: (string) $organizationId,
@@ -214,5 +240,57 @@ final class ListFacilitiesHandlerTest extends TestCase
     self::assertSame(1, $result->total);
     self::assertSame(20, $result->limit);
     self::assertSame(0, $result->offset);
+  }
+
+  #[Test]
+  public function testInvokeCountsEquipmentInOneBatchedCallAndDefaultsMissingFacilitiesToZero(): void
+  {
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655441850');
+
+    $stocked = Facility::create(
+      id: new FacilityId('550e8400-e29b-41d4-a716-446655441851'),
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Stocked Site'),
+    );
+    $bare = Facility::create(
+      id: new FacilityId('550e8400-e29b-41d4-a716-446655441852'),
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Bare Site'),
+    );
+
+    $repository = $this->createStub(FacilityRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([$stocked, $bare]);
+    $repository->method('countByOrganizationId')->willReturn(2);
+    $repository->method('countChildrenByParentIds')->willReturn([]);
+
+    /** @var FacilityEquipmentDependencyPort&MockObject $equipmentDependency */
+    $equipmentDependency = $this->createMock(FacilityEquipmentDependencyPort::class);
+    // Once, not once per facility: a page of twenty rows must not become twenty
+    // queries.
+    $equipmentDependency->expects(self::once())
+      ->method('countActiveEquipmentByFacility')
+      ->with(
+        (string) $organizationId,
+        [
+          '550e8400-e29b-41d4-a716-446655441851',
+          '550e8400-e29b-41d4-a716-446655441852',
+        ],
+      )
+      ->willReturn(['550e8400-e29b-41d4-a716-446655441851' => 7]);
+
+    $handler = new ListFacilitiesHandler(
+      facilityRepository: $repository,
+      equipmentDependency: $equipmentDependency,
+    );
+
+    $result = $handler->__invoke(new ListFacilitiesQuery(
+      organizationId: (string) $organizationId,
+    ));
+
+    self::assertSame(7, $result->items[0]->equipmentCount);
+    // Absent from the port's answer means none, not unknown.
+    self::assertSame(0, $result->items[1]->equipmentCount);
   }
 }

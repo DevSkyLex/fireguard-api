@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacilityChildren;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacilityChildren\{GetFacilityChildrenHandler, GetFacilityChildrenQuery};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
@@ -63,7 +63,12 @@ final class GetFacilityChildrenHandlerTest extends TestCase
       ->method('countChildren')
       ->willReturn(6);
 
-    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new GetFacilityChildrenQuery(
       organizationId: (string) $organizationId,
@@ -93,7 +98,12 @@ final class GetFacilityChildrenHandlerTest extends TestCase
     $repository = $this->createStub(FacilityRepositoryPort::class);
     $repository->method('findById')->willReturn($facility);
 
-    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityChildrenHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(FacilityNotFoundException::class);
 

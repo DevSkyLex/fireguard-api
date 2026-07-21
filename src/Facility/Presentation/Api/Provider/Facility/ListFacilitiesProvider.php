@@ -163,6 +163,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     $output->organizationId = $facility->organizationId;
     $output->parentFacilityId = $facility->parentFacilityId;
     $output->hasChildren = $facility->hasChildren;
+    $output->equipmentCount = $facility->equipmentCount;
     $output->type = $facility->type;
     $output->name = $facility->name;
     $output->code = $facility->code;

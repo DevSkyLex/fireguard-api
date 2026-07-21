@@ -69,5 +69,46 @@ final readonly class FacilityEquipmentDependencyAdapter implements FacilityEquip
 
     return $count > 0;
   }
+
+  /**
+   * Method countActiveEquipmentByFacility.
+   * {@inheritdoc}
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $facilityIds the facilities to count for
+   *
+   * @return array<string, int> equipment count keyed by facility identifier
+   */
+  public function countActiveEquipmentByFacility(string $organizationId, array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    /** @var list<array{facilityId: string, total: int|string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('record.facilityId AS facilityId', 'COUNT(record.id) AS total')
+      ->from(EquipmentRecord::class, 'record')
+      ->where('record.facilityId IN (:facilityIds)')
+      ->andWhere('IDENTITY(record.organization) = :organizationId')
+      ->andWhere('record.recordStatus = :published')
+      ->andWhere('record.status != :decommissioned')
+      ->groupBy('record.facilityId')
+      ->setParameter('facilityIds', $facilityIds)
+      ->setParameter('organizationId', $organizationId)
+      ->setParameter('published', 'published')
+      ->setParameter('decommissioned', 'decommissioned')
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[$row['facilityId']] = (int) $row['total'];
+    }
+
+    return $counts;
+  }
   // #endregion
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\GetFacility;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
@@ -25,6 +25,7 @@ final readonly class GetFacilityHandler implements QueryHandler
   // #region Constructor
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private FacilityEquipmentDependencyPort $equipmentDependency,
   ) {
   }
   // #endregion
@@ -71,6 +72,10 @@ final readonly class GetFacilityHandler implements QueryHandler
       hasChildren: $this->facilityRepository->countChildren($organizationId, $facilityId) > 0,
       latitude: $facility->coordinates()?->latitude(),
       longitude: $facility->coordinates()?->longitude(),
+      equipmentCount: $this->equipmentDependency->countActiveEquipmentByFacility(
+        (string) $organizationId,
+        [(string) $facility->id()],
+      )[(string) $facility->id()] ?? 0,
     );
   }
   // #endregion

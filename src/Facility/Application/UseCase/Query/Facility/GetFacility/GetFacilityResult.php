@@ -25,6 +25,9 @@ final readonly class GetFacilityResult implements ResultMessage
    * @since 1.0.0
    *
    * @param array<string, mixed> $metadata the optional metadata
+   * @param int $equipmentCount active equipment assigned to this facility, read
+   *                            through the Equipment module's outbound port —
+   *                            the facility itself owns no equipment data
    */
   public function __construct(
     public string $facilityId,
@@ -41,6 +44,7 @@ final readonly class GetFacilityResult implements ResultMessage
     public bool $hasChildren = false,
     public ?float $latitude = null,
     public ?float $longitude = null,
+    public int $equipmentCount = 0,
   ) {
   }
   // #endregion

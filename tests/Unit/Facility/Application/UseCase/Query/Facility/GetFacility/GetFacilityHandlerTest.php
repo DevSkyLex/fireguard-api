@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacility;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityHandler, GetFacilityQuery, GetFacilityResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
@@ -25,7 +25,12 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441700" not found.');
@@ -52,7 +57,12 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($facility);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441710" not found.');
@@ -90,7 +100,12 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('countChildren')
       ->willReturn(2);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
@@ -131,7 +146,12 @@ final class GetFacilityHandlerTest extends TestCase
     $repository->method('findById')->willReturn($facility);
     $repository->method('countChildren')->willReturn(0);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
