@@ -41,12 +41,17 @@ precedent.
 | DELETE | `/organizations/{organizationId}/calendar/events/{eventId}` | `deleteCalendarEvent` | `organization.events.write` |
 | GET | `/organizations/{organizationId}/calendar/feed?from=...&to=...` | `getCalendarFeed` | `organization.events.read` |
 
-`PATCH` is a partial update: an omitted (`null`) property leaves the
+The original `PATCH` implementation treated an omitted (`null`) property as
 corresponding field unchanged, mirroring
 `Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscription\UpdateWebhookSubscriptionCommand`.
 Consequently, `description`, `endsAt`, and `facilityId` cannot be cleared
 back to `null` once set through this endpoint — accepted as the same
 limitation `UpdateWebhookSubscriptionCommand` carries for `description`.
+
+The current implementation supersedes that limitation: omitted fields remain
+unchanged, while explicit `null` values clear `description`, `endsAt`, and
+`facilityId`. Request-field presence is carried separately from the DTO value
+so `null` is never confused with omission.
 
 There is no standalone-events *list* endpoint distinct from the feed: the
 unified feed (with `sourceKey=calendar_event` items) **is** the list view.

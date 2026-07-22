@@ -7,17 +7,18 @@ namespace Tests\Unit\Messaging\Application\UseCase\Command\Message\PostMessage;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
-use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
+use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingLinkRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\PostMessage\{PostMessageCommand, PostMessageHandler};
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\Model\Conversation\Conversation;
-use Messaging\Domain\Service\MentionExtractor;
+use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessageId, MessagingSubjectType};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
 use Organization\Domain\ValueObject\OrganizationNotificationSettings;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
@@ -139,6 +140,131 @@ final class PostMessageHandlerTest extends TestCase
     self::assertSame('Hello team', $result->message->body);
   }
 
+  #[Test]
+  public function testInvokeExtractsUrlsAndReplacesTheMessageLinkSet(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $view = $this->messageView('See https://example.com/report for details.', []);
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('append')->willReturn($view);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    /** @var MessagingLinkRepositoryPort&MockObject $links */
+    $links = $this->createMock(MessagingLinkRepositoryPort::class);
+    $links->expects(self::once())
+      ->method('replaceForMessage')
+      ->with($view->id, self::CONVERSATION_ID, ['https://example.com/report'], $view->createdAt);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+      links: $links,
+    );
+
+    $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'See https://example.com/report for details.'));
+  }
+
+  #[Test]
+  public function testInvokePersistsValidatedReferences(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $view = $this->messageView('See the attached record.', []);
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::once())->method('append')->willReturn($view);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+    );
+
+    $result = $handler->__invoke(new PostMessageCommand(
+      self::USER_ID,
+      self::CONVERSATION_ID,
+      'See the attached record.',
+      references: [['type' => 'facility', 'id' => 'facility-1', 'label' => 'Site Nord', 'code' => null]],
+    ));
+
+    self::assertSame($view->body, $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenAReferenceDoesNotExistInTheOrganization(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $registry = new MessagingSubjectResolverRegistry([$this->notFoundEquipmentResolver()]);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::never())->method('append');
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+      registry: $registry,
+    );
+
+    $this->expectException(MessagingValidationException::class);
+
+    $handler->__invoke(new PostMessageCommand(
+      self::USER_ID,
+      self::CONVERSATION_ID,
+      'See the attached record.',
+      references: [['type' => 'equipment', 'id' => 'missing-equipment']],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenMoreThanFiveReferencesAreGiven(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::never())->method('append');
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+    );
+
+    $references = [];
+    for ($i = 0; $i < 6; ++$i) {
+      $references[] = ['type' => 'facility', 'id' => 'facility-' . $i];
+    }
+
+    $this->expectException(MessagingValidationException::class);
+
+    $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello', references: $references));
+  }
+
   private function handler(
     MessagingConversationRepositoryPort $conversations,
     MessagingMessageRepositoryPort $messages,
@@ -146,10 +272,13 @@ final class PostMessageHandlerTest extends TestCase
     NotificationPort $notificationPort,
     MessagingMemberDirectoryPort $members,
     ?MessagingParticipantRepositoryPort $participants = null,
+    ?MessagingLinkRepositoryPort $links = null,
+    ?MessagingSubjectResolverRegistry $registry = null,
   ): PostMessageHandler {
-    $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
+    $registry ??= new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
 
     $participants ??= $this->createStub(MessagingParticipantRepositoryPort::class);
+    $links ??= $this->createStub(MessagingLinkRepositoryPort::class);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $accessPolicy = new MessagingAccessPolicy($authorization, $members, $participants);
@@ -165,11 +294,13 @@ final class PostMessageHandlerTest extends TestCase
       $conversations,
       $messages,
       $participants,
+      $links,
       $registry,
       $accessPolicy,
       $notifications,
       $realtime,
       new MentionExtractor(),
+      new UrlExtractor(),
       $uuidFactory,
       $this->createStub(LoggerPort::class),
     );
@@ -180,6 +311,15 @@ final class PostMessageHandlerTest extends TestCase
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
     $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $type): bool => MessagingSubjectType::FACILITY === $type);
     $resolver->method('resolve')->willReturn(new MessagingSubjectResolution(true, 'Site nord', 'organization.facilities.read'));
+
+    return $resolver;
+  }
+
+  private function notFoundEquipmentResolver(): MessagingSubjectResolverPort
+  {
+    $resolver = $this->createStub(MessagingSubjectResolverPort::class);
+    $resolver->method('supports')->willReturnCallback(static fn (MessagingSubjectType $type): bool => MessagingSubjectType::FACILITY === $type || MessagingSubjectType::EQUIPMENT === $type);
+    $resolver->method('resolve')->willReturnCallback(static fn (string $organizationId, string $subjectId): MessagingSubjectResolution => new MessagingSubjectResolution('facility-1' === $subjectId, 'Site nord', 'organization.facilities.read'));
 
     return $resolver;
   }

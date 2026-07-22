@@ -114,6 +114,65 @@ final readonly class InboxAggregator
   }
 
   /**
+   * Method countUnread.
+   *
+   * Sums the unread item count across every registered source for one user.
+   * Mirrors {@see aggregate()}'s resilience: a throwing (or otherwise
+   * misbehaving) provider degrades to "contributes 0" — it never fails the
+   * whole unread-count request — and the failure is logged at `error` level.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier the count is scoped to
+   * @param string|null $organizationId optional organization filter, forwarded to every source
+   *
+   * @return int the summed unread item count across every source
+   */
+  public function countUnread(string $userId, ?string $organizationId): int
+  {
+    $total = 0;
+
+    foreach ($this->providers as $provider) {
+      $total += $this->countUnreadFromProvider($provider, $userId, $organizationId);
+    }
+
+    return $total;
+  }
+
+  /**
+   * Method countUnreadFromProvider.
+   *
+   * Calls one source provider's {@see InboxSourceProviderPort::countUnread()}
+   * defensively: any throwable is caught, logged, and translated into a `0`
+   * contribution so one failing/slow source never takes down the whole
+   * unread-count request.
+   *
+   * @since 1.1.0
+   *
+   * @param InboxSourceProviderPort $provider the source provider
+   * @param string $userId the user identifier
+   * @param string|null $organizationId optional organization filter
+   *
+   * @return int the source's unread count, or 0 on failure
+   */
+  private function countUnreadFromProvider(
+    InboxSourceProviderPort $provider,
+    string $userId,
+    ?string $organizationId,
+  ): int {
+    try {
+      return $provider->countUnread($userId, $organizationId);
+    } catch (Throwable $exception) {
+      $this->logger->error('Inbox source provider failed to count unread items; degrading to 0.', [
+        'sourceKey' => $provider->sourceKey(),
+        'error' => $exception->getMessage(),
+      ]);
+
+      return 0;
+    }
+  }
+
+  /**
    * Method fetchFromProvider.
    *
    * Calls one source provider defensively: any throwable is caught, logged,

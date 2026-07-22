@@ -14,10 +14,12 @@ use Calendar\Presentation\Api\Factory\CalendarEventOutputFactory;
 use Calendar\Presentation\Api\Trait\CalendarExceptionMapperTrait;
 use DateTimeImmutable;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Presentation\Api\Http\MergePatchFields;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 use Throwable;
 
+use function array_key_exists;
 use function is_string;
 
 /**
@@ -49,6 +51,7 @@ final readonly class UpdateCalendarEventProcessor implements ProcessorInterface
     private CommandBusPort $commandBus,
     private Security $security,
     private CalendarEventOutputFactory $outputFactory,
+    private MergePatchFields $mergePatchFields,
   ) {
   }
   // #endregion
@@ -79,6 +82,8 @@ final readonly class UpdateCalendarEventProcessor implements ProcessorInterface
     }
 
     try {
+      $fields = $this->mergePatchFields->all();
+
       /** @var UpdateCalendarEventResult $result */
       $result = $this->commandBus->dispatch(new UpdateCalendarEventCommand(
         organizationId: $organizationId,
@@ -90,6 +95,12 @@ final readonly class UpdateCalendarEventProcessor implements ProcessorInterface
         endsAt: null !== $data->endsAt ? new DateTimeImmutable($data->endsAt) : null,
         allDay: $data->allDay,
         facilityId: $data->facilityId,
+        hasTitle: array_key_exists('title', $fields),
+        hasDescription: array_key_exists('description', $fields),
+        hasStartsAt: array_key_exists('startsAt', $fields),
+        hasEndsAt: array_key_exists('endsAt', $fields),
+        hasAllDay: array_key_exists('allDay', $fields),
+        hasFacilityId: array_key_exists('facilityId', $fields),
       ));
     } catch (Throwable $exception) {
       throw $this->mapCalendarException($exception);

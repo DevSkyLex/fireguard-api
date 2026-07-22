@@ -99,6 +99,36 @@ interface NonConformityRepositoryPort
   public function countsByInspectionIds(array $inspectionIds): array;
 
   /**
+   * Method findByOrganizationId.
+   *
+   * Lists non-conformities across every inspection of an organization,
+   * newest first by default. Backs the organization-wide compliance
+   * collection endpoint — org-scoping comes from the join to the inspection
+   * and organization records, never from trusting a caller-supplied ID.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization identifier
+   * @param ?string $severity optional severity filter
+   * @param ?string $status optional status filter
+   * @param ?string $search optional text search applied before pagination
+   * @param Sorting $sorting requested sorting applied before pagination
+   * @param int $limit maximum number of results
+   * @param int $offset result offset
+   *
+   * @return list<NonConformity> the non-conformity list
+   */
+  public function findByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array;
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts non-conformities for an organization.

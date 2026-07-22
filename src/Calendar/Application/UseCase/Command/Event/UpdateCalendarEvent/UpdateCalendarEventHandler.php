@@ -67,12 +67,12 @@ final readonly class UpdateCalendarEventHandler implements CommandHandler
     }
 
     $event->update(
-      title: $command->title ?? $event->title(),
-      description: $command->description ?? $event->description(),
-      startsAt: $command->startsAt ?? $event->startsAt(),
-      endsAt: $command->endsAt ?? $event->endsAt(),
-      allDay: $command->allDay ?? $event->allDay(),
-      facilityId: $command->facilityId ?? $event->facilityId(),
+      title: $command->hasTitle && null !== $command->title ? $command->title : $event->title(),
+      description: $command->hasDescription ? $command->description : $event->description(),
+      startsAt: $command->hasStartsAt && null !== $command->startsAt ? $command->startsAt : $event->startsAt(),
+      endsAt: $command->hasEndsAt ? $command->endsAt : $event->endsAt(),
+      allDay: $command->hasAllDay && null !== $command->allDay ? $command->allDay : $event->allDay(),
+      facilityId: $command->hasFacilityId ? $command->facilityId : $event->facilityId(),
     );
 
     $this->repository->save($event);

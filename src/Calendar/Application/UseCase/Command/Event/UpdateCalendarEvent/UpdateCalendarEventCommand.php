@@ -10,13 +10,16 @@ use Shared\Application\Message\CommandMessage;
 /**
  * UseCase UpdateCalendarEventCommand.
  *
- * A PATCH-style partial update, mirroring
+ * The original PATCH implementation mirrored
  * {@see \Webhook\Application\UseCase\Command\Subscription\UpdateWebhookSubscription\UpdateWebhookSubscriptionCommand}:
  * an omitted (`null`) property leaves the corresponding field unchanged.
  * Consequently, `description`, `endsAt`, and `facilityId` cannot be cleared
  * back to `null` once set through this endpoint — the same limitation
  * `UpdateWebhookSubscriptionCommand` accepts for `description` (see
  * `Calendar\MODULE.md`).
+ *
+ * The presence flags below supersede that limitation and distinguish omitted
+ * fields from explicit null values.
  *
  * @category UseCase
  *
@@ -52,6 +55,12 @@ final readonly class UpdateCalendarEventCommand implements CommandMessage
     public ?DateTimeImmutable $endsAt,
     public ?bool $allDay,
     public ?string $facilityId,
+    public bool $hasTitle = false,
+    public bool $hasDescription = false,
+    public bool $hasStartsAt = false,
+    public bool $hasEndsAt = false,
+    public bool $hasAllDay = false,
+    public bool $hasFacilityId = false,
   ) {
   }
   // #endregion

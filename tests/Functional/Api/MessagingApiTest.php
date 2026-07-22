@@ -362,6 +362,19 @@ final class MessagingApiTest extends WebTestCase
     self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated POST /direct-conversations, got ' . $statusCode);
   }
 
+  #[Test]
+  public function testListDirectConversationsRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/direct-conversations?organization=' . self::DUMMY_UUID);
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(404, $statusCode, 'GET /direct-conversations endpoint should exist (got 404)');
+    self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated GET /direct-conversations, got ' . $statusCode);
+  }
+
   /**
    * The regression fix #2 exists for: `MessagingConversationRepository::list()`
    * used to filter only `subjectType != CHANNEL`, so the moment
@@ -568,6 +581,40 @@ final class MessagingApiTest extends WebTestCase
 
     self::assertNotEquals(404, $statusCode, 'GET /presence endpoint should exist (got 404)');
     self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated GET /presence, got ' . $statusCode);
+  }
+
+  // #endregion
+
+  // #region "Fireguard Collaboration" integration plan — B1 conversation activity heatmap
+
+  #[Test]
+  public function testGetConversationActivityRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/conversations/' . self::DUMMY_UUID . '/activity');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(404, $statusCode, 'GET /conversations/{conversationId}/activity endpoint should exist (got 404)');
+    self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated GET /conversations/{conversationId}/activity, got ' . $statusCode);
+  }
+
+  // #endregion
+
+  // #region "Fireguard Collaboration" integration plan — B2 conversation links
+
+  #[Test]
+  public function testListConversationLinksRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/conversations/' . self::DUMMY_UUID . '/links');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(404, $statusCode, 'GET /conversations/{conversationId}/links endpoint should exist (got 404)');
+    self::assertContains($statusCode, [401, 403], 'Expected 401 or 403 for unauthenticated GET /conversations/{conversationId}/links, got ' . $statusCode);
   }
 
   // #endregion

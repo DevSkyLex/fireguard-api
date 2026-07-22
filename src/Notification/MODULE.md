@@ -27,12 +27,42 @@ Main goals:
 | GET | `/api/notifications/{id}` | Get one notification owned by authenticated user | `GetNotificationProvider` |
 | PATCH | `/api/notifications/{id}/read` | Mark one notification as read (idempotent) | `MarkNotificationAsReadProcessor` |
 | GET | `/api/inbox` | Unified, cursor-paginated inbox feed merging every registered `inbox.source_provider` source (`organization`, `before`, `limit`) | `GetInboxProvider` |
+| GET | `/api/inbox/unread-count` | Unread item count summed across every registered `inbox.source_provider` source for the authenticated user (optional `organization` filter) | `GetInboxUnreadCountProvider` |
 
 `/subscription`, `/unread-count`, `/read-all` and `/preferences` are declared
 before the `/{id}` routes in `NotificationResource`; otherwise they would be
-swallowed by the `{id}` placeholder. `GET /api/inbox` deliberately lives on
-its own top-level `InboxResource` (`routePrefix: /inbox`), not nested under
-`/notifications`, so it never has to compete with that ordering constraint.
+swallowed by the `{id}` placeholder. `GET /api/inbox` and `GET
+/api/inbox/unread-count` deliberately live on their own top-level
+`InboxResource` (`routePrefix: /inbox`), not nested under `/notifications`,
+so they never have to compete with that ordering constraint (`InboxResource`
+has no `/{id}` route at all).
+
+### Unified inbox unread count (L1.8b)
+
+`GET /api/inbox/unread-count` answers "does the sidebar/bell badge need a
+number" the same way `GET /api/notifications/unread-count` does today, but
+sourced through the unified inbox seam (`InboxAggregator::countUnread()`)
+instead of `NotificationRepositoryPort::countUnreadByUserId()` directly. The
+two endpoints return the SAME number today (Notification is still the only
+registered `inbox.source_provider`), but only the inbox one stays correct
+once Messaging registers its own source (mentions, direct messages, thread
+replies) — the notification-only endpoint would then under-report. Frontend
+code driving a unified inbox/bell badge should call the inbox endpoint;
+`GET /api/notifications/unread-count` remains for a notifications-only
+badge/list, unchanged.
+
+`InboxSourceProviderPort::countUnread(userId, organizationId): int` is a
+second seam method (alongside `fetch()`), deliberately NOT `$limit`-bounded:
+it must run a single aggregate query and return the true count, never the
+count of a bounded fetched page. `NotificationInboxSourceProviderAdapter`
+implements it by forwarding to the same
+`NotificationRepositoryPort::countUnreadByUserId()` the notification-only
+endpoint already uses — no new repository method. `InboxAggregator::countUnread()`
+sums every provider's contribution with the same per-provider try/catch
+resilience as `aggregate()` (a throwing source degrades to `0`, logged at
+`error` level, never fails the whole request). Any future
+`inbox.source_provider` adapter (e.g. Messaging's) must implement both
+`fetch()` and `countUnread()`.
 
 ## Per-User Notification Preferences
 
@@ -367,39 +397,53 @@ request. The failure is logged at `error` level via `LoggerPort`
 (`sourceKey` + exception message in the context), so degradation stays
 visible in logs rather than silent.
 
-### Building the Messaging adapter (not yet wired)
+### The Messaging adapter (L1.8b — wired)
 
-**The Messaging source (@-mentions, direct messages, thread replies) is NOT
-wired yet.** This lot only ships the seam and the Notification-backed
-provider. To add it, following the exact same shape as
-`messaging.subject_resolver` adapters (see `Facility`, `Equipment`,
-`Intervention`, `Inspection`'s `Infrastructure/Adapter/Messaging/`):
+**The Messaging mention source is wired.** `Messaging\Infrastructure\Adapter\Notification\MessagingInboxSourceProviderAdapter`
+implements `InboxSourceProviderPort` and is registered with
+`tags: ['inbox.source_provider']` in Messaging's OWN
+`config/modules/messaging.yaml` (`config/modules/notification.yaml` is never
+touched to add a source) — see `Messaging\MODULE.md`'s "The
+`inbox.source_provider` seam (L1.8b — Messaging's mention source)" section
+for the full `fetch()`/`countUnread()` walkthrough. Only `kind: mention` is
+live; `direct_message` and `thread_reply` remain reserved `InboxItem::$kind`
+values with no backing data model yet in Messaging (no direct-message
+subject type, no threaded-reply concept as of this writing). Any future
+source module follows the exact same shape as `messaging.subject_resolver`
+adapters (see `Facility`, `Equipment`, `Intervention`, `Inspection`'s
+`Infrastructure/Adapter/Messaging/`):
 
-1. Host the adapter in the **provider module** (Messaging), under
-   `Messaging\Infrastructure\Adapter\Notification\` (e.g.
-   `MessagingInboxSourceProviderAdapter`), implementing
-   `Notification\Application\Port\Outbound\InboxSourceProviderPort`.
-2. Register it in **Messaging's own** `config/modules/messaging.yaml` with
-   `tags: ['inbox.source_provider']` — do not touch
+1. Host the adapter in the **provider module**, under
+   `<Module>\Infrastructure\Adapter\Notification\`, implementing
+   `Notification\Application\Port\Outbound\InboxSourceProviderPort`
+   (`fetch()` AND `countUnread()`).
+2. Register it in the provider module's OWN `config/modules/<module>.yaml`
+   with `tags: ['inbox.source_provider']` — do not touch
    `config/modules/notification.yaml`.
-3. `fetch()` must resolve `$userId` to the conversations/channels the user
-   participates in, filter by `$organizationId` when provided, apply
-   `$before` as a strict "before this instant" cursor on the source's own
-   ordering column, and cap results to `$limit` (bounded merge — never load
-   a whole conversation history).
-4. Map each mention/direct-message/thread-reply to an `InboxItem` with a
-   `kind` such as `mention`, `direct_message`, or `thread_reply`,
-   `targetType: 'conversation'` (or similar) and `targetId` set to whatever
-   the client needs to open the right conversation/message.
-5. Nothing in Notification changes: `InboxAggregator` picks up the new
-   tagged service automatically via `!tagged_iterator inbox.source_provider`.
+3. `fetch()` must resolve `$userId` to the items the user may see, filter by
+   `$organizationId` when provided, apply `$before` as a strict "before this
+   instant" cursor on the source's own ordering column, and cap results to
+   `$limit` (bounded merge — never load a whole history).
+4. `countUnread()` must return the TRUE unread count (not
+   `$limit`-bounded) whenever a single aggregate query can answer it
+   directly (e.g. `NotificationInboxSourceProviderAdapter`, a plain SQL
+   `COUNT`). When readability instead depends on per-row, permission-based
+   access (as Messaging's mentions do), see `Messaging\MODULE.md`'s
+   documented bounded-scan trade-off rather than re-deriving RBAC rules in
+   SQL.
+5. Map each item to an `InboxItem` with an appropriate `kind` (e.g.
+   `mention`, `direct_message`, `thread_reply`), `targetType`/`targetId` set
+   to whatever the client needs to navigate to it.
+6. Nothing in Notification changes: `InboxAggregator` picks up the new
+   tagged service automatically via `!tagged_iterator inbox.source_provider`,
+   for both `aggregate()` and `countUnread()`.
 
 ## Architecture
 
 - Presentation: Api Platform resources, providers, processor, DTO output.
 - Application:
   - Commands: `SendNotification`, `MarkNotificationAsRead`, `MarkAllNotificationsAsRead`, `UpdateNotificationPreferences`
-  - Queries: `ListUserNotifications`, `GetUserNotification`, `GetUnreadNotificationsCount`, `GetNotificationPreferences`, `ListInboxItems`
+  - Queries: `ListUserNotifications`, `GetUserNotification`, `GetUnreadNotificationsCount`, `GetNotificationPreferences`, `ListInboxItems`, `GetInboxUnreadCount`
   - Contracts and inbound service (`NotificationService`)
   - Unified inbox seam: `InboxAggregator`, `InboxSourceProviderPort`, `InboxItem` contract (see above)
 - Domain: `Notification` aggregate + `NotificationId`; `NotificationPreference` model.
@@ -485,8 +529,11 @@ provider. To add it, following the exact same shape as
     derivation, composed with a real `InboxAggregator` since it is `final`),
     `NotificationInboxSourceProviderAdapterTest` (forwards cursor/org/limit
     to `NotificationRepositoryPort::findByUserId()`, maps `Notification` →
-    `InboxItem`), `GetInboxProviderTest` (auth guard, filter parsing,
-    malformed-cursor → 400).
+    `InboxItem`, forwards user/org to `countUnreadByUserId()`),
+    `GetInboxProviderTest` (auth guard, filter parsing, malformed-cursor →
+    400), `GetInboxUnreadCountHandlerTest`/`GetInboxUnreadCountProviderTest`
+    (sums every source via a real `InboxAggregator`, organization filter
+    forwarding, auth guard).
 - Integration tests: `tests/Integration/Notification/Infrastructure/Persistence/Doctrine/Repository/NotificationPreferenceRepositoryIntegrationTest.php`
   exercises the composite-key (`user_id`, `category`) upsert against a real
   connection (insert-then-update in place, no duplicate row, per-user

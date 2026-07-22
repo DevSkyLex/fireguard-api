@@ -70,5 +70,29 @@ interface InboxSourceProviderPort
    * @return list<InboxItem> the source's items, ordered by `occurredAt` descending
    */
   public function fetch(string $userId, ?string $organizationId, ?DateTimeImmutable $before, int $limit): array;
+
+  /**
+   * Method countUnread.
+   *
+   * Returns this source's unread item count for one user, optionally scoped
+   * to one organization. Unlike {@see fetch()}, this is not `$limit`-bounded:
+   * implementations must return the true count (a single aggregate query),
+   * not the count of a bounded page — the sidebar/inbox badge must never
+   * under-report just because a source caps its feed page size.
+   *
+   * Implementations must never throw for expected "nothing to count" cases
+   * (return `0` instead); {@see \Notification\Application\Service\InboxAggregator}
+   * still wraps every call defensively so an unexpected failure degrades to
+   * "this source contributes 0" rather than failing the whole unread-count
+   * request, but a well-behaved provider should not rely on that safety net.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier the count is scoped to
+   * @param string|null $organizationId when provided, restricts the count to this organization; when null, every organization (and account-level items) is counted
+   *
+   * @return int the unread item count for this source
+   */
+  public function countUnread(string $userId, ?string $organizationId): int;
   // #endregion
 }

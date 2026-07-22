@@ -111,6 +111,28 @@ interface MessagingParticipantRepositoryPort
   public function listChannelIdsForMember(string $organizationId, string $memberId): array;
 
   /**
+   * Method findCounterpartMemberIds.
+   *
+   * Batch-resolves, for each of the given DIRECT conversation ids, the
+   * OTHER participant's member id (excluding the acting member) — used to
+   * label a `GET /api/direct-conversations` row for the sidebar, since a
+   * direct conversation's `name` is always null and its `subjectId` is an
+   * intentionally opaque pair key that is never decoded back into the two
+   * member ids (see {@see \Messaging\Domain\Service\DirectConversationKey}).
+   * A direct conversation always has exactly two participants (seeded
+   * together by `GetOrCreateDirectConversationHandler`), so each
+   * conversation id yields at most one row here.
+   *
+   * @since 1.4.0
+   *
+   * @param list<string> $conversationIds candidate direct-conversation identifiers
+   * @param string $excludingMemberId the acting member's own identifier, excluded from the result
+   *
+   * @return array<string, string> the counterpart member id indexed by conversation id; a conversation with no OTHER participant is simply absent
+   */
+  public function findCounterpartMemberIds(array $conversationIds, string $excludingMemberId): array;
+
+  /**
    * Method replaceParticipants.
    *
    * Full team-resync: reconciles the `team`-sourced participants of a

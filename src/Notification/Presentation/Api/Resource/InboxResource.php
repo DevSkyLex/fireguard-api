@@ -6,9 +6,9 @@ namespace Notification\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Get};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
-use Notification\Presentation\Api\Dto\Output\Inbox\InboxOutput;
+use Notification\Presentation\Api\Dto\Output\Inbox\{InboxOutput, InboxUnreadCountOutput};
 use Notification\Presentation\Api\Operation\NotificationOperations;
-use Notification\Presentation\Api\Provider\Inbox\GetInboxProvider;
+use Notification\Presentation\Api\Provider\Inbox\{GetInboxProvider, GetInboxUnreadCountProvider};
 use Notification\Presentation\Api\Serialization\NotificationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -75,6 +75,34 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Inbox feed retrieved successfully'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid "before" cursor'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
+        ],
+      ),
+    ),
+    new Get(
+      name: NotificationOperations::GET_INBOX_UNREAD_COUNT,
+      uriTemplate: '/unread-count',
+      input: false,
+      output: InboxUnreadCountOutput::class,
+      provider: GetInboxUnreadCountProvider::class,
+      normalizationContext: ['groups' => [NotificationSerializationGroup::INBOX_UNREAD_COUNT]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inbox'],
+        summary: 'Get the unified inbox unread count',
+        description: 'Returns the unread item count summed across every registered inbox source for the authenticated user (currently: their own notifications — the same figure `GET /notifications/unread-count` already exposes, but sourced through the unified inbox seam so it stays correct once Messaging registers mentions/direct messages/thread replies as additional sources). Intended for a persistent UI chrome badge, unlike the paginated `GET /inbox` feed.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+          new Parameter(
+            name: 'organization',
+            in: 'query',
+            required: false,
+            description: 'Filter by organization identifier. When omitted, unread items across all organizations (and account-level ones) are counted.',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Unread inbox count returned successfully'),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
         ],
       ),

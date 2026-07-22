@@ -8,6 +8,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{InspectionRecord, NonConformityRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -331,6 +332,216 @@ final class OrganizationApiTest extends WebTestCase
     // The waived critical non-conformity must NOT count as "open": proves
     // `severityCritical` and `criticalOpen` are independently sourced.
     self::assertSame(0, $summary['criticalOpen'] ?? null);
+  }
+
+  #[Test]
+  public function testGetOrganizationNavigationCountersRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/organizations/' . self::DUMMY_UUID . '/navigation-counters');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /organizations/{organizationId}/navigation-counters endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/navigation-counters, got ' . $statusCode,
+    );
+  }
+
+  /**
+   * Seeds two open interventions (`draft`, `in_progress`), one closed
+   * (`published`) and one open (`open`) plus one closed (`done`)
+   * non-conformity, then asserts the endpoint counts only the open ones —
+   * exercising the real Doctrine queries behind
+   * `InterventionStatisticsPort::countOverview()` and
+   * `NonConformityStatisticsPort::countNonConformitiesByStatus()` against
+   * the (SQLite, in this suite) database.
+   */
+  #[Test]
+  public function testGetOrganizationNavigationCountersReturnsOpenCounts(): void
+  {
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655449920';
+    $userId = '550e8400-e29b-41d4-a716-446655449921';
+    $memberId = '550e8400-e29b-41d4-a716-446655449922';
+    $roleId = '550e8400-e29b-41d4-a716-446655449923';
+    $inspectionId = '550e8400-e29b-41d4-a716-446655449924';
+
+    $existingOrganization = $entityManager->find(OrganizationRecord::class, $organizationId);
+    if ($existingOrganization instanceof OrganizationRecord) {
+      $entityManager->remove($existingOrganization);
+      $entityManager->flush();
+    }
+
+    $organization = new OrganizationRecord();
+    $organization->id = $organizationId;
+    $organization->name = 'Navigation Counters Test';
+    $organization->slug = 'navigation-counters-test-' . $organizationId;
+    $organization->ownerUserId = $userId;
+    $organization->createdByUserId = $userId;
+    $organization->status = 'active';
+    $organization->isActive = true;
+    $organization->createdAt = $now;
+    $organization->updatedAt = $now;
+    $entityManager->persist($organization);
+
+    $role = new OrganizationRoleRecord();
+    $role->id = $roleId;
+    $role->organization = $organization;
+    $role->name = 'full-access-tester';
+    $role->permissions = ['*'];
+    $role->description = 'Functional-test-only role granting every permission.';
+    $role->isSystem = false;
+    $role->createdAt = $now;
+    $entityManager->persist($role);
+
+    $member = new OrganizationMemberRecord();
+    $member->id = $memberId;
+    $member->organization = $organization;
+    $member->userId = $userId;
+    $member->isActive = true;
+    $member->joinedAt = $now;
+    $entityManager->persist($member);
+
+    $roleAssignment = new OrganizationMemberRoleRecord();
+    $roleAssignment->member = $member;
+    $roleAssignment->role = $role;
+    $roleAssignment->assignedAt = $now;
+    $entityManager->persist($roleAssignment);
+
+    $interventionSeeds = [
+      ['id' => '550e8400-e29b-41d4-a716-446655449930', 'status' => 'draft'],
+      ['id' => '550e8400-e29b-41d4-a716-446655449931', 'status' => 'in_progress'],
+      // Closed end state: must NOT count as open.
+      ['id' => '550e8400-e29b-41d4-a716-446655449932', 'status' => 'published'],
+      ['id' => '550e8400-e29b-41d4-a716-446655449933', 'status' => 'abandoned'],
+    ];
+    $number = 1;
+    foreach ($interventionSeeds as $seed) {
+      $intervention = new InterventionRecord();
+      $intervention->id = $seed['id'];
+      $intervention->organization = $organization;
+      $intervention->name = 'Navigation counters intervention ' . $number;
+      $intervention->number = $number++;
+      $intervention->status = $seed['status'];
+      $intervention->createdAt = $now;
+      $intervention->updatedAt = $now;
+      $entityManager->persist($intervention);
+    }
+
+    $inspection = new InspectionRecord();
+    $inspection->id = $inspectionId;
+    $inspection->organization = $organization;
+    $inspection->equipmentId = '550e8400-e29b-41d4-a716-446655449925';
+    $inspection->inspectorType = 'user';
+    $inspection->inspectorName = 'Navigation Counters Inspector';
+    $inspection->result = 'fail';
+    $inspection->status = 'closed';
+    $inspection->performedAt = $now;
+    $inspection->createdAt = $now;
+    $inspection->updatedAt = $now;
+    $entityManager->persist($inspection);
+
+    $nonConformitySeeds = [
+      ['id' => '550e8400-e29b-41d4-a716-446655449940', 'status' => 'open'],
+      ['id' => '550e8400-e29b-41d4-a716-446655449941', 'status' => 'in_progress'],
+      // Closed statuses: must NOT count as open.
+      ['id' => '550e8400-e29b-41d4-a716-446655449942', 'status' => 'done'],
+      ['id' => '550e8400-e29b-41d4-a716-446655449943', 'status' => 'waived'],
+    ];
+    foreach ($nonConformitySeeds as $seed) {
+      $nonConformity = new NonConformityRecord();
+      $nonConformity->id = $seed['id'];
+      $nonConformity->inspection = $inspection;
+      $nonConformity->description = 'Seeded for the navigation-counters functional test.';
+      $nonConformity->severity = 'medium';
+      $nonConformity->status = $seed['status'];
+      $nonConformity->createdAt = $now;
+      $nonConformity->updatedAt = $now;
+      $entityManager->persist($nonConformity);
+    }
+
+    $entityManager->flush();
+
+    $user = new SecurityUser(
+      id: $userId,
+      email: 'navigation-counters-test@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+    );
+    $client->loginUser($user, 'api');
+
+    $client->request('GET', '/api/organizations/' . $organizationId . '/navigation-counters', server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    $response = $client->getResponse();
+    self::assertSame(200, $response->getStatusCode(), 'Navigation counters request should succeed. Response: ' . $response->getContent());
+
+    $decoded = json_decode($response->getContent() ?: '{}', true);
+    self::assertIsArray($decoded);
+    self::assertSame(2, $decoded['openInterventions'] ?? null);
+    self::assertSame(2, $decoded['openNonConformities'] ?? null);
+  }
+
+  #[Test]
+  public function testGetOrganizationNavigationCountersRejectsNonMember(): void
+  {
+    $client = static::createClient();
+
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655449950';
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655449951';
+    $outsiderUserId = '550e8400-e29b-41d4-a716-446655449952';
+
+    $existingOrganization = $entityManager->find(OrganizationRecord::class, $organizationId);
+    if ($existingOrganization instanceof OrganizationRecord) {
+      $entityManager->remove($existingOrganization);
+      $entityManager->flush();
+    }
+
+    $organization = new OrganizationRecord();
+    $organization->id = $organizationId;
+    $organization->name = 'Navigation Counters Non-Member Test';
+    $organization->slug = 'navigation-counters-non-member-test-' . $organizationId;
+    $organization->ownerUserId = $ownerUserId;
+    $organization->createdByUserId = $ownerUserId;
+    $organization->status = 'active';
+    $organization->isActive = true;
+    $organization->createdAt = $now;
+    $organization->updatedAt = $now;
+    $entityManager->persist($organization);
+    $entityManager->flush();
+
+    $user = new SecurityUser(
+      id: $outsiderUserId,
+      email: 'navigation-counters-non-member-test@example.com',
+      password: 'hashed-password',
+      roles: ['ROLE_USER'],
+    );
+    $client->loginUser($user, 'api');
+
+    $client->request('GET', '/api/organizations/' . $organizationId . '/navigation-counters', server: [
+      'HTTP_ACCEPT' => 'application/ld+json',
+    ]);
+
+    self::assertSame(404, $client->getResponse()->getStatusCode());
   }
 
   #[Test]

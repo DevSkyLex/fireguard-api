@@ -114,8 +114,51 @@ Main goals:
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | Record a deficiency |
-| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities (filters: `severity`, `status`) |
+| GET | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities` | List non-conformities for one inspection (filters: `severity`, `status`) |
+| GET | `/api/organizations/{organizationId}/non-conformities` | List non-conformities across every inspection of an organization, newest first (filters: `severity`, `status`) — B7 |
 | PATCH | `/api/organizations/{organizationId}/inspections/{inspectionId}/non-conformities/{id}/status` | Update non-conformity status |
+
+**B7 — organization-wide non-conformity collection.**
+
+The Compliance page needs a flat, paginated register of non-conformities
+across all of an organization's inspections (newest first), not nested under
+one inspection. `NonConformityResource` gained a second `GetCollection`
+(`ListOrganizationNonConformitiesProvider` /
+`ListOrganizationNonConformitiesHandler`), reusing the existing
+`NonConformityOutput` DTO and the module's real `severity`
+(`low`/`medium`/`high`/`critical`) and `status`
+(`open`/`in_progress`/`done`/`waived`) enum values — the endpoint does not
+introduce a "resolved" status; `done` and `waived` are the terminal states.
+
+- Same permission and fail-closed shape as the per-inspection list:
+  `organization.inspection.read`, checked in the provider via
+  `OrganizationAuthorizationPort::hasPermission()` before the query bus is
+  asked anything. Unlike the per-inspection list, the handler never resolves
+  a single inspection's existence — organization scoping comes entirely from
+  `NonConformityRepositoryPort::findByOrganizationId()`'s join to the
+  inspection and organization records (mirrors
+  `ListInspectionsHandler`/`InspectionRepositoryPort::findByOrganizationId()`).
+- `NonConformityRepository::createOrganizationListQueryBuilder()` is a new
+  private helper shared by `findByOrganizationId()` (new) and
+  `countByOrganizationId()` (existing, refactored to use it) so the two can
+  never drift on which rows they count versus return.
+- Equipment: a non-conformity only stores its `inspectionId` — equipment
+  belongs to the *inspection*. The handler batches
+  `InspectionRepositoryPort::findEquipmentIdsByIds()` (new, one query
+  resolving inspectionId → equipmentId for the whole page — mirrors
+  `ChecklistRepositoryPort::findNamesByIds()`) then
+  `EquipmentNamingPort::findSerialNumbersByIds()` (existing), so a page of
+  30 rows costs three queries total, not thirty. `NonConformityOutput`
+  gained nullable `equipmentId` / `equipmentSerialNumber` (same naming and
+  null-when-unresolved contract as `InspectionOutput::$equipmentSerialNumber`);
+  both stay `null` on the four pre-existing non-conformity endpoints, which
+  do not resolve them.
+- **No dedicated "reference/code" field exists on `NonConformity`.** The
+  aggregate carries no ticket-style code (unlike `Checklist.referenceCode`,
+  which is a real persisted, migrated column). Adding one would be a schema
+  change and is out of scope here; the response's existing `id` is the only
+  stable per-row identifier today. A future slice that wants a human-facing
+  code needs its own migration (see `fg-api-migrations`).
 
 ### Attachments (R11b)
 
@@ -458,7 +501,15 @@ Cross-module contracts and lifecycle invariants:
   (organization-scoping is enforced by the join, not by trusting the
   caller's ID list). Also pins that `findByOrganizationId()` returns
   checklists with an empty `items()` (no per-row hydration).
+  `Application/UseCase/Query/NonConformity/ListOrganizationNonConformities/ListOrganizationNonConformitiesHandlerTest`
+  (B7) — org-scoped filters/pagination/sorting passed through, equipment
+  batching via `findEquipmentIdsByIds()` + `EquipmentNamingPort`, unresolved
+  equipment/serial degrading to `null`, empty page.
+  `Presentation/Api/Provider/NonConformity/ListOrganizationNonConformitiesProviderTest`
+  (B7) — authentication/permission gating, filter passthrough, pagination
+  envelope.
 - Functional: `tests/Functional/Api/InspectionAttachmentApiTest.php`,
   `tests/Functional/Api/InspectionApiTest.php` (checklist endpoints, including
-  `PATCH .../checklists/{id}`).
+  `PATCH .../checklists/{id}`, and B7's
+  `GET /organizations/{organizationId}/non-conformities`).
 - Run module tests: `make test tests/Unit/Inspection/`

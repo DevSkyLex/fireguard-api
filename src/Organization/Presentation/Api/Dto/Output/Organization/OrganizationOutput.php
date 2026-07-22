@@ -199,6 +199,35 @@ final class OrganizationOutput
   public ?string $vatNumber = null;
 
   /**
+   * Property isOwner.
+   *
+   * Whether the authenticated user is the owner of this organization.
+   * Resolved on the user's organization list (`GET /api/organizations`);
+   * `null` on operations that do not resolve caller membership.
+   *
+   * @since 1.5.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?bool $isOwner = null;
+
+  /**
+   * Property roles.
+   *
+   * Organization roles assigned to the authenticated user's membership
+   * (empty when the caller is a member without any assigned role).
+   * Resolved on the user's organization list (`GET /api/organizations`);
+   * `null` on operations that do not resolve caller membership.
+   *
+   * @since 1.5.0
+   *
+   * @var list<OrganizationMembershipRoleOutput>|null
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?array $roles = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

@@ -7,7 +7,7 @@ namespace Messaging\Domain\Model\Message;
 use DateTimeImmutable;
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\Service\MentionExtractor;
-use Messaging\Domain\ValueObject\{MessageBody, MessageId};
+use Messaging\Domain\ValueObject\{MessageBody, MessageId, MessageReference};
 
 use function array_diff;
 use function array_values;
@@ -31,6 +31,15 @@ use function array_values;
  * atomic `UPDATE` ({@see \Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort::incrementReplyCount()}),
  * never a load-modify-save cycle.
  *
+ * Structured references (B3): `references` is a bounded (at most
+ * {@see MessageReference::MAX_REFERENCES}) list of `{type, id, label?,
+ * code?}` rich cards a message may point at (e.g. a specific
+ * non-conformity or intervention). Shape validation lives on
+ * {@see MessageReference} itself; org-scoped EXISTENCE validation is an
+ * outbound-port concern performed upstream by the command handler (via the
+ * `messaging.subject_resolver` seam), never here — this aggregate only
+ * carries an already-validated list.
+ *
  * @category Model
  *
  * @version 1.0.0
@@ -42,6 +51,7 @@ final class Message
   // #region Constructor
   /**
    * @param list<string> $mentions
+   * @param list<MessageReference> $references
    */
   private function __construct(
     private readonly MessageId $id,
@@ -59,6 +69,7 @@ final class Message
     private ?string $pinnedByMemberId = null,
     private readonly ?string $parentMessageId = null,
     private int $replyCount = 0,
+    private array $references = [],
   ) {
   }
   // #endregion
@@ -89,6 +100,9 @@ final class Message
    *                                 {@see \Messaging\Application\UseCase\Command\Message\PostReply\PostReplyHandler},
    *                                 since both checks depend on the PARENT's
    *                                 state, not this message's own state.
+   * @param list<MessageReference> $references the message's already-validated
+   *                                           structured references (B3),
+   *                                           empty by default
    *
    * @return self the created message
    */
@@ -100,6 +114,7 @@ final class Message
     string $rawBody,
     MentionExtractor $mentionExtractor,
     ?string $parentMessageId = null,
+    array $references = [],
   ): self {
     $body = MessageBody::fromString($rawBody)->value;
     $now = new DateTimeImmutable();
@@ -117,6 +132,7 @@ final class Message
       createdAt: $now,
       updatedAt: $now,
       parentMessageId: $parentMessageId,
+      references: $references,
     );
   }
 
@@ -144,6 +160,7 @@ final class Message
    * @param ?string $pinnedByMemberId the pinning member's identifier, if any
    * @param ?string $parentMessageId the parent message's identifier, when this is a threaded reply (L2.5) — null for a root message
    * @param int $replyCount the persisted reply count (this message's OWN thread, when it is a root/parent) — maintained by an atomic UPDATE on the hot path (see `MessagingMessageRepositoryPort::incrementReplyCount()`), never by re-saving this aggregate
+   * @param list<MessageReference> $references the persisted structured references (B3), empty when none
    *
    * @return self the reconstituted message
    */
@@ -163,8 +180,9 @@ final class Message
     ?string $pinnedByMemberId = null,
     ?string $parentMessageId = null,
     int $replyCount = 0,
+    array $references = [],
   ): self {
-    return new self($id, $conversationId, $organizationId, $authorMemberId, $body, $mentions, $editedAt, $deletedAt, $deletedByMemberId, $createdAt, $updatedAt, $pinnedAt, $pinnedByMemberId, $parentMessageId, $replyCount);
+    return new self($id, $conversationId, $organizationId, $authorMemberId, $body, $mentions, $editedAt, $deletedAt, $deletedByMemberId, $createdAt, $updatedAt, $pinnedAt, $pinnedByMemberId, $parentMessageId, $replyCount, $references);
   }
   // #endregion
 
@@ -172,7 +190,13 @@ final class Message
   /**
    * Method edit.
    *
-   * Replaces the message body (re-validating and re-extracting mentions).
+   * Replaces the message body (re-validating and re-extracting mentions)
+   * and, when given, replaces the message's structured references
+   * wholesale (B3) — mirrors `body`'s own full-replace contract: a `null`
+   * `$references` argument leaves the existing references untouched (used
+   * by call sites that do not manage references at all), while a non-null
+   * argument — including an empty list — REPLACES the full set, exactly
+   * like editing the body always replaces it whole rather than patching it.
    * Author-only enforcement happens upstream in
    * {@see \Messaging\Application\UseCase\Command\Message\EditMessage\EditMessageHandler}
    * since it depends on the acting member, not domain state; this method
@@ -182,10 +206,11 @@ final class Message
    *
    * @param string $rawBody the new sanitized raw body
    * @param MentionExtractor $mentionExtractor the mention extractor
+   * @param ?list<MessageReference> $references the new, already-validated structured references (B3), or null to leave references unchanged
    *
    * @return list<string> the mentioned member identifiers newly added by this edit
    */
-  public function edit(string $rawBody, MentionExtractor $mentionExtractor): array
+  public function edit(string $rawBody, MentionExtractor $mentionExtractor, ?array $references = null): array
   {
     if (null !== $this->deletedAt) {
       throw new MessagingValidationException('A deleted message cannot be edited.');
@@ -199,6 +224,10 @@ final class Message
     $this->mentions = $mentions;
     $this->editedAt = new DateTimeImmutable();
     $this->updatedAt = $this->editedAt;
+
+    if (null !== $references) {
+      $this->references = $references;
+    }
 
     return $newlyMentioned;
   }
@@ -382,6 +411,18 @@ final class Message
   public function incrementReplyCount(): void
   {
     ++$this->replyCount;
+  }
+
+  /**
+   * Method references.
+   *
+   * @since 1.3.0
+   *
+   * @return list<MessageReference> the message's structured references (B3), empty when none
+   */
+  public function references(): array
+  {
+    return $this->references;
   }
 
   /**

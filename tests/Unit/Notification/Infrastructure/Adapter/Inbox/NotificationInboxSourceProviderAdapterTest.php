@@ -91,4 +91,19 @@ final class NotificationInboxSourceProviderAdapterTest extends TestCase
     self::assertSame('notification', $item->targetType);
     self::assertSame('550e8400-e29b-41d4-a716-446655442500', $item->targetId);
   }
+
+  #[Test]
+  public function testCountUnreadForwardsUserAndOrganizationToTheRepository(): void
+  {
+    /** @var NotificationRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(NotificationRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countUnreadByUserId')
+      ->with('user-1', 'org-1')
+      ->willReturn(7);
+
+    $adapter = new NotificationInboxSourceProviderAdapter($repository);
+
+    self::assertSame(7, $adapter->countUnread('user-1', 'org-1'));
+  }
 }

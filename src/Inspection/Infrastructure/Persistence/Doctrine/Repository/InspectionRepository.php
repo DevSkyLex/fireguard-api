@@ -270,6 +270,42 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
   }
 
   /**
+   * Method findEquipmentIdsByIds.
+   *
+   * Single query resolving the equipment identifier of each requested
+   * inspection, so a caller batching a page of non-conformities asks once
+   * rather than once per row. Mirrors `ChecklistRepository::findNamesByIds()`.
+   *
+   * @since 1.0.0
+   *
+   * @param list<string> $inspectionIds
+   *
+   * @return array<string, string>
+   */
+  public function findEquipmentIdsByIds(array $inspectionIds): array
+  {
+    if ([] === $inspectionIds) {
+      return [];
+    }
+
+    /** @var list<array{id: string, equipmentId: string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('i.id AS id', 'i.equipmentId AS equipmentId')
+      ->from(InspectionRecord::class, 'i')
+      ->where('i.id IN (:inspectionIds)')
+      ->setParameter('inspectionIds', $inspectionIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $equipmentIds = [];
+    foreach ($rows as $row) {
+      $equipmentIds[(string) $row['id']] = (string) $row['equipmentId'];
+    }
+
+    return $equipmentIds;
+  }
+
+  /**
    * Method countOverviewByOrganizationId.
    *
    * Executes the count overview by organization id operation.

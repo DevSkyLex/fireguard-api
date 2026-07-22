@@ -36,6 +36,8 @@ final class InspectionOperations
 
   public const string LIST_NON_CONFORMITIES = 'inspection_list_non_conformities';
 
+  public const string LIST_ORGANIZATION_NON_CONFORMITIES = 'inspection_list_organization_non_conformities';
+
   public const string GET_NON_CONFORMITY = 'inspection_get_non_conformity';
 
   public const string UPDATE_NON_CONFORMITY_STATUS = 'inspection_update_non_conformity_status';

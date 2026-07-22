@@ -220,6 +220,28 @@ final class MessageOutputFactoryTest extends TestCase
     self::assertSame(2, $output->replyCount, 'The reply count must remain visible even after the message is tombstoned — the replies themselves are still separate, readable content.');
   }
 
+  #[Test]
+  public function testFromViewPopulatesReferences(): void
+  {
+    $factory = $this->factory([]);
+
+    $references = [['type' => 'facility', 'id' => 'facility-1', 'label' => 'Site Nord', 'code' => null]];
+    $output = $factory->fromView($this->view(references: $references), self::CURRENT_MEMBER_ID);
+
+    self::assertSame($references, $output->references);
+  }
+
+  #[Test]
+  public function testFromViewRedactsReferencesWhenTheMessageIsDeleted(): void
+  {
+    $factory = $this->factory([]);
+
+    $references = [['type' => 'facility', 'id' => 'facility-1', 'label' => null, 'code' => null]];
+    $output = $factory->fromView($this->view(deleted: true, references: $references), self::CURRENT_MEMBER_ID);
+
+    self::assertSame([], $output->references, 'References are part of the message\'s own content and must be redacted on tombstone, unlike replyCount/pinnedAt/isSaved.');
+  }
+
   /**
    * @param list<MessageReactionView> $reactions
    * @param list<string> $savedMessageIds
@@ -238,7 +260,10 @@ final class MessageOutputFactoryTest extends TestCase
     return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactionsPort, $savedMessages);
   }
 
-  private function view(bool $deleted = false, ?string $id = null, int $replyCount = 0): MessageView
+  /**
+   * @param list<array{type: string, id: string, label: ?string, code: ?string}> $references
+   */
+  private function view(bool $deleted = false, ?string $id = null, int $replyCount = 0, array $references = []): MessageView
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
@@ -258,6 +283,7 @@ final class MessageOutputFactoryTest extends TestCase
       null,
       null,
       $replyCount,
+      $references,
     );
   }
 }

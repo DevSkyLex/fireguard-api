@@ -38,3 +38,15 @@ services:
   Inspection\Infrastructure\DataFixtures\InspectionFixtures:
     tags:
       - { name: 'app.seed_fixture.main' }
+
+  Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Calendar\Infrastructure\DataFixtures\CalendarFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Messaging\Infrastructure\DataFixtures\MessagingFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }

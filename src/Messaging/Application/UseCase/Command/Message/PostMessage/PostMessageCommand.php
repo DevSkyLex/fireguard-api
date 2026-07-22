@@ -25,11 +25,13 @@ final readonly class PostMessageCommand implements CommandMessage
    * @param string $userId the acting user id value
    * @param string $conversationId the conversation id value
    * @param string $body the sanitized raw message body
+   * @param list<array<string, mixed>> $references optional structured references (B3) — raw, not-yet-validated shapes (a key may be missing entirely, e.g. an omitted optional `label`/`code`); validated and normalized by {@see \Messaging\Domain\ValueObject\MessageReference::listFromArray()} inside the handler
    */
   public function __construct(
     public string $userId,
     public string $conversationId,
     public string $body,
+    public array $references = [],
   ) {
   }
 }

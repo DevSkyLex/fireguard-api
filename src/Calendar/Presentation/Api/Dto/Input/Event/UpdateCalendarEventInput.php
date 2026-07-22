@@ -13,8 +13,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 /**
  * DTO UpdateCalendarEventInput.
  *
- * A PATCH-style partial update: an omitted (`null`) property leaves the
- * corresponding field unchanged.
+ * A PATCH-style partial update. Field presence is read from the merge-patch
+ * request: omitted properties stay unchanged, while an explicit null clears a
+ * nullable description, end date or facility.
  *
  * @category DTO
  *

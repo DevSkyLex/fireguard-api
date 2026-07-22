@@ -15,7 +15,9 @@ use RuntimeException;
 use Shared\Application\Port\Outbound\LoggerPort;
 use Throwable;
 
+use function array_filter;
 use function array_map;
+use function count;
 
 /**
  * Test InboxAggregatorTest.
@@ -161,6 +163,52 @@ final class InboxAggregatorTest extends TestCase
     self::assertFalse($result->hasMore);
   }
 
+  #[Test]
+  public function testCountUnreadSumsEveryProviderAndForwardsUserAndOrganization(): void
+  {
+    $notificationSource = new FakeInboxSourceProvider('notification', [], unreadCount: 3);
+    $messagingSource = new FakeInboxSourceProvider('messaging.mention', [], unreadCount: 2);
+
+    $aggregator = new InboxAggregator(
+      providers: [$notificationSource, $messagingSource],
+      logger: $this->createStub(LoggerPort::class),
+    );
+
+    $total = $aggregator->countUnread(userId: 'user-1', organizationId: 'org-7');
+
+    self::assertSame(5, $total);
+    self::assertSame(['user-1', 'org-7'], $notificationSource->lastCountUnreadCallArguments);
+    self::assertSame(['user-1', 'org-7'], $messagingSource->lastCountUnreadCallArguments);
+  }
+
+  #[Test]
+  public function testCountUnreadDegradesAFailingProviderToZeroAndLogsIt(): void
+  {
+    $healthySource = new FakeInboxSourceProvider('notification', [], unreadCount: 4);
+    $failingSource = new FakeInboxSourceProvider('messaging.mention', [], new RuntimeException('source unavailable'));
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())
+      ->method('error')
+      ->with(
+        self::stringContains('degrading'),
+        self::callback(static function (array $context): bool {
+          return 'messaging.mention' === ($context['sourceKey'] ?? null)
+            && 'source unavailable' === ($context['error'] ?? null);
+        }),
+      );
+
+    $aggregator = new InboxAggregator(
+      providers: [$healthySource, $failingSource],
+      logger: $logger,
+    );
+
+    $total = $aggregator->countUnread(userId: 'user-1', organizationId: null);
+
+    self::assertSame(4, $total);
+  }
+
   private function item(string $sourceKey, string $id, string $occurredAt): InboxItem
   {
     return new InboxItem(
@@ -218,12 +266,18 @@ final class FakeInboxSourceProvider implements InboxSourceProviderPort
   public ?array $lastCallArguments = null;
 
   /**
+   * @var array{0: string, 1: ?string}|null
+   */
+  public ?array $lastCountUnreadCallArguments = null;
+
+  /**
    * @param list<InboxItem> $items
    */
   public function __construct(
     private readonly string $key,
     private readonly array $items,
     private readonly ?Throwable $throws = null,
+    private readonly ?int $unreadCount = null,
   ) {
   }
 
@@ -241,5 +295,16 @@ final class FakeInboxSourceProvider implements InboxSourceProviderPort
     }
 
     return $this->items;
+  }
+
+  public function countUnread(string $userId, ?string $organizationId): int
+  {
+    $this->lastCountUnreadCallArguments = [$userId, $organizationId];
+
+    if (null !== $this->throws) {
+      throw $this->throws;
+    }
+
+    return $this->unreadCount ?? count(array_filter($this->items, static fn (InboxItem $item): bool => !$item->isRead));
   }
 }

@@ -190,6 +190,29 @@ interface MessagingConversationRepositoryPort
   public function listChannelsForMember(string $organizationId, string $memberId, ?bool $isArchived, int $page, int $itemsPerPage): ChannelPage;
 
   /**
+   * Method listDirectConversationsForMember.
+   *
+   * Lists the DIRECT (1-to-1) conversations a member participates in — an
+   * INNER JOIN on `messaging_participants` scoped to `subjectType=DIRECT`,
+   * most recently active first. Mirrors {@see self::listChannelsForMember()}
+   * byte for byte (same join shape, same ordering expression), which is what
+   * preserves the privacy invariant behind excluding `DIRECT` from
+   * {@see self::list()}: a member can only ever see the direct conversations
+   * THEY are a participant of, never another member's.
+   *
+   * @since 1.4.0
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $memberId the participating member's identifier
+   * @param ?bool $isArchived optional archived-flag filter
+   * @param int $page the page value
+   * @param int $itemsPerPage the items per page value
+   *
+   * @return ConversationPage the direct conversation page result
+   */
+  public function listDirectConversationsForMember(string $organizationId, string $memberId, ?bool $isArchived, int $page, int $itemsPerPage): ConversationPage;
+
+  /**
    * Method findChannelIdsBoundToTeam.
    *
    * @since 1.0.0

@@ -57,13 +57,16 @@ not a stopgap.
 | GET | `/api/conversations` | List an organization's conversations (filters: `organization` *(required)*, `subjectType`, `subjectId`, `isArchived`, `unreadOnly`; 30/page, client page size) | `organization.messaging.read` |
 | POST | `/api/conversations` | Get-or-create a conversation by subject (`organization`, `subjectType`, `subject` IRIs); `200` (idempotent, not `201`) | `organization.messaging.read` + the subject's own read permission |
 | POST | `/api/direct-conversations` | Get-or-create a 1-to-1 direct conversation with another organization member (`organization` IRI, `memberId`); `200` (idempotent, not `201`); L2.4 | `organization.messaging.read` (floor permission — see Permissions); the target member must be an ACTIVE member of the same organization |
+| GET | `/api/direct-conversations` | List the acting member's direct conversations in one organization, most recently active first (filters: `organization` *(required)*, `isArchived`; 30/page, client page size); each row carries `counterpartMember` (the OTHER participant's member IRI, since `name` is always null for a DM) | `organization.messaging.read` (an INNER JOIN on `messaging_participants`, exactly like `GET /api/channels`, scopes the result to conversations the caller is a participant of — never another member's DM) |
 | GET | `/api/conversations/{id}` | Get a conversation (resolves `subjectLabel` + `unreadCount`) | `organization.messaging.read` + the subject's own read permission |
 | PATCH | `/api/conversations/{id}` | Archive/unarchive (`{isArchived}`) | `organization.messaging.manage` |
 | PATCH | `/api/conversations/{id}/read` | Mark the acting member's read position (`{lastReadMessageId?}`) | `organization.messaging.read` + the subject's own read permission |
 | GET | `/api/conversations/{id}/subscription` | Mercure subscriber JWT scoped to this ONE conversation's private topic | `organization.messaging.read` + the subject's own read permission |
 | GET | `/api/conversations/{conversationId}/messages` | List a conversation's messages, oldest first (30/page, client page size) | `organization.messaging.read` + the subject's own read permission |
-| POST | `/api/conversations/{conversationId}/messages` | Post a message (`{body}`, sanitized rich text); `201` | `organization.messaging.write` + the subject's own read permission |
-| PATCH | `/api/messages/{id}` | Edit own message (`{body}`) — author-only | `organization.messaging.write` + the subject's own read permission |
+| POST | `/api/conversations/{conversationId}/messages` | Post a message (`{body}`, sanitized rich text, optional `references[]`); `201` | `organization.messaging.write` + the subject's own read permission |
+| PATCH | `/api/messages/{id}` | Edit own message (`{body}`, optional replacement `references[]`) — author-only | `organization.messaging.write` + the subject's own read permission |
+| GET | `/api/conversations/{conversationId}/activity` | Zero-filled UTC daily message counts (`buckets`, default 26, max 366) | same access rule as `ListMessages` |
+| GET | `/api/conversations/{conversationId}/links` | URLs extracted from message bodies, newest first (30/page, client page size) | same access rule as `ListMessages` |
 | DELETE | `/api/messages/{id}` | Tombstone-delete (author self-delete, or manager moderation); `204` | author, or `organization.messaging.manage` |
 | POST | `/api/messages/{id}/replies` | Post a threaded reply to a ROOT message (`{body}`, sanitized rich text); `201`; L2.5 | `organization.messaging.write` + the subject's own read permission — same gate as posting a root message |
 | GET | `/api/messages/{id}/replies` | List a message's threaded replies, oldest first (30/page, client page size); L2.5 | same access rule as `ListMessages` |
@@ -88,6 +91,27 @@ Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors
 Maintenance/Intervention).
 
+Structured message references are bounded to five entries and accept only
+`non_conformity`, `intervention`, `facility`, or `equipment`. The command
+handler resolves every target inside the conversation's organization before
+persisting; tombstoned outputs redact the list to `[]`. URLs are extracted
+synchronously on post/edit into the satellite `messaging_message_link` table.
+
+`Version20260721090000` is a **main-database-only**, additive migration: it
+creates `messaging_message_link` and adds the nullable JSON `references` column
+to `messaging_messages`; it never touches auth tables or rewrites existing
+rows. After deploying that migration and the compatible backend, run the
+resumable, idempotent historical extraction:
+
+```bash
+php -d memory_limit=512M bin/console app:messaging:backfill-links --dry-run
+php -d memory_limit=512M bin/console app:messaging:backfill-links --batch-size=100
+```
+
+The command uses an exclusive message-id cursor (`--after`) and clears links
+for tombstoned messages. Structured references cannot be inferred and are not
+backfilled.
+
 **List-vs-read asymmetry** (deliberate, for cost): `ListConversations` gates by
 `organization.messaging.read` alone, with no per-row subject-permission check.
 Opening a specific thread (`GetConversation`, `ListMessages`, the subscription
@@ -98,13 +122,18 @@ readable.
 **`GET /api/conversations` NEVER returns a channel or a direct conversation**
 (both are `subjectType IN (CHANNEL, DIRECT)`, filtered out by
 `MessagingConversationRepository::list()`) — channels are listed through
-`GET /api/channels` instead, and a direct conversation has no list endpoint
-at all in this lot (a member reopens it idempotently through
+`GET /api/channels` instead, and a direct conversation is listed through
+`GET /api/direct-conversations` instead (see "Direct messages" below; a
+member may also reopen a specific direct conversation idempotently through
 `POST /api/direct-conversations`, which resolves to the same conversation
-id every time — see "Direct messages" below). This is a hard product
-invariant, not an oversight: a private 1-to-1 conversation showing up in the
-organization-wide list would be a privacy leak even though it stays
-tenant-correct (still scoped to the organization).
+id every time). This is a hard product invariant, not an oversight: a
+private 1-to-1 conversation showing up in the organization-wide list would
+be a privacy leak even though it stays tenant-correct (still scoped to the
+organization) — `GET /api/direct-conversations` itself preserves the same
+invariant one level down, by scoping to the CALLER's own participant rows
+only (an INNER JOIN on `messaging_participants`, exactly like
+`listChannelsForMember()`), so it can never be used to enumerate another
+member's direct conversations either.
 
 **`GET /api/conversations/{conversationId}/messages` NEVER returns a threaded
 reply** (`parent_message_id NOT NULL`, filtered out by
@@ -498,10 +527,11 @@ updates (re-tested when v2 introduces `visibility: participants`).
   perturbs `MessageAttachmentOutput`'s IRI/serialization — the same
   separation `Compliance\...\SafetyRegisterExportResource` uses for a binary
   `Response`), and
-  `DirectConversationResource` (L2.4 — a single get-or-create endpoint;
-  every other conversation-scoped operation reuses `ConversationResource`'s
-  and `MessageResource`'s existing routes unchanged, a direct conversation
-  id being a conversation id like a channel id), providers, processors,
+  `DirectConversationResource` (L2.4 — a get-or-create endpoint plus its own
+  "list mine" collection (`GET /api/direct-conversations`); every other
+  conversation-scoped operation reuses `ConversationResource`'s and
+  `MessageResource`'s existing routes unchanged, a direct conversation id
+  being a conversation id like a channel id), providers, processors,
   input/output DTOs, `MessagingExceptionMapperTrait`.
   Message bodies are sanitized with `@html_sanitizer.sanitizer.messaging.message`
   (identical allowlist to `intervention.comment`) before reaching the
@@ -540,8 +570,9 @@ updates (re-tested when v2 introduces `visibility: participants`).
   `ChannelOutputFactory::fromView()` take an `isFavorite` parameter
   threaded from the query Handler's Result (like `unreadCount`), not
   resolved by the factory itself (unlike `isSaved`) — see Flows.
-- **Application** (`src/Messaging/Application`): 36 use cases (24 commands, 12
-  queries — L2.4 adds `GetOrCreateDirectConversation`, L2.5 adds `PostReply`/
+- **Application** (`src/Messaging/Application`): 37 use cases (24 commands, 13
+  queries — L2.4 adds `GetOrCreateDirectConversation`/`ListDirectConversations`
+  (the latter a follow-up, see "Direct messages" below), L2.5 adds `PostReply`/
   `ListReplies`, L2.7 adds `PingPresence`/`GetPresence`, plus
   `DownloadMessageAttachment` for the attachment content route), outbound ports,
   contracts, and services (`MessagingSubjectResolverRegistry`,
@@ -697,6 +728,29 @@ any future bulk/list-shaped consumer): `hasReadPermission()` (the
 to `OrganizationAuthorizationPort::hasPermission()`, used for the per-subject
 permission checks above) — both mirror the existing `hasManagePermission()`
 shape rather than introducing a second authorization path.
+
+**`countUnread()` (L1.8b follow-up: `GET /api/inbox/unread-count`)** —
+`InboxSourceProviderPort` gained a second seam method
+(`Notification\MODULE.md`'s "Unified inbox unread count" section):
+`countUnread(userId, organizationId): int`, deliberately NOT
+`$limit`-bounded — it must return the true unread count, not a bounded
+page's count. `NotificationInboxSourceProviderAdapter` satisfies this with a
+single SQL `COUNT`, but a mention's readability additionally depends on the
+same per-row, permission-based conversation access `fetch()` applies (step 4
+above), which cannot be pushed into a SQL predicate without re-deriving RBAC
+rules in the query layer — something this codebase deliberately never does.
+`MessagingInboxSourceProviderAdapter::countUnread()` therefore reuses the
+same access-check pipeline as `fetch()` (organization/permission/membership
+guards, then the bounded `listMentionsForMember()` candidate query capped at
+`UNREAD_COUNT_SCAN_LIMIT` = 200, then the same access filtering), and counts
+the unread ones within that window. This is an EXACT count up to the cap and
+a lower bound beyond it — a documented, deliberate trade-off for a badge
+counter (most UIs cap an unread badge display at "99+" anyway). A future lot
+could replace this with a dedicated aggregate repository query if exactness
+beyond the cap ever becomes a real product requirement; it would need to
+either push the access-permission check into SQL (a bigger change this
+module has avoided everywhere else) or introduce a materialized
+per-member/per-conversation access index.
 
 ## Permissions
 
@@ -925,8 +979,12 @@ leak across organizations).
 - `list()` filters `c.subjectType NOT IN (CHANNEL, DIRECT)` (widened from a
   single-value `!=` check by L2.4 — see "Direct messages") so
   `GET /api/conversations` stays byte-for-byte the v1 subject-thread
-  contract; channels are listed through `listChannelsForMember()` and a
-  direct conversation has no list endpoint at all in this lot.
+  contract; channels are listed through `listChannelsForMember()` and direct
+  conversations are listed through the sibling
+  `listDirectConversationsForMember()` (same INNER JOIN shape on
+  `messaging_participants`, scoped to `subjectType=DIRECT` instead of
+  `CHANNEL`, same `lastMessageAt DESC NULLS LAST` ordering) — see "Direct
+  messages" below.
 - `touchOnNewMessage()` is a single atomic `UPDATE ... SET messages_count =
   messages_count + 1, last_message_at = :at` — not a load-modify-save cycle.
   Called by BOTH `PostMessageHandler` and `PostReplyHandler` (L2.5), so
@@ -1185,12 +1243,68 @@ ever refactored):
    conversation-scoped call (open, post, list messages, …) for a direct
    conversation.
 
-**Deliberately deferred (not in this lot's scope):** a dedicated "list my
-direct conversations" endpoint (mirroring `GET /api/channels`). A member
-rediscovers an existing direct conversation by calling
-`POST /api/direct-conversations` again with the same target member —
-idempotent, resolves to the SAME conversation id every time — rather than
-browsing a list. Revisit if/when a "recent DMs" sidebar is needed.
+### Listing a member's direct conversations — `GET /api/direct-conversations` (follow-up)
+
+A dedicated "list my direct conversations" endpoint, mirroring `GET
+/api/channels`: previously deferred (a member could only rediscover an
+existing direct conversation idempotently through `POST
+/api/direct-conversations`), now shipped because the frontend sidebar's
+"Direct messages" section had no way to populate itself — `GET
+/api/conversations` deliberately excludes `DIRECT` (see above) and `POST
+/api/direct-conversations` has no `GetCollection` counterpart until now.
+
+`Application/UseCase/Query/Conversation/ListDirectConversations/ListDirectConversationsHandler`
+(exposed as `GET /api/direct-conversations` via `DirectConversationResource`'s
+new `GetCollection` operation / `ListDirectConversationsProvider`, mirroring
+`ListChannelsHandler`/`ListChannelsProvider` byte for byte):
+
+1. `MessagingAccessPolicy::assertCanListConversations()` —
+   `organization.messaging.read` alone, identical to `ListConversations`/
+   `ListChannels` (no per-row check, for cost).
+2. `MessagingAccessPolicy::resolveActiveMemberId()` resolves the caller's
+   own member id.
+3. `MessagingConversationRepositoryPort::listDirectConversationsForMember()`
+   (new port method) — an INNER JOIN on `messaging_participants` scoped to
+   `subjectType=DIRECT`, most recently active first
+   (`lastMessageAt DESC`, NULLs last — the exact same ordering expression as
+   `list()`/`listChannelsForMember()`), with an optional `isArchived` filter
+   and standard pagination (30/page default, client-adjustable, capped at
+   100 — same caps as every other Messaging list). **This INNER JOIN is what
+   preserves the privacy invariant** behind excluding `DIRECT` from
+   `GET /api/conversations`: a member can only ever list the direct
+   conversations THEY participate in, never another member's — there is no
+   `organization`-wide direct-conversation listing surface anywhere in this
+   module, by design.
+4. Batch-enriches the page, reusing existing batch lookups already used by
+   `ListConversationsHandler`/`ListChannelsHandler` — no duplicated logic:
+   `MessagingReadMarkerRepositoryPort::unreadCounts()` for `unreadCount` and
+   `MessagingConversationFavoriteRepositoryPort::findFavoritedConversationIds()`
+   for `isFavorite`.
+5. **Counterpart resolution (new):** `MessagingParticipantRepositoryPort::findCounterpartMemberIds()`
+   (new port method, module-internal — NOT a new cross-module port) batch-resolves,
+   for the whole page, the OTHER participant's member id per conversation, via
+   a plain `messaging_participants` query (`conversation_id IN (:ids) AND
+   member_id != :callerMemberId`) — a direct conversation always has exactly
+   two participants (seeded together by `GetOrCreateDirectConversationHandler`),
+   so this never needs to decode the opaque `subject_id` pair key (see Domain
+   Model) and never costs a query per row.
+
+`ConversationOutput` gains `counterpartMember` (an organization-member IRI),
+populated by `ConversationOutputFactory::fromView()`'s new optional
+`$counterpartMemberId` parameter — null everywhere except
+`GET /api/direct-conversations`. **Deliberately id-only, not a resolved
+display name/avatar:** resolving a member's display label would require a
+NEW capability on the cross-module `MessagingMemberDirectoryPort`
+(Organization owns member display data, not Messaging) — a real N+1 risk if
+done per row, and no existing bulk "resolve display labels" method exists on
+that port today. Rather than invent one speculatively, this lot exposes only
+the counterpart's member id/IRI; the frontend already has (or can fetch) the
+organization's member directory to resolve a label from it. Revisit if a
+batched label-resolution port becomes a recurring need across modules. A DM
+row's `name` stays `null` (mirrors every other direct-conversation read),
+and `subject`/`subjectLabel` stay unset (a DM has no resolver-backed
+subject) — `counterpartMember` is the ONLY new field a client needs to label
+the sidebar row.
 
 ## Threaded replies (L2.5) — SHIPPED
 
@@ -1504,8 +1618,11 @@ TTL:    90 seconds
   — mentioned but lacking the subject's own read permission → excluded — a
   channel mention excluded/included by participation, and included via
   `.manage` without participation; an unresolved subject type excluded;
-  `isRead` derived from the read marker; snippet truncation), plus two new
-  `MessagingAccessPolicyTest` cases for `hasReadPermission()`/`hasPermission()`.
+  `isRead` derived from the read marker; snippet truncation; `countUnread()`:
+  no organization/missing permission/not-an-active-member → 0, only
+  accessible unread mentions counted, scan limit (200) forwarded to
+  `listMentionsForMember()`), plus two new `MessagingAccessPolicyTest` cases
+  for `hasReadPermission()`/`hasPermission()`.
   Direct messages slice (L2.4): `Domain/Service/DirectConversationKeyTest`
   (order-independent — A→B and B→A derive the SAME key; deterministic;
   fits the `subject_id` column length; different pairs differ),
@@ -1516,7 +1633,14 @@ TTL:    90 seconds
   guard exists for; rejects self-DM; rejects an inactive target member;
   the missing-`.read`-permission path), `Presentation/Api/Processor/
   Conversation/GetOrCreateDirectConversationProcessorTest`, and a new
-  `MessagingAccessPolicyTest` case for `assertCanUseMessaging()`.
+  `MessagingAccessPolicyTest` case for `assertCanUseMessaging()`. List
+  direct conversations follow-up: `Application/UseCase/Query/Conversation/
+  ListDirectConversations/ListDirectConversationsHandlerTest` (scopes to the
+  acting member's own participant rows; most-recently-active-first ordering;
+  `isArchived` filter; pagination; propagates the missing-`.read`-permission
+  exception before ever querying), `Presentation/Api/Provider/Conversation/
+  ListDirectConversationsProviderTest` (missing `organization` → 400; maps
+  `counterpartMember`/`unreadCount`/`isFavorite` onto the page).
   Threaded replies slice (L2.5): `Domain/Model/Message/MessageTest` extended
   with `isReply()`/`parentMessageId()`/`incrementReplyCount()`/reconstitute-
   with-thread-state cases, `Application/UseCase/Command/Message/PostReply/
@@ -1635,8 +1759,11 @@ TTL:    90 seconds
   authentication-required assertions per endpoint, mirrors
   `MaintenanceApiTest`; L1.5 adds the five new save/unsave/list-saved/
   favorite/unfavorite endpoints; L2.4 adds
-  `testGetOrCreateDirectConversationRequiresAuthentication` plus a
-  deliberately heavier
+  `testGetOrCreateDirectConversationRequiresAuthentication`,
+  `testListDirectConversationsRequiresAuthentication` (the follow-up
+  `GET /api/direct-conversations` endpoint; thin, same rationale — the
+  participant-scoping/ordering/counterpart-resolution logic is covered by
+  the Unit tier above), plus a deliberately heavier
   `testDirectConversationDoesNotAppearInListConversations` — seeds a real
   organization/member/role and a real subject-thread + direct conversation
   directly via the ORM, authenticates with `KernelBrowser::loginUser()`

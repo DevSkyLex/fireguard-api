@@ -133,6 +133,9 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\GetNavigationCounters\GetNavigationCountersHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\GetCurrentOrganizationMemberProfileHandler:
     tags: ['messenger.message_handler']
 

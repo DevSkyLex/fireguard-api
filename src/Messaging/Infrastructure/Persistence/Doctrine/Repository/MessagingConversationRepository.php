@@ -284,6 +284,43 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     return new ChannelPage($items, $page, $itemsPerPage, $total);
   }
 
+  public function listDirectConversationsForMember(string $organizationId, string $memberId, ?bool $isArchived, int $page, int $itemsPerPage): ConversationPage
+  {
+    $page = max(1, $page);
+    $itemsPerPage = max(1, min(100, $itemsPerPage));
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, $organizationId);
+
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('c')
+      ->from(MessagingConversationRecord::class, 'c')
+      ->innerJoin(MessagingParticipantRecord::class, 'p', 'WITH', 'p.conversation = c AND p.memberId = :memberId')
+      ->where('c.organization = :organization')
+      ->andWhere('c.subjectType = :directType')
+      ->setParameter('organization', $organization)
+      ->setParameter('memberId', $memberId)
+      ->setParameter('directType', MessagingSubjectType::DIRECT->value);
+
+    if (null !== $isArchived) {
+      $qb->andWhere('c.isArchived = :isArchived')->setParameter('isArchived', $isArchived);
+    }
+
+    $total = (int) (clone $qb)
+      ->select('COUNT(c.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
+
+    /** @var list<MessagingConversationRecord> $records */
+    $records = $qb
+      ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
+      ->addOrderBy('c.lastMessageAt', 'DESC')
+      ->setFirstResult(($page - 1) * $itemsPerPage)
+      ->setMaxResults($itemsPerPage)
+      ->getQuery()
+      ->getResult();
+
+    return new ConversationPage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
+  }
+
   public function findChannelIdsBoundToTeam(string $organizationId, string $teamId): array
   {
     /** @var list<string> $ids */

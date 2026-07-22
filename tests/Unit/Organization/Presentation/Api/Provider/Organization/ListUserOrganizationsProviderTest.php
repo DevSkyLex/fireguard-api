@@ -8,9 +8,9 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
+use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationCallerRoleResult, GetOrganizationResult};
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput};
 use Organization\Presentation\Api\Provider\Organization\ListUserOrganizationsProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -69,6 +69,11 @@ final class ListUserOrganizationsProviderTest extends TestCase
             createdAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
             updatedAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
             memberCount: 7,
+            isOwner: true,
+            roles: [new GetOrganizationCallerRoleResult(
+              id: '550e8400-e29b-41d4-a716-446655441599',
+              label: 'Fire Safety Officer',
+            )],
           ),
         ],
         total: 1,
@@ -93,6 +98,56 @@ final class ListUserOrganizationsProviderTest extends TestCase
     self::assertSame('active', $items[0]->status);
     self::assertTrue($items[0]->isActive);
     self::assertSame(7, $items[0]->memberCount);
+    self::assertTrue($items[0]->isOwner);
+    self::assertIsArray($items[0]->roles);
+    self::assertCount(1, $items[0]->roles);
+    self::assertInstanceOf(OrganizationMembershipRoleOutput::class, $items[0]->roles[0]);
+    self::assertSame('550e8400-e29b-41d4-a716-446655441599', $items[0]->roles[0]->id);
+    self::assertSame('Fire Safety Officer', $items[0]->roles[0]->label);
+  }
+
+  #[Test]
+  public function testProvideDefaultsMembershipInfoWhenUnresolved(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new PaginatedResult(
+        items: [
+          new GetOrganizationResult(
+            id: '550e8400-e29b-41d4-a716-446655441610',
+            name: 'Fireguard Tours',
+            slug: 'fireguard-tours',
+            ownerUserId: '550e8400-e29b-41d4-a716-446655441699',
+            createdByUserId: '550e8400-e29b-41d4-a716-446655441699',
+            status: 'active',
+            isActive: true,
+            createdAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+            updatedAt: new DateTimeImmutable('2026-01-10T12:00:00+00:00'),
+          ),
+        ],
+        total: 1,
+        limit: 1,
+        offset: 0,
+      ));
+
+    $provider = new ListUserOrganizationsProvider(
+      queryBus: $queryBus,
+      security: $security,
+    );
+
+    $items = iterator_to_array($provider->provide(new GetCollection()));
+
+    // A result without resolved caller membership degrades to the safe
+    // defaults on this endpoint: not owner, no roles.
+    self::assertFalse($items[0]->isOwner);
+    self::assertSame([], $items[0]->roles);
   }
 
   #[Test]

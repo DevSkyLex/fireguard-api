@@ -29,4 +29,18 @@ final class PostMessageInput
   #[Assert\NotBlank]
   #[Assert\Length(max: 40000)]
   public string $body = '';
+
+  /**
+   * Property references.
+   *
+   * Optional structured `{type, id, label?, code?}` rich-card references
+   * (B3), at most `MessageReference::MAX_REFERENCES` entries.
+   *
+   * @since 1.3.0
+   *
+   * @var list<MessageReferenceInput>
+   */
+  #[Assert\Valid]
+  #[Assert\Count(max: 5)]
+  public array $references = [];
 }

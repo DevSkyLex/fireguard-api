@@ -19,7 +19,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/api/organizations` | Create a Organization and owner membership |
-| GET | `/api/organizations` | List Organizations for current user (filter: `status`) |
+| GET | `/api/organizations` | List Organizations for current user (filter: `status`). Each item also carries the CALLER's membership info: `isOwner` (caller vs `ownerUserId`) and `roles` (`[{id, label}]`, the caller's assigned org-role labels, `[]` when none) — see Notes |
 | GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`) |
 | DELETE | `/api/organizations/{id}` | Archive the organization (reversible soft delete — see Notes; **not** a permanent removal). Requires `organization.delete` plus the danger-zone confirmation: a `slug` query parameter matching the organization's current slug (case-insensitive, trimmed). Missing or mismatched confirmation → HTTP 422, nothing archived. Idempotent when already archived, provided the confirmation is still correct |
 | PATCH | `/api/organizations/{id}` | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the catalog default from `OrganizationComplianceDefaults`; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write` |
@@ -33,6 +33,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/{organizationId}/dashboard/trends/facilities-created` | Get the facilities-created series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus `facilityType`. Requires `organization.facilities.read`. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-opened` | Get the non-conformities-opened series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus an optional `metrics` filter (e.g. `metrics=non_conformities_resolved`) that adds the resolved series to the response's `seriesByMetric` map, sharing this call's resolved period/timezone/granularity — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus the same optional `metrics` combining filter (`metrics=non_conformities_opened`) — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
+| GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`) and `openNonConformities` (`open` + `in_progress`). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` permission — see Notes (L3.11) |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
 | GET | `/api/organizations/{organizationId}/members` | List Organization members (each item carries `isOwner`, computed against the organization's `ownerUserId`) |
 | POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |
@@ -344,6 +345,49 @@ Doctrine tables are mapped in the main database:
   deactivated members out of the count) — one query per request regardless
   of how many roles the organization has; roles absent from the map default
   to `memberCount: 0`.
+
+- **Caller membership info on the organization list**: `GET /api/organizations`
+  items expose `isOwner` and `roles` for the REQUESTING user (Account → Roles
+  "Organization memberships" section; the org switcher ignores them).
+  `ListUserOrganizationsHandler` resolves both in the Application layer:
+  `isOwner` compares the organization's `ownerUserId` against the query's
+  `userId` (no extra read — the aggregate is already loaded), and `roles`
+  reuses the caller's membership already fetched by `findByUserId`, joining
+  `OrganizationMemberRepositoryPort::findRoleIdsForMember` then
+  `OrganizationRoleRepositoryPort::findByIdsInOrganization` per page item —
+  the same repository join as `ListOrganizationMembers` /
+  `GetCurrentOrganizationMemberProfile`, bounded by the page size. The fields
+  ride on the shared `GetOrganizationResult`/`OrganizationOutput` as
+  APPENDED NULLABLE members (`isOwner: ?bool`, `roles: ?list<{id, label}>`,
+  where `label` is the role name), so every other constructor of those types
+  (GetOrganization, the create/update/logo/plan processors, Onboarding) is
+  untouched and keeps emitting `null` — `null` means "caller membership not
+  resolved by this operation", while the list endpoint always emits concrete
+  values (`false`/`[]` fallbacks in `ListUserOrganizationsProvider`). A
+  member with no assigned role gets `roles: []`, never an error, and no role
+  query is issued for it. Read-only aggregation: no schema change, no
+  migration.
+
+- **Sidebar navigation counters (L3.11)**: `GET /organizations/{organizationId}/navigation-counters`
+  answers the "does this org have work waiting" badge question for the
+  frontend sidebar without paying for the full `/dashboard` payload (KPIs,
+  trends, comparisons). Access mirrors `GET /organizations/{id}/me`
+  (`GetCurrentOrganizationMemberProfileHandler`): the caller only needs an
+  ACTIVE membership, checked directly in `GetNavigationCountersHandler`
+  (`OrganizationMemberRepositoryPort::findByOrganizationAndUser` +
+  `isActive()`), not a specific permission — every member should see the
+  sidebar badges. Each of the two counters is then individually soft-gated
+  on the same permission its data already requires elsewhere
+  (`organization.interventions.read` / `organization.inspection.read`,
+  checked via `OrganizationAuthorizationPort::hasPermission`), degrading to
+  `0` instead of a 403 for a member without that permission — the same
+  pattern `GetOrganizationDashboardHandler` already uses for
+  `recentInterventions`/`overview.interventions`. `openInterventions` reuses
+  `InterventionStatisticsPort::countOverview()['open']` unchanged (no new
+  port method: "open" already means "not `published`/`abandoned`", exactly
+  the sidebar's definition). `openNonConformities` reuses
+  `NonConformityStatisticsPort::countNonConformitiesByStatus()`, summing the
+  `open` and `in_progress` buckets (no new port method either).
 
 ## Teams (R9)
 

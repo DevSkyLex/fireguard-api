@@ -48,6 +48,8 @@ final readonly class GetOrganizationResult implements ResultMessage
    * @param ?string $legalName the registered legal name
    * @param ?string $registrationNumber the company/registration number
    * @param ?string $vatNumber the VAT number
+   * @param ?bool $isOwner whether the REQUESTING user owns the organization; null when the use case does not resolve caller membership
+   * @param list<GetOrganizationCallerRoleResult>|null $roles the organization roles assigned to the REQUESTING user; null when the use case does not resolve caller membership
    */
   public function __construct(
     public string $id,
@@ -70,6 +72,8 @@ final readonly class GetOrganizationResult implements ResultMessage
     public ?string $legalName = null,
     public ?string $registrationNumber = null,
     public ?string $vatNumber = null,
+    public ?bool $isOwner = null,
+    public ?array $roles = null,
   ) {
   }
   // #endregion

@@ -84,4 +84,11 @@ final class NotificationOperations
    * @since 1.3.0
    */
   public const string GET_INBOX = 'inbox_get';
+
+  /**
+   * Get the authenticated user's unified inbox unread count operation.
+   *
+   * @since 1.4.0
+   */
+  public const string GET_INBOX_UNREAD_COUNT = 'inbox_unread_count';
 }

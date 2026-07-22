@@ -141,37 +141,38 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     return $counts;
   }
 
+  public function findByOrganizationId(
+    InspectionOrganizationId $organizationId,
+    ?string $severity = null,
+    ?string $status = null,
+    ?string $search = null,
+    Sorting $sorting = new Sorting('createdAt', SortDirection::DESC),
+    int $limit = 20,
+    int $offset = 0,
+  ): array {
+    $qb = $this->createOrganizationListQueryBuilder($organizationId, $severity, $status, $search);
+    $qb->orderBy('r.' . $this->resolveSortField($sorting->field), $sorting->direction->value)
+      ->addOrderBy('r.id', 'ASC')
+      ->setFirstResult($offset)
+      ->setMaxResults($limit);
+
+    /** @var list<NonConformityRecord> $records */
+    $records = $qb->getQuery()->getResult();
+
+    return array_map(
+      fn (NonConformityRecord $record): NonConformity => NonConformityMapper::toDomain($this->reinterpretRecordDateTimesFromStorage($record)),
+      $records,
+    );
+  }
+
   public function countByOrganizationId(
     InspectionOrganizationId $organizationId,
     ?string $severity = null,
     ?string $status = null,
     ?string $search = null,
   ): int {
-    $qb = $this->entityManager->createQueryBuilder()
-      ->select('COUNT(r.id)')
-      ->from(NonConformityRecord::class, 'r')
-      ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
-      ->setParameter('organizationId', (string) $organizationId);
-
-    if (null !== $severity) {
-      $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);
-    }
-
-    if (null !== $status) {
-      $qb->andWhere('r.status = :status')->setParameter('status', $status);
-    }
-
-    if (null !== $search && '' !== $search) {
-      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
-      $qb->andWhere($qb->expr()->orX(
-        $qb->expr()->like('r.description', ':search'),
-        $qb->expr()->like('r.severity', ':search'),
-        $qb->expr()->like('r.status', ':search'),
-        $qb->expr()->like('r.notes', ':search'),
-      ))->setParameter('search', '%' . $escaped . '%');
-    }
+    $qb = $this->createOrganizationListQueryBuilder($organizationId, $severity, $status, $search);
+    $qb->select('COUNT(r.id)');
 
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
@@ -525,6 +526,49 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
       ->from(NonConformityRecord::class, 'r')
       ->andWhere('r.inspection = :inspection')
       ->setParameter('inspection', $inspection);
+
+    if (null !== $severity) {
+      $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+    }
+
+    if (null !== $status) {
+      $qb->andWhere('r.status = :status')->setParameter('status', $status);
+    }
+
+    if (null !== $search && '' !== $search) {
+      $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+      $qb->andWhere($qb->expr()->orX(
+        $qb->expr()->like('r.description', ':search'),
+        $qb->expr()->like('r.severity', ':search'),
+        $qb->expr()->like('r.status', ':search'),
+        $qb->expr()->like('r.notes', ':search'),
+      ))->setParameter('search', '%' . $escaped . '%');
+    }
+
+    return $qb;
+  }
+
+  /**
+   * Method createOrganizationListQueryBuilder.
+   *
+   * Shared base for `findByOrganizationId()` and `countByOrganizationId()`,
+   * so the two never drift on which rows they see. Org-scoping comes from
+   * the join to the inspection and organization records, never from
+   * trusting a caller-supplied ID.
+   */
+  private function createOrganizationListQueryBuilder(
+    InspectionOrganizationId $organizationId,
+    ?string $severity,
+    ?string $status,
+    ?string $search,
+  ): QueryBuilder {
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select('r')
+      ->from(NonConformityRecord::class, 'r')
+      ->innerJoin('r.inspection', 'i')
+      ->innerJoin('i.organization', 'o')
+      ->andWhere('o.id = :organizationId')
+      ->setParameter('organizationId', (string) $organizationId);
 
     if (null !== $severity) {
       $qb->andWhere('r.severity = :severity')->setParameter('severity', $severity);

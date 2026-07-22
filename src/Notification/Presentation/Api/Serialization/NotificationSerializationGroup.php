@@ -70,4 +70,11 @@ final class NotificationSerializationGroup
    * @since 1.3.0
    */
   public const string INBOX_READ = 'notification:inbox:read';
+
+  /**
+   * Group for unified inbox unread-count views.
+   *
+   * @since 1.4.0
+   */
+  public const string INBOX_UNREAD_COUNT = 'notification:inbox:unread_count';
 }

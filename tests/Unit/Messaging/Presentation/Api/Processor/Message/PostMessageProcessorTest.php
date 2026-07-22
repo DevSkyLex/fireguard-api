@@ -11,7 +11,7 @@ use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\UseCase\Command\Message\PostMessage\{PostMessageCommand, PostMessageResult};
 use Messaging\Domain\Exception\MessagingValidationException;
-use Messaging\Presentation\Api\Dto\Input\PostMessageInput;
+use Messaging\Presentation\Api\Dto\Input\{MessageReferenceInput, PostMessageInput};
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
 use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
 use Messaging\Presentation\Api\Processor\Message\PostMessageProcessor;
@@ -61,6 +61,34 @@ final class PostMessageProcessorTest extends TestCase
 
     self::assertInstanceOf(MessageOutput::class, $output);
     self::assertSame('Hello team', $output->body);
+  }
+
+  #[Test]
+  public function testProcessMapsReferencesIntoTheCommand(): void
+  {
+    $sanitizer = $this->createStub(HtmlSanitizerInterface::class);
+    $sanitizer->method('sanitize')->willReturnArgument(0);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (PostMessageCommand $command): bool => [
+        ['type' => 'facility', 'id' => 'facility-1', 'label' => 'Site Nord', 'code' => null],
+      ] === $command->references))
+      ->willReturn(new PostMessageResult($this->view('Hello team'), 'author-1'));
+
+    $processor = new PostMessageProcessor($commandBus, $this->outputFactory(), $this->securityWithUser(), $sanitizer);
+
+    $input = new PostMessageInput();
+    $input->body = 'Hello team';
+    $reference = new MessageReferenceInput();
+    $reference->type = 'facility';
+    $reference->id = 'facility-1';
+    $reference->label = 'Site Nord';
+    $input->references = [$reference];
+
+    $processor->process($input, new Post(), ['conversationId' => self::CONVERSATION_ID]);
   }
 
   #[Test]

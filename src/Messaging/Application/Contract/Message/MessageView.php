@@ -42,6 +42,7 @@ final readonly class MessageView
    * @param ?string $pinnedByMemberId the pinning member's identifier, if any
    * @param ?string $parentMessageId the parent message's identifier, when this is a threaded reply (L2.5) — null for a root message
    * @param int $replyCount the number of threaded replies to THIS message (meaningful when this message is itself a root/parent); deliberately NOT redacted when the message is tombstoned, mirroring `pinnedAt`/`isSaved` — the reply messages themselves are separate, still-readable content, unlike reactions/attachments
+   * @param list<array{type: string, id: string, label: ?string, code: ?string}> $references the message's structured references (B3), empty when none — raw shapes, not `MessageReference` value objects, mirroring `mentions`' plain-scalar contract
    */
   public function __construct(
     public string $id,
@@ -59,6 +60,7 @@ final readonly class MessageView
     public ?string $pinnedByMemberId = null,
     public ?string $parentMessageId = null,
     public int $replyCount = 0,
+    public array $references = [],
   ) {
   }
   // #endregion

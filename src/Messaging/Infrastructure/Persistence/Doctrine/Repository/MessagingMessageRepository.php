@@ -6,11 +6,12 @@ namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Messaging\Application\Contract\Link\MessageLinkBackfillCandidate;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
 use Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort;
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Message\Message;
-use Messaging\Domain\ValueObject\MessageId;
+use Messaging\Domain\ValueObject\{MessageId, MessageReference};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationRecord, MessagingMessageRecord, MessagingSavedMessageRecord};
 
 use function array_map;
@@ -63,6 +64,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     if (null !== $message->parentMessageId()) {
       $record->parentMessage = $this->entityManager->getReference(MessagingMessageRecord::class, $message->parentMessageId());
     }
+    $record->references = self::referencesForStorage($message->references());
     $record->createdAt = $message->createdAt();
     $record->updatedAt = $message->updatedAt();
 
@@ -266,10 +268,65 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     $record->deletedByMemberId = $message->deletedByMemberId();
     $record->pinnedAt = $message->pinnedAt();
     $record->pinnedByMemberId = $message->pinnedByMemberId();
+    $record->references = self::referencesForStorage($message->references());
     $record->updatedAt = $message->updatedAt();
     $this->entityManager->flush();
 
     return $this->view($record);
+  }
+
+  public function countByConversationDay(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
+  {
+    // Postgres buckets natively (TO_CHAR/GROUP BY), mirroring
+    // `FacilityRepository::countByCreatedDayForOrganizationIdPostgreSql()`.
+    // SQLite (the hermetic test/dev connection) has no equivalent, so it
+    // falls back to a portable, in-PHP bucketing of a single bounded DQL
+    // fetch (mirrors `listMentionsForMemberPortable()` above) — never a
+    // whole-table load, since it is already scoped to the conversation and
+    // the `[from, to]` window.
+    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
+      return $this->countByConversationDayPostgreSql($conversationId, $from, $to);
+    }
+
+    return $this->countByConversationDayPortable($conversationId, $from, $to);
+  }
+
+  public function listLinkBackfillBatch(?string $afterMessageId, int $limit): array
+  {
+    $limit = max(1, min(500, $limit));
+    $qb = $this->entityManager->createQueryBuilder()
+      ->select(
+        'm.id AS messageId',
+        'IDENTITY(m.conversation) AS conversationId',
+        'm.body AS body',
+        'm.updatedAt AS extractedAt',
+        'm.deletedAt AS deletedAt',
+      )
+      ->from(MessagingMessageRecord::class, 'm')
+      ->orderBy('m.id', 'ASC')
+      ->setMaxResults($limit);
+
+    if (null !== $afterMessageId) {
+      $qb
+        ->where('m.id > :afterMessageId')
+        ->setParameter('afterMessageId', $afterMessageId);
+    }
+
+    /** @var list<array{messageId: string, conversationId: string, body: string, extractedAt: DateTimeImmutable, deletedAt: ?DateTimeImmutable}> $rows */
+    $rows = $qb->getQuery()->getArrayResult();
+
+    return array_map(
+      static function (array $row): MessageLinkBackfillCandidate {
+        return new MessageLinkBackfillCandidate(
+          messageId: $row['messageId'],
+          conversationId: $row['conversationId'],
+          body: $row['body'],
+          extractedAt: $row['extractedAt'],
+          isDeleted: $row['deletedAt'] instanceof DateTimeImmutable,
+        );
+      },
+      $rows,
+    );
   }
 
   /**
@@ -406,6 +463,96 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
   }
 
   /**
+   * Method countByConversationDayPostgreSql.
+   *
+   * A single bounded `GROUP BY` query, scoped to the conversation and the
+   * `[from, to]` window (both pushed down to SQL) — never a per-day query.
+   * `TO_CHAR(created_at, 'YYYY-MM-DD')` buckets in UTC, matching how
+   * `created_at` is stored (`timestamp without time zone`, always UTC in
+   * this codebase — see `MessagingMessageRecord`).
+   *
+   * @since 1.3.0
+   *
+   * @param string $conversationId the owning conversation identifier
+   * @param DateTimeImmutable $from the inclusive period start (UTC)
+   * @param DateTimeImmutable $to the inclusive period end (UTC)
+   *
+   * @return array<string, int> map of `Y-m-d` (UTC) => message count
+   */
+  private function countByConversationDayPostgreSql(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
+  {
+    $sql = <<<'SQL'
+        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS bucket, COUNT(*) AS message_count
+        FROM messaging_messages
+        WHERE conversation_id = :conversationId
+          AND created_at >= :from
+          AND created_at <= :to
+        GROUP BY 1
+        ORDER BY 1 ASC
+      SQL;
+
+    /** @var list<array{bucket: string, message_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, [
+      'conversationId' => $conversationId,
+      'from' => $from,
+      'to' => $to,
+    ], [
+      'from' => 'datetime_immutable',
+      'to' => 'datetime_immutable',
+    ])->fetchAllAssociative();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $counts[(string) $row['bucket']] = (int) $row['message_count'];
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Method countByConversationDayPortable.
+   *
+   * Test/dev-only fallback for platforms without `TO_CHAR`/native day
+   * bucketing (SQLite, the hermetic test connection — mirrors
+   * `listMentionsForMemberPortable()`'s precedent). The `[from, to]` window
+   * and the conversation scope are both still pushed down to DQL; only the
+   * per-day grouping happens in PHP. Never used in production.
+   *
+   * @since 1.3.0
+   *
+   * @param string $conversationId the owning conversation identifier
+   * @param DateTimeImmutable $from the inclusive period start (UTC)
+   * @param DateTimeImmutable $to the inclusive period end (UTC)
+   *
+   * @return array<string, int> map of `Y-m-d` (UTC) => message count
+   */
+  private function countByConversationDayPortable(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
+  {
+    $conversation = $this->entityManager->getReference(MessagingConversationRecord::class, $conversationId);
+
+    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('m.createdAt AS createdAt')
+      ->from(MessagingMessageRecord::class, 'm')
+      ->where('m.conversation = :conversation')
+      ->andWhere('m.createdAt >= :from')
+      ->andWhere('m.createdAt <= :to')
+      ->setParameter('conversation', $conversation)
+      ->setParameter('from', $from)
+      ->setParameter('to', $to)
+      ->getQuery()
+      ->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      $bucket = $row['createdAt']->format('Y-m-d');
+      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+    }
+
+    return $counts;
+  }
+
+  /**
    * Method view.
    *
    * @since 1.0.0
@@ -432,6 +579,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       $record->pinnedByMemberId,
       $this->parentMessageId($record),
       $record->replyCount,
+      $record->references ?? [],
     );
   }
 
@@ -462,7 +610,44 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
       $record->pinnedByMemberId,
       $this->parentMessageId($record),
       $record->replyCount,
+      self::referencesFromStorage($record->references),
     );
+  }
+
+  /**
+   * Method referencesFromStorage.
+   *
+   * @static
+   *
+   * @since 1.3.0
+   *
+   * @param ?list<array{type: string, id: string, label: ?string, code: ?string}> $stored the persisted references column value
+   *
+   * @return list<MessageReference> the hydrated references
+   */
+  private static function referencesFromStorage(?array $stored): array
+  {
+    if (null === $stored) {
+      return [];
+    }
+
+    return array_map(static fn (array $reference): MessageReference => MessageReference::fromArray($reference), $stored);
+  }
+
+  /**
+   * Method referencesForStorage.
+   *
+   * @static
+   *
+   * @since 1.3.0
+   *
+   * @param list<MessageReference> $references the message's references
+   *
+   * @return ?list<array{type: string, id: string, label: ?string, code: ?string}> the value to persist in the `references` column — `null` when empty
+   */
+  private static function referencesForStorage(array $references): ?array
+  {
+    return [] === $references ? null : array_map(static fn (MessageReference $reference): array => $reference->toArray(), $references);
   }
 
   /**

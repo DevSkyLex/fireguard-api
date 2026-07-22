@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Channel\ParticipantView;
@@ -131,6 +132,22 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     );
 
     return $ids;
+  }
+
+  public function findCounterpartMemberIds(array $conversationIds, string $excludingMemberId): array
+  {
+    if ([] === $conversationIds) {
+      return [];
+    }
+
+    /** @var array<string, string> $map */
+    $map = $this->entityManager->getConnection()->fetchAllKeyValue(
+      'SELECT conversation_id, member_id FROM messaging_participants WHERE conversation_id IN (:conversationIds) AND member_id != :excludingMemberId',
+      ['conversationIds' => $conversationIds, 'excludingMemberId' => $excludingMemberId],
+      ['conversationIds' => ArrayParameterType::STRING],
+    );
+
+    return $map;
   }
 
   public function replaceParticipants(string $conversationId, string $organizationId, array $memberIds): void

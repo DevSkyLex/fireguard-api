@@ -209,6 +209,9 @@ services:
   Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\ListNonConformitiesHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNonConformities\ListOrganizationNonConformitiesHandler:
+    tags: ['messenger.message_handler']
+
   Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityHandler:
     tags: ['messenger.message_handler']
 

@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Messaging\Domain\Exception\MessagingValidationException;
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\MentionExtractor;
-use Messaging\Domain\ValueObject\MessageId;
+use Messaging\Domain\ValueObject\{MessageId, MessageReference};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -274,5 +274,96 @@ final class MessageTest extends TestCase
     self::assertTrue($message->isReply());
     self::assertSame($parentId, $message->parentMessageId());
     self::assertSame(3, $message->replyCount());
+  }
+
+  #[Test]
+  public function testCreateWithoutReferencesIsEmpty(): void
+  {
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello team', new MentionExtractor());
+
+    self::assertSame([], $message->references());
+  }
+
+  #[Test]
+  public function testCreateCarriesTheGivenReferences(): void
+  {
+    $reference = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
+
+    $message = Message::create(
+      MessageId::fromString(self::MESSAGE_ID),
+      'conversation-1',
+      'org-1',
+      'author-1',
+      'Hello team',
+      new MentionExtractor(),
+      references: [$reference],
+    );
+
+    self::assertSame([$reference], $message->references());
+  }
+
+  #[Test]
+  public function testEditWithNullReferencesLeavesThemUntouched(): void
+  {
+    $reference = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
+    $extractor = new MentionExtractor();
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, references: [$reference]);
+
+    $message->edit('Updated body', $extractor, null);
+
+    self::assertSame([$reference], $message->references());
+  }
+
+  #[Test]
+  public function testEditWithAnEmptyReferenceListClearsThem(): void
+  {
+    $reference = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
+    $extractor = new MentionExtractor();
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, references: [$reference]);
+
+    $message->edit('Updated body', $extractor, []);
+
+    self::assertSame([], $message->references());
+  }
+
+  #[Test]
+  public function testEditReplacesReferencesWholesale(): void
+  {
+    $original = MessageReference::fromArray(['type' => 'facility', 'id' => 'facility-1']);
+    $replacement = MessageReference::fromArray(['type' => 'equipment', 'id' => 'equipment-1']);
+    $extractor = new MentionExtractor();
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', $extractor, references: [$original]);
+
+    $message->edit('Updated body', $extractor, [$replacement]);
+
+    self::assertSame([$replacement], $message->references());
+  }
+
+  #[Test]
+  public function testReconstituteCarriesTheReferences(): void
+  {
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $reference = MessageReference::fromArray(['type' => 'non_conformity', 'id' => 'nc-1', 'label' => 'Overdue extinguisher']);
+
+    $message = Message::reconstitute(
+      MessageId::fromString(self::MESSAGE_ID),
+      'conversation-1',
+      'org-1',
+      'author-1',
+      'Persisted body',
+      [],
+      null,
+      null,
+      null,
+      $now,
+      $now,
+      null,
+      null,
+      null,
+      0,
+      [$reference],
+    );
+
+    self::assertSame([$reference], $message->references());
   }
 }

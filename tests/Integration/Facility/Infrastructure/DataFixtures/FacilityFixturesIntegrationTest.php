@@ -47,7 +47,7 @@ final class FacilityFixturesIntegrationTest extends KernelTestCase
     $executor = new ORMExecutor($this->entityManager);
     $executor->execute($loader->getFixtures(), true);
 
-    self::assertSame(8, $this->entityManager->getRepository(FacilityRecord::class)->count([]));
+    self::assertSame(12, $this->entityManager->getRepository(FacilityRecord::class)->count([]));
     self::assertTrue($facilityFixtures->hasReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class));
     self::assertTrue($facilityFixtures->hasReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class));
 

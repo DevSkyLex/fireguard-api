@@ -164,6 +164,22 @@ final class MessageOutput
   public int $replyCount = 0;
 
   /**
+   * Property references.
+   *
+   * Structured `{type, id, label, code}` rich-card references attached to
+   * this message (B3), at most `MessageReference::MAX_REFERENCES` entries.
+   * Redacted to `[]` when the message is deleted — a reference is part of
+   * the message's own content, mirroring `attachments`/`reactions`, unlike
+   * `pinnedAt`/`isSaved`/`replyCount` (metadata ABOUT the message, not
+   * content the author wrote).
+   *
+   * @since 1.3.0
+   *
+   * @var list<array{type: string, id: string, label: ?string, code: ?string}>
+   */
+  public array $references = [];
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

@@ -302,6 +302,93 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
     self::assertStringEndsWith('…', $snippet);
   }
 
+  #[Test]
+  public function testCountUnreadReturnsZeroWhenNoOrganizationIsProvided(): void
+  {
+    /** @var MessagingMessageRepositoryPort&MockObject $messages */
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::never())->method('listMentionsForMember');
+
+    $adapter = $this->buildAdapter(messages: $messages);
+
+    self::assertSame(0, $adapter->countUnread('user-1', null));
+  }
+
+  #[Test]
+  public function testCountUnreadReturnsZeroWhenTheUserLacksTheMessagingReadPermission(): void
+  {
+    /** @var MessagingMessageRepositoryPort&MockObject $messages */
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::never())->method('listMentionsForMember');
+
+    $adapter = $this->buildAdapter(messages: $messages, accessPolicy: $this->accessPolicy(read: false));
+
+    self::assertSame(0, $adapter->countUnread('user-1', 'org-1'));
+  }
+
+  #[Test]
+  public function testCountUnreadReturnsZeroWhenTheUserIsNotAnActiveMember(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(null);
+
+    /** @var MessagingMessageRepositoryPort&MockObject $messages */
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::never())->method('listMentionsForMember');
+
+    $adapter = $this->buildAdapter(messages: $messages, members: $members);
+
+    self::assertSame(0, $adapter->countUnread('user-1', 'org-1'));
+  }
+
+  #[Test]
+  public function testCountUnreadCountsOnlyTheAccessibleUnreadMentions(): void
+  {
+    $createdAt = new DateTimeImmutable('2026-07-18T09:00:00+00:00');
+    $unreadAccessible = $this->message(id: 'message-1', conversationId: 'conversation-1', createdAt: $createdAt);
+    $readAccessible = $this->message(id: 'message-2', conversationId: 'conversation-1', createdAt: $createdAt);
+    $unreadInaccessible = $this->message(id: 'message-3', conversationId: 'conversation-2', createdAt: $createdAt);
+
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('listMentionsForMember')->willReturn([$unreadAccessible, $readAccessible, $unreadInaccessible]);
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findSubjectTypesByIds')->willReturn([
+      'conversation-1' => 'facility',
+      // conversation-2 has no resolvable subject type: excluded, fail closed.
+    ]);
+
+    $readMarkers = $this->createStub(MessagingReadMarkerRepositoryPort::class);
+    $readMarkers->method('lastReadAtByConversations')->willReturn([]);
+
+    $adapter = $this->buildAdapter(
+      messages: $messages,
+      conversations: $conversations,
+      readMarkers: $readMarkers,
+      accessPolicy: $this->accessPolicy(subjectPermissions: ['organization.facilities.read' => true]),
+    );
+
+    // Only message-1 and message-2 are accessible (conversation-1); both are
+    // unread (no read marker at all), so the count is 2 — message-3 is
+    // excluded by access, not by read status.
+    self::assertSame(2, $adapter->countUnread('user-1', 'org-1'));
+  }
+
+  #[Test]
+  public function testCountUnreadForwardsTheScanLimitToTheRepository(): void
+  {
+    /** @var MessagingMessageRepositoryPort&MockObject $messages */
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->expects(self::once())
+      ->method('listMentionsForMember')
+      ->with('org-1', 'member-1', null, 200)
+      ->willReturn([]);
+
+    $adapter = $this->buildAdapter(messages: $messages, memberId: 'member-1');
+
+    $adapter->countUnread('user-1', 'org-1');
+  }
+
   private function message(
     string $id = 'message-1',
     string $conversationId = 'conversation-1',

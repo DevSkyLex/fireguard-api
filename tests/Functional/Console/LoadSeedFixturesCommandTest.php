@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Tests\Functional\Console;
 
 use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
+use Calendar\Infrastructure\DataFixtures\CalendarFixtures;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
+use Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures;
+use Messaging\Infrastructure\DataFixtures\MessagingFixtures;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
 use Organization\Infrastructure\DataFixtures\{OrganizationFixtures, PlanFixtures};
@@ -64,9 +67,12 @@ final class LoadSeedFixturesCommandTest extends KernelTestCase
     ], $authFixtureTypes, 'Auth seed fixtures should come from the auth tag set.');
 
     self::assertSame([
+      CalendarFixtures::class,
       EquipmentFixtures::class,
       FacilityFixtures::class,
       InspectionFixtures::class,
+      MaintenanceFixtures::class,
+      MessagingFixtures::class,
       OnboardingFixtures::class,
       OrganizationFixtures::class,
       PlanFixtures::class,

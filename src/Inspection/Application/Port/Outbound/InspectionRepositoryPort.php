@@ -148,6 +148,24 @@ interface InspectionRepositoryPort
   ): int;
 
   /**
+   * Method findEquipmentIdsByIds.
+   *
+   * Resolves the equipment identifier of each given inspection, in one round
+   * trip. Backs read-side listings that need to name what an inspection
+   * belonging to a non-conformity was performed on, without hydrating the
+   * full inspection aggregate row by row.
+   *
+   * Identifiers that cannot be resolved are absent from the result.
+   *
+   * @since 1.0.0
+   *
+   * @param list<string> $inspectionIds the inspection identifiers to resolve
+   *
+   * @return array<string, string> equipment identifier keyed by inspection identifier
+   */
+  public function findEquipmentIdsByIds(array $inspectionIds): array;
+
+  /**
    * Counts dashboard overview metrics for inspections in one query.
    *
    * @return array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int}

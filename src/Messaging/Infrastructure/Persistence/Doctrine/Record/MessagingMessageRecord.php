@@ -162,6 +162,21 @@ class MessagingMessageRecord
   public int $replyCount = 0;
 
   /**
+   * Property references.
+   *
+   * Structured `{type, id, label?, code?}` rich-card references (B3),
+   * nullable — `null` when the message carries none (rather than an empty
+   * array), so a message never gained references keeps a `NULL` column,
+   * matching the migration's "nullable, entirely optional" intent.
+   *
+   * @since 1.3.0
+   *
+   * @var ?list<array{type: string, id: string, label: ?string, code: ?string}>
+   */
+  #[ORM\Column(name: '`references`', type: 'json', nullable: true)]
+  public ?array $references = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0

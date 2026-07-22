@@ -145,6 +145,11 @@ final class MessageOutputFactory
     // themselves are separate, still-readable messages, unlike the reactions/
     // attachments hidden above — see the class docblock.
     $output->replyCount = $view->replyCount;
+    // Redacted on delete (B3): a reference is part of the message's own
+    // authored content, mirroring attachments/reactions/mentions/body —
+    // unlike replyCount/pinnedAt/isSaved, which are metadata ABOUT the
+    // message rather than content the author wrote.
+    $output->references = $isDeleted ? [] : $view->references;
     $output->createdAt = $view->createdAt->format('c');
     $output->updatedAt = $view->updatedAt->format('c');
 

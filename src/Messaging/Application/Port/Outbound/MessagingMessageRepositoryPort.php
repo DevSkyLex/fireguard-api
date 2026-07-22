@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Messaging\Application\Port\Outbound;
 
 use DateTimeImmutable;
+use Messaging\Application\Contract\Link\MessageLinkBackfillCandidate;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
 use Messaging\Domain\Model\Message\Message;
 
@@ -191,5 +192,41 @@ interface MessagingMessageRepositoryPort
    * @return MessageView the persisted message view
    */
   public function save(Message $message): MessageView;
+
+  /**
+   * Returns a deterministic, exclusive-id-cursor batch of the minimal fields
+   * required to rebuild `messaging_message_link`. Tombstoned rows remain in
+   * the batch so the handler can clear any previously extracted links.
+   *
+   * @param ?string $afterMessageId exclusive message-id cursor
+   * @param int $limit maximum batch size
+   *
+   * @return list<MessageLinkBackfillCandidate> the ordered candidates
+   */
+  public function listLinkBackfillBatch(?string $afterMessageId, int $limit): array;
+
+  /**
+   * Method countByConversationDay.
+   *
+   * Aggregates `COUNT(*)` over every message in the conversation (root
+   * messages AND threaded replies alike — mirrors
+   * `messaging_conversations.messages_count`'s "counts everything" semantics,
+   * see `MODULE.md`'s "Threaded replies" section), grouped by the UTC
+   * calendar day of `created_at` — the conversation activity heatmap
+   * (`GET /conversations/{id}/activity`). Deleted (tombstoned) messages are
+   * still counted: a tombstone retains the row (compliance), it does not
+   * remove it. Only the two period bounds are pushed down as a `[from, to]`
+   * window; zero-filling empty buckets and clamping the requested bucket
+   * count are the caller's (Application layer's) responsibility.
+   *
+   * @since 1.3.0
+   *
+   * @param string $conversationId the owning conversation identifier
+   * @param DateTimeImmutable $from the inclusive period start (UTC)
+   * @param DateTimeImmutable $to the inclusive period end (UTC)
+   *
+   * @return array<string, int> map of `Y-m-d` (UTC) => message count
+   */
+  public function countByConversationDay(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array;
   // #endregion
 }

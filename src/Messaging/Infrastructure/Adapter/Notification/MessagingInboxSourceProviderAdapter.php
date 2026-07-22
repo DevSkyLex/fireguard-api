@@ -81,6 +81,32 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
   private const int SNIPPET_MAX_LENGTH = 160;
 
   /**
+   * Constant UNREAD_COUNT_SCAN_LIMIT.
+   *
+   * {@see countUnread()} caveat: unlike
+   * `NotificationInboxSourceProviderAdapter::countUnread()` (a single SQL
+   * `COUNT` against a recipient-scoped column), a mention's readability
+   * additionally depends on per-row, permission-based conversation access
+   * ({@see resolveAccessibleConversationIds()}) — the same reason
+   * {@see fetch()} cannot push its filtering into SQL either. Replicating
+   * that access check as a SQL predicate would mean re-deriving RBAC rules
+   * in the query layer, which this codebase deliberately never does
+   * (permissions are always evaluated in PHP, never as SQL conditions).
+   * `countUnread()` therefore reuses the same bounded, access-filtered
+   * `fetchMentions()` path capped at this scan window and counts the unread
+   * ones within it — an exact count up to the cap, a lower bound beyond it.
+   * This is a deliberate, documented trade-off for a badge counter (most UIs
+   * cap an unread badge display at "99+" anyway); a follow-up lot could add
+   * a dedicated aggregate repository query if exactness beyond the cap ever
+   * becomes a real product requirement.
+   *
+   * @since 1.1.0
+   *
+   * @var int
+   */
+  private const int UNREAD_COUNT_SCAN_LIMIT = 200;
+
+  /**
    * Subject type -> required read permission, mirroring the table
    * documented in `Messaging\MODULE.md` ("The `messaging.subject_resolver`
    * tagged-iterator seam"). Deliberately duplicated here instead of calling
@@ -156,6 +182,35 @@ final readonly class MessagingInboxSourceProviderAdapter implements InboxSourceP
     }
 
     return $this->fetchMentions($userId, $organizationId, $memberId, $before, $limit);
+  }
+
+  public function countUnread(string $userId, ?string $organizationId): int
+  {
+    // Same organization-scoping rationale as fetch(): mention identity is
+    // per-organization, so there is nothing to count without one.
+    if (null === $organizationId) {
+      return 0;
+    }
+
+    if (!$this->accessPolicy->hasReadPermission($userId, $organizationId)) {
+      return 0;
+    }
+
+    $memberId = $this->members->resolveActiveMemberId($organizationId, $userId);
+    if (null === $memberId) {
+      return 0;
+    }
+
+    $items = $this->fetchMentions($userId, $organizationId, $memberId, null, self::UNREAD_COUNT_SCAN_LIMIT);
+
+    $unreadCount = 0;
+    foreach ($items as $item) {
+      if (!$item->isRead) {
+        ++$unreadCount;
+      }
+    }
+
+    return $unreadCount;
   }
 
   /**

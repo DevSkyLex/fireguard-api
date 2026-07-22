@@ -162,4 +162,20 @@ final class ConversationOutput
    * @since 1.3.0
    */
   public ?string $parentConversationId = null;
+
+  /**
+   * Property counterpartMember.
+   *
+   * For a direct (1-to-1) conversation (`subjectType=direct`), the OTHER
+   * participant's organization-member IRI. A DM's `name` is always null, so
+   * the client needs this to label the sidebar row. Populated ONLY by
+   * `GET /api/direct-conversations` (`ListDirectConversationsHandler`
+   * resolves it from `messaging_participants`; the opaque `subjectId` pair
+   * key is never decoded back into the two member ids — see
+   * `Domain\Service\DirectConversationKey`). Null for every other
+   * endpoint/conversation kind.
+   *
+   * @since 1.4.0
+   */
+  public ?string $counterpartMember = null;
 }

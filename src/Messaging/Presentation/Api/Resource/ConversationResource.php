@@ -7,10 +7,10 @@ namespace Messaging\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter};
 use Messaging\Presentation\Api\Dto\Input\{ArchiveConversationInput, GetOrCreateConversationInput, MarkConversationReadInput};
-use Messaging\Presentation\Api\Dto\Output\{ConversationOutput, MessagingSubscriptionOutput};
+use Messaging\Presentation\Api\Dto\Output\{ConversationActivityBucketOutput, ConversationOutput, MessagingSubscriptionOutput};
 use Messaging\Presentation\Api\Processor\Conversation\{ArchiveConversationProcessor, FavoriteConversationProcessor, GetOrCreateConversationProcessor, UnfavoriteConversationProcessor};
 use Messaging\Presentation\Api\Processor\ReadMarker\MarkConversationReadProcessor;
-use Messaging\Presentation\Api\Provider\Conversation\{GetConversationProvider, ListConversationsProvider};
+use Messaging\Presentation\Api\Provider\Conversation\{GetConversationActivityProvider, GetConversationProvider, ListConversationsProvider};
 use Messaging\Presentation\Api\Provider\Subscription\GetMessagingSubscriptionProvider;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -104,6 +104,21 @@ use Symfony\Component\HttpFoundation\Response;
       processor: UnfavoriteConversationProcessor::class,
       status: Response::HTTP_NO_CONTENT,
       security: "is_granted('ROLE_USER')",
+    ),
+    // Conversation activity heatmap: 26 (default) zero-filled daily buckets
+    // ending today (UTC), gated by the same read access rule as
+    // `ListMessages`/`ListPinnedMessages`. Not paginated — always a small,
+    // bounded, fixed-size list.
+    new GetCollection(
+      name: 'messaging_conversation_activity',
+      uriTemplate: '/conversations/{conversationId}/activity',
+      output: ConversationActivityBucketOutput::class,
+      provider: GetConversationActivityProvider::class,
+      paginationEnabled: false,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(parameters: [
+        new Parameter(name: 'buckets', in: 'query', description: 'Number of trailing daily buckets to return, ending today (UTC). Defaults to 26, capped at 366.', required: false, schema: ['type' => 'integer']),
+      ]),
     ),
   ],
 )]

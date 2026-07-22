@@ -79,6 +79,14 @@ final readonly class NotificationInboxSourceProviderAdapter implements InboxSour
     return array_map($this->toInboxItem(...), $notifications);
   }
 
+  public function countUnread(string $userId, ?string $organizationId): int
+  {
+    return $this->notificationRepository->countUnreadByUserId(
+      userId: $userId,
+      organizationId: $organizationId,
+    );
+  }
+
   /**
    * Method toInboxItem.
    *

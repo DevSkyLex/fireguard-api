@@ -12,7 +12,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
 use Organization\Domain\ValueObject\OrganizationSettings;
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput, OrganizationSettingsOutput};
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\SearchExtractor;
@@ -116,6 +116,15 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $output->planId = $organization->planId;
       $output->planName = $organization->planName;
       $output->settings = OrganizationSettingsOutput::fromDomain($organization->settings ?? OrganizationSettings::default());
+      $output->isOwner = $organization->isOwner ?? false;
+      $roles = [];
+      foreach ($organization->roles ?? [] as $role) {
+        $roleOutput = new OrganizationMembershipRoleOutput();
+        $roleOutput->id = $role->id;
+        $roleOutput->label = $role->label;
+        $roles[] = $roleOutput;
+      }
+      $output->roles = $roles;
       $output->country = $organization->country;
       $output->legalType = $organization->legalType;
       $output->legalName = $organization->legalName;

@@ -6,6 +6,9 @@ services:
   Messaging\Presentation\:
     resource: '../../src/Messaging/Presentation'
 
+  Messaging\Infrastructure\Console\BackfillMessageLinksCommand: ~
+
+
   Messaging\Application\Service\:
     resource: '../../src/Messaging/Application/Service'
 
@@ -58,6 +61,10 @@ services:
   Messaging\Application\Port\Outbound\MessagingConversationFavoriteRepositoryPort:
     alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationFavoriteRepository
 
+  # B2: conversation links (URLs extracted from message bodies)
+  Messaging\Application\Port\Outbound\MessagingLinkRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingLinkRepository
+
   Messaging\Application\Port\Outbound\MessagingRealtimePublisherPort:
     alias: Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter
 
@@ -103,6 +110,10 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingLinkRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Realtime adapter
   Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter:
     arguments:
@@ -136,6 +147,9 @@ services:
     tags: ['messenger.message_handler']
 
   Messaging\Application\UseCase\Command\Message\EditMessage\EditMessageHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\BackfillMessageLinks\BackfillMessageLinksHandler:
     tags: ['messenger.message_handler']
 
   Messaging\Application\UseCase\Command\Message\DeleteMessage\DeleteMessageHandler:
@@ -204,6 +218,10 @@ services:
   Messaging\Application\UseCase\Query\Conversation\ListConversations\ListConversationsHandler:
     tags: ['messenger.message_handler']
 
+  # L2.4 follow-up: list the acting member's direct conversations (sidebar)
+  Messaging\Application\UseCase\Query\Conversation\ListDirectConversations\ListDirectConversationsHandler:
+    tags: ['messenger.message_handler']
+
   Messaging\Application\UseCase\Query\Conversation\GetConversation\GetConversationHandler:
     tags: ['messenger.message_handler']
 
@@ -227,6 +245,14 @@ services:
     tags: ['messenger.message_handler']
 
   Messaging\Application\UseCase\Query\Message\ListPinnedMessages\ListPinnedMessagesHandler:
+    tags: ['messenger.message_handler']
+
+  # Conversation activity heatmap
+  Messaging\Application\UseCase\Query\Message\GetConversationActivity\GetConversationActivityHandler:
+    tags: ['messenger.message_handler']
+
+  # B2: conversation links
+  Messaging\Application\UseCase\Query\Link\ListConversationLinks\ListConversationLinksHandler:
     tags: ['messenger.message_handler']
 
   # L2.5: threaded replies

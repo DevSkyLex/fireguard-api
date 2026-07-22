@@ -82,3 +82,6 @@ services:
 
   Notification\Application\UseCase\Query\Inbox\ListInboxItems\ListInboxItemsHandler:
     tags: ['messenger.message_handler']
+
+  Notification\Application\UseCase\Query\Inbox\GetInboxUnreadCount\GetInboxUnreadCountHandler:
+    tags: ['messenger.message_handler']

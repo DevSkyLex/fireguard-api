@@ -49,10 +49,12 @@ final class ConversationOutputFactory
    * @param ?string $subjectLabel the resolved subject display label, if any
    * @param int $unreadCount the acting member's unread count, if resolved
    * @param bool $isFavorite whether the CURRENT member favorited this conversation (L1.5)
+   * @param ?string $counterpartMemberId the OTHER participant's member id, for a direct
+   *                                     conversation row (`GET /api/direct-conversations` only)
    *
    * @return ConversationOutput the conversation output
    */
-  public function fromView(ConversationView $view, ?string $subjectLabel = null, int $unreadCount = 0, bool $isFavorite = false): ConversationOutput
+  public function fromView(ConversationView $view, ?string $subjectLabel = null, int $unreadCount = 0, bool $isFavorite = false, ?string $counterpartMemberId = null): ConversationOutput
   {
     $output = new ConversationOutput();
     $output->id = $view->id;
@@ -74,6 +76,7 @@ final class ConversationOutputFactory
     $output->team = null === $view->teamId ? null : '/api/organizations/' . $view->organizationId . '/teams/' . $view->teamId;
     $output->isFavorite = $isFavorite;
     $output->parentConversationId = $view->parentConversationId;
+    $output->counterpartMember = null === $counterpartMemberId ? null : '/api/organizations/' . $view->organizationId . '/members/' . $counterpartMemberId;
 
     return $output;
   }

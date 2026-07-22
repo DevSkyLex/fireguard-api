@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Messaging\Application\UseCase\Command\Message\PostMessage\{PostMessageCommand, PostMessageResult};
-use Messaging\Presentation\Api\Dto\Input\PostMessageInput;
+use Messaging\Presentation\Api\Dto\Input\{MessageReferenceInput, PostMessageInput};
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
 use Messaging\Presentation\Api\Factory\MessageOutputFactory;
 use Messaging\Presentation\Api\Trait\MessagingExceptionMapperTrait;
@@ -18,6 +18,7 @@ use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 use Throwable;
 
+use function array_map;
 use function is_string;
 use function strip_tags;
 use function trim;
@@ -29,7 +30,7 @@ use function trim;
  *
  * @category Processor
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -92,12 +93,29 @@ final readonly class PostMessageProcessor implements ProcessorInterface
         userId: $user->getId(),
         conversationId: $conversationId,
         body: $body,
+        references: array_map(self::referenceToArray(...), $data->references),
       ));
     } catch (Throwable $exception) {
       throw $this->mapMessagingException($exception);
     }
 
     return $this->mapper->fromView($result->message, $result->currentMemberId);
+  }
+
+  /**
+   * Method referenceToArray.
+   *
+   * @static
+   *
+   * @since 1.1.0
+   *
+   * @param MessageReferenceInput $reference the reference input value
+   *
+   * @return array{type: string, id: string, label: ?string, code: ?string} the raw reference shape
+   */
+  private static function referenceToArray(MessageReferenceInput $reference): array
+  {
+    return ['type' => $reference->type, 'id' => $reference->id, 'label' => $reference->label, 'code' => $reference->code];
   }
 
   /**
