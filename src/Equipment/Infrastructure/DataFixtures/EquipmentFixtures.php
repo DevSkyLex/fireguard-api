@@ -14,6 +14,7 @@ use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
 use function intdiv;
 use function sprintf;
@@ -158,7 +159,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     $criticalTag->id = '33333333-3333-4333-8333-333333333331';
     $criticalTag->organization = $organization;
     $criticalTag->name = 'critical-safety';
-    $criticalTag->createdAt = new DateTimeImmutable('2026-03-01T09:00:00+00:00');
+    $criticalTag->createdAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
     $manager->persist($criticalTag);
     $this->addReference(self::CRITICAL_TAG_REFERENCE, $criticalTag);
 
@@ -166,7 +167,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     $inspectedTag->id = '33333333-3333-4333-8333-333333333332';
     $inspectedTag->organization = $organization;
     $inspectedTag->name = 'annually-inspected';
-    $inspectedTag->createdAt = new DateTimeImmutable('2026-03-01T09:01:00+00:00');
+    $inspectedTag->createdAt = SeedTimeline::at('2026-03-01T09:01:00+00:00');
     $manager->persist($inspectedTag);
     $this->addReference(self::INSPECTED_TAG_REFERENCE, $inspectedTag);
 
@@ -176,7 +177,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $zone->id,
       type: EquipmentType::FIRE_EXTINGUISHER->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-06T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-06T08:00:00+00:00'),
       brand: 'Sicli',
       model: 'Pro 6',
       serialNumber: 'SEED-EXT-001',
@@ -191,7 +192,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $area->id,
       type: EquipmentType::SMOKE_DETECTOR->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-15T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-15T08:00:00+00:00'),
       brand: 'Honeywell',
       model: 'SD-42',
       serialNumber: 'SEED-SMK-001',
@@ -206,7 +207,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: null,
       type: EquipmentType::HYDRANT->value,
       status: EquipmentStatus::IN_STOCK->value,
-      createdAt: new DateTimeImmutable('2026-03-28T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-28T08:00:00+00:00'),
       brand: 'Desautel',
       model: 'H-120',
       serialNumber: 'SEED-HYD-001',
@@ -238,15 +239,15 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
     $attachment->mimeType = 'application/pdf';
     $attachment->size = 245760;
     $attachment->label = 'Manufacturer specification';
-    $attachment->uploadedAt = new DateTimeImmutable('2026-03-06T10:00:00+00:00');
+    $attachment->uploadedAt = SeedTimeline::at('2026-03-06T10:00:00+00:00');
     $manager->persist($attachment);
 
     $maintenanceLog = new EquipmentMaintenanceLogRecord();
     $maintenanceLog->id = '33333333-3333-4333-8333-333333333337';
     $maintenanceLog->equipment = $extinguisher;
     $maintenanceLog->organizationId = OrganizationFixtures::ORGANIZATION_ID;
-    $maintenanceLog->startedAt = new DateTimeImmutable('2026-03-15T08:00:00+00:00');
-    $maintenanceLog->completedAt = new DateTimeImmutable('2026-03-15T12:00:00+00:00');
+    $maintenanceLog->startedAt = SeedTimeline::at('2026-03-15T08:00:00+00:00');
+    $maintenanceLog->completedAt = SeedTimeline::at('2026-03-15T12:00:00+00:00');
     $manager->persist($maintenanceLog);
 
     $sprinkler = $this->createEquipment(
@@ -255,7 +256,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $zoneB->id,
       type: EquipmentType::SPRINKLER->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-30T09:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-30T09:00:00+00:00'),
       brand: 'Viking',
       model: 'VK301',
       serialNumber: 'SEED-SPR-001',
@@ -270,7 +271,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $zoneB->id,
       type: EquipmentType::FIRE_ALARM_PANEL->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-30T09:10:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-30T09:10:00+00:00'),
       brand: 'Notifier',
       model: 'NFS2-3030',
       serialNumber: 'SEED-ALP-001',
@@ -285,7 +286,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $storageRoom->id,
       type: EquipmentType::HEAT_DETECTOR->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-30T09:20:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-30T09:20:00+00:00'),
       brand: 'System Sensor',
       model: '5601P',
       serialNumber: 'SEED-HTD-001',
@@ -300,7 +301,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $site->id,
       type: EquipmentType::EMERGENCY_LIGHTING->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-31T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-31T08:00:00+00:00'),
       brand: 'Legrand',
       model: 'BAES Eco 45',
       serialNumber: 'SEED-EML-001',
@@ -315,7 +316,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $building->id,
       type: EquipmentType::FIRE_DOOR->value,
       status: EquipmentStatus::UNDER_MAINTENANCE->value,
-      createdAt: new DateTimeImmutable('2026-03-31T08:10:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-31T08:10:00+00:00'),
       brand: 'Assa Abloy',
       model: 'EI60',
       serialNumber: 'SEED-FDR-001',
@@ -330,7 +331,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $floorOne->id,
       type: EquipmentType::CAMERA->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-31T08:20:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-31T08:20:00+00:00'),
       brand: 'Axis',
       model: 'M3085-V',
       serialNumber: 'SEED-CAM-001',
@@ -345,7 +346,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
       facilityId: $floorTwo->id,
       type: EquipmentType::GAS_DETECTOR->value,
       status: EquipmentStatus::OPERATIONAL->value,
-      createdAt: new DateTimeImmutable('2026-03-31T08:30:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-31T08:30:00+00:00'),
       brand: 'Drager',
       model: 'Polytron 7000',
       serialNumber: 'SEED-GAS-001',
@@ -373,7 +374,7 @@ final class EquipmentFixtures extends Fixture implements DependentFixtureInterfa
 
     foreach (self::ADDITIONAL_EQUIPMENT_SEEDS as $index => $seed) {
       $facility = $facilitiesByReference[$seed['facilityReference']];
-      $createdAt = new DateTimeImmutable(sprintf('2026-04-%02dT08:%02d:00+00:00', 5 + intdiv($index, 4), ($index % 4) * 10));
+      $createdAt = SeedTimeline::at(sprintf('2026-04-%02dT08:%02d:00+00:00', 5 + intdiv($index, 4), ($index % 4) * 10));
       $equipment = $this->createEquipment(
         id: $seed['id'],
         organization: $organization,

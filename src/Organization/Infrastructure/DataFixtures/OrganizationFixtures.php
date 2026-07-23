@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\DataFixtures;
 
-use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Persistence\ObjectManager;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationInvitationRoleRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
 use function hash;
 
@@ -42,9 +42,9 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
 
   public function load(ObjectManager $manager): void
   {
-    $organizationCreatedAt = new DateTimeImmutable('2026-02-01T09:00:00+00:00');
-    $roleCreatedAt = new DateTimeImmutable('2026-02-01T09:15:00+00:00');
-    $memberJoinedAt = new DateTimeImmutable('2026-02-01T10:00:00+00:00');
+    $organizationCreatedAt = SeedTimeline::at('2026-02-01T09:00:00+00:00');
+    $roleCreatedAt = SeedTimeline::at('2026-02-01T09:15:00+00:00');
+    $memberJoinedAt = SeedTimeline::at('2026-02-01T10:00:00+00:00');
 
     $organization = new OrganizationRecord();
     $organization->id = self::ORGANIZATION_ID;
@@ -94,7 +94,7 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     ];
     $inspectorRole->description = 'Seeded restricted inspector role';
     $inspectorRole->isSystem = false;
-    $inspectorRole->createdAt = new DateTimeImmutable('2026-02-01T09:30:00+00:00');
+    $inspectorRole->createdAt = SeedTimeline::at('2026-02-01T09:30:00+00:00');
     $manager->persist($inspectorRole);
     $this->addReference(self::INSPECTOR_ROLE_REFERENCE, $inspectorRole);
 
@@ -118,14 +118,14 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $inspectorMember->organization = $organization;
     $inspectorMember->userId = self::INSPECTOR_USER_ID;
     $inspectorMember->isActive = true;
-    $inspectorMember->joinedAt = new DateTimeImmutable('2026-02-02T10:00:00+00:00');
+    $inspectorMember->joinedAt = SeedTimeline::at('2026-02-02T10:00:00+00:00');
     $manager->persist($inspectorMember);
     $this->addReference(self::INSPECTOR_MEMBER_REFERENCE, $inspectorMember);
 
     $inspectorAssignment = new OrganizationMemberRoleRecord();
     $inspectorAssignment->member = $inspectorMember;
     $inspectorAssignment->role = $inspectorRole;
-    $inspectorAssignment->assignedAt = new DateTimeImmutable('2026-02-02T10:05:00+00:00');
+    $inspectorAssignment->assignedAt = SeedTimeline::at('2026-02-02T10:05:00+00:00');
     $manager->persist($inspectorAssignment);
 
     $invitation = new OrganizationInvitationRecord();
@@ -135,16 +135,16 @@ final class OrganizationFixtures extends Fixture implements FixtureGroupInterfac
     $invitation->tokenHash = hash('sha256', 'organization-seed-invitation');
     $invitation->invitedByUserId = self::OWNER_USER_ID;
     $invitation->status = OrganizationInvitationStatus::PENDING->value;
-    $invitation->expiresAt = new DateTimeImmutable('2026-04-01T09:00:00+00:00');
-    $invitation->createdAt = new DateTimeImmutable('2026-03-01T09:00:00+00:00');
-    $invitation->updatedAt = new DateTimeImmutable('2026-03-01T09:00:00+00:00');
+    $invitation->expiresAt = SeedTimeline::at('2026-04-01T09:00:00+00:00');
+    $invitation->createdAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
+    $invitation->updatedAt = SeedTimeline::at('2026-03-01T09:00:00+00:00');
     $manager->persist($invitation);
     $this->addReference(self::INVITATION_REFERENCE, $invitation);
 
     $invitationAssignment = new OrganizationInvitationRoleRecord();
     $invitationAssignment->invitation = $invitation;
     $invitationAssignment->role = $memberRole;
-    $invitationAssignment->assignedAt = new DateTimeImmutable('2026-03-01T09:05:00+00:00');
+    $invitationAssignment->assignedAt = SeedTimeline::at('2026-03-01T09:05:00+00:00');
     $manager->persist($invitationAssignment);
 
     $manager->flush();

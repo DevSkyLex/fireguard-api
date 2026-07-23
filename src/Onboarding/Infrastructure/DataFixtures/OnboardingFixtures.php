@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Onboarding\Infrastructure\DataFixtures;
 
-use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\{Fixture, FixtureGroupInterface};
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Onboarding\Infrastructure\Persistence\Doctrine\Record\OrganizationOnboardingSessionRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
 final class OnboardingFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
@@ -68,8 +68,8 @@ final class OnboardingFixtures extends Fixture implements DependentFixtureInterf
     $session->skippedSteps = [];
     $session->rollbackStack = [];
     $session->stepHistory = $stepHistory;
-    $session->createdAt = new DateTimeImmutable('2026-02-01T09:00:00+00:00');
-    $session->updatedAt = new DateTimeImmutable('2026-03-06T09:00:00+00:00');
+    $session->createdAt = SeedTimeline::at('2026-02-01T09:00:00+00:00');
+    $session->updatedAt = SeedTimeline::at('2026-03-06T09:00:00+00:00');
     $manager->persist($session);
     $this->addReference(self::ADMIN_SESSION_REFERENCE, $session);
 

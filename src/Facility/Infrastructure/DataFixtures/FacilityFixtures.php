@@ -12,6 +12,7 @@ use Facility\Domain\ValueObject\{FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
 final class FacilityFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
@@ -125,7 +126,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::SITE->value,
       name: 'Paris Headquarters',
       code: 'SITE-PAR',
-      createdAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-03T08:00:00+00:00'),
       address: '12 Rue des Pompiers, Paris',
       metadata: ['city' => 'Paris', 'country' => 'FR'],
       latitude: 48.8566,
@@ -141,7 +142,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::BUILDING->value,
       name: 'Main Building',
       code: 'BLD-MAIN',
-      createdAt: new DateTimeImmutable('2026-03-08T08:05:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-08T08:05:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['usage' => 'office', 'city' => 'Paris'],
       latitude: 48.8570,
@@ -157,7 +158,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::FLOOR->value,
       name: 'Floor 1',
       code: 'FL-01',
-      createdAt: new DateTimeImmutable('2026-03-12T08:10:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-12T08:10:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['level' => '1', 'city' => 'Paris'],
       latitude: 48.8572,
@@ -173,7 +174,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::FLOOR->value,
       name: 'Floor 2',
       code: 'FL-02',
-      createdAt: new DateTimeImmutable('2026-03-16T08:11:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-16T08:11:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['level' => '2', 'city' => 'Paris'],
       latitude: 48.8574,
@@ -189,7 +190,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::ZONE->value,
       name: 'Zone A',
       code: 'ZN-A',
-      createdAt: new DateTimeImmutable('2026-03-22T08:15:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-22T08:15:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['sector' => 'north', 'city' => 'Paris'],
       latitude: 48.8576,
@@ -205,7 +206,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::AREA->value,
       name: 'Server Room',
       code: 'AR-SRV',
-      createdAt: new DateTimeImmutable('2026-03-29T08:20:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-29T08:20:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['restricted' => true, 'city' => 'Paris'],
       latitude: 48.8578,
@@ -221,7 +222,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::ZONE->value,
       name: 'Zone B',
       code: 'ZN-B',
-      createdAt: new DateTimeImmutable('2026-03-30T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-30T08:00:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['sector' => 'south', 'city' => 'Paris'],
       latitude: 48.8580,
@@ -237,7 +238,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
       type: FacilityType::AREA->value,
       name: 'Storage Room',
       code: 'AR-STR',
-      createdAt: new DateTimeImmutable('2026-03-30T08:05:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-30T08:05:00+00:00'),
       address: '12 Rue des Pompiers, 75011 Paris',
       metadata: ['restricted' => false, 'city' => 'Paris'],
       latitude: 48.8582,
@@ -254,7 +255,7 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
         type: FacilityType::SITE->value,
         name: $seed['name'],
         code: $seed['code'],
-        createdAt: new DateTimeImmutable($seed['createdAt']),
+        createdAt: SeedTimeline::at($seed['createdAt']),
         address: $seed['address'],
         metadata: ['city' => $seed['city'], 'country' => 'FR'],
         latitude: $seed['latitude'],

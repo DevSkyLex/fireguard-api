@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\E2E;
 
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -47,18 +48,18 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
 
     self::assertSame(2, $this->summaryValue($membersWidget, 'total'));
     self::assertSame(3, $this->summaryValue($rolesWidget, 'total'));
-    self::assertSame(8, $this->summaryValue($facilitiesWidget, 'total'));
-    self::assertSame(42, $this->summaryValue($equipmentWidget, 'total'));
-    self::assertSame(125, $this->summaryValue($inspectionsWidget, 'total'));
-    self::assertSame(64, $this->summaryValue($nonConformitiesWidget, 'total'));
+    self::assertSame(12, $this->summaryValue($facilitiesWidget, 'total'));
+    self::assertSame(66, $this->summaryValue($equipmentWidget, 'total'));
+    self::assertSame(197, $this->summaryValue($inspectionsWidget, 'total'));
+    self::assertSame(100, $this->summaryValue($nonConformitiesWidget, 'total'));
     self::assertSame('total', $this->primaryKey($facilitiesWidget));
-    self::assertSame(8, $this->primaryValue($facilitiesWidget));
+    self::assertSame(12, $this->primaryValue($facilitiesWidget));
     self::assertSame('operational', $this->primaryKey($equipmentWidget));
-    self::assertSame(35, $this->primaryValue($equipmentWidget));
+    self::assertSame(55, $this->primaryValue($equipmentWidget));
     self::assertSame('closed', $this->primaryKey($inspectionsWidget));
-    self::assertSame(86, $this->primaryValue($inspectionsWidget));
+    self::assertSame(134, $this->primaryValue($inspectionsWidget));
     self::assertSame('open', $this->primaryKey($nonConformitiesWidget));
-    self::assertSame(28, $this->primaryValue($nonConformitiesWidget));
+    self::assertSame(38, $this->primaryValue($nonConformitiesWidget));
 
     $filteredDashboardData = $this->requestDashboard(
       $client,
@@ -74,9 +75,9 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame('inStock', $this->primaryKey($filteredEquipmentWidget));
     self::assertSame(1, $this->primaryValue($filteredEquipmentWidget));
     self::assertSame('submitted', $this->primaryKey($filteredInspectionsWidget));
-    self::assertSame(38, $this->primaryValue($filteredInspectionsWidget));
+    self::assertSame(62, $this->primaryValue($filteredInspectionsWidget));
     self::assertSame('inProgress', $this->primaryKey($filteredNonConformitiesWidget));
-    self::assertSame(28, $this->primaryValue($filteredNonConformitiesWidget));
+    self::assertSame(21, $this->primaryValue($filteredNonConformitiesWidget));
 
     $comparisonDashboardData = $this->requestDashboard($client, $token, $this->dashboardPeriodQuery(compare: true));
     $health = $comparisonDashboardData['health'] ?? [];
@@ -103,9 +104,9 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     $facilitiesComparisonMetric = $this->findMetricByField($comparisonMetrics, 'key', 'facilities');
     self::assertNotNull($facilitiesComparisonMetric);
     self::assertSame('Facilities', $facilitiesComparisonMetric['label'] ?? null);
-    self::assertSame(8, $facilitiesComparisonMetric['current'] ?? null);
+    self::assertSame(12, $facilitiesComparisonMetric['current'] ?? null);
     self::assertSame(0, $facilitiesComparisonMetric['previous'] ?? null);
-    self::assertSame('+8', $facilitiesComparisonMetric['value'] ?? null);
+    self::assertSame('+12', $facilitiesComparisonMetric['value'] ?? null);
     self::assertSame('up', $facilitiesComparisonMetric['direction'] ?? null);
 
     $membersComparisonMetric = $this->findMetricByField($comparisonMetrics, 'key', 'members');
@@ -137,7 +138,7 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertTrue(100 === $comparisonHealthMetricMax || 100.0 === $comparisonHealthMetricMax);
     self::assertArrayHasKey('direction', $comparisonHealthMetric);
 
-    $this->assertTrendSeries($client, $token, 'facilities-created', 'facilities_created', 8, 7, ['2026-03-03' => 1, '2026-03-30' => 2]);
+    $this->assertTrendSeries($client, $token, 'facilities-created', 'facilities_created', 12, 7, ['2026-03-03' => 1, '2026-03-30' => 2]);
     $this->assertTrendSeries($client, $token, 'equipment-created', 'equipment_created', 10, 4, ['2026-03-06' => 1, '2026-03-30' => 3]);
     $this->assertTrendSeries($client, $token, 'inspections', 'inspections_performed', 13, 13, ['2026-03-11' => 1, '2026-04-02' => 1]);
     $this->assertTrendSeries($client, $token, 'non-conformities-opened', 'non_conformities_opened', 9, 7, ['2026-03-11' => 2, '2026-03-20' => 2]);
@@ -178,7 +179,7 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode(), 'Seeded inspector should read facilities.');
     $facilityData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
     $facilityMembers = $this->getCollectionMembers($facilityData);
-    self::assertCount(8, $facilityMembers);
+    self::assertCount(12, $facilityMembers);
     self::assertTrue($this->collectionContainsFieldValue($facilityMembers, 'name', 'Server Room'));
 
     $client->request(
@@ -193,7 +194,7 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode(), 'Seeded inspector should read equipment.');
     $equipmentData = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
     $equipmentMembers = $this->getCollectionMembers($equipmentData);
-    self::assertCount(42, $equipmentMembers);
+    self::assertCount(50, $equipmentMembers);
     self::assertTrue($this->collectionContainsFieldValue($equipmentMembers, 'serialNumber', 'SEED-EXT-001'));
     self::assertTrue($this->collectionContainsFieldValue($equipmentMembers, 'serialNumber', 'SEED-HYD-001'));
 
@@ -214,7 +215,7 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertTrue($this->collectionContainsFieldValue($inspectionMembers, 'result', 'fail'));
     self::assertTrue($this->collectionContainsFieldValue($inspectionMembers, 'result', 'partial'));
 
-    $this->assertTrendSeries($client, $token, 'facilities-created', 'facilities_created', 8, 7, ['2026-03-30' => 2]);
+    $this->assertTrendSeries($client, $token, 'facilities-created', 'facilities_created', 12, 7, ['2026-03-30' => 2]);
     $this->assertTrendSeries($client, $token, 'equipment-created', 'equipment_created', 10, 4, ['2026-03-30' => 3]);
     $this->assertTrendSeries($client, $token, 'inspections', 'inspections_performed', 13, 13, ['2026-03-11' => 1]);
     $this->assertTrendSeries($client, $token, 'non-conformities-opened', 'non_conformities_opened', 9, 7, ['2026-03-11' => 2]);
@@ -276,7 +277,24 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
 
   private function dashboardPeriodQuery(bool $compare = false): string
   {
-    return '?from=' . self::TREND_FROM . '&to=' . self::TREND_TO . '&compare=' . ($compare ? 'true' : 'false') . '&granularity=day&timezone=UTC';
+    // The seed fixtures place their dates on the live timeline via SeedTimeline
+    // (anchored on now, not a fixed calendar). Shift the window boundaries by
+    // the same amount so the period always covers the same relative slice of
+    // the seeded data, making the assertions deterministic regardless of the
+    // run date.
+    $from = SeedTimeline::at(self::TREND_FROM)->format('Y-m-d\TH:i:s\Z');
+    $to = SeedTimeline::at(self::TREND_TO)->format('Y-m-d\TH:i:s\Z');
+
+    return '?from=' . $from . '&to=' . $to . '&compare=' . ($compare ? 'true' : 'false') . '&granularity=day&timezone=UTC';
+  }
+
+  /**
+   * Formats a seed-anchored literal date (YYYY-MM-DD) as it lands on the live
+   * timeline, for asserting specific trend buckets deterministically.
+   */
+  private function shiftedBucket(string $literalDate): string
+  {
+    return SeedTimeline::at($literalDate . 'T00:00:00+00:00')->format('Y-m-d');
   }
 
   /**
@@ -314,11 +332,11 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     self::assertSame($expectedTotal, $trendSummary['total'] ?? null);
     self::assertSame($expectedTotal, $this->sumSeries($series));
     self::assertGreaterThanOrEqual($minimumNonZeroBuckets, $this->countNonZeroBuckets($series));
-    self::assertSame('2026-03-01', $series[0]['bucket'] ?? null);
-    self::assertSame('2026-04-02', $series[array_key_last($series)]['bucket'] ?? null);
+    self::assertSame($this->shiftedBucket('2026-03-01'), $series[0]['bucket'] ?? null);
+    self::assertSame($this->shiftedBucket('2026-04-02'), $series[array_key_last($series)]['bucket'] ?? null);
 
     foreach ($expectedBuckets as $bucket => $value) {
-      self::assertSame($value, $this->bucketValue($series, $bucket));
+      self::assertSame($value, $this->bucketValue($series, $this->shiftedBucket($bucket)));
     }
   }
 
