@@ -255,7 +255,8 @@ jobs:
         run: php bin/console lint:container --env=dev
 
       - name: Lint YAML files
-        run: php bin/console lint:yaml config
+        # --parse-tags: several module configs use !tagged_iterator.
+        run: php bin/console lint:yaml config --parse-tags
 
   # ==========================================================================
   # Security Check
