@@ -21,6 +21,8 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Entity]
 #[ORM\Table(name: 'interventions')]
 #[ORM\Index(name: 'idx_intervention_organization_status', columns: ['organization_id', 'status'])]
+#[ORM\Index(name: 'idx_intervention_responsible_status', columns: ['responsible_id', 'status'])]
+#[ORM\Index(name: 'idx_intervention_site', columns: ['site_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_intervention_org_number', columns: ['organization_id', 'number'])]
 class InterventionRecord
 {
@@ -108,7 +110,7 @@ class InterventionRecord
    *
    * @var list<string>
    */
-  #[ORM\Column(type: 'json')]
+  #[ORM\Column(type: 'json', options: ['default' => '[]'])]
   public array $participants = [];
 
   /**
@@ -116,7 +118,7 @@ class InterventionRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(type: 'string', length: 16)]
+  #[ORM\Column(type: 'string', length: 16, options: ['default' => 'normal'])]
   public string $priority = 'normal';
 
   /**

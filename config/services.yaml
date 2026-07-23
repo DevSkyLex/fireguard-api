@@ -44,4 +44,10 @@ services:
       - { name: 'doctrine.dbal.schema_filter', connection: 'auth' }
       - { name: 'doctrine.dbal.schema_filter', connection: 'main' }
 
+  # Re-declares main's PostgreSQL partial indexes (which ORM attributes cannot
+  # express) so schema:validate and migrations:diff stop flagging them as drift.
+  Shared\Infrastructure\Doctrine\PartialIndexSchemaListener:
+    tags:
+      - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'main' }
+
 

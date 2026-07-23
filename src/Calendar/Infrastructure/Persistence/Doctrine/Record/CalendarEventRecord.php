@@ -83,7 +83,7 @@ class CalendarEventRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'all_day', type: 'boolean')]
+  #[ORM\Column(name: 'all_day', type: 'boolean', options: ['default' => false])]
   public bool $allDay = false;
 
   /**

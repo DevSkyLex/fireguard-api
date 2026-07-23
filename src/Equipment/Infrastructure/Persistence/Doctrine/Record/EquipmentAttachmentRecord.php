@@ -86,7 +86,7 @@ class EquipmentAttachmentRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(type: 'integer')]
+  #[ORM\Column(type: 'integer', options: ['default' => 1])]
   public int $revision = 1;
 
   /**

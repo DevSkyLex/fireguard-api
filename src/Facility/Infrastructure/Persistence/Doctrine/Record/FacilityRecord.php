@@ -71,7 +71,7 @@ class FacilityRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'record_status', type: 'string', length: 16)]
+  #[ORM\Column(name: 'record_status', type: 'string', length: 16, options: ['default' => 'published'])]
   public string $recordStatus = 'published';
 
   /**
@@ -79,7 +79,7 @@ class FacilityRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'revision', type: 'integer')]
+  #[ORM\Column(name: 'revision', type: 'integer', options: ['default' => 1])]
   public int $revision = 1;
 
   /**

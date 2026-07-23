@@ -115,7 +115,7 @@ class OrganizationRecord
    *
    * @since 1.0.0
    */
-  #[ORM\Column(name: 'settings', type: 'json')]
+  #[ORM\Column(name: 'settings', type: 'json', options: ['default' => '{}'])]
   public array $settings = [];
 
   /**

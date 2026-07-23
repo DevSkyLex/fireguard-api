@@ -6,6 +6,13 @@ doctrine:
         url: "%env(resolve:AUTH_DATABASE_URL)%"
         profiling_collect_backtrace: "%kernel.debug%"
         use_savepoints: true
+        # messenger_messages is owned by Symfony Messenger's doctrine transport
+        # (the `failed` transport uses doctrine://auth), not by our mappings, so
+        # its schema tracks the library version and drifts from any migration
+        # that froze it. Exclude it from schema introspection: schema:validate
+        # and migrations:diff ignore the framework table. Combined (AND) with the
+        # tagged SchemaFilterListener that hides the migration-versions tables.
+        schema_filter: ~^(?!messenger_messages)~
       main:
         url: "%env(resolve:MAIN_DATABASE_URL)%"
         profiling_collect_backtrace: "%kernel.debug%"

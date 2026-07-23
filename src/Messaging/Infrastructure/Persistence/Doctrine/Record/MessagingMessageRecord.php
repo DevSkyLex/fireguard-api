@@ -158,7 +158,7 @@ class MessagingMessageRecord
    *
    * @since 1.2.0
    */
-  #[ORM\Column(name: 'reply_count', type: 'integer')]
+  #[ORM\Column(name: 'reply_count', type: 'integer', options: ['default' => 0])]
   public int $replyCount = 0;
 
   /**
