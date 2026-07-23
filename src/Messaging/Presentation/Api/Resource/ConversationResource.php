@@ -73,6 +73,10 @@ use Symfony\Component\HttpFoundation\Response;
       uriTemplate: '/conversations/{id}/read',
       input: MarkConversationReadInput::class,
       output: ConversationOutput::class,
+      // No sibling GET sits on this sub-path, so API Platform's default read
+      // step has no provider and 404s before the processor runs. The processor
+      // works entirely from the URI id and the command, so skip the read.
+      read: false,
       processor: MarkConversationReadProcessor::class,
       security: "is_granted('ROLE_USER')",
     ),

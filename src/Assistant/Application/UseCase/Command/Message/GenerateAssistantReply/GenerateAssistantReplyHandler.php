@@ -167,7 +167,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
           $streamingStarted = true;
         }
 
-        $this->realtime->publishGenerationEvent(
+        $this->publishGeneration(
           $command->organizationId,
           $command->threadId,
           $command->assistantMessageId,
@@ -188,7 +188,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     $message->markComplete($outcome->body, $outcome->tokenCount, $now);
     $this->messages->save($message);
 
-    $this->realtime->publishGenerationEvent(
+    $this->publishGeneration(
       $command->organizationId,
       $command->threadId,
       $command->assistantMessageId,
@@ -208,6 +208,56 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     ));
 
     return new VoidResult();
+  }
+
+  /**
+   * Method publishGeneration.
+   *
+   * Publishes one generation event, absorbing any hub failure.
+   *
+   * The publish is not allowed to abort the handler: the row's status has
+   * already been persisted by the time this runs, and an unguarded throw here
+   * strands the reply at `streaming` forever — the member sees a spinner that
+   * never resolves and no retry ever settles it. Mirrors the guard
+   * `PostMessageHandler` already applies to its own realtime publish.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the owning organization identifier
+   * @param string $threadId the owning thread identifier
+   * @param string $assistantMessageId the assistant message identifier
+   * @param string $status the message status to publish
+   * @param string $body the accumulated body
+   * @param ?int $tokenCount the token count, when settled
+   * @param ?string $errorCode a stable failure code, when failed
+   */
+  private function publishGeneration(
+    string $organizationId,
+    string $threadId,
+    string $assistantMessageId,
+    string $status,
+    string $body,
+    ?int $tokenCount = null,
+    ?string $errorCode = null,
+  ): void {
+    try {
+      $this->realtime->publishGenerationEvent(
+        $organizationId,
+        $threadId,
+        $assistantMessageId,
+        $status,
+        $body,
+        $tokenCount,
+        $errorCode,
+      );
+    } catch (Throwable $exception) {
+      $this->logger->warning('Assistant realtime publish failed.', [
+        'threadId' => $threadId,
+        'assistantMessageId' => $assistantMessageId,
+        'status' => $status,
+        'error' => $exception->getMessage(),
+      ]);
+    }
   }
 
   /**
@@ -260,7 +310,7 @@ final readonly class GenerateAssistantReplyHandler implements CommandHandler
     $message->markFailed($errorCode, $now);
     $this->messages->save($message);
 
-    $this->realtime->publishGenerationEvent(
+    $this->publishGeneration(
       $message->organizationId(),
       $message->threadId(),
       (string) $message->id(),

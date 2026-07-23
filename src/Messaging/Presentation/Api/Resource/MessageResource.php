@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Messaging\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Patch, Post};
-use ApiPlatform\OpenApi\Model\{Operation, Parameter};
+use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Patch, Post, Put};
+use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response as OpenApiResponse};
 use Messaging\Presentation\Api\Dto\Input\{AddReactionInput, EditMessageInput, PostMessageInput, PostReplyInput};
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
-use Messaging\Presentation\Api\Processor\Message\{AddReactionProcessor, DeleteMessageProcessor, EditMessageProcessor, PinMessageProcessor, PostMessageProcessor, PostReplyProcessor, RemoveReactionProcessor, SaveMessageProcessor, UnpinMessageProcessor, UnsaveMessageProcessor};
+use Messaging\Presentation\Api\Processor\Message\{AddReactionProcessor, DeleteMessageProcessor, EditMessageProcessor, PinMessageProcessor, PostMessageProcessor, PostReplyProcessor, PutMessageProcessor, RemoveReactionProcessor, SaveMessageProcessor, UnpinMessageProcessor, UnsaveMessageProcessor};
 use Messaging\Presentation\Api\Provider\Message\{ListMessagesProvider, ListPinnedMessagesProvider, ListRepliesProvider, ListSavedMessagesProvider};
 use Symfony\Component\HttpFoundation\Response;
 
@@ -44,6 +44,24 @@ use Symfony\Component\HttpFoundation\Response;
       processor: PostMessageProcessor::class,
       status: Response::HTTP_CREATED,
       security: "is_granted('ROLE_USER')",
+    ),
+    // Idempotent, create-only twin of the POST above: the client owns the id,
+    // so replaying a queued offline send conflicts instead of duplicating.
+    new Put(
+      name: 'put_message',
+      uriTemplate: '/conversations/{conversationId}/messages/{clientId}',
+      read: false,
+      input: PostMessageInput::class,
+      output: MessageOutput::class,
+      processor: PutMessageProcessor::class,
+      status: Response::HTTP_CREATED,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(responses: [
+        Response::HTTP_CREATED => new OpenApiResponse(description: 'Message created'),
+        Response::HTTP_CONFLICT => new OpenApiResponse(description: 'This client identifier was already used'),
+        Response::HTTP_PRECONDITION_REQUIRED => new OpenApiResponse(description: 'If-None-Match: * is required'),
+        Response::HTTP_PRECONDITION_FAILED => new OpenApiResponse(description: 'If-None-Match must be *'),
+      ]),
     ),
     new Patch(
       uriTemplate: '/messages/{id}',

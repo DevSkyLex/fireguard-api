@@ -64,6 +64,7 @@ not a stopgap.
 | GET | `/api/conversations/{id}/subscription` | Mercure subscriber JWT scoped to this ONE conversation's private topic | `organization.messaging.read` + the subject's own read permission |
 | GET | `/api/conversations/{conversationId}/messages` | List a conversation's messages, oldest first (30/page, client page size) | `organization.messaging.read` + the subject's own read permission |
 | POST | `/api/conversations/{conversationId}/messages` | Post a message (`{body}`, sanitized rich text, optional `references[]`); `201` | `organization.messaging.write` + the subject's own read permission |
+| PUT | `/api/conversations/{conversationId}/messages/{clientId}` | Post a message under a client-minted id; requires `If-None-Match: *`; `201`, or `409` `/problems/client-resource-already-exists` on replay | same as POST |
 | PATCH | `/api/messages/{id}` | Edit own message (`{body}`, optional replacement `references[]`) — author-only | `organization.messaging.write` + the subject's own read permission |
 | GET | `/api/conversations/{conversationId}/activity` | Zero-filled UTC daily message counts (`buckets`, default 26, max 366) | same access rule as `ListMessages` |
 | GET | `/api/conversations/{conversationId}/links` | URLs extracted from message bodies, newest first (30/page, client page size) | same access rule as `ListMessages` |
@@ -140,6 +141,21 @@ reply** (`parent_message_id NOT NULL`, filtered out by
 `MessagingMessageRepository::listByConversation()`, L2.5) — a reply is
 fetched through its own parent via `GET /api/messages/{id}/replies` instead.
 See "Threaded replies" below.
+
+**`POST` is not replay-safe; `PUT .../messages/{clientId}` is.** The `POST`
+route mints the message id server-side, so a client whose response was lost has
+no way to retry without creating a second message — nothing on either side can
+detect the duplicate. An offline outbox must therefore use the `PUT` twin,
+where the client owns the id: `PostMessageHandler::resolveMessageId()` rejects
+an already-used id with `MessagingClientMessageAlreadyExistsException`, which
+the processor maps to the codebase-wide
+`/problems/client-resource-already-exists` problem type (`409`). Callers should
+read that conflict as **success** — the message is already stored. The check is
+a read-then-write with no transaction; a genuine concurrent double-submit of
+the same id still collides on the primary key, which is the database enforcing
+the same rule. This mirrors the client-uuid creation already used by Facility,
+Equipment, Inspection and Intervention, and reuses their
+`CreationPreconditionGuard`.
 
 ## Domain Model
 

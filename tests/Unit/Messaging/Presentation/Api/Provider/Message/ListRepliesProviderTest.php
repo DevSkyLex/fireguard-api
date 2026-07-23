@@ -9,7 +9,7 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\UseCase\Query\Message\ListReplies\{ListRepliesQuery, ListRepliesResult};
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
@@ -114,7 +114,7 @@ final class ListRepliesProviderTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn([]);
 
-    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages);
+    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
   }
 
   private function securityWithUser(): Security

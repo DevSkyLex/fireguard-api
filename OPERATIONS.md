@@ -510,6 +510,14 @@ schedules provided by the `Maintenance`, `Intervention` and `Approval`
 modules (`#[AsSchedule('maintenance')]`, `#[AsSchedule('intervention')]`,
 `#[AsSchedule('approval')]`).
 
+**The `assistant` transport now has its own container**, `assistant_worker`, in
+both `compose.yaml` and `compose.prod.yaml` — separate from the general worker
+for the same reason its transport is separate from `async`: an unresponsive
+Ollama backend must never starve the other queues. A deployment that runs the
+general worker below **and** the compose stack is already covered; a deployment
+that runs neither leaves every assistant reply at `pending` forever, with no
+cancel endpoint and no server-side deadline to settle it.
+
 **Worker command** (must run permanently, e.g. under supervisor/systemd):
 ```bash
 php bin/console messenger:consume \

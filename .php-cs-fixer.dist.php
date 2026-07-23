@@ -4,6 +4,9 @@ $finder = (new PhpCsFixer\Finder())
 	->in(__DIR__)
 	->exclude(['var', 'vendor', 'public', 'migrations'])
 	->notPath('config/reference.php')
+	// Guard against tool caches that a Windows temp path (e.g. "C:\...") can
+	// accidentally materialise inside the project root as a "C:" directory.
+	->notPath('#(^|/)[A-Za-z]:/#')
 ;
 	
 return (new PhpCsFixer\Config())

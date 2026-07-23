@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\UseCase\Command\Message\SaveMessage\{SaveMessageCommand, SaveMessageResult};
 use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
@@ -101,7 +101,7 @@ final class SaveMessageProcessorTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn($saved ? [self::MESSAGE_ID] : []);
 
-    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages);
+    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
   }
 
   private function securityWithUser(): Security

@@ -97,7 +97,7 @@ final readonly class ListChannelsProvider implements ProviderInterface
     }
 
     $items = array_map(
-      fn ($view) => $this->mapper->fromView($view, 0, in_array($view->id, $result->favoriteChannelIds, true)),
+      fn ($view) => $this->mapper->fromView($view, $result->unreadCounts[$view->id] ?? 0, in_array($view->id, $result->favoriteChannelIds, true)),
       $result->page->items,
     );
 

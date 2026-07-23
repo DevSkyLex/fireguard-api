@@ -33,6 +33,100 @@ services:
       start_period: 30s
 ###< fireguard/app ###
 
+###> fireguard/assistant-worker ###
+  # Consumer for the dedicated `assistant` Messenger transport.
+  #
+  # Without it every assistant question answers `201` with the reply left at
+  # `pending` forever: `GenerateAssistantReplyCommand` is routed to an async
+  # transport (config/packages/messenger.yaml) and `in-memory://` only applies
+  # under `when@test`. There is no synchronous fallback, no server-side
+  # deadline and no cancel endpoint, so an unconsumed queue is indistinguishable
+  # from a hung model.
+  #
+  # `--time-limit` recycles the process so a leaked Ollama connection or a slow
+  # memory creep never outlives an hour; `restart` brings it straight back.
+  assistant_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command: ["php", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "-vv"]
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html:cached
+      - app_var:/var/www/html/var
+      - app_vendor:/var/www/html/vendor
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
+      MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      MAILER_DSN: smtp://mailer:1025
+    # The image's own HEALTHCHECK curls `/api/health`; a `messenger:consume`
+    # process serves no HTTP, so it reported `unhealthy` forever. What matters
+    # for a consumer is that the consumer is alive — matched against PID 1's
+    # own argv, because the image ships neither `ps` nor `pgrep`. The pattern is
+    # a single argv token: the entries are NUL-separated, so a phrase spanning
+    # two of them would never match.
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q assistant /proc/1/cmdline"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      app:
+        condition: service_started
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+###< fireguard/assistant-worker ###
+
+###> fireguard/async-worker ###
+  # Consumer for the general-purpose `async` and `webhook` transports.
+  #
+  # Every command routed there was silently dropped until now — not because the
+  # transport was wrong, but because nothing consumed it: intervention
+  # publication, recurrence and maintenance sweeps, automation rules, imports,
+  # approval expiry and webhook delivery all enqueue and then wait forever.
+  # The two transports share one consumer because neither is hot; the assistant
+  # keeps its own, since a slow model must never starve the rest.
+  async_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command:
+      ["php", "bin/console", "messenger:consume", "async", "webhook", "--time-limit=3600", "-vv"]
+    restart: unless-stopped
+    volumes:
+      - .:/var/www/html:cached
+      - app_var:/var/www/html/var
+      - app_vendor:/var/www/html/vendor
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      AUTH_DATABASE_URL: postgresql://${POSTGRES_AUTH_USER:-admin}:${POSTGRES_AUTH_PASSWORD:-!ChangeMe!}@auth_database:5432/${POSTGRES_AUTH_DB:-db_fireguard_auth}?serverVersion=16&charset=utf8
+      MAIN_DATABASE_URL: postgresql://${POSTGRES_MAIN_USER:-main_admin}:${POSTGRES_MAIN_PASSWORD:-!ChangeMeMain!}@main_database:5432/${POSTGRES_MAIN_DB:-db_fireguard_main}?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      MAILER_DSN: smtp://mailer:1025
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q async /proc/1/cmdline"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      app:
+        condition: service_started
+      auth_database:
+        condition: service_healthy
+      main_database:
+        condition: service_healthy
+###< fireguard/async-worker ###
+
 ###> doctrine/doctrine-bundle ###
   auth_database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -98,11 +192,13 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: '!ChangeThisMercureHubJWTSecretKey!'
       # Set the URL of your Symfony project (without trailing slash!) as value of the cors_origins directive
       MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins http://localhost:8000 http://localhost:4200
+        cors_origins http://localhost:8000 http://localhost:4200 http://localhost:4300 http://localhost:4310 http://localhost:4273
     # Comment the following line to disable the development mode
     command: /usr/bin/caddy run --config /etc/caddy/dev.Caddyfile
+    # `wget`, not `curl`: the Caddy-based image ships busybox and has no curl,
+    # so the probe could never run and the hub was permanently `unhealthy`.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
       timeout: 5s
       retries: 5
       start_period: 60s

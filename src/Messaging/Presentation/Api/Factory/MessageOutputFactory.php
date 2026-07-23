@@ -6,11 +6,16 @@ namespace Messaging\Presentation\Api\Factory;
 
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Reaction\MessageReactionView;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Domain\Model\Attachment\MessagingAttachment;
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
 
+use function array_combine;
+use function array_filter;
 use function array_map;
+use function array_merge;
+use function array_unique;
+use function array_values;
 use function in_array;
 use function ksort;
 
@@ -33,6 +38,7 @@ final class MessageOutputFactory
     private readonly MessageAttachmentOutputFactory $attachmentMapper,
     private readonly MessagingReactionRepositoryPort $reactions,
     private readonly MessagingSavedMessageRepositoryPort $savedMessages,
+    private readonly MessagingMemberDirectoryPort $memberDirectory,
   ) {
   }
   // #endregion
@@ -87,6 +93,7 @@ final class MessageOutputFactory
     $attachmentsByMessage = $this->groupAttachmentsByMessageId($this->attachments->findByMessageIds($messageIds));
     $reactionsByMessage = $this->groupReactionsByMessageId($this->reactions->findByMessageIds($messageIds));
     $savedMessageIds = $this->savedMessages->findSavedMessageIds($currentMemberId, $messageIds);
+    $displayNames = $this->resolveDisplayNames($views);
 
     return array_map(
       fn (MessageView $view): MessageOutput => $this->build(
@@ -95,6 +102,7 @@ final class MessageOutputFactory
         $reactionsByMessage[$view->id] ?? [],
         in_array($view->id, $savedMessageIds, true),
         $currentMemberId,
+        $displayNames,
       ),
       $views,
     );
@@ -110,10 +118,11 @@ final class MessageOutputFactory
    * @param list<MessageReactionView> $reactions the message's flat, unaggregated reactions
    * @param bool $isSaved whether the CURRENT member saved this message (L1.5)
    * @param string $currentMemberId the current reading member's identifier
+   * @param array<string, string> $displayNames member display names, indexed by member identifier
    *
    * @return MessageOutput the message output
    */
-  private function build(MessageView $view, array $attachments, array $reactions, bool $isSaved, string $currentMemberId): MessageOutput
+  private function build(MessageView $view, array $attachments, array $reactions, bool $isSaved, string $currentMemberId, array $displayNames = []): MessageOutput
   {
     $isDeleted = null !== $view->deletedAt;
 
@@ -121,10 +130,18 @@ final class MessageOutputFactory
     $output->id = $view->id;
     $output->conversation = '/api/conversations/' . $view->conversationId;
     $output->authorMember = '/api/organizations/' . $view->organizationId . '/members/' . $view->authorMemberId;
+    $output->authorDisplayName = $displayNames[$view->authorMemberId] ?? null;
     $output->body = $isDeleted ? null : $view->body;
     $output->mentions = $isDeleted ? [] : array_map(
       fn (string $memberId): string => '/api/organizations/' . $view->organizationId . '/members/' . $memberId,
       $view->mentions,
+    );
+    $output->mentionNames = $isDeleted ? [] : array_filter(
+      array_map(
+        static fn (string $memberId): ?string => $displayNames[$memberId] ?? null,
+        array_combine($view->mentions, $view->mentions),
+      ),
+      static fn (?string $name): bool => null !== $name,
     );
     $output->editedAt = $view->editedAt?->format('c');
     $output->isDeleted = $isDeleted;
@@ -154,6 +171,43 @@ final class MessageOutputFactory
     $output->updatedAt = $view->updatedAt->format('c');
 
     return $output;
+  }
+
+  /**
+   * Method resolveDisplayNames.
+   *
+   * Resolves every member name a page of messages needs, in one call.
+   *
+   * Authors, mentions and pinning members are gathered together on purpose:
+   * they come from the same directory, and asking per message — or worse, per
+   * mention — is the N+1 the batch port exists to prevent.
+   *
+   * @since 1.1.0
+   *
+   * @param list<MessageView> $views the message views being mapped
+   *
+   * @return array<string, string> display names indexed by member identifier
+   */
+  private function resolveDisplayNames(array $views): array
+  {
+    if ([] === $views) {
+      return [];
+    }
+
+    $memberIds = [];
+    foreach ($views as $view) {
+      $memberIds[] = [$view->authorMemberId];
+      $memberIds[] = $view->mentions;
+
+      if (null !== $view->pinnedByMemberId) {
+        $memberIds[] = [$view->pinnedByMemberId];
+      }
+    }
+
+    return $this->memberDirectory->displayNamesFor(
+      $views[0]->organizationId,
+      array_values(array_unique(array_merge(...$memberIds))),
+    );
   }
 
   /**

@@ -9,7 +9,7 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\UseCase\Query\Message\ListSavedMessages\{ListSavedMessagesQuery, ListSavedMessagesResult};
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
 use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
@@ -98,7 +98,7 @@ final class ListSavedMessagesProviderTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn([self::MESSAGE_ID]);
 
-    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages);
+    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
   }
 
   private function securityWithUser(): Security

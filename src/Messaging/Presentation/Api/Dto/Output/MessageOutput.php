@@ -60,6 +60,21 @@ final class MessageOutput
   public string $authorMember = '';
 
   /**
+   * Property authorDisplayName.
+   *
+   * The author's human-readable name.
+   *
+   * Carried on the message rather than left to the client: resolving it there
+   * requires the member directory, which is gated behind
+   * `organization.members.read` — a member without that permission was shown a
+   * raw UUID above every message. `null` only when the name cannot be derived
+   * at all, which the client renders as a neutral label, never as an id.
+   *
+   * @since 1.1.0
+   */
+  public ?string $authorDisplayName = null;
+
+  /**
    * Property body.
    *
    * `null` when the message is deleted.
@@ -78,6 +93,20 @@ final class MessageOutput
    * @var list<string>
    */
   public array $mentions = [];
+
+  /**
+   * Property mentionNames.
+   *
+   * Display names for the mentioned members, indexed by the BARE member
+   * identifier — the same token the body carries as `@{memberUuid}`, so the
+   * client can resolve a chip without parsing an IRI. Empty when the message
+   * is deleted, and a member whose name cannot be derived is simply absent.
+   *
+   * @since 1.1.0
+   *
+   * @var array<string, string>
+   */
+  public array $mentionNames = [];
 
   /**
    * Property editedAt.

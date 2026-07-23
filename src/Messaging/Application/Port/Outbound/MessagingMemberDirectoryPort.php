@@ -66,5 +66,28 @@ interface MessagingMemberDirectoryPort
    * @return ?string the resolved user identifier, or null
    */
   public function resolveUserIdForMember(string $organizationId, string $memberId): ?string;
+
+  /**
+   * Method displayNamesFor.
+   *
+   * Resolves human-readable names for a batch of organization members.
+   *
+   * Batch, and not one call per member, because the only caller maps a whole
+   * page of messages: an author, their mentions and a pinning member each need
+   * a name, and resolving them one at a time is the N+1 this contract exists to
+   * avoid.
+   *
+   * A member that cannot be resolved is simply absent from the result — the
+   * caller decides what to show for it, and never renders a raw identifier
+   * because the map said nothing.
+   *
+   * @since 1.1.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param list<string> $memberIds the member identifiers to resolve
+   *
+   * @return array<string, string> display names indexed by member identifier
+   */
+  public function displayNamesFor(string $organizationId, array $memberIds): array;
   // #endregion
 }

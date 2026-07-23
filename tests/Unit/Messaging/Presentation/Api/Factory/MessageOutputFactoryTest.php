@@ -7,7 +7,7 @@ namespace Tests\Unit\Messaging\Presentation\Api\Factory;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Reaction\MessageReactionView;
-use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -135,7 +135,7 @@ final class MessageOutputFactoryTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn([]);
 
-    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages);
+    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
 
     $outputs = $factory->fromViews([$this->view(), $this->view(id: $secondMessageId)], self::CURRENT_MEMBER_ID);
 
@@ -192,7 +192,7 @@ final class MessageOutputFactoryTest extends TestCase
       ->with(self::CURRENT_MEMBER_ID, [self::MESSAGE_ID, $secondMessageId])
       ->willReturn([self::MESSAGE_ID]);
 
-    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages);
+    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
 
     $outputs = $factory->fromViews([$this->view(), $this->view(id: $secondMessageId)], self::CURRENT_MEMBER_ID);
 
@@ -242,11 +242,50 @@ final class MessageOutputFactoryTest extends TestCase
     self::assertSame([], $output->references, 'References are part of the message\'s own content and must be redacted on tombstone, unlike replyCount/pinnedAt/isSaved.');
   }
 
+  public function testItCarriesTheAuthorAndMentionDisplayNames(): void
+  {
+    $factory = $this->factory([], names: ['author-1' => 'Amélie Rousseau', 'member-2' => 'Daniel Anderson']);
+
+    $output = $factory->fromView($this->view(mentions: ['member-2']), self::CURRENT_MEMBER_ID);
+
+    // Carried on the message so a member without `organization.members.read`
+    // still reads a name instead of the raw identifier.
+    self::assertSame('Amélie Rousseau', $output->authorDisplayName);
+    // Indexed by the BARE member id — the token the body carries as `@{uuid}`.
+    self::assertSame(['member-2' => 'Daniel Anderson'], $output->mentionNames);
+  }
+
+  public function testItLeavesTheNameNullWhenTheDirectoryKnowsNothing(): void
+  {
+    $factory = $this->factory([]);
+
+    $output = $factory->fromView($this->view(mentions: ['member-2']), self::CURRENT_MEMBER_ID);
+
+    // Never the identifier as a stand-in: the client decides what to render
+    // for an unknown member, and a UUID is not a name.
+    self::assertNull($output->authorDisplayName);
+    self::assertSame([], $output->mentionNames);
+  }
+
+  public function testItRedactsMentionNamesOnATombstone(): void
+  {
+    $factory = $this->factory([], names: ['author-1' => 'Amélie Rousseau', 'member-2' => 'Daniel Anderson']);
+
+    $output = $factory->fromView($this->view(deleted: true, mentions: ['member-2']), self::CURRENT_MEMBER_ID);
+
+    // Mirrors `mentions` itself: a deleted message's content never leaks.
+    self::assertSame([], $output->mentionNames);
+    // The author is metadata about the message, not its content — same rule
+    // as `pinnedAt`/`isSaved`, which also survive the tombstone.
+    self::assertSame('Amélie Rousseau', $output->authorDisplayName);
+  }
+
   /**
    * @param list<MessageReactionView> $reactions
    * @param list<string> $savedMessageIds
+   * @param array<string, string> $names
    */
-  private function factory(array $reactions, array $savedMessageIds = []): MessageOutputFactory
+  private function factory(array $reactions, array $savedMessageIds = [], array $names = []): MessageOutputFactory
   {
     $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
     $attachments->method('findByMessageIds')->willReturn([]);
@@ -257,13 +296,17 @@ final class MessageOutputFactoryTest extends TestCase
     $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
     $savedMessages->method('findSavedMessageIds')->willReturn($savedMessageIds);
 
-    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactionsPort, $savedMessages);
+    $directory = $this->createStub(MessagingMemberDirectoryPort::class);
+    $directory->method('displayNamesFor')->willReturn($names);
+
+    return new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactionsPort, $savedMessages, $directory);
   }
 
   /**
    * @param list<array{type: string, id: string, label: ?string, code: ?string}> $references
+   * @param list<string> $mentions
    */
-  private function view(bool $deleted = false, ?string $id = null, int $replyCount = 0, array $references = []): MessageView
+  private function view(bool $deleted = false, ?string $id = null, int $replyCount = 0, array $references = [], array $mentions = []): MessageView
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
@@ -273,7 +316,7 @@ final class MessageOutputFactoryTest extends TestCase
       'org-1',
       'author-1',
       'Hello team',
-      [],
+      $mentions,
       null,
       $deleted ? $now : null,
       $deleted ? 'author-1' : null,

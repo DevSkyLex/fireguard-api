@@ -6,13 +6,19 @@ namespace Messaging\Application\UseCase\Command\Message\PostMessage;
 
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingLinkRepositoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
-use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingSubjectNotFoundException, MessagingValidationException};
+use Messaging\Domain\Exception\{
+  MessagingClientMessageAlreadyExistsException,
+  MessagingNotFoundException,
+  MessagingSubjectNotFoundException,
+  MessagingValidationException
+};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessageId, MessageReference, MessagingSubjectType};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
@@ -127,7 +133,7 @@ final readonly class PostMessageHandler implements CommandHandler
     }
 
     $message = Message::create(
-      id: $this->uuidFactory->create(MessageId::class),
+      id: $this->resolveMessageId($command->clientId),
       conversationId: $command->conversationId,
       organizationId: $organizationId,
       authorMemberId: $authorMemberId,
@@ -178,6 +184,44 @@ final readonly class PostMessageHandler implements CommandHandler
     }
 
     return new PostMessageResult($view, $authorMemberId);
+  }
+
+  /**
+   * Method resolveMessageId.
+   *
+   * Uses the client-minted id when the caller supplied one, otherwise mints a
+   * server-side id.
+   *
+   * A client id makes the write idempotent, which is what an offline outbox
+   * needs: a queued send whose response was lost is retried with the same id
+   * and conflicts instead of creating a second message. The check is a plain
+   * read-then-write with no transaction — a genuine concurrent double-submit
+   * of the same id would still collide on the primary key, which is the
+   * database enforcing the same rule.
+   *
+   * @since 1.4.0
+   *
+   * @param ?string $clientId the client-minted message id, or null
+   *
+   * @return MessageId the identifier the message will carry
+   */
+  private function resolveMessageId(?string $clientId): MessageId
+  {
+    if (null === $clientId || '' === $clientId) {
+      return $this->uuidFactory->create(MessageId::class);
+    }
+
+    try {
+      $messageId = MessageId::fromString($clientId);
+    } catch (InvalidValueException $exception) {
+      throw new MessagingValidationException('The client message identifier must be a valid UUID.', 0, $exception);
+    }
+
+    if (null !== $this->messages->findById($clientId)) {
+      throw MessagingClientMessageAlreadyExistsException::forClientId($clientId);
+    }
+
+    return $messageId;
   }
 
   /**

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Messaging\Application\UseCase\Query\Channel\ListChannels;
 
-use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort};
+use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Shared\Application\Message\QueryHandler;
 
@@ -33,11 +33,13 @@ final readonly class ListChannelsHandler implements QueryHandler
    * @since 1.0.0
    *
    * @param MessagingConversationRepositoryPort $conversations the conversation repository port
+   * @param MessagingReadMarkerRepositoryPort $readMarkers the read marker repository port
    * @param MessagingConversationFavoriteRepositoryPort $favorites the conversation favorite repository port
    * @param MessagingAccessPolicy $accessPolicy the messaging access policy
    */
   public function __construct(
     private MessagingConversationRepositoryPort $conversations,
+    private MessagingReadMarkerRepositoryPort $readMarkers,
     private MessagingConversationFavoriteRepositoryPort $favorites,
     private MessagingAccessPolicy $accessPolicy,
   ) {
@@ -67,8 +69,12 @@ final readonly class ListChannelsHandler implements QueryHandler
     );
 
     $ids = array_map(static fn ($view): string => $view->id, $page->items);
+    // A channel id is its conversation id, so the read markers key straight off
+    // it. Without this every channel reported zero unread, mirroring the
+    // fabricated `0` the provider used to hand the factory.
+    $unreadCounts = [] === $ids ? [] : $this->readMarkers->unreadCounts($query->organizationId, $memberId, $ids);
     $favoriteChannelIds = [] === $ids ? [] : $this->favorites->findFavoritedConversationIds($memberId, $ids);
 
-    return new ListChannelsResult($page, $favoriteChannelIds);
+    return new ListChannelsResult($page, $favoriteChannelIds, $unreadCounts);
   }
 }
