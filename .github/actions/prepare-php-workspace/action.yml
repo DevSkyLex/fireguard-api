@@ -51,4 +51,6 @@ runs:
     - name: Install dependencies
       if: ${{ inputs.install-dependencies == 'true' }}
       shell: bash
-      run: composer install --prefer-dist --no-progress
+      # --no-scripts mirrors the Dockerfile: the post-install cache:clear boots
+      # the kernel, which needs a .env this repo no longer tracks.
+      run: composer install --prefer-dist --no-progress --no-scripts
