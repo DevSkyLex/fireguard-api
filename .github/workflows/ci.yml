@@ -274,7 +274,8 @@ jobs:
           install-dependencies: 'false'
 
       - name: Check for security vulnerabilities
-        run: composer audit
+        # --locked audits composer.lock: this job installs no dependencies.
+        run: composer audit --locked
 
   # ==========================================================================
   # Mutation Testing (manual opt-in only)
