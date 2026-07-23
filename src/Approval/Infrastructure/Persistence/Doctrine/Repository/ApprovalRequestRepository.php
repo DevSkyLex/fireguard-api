@@ -11,7 +11,6 @@ use Approval\Domain\ValueObject\{ApprovalRequestId, ApprovalStatus};
 use Approval\Infrastructure\Persistence\Doctrine\Mapper\ApprovalRequestMapper;
 use Approval\Infrastructure\Persistence\Doctrine\Record\ApprovalRequestRecord;
 use DateTimeImmutable;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 
 use function array_map;
@@ -73,31 +72,37 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
     // partial unique index on `status = 'pending'` is an expected, routine
     // outcome — the concurrent/prior pending request — not an exceptional
     // one.
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO approval_requests '
-        . '(id, organization_id, action_type, subject_id, status, requested_by_member_id, requested_by_user_id, payload, expires_at, created_at, updated_at) '
-        . 'VALUES (:id, :organizationId, :actionType, :subjectId, :status, :requestedByMemberId, :requestedByUserId, :payload, :expiresAt, :createdAt, :updatedAt)',
-        [
-          'id' => $id,
-          'organizationId' => $organizationId,
-          'actionType' => $actionType,
-          'subjectId' => $subjectId,
-          'status' => ApprovalStatus::PENDING->value,
-          'requestedByMemberId' => $requestedByMemberId,
-          'requestedByUserId' => $requestedByUserId,
-          'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
-          'expiresAt' => $expiresAt,
-          'createdAt' => $now,
-          'updatedAt' => $now,
-        ],
-        [
-          'expiresAt' => 'datetime_immutable',
-          'createdAt' => 'datetime_immutable',
-          'updatedAt' => 'datetime_immutable',
-        ],
-      );
-    } catch (UniqueConstraintViolationException) {
+    // ON CONFLICT DO NOTHING makes a duplicate claim of the partial unique index
+    // on `status = 'pending'` a no-op returning zero affected rows — no
+    // exception, so the surrounding transaction is never aborted (catching the
+    // violation instead poisons it on PostgreSQL). Zero rows means a prior
+    // pending request won the race: return its id, not newly created.
+    $inserted = $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO approval_requests '
+      . '(id, organization_id, action_type, subject_id, status, requested_by_member_id, requested_by_user_id, payload, expires_at, created_at, updated_at) '
+      . 'VALUES (:id, :organizationId, :actionType, :subjectId, :status, :requestedByMemberId, :requestedByUserId, :payload, :expiresAt, :createdAt, :updatedAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => $id,
+        'organizationId' => $organizationId,
+        'actionType' => $actionType,
+        'subjectId' => $subjectId,
+        'status' => ApprovalStatus::PENDING->value,
+        'requestedByMemberId' => $requestedByMemberId,
+        'requestedByUserId' => $requestedByUserId,
+        'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+        'expiresAt' => $expiresAt,
+        'createdAt' => $now,
+        'updatedAt' => $now,
+      ],
+      [
+        'expiresAt' => 'datetime_immutable',
+        'createdAt' => 'datetime_immutable',
+        'updatedAt' => 'datetime_immutable',
+      ],
+    );
+
+    if (0 === $inserted) {
       $existingId = $this->findExistingPendingId($organizationId, $actionType, $subjectId);
 
       return new ApprovalReservation($existingId ?? $id, false);

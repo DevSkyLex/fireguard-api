@@ -6,7 +6,6 @@ namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Channel\ParticipantView;
 use Messaging\Application\Port\Outbound\MessagingParticipantRepositoryPort;
@@ -52,27 +51,26 @@ final readonly class MessagingParticipantRepository implements MessagingParticip
     DateTimeImmutable $addedAt,
   ): void {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
-    // deliberately: a unique-constraint violation during an ORM flush()
-    // closes the EntityManager. Adding an already-existing participant is
-    // an expected, routine outcome here (mirrors
-    // `MessagingConversationRepository::getOrCreate()`).
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO messaging_participants (conversation_id, member_id, organization_id, role, source, added_at) '
-        . 'VALUES (:conversationId, :memberId, :organizationId, :role, :source, :addedAt)',
-        [
-          'conversationId' => $conversationId,
-          'memberId' => $memberId,
-          'organizationId' => $organizationId,
-          'role' => $role,
-          'source' => $source,
-          'addedAt' => $addedAt,
-        ],
-        ['addedAt' => 'datetime_immutable'],
-      );
-    } catch (UniqueConstraintViolationException) {
-      // Already a participant: idempotent no-op.
-    }
+    // deliberately: a unique-constraint violation during an ORM flush() closes
+    // the EntityManager. Adding an already-existing participant is an expected,
+    // routine outcome, so ON CONFLICT DO NOTHING makes it an in-DB no-op: no
+    // exception is raised and the surrounding transaction is never aborted
+    // (catching the violation instead poisons it on PostgreSQL). Mirrors
+    // `MessagingConversationRepository::getOrCreate()`.
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO messaging_participants (conversation_id, member_id, organization_id, role, source, added_at) '
+      . 'VALUES (:conversationId, :memberId, :organizationId, :role, :source, :addedAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'conversationId' => $conversationId,
+        'memberId' => $memberId,
+        'organizationId' => $organizationId,
+        'role' => $role,
+        'source' => $source,
+        'addedAt' => $addedAt,
+      ],
+      ['addedAt' => 'datetime_immutable'],
+    );
   }
 
   public function removeParticipant(string $conversationId, string $memberId): void

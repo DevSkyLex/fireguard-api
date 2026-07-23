@@ -8,7 +8,6 @@ use Automation\Application\Port\Outbound\AutomationRunPort;
 use Automation\Domain\Exception\AutomationRunNotFoundException;
 use Automation\Infrastructure\Persistence\Doctrine\Record\AutomationRunRecord;
 use DateTimeImmutable;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Application\Factory\UuidFactory;
 
@@ -50,22 +49,26 @@ final readonly class AutomationRunRepository implements AutomationRunPort
     // `Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter::reserveRun()`
     // for the same concern and precedent). A duplicate claim is an
     // expected, routine outcome here, not an exceptional one.
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO automation_runs (id, rule_key, organization_id, subject_id, status, error, created_at) '
-        . 'VALUES (:id, :ruleKey, :organizationId, :subjectId, :status, :error, :createdAt)',
-        [
-          'id' => $runId,
-          'ruleKey' => $ruleKey,
-          'organizationId' => $organizationId,
-          'subjectId' => $subjectId,
-          'status' => 'failed',
-          'error' => 'Automation run reserved but not yet completed.',
-          'createdAt' => new DateTimeImmutable(),
-        ],
-        ['createdAt' => 'datetime_immutable'],
-      );
-    } catch (UniqueConstraintViolationException) {
+    // ON CONFLICT DO NOTHING makes a duplicate claim an in-DB no-op returning
+    // zero affected rows — no exception, so the surrounding transaction is never
+    // aborted (catching the violation instead poisons it on PostgreSQL).
+    $inserted = $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO automation_runs (id, rule_key, organization_id, subject_id, status, error, created_at) '
+      . 'VALUES (:id, :ruleKey, :organizationId, :subjectId, :status, :error, :createdAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => $runId,
+        'ruleKey' => $ruleKey,
+        'organizationId' => $organizationId,
+        'subjectId' => $subjectId,
+        'status' => 'failed',
+        'error' => 'Automation run reserved but not yet completed.',
+        'createdAt' => new DateTimeImmutable(),
+      ],
+      ['createdAt' => 'datetime_immutable'],
+    );
+
+    if (0 === $inserted) {
       return null;
     }
 

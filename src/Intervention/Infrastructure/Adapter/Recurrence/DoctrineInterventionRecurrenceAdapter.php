@@ -6,7 +6,6 @@ namespace Intervention\Infrastructure\Adapter\Recurrence;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Application\Contract\Recurrence\{InterventionRecurrencePage, InterventionRecurrenceView};
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
@@ -256,23 +255,26 @@ final readonly class DoctrineInterventionRecurrenceAdapter implements Interventi
     // EntityManager for the rest of the request (see
     // DoctrinePublicationAdapter::markFailed()'s isOpen() fallback for the
     // same concern). A duplicate occurrence claim is an expected, routine
-    // outcome here, not an exceptional one, so it must never touch the ORM's
-    // unit of work.
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO intervention_recurrence_runs (id, recurrence_id, occurrence_date, status, error, created_at) '
-        . 'VALUES (:id, :recurrenceId, :occurrenceDate, :status, :error, :createdAt)',
-        [
-          'id' => $runId,
-          'recurrenceId' => $recurrenceId,
-          'occurrenceDate' => $localOccurrenceDate,
-          'status' => 'failed',
-          'error' => 'Materialization reserved but not yet completed.',
-          'createdAt' => new DateTimeImmutable(),
-        ],
-        ['occurrenceDate' => 'date_immutable', 'createdAt' => 'datetime_immutable'],
-      );
-    } catch (UniqueConstraintViolationException) {
+    // outcome, so ON CONFLICT DO NOTHING makes it an in-DB no-op returning zero
+    // affected rows: no exception is raised, so it never touches the ORM's unit
+    // of work and never aborts the surrounding transaction (catching the
+    // violation instead poisons it on PostgreSQL).
+    $inserted = $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO intervention_recurrence_runs (id, recurrence_id, occurrence_date, status, error, created_at) '
+      . 'VALUES (:id, :recurrenceId, :occurrenceDate, :status, :error, :createdAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => $runId,
+        'recurrenceId' => $recurrenceId,
+        'occurrenceDate' => $localOccurrenceDate,
+        'status' => 'failed',
+        'error' => 'Materialization reserved but not yet completed.',
+        'createdAt' => new DateTimeImmutable(),
+      ],
+      ['occurrenceDate' => 'date_immutable', 'createdAt' => 'datetime_immutable'],
+    );
+
+    if (0 === $inserted) {
       return null;
     }
 

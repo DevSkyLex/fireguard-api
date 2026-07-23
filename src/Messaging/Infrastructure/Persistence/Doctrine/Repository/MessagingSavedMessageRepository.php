@@ -6,7 +6,6 @@ namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Port\Outbound\MessagingSavedMessageRepositoryPort;
 
@@ -39,25 +38,24 @@ final readonly class MessagingSavedMessageRepository implements MessagingSavedMe
   public function save(string $messageId, string $organizationId, string $memberId, DateTimeImmutable $savedAt): void
   {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
-    // deliberately: a unique-constraint violation during an ORM flush()
-    // closes the EntityManager. Saving an already-saved message is an
-    // expected, routine outcome here, not an exceptional one (mirrors
-    // `MessagingReactionRepository::add()`).
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO messaging_saved_messages (member_id, message_id, organization_id, saved_at) '
-        . 'VALUES (:memberId, :messageId, :organizationId, :savedAt)',
-        [
-          'memberId' => $memberId,
-          'messageId' => $messageId,
-          'organizationId' => $organizationId,
-          'savedAt' => $savedAt,
-        ],
-        ['savedAt' => 'datetime_immutable'],
-      );
-    } catch (UniqueConstraintViolationException) {
-      // Already saved: idempotent no-op.
-    }
+    // deliberately: a unique-constraint violation during an ORM flush() closes
+    // the EntityManager. Saving an already-saved message is an expected, routine
+    // outcome, so ON CONFLICT DO NOTHING makes it an in-DB no-op: no exception is
+    // raised and the surrounding transaction is never aborted (catching the
+    // violation instead poisons it on PostgreSQL). Mirrors
+    // `MessagingReactionRepository::add()`.
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO messaging_saved_messages (member_id, message_id, organization_id, saved_at) '
+      . 'VALUES (:memberId, :messageId, :organizationId, :savedAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'memberId' => $memberId,
+        'messageId' => $messageId,
+        'organizationId' => $organizationId,
+        'savedAt' => $savedAt,
+      ],
+      ['savedAt' => 'datetime_immutable'],
+    );
   }
 
   public function unsave(string $messageId, string $memberId): void

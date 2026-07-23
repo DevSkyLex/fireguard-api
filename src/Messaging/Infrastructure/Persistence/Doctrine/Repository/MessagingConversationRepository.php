@@ -6,7 +6,6 @@ namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Contract\Channel\{ChannelPage, ChannelView};
 use Messaging\Application\Contract\Conversation\{ConversationPage, ConversationView};
@@ -69,25 +68,25 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     // direct conversation (which needs `PARTICIPANTS`, see
     // `MessagingSubjectType::DIRECT`) would be silently created SUBJECT-visible,
     // defeating participant-based access control.
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO messaging_conversations (id, organization_id, subject_type, subject_id, visibility, messages_count, is_archived, created_at, updated_at) '
-        . 'VALUES (:id, :organizationId, :subjectType, :subjectId, :visibility, 0, false, :createdAt, :updatedAt)',
-        [
-          'id' => $id,
-          'organizationId' => $organizationId,
-          'subjectType' => $subjectType->value,
-          'subjectId' => $subjectId,
-          'visibility' => $visibility->value,
-          'createdAt' => $now,
-          'updatedAt' => $now,
-        ],
-        ['createdAt' => 'datetime_immutable', 'updatedAt' => 'datetime_immutable'],
-      );
-    } catch (UniqueConstraintViolationException) {
-      // Lost the race: fall through to select the row the concurrent
-      // request created.
-    }
+    // ON CONFLICT DO NOTHING makes losing the create race an in-DB no-op — no
+    // exception, so the surrounding transaction is never aborted (catching the
+    // violation instead poisons it on PostgreSQL). Either way, fall through to
+    // select the row (ours or the concurrent request's).
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO messaging_conversations (id, organization_id, subject_type, subject_id, visibility, messages_count, is_archived, created_at, updated_at) '
+      . 'VALUES (:id, :organizationId, :subjectType, :subjectId, :visibility, 0, false, :createdAt, :updatedAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => $id,
+        'organizationId' => $organizationId,
+        'subjectType' => $subjectType->value,
+        'subjectId' => $subjectId,
+        'visibility' => $visibility->value,
+        'createdAt' => $now,
+        'updatedAt' => $now,
+      ],
+      ['createdAt' => 'datetime_immutable', 'updatedAt' => 'datetime_immutable'],
+    );
 
     $view = $this->findByTriple($organizationId, $subjectType->value, $subjectId);
     if (null === $view) {

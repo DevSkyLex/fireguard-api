@@ -6,7 +6,6 @@ namespace Messaging\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\Port\Outbound\MessagingConversationFavoriteRepositoryPort;
 
@@ -39,25 +38,24 @@ final readonly class MessagingConversationFavoriteRepository implements Messagin
   public function favorite(string $conversationId, string $organizationId, string $memberId, DateTimeImmutable $favoritedAt): void
   {
     // A raw DBAL statement — not the ORM's persist()/flush() — is used
-    // deliberately: a unique-constraint violation during an ORM flush()
-    // closes the EntityManager. Favoriting an already-favorited conversation
-    // is an expected, routine outcome here, not an exceptional one (mirrors
-    // `MessagingReactionRepository::add()`).
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO messaging_conversation_favorites (conversation_id, member_id, organization_id, favorited_at) '
-        . 'VALUES (:conversationId, :memberId, :organizationId, :favoritedAt)',
-        [
-          'conversationId' => $conversationId,
-          'memberId' => $memberId,
-          'organizationId' => $organizationId,
-          'favoritedAt' => $favoritedAt,
-        ],
-        ['favoritedAt' => 'datetime_immutable'],
-      );
-    } catch (UniqueConstraintViolationException) {
-      // Already favorited: idempotent no-op.
-    }
+    // deliberately: a unique-constraint violation during an ORM flush() closes
+    // the EntityManager. Favoriting an already-favorited conversation is an
+    // expected, routine outcome, so ON CONFLICT DO NOTHING makes it an in-DB
+    // no-op: no exception is raised and the surrounding transaction is never
+    // aborted (catching the violation instead poisons it on PostgreSQL). Mirrors
+    // `MessagingReactionRepository::add()`.
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO messaging_conversation_favorites (conversation_id, member_id, organization_id, favorited_at) '
+      . 'VALUES (:conversationId, :memberId, :organizationId, :favoritedAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'conversationId' => $conversationId,
+        'memberId' => $memberId,
+        'organizationId' => $organizationId,
+        'favoritedAt' => $favoritedAt,
+      ],
+      ['favoritedAt' => 'datetime_immutable'],
+    );
   }
 
   public function unfavorite(string $conversationId, string $memberId): void

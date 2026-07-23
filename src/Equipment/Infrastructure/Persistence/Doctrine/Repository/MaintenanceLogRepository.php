@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Equipment\Infrastructure\Persistence\Doctrine\Repository;
 
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Equipment\Application\Port\Outbound\MaintenanceLogRepositoryPort;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
@@ -157,33 +156,33 @@ final readonly class MaintenanceLogRepository implements MaintenanceLogRepositor
    */
   public function appendInterventionServiceEntry(EquipmentMaintenanceLog $entry, string $dedupKey): void
   {
-    try {
-      $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO equipment_maintenance_logs '
-        . '(id, equipment_id, organization_id, started_at, completed_at, source, intervention_id, intervention_number, work_item_action, actor_id, summary, dedup_key) '
-        . 'VALUES (:id, :equipmentId, :organizationId, :startedAt, :completedAt, :source, :interventionId, :interventionNumber, :workItemAction, :actorId, :summary, :dedupKey)',
-        [
-          'id' => (string) $entry->id(),
-          'equipmentId' => (string) $entry->equipmentId(),
-          'organizationId' => (string) $entry->organizationId(),
-          'startedAt' => $entry->startedAt(),
-          'completedAt' => $entry->completedAt(),
-          'source' => $entry->source()->value,
-          'interventionId' => $entry->interventionId(),
-          'interventionNumber' => $entry->interventionNumber(),
-          'workItemAction' => $entry->workItemAction(),
-          'actorId' => $entry->actorId(),
-          'summary' => $entry->summary(),
-          'dedupKey' => $dedupKey,
-        ],
-        [
-          'startedAt' => 'datetime_immutable',
-          'completedAt' => 'datetime_immutable',
-        ],
-      );
-    } catch (UniqueConstraintViolationException) {
-      // Already recorded — safe to ignore.
-    }
+    // ON CONFLICT DO NOTHING makes a duplicate dedup_key an in-DB no-op: no
+    // exception is raised and the surrounding transaction is never aborted
+    // (catching the violation instead poisons it on PostgreSQL).
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO equipment_maintenance_logs '
+      . '(id, equipment_id, organization_id, started_at, completed_at, source, intervention_id, intervention_number, work_item_action, actor_id, summary, dedup_key) '
+      . 'VALUES (:id, :equipmentId, :organizationId, :startedAt, :completedAt, :source, :interventionId, :interventionNumber, :workItemAction, :actorId, :summary, :dedupKey) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => (string) $entry->id(),
+        'equipmentId' => (string) $entry->equipmentId(),
+        'organizationId' => (string) $entry->organizationId(),
+        'startedAt' => $entry->startedAt(),
+        'completedAt' => $entry->completedAt(),
+        'source' => $entry->source()->value,
+        'interventionId' => $entry->interventionId(),
+        'interventionNumber' => $entry->interventionNumber(),
+        'workItemAction' => $entry->workItemAction(),
+        'actorId' => $entry->actorId(),
+        'summary' => $entry->summary(),
+        'dedupKey' => $dedupKey,
+      ],
+      [
+        'startedAt' => 'datetime_immutable',
+        'completedAt' => 'datetime_immutable',
+      ],
+    );
   }
   // #endregion
 }

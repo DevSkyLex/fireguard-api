@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Webhook\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Webhook\Application\Port\Outbound\WebhookDeliveryRepositoryPort;
 use Webhook\Domain\Model\Delivery\WebhookDelivery;
@@ -69,31 +68,32 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
     // for the same concern and precedent). A duplicate reservation is an
     // expected, routine outcome here (fan-out re-run, Messenger
     // redelivery), not an exceptional one.
-    try {
-      $affected = $this->entityManager->getConnection()->executeStatement(
-        'INSERT INTO webhook_deliveries '
-        . '(id, subscription_id, organization_id, event_type, event_id, payload, status, attempts, created_at, updated_at) '
-        . 'VALUES (:id, :subscriptionId, :organizationId, :eventType, :eventId, :payload, :status, :attempts, :createdAt, :updatedAt)',
-        [
-          'id' => (string) $id,
-          'subscriptionId' => (string) $subscriptionId,
-          'organizationId' => $organizationId,
-          'eventType' => $eventType,
-          'eventId' => $eventId,
-          'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
-          'status' => WebhookDeliveryStatus::PENDING->value,
-          'attempts' => 0,
-          'createdAt' => $now,
-          'updatedAt' => $now,
-        ],
-        [
-          'createdAt' => 'datetime_immutable',
-          'updatedAt' => 'datetime_immutable',
-        ],
-      );
-    } catch (UniqueConstraintViolationException) {
-      return false;
-    }
+    // ON CONFLICT DO NOTHING makes a duplicate reservation an in-DB no-op
+    // returning zero affected rows — no exception, so the surrounding
+    // transaction is never aborted (catching the violation instead poisons it on
+    // PostgreSQL).
+    $affected = $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO webhook_deliveries '
+      . '(id, subscription_id, organization_id, event_type, event_id, payload, status, attempts, created_at, updated_at) '
+      . 'VALUES (:id, :subscriptionId, :organizationId, :eventType, :eventId, :payload, :status, :attempts, :createdAt, :updatedAt) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => (string) $id,
+        'subscriptionId' => (string) $subscriptionId,
+        'organizationId' => $organizationId,
+        'eventType' => $eventType,
+        'eventId' => $eventId,
+        'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+        'status' => WebhookDeliveryStatus::PENDING->value,
+        'attempts' => 0,
+        'createdAt' => $now,
+        'updatedAt' => $now,
+      ],
+      [
+        'createdAt' => 'datetime_immutable',
+        'updatedAt' => 'datetime_immutable',
+      ],
+    );
 
     return $affected > 0;
   }
