@@ -93,6 +93,142 @@ final class BillingPriceCatalogTest extends TestCase
     self::assertFalse($catalog->isPayable('pro'));
   }
 
+  #[Test]
+  public function itIgnoresPlanEntriesThatAreNotArrays(): void
+  {
+    $catalog = new BillingPriceCatalog(['pro' => 'not-an-array'], 'eur');
+
+    self::assertNull($catalog->priceIdFor('pro', BillingInterval::MONTH));
+    self::assertFalse($catalog->isPayable('pro'));
+  }
+
+  #[Test]
+  public function itIgnoresNonStringPriceIds(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      ['pro' => ['month' => ['priceId' => 123, 'amount' => 1000]]],
+      'eur',
+    );
+
+    self::assertNull($catalog->priceIdFor('pro', BillingInterval::MONTH));
+  }
+
+  #[Test]
+  public function itSkipsScalarPlansWhenReverseResolving(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      [
+        'broken' => 'not-an-array',
+        'pro' => ['year' => ['priceId' => 'price_pro_y', 'amount' => 10000]],
+      ],
+      'eur',
+    );
+
+    $resolved = $catalog->resolve('price_pro_y');
+
+    self::assertNotNull($resolved);
+    self::assertSame('pro', $resolved['planKey']);
+    self::assertSame(BillingInterval::YEAR, $resolved['interval']);
+  }
+
+  #[Test]
+  public function itSkipsScalarIntervalEntriesWhenReverseResolving(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      [
+        'pro' => [
+          'month' => 'not-an-array',
+          'year' => ['priceId' => 'price_pro_y', 'amount' => 10000],
+        ],
+      ],
+      'eur',
+    );
+
+    $resolved = $catalog->resolve('price_pro_y');
+
+    self::assertNotNull($resolved);
+    self::assertSame(BillingInterval::YEAR, $resolved['interval']);
+  }
+
+  #[Test]
+  public function itIgnoresNumericIntervalKeysWhenReverseResolving(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      ['pro' => [['priceId' => 'price_pos', 'amount' => 1]]],
+      'eur',
+    );
+
+    self::assertNull($catalog->resolve('price_pos'));
+  }
+
+  #[Test]
+  public function itIgnoresUnknownIntervalKeysWhenReverseResolving(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      ['pro' => ['weekly' => ['priceId' => 'price_w', 'amount' => 1]]],
+      'eur',
+    );
+
+    self::assertNull($catalog->resolve('price_w'));
+  }
+
+  #[Test]
+  public function itSkipsNonPayablePlansInPricing(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      [
+        'free' => ['month' => ['priceId' => '', 'amount' => 0]],
+        'pro' => ['month' => ['priceId' => 'price_pro_m', 'amount' => 1000]],
+      ],
+      'eur',
+    );
+
+    $pricing = $catalog->pricing();
+
+    self::assertCount(1, $pricing);
+    self::assertSame('pro', $pricing[0]->planKey);
+  }
+
+  #[Test]
+  public function itReturnsNullAmountsForAFreePlan(): void
+  {
+    $catalog = new BillingPriceCatalog($this->prices(), 'eur');
+
+    $pricing = $catalog->pricingFor('free');
+
+    self::assertSame('free', $pricing->planKey);
+    self::assertSame('eur', $pricing->currency);
+    self::assertNull($pricing->monthlyAmount);
+    self::assertNull($pricing->yearlyAmount);
+  }
+
+  #[Test]
+  public function itIgnoresNonIntegerAndMissingAmounts(): void
+  {
+    $catalog = new BillingPriceCatalog(
+      [
+        'weird' => [
+          'month' => ['priceId' => 'price_w_m', 'amount' => 'nope'],
+          'year' => ['priceId' => 'price_w_y'],
+        ],
+      ],
+      'eur',
+    );
+
+    $pricing = $catalog->pricingFor('weird');
+
+    self::assertNull($pricing->monthlyAmount);
+    self::assertNull($pricing->yearlyAmount);
+  }
+
+  #[Test]
+  public function itExposesTheConfiguredCurrency(): void
+  {
+    $catalog = new BillingPriceCatalog([], 'usd');
+
+    self::assertSame('usd', $catalog->currency());
+  }
+
   /**
    * @return array<string, mixed>
    */

@@ -42,6 +42,8 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
 
   private const string ROLE_ADMIN = '550e8400-e29b-41d4-a716-446655440013';
 
+  private const string OTHER_ORG_ID = '660e8400-e29b-41d4-a716-446655440000';
+
   // #region assertCanRemoveMember
 
   #[Test]
@@ -379,6 +381,166 @@ final class OrganizationLastAdminGuardServiceTest extends TestCase
     );
 
     $service->assertCanUpdateRolePermissions(self::ORG_ID, self::ROLE_ADMIN, ['organization.*']);
+  }
+
+  // #endregion
+
+  // #region additional branch coverage
+
+  #[Test]
+  public function testRemoveMemberFromAnotherOrganizationIsNoOp(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn(OrganizationMember::reconstitute(
+      id: new OrganizationMemberId(self::ADMIN_MEMBER_ID),
+      organizationId: new OrganizationId(self::OTHER_ORG_ID),
+      userId: self::ADMIN_USER_ID,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-1 day'),
+    ));
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
+  }
+
+  #[Test]
+  public function testRemoveInactiveAdminMemberIsNoOp(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn($this->member(self::ADMIN_MEMBER_ID, self::ADMIN_USER_ID, active: false));
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanRemoveMember(self::ORG_ID, self::ADMIN_MEMBER_ID);
+  }
+
+  #[Test]
+  public function testUnassignRoleWhenMemberMissingIsNoOp(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn(null);
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanUnassignRole(self::ORG_ID, self::ADMIN_MEMBER_ID, self::ROLE_A);
+  }
+
+  #[Test]
+  public function testUnassignRoleFromNonAdminWithoutOtherAdminIsAllowed(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn($this->member(self::REGULAR_MEMBER_ID, self::REGULAR_USER_ID));
+    $memberRepository->method('findByOrganizationId')->willReturn([
+      $this->member(self::REGULAR_MEMBER_ID, self::REGULAR_USER_ID),
+    ]);
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->authorizationWith([self::REGULAR_USER_ID => ['organization.read']]),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanUnassignRole(self::ORG_ID, self::REGULAR_MEMBER_ID, self::ROLE_A);
+  }
+
+  #[Test]
+  public function testBatchWithoutAnyAdminIsNoOp(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findByOrganizationId')->willReturn([
+      $this->member(self::ADMIN_MEMBER_ID, self::ADMIN_USER_ID, active: false),
+      $this->member(self::REGULAR_MEMBER_ID, self::REGULAR_USER_ID),
+    ]);
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->createStub(OrganizationRoleRepositoryPort::class),
+      $this->authorizationWith([self::REGULAR_USER_ID => ['organization.read']]),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanRemoveMembers(self::ORG_ID, [self::REGULAR_MEMBER_ID]);
+  }
+
+  #[Test]
+  public function testDeleteUnknownRoleIsNoOp(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findByOrganizationId');
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->roleRepositoryWith([]),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_A);
+  }
+
+  #[Test]
+  public function testDeleteRoleFromAnotherOrganizationIsNoOp(): void
+  {
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findByOrganizationId');
+
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findById')->willReturn(OrganizationRole::reconstitute(
+      id: new OrganizationRoleId(self::ROLE_ADMIN),
+      organizationId: new OrganizationId(self::OTHER_ORG_ID),
+      name: new OrganizationRoleName('role'),
+      permissions: ['organization.members.manage'],
+      isSystem: false,
+      createdAt: new DateTimeImmutable('-1 day'),
+    ));
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $roleRepository,
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingNoDispatch(),
+    );
+
+    $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_ADMIN);
+  }
+
+  #[Test]
+  public function testDeleteAdminRoleSkipsInactiveAndUnknownRolesAndIsRejected(): void
+  {
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findByOrganizationId')->willReturn([
+      $this->member(self::OTHER_ADMIN_MEMBER_ID, self::OTHER_ADMIN_USER_ID, active: false),
+      $this->member(self::ADMIN_MEMBER_ID, self::ADMIN_USER_ID),
+    ]);
+    $memberRepository->method('findRoleIdsForMember')->willReturn([self::ROLE_ADMIN, self::ROLE_A]);
+
+    $service = new OrganizationLastAdminGuardService(
+      $memberRepository,
+      $this->roleRepositoryWith([self::ROLE_ADMIN => $this->role(self::ROLE_ADMIN, ['organization.members.manage'])]),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->dispatcherExpectingLockoutEvent('delete_role', roleId: self::ROLE_ADMIN),
+    );
+
+    $this->expectException(OrganizationLastAdminException::class);
+
+    $service->assertCanDeleteRole(self::ORG_ID, self::ROLE_ADMIN);
   }
 
   // #endregion

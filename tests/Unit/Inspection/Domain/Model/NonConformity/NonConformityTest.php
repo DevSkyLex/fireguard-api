@@ -148,6 +148,92 @@ final class NonConformityTest extends TestCase
     $nc->updateStatus(NonConformityStatus::DONE);
   }
 
+  #[Test]
+  public function testCreateNormalizesBlankNotesToNull(): void
+  {
+    $nc = NonConformity::create(
+      id: NonConformityId::fromString(self::NC_ID),
+      inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
+      description: 'Broken seal',
+      severity: NonConformitySeverity::MEDIUM,
+      notes: "  \t \n ",
+    );
+
+    self::assertNull($nc->notes());
+  }
+
+  #[Test]
+  public function testCreateThrowsWhenNotesTooLong(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('notes must be at most 5000 characters');
+
+    NonConformity::create(
+      id: NonConformityId::fromString(self::NC_ID),
+      inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
+      description: 'Broken seal',
+      severity: NonConformitySeverity::LOW,
+      notes: str_repeat('n', 5001),
+    );
+  }
+
+  #[Test]
+  public function testReconstituteRestoresPersistedState(): void
+  {
+    $createdAt = new DateTimeImmutable('2026-01-02T08:00:00+00:00');
+    $updatedAt = new DateTimeImmutable('2026-01-05T09:30:00+00:00');
+    $dueAt = new DateTimeImmutable('2026-02-01T00:00:00+00:00');
+    $resolvedAt = new DateTimeImmutable('2026-01-05T09:30:00+00:00');
+
+    $nc = NonConformity::reconstitute(
+      id: NonConformityId::fromString(self::NC_ID),
+      inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
+      description: 'Sprinkler head obstructed',
+      severity: NonConformitySeverity::HIGH,
+      status: NonConformityStatus::DONE,
+      createdAt: $createdAt,
+      updatedAt: $updatedAt,
+      dueAt: $dueAt,
+      resolvedAt: $resolvedAt,
+      notes: 'Cleared during follow-up visit',
+    );
+
+    self::assertSame(self::NC_ID, (string) $nc->id());
+    self::assertSame(self::INSP_ID, (string) $nc->inspectionId());
+    self::assertSame('Sprinkler head obstructed', $nc->description());
+    self::assertSame(NonConformitySeverity::HIGH, $nc->severity());
+    self::assertSame(NonConformityStatus::DONE, $nc->status());
+    self::assertSame($createdAt, $nc->createdAt());
+    self::assertSame($updatedAt, $nc->updatedAt());
+    self::assertSame($dueAt, $nc->dueAt());
+    self::assertSame($resolvedAt, $nc->resolvedAt());
+    self::assertSame('Cleared during follow-up visit', $nc->notes());
+  }
+
+  #[Test]
+  public function testReconstitutePreservesResolvedGuard(): void
+  {
+    $timestamp = new DateTimeImmutable('2026-01-05T09:30:00+00:00');
+
+    $nc = NonConformity::reconstitute(
+      id: NonConformityId::fromString(self::NC_ID),
+      inspectionId: NonConformityInspectionId::fromString(self::INSP_ID),
+      description: 'Sprinkler head obstructed',
+      severity: NonConformitySeverity::HIGH,
+      status: NonConformityStatus::WAIVED,
+      createdAt: $timestamp,
+      updatedAt: $timestamp,
+    );
+
+    self::assertNull($nc->dueAt());
+    self::assertNull($nc->resolvedAt());
+    self::assertNull($nc->notes());
+
+    $this->expectException(NonConformityAlreadyResolvedException::class);
+
+    $nc->updateStatus(NonConformityStatus::OPEN);
+  }
+
   // #region Helpers
   private function makeNonConformity(): NonConformity
   {

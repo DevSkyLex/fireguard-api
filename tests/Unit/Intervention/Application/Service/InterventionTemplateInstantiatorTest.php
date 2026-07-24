@@ -12,6 +12,7 @@ use Intervention\Application\Contract\Template\{InterventionTemplateItemView, In
 use Intervention\Application\Port\Inbound\InterventionDraftFactoryPort;
 use Intervention\Application\Port\Outbound\{InterventionLabelPort, InterventionTemplatePort};
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionTemplateInstantiator};
+use Intervention\Domain\Exception\InterventionNotFoundException;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
@@ -234,6 +235,113 @@ final class InterventionTemplateInstantiatorTest extends TestCase
 
     self::assertInstanceOf(CreateInterventionDraftRequest::class, $captured);
     self::assertSame([self::EXISTING_LABEL_ID], $captured->labelIds);
+  }
+
+  #[Test]
+  public function itThrowsWhenTheTemplateDoesNotExist(): void
+  {
+    $templates = $this->createStub(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn(null);
+
+    $draftFactory = $this->createStub(InterventionDraftFactoryPort::class);
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    $this->instantiator($templates, $draftFactory)->instantiate(self::TEMPLATE_ID, 'intervention:template');
+  }
+
+  #[Test]
+  public function itTreatsAnUnparseableTemplateDurationAsAbsent(): void
+  {
+    $templates = $this->createStub(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn($this->customTemplate('not-a-duration', null, null));
+
+    $captured = null;
+    $draftFactory = $this->createStub(InterventionDraftFactoryPort::class);
+    $draftFactory->method('create')->willReturnCallback(function (CreateInterventionDraftRequest $request) use (&$captured): CreatedInterventionDraft {
+      $captured = $request;
+
+      return new CreatedInterventionDraft('intervention-1', 1, 0);
+    });
+
+    $this->instantiator($templates, $draftFactory)->instantiate(
+      self::TEMPLATE_ID,
+      'intervention:template',
+      plannedStartAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
+
+    self::assertInstanceOf(CreateInterventionDraftRequest::class, $captured);
+    self::assertNull($captured->dueAt, 'An unparseable template duration must be treated as absent, not block instantiation.');
+  }
+
+  #[Test]
+  public function itDoesNotDeriveDueAtWhenTheTemplateHasNoDurationDespiteAPlannedStart(): void
+  {
+    $templates = $this->createStub(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn($this->customTemplate(null, null, null));
+
+    $captured = null;
+    $draftFactory = $this->createStub(InterventionDraftFactoryPort::class);
+    $draftFactory->method('create')->willReturnCallback(function (CreateInterventionDraftRequest $request) use (&$captured): CreatedInterventionDraft {
+      $captured = $request;
+
+      return new CreatedInterventionDraft('intervention-1', 1, 0);
+    });
+
+    $this->instantiator($templates, $draftFactory)->instantiate(
+      self::TEMPLATE_ID,
+      'intervention:template',
+      plannedStartAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
+
+    self::assertInstanceOf(CreateInterventionDraftRequest::class, $captured);
+    self::assertNull($captured->dueAt);
+  }
+
+  #[Test]
+  public function itLeavesResponsibleAndAssigneeNullWhenTheTemplateHasNoDefaults(): void
+  {
+    $templates = $this->createStub(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn($this->customTemplate('P14D', null, null));
+
+    $captured = null;
+    $draftFactory = $this->createStub(InterventionDraftFactoryPort::class);
+    $draftFactory->method('create')->willReturnCallback(function (CreateInterventionDraftRequest $request) use (&$captured): CreatedInterventionDraft {
+      $captured = $request;
+
+      return new CreatedInterventionDraft('intervention-1', 1, 1);
+    });
+
+    $this->instantiator($templates, $draftFactory)->instantiate(self::TEMPLATE_ID, 'intervention:template');
+
+    self::assertInstanceOf(CreateInterventionDraftRequest::class, $captured);
+    self::assertNull($captured->responsibleId, 'A null default responsible must stay null without touching the member policy.');
+    self::assertCount(1, $captured->workItems);
+    self::assertNull($captured->workItems[0]->assigneeId, 'A null default assignee must stay null without touching the member policy.');
+  }
+
+  private function customTemplate(
+    ?string $duration,
+    ?string $defaultResponsibleId,
+    ?string $assigneeId,
+  ): InterventionTemplateView {
+    return new InterventionTemplateView(
+      self::TEMPLATE_ID,
+      self::ORGANIZATION_ID,
+      'Fire safety audit',
+      'A description',
+      'inspection_campaign',
+      'high',
+      'site-1',
+      $defaultResponsibleId,
+      $duration,
+      [],
+      [
+        new InterventionTemplateItemView('item-1', 0, 'site_setup', null, null, true, $assigneeId),
+      ],
+      new DateTimeImmutable(),
+      new DateTimeImmutable(),
+    );
   }
 
   private function template(): InterventionTemplateView

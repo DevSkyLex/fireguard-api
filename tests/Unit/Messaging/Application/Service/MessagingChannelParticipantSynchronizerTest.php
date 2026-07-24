@@ -155,6 +155,66 @@ final class MessagingChannelParticipantSynchronizerTest extends TestCase
     $synchronizer->onOrganizationMemberRemoved(self::ORG_ID, 'member-1');
   }
 
+  #[Test]
+  public function testOnTeamMemberAddedIsANoOpWhenNoChannelIsBoundToTeam(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findChannelIdsBoundToTeam')->willReturn([]);
+
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->expects(self::never())->method('isParticipant');
+    $participants->expects(self::never())->method('addMemberToChannels');
+
+    $readMarkers = $this->createMock(MessagingReadMarkerRepositoryPort::class);
+    $readMarkers->expects(self::never())->method('upsert');
+
+    $synchronizer = new MessagingChannelParticipantSynchronizer(
+      $conversations,
+      $participants,
+      $readMarkers,
+      $this->createStub(TeamDirectoryPort::class),
+    );
+
+    $synchronizer->onTeamMemberAdded(self::ORG_ID, self::TEAM_ID, 'member-3');
+  }
+
+  #[Test]
+  public function testOnTeamMemberRemovedIsANoOpWhenNoChannelIsBoundToTeam(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findChannelIdsBoundToTeam')->willReturn([]);
+
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->expects(self::never())->method('removeMemberFromChannels');
+
+    $synchronizer = new MessagingChannelParticipantSynchronizer(
+      $conversations,
+      $participants,
+      $this->createStub(MessagingReadMarkerRepositoryPort::class),
+      $this->createStub(TeamDirectoryPort::class),
+    );
+
+    $synchronizer->onTeamMemberRemoved(self::ORG_ID, self::TEAM_ID, 'member-1');
+  }
+
+  #[Test]
+  public function testOnTeamDeletedSkipsChannelsWhoseAggregateIsMissing(): void
+  {
+    $conversations = $this->createMock(MessagingConversationRepositoryPort::class);
+    $conversations->method('findChannelIdsBoundToTeam')->willReturn([self::CHANNEL_ID]);
+    $conversations->method('findAggregateById')->willReturn(null);
+    $conversations->expects(self::never())->method('save');
+
+    $synchronizer = new MessagingChannelParticipantSynchronizer(
+      $conversations,
+      $this->createStub(MessagingParticipantRepositoryPort::class),
+      $this->createStub(MessagingReadMarkerRepositoryPort::class),
+      $this->createStub(TeamDirectoryPort::class),
+    );
+
+    $synchronizer->onTeamDeleted(self::ORG_ID, self::TEAM_ID);
+  }
+
   private function conversationView(): ConversationView
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');

@@ -15,16 +15,19 @@ use Onboarding\Application\Service\{
   OrganizationOnboardingFlowService
 };
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
-use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
+use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\{DeleteOrganizationRollbackAction, RollbackActionInterface};
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
+use Organization\Domain\Exception\OrganizationNotFoundException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -851,6 +854,706 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
     self::assertSame([], $state->skippedSteps);
     self::assertSame([], $state->completedSteps);
     self::assertSame([], $state->stepHistory);
+  }
+
+  #[Test]
+  public function testGetFlowDispatchesCompletionEventWhenTransitioningToCompleted(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440130';
+    $orgId = '550e8400-e29b-41d4-a716-446655440180';
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440230',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [
+        OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::SELECT_PLAN,
+        OrganizationOnboardingStep::INVITE_MEMBERS,
+        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+      ],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $state = $service->getFlow($userId);
+
+    self::assertSame(OrganizationOnboardingState::COMPLETED, $state->state);
+    self::assertNull($state->nextStep);
+    self::assertSame($orgId, $state->targetOrganizationId);
+  }
+
+  #[Test]
+  public function testExecuteStepSelectPlanConfirmsWithoutRollbackAction(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440131';
+    $orgId = '550e8400-e29b-41d4-a716-446655440181';
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440231',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      transactionManager: $transactionManager,
+    );
+
+    $state = $service->executeStep(
+      userId: $userId,
+      stepKey: OrganizationOnboardingStep::SELECT_PLAN,
+      input: new ExecuteOnboardingStepPayload(),
+    );
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+    self::assertSame(OrganizationOnboardingStep::INVITE_MEMBERS, $state->nextStep);
+    self::assertContains(OrganizationOnboardingStep::SELECT_PLAN, $state->completedSteps);
+    // Confirming select_plan carries no rollback action of its own; the
+    // create_organization rollback remains the last rollbackable step.
+    self::assertTrue($state->canRollback);
+    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->lastRollbackableStep);
+  }
+
+  #[Test]
+  public function testRollbackLastStepDeletesCreatedOrganization(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440132';
+    $orgId = '550e8400-e29b-41d4-a716-446655440182';
+
+    $existingSession = $this->buildRollbackableSession($userId, $orgId, '550e8400-e29b-41d4-a716-446655440232');
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn($this->createStub(ResultMessage::class));
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      commandBus: $commandBus,
+      transactionManager: $transactionManager,
+    );
+
+    $state = $service->rollbackLastStep($userId);
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+    // The single rollback action was consumed, so nothing remains to roll back.
+    self::assertFalse($state->canRollback);
+    self::assertNull($state->lastRollbackableStep);
+    self::assertSame($orgId, $state->targetOrganizationId);
+  }
+
+  #[Test]
+  public function testRollbackSwallowsOrganizationNotFoundException(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440133';
+    $orgId = '550e8400-e29b-41d4-a716-446655440183';
+
+    $existingSession = $this->buildRollbackableSession($userId, $orgId, '550e8400-e29b-41d4-a716-446655440233');
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(OrganizationNotFoundException::withId($orgId));
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      commandBus: $commandBus,
+      transactionManager: $transactionManager,
+    );
+
+    // A missing organization means the rollback is already effectively done:
+    // the exception is swallowed and the flow resolves normally.
+    $state = $service->rollbackLastStep($userId);
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+  }
+
+  #[Test]
+  public function testRollbackSwallowsWrappedOrganizationNotFoundException(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440134';
+    $orgId = '550e8400-e29b-41d4-a716-446655440184';
+
+    $existingSession = $this->buildRollbackableSession($userId, $orgId, '550e8400-e29b-41d4-a716-446655440234');
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap(OrganizationNotFoundException::withId($orgId)));
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      commandBus: $commandBus,
+      transactionManager: $transactionManager,
+    );
+
+    // A NotFound wrapped inside a MessengerRuntimeException is unwrapped and
+    // treated as a successful (idempotent) rollback.
+    $state = $service->rollbackLastStep($userId);
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+  }
+
+  #[Test]
+  public function testRollbackRethrowsUnrelatedMessengerRuntimeException(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440135';
+    $orgId = '550e8400-e29b-41d4-a716-446655440185';
+
+    $existingSession = $this->buildRollbackableSession($userId, $orgId, '550e8400-e29b-41d4-a716-446655440235');
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap(new RuntimeException('database is down')));
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      commandBus: $commandBus,
+      transactionManager: $transactionManager,
+    );
+    // An unrelated failure (not a NotFound) must propagate instead of being swallowed.
+    $service->rollbackLastStep($userId);
+  }
+
+  #[Test]
+  public function testRollbackThrowsForUnsupportedRollbackActionType(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440136';
+    $orgId = '550e8400-e29b-41d4-a716-446655440186';
+
+    $unsupportedAction = new class () implements RollbackActionInterface {
+      public function step(): string
+      {
+        return OrganizationOnboardingStep::CREATE_ORGANIZATION;
+      }
+
+      public function actionType(): string
+      {
+        return 'custom_type';
+      }
+
+      /**
+       * @return array<string, mixed>
+       */
+      public function toArray(): array
+      {
+        return ['action' => 'custom_type'];
+      }
+    };
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440236',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [$unsupportedAction],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Unsupported rollback action type "custom_type".');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      transactionManager: $transactionManager,
+    );
+    $service->rollbackLastStep($userId);
+  }
+
+  #[Test]
+  public function testDismissHidesActivationFlow(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440137';
+    $sessionId = '550e8400-e29b-41d4-a716-446655440237';
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn(null);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, null);
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      uuidFactory: $uuidFactory,
+      transactionManager: $transactionManager,
+    );
+
+    $state = $service->dismiss($userId);
+
+    self::assertTrue($state->dismissed);
+    self::assertNotNull($state->dismissedAt);
+    // Dismissal is orthogonal to progression: the flow stays in progress.
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+  }
+
+  #[Test]
+  public function testResumeClearsDismissal(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440138';
+    $orgId = '550e8400-e29b-41d4-a716-446655440188';
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440238',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      dismissedAt: new DateTimeImmutable('2026-02-19T09:00:00+00:00'),
+    );
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      transactionManager: $transactionManager,
+    );
+
+    $state = $service->resume($userId);
+
+    self::assertFalse($state->dismissed);
+    self::assertNull($state->dismissedAt);
+  }
+
+  #[Test]
+  public function testSkipStepThrowsWhenOnboardingAlreadyCompleted(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440139';
+    $orgId = '550e8400-e29b-41d4-a716-446655440189';
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440239',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: null,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [
+        OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::SELECT_PLAN,
+        OrganizationOnboardingStep::INVITE_MEMBERS,
+        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+      ],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Onboarding is already completed. Nothing to skip.');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      transactionManager: $transactionManager,
+    );
+    $service->skipStep(
+      userId: $userId,
+      stepKey: OrganizationOnboardingStep::INVITE_MEMBERS,
+    );
+  }
+
+  #[Test]
+  public function testSkipStepThrowsWhenStepIsNotCurrentPending(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440140';
+    $orgId = '550e8400-e29b-41d4-a716-446655440190';
+
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440240',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    $sessionRepository = $this->createStub(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Step "invite_members" is not the current pending step. Next step is "select_plan".');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      transactionManager: $transactionManager,
+    );
+    $service->skipStep(
+      userId: $userId,
+      stepKey: OrganizationOnboardingStep::INVITE_MEMBERS,
+    );
+  }
+
+  #[Test]
+  public function testSkipStepCompletesFlowAndDispatchesEvent(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440141';
+    $orgId = '550e8400-e29b-41d4-a716-446655440191';
+
+    // Every step except the optional select_plan is already done; skipping it
+    // is the last action needed to complete the flow.
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440241',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [
+        OrganizationOnboardingStep::CREATE_ORGANIZATION,
+        OrganizationOnboardingStep::INVITE_MEMBERS,
+        OrganizationOnboardingStep::CREATE_FIRST_FACILITY,
+        OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT,
+      ],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $fn): mixed => $fn());
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    /** @var EventDispatcherInterface&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $state = $service->skipStep(
+      userId: $userId,
+      stepKey: OrganizationOnboardingStep::SELECT_PLAN,
+    );
+
+    self::assertSame(OrganizationOnboardingState::COMPLETED, $state->state);
+    self::assertNull($state->nextStep);
+    self::assertContains(OrganizationOnboardingStep::SELECT_PLAN, $state->skippedSteps);
+  }
+
+  #[Test]
+  public function testRollbackStackClearedWhenActionTargetsDifferentOrganization(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440142';
+    $orgId = '550e8400-e29b-41d4-a716-446655440192';
+    $staleOrgId = '550e8400-e29b-41d4-a716-446655440292';
+
+    // The rollback stack references an org id that no longer matches the pinned
+    // target (e.g. the org was recreated externally): the stale stack is dropped.
+    $existingSession = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-446655440242',
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [new DeleteOrganizationRollbackAction($staleOrgId)],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn($existingSession);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $orgResult = $this->buildOrganizationResult($orgId, 'Fireguard SAS', $userId);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $this->configureQueryBus($queryBus, $orgResult);
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+    );
+
+    $state = $service->getFlow($userId);
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+    self::assertSame($orgId, $state->targetOrganizationId);
+    // The stale rollback action was cleared, so no rollback is offered.
+    self::assertFalse($state->canRollback);
+    self::assertNull($state->lastRollbackableStep);
+  }
+
+  #[Test]
+  public function testGetFlowAdoptsMostRecentlyCreatedOrganization(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440143';
+    $olderOrgId = '550e8400-e29b-41d4-a716-446655440193';
+    $newerOrgId = '550e8400-e29b-41d4-a716-446655440293';
+    $sessionId = '550e8400-e29b-41d4-a716-446655440243';
+
+    /** @var OrganizationOnboardingSessionRepositoryPort&MockObject $sessionRepository */
+    $sessionRepository = $this->createMock(OrganizationOnboardingSessionRepositoryPort::class);
+    $sessionRepository->method('findByUserId')->willReturn(null);
+    $sessionRepository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('generateRaw')->willReturn($sessionId);
+
+    // Two organizations were created during this onboarding session; the most
+    // recently created one wins the adoption tiebreak.
+    $olderOrg = $this->buildOrganizationResult($olderOrgId, 'Older SAS', $userId, new DateTimeImmutable('+1 hour'));
+    $newerOrg = $this->buildOrganizationResult($newerOrgId, 'Newer SAS', $userId, new DateTimeImmutable('+2 hours'));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')
+      ->willReturn(new PaginatedResult(items: [$olderOrg, $newerOrg], total: 2, limit: 100, offset: 0));
+
+    $service = $this->buildService(
+      sessionRepository: $sessionRepository,
+      queryBus: $queryBus,
+      uuidFactory: $uuidFactory,
+    );
+
+    $state = $service->getFlow($userId);
+
+    self::assertSame(OrganizationOnboardingState::IN_PROGRESS, $state->state);
+    // create_organization still requires explicit confirmation via executeStep.
+    self::assertSame(OrganizationOnboardingStep::CREATE_ORGANIZATION, $state->nextStep);
+    self::assertSame($newerOrgId, $state->targetOrganizationId);
+  }
+
+  private function buildRollbackableSession(string $userId, string $orgId, string $sessionId): OrganizationOnboardingSession
+  {
+    return OrganizationOnboardingSession::reconstitute(
+      id: $sessionId,
+      userId: $userId,
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::SELECT_PLAN,
+      blockedReason: null,
+      targetOrganizationId: $orgId,
+      targetOrganizationName: 'Fireguard SAS',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [new DeleteOrganizationRollbackAction($orgId)],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-19T08:00:00+00:00'),
+    );
   }
 
   private function buildService(

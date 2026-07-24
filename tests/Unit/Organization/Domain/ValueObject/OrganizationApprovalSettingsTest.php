@@ -136,4 +136,133 @@ final class OrganizationApprovalSettingsTest extends TestCase
     $rule = $merged->ruleFor('nc_waiver');
     self::assertFalse($rule['enabled']);
   }
+
+  #[Test]
+  public function testConstructorRejectsEmptyActionTypeKey(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new OrganizationApprovalSettings(actionRules: [
+      '' => ['enabled' => true, 'minApproverRole' => 'admin', 'minSeverity' => null],
+    ]);
+  }
+
+  #[Test]
+  public function testConstructorRejectsTtlAboveMaximum(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new OrganizationApprovalSettings(approvalTtlDays: OrganizationApprovalDefaults::MAX_APPROVAL_TTL_DAYS + 1);
+  }
+
+  #[Test]
+  public function testMergedWithUpdatesScalarsWhenActionRulesKeyAbsent(): void
+  {
+    $settings = new OrganizationApprovalSettings();
+
+    $merged = $settings->mergedWith([
+      'allow_self_approval' => true,
+      'approval_ttl_days' => 21,
+    ]);
+
+    self::assertSame([], $merged->actionRules);
+    self::assertTrue($merged->allowSelfApproval);
+    self::assertSame(21, $merged->approvalTtlDays);
+  }
+
+  #[Test]
+  public function testMergedWithIgnoresNonArrayActionRulesPayload(): void
+  {
+    $settings = new OrganizationApprovalSettings(actionRules: [
+      'nc_waiver' => ['enabled' => true, 'minApproverRole' => 'admin', 'minSeverity' => 'critical'],
+    ]);
+
+    $merged = $settings->mergedWith(['action_rules' => 'not-an-array']);
+
+    self::assertSame($settings->actionRules, $merged->actionRules);
+  }
+
+  #[Test]
+  public function testMergedWithSkipsNonStringKeysAndNonArrayRules(): void
+  {
+    $settings = new OrganizationApprovalSettings();
+
+    $merged = $settings->mergedWith([
+      'action_rules' => [
+        7 => ['enabled' => true],
+        'nc_waiver' => 'not-an-array',
+      ],
+    ]);
+
+    self::assertSame([], $merged->actionRules);
+  }
+
+  #[Test]
+  public function testMergedWithClearsSeverityAndKeepsCurrentWhenFieldsOmitted(): void
+  {
+    $settings = new OrganizationApprovalSettings(actionRules: [
+      'nc_waiver' => ['enabled' => true, 'minApproverRole' => 'admin', 'minSeverity' => 'critical'],
+    ]);
+
+    $merged = $settings->mergedWith([
+      'action_rules' => ['nc_waiver' => ['min_severity' => null]],
+    ]);
+
+    $rule = $merged->ruleFor('nc_waiver');
+    self::assertTrue($rule['enabled']);
+    self::assertSame('admin', $rule['minApproverRole']);
+    self::assertNull($rule['minSeverity']);
+  }
+
+  #[Test]
+  public function testMergedWithTreatsEmptyStringsAsFallback(): void
+  {
+    $settings = new OrganizationApprovalSettings(actionRules: [
+      'nc_waiver' => ['enabled' => true, 'minApproverRole' => 'admin', 'minSeverity' => 'critical'],
+    ]);
+
+    $merged = $settings->mergedWith([
+      'action_rules' => [
+        'nc_waiver' => ['enabled' => true, 'min_approver_role' => '', 'min_severity' => ''],
+      ],
+    ]);
+
+    $rule = $merged->ruleFor('nc_waiver');
+    self::assertSame('admin', $rule['minApproverRole']);
+    self::assertNull($rule['minSeverity']);
+  }
+
+  #[Test]
+  public function testFromArrayIgnoresNonArrayActionRules(): void
+  {
+    $settings = OrganizationApprovalSettings::fromArray(['action_rules' => 'not-an-array']);
+
+    self::assertSame([], $settings->actionRules);
+  }
+
+  #[Test]
+  public function testFromArraySkipsInvalidEntriesAndDefaultsMissingRole(): void
+  {
+    $settings = OrganizationApprovalSettings::fromArray([
+      'action_rules' => [
+        10 => ['enabled' => true],
+        'bad_rule' => 'not-an-array',
+        'good' => ['enabled' => true, 'min_severity' => 'high'],
+      ],
+    ]);
+
+    self::assertArrayNotHasKey('bad_rule', $settings->actionRules);
+    $rule = $settings->ruleFor('good');
+    self::assertTrue($rule['enabled']);
+    self::assertSame(OrganizationApprovalDefaults::MIN_APPROVER_ROLE, $rule['minApproverRole']);
+    self::assertSame('high', $rule['minSeverity']);
+  }
+
+  #[Test]
+  public function testFromArrayFallsBackWhenTtlIsNotInt(): void
+  {
+    $settings = OrganizationApprovalSettings::fromArray(['approval_ttl_days' => 'thirty']);
+
+    self::assertSame(OrganizationApprovalDefaults::APPROVAL_TTL_DAYS, $settings->approvalTtlDays);
+  }
 }

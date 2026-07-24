@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inspection\Domain\Model\Checklist;
 
+use DateTimeImmutable;
 use Inspection\Domain\Exception\ChecklistArchivedException;
 use Inspection\Domain\Model\Checklist\{Checklist, ChecklistItem};
 use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId, ChecklistStatus};
@@ -226,6 +227,75 @@ final class ChecklistTest extends TestCase
     $this->expectException(ChecklistArchivedException::class);
 
     $checklist->update(name: 'Renamed', hasName: true);
+  }
+
+  #[Test]
+  public function testCreateThrowsWhenVersionTooLong(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('version must be at most 50 characters');
+
+    Checklist::create(
+      id: ChecklistId::fromString(self::CL_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
+      name: 'Fire Safety Checklist',
+      version: str_repeat('v', 51),
+    );
+  }
+
+  #[Test]
+  public function testCreateInitializesEqualTimestamps(): void
+  {
+    $checklist = $this->makeChecklist();
+
+    self::assertSame($checklist->createdAt(), $checklist->updatedAt());
+  }
+
+  #[Test]
+  public function testReconstituteRestoresPersistedState(): void
+  {
+    $createdAt = new DateTimeImmutable('2026-01-01 10:00:00');
+    $updatedAt = new DateTimeImmutable('2026-01-02 12:30:00');
+    $item = ChecklistItem::reconstitute(
+      id: 'item-9',
+      label: 'Verify seal',
+      position: 3,
+      required: false,
+      description: 'Detailed note',
+    );
+
+    $checklist = Checklist::reconstitute(
+      id: ChecklistId::fromString(self::CL_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORG_ID),
+      name: 'Persisted Checklist',
+      version: 'v3.0',
+      status: ChecklistStatus::ARCHIVED,
+      items: [$item],
+      createdAt: $createdAt,
+      updatedAt: $updatedAt,
+      referenceCode: 'CHK-REF',
+    );
+
+    self::assertSame(self::CL_ID, (string) $checklist->id());
+    self::assertSame(self::ORG_ID, (string) $checklist->organizationId());
+    self::assertSame('Persisted Checklist', $checklist->name());
+    self::assertSame('v3.0', $checklist->version());
+    self::assertSame(ChecklistStatus::ARCHIVED, $checklist->status());
+    self::assertSame('CHK-REF', $checklist->referenceCode());
+    self::assertSame($createdAt, $checklist->createdAt());
+    self::assertSame($updatedAt, $checklist->updatedAt());
+    self::assertCount(1, $checklist->items());
+    self::assertSame('item-9', $checklist->items()[0]->id());
+  }
+
+  #[Test]
+  public function testUpdateSkipsNameWhenProvidedAsNull(): void
+  {
+    $checklist = $this->makeChecklist();
+
+    $checklist->update(name: null, hasName: true);
+
+    self::assertSame('Fire Safety Checklist', $checklist->name());
   }
 
   // #region Helpers

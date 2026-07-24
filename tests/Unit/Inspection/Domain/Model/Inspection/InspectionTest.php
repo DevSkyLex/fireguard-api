@@ -6,13 +6,16 @@ namespace Tests\Unit\Inspection\Domain\Model\Inspection;
 
 use DateTimeImmutable;
 use Inspection\Domain\Exception\{
+  InspectionAlreadyCancelledException,
   InspectionAlreadyClosedException,
   InspectionAlreadySubmittedException,
   InspectionNotSubmittedException
 };
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
+  InspectionChecklistId,
   InspectionEquipmentId,
+  InspectionFacilityId,
   InspectionId,
   InspectionOrganizationId,
   InspectionResult,
@@ -41,6 +44,12 @@ final class InspectionTest extends TestCase
   private const string EQUIP_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   private const string INSP_ID = '550e8400-e29b-41d4-a716-446655440003';
+
+  private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655440004';
+
+  private const string CHECKLIST_ID = '550e8400-e29b-41d4-a716-446655440005';
+
+  private const string NEW_EQUIP_ID = '550e8400-e29b-41d4-a716-446655440006';
   // #endregion
 
   // #region Methods
@@ -185,6 +194,233 @@ final class InspectionTest extends TestCase
     $inspection->submit();
 
     self::assertGreaterThanOrEqual($before, $inspection->updatedAt());
+  }
+
+  #[Test]
+  public function testCreateInitializesTimestampsAndOptionalGetters(): void
+  {
+    $inspection = Inspection::create(
+      id: InspectionId::fromString(self::INSP_ID),
+      organizationId: InspectionOrganizationId::fromString(self::ORG_ID),
+      equipmentId: InspectionEquipmentId::fromString(self::EQUIP_ID),
+      inspector: Inspector::forUser(userId: 'user-1', name: 'John Doe'),
+      result: InspectionResult::PASS,
+      performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
+    );
+
+    self::assertNull($inspection->facilityId());
+    self::assertNull($inspection->checklistId());
+    self::assertNull($inspection->signature());
+    self::assertNull($inspection->notes());
+    self::assertSame('John Doe', $inspection->inspector()->name);
+    self::assertEquals($inspection->createdAt(), $inspection->updatedAt());
+  }
+
+  #[Test]
+  public function testReconstituteRestoresPersistedState(): void
+  {
+    $performedAt = new DateTimeImmutable('2026-01-10T08:00:00+00:00');
+    $createdAt = new DateTimeImmutable('2026-01-11T09:00:00+00:00');
+    $updatedAt = new DateTimeImmutable('2026-01-12T10:00:00+00:00');
+
+    $inspection = Inspection::reconstitute(
+      id: InspectionId::fromString(self::INSP_ID),
+      organizationId: InspectionOrganizationId::fromString(self::ORG_ID),
+      equipmentId: InspectionEquipmentId::fromString(self::EQUIP_ID),
+      inspector: Inspector::forUser(userId: 'user-1', name: 'Jane Roe'),
+      result: InspectionResult::PARTIAL,
+      status: InspectionStatus::SUBMITTED,
+      performedAt: $performedAt,
+      createdAt: $createdAt,
+      updatedAt: $updatedAt,
+      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+      notes: '  raw notes kept verbatim  ',
+      signature: 'signature-blob',
+    );
+
+    self::assertSame(InspectionStatus::SUBMITTED, $inspection->status());
+    self::assertSame(InspectionResult::PARTIAL, $inspection->result());
+    self::assertSame($performedAt, $inspection->performedAt());
+    self::assertSame($createdAt, $inspection->createdAt());
+    self::assertSame($updatedAt, $inspection->updatedAt());
+    self::assertSame(self::FACILITY_ID, (string) $inspection->facilityId());
+    self::assertSame(self::CHECKLIST_ID, (string) $inspection->checklistId());
+    self::assertSame('  raw notes kept verbatim  ', $inspection->notes());
+    self::assertSame('signature-blob', $inspection->signature());
+    self::assertSame('Jane Roe', $inspection->inspector()->name);
+  }
+
+  #[Test]
+  public function testCancelTransitionsDraftToCancelled(): void
+  {
+    $inspection = $this->makeInspection();
+
+    $inspection->cancel();
+
+    self::assertSame(InspectionStatus::CANCELLED, $inspection->status());
+  }
+
+  #[Test]
+  public function testCancelTransitionsSubmittedToCancelled(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->submit();
+
+    $inspection->cancel();
+
+    self::assertSame(InspectionStatus::CANCELLED, $inspection->status());
+  }
+
+  #[Test]
+  public function testCancelThrowsWhenAlreadyClosed(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->submit();
+    $inspection->close();
+
+    $this->expectException(InspectionAlreadyClosedException::class);
+
+    $inspection->cancel();
+  }
+
+  #[Test]
+  public function testCancelThrowsWhenAlreadyCancelled(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->cancel();
+
+    $this->expectException(InspectionAlreadyCancelledException::class);
+
+    $inspection->cancel();
+  }
+
+  #[Test]
+  public function testSubmitThrowsWhenCancelled(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->cancel();
+
+    $this->expectException(InspectionAlreadySubmittedException::class);
+
+    $inspection->submit();
+  }
+
+  #[Test]
+  public function testCloseThrowsWhenCancelled(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->cancel();
+
+    $this->expectException(InspectionNotSubmittedException::class);
+
+    $inspection->close();
+  }
+
+  #[Test]
+  public function testEditUpdatesAllProvidedFields(): void
+  {
+    $inspection = $this->makeInspection();
+    $newPerformedAt = new DateTimeImmutable('2026-02-20T12:00:00+00:00');
+
+    $inspection->edit(
+      equipmentId: InspectionEquipmentId::fromString(self::NEW_EQUIP_ID),
+      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+      result: InspectionResult::FAIL,
+      performedAt: $newPerformedAt,
+      notes: '  Edited notes  ',
+      signature: 'new-signature',
+      hasEquipmentId: true,
+      hasFacilityId: true,
+      hasChecklistId: true,
+      hasResult: true,
+      hasPerformedAt: true,
+      hasNotes: true,
+      hasSignature: true,
+    );
+
+    self::assertSame(self::NEW_EQUIP_ID, (string) $inspection->equipmentId());
+    self::assertSame(self::FACILITY_ID, (string) $inspection->facilityId());
+    self::assertSame(self::CHECKLIST_ID, (string) $inspection->checklistId());
+    self::assertSame(InspectionResult::FAIL, $inspection->result());
+    self::assertSame($newPerformedAt, $inspection->performedAt());
+    self::assertSame('Edited notes', $inspection->notes());
+    self::assertSame('new-signature', $inspection->signature());
+  }
+
+  #[Test]
+  public function testEditLeavesFieldsUntouchedWhenFlagsFalse(): void
+  {
+    $inspection = $this->makeInspection();
+
+    $inspection->edit();
+
+    self::assertSame(self::EQUIP_ID, (string) $inspection->equipmentId());
+    self::assertNull($inspection->facilityId());
+    self::assertNull($inspection->checklistId());
+    self::assertSame(InspectionResult::PASS, $inspection->result());
+    self::assertNull($inspection->notes());
+    self::assertNull($inspection->signature());
+  }
+
+  #[Test]
+  public function testEditClearsOptionalsButKeepsRequiredWhenFlaggedWithNull(): void
+  {
+    $inspection = Inspection::create(
+      id: InspectionId::fromString(self::INSP_ID),
+      organizationId: InspectionOrganizationId::fromString(self::ORG_ID),
+      equipmentId: InspectionEquipmentId::fromString(self::EQUIP_ID),
+      inspector: Inspector::forUser(userId: 'user-1', name: 'John Doe'),
+      result: InspectionResult::PASS,
+      performedAt: new DateTimeImmutable('2026-01-15T10:00:00+00:00'),
+      facilityId: InspectionFacilityId::fromString(self::FACILITY_ID),
+      checklistId: InspectionChecklistId::fromString(self::CHECKLIST_ID),
+      notes: 'Original notes',
+      signature: 'original-signature',
+    );
+
+    $inspection->edit(
+      hasEquipmentId: true,
+      hasFacilityId: true,
+      hasChecklistId: true,
+      hasResult: true,
+      hasPerformedAt: true,
+      hasNotes: true,
+      hasSignature: true,
+    );
+
+    // Optional fields are cleared when flagged with null.
+    self::assertNull($inspection->facilityId());
+    self::assertNull($inspection->checklistId());
+    self::assertNull($inspection->notes());
+    self::assertNull($inspection->signature());
+    // Required fields stay unchanged because their null value is ignored.
+    self::assertSame(self::EQUIP_ID, (string) $inspection->equipmentId());
+    self::assertSame(InspectionResult::PASS, $inspection->result());
+  }
+
+  #[Test]
+  public function testEditThrowsWhenClosed(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->submit();
+    $inspection->close();
+
+    $this->expectException(InspectionAlreadyClosedException::class);
+
+    $inspection->edit(result: InspectionResult::FAIL, hasResult: true);
+  }
+
+  #[Test]
+  public function testEditThrowsWhenNotDraft(): void
+  {
+    $inspection = $this->makeInspection();
+    $inspection->submit();
+
+    $this->expectException(InspectionAlreadySubmittedException::class);
+
+    $inspection->edit(result: InspectionResult::FAIL, hasResult: true);
   }
 
   // #region Helpers

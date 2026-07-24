@@ -92,6 +92,25 @@ final class InspectorTest extends TestCase
   }
 
   #[Test]
+  public function itRejectsAnOverlongExternalName(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    Inspector::forExternal(str_repeat('b', 256));
+  }
+
+  #[Test]
+  public function itBuildsAnExternalInspectorWithoutAnOrganization(): void
+  {
+    $inspector = Inspector::forExternal('  Dave  ');
+
+    self::assertSame(InspectorType::EXTERNAL, $inspector->type);
+    self::assertSame('Dave', $inspector->name);
+    self::assertNull($inspector->userId);
+    self::assertNull($inspector->organizationName);
+  }
+
+  #[Test]
   public function itReconstitutesFromPersistedState(): void
   {
     $inspector = Inspector::reconstitute(
