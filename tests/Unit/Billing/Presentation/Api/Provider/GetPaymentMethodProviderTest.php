@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Presentation\Api\Provider;
+namespace Tests\Unit\Billing\Presentation\Api\Provider;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Application\UseCase;
+namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Plan\PlanSummary;
 use Billing\Application\Port\Outbound\{OrganizationPlanPort, SubscriptionRepositoryPort};

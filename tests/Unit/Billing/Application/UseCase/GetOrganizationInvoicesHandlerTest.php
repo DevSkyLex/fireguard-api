@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Application\UseCase;
+namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Stripe\StripeInvoice;
 use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
@@ -34,7 +34,7 @@ final class GetOrganizationInvoicesHandlerTest extends TestCase
     $stripe = $this->createMock(StripeGatewayPort::class);
     $stripe->expects(self::never())->method('listInvoices');
 
-    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions = $this->createStub(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn(null);
 
     $handler = new GetOrganizationInvoicesHandler($subscriptions, $stripe);
@@ -71,7 +71,7 @@ final class GetOrganizationInvoicesHandlerTest extends TestCase
       ->with('cus_1')
       ->willReturn([$invoice]);
 
-    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions = $this->createStub(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn($subscription);
 
     $handler = new GetOrganizationInvoicesHandler($subscriptions, $stripe);

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Application\Service;
+namespace Tests\Unit\Billing\Application\Service;
 
 use Billing\Application\Service\BillingPriceCatalog;
 use Billing\Domain\ValueObject\BillingInterval;

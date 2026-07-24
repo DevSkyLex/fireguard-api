@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Application\UseCase;
+namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Contract\Stripe\StripeEvent;
 use Billing\Application\Port\Outbound\{
@@ -38,7 +38,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
   #[Test]
   public function anActiveSubscriptionEventAssignsThePaidPlan(): void
   {
-    $stripe = $this->createMock(StripeGatewayPort::class);
+    $stripe = $this->createStub(StripeGatewayPort::class);
     $stripe->method('parseEvent')->willReturn(new StripeEvent(
       type: 'customer.subscription.updated',
       organizationId: 'org-1',
@@ -74,7 +74,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
   #[Test]
   public function aDeletedSubscriptionEventDowngradesToFree(): void
   {
-    $stripe = $this->createMock(StripeGatewayPort::class);
+    $stripe = $this->createStub(StripeGatewayPort::class);
     $stripe->method('parseEvent')->willReturn(new StripeEvent(
       type: 'customer.subscription.deleted',
       organizationId: 'org-1',
@@ -111,7 +111,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
   #[Test]
   public function anUnrelatedEventChangesNothing(): void
   {
-    $stripe = $this->createMock(StripeGatewayPort::class);
+    $stripe = $this->createStub(StripeGatewayPort::class);
     $stripe->method('parseEvent')->willReturn(new StripeEvent(type: 'invoice.paid'));
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
@@ -147,7 +147,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
 
   private function uuidFactory(): UuidFactory
   {
-    $factory = $this->createMock(UuidFactory::class);
+    $factory = $this->createStub(UuidFactory::class);
     $factory->method('create')->willReturn(SubscriptionId::fromString(self::SUBSCRIPTION_ID));
 
     return $factory;
@@ -155,7 +155,7 @@ final class HandleStripeWebhookHandlerTest extends TestCase
 
   private function transactionManager(): TransactionManagerPort
   {
-    $manager = $this->createMock(TransactionManagerPort::class);
+    $manager = $this->createStub(TransactionManagerPort::class);
     $manager->method('transactional')->willReturnCallback(
       static fn (callable $operation): mixed => $operation(),
     );

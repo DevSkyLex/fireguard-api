@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Application\UseCase;
+namespace Tests\Unit\Billing\Application\UseCase;
 
 use Billing\Application\Port\Outbound\{StripeGatewayPort, SubscriptionRepositoryPort};
-use Billing\Application\UseCase\Command\ResumeSubscription\{
-  ResumeSubscriptionCommand,
-  ResumeSubscriptionHandler
+use Billing\Application\UseCase\Command\CancelSubscription\{
+  CancelSubscriptionCommand,
+  CancelSubscriptionHandler
 };
 use Billing\Domain\Exception\NoActiveSubscriptionException;
 use Billing\Domain\Model\Subscription\Subscription;
@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 /**
- * Test ResumeSubscriptionHandlerTest.
+ * Test CancelSubscriptionHandlerTest.
  *
  * @category Test
  *
@@ -25,29 +25,29 @@ use Shared\Application\Port\Outbound\TransactionManagerPort;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class ResumeSubscriptionHandlerTest extends TestCase
+final class CancelSubscriptionHandlerTest extends TestCase
 {
   private const string SUBSCRIPTION_ID = '33333333-3333-4333-8333-333333333333';
 
   #[Test]
-  public function itClearsCancellationOnStripeAndMirrorsLocally(): void
+  public function itSchedulesCancellationOnStripeAndMirrorsLocally(): void
   {
-    $subscription = $this->cancelingSubscription();
+    $subscription = $this->activeSubscription();
 
     $stripe = $this->createMock(StripeGatewayPort::class);
     $stripe->expects(self::once())
-      ->method('resumeCancellation')
+      ->method('scheduleCancellation')
       ->with('sub_1');
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn($subscription);
     $subscriptions->expects(self::once())->method('save')->with($subscription);
 
-    $handler = new ResumeSubscriptionHandler($subscriptions, $stripe, $this->transactionManager());
+    $handler = new CancelSubscriptionHandler($subscriptions, $stripe, $this->transactionManager());
 
-    $handler(new ResumeSubscriptionCommand('org-1'));
+    $handler(new CancelSubscriptionCommand('org-1'));
 
-    self::assertFalse($subscription->cancelAtPeriodEnd());
+    self::assertTrue($subscription->cancelAtPeriodEnd());
     self::assertSame(SubscriptionStatus::ACTIVE, $subscription->status());
   }
 
@@ -55,34 +55,57 @@ final class ResumeSubscriptionHandlerTest extends TestCase
   public function itThrowsWhenNoSubscriptionExists(): void
   {
     $stripe = $this->createMock(StripeGatewayPort::class);
-    $stripe->expects(self::never())->method('resumeCancellation');
+    $stripe->expects(self::never())->method('scheduleCancellation');
 
     $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
     $subscriptions->method('findByOrganizationId')->willReturn(null);
     $subscriptions->expects(self::never())->method('save');
 
-    $handler = new ResumeSubscriptionHandler($subscriptions, $stripe, $this->transactionManager());
+    $handler = new CancelSubscriptionHandler($subscriptions, $stripe, $this->transactionManager());
 
     $this->expectException(NoActiveSubscriptionException::class);
 
-    $handler(new ResumeSubscriptionCommand('org-1'));
+    $handler(new CancelSubscriptionCommand('org-1'));
   }
 
-  private function cancelingSubscription(): Subscription
+  #[Test]
+  public function itThrowsWhenTheSubscriptionHasNoStripeId(): void
   {
     $subscription = Subscription::start(
       SubscriptionId::fromString(self::SUBSCRIPTION_ID),
       'org-1',
       'cus_1',
     );
-    $subscription->syncFromStripe('sub_1', SubscriptionStatus::ACTIVE, 'pro', BillingInterval::MONTH, null, true);
+
+    $stripe = $this->createMock(StripeGatewayPort::class);
+    $stripe->expects(self::never())->method('scheduleCancellation');
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->method('findByOrganizationId')->willReturn($subscription);
+    $subscriptions->expects(self::never())->method('save');
+
+    $handler = new CancelSubscriptionHandler($subscriptions, $stripe, $this->transactionManager());
+
+    $this->expectException(NoActiveSubscriptionException::class);
+
+    $handler(new CancelSubscriptionCommand('org-1'));
+  }
+
+  private function activeSubscription(): Subscription
+  {
+    $subscription = Subscription::start(
+      SubscriptionId::fromString(self::SUBSCRIPTION_ID),
+      'org-1',
+      'cus_1',
+    );
+    $subscription->syncFromStripe('sub_1', SubscriptionStatus::ACTIVE, 'pro', BillingInterval::MONTH, null, false);
 
     return $subscription;
   }
 
   private function transactionManager(): TransactionManagerPort
   {
-    $manager = $this->createMock(TransactionManagerPort::class);
+    $manager = $this->createStub(TransactionManagerPort::class);
     $manager->method('transactional')->willReturnCallback(
       static fn (callable $operation): mixed => $operation(),
     );

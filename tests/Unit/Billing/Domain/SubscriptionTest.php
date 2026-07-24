@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Billing\Domain;
+namespace Tests\Unit\Billing\Domain;
 
 use Billing\Domain\Model\Subscription\Subscription;
 use Billing\Domain\ValueObject\{BillingInterval, SubscriptionId, SubscriptionStatus};
