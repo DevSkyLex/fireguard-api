@@ -919,6 +919,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
           COUNT(*) AS facility_count
         FROM facilities
         WHERE organization_id = :organizationId
+          AND record_status = 'published'
           AND created_at >= :createdAtFrom
           AND created_at <= :createdAtTo
       SQL;
