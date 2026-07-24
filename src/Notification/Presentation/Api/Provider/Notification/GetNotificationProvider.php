@@ -97,6 +97,7 @@ final readonly class GetNotificationProvider implements ProviderInterface
     $output->isRead = $result->isRead;
     $output->createdAt = $result->createdAt->format('c');
     $output->readAt = null !== $result->readAt ? $result->readAt->format('c') : null;
+    $output->organizationId = $result->organizationId;
 
     return $output;
   }

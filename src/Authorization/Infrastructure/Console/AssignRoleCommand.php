@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Authorization\Infrastructure\Console;
 
+use Authorization\Application\Service\AuthorizationCacheInvalidator;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -49,6 +50,7 @@ final class AssignRoleCommand extends Command
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly ?AuthorizationCacheInvalidator $cacheInvalidator = null,
   ) {
     parent::__construct();
   }
@@ -181,6 +183,7 @@ HELP
 
         $this->entityManager->remove($existingAssignment);
         $this->entityManager->flush();
+        $this->cacheInvalidator?->invalidateUser($user->id);
 
         $io->success(sprintf('Role "%s" removed from user "%s".', $roleName, $email));
       } else {
@@ -201,6 +204,7 @@ HELP
 
         $this->entityManager->persist($assignment);
         $this->entityManager->flush();
+        $this->cacheInvalidator?->invalidateUser($user->id);
 
         $io->success(sprintf('Role "%s" assigned to user "%s".', $roleName, $email));
       }

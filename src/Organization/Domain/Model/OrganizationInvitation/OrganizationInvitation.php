@@ -357,6 +357,31 @@ final class OrganizationInvitation
   }
 
   /**
+   * Method renew.
+   *
+   * Reissues a pending or expired invitation with a fresh token and expiry,
+   * returning it to the pending state so it can be accepted again.
+   *
+   * @since 1.0.0
+   *
+   * @param string $newTokenHash the new hashed invitation token
+   * @param DateTimeImmutable $newExpiresAt the new expiration datetime
+   * @param ?DateTimeImmutable $renewedAt the renewal datetime
+   */
+  public function renew(string $newTokenHash, DateTimeImmutable $newExpiresAt, ?DateTimeImmutable $renewedAt = null): void
+  {
+    if (OrganizationInvitationStatus::PENDING !== $this->status && OrganizationInvitationStatus::EXPIRED !== $this->status) {
+      throw new InvalidArgumentException('Only pending or expired invitations can be resent.');
+    }
+
+    $now = $renewedAt ?? new DateTimeImmutable();
+    $this->status = OrganizationInvitationStatus::PENDING;
+    $this->tokenHash = $newTokenHash;
+    $this->expiresAt = $newExpiresAt;
+    $this->updatedAt = $now;
+  }
+
+  /**
    * Method expire.
    *
    * Marks the invitation as expired.

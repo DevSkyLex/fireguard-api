@@ -6,13 +6,16 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Organization\Application\Port\Outbound\OrganizationRoleRepositoryPort;
+use Organization\Application\Service\OrganizationCacheInvalidator;
 use Organization\Domain\Catalog\OrganizationSystemRoleCatalog;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationRoleMapper;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 
+use function array_filter;
 use function array_map;
+use function array_values;
 use function is_array;
 
 /**
@@ -45,6 +48,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
+    private readonly ?OrganizationCacheInvalidator $cacheInvalidator = null,
   ) {
     $this->repository = $entityManager->getRepository(OrganizationRoleRecord::class);
   }
@@ -62,6 +66,8 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function save(OrganizationRole $role): void
   {
+    $assignedProfiles = null !== $this->cacheInvalidator ? $this->findAssignedMemberProfiles($role->id()) : [];
+
     $record = OrganizationRoleMapper::toRecord($role);
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $role->organizationId());
@@ -79,6 +85,7 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
     }
 
     $this->entityManager->flush();
+    $this->cacheInvalidator?->invalidateCurrentMemberProfiles($assignedProfiles);
   }
 
   /**
@@ -243,12 +250,42 @@ final readonly class OrganizationRoleRepository implements OrganizationRoleRepos
    */
   public function remove(OrganizationRole $role): void
   {
+    $assignedProfiles = null !== $this->cacheInvalidator ? $this->findAssignedMemberProfiles($role->id()) : [];
+
     $record = $this->repository->find((string) $role->id());
 
     if ($record instanceof OrganizationRoleRecord) {
       $this->entityManager->remove($record);
       $this->entityManager->flush();
+      $this->cacheInvalidator?->invalidateCurrentMemberProfiles($assignedProfiles);
     }
+  }
+
+  /**
+   * @return list<array{organizationId: string, userId: string}>
+   */
+  private function findAssignedMemberProfiles(OrganizationRoleId $roleId): array
+  {
+    $roleRecord = $this->repository->find((string) $roleId);
+    if (!$roleRecord instanceof OrganizationRoleRecord) {
+      return [];
+    }
+
+    $records = $this->entityManager
+      ->getRepository(OrganizationMemberRoleRecord::class)
+      ->findBy(['role' => $roleRecord]);
+
+    return array_map(
+      static fn (OrganizationMemberRoleRecord $record): array => [
+        'organizationId' => (string) $record->member?->organization?->id,
+        'userId' => (string) $record->member?->userId,
+      ],
+      array_values(array_filter(
+        $records,
+        static fn (OrganizationMemberRoleRecord $record): bool => null !== $record->member?->organization
+          && '' !== $record->member->userId,
+      )),
+    );
   }
 
   /**

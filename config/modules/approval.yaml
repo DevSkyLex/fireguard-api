@@ -1,0 +1,58 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Approval\Presentation\:
+    resource: '../../src/Approval/Presentation'
+
+  Approval\Application\Service\:
+    resource: '../../src/Approval/Application/Service'
+
+  Approval\Infrastructure\Scheduler\:
+    resource: '../../src/Approval/Infrastructure/Scheduler'
+
+  # Inbound port (the interception seam consumed by Inspection/Equipment processors)
+  Approval\Application\Port\Inbound\ApprovalGatePort:
+    alias: Approval\Application\Service\ApprovalGate
+
+  # Outbound ports
+  Approval\Application\Port\Outbound\ApprovalRequestRepositoryPort:
+    alias: Approval\Infrastructure\Persistence\Doctrine\Repository\ApprovalRequestRepository
+
+  # Cross-module outbound ports (adapters hosted in Organization)
+  Approval\Application\Port\Outbound\ApprovalPolicyPort:
+    alias: Organization\Infrastructure\Adapter\Approval\OrganizationApprovalPolicyAdapter
+
+  Approval\Application\Port\Outbound\ApprovalMemberDirectoryPort:
+    alias: Organization\Infrastructure\Adapter\Approval\OrganizationApprovalMemberDirectoryAdapter
+
+  # Tagged-iterator executor registry — consumes every owning module's tagged adapter
+  Approval\Application\Service\ApprovalActionExecutorRegistry:
+    arguments:
+      $executors: !tagged_iterator approval.deferred_action_executor
+
+  # Cross-module adapter hosted here (implements Organization's action-type catalog port)
+  Approval\Infrastructure\Adapter\Organization\ApprovalActionTypeCatalogAdapter: ~
+
+  # Repository (main entity manager)
+  Approval\Infrastructure\Persistence\Doctrine\Repository\ApprovalRequestRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Command handlers
+  Approval\Application\UseCase\Command\Decision\ApproveApprovalRequest\ApproveApprovalRequestHandler:
+    tags: ['messenger.message_handler']
+
+  Approval\Application\UseCase\Command\Decision\RejectApprovalRequest\RejectApprovalRequestHandler:
+    tags: ['messenger.message_handler']
+
+  Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\ExpireStaleApprovalRequestsHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Approval\Application\UseCase\Query\Request\GetApprovalRequest\GetApprovalRequestHandler:
+    tags: ['messenger.message_handler']
+
+  Approval\Application\UseCase\Query\Request\ListApprovalRequests\ListApprovalRequestsHandler:
+    tags: ['messenger.message_handler']

@@ -1,0 +1,123 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Intervention\Presentation\Api\Provider;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
+use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
+use Auth\Infrastructure\Security\User\SecurityUser;
+use Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\{ListInterventionActivitiesQuery, ListInterventionActivitiesResult};
+use Intervention\Presentation\Api\Dto\Output\InterventionActivityOutput;
+use Intervention\Presentation\Api\Factory\InterventionActivityOutputFactory;
+use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
+use Shared\Application\Port\Inbound\QueryBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Throwable;
+
+use function array_map;
+use function is_string;
+use function max;
+use function min;
+
+/**
+ * Provider InterventionActivityProvider.
+ *
+ * @category Provider
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ *
+ * @implements ProviderInterface<InterventionActivityOutput>
+ */
+final readonly class InterventionActivityProvider implements ProviderInterface
+{
+  use InterventionWorkflowExceptionMapperTrait;
+
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the InterventionActivityProvider class.
+   *
+   * @since 1.0.0
+   *
+   * @param QueryBusPort $queryBus the query bus value
+   * @param InterventionActivityOutputFactory $mapper the mapper value
+   * @param Security $security the security value
+   * @param RequestStack $requestStack the request stack value
+   */
+  public function __construct(
+    private QueryBusPort $queryBus,
+    private InterventionActivityOutputFactory $mapper,
+    private Security $security,
+    private RequestStack $requestStack,
+  ) {
+  }
+
+  /**
+   * Method provide.
+   *
+   * Executes the provide operation.
+   *
+   * @since 1.0.0
+   *
+   * @param Operation $operation the operation value
+   * @param array<string, mixed> $uriVariables the uri variables value
+   * @param array<string, mixed> $context the context value
+   *
+   * @return TraversablePaginator the provide result
+   */
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): TraversablePaginator
+  {
+    $user = $this->user();
+    $interventionId = $uriVariables['interventionId'] ?? null;
+    if (!is_string($interventionId) || '' === $interventionId) {
+      throw new BadRequestHttpException('The interventionId URI parameter is required.');
+    }
+
+    $query = $this->requestStack->getCurrentRequest()?->query;
+
+    try {
+      /** @var ListInterventionActivitiesResult $result */
+      $result = $this->queryBus->ask(new ListInterventionActivitiesQuery(
+        $user->getId(),
+        $interventionId,
+        max(1, $query?->getInt('page', 1) ?? 1),
+        max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30)),
+      ));
+    } catch (Throwable $exception) {
+      throw $this->mapWorkflowException($exception);
+    }
+
+    return new TraversablePaginator(
+      new ArrayIterator(array_map($this->mapper->fromView(...), $result->page->items)),
+      (float) $result->page->page,
+      (float) $result->page->itemsPerPage,
+      (float) $result->page->total,
+    );
+  }
+
+  /**
+   * Method user.
+   *
+   * Executes the user operation.
+   *
+   * @since 1.0.0
+   *
+   * @return SecurityUser the user result
+   */
+  private function user(): SecurityUser
+  {
+    $user = $this->security->getUser();
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+
+    return $user;
+  }
+}

@@ -120,6 +120,45 @@ final class CurrentUserProfileOutput
   public ?string $lastLoginAt = null;
 
   /**
+   * Property locale.
+   *
+   * The preferred display language. "system" means the user follows their
+   * browser language.
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Preferred display language. "system" follows the browser language.',
+    readable: true,
+    writable: false,
+    example: 'fr',
+    openapiContext: [
+      'type' => 'string',
+      'enum' => ['system', 'en', 'fr', 'es'],
+      'readOnly' => true,
+    ],
+  )]
+  public string $locale = 'system';
+
+  /**
+   * Property totpEnabled.
+   *
+   * Whether the authenticated user has an active TOTP (authenticator app)
+   * MFA enrollment.
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Whether the authenticated user has an active TOTP (authenticator app) enrollment.',
+    readable: true,
+    writable: false,
+    example: false,
+    openapiContext: [
+      'type' => 'boolean',
+      'readOnly' => true,
+    ],
+  )]
+  public bool $totpEnabled = false;
+
+  /**
    * @var list<string>
    */
   #[Groups(groups: [UserSerializationGroup::READ])]
@@ -150,5 +189,33 @@ final class CurrentUserProfileOutput
     ],
   )]
   public array $permissions = [];
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method getAvatarUrls.
+   *
+   * Derives the per-size avatar URLs from the canonical avatar URL.
+   *
+   * @since 1.0.0
+   *
+   * @return array<int, string>|null map of size (px) to URL
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Avatar URLs by size in pixels. Null when no avatar is set or the avatar is hosted externally.',
+    readable: true,
+    writable: false,
+    openapiContext: [
+      'type' => 'object',
+      'additionalProperties' => ['type' => 'string', 'format' => 'uri'],
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
+  public function getAvatarUrls(): ?array
+  {
+    return AvatarUrls::fromAvatarUrl($this->avatarUrl);
+  }
   // #endregion
 }

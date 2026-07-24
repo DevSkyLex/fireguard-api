@@ -80,5 +80,16 @@ final class OrganizationRoleOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public string $description = '';
+
+  /**
+   * Property memberCount.
+   *
+   * Number of ACTIVE organization members currently assigned this role.
+   *
+   * @since 1.4.0
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $memberCount = 0;
   // #endregion
 }

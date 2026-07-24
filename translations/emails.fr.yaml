@@ -1,0 +1,7 @@
+invitation:
+  emailSubject: "Invitation à rejoindre %org%"
+  heading: "Vous êtes invité à rejoindre %org%"
+  intro: "Vous avez été invité à collaborer dans <strong>%org%</strong> sur FireGuard."
+  cta: "Accepter l'invitation"
+  fallback: "Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :"
+  expires: "Cette invitation expire le %date%."

@@ -30,6 +30,7 @@ final readonly class CreateEquipmentCommand implements CommandMessage
    * @param ?string $model the optional model
    * @param ?string $serialNumber the optional serial number
    * @param ?string $locationLabel the optional location label
+   * @param ?string $resourceId the resource id value
    */
   public function __construct(
     public string $organizationId,
@@ -39,6 +40,7 @@ final readonly class CreateEquipmentCommand implements CommandMessage
     public ?string $model = null,
     public ?string $serialNumber = null,
     public ?string $locationLabel = null,
+    public ?string $resourceId = null,
   ) {
   }
   // #endregion

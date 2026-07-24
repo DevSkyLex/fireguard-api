@@ -50,7 +50,11 @@ final readonly class SetupTotpProcessor implements ProcessorInterface
       throw new BadRequestHttpException('User must be authenticated.');
     }
 
-    $userId = $user->getUserIdentifier();
+    // Enrollment rows are keyed by the immutable user UUID (matching the
+    // login-time TotpEnrollmentCheckPort and /api/me status lookups), never by
+    // the mutable email that getUserIdentifier() returns.
+    $idRaw = method_exists($user, 'getId') ? $user->getId() : null;
+    $userId = is_string($idRaw) ? $idRaw : $user->getUserIdentifier();
     $accountNameRaw = method_exists($user, 'getEmail') ? $user->getEmail() : null;
     $accountName = is_string($accountNameRaw) ? $accountNameRaw : $userId;
 

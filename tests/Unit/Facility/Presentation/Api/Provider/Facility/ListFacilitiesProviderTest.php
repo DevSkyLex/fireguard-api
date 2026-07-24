@@ -68,6 +68,9 @@ final class ListFacilitiesProviderTest extends TestCase
             metadata: ['k' => 'v'],
             createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
             updatedAt: new DateTimeImmutable('2026-02-12T10:30:00+00:00'),
+            hasChildren: true,
+            latitude: 48.8566,
+            longitude: 2.3522,
           ),
         ],
         total: 1,
@@ -94,6 +97,9 @@ final class ListFacilitiesProviderTest extends TestCase
     self::assertCount(1, $items);
     self::assertInstanceOf(FacilityOutput::class, $items[0]);
     self::assertSame('550e8400-e29b-41d4-a716-446655441202', $items[0]->id);
+    self::assertTrue($items[0]->hasChildren);
+    self::assertSame(48.8566, $items[0]->latitude);
+    self::assertSame(2.3522, $items[0]->longitude);
   }
 
   #[Test]
@@ -172,6 +178,7 @@ final class ListFacilitiesProviderTest extends TestCase
           && 'building' === $query->type
           && 'active' === $query->status
           && '550e8400-e29b-41d4-a716-446655441214' === $query->parentFacilityId
+          && true === $query->rootsOnly
           && 'BLD-A' === $query->code
           && 'alpha' === $query->search
           && 'createdAt' === $query->sorting->field
@@ -183,6 +190,7 @@ final class ListFacilitiesProviderTest extends TestCase
     $request->query->set('type', 'building');
     $request->query->set('status', 'active');
     $request->query->set('parentFacilityId', '550e8400-e29b-41d4-a716-446655441214');
+    $request->query->set('rootsOnly', 'true');
     $request->query->set('code', 'BLD-A');
 
     $requestStack = new RequestStack();

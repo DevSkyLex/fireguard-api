@@ -12,6 +12,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Domain\Event\DomainEvent;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\MessengerEventBusAdapter;
 use Symfony\Component\Messenger\{Envelope, MessageBusInterface};
+use Symfony\Component\Messenger\Exception\NoHandlerForMessageException;
 
 /**
  * Class MessengerEventBusAdapterTest.
@@ -88,5 +89,29 @@ final class MessengerEventBusAdapterTest extends TestCase
 
     $this->expectException(MessengerRuntimeException::class);
     $this->adapter->publish($event);
+  }
+
+  /**
+   * Test that publishing ignores missing handlers.
+   */
+  #[Test]
+  public function testPublishIgnoresMissingHandlers(): void
+  {
+    $eventWithoutHandler = $this->createStub(DomainEvent::class);
+    $handledEvent = $this->createStub(DomainEvent::class);
+
+    $this->messageBus->expects($this->exactly(2))
+      ->method('dispatch')
+      ->willReturnCallback(function (object $message) use ($eventWithoutHandler, $handledEvent) {
+        if ($eventWithoutHandler === $message) {
+          throw new NoHandlerForMessageException();
+        }
+
+        $this->assertSame($handledEvent, $message);
+
+        return new Envelope($handledEvent);
+      });
+
+    $this->adapter->publish($eventWithoutHandler, $handledEvent);
   }
 }

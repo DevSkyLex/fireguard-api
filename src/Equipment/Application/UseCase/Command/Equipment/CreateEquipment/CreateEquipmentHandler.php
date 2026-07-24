@@ -8,8 +8,11 @@ use Equipment\Application\Port\Outbound\EquipmentRepositoryPort;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -25,9 +28,23 @@ use ValueError;
 final readonly class CreateEquipmentHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateEquipmentHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param EquipmentRepositoryPort $equipmentRepository the equipment repository value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param TransactionManagerPort $transactionManager the transaction manager
+   */
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private UuidFactory $uuidFactory,
+    private OrganizationQuotaPort $quota,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -50,7 +67,9 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       $organizationId = EquipmentOrganizationId::fromString($command->organizationId);
 
       /** @var EquipmentId $equipmentId */
-      $equipmentId = $this->uuidFactory->create(EquipmentId::class);
+      $equipmentId = null === $command->resourceId
+        ? $this->uuidFactory->create(EquipmentId::class)
+        : EquipmentId::fromString($command->resourceId);
 
       $equipment = Equipment::create(
         id: $equipmentId,
@@ -66,7 +85,13 @@ final readonly class CreateEquipmentHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $this->equipmentRepository->save($equipment);
+    // Enforce the plan quota and persist atomically: assertCanAdd takes a
+    // transaction-scoped advisory lock so concurrent creates at the cap cannot
+    // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
+    $this->transactionManager->transactional(function () use ($command, $equipment): void {
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::EQUIPMENT);
+      $this->equipmentRepository->save($equipment);
+    });
 
     return new CreateEquipmentResult(
       equipmentId: (string) $equipment->id(),

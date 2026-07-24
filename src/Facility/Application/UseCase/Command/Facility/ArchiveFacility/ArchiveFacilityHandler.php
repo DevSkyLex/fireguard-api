@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Facility\Application\UseCase\Command\Facility\ArchiveFacility;
 
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
+use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Event\Facility\FacilityArchivedEvent;
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
@@ -15,7 +17,7 @@ use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -40,6 +42,8 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
     private OrganizationRepositoryPort $organizationRepository,
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
+    private FacilityArchivalGuardPort $archivalGuard,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -65,13 +69,20 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $facility = $this->facilityRepository->findById($facilityId);
+    $facility = $this->facilityRepository->findPublishedById($facilityId);
 
     if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
       throw FacilityNotFoundException::withId($command->facilityId);
     }
 
     $wasAlreadyArchived = 'archived' === $facility->status()->value;
+
+    // Refuse to archive a facility that would orphan a live dependent (active
+    // child facilities, equipment, or in-progress inspections). Idempotent: an
+    // already-archived facility has no live dependents to re-check.
+    if (!$wasAlreadyArchived) {
+      $this->archivalGuard->assertNoActiveDependents((string) $organizationId, (string) $facilityId);
+    }
 
     $facility->archive();
 
@@ -86,6 +97,13 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
     }
 
     if (!$wasAlreadyArchived) {
+      // Emitted after the durable save so a failed persistence leaves no
+      // ledger row; the idempotent already-archived path stays silent.
+      $this->eventDispatcher->dispatch(new FacilityArchivedEvent(
+        organizationId: (string) $facility->organizationId(),
+        facilityId: (string) $facility->id(),
+      ));
+
       $organization = $this->organizationRepository->findById(new OrganizationId((string) $organizationId));
     } else {
       $organization = null;
@@ -106,6 +124,7 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
             'archivedAt' => $facility->updatedAt()->format('c'),
           ],
           recipientUserId: $organization->ownerUserId(),
+          organizationId: (string) $organizationId,
         ));
       } catch (Throwable $exception) {
         $this->logger->warning('Facility archived notification dispatch failed.', [

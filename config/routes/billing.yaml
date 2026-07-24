@@ -1,0 +1,4 @@
+billing_stripe_webhook:
+  path: /api/billing/webhook
+  controller: Billing\Presentation\Controller\StripeWebhookController
+  methods: [POST]

@@ -251,4 +251,42 @@ final class UserOutput
   )]
   public ?string $lastLoginAt = null;
   // #endregion
+
+  // #region Methods
+  /**
+   * Method getAvatarUrls.
+   *
+   * Derives the per-size avatar URLs from the canonical avatar URL.
+   * Returns null when no avatar is set or when the URL does not point
+   * to the internal avatar endpoint (e.g. an external picture URL).
+   *
+   * @since 1.0.0
+   *
+   * @return array<int, string>|null map of size (px) to URL
+   */
+  #[Groups(groups: [UserSerializationGroup::READ])]
+  #[ApiProperty(
+    description: 'Avatar URLs by size in pixels. Null when no avatar is set or the avatar is hosted externally.',
+    readable: true,
+    writable: false,
+    required: false,
+    identifier: false,
+    example: [
+      '256' => 'https://sso.example.com/api/users/550e8400-e29b-41d4-a716-446655440000/avatar/256.webp',
+      '128' => 'https://sso.example.com/api/users/550e8400-e29b-41d4-a716-446655440000/avatar/128.webp',
+      '64' => 'https://sso.example.com/api/users/550e8400-e29b-41d4-a716-446655440000/avatar/64.webp',
+      '32' => 'https://sso.example.com/api/users/550e8400-e29b-41d4-a716-446655440000/avatar/32.webp',
+    ],
+    openapiContext: [
+      'type' => 'object',
+      'additionalProperties' => ['type' => 'string', 'format' => 'uri'],
+      'nullable' => true,
+      'readOnly' => true,
+    ],
+  )]
+  public function getAvatarUrls(): ?array
+  {
+    return AvatarUrls::fromAvatarUrl($this->avatarUrl);
+  }
+  // #endregion
 }

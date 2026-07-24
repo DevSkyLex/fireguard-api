@@ -96,6 +96,7 @@ final readonly class MarkNotificationAsReadHandler implements CommandHandler
       isRead: $notification->isRead(),
       createdAt: $notification->createdAt(),
       readAt: $notification->readAt(),
+      organizationId: $notification->organizationId(),
     );
   }
   // #endregion

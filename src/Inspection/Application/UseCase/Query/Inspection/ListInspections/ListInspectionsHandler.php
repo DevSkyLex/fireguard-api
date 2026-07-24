@@ -6,6 +6,7 @@ namespace Inspection\Application\UseCase\Query\Inspection\ListInspections;
 
 use DateTimeImmutable;
 use Exception;
+use Inspection\Application\Port\Outbound\{ChecklistRepositoryPort, EquipmentNamingPort, FacilityNamingPort};
 use Inspection\Application\Port\Outbound\{InspectionRepositoryPort, NonConformityRepositoryPort};
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionResult;
 use Inspection\Domain\ValueObject\{
@@ -32,12 +33,17 @@ use ValueError;
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
+use function array_keys;
+
 final readonly class ListInspectionsHandler implements QueryHandler
 {
   // #region Constructor
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private NonConformityRepositoryPort $nonConformityRepository,
+    private EquipmentNamingPort $equipmentNaming,
+    private FacilityNamingPort $facilityNaming,
+    private ChecklistRepositoryPort $checklistRepository,
   ) {
   }
   // #endregion
@@ -109,6 +115,30 @@ final readonly class ListInspectionsHandler implements QueryHandler
     }
     $countsByInspectionId = $this->nonConformityRepository->countsByInspectionIds($inspectionIds);
 
+    // Resolved once for the whole page. One lookup per row is how a listing of
+    // twenty inspections becomes forty extra queries.
+    $equipmentIds = [];
+    $facilityIds = [];
+    foreach ($inspections as $inspection) {
+      $equipmentIds[(string) $inspection->equipmentId()] = true;
+      $facilityId = $inspection->facilityId()?->__toString();
+      if (null !== $facilityId) {
+        $facilityIds[$facilityId] = true;
+      }
+    }
+
+    $checklistIds = [];
+    foreach ($inspections as $inspection) {
+      $checklistId = $inspection->checklistId()?->__toString();
+      if (null !== $checklistId) {
+        $checklistIds[$checklistId] = true;
+      }
+    }
+
+    $checklistNames = $this->checklistRepository->findNamesByIds(array_keys($checklistIds));
+    $serialNumbers = $this->equipmentNaming->findSerialNumbersByIds(array_keys($equipmentIds));
+    $facilityNames = $this->facilityNaming->findNamesByIds(array_keys($facilityIds));
+
     foreach ($inspections as $inspection) {
       $nonConformitiesCount = $countsByInspectionId[(string) $inspection->id()] ?? 0;
 
@@ -130,6 +160,13 @@ final readonly class ListInspectionsHandler implements QueryHandler
         nonConformitiesCount: $nonConformitiesCount,
         createdAt: $inspection->createdAt(),
         updatedAt: $inspection->updatedAt(),
+        equipmentSerialNumber: $serialNumbers[(string) $inspection->equipmentId()] ?? null,
+        facilityName: null !== $inspection->facilityId()
+          ? ($facilityNames[(string) $inspection->facilityId()] ?? null)
+          : null,
+        checklistName: null !== $inspection->checklistId()
+          ? ($checklistNames[(string) $inspection->checklistId()] ?? null)
+          : null,
       );
     }
 

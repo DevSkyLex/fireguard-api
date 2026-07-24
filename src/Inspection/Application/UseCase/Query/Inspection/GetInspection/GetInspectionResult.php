@@ -37,6 +37,9 @@ final readonly class GetInspectionResult implements ResultMessage
     public int $nonConformitiesCount,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public ?string $equipmentSerialNumber = null,
+    public ?string $facilityName = null,
+    public ?string $checklistName = null,
   ) {
   }
   // #endregion

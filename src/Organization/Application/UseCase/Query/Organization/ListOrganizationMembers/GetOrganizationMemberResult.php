@@ -32,6 +32,7 @@ final readonly class GetOrganizationMemberResult implements ResultMessage
    * @param bool $isActive whether membership is active
    * @param DateTimeImmutable $joinedAt the membership creation datetime
    * @param list<string> $roleIds the assigned role identifiers
+   * @param bool $isOwner whether this member is the organization owner
    */
   public function __construct(
     public string $id,
@@ -40,6 +41,7 @@ final readonly class GetOrganizationMemberResult implements ResultMessage
     public bool $isActive,
     public DateTimeImmutable $joinedAt,
     public array $roleIds,
+    public bool $isOwner = false,
   ) {
   }
   // #endregion

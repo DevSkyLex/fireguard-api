@@ -21,7 +21,7 @@ use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 #[ApiResource(
-  shortName: 'Inspection',
+  shortName: 'LegacyInspection',
   routePrefix: '/organizations',
   description: 'Inspection records for fire safety equipment.',
   operations: [
@@ -72,6 +72,36 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Inspection list'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new GetCollection(
+      name: InspectionOperations::LIST_FACILITY_INSPECTIONS,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/inspections',
+      input: false,
+      output: InspectionOutput::class,
+      provider: ListInspectionsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
+      normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'List facility inspections',
+        description: 'Lists inspections directly linked to one facility.',
+        parameters: [
+          new Parameter(name: 'equipmentId', in: 'query', description: 'Filter by equipment', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'result', in: 'query', description: 'Filter by result (pass, fail, partial)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'status', in: 'query', description: 'Filter by status (draft, submitted, closed)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'performedAtFrom', in: 'query', description: 'Filter inspections performed on or after this instant.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'performedAtTo', in: 'query', description: 'Filter inspections performed on or before this instant.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
+          new Parameter(name: 'inspectorUserId', in: 'query', description: 'Filter by inspector user identifier.', required: false, schema: ['type' => 'string', 'format' => 'uuid']),
+          new Parameter(name: 'checklistId', in: 'query', description: 'Filter by checklist identifier.', required: false, schema: ['type' => 'string', 'format' => 'uuid']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Facility inspection list'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
         ],
       ),
@@ -129,6 +159,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Inspection'],
         summary: 'Submit an inspection',
         description: 'Submits a draft inspection for review.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Inspection submitted'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
@@ -181,6 +212,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
   ],
 )]
+/**
+ * Resource InspectionResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class InspectionResource
 {
 }

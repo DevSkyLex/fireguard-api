@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Organization\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, GetCollection, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\Operation;
 use Organization\Presentation\Api\Dto\Input\Organization\{AcceptOrganizationInvitationInput, InviteOrganizationMemberInput};
-use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationInvitationOutput, OrganizationMemberOutput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationInvitationOutput, OrganizationInvitationPreviewOutput, OrganizationMemberOutput};
 use Organization\Presentation\Api\Operation\OrganizationOperations;
-use Organization\Presentation\Api\Processor\Organization\{AcceptOrganizationInvitationProcessor, InviteOrganizationMemberProcessor, RevokeOrganizationInvitationProcessor};
-use Organization\Presentation\Api\Provider\Organization\ListOrganizationInvitationsProvider;
+use Organization\Presentation\Api\Processor\Organization\{AcceptOrganizationInvitationProcessor, InviteOrganizationMemberProcessor, ResendOrganizationInvitationProcessor, RevokeOrganizationInvitationProcessor};
+use Organization\Presentation\Api\Provider\Organization\{GetOrganizationInvitationPreviewProvider, ListOrganizationInvitationsProvider};
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 
 /**
@@ -86,6 +86,34 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
         tags: ['Organization Invitations'],
         summary: 'Revoke Organization invitation',
         description: 'Revokes a pending invitation.',
+      ),
+    ),
+    new Post(
+      name: OrganizationOperations::RESEND_ORGANIZATION_INVITATION,
+      uriTemplate: '/{organizationId}/invitations/{invitationId}/resend',
+      input: false,
+      output: OrganizationInvitationOutput::class,
+      processor: ResendOrganizationInvitationProcessor::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization Invitations'],
+        summary: 'Resend Organization invitation',
+        description: 'Regenerates the token, resets the expiry and re-sends the invitation email, returning a fresh accept link.',
+      ),
+    ),
+    new Get(
+      name: OrganizationOperations::GET_ORGANIZATION_INVITATION_PREVIEW,
+      uriTemplate: '/invitations/{token}/preview',
+      input: false,
+      output: OrganizationInvitationPreviewOutput::class,
+      provider: GetOrganizationInvitationPreviewProvider::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: 'true',
+      openapi: new Operation(
+        tags: ['Organization Invitations'],
+        summary: 'Preview Organization invitation',
+        description: 'Returns a minimal, public-safe preview of an invitation resolved by token (organization, inviter, invited email, status, expiry).',
       ),
     ),
   ],

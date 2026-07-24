@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Authorization\Application\Port\Outbound\RoleAssignmentRepositoryPort;
+use Authorization\Application\Service\AuthorizationCacheInvalidator;
 use Authorization\Domain\Model\Role\Role;
 use Authorization\Domain\Model\RoleAssignment\RoleAssignment;
 use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, SubjectType};
@@ -46,6 +47,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
     private EntityManagerInterface $entityManager,
     private RoleAssignmentMapper $mapper,
     private RoleMapper $roleMapper,
+    private ?AuthorizationCacheInvalidator $cacheInvalidator = null,
   ) {
   }
   // #endregion
@@ -205,6 +207,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
 
     $this->entityManager->persist($record);
     $this->entityManager->flush();
+    $this->invalidateSubjectCache($assignment->subjectType(), $assignment->subjectId());
   }
 
   /**
@@ -229,6 +232,7 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
     if (null !== $record) {
       $this->entityManager->remove($record);
       $this->entityManager->flush();
+      $this->invalidateSubjectCache($assignment->subjectType(), $assignment->subjectId());
     }
   }
 
@@ -255,6 +259,14 @@ final readonly class RoleAssignmentRepository implements RoleAssignmentRepositor
       ->setParameter('subjectId', $subjectId);
 
     $qb->getQuery()->execute();
+    $this->invalidateSubjectCache($subjectType, $subjectId);
+  }
+
+  private function invalidateSubjectCache(SubjectType $subjectType, string $subjectId): void
+  {
+    match ($subjectType) {
+      SubjectType::USER => $this->cacheInvalidator?->invalidateUser($subjectId),
+    };
   }
   // #endregion
 }

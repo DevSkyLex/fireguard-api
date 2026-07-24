@@ -6,7 +6,6 @@ namespace Onboarding\Application\Service;
 
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
-use Inspection\Application\UseCase\Query\Inspection\ListInspections\ListInspectionsQuery;
 use InvalidArgumentException;
 use LogicException;
 use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
@@ -296,6 +295,60 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   }
 
   /**
+   * Method dismiss.
+   *
+   * @since 3.0.0
+   *
+   * Voluntarily hides the non-blocking activation flow for the user without
+   * completing it. Dismissal is orthogonal to step progression — the flow can
+   * still complete (or be resumed) afterwards.
+   *
+   * @param string $userId the authenticated user identifier
+   *
+   * @return OrganizationOnboardingSessionState the updated flow state
+   */
+  public function dismiss(string $userId): OrganizationOnboardingSessionState
+  {
+    /** @var OrganizationOnboardingSessionState $state */
+    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+      $session = $this->getOrCreateSession($userId);
+      $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
+      $session->dismiss();
+      $this->sessionRepository->save($session);
+
+      return $this->buildState($session, $computed);
+    });
+
+    return $state;
+  }
+
+  /**
+   * Method resume.
+   *
+   * @since 3.0.0
+   *
+   * Clears a previous dismissal so the activation flow becomes visible again.
+   *
+   * @param string $userId the authenticated user identifier
+   *
+   * @return OrganizationOnboardingSessionState the updated flow state
+   */
+  public function resume(string $userId): OrganizationOnboardingSessionState
+  {
+    /** @var OrganizationOnboardingSessionState $state */
+    $state = $this->transactionManager->transactional(function () use ($userId): OrganizationOnboardingSessionState {
+      $session = $this->getOrCreateSession($userId);
+      $computed = $this->synchronizeSessionFromCurrentState($session, $userId);
+      $session->resume();
+      $this->sessionRepository->save($session);
+
+      return $this->buildState($session, $computed);
+    });
+
+    return $state;
+  }
+
+  /**
    * Method getOrCreateSession.
    *
    * @since 1.0.0
@@ -446,6 +499,17 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return;
     }
 
+    if (OrganizationOnboardingStep::SELECT_PLAN === $stepKey) {
+      // Plan selection is a confirmation step: subscribing to a paid plan happens
+      // out-of-band through Billing (hosted Checkout + webhook), and a new
+      // organization already defaults to the free plan. Confirming simply records
+      // that the user reviewed the plans; it carries no rollback action.
+      $session->markStepCompleted(OrganizationOnboardingStep::SELECT_PLAN);
+      $session->removeSkippedStep(OrganizationOnboardingStep::SELECT_PLAN);
+
+      return;
+    }
+
     if (OrganizationOnboardingStep::INVITE_MEMBERS === $stepKey) {
       $session->markStepCompleted(OrganizationOnboardingStep::INVITE_MEMBERS);
       $session->removeSkippedStep(OrganizationOnboardingStep::INVITE_MEMBERS);
@@ -453,10 +517,10 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       return;
     }
 
-    // Auto-detected steps (create_first_facility, create_first_equipment,
-    // run_first_inspection): validate that the external
-    // action was actually completed before accepting the user's confirmation.
-    // This prevents advancing the flow when the required module data does not exist yet.
+    // Auto-detected steps (create_first_facility, create_first_equipment):
+    // validate that the external action was actually completed before accepting
+    // the user's confirmation. This prevents advancing the flow when the required
+    // module data does not exist yet.
     $orgId = $session->targetOrganizationId();
     if (!is_string($orgId) || '' === $orgId) {
       throw new InvalidArgumentException(
@@ -467,7 +531,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     $stateExists = match ($stepKey) {
       OrganizationOnboardingStep::CREATE_FIRST_FACILITY => $this->hasFacility($orgId),
       OrganizationOnboardingStep::CREATE_FIRST_EQUIPMENT => $this->hasEquipment($orgId),
-      OrganizationOnboardingStep::RUN_FIRST_INSPECTION => $this->hasInspection($orgId),
       default => false,
     };
 
@@ -522,26 +585,6 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
   }
 
   /**
-   * Method hasInspection.
-   *
-   * @since 2.0.0
-   *
-   * @param string $organizationId the organization to check
-   *
-   * @return bool true when at least one inspection exists
-   */
-  private function hasInspection(string $organizationId): bool
-  {
-    /** @var PaginatedResult<mixed> $result */
-    $result = $this->queryBus->ask(new ListInspectionsQuery(
-      organizationId: $organizationId,
-      pagination: new Pagination(offset: 0, limit: 1),
-    ));
-
-    return $result->total > 0;
-  }
-
-  /**
    * Method buildState.
    *
    * Assembles the Application-layer result from the session aggregate
@@ -577,6 +620,8 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
       updatedAt: $session->updatedAt()->format('c'),
       canRollback: null !== $lastRollbackStep,
       lastRollbackableStep: $lastRollbackStep,
+      dismissed: $session->isDismissed(),
+      dismissedAt: $session->dismissedAt()?->format('c'),
     );
   }
 
@@ -668,9 +713,11 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     $organizationsResult = $this->queryBus->ask(new ListUserOrganizationsQuery($userId));
 
     $isUserMember = false;
+    $slug = null;
     foreach ($organizationsResult->items as $organization) {
       if ($organization->id === $organizationId) {
         $isUserMember = true;
+        $slug = $organization->slug;
 
         break;
       }
@@ -681,8 +728,16 @@ final readonly class OrganizationOnboardingFlowService implements OrganizationOn
     }
 
     try {
+      // The slug confirmation is a danger-zone interlock meant to make a HUMAN
+      // re-type the name before destroying their organization. An onboarding
+      // rollback is not that: it is the system undoing a half-finished flow it
+      // created moments ago. It therefore satisfies the guard explicitly with
+      // the slug it just read, rather than the guard being weakened for
+      // everyone. Passing it here keeps a single enforcement point in
+      // `DeleteOrganizationHandler` and makes this deliberate bypass greppable.
       $this->commandBus->dispatch(new DeleteOrganizationCommand(
         organizationId: $organizationId,
+        slugConfirmation: $slug,
       ));
     } catch (OrganizationNotFoundException) {
       // Organization already absent, rollback is effectively done.

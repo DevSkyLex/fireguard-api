@@ -65,5 +65,33 @@ final class SessionApiTest extends WebTestCase
       message: 'Expected 401 or 403 for unauthenticated request, got ' . $statusCode,
     );
   }
+
+  /**
+   * Method testRevokeOtherSessionsEndpointExists.
+   *
+   * Tests that the revoke-others endpoint exists and requires authentication.
+   */
+  #[Test]
+  public function testRevokeOtherSessionsEndpointExists(): void
+  {
+    $client = static::createClient();
+
+    $client->request('POST', '/api/sessions/revoke-others');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    // Should return 401/403 for unauthenticated, not 404
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'Revoke other sessions endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated request, got ' . $statusCode,
+    );
+  }
   // #endregion
 }

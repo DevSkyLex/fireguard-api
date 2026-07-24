@@ -2,6 +2,10 @@ api_platform:
   title: Fireguard Auth API
   description: OAuth2 and OpenID Connect Authorization Server
   version: 1.0.0
+  exception_to_status:
+    Organization\Domain\Exception\OrganizationQuotaExceededException: 409
+    Organization\Domain\Exception\OrganizationPlanUsageExceededException: 409
+    Facility\Domain\Exception\FacilityHasActiveDependentsException: 409
   defaults:
     stateless: true
     cache_headers:
@@ -25,6 +29,8 @@ api_platform:
       - '%kernel.project_dir%/src/Otp/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/TrustedDevice/Presentation/Api/Resource'
       - '%kernel.project_dir%/src/Authorization/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Intervention/Presentation/Api/Resource'
+      - '%kernel.project_dir%/src/Billing/Presentation/Api/Resource'
 
 # Security schemes for OpenAPI (Swagger UI)
 # This is handled by api_platform.yaml security definitions in resources

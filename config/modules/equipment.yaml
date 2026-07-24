@@ -3,8 +3,28 @@ services:
     autowire: true
     autoconfigure: true
 
+  Equipment\Presentation\Api\Processor\Media\MediaProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Presentation\Api\Provider\Media\MediaProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Equipment\Presentation\:
     resource: '../../src/Equipment/Presentation'
+
+  Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository:
     arguments:
@@ -25,7 +45,43 @@ services:
   Equipment\Application\Port\Outbound\EquipmentRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository
 
+  equipment.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter: ~
+
+  Equipment\Infrastructure\Adapter\Organization\EquipmentTypeCatalogAdapter: ~
+
+  # Reports active equipment assigned to a facility (for the facility archival guard)
+  Equipment\Infrastructure\Adapter\Facility\FacilityEquipmentDependencyAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
+
+  Equipment\Infrastructure\Adapter\Messaging\EquipmentMessagingSubjectResolverAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['messaging.subject_resolver']
+
+  # R17: re-executes the equipment decommission on approval
+  Equipment\Infrastructure\Adapter\Approval\EquipmentDecommissionExecutorAdapter:
+    tags: ['approval.deferred_action_executor']
+
+  # Cross-module read model for the Maintenance sweep (trackable equipment directory)
+  Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Cross-module read model for the Compliance module (equipment inventory, by facility)
+  Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Equipment\Application\Port\Outbound\TagRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\TagRepository
@@ -36,12 +92,49 @@ services:
   Equipment\Application\Port\Outbound\MaintenanceLogRepositoryPort:
     alias: Equipment\Infrastructure\Persistence\Doctrine\Repository\MaintenanceLogRepository
 
+  # Keeps maintenance logs + commissionedAt in step with flat-surface status writes
+  Equipment\Application\Service\EquipmentMaintenanceLogSynchronizer: ~
+
+  Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort:
+    alias: Equipment\Application\Service\EquipmentMaintenanceLogSynchronizer
+
+  # Inbound port reused by the Import module's bulk CSV import: provisions
+  # equipment through CreateEquipmentHandler (quota included).
+  Equipment\Application\Service\EquipmentProvisioningService: ~
+
+  Equipment\Application\Port\Inbound\EquipmentProvisioningPort:
+    alias: Equipment\Application\Service\EquipmentProvisioningService
+
   Equipment\Application\Port\Outbound\FacilityValidationPort:
     alias: Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter
 
   Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter: ~
 
+  # Read-side label lookup, deliberately separate from the validation port
+  # above: resolving a name must not go through a contract that throws.
+  Equipment\Application\Port\Outbound\FacilityNamingPort:
+    alias: Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter
+
+  # The default entity manager is not the one facilities live in; every other
+  # Facility adapter is wired to `main` the same way, and autowiring silently
+  # hands over an entity manager where FacilityRecord is not mapped.
+  Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Reads back a published intervention's applied equipment changes so the
+  # service-history subscriber below can synthesize maintenance log entries.
+  Equipment\Application\Port\Outbound\InterventionServiceReportPort:
+    alias: Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter
+
+  # Best-effort reaction to InterventionPublishedEvent: appends one completed
+  # maintenance-log entry per serviced equipment. Must never fail the
+  # publication (see class docblock).
+  Equipment\Infrastructure\EventSubscriber\InterventionServiceHistorySubscriber: ~
+
   Equipment\Application\UseCase\Command\Equipment\CreateEquipment\CreateEquipmentHandler:
+    arguments:
+      $transactionManager: '@equipment.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Command\Equipment\UpdateEquipment\UpdateEquipmentHandler:
@@ -80,6 +173,9 @@ services:
   Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsHandler:
     tags: ['messenger.message_handler']
 
+  Equipment\Application\UseCase\Query\Equipment\GetEquipmentKpis\GetEquipmentKpisHandler:
+    tags: ['messenger.message_handler']
+
   Equipment\Application\UseCase\Query\Equipment\ListEquipmentAttachments\ListEquipmentAttachmentsHandler:
     tags: ['messenger.message_handler']
 
@@ -87,6 +183,11 @@ services:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\ListMaintenanceLogsHandler:
+    tags: ['messenger.message_handler']
+
+  # NO async routing (config/packages/messenger.yaml): runs sync, inline in
+  # the publication worker, right after InterventionPublishedEvent fires.
+  Equipment\Application\UseCase\Command\Equipment\RecordInterventionServiceHistory\RecordInterventionServiceHistoryHandler:
     tags: ['messenger.message_handler']
 
   Equipment\Application\UseCase\Query\Tag\ListTags\ListTagsHandler:

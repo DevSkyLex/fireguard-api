@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Authorization\Infrastructure\Persistence\Doctrine\Repository;
 
 use Authorization\Application\Port\Outbound\RoleRepositoryPort;
+use Authorization\Application\Service\AuthorizationCacheInvalidator;
 use Authorization\Domain\Model\Role\Role;
-use Authorization\Domain\ValueObject\{RoleId, RoleName};
+use Authorization\Domain\ValueObject\{RoleId, RoleName, SubjectType};
 use Authorization\Infrastructure\Persistence\Doctrine\Mapper\RoleMapper;
-use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleRecord};
+use Authorization\Infrastructure\Persistence\Doctrine\Record\{PermissionRecord, RoleAssignmentRecord, RoleRecord};
 use Doctrine\ORM\EntityManagerInterface;
 use Shared\Domain\ValueObject\TenantId;
 
@@ -40,6 +41,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
   public function __construct(
     private readonly EntityManagerInterface $entityManager,
     private readonly RoleMapper $mapper,
+    private readonly ?AuthorizationCacheInvalidator $cacheInvalidator = null,
   ) {
   }
   // #endregion
@@ -143,6 +145,8 @@ final readonly class RoleRepository implements RoleRepositoryPort
    */
   public function save(Role $role): void
   {
+    $assignedUserIds = null !== $this->cacheInvalidator ? $this->findAssignedUserIds($role->id()) : [];
+
     $existingRecord = $this->entityManager->find(
       className: RoleRecord::class,
       id: $role->id()->value,
@@ -167,6 +171,7 @@ final readonly class RoleRepository implements RoleRepositoryPort
 
     $this->entityManager->persist($record);
     $this->entityManager->flush();
+    $this->cacheInvalidator?->invalidateUsers($assignedUserIds);
   }
 
   /**
@@ -183,6 +188,8 @@ final readonly class RoleRepository implements RoleRepositoryPort
    */
   public function delete(Role $role): void
   {
+    $assignedUserIds = null !== $this->cacheInvalidator ? $this->findAssignedUserIds($role->id()) : [];
+
     $record = $this->entityManager->find(
       className: RoleRecord::class,
       id: $role->id()->value,
@@ -191,7 +198,26 @@ final readonly class RoleRepository implements RoleRepositoryPort
     if (null !== $record) {
       $this->entityManager->remove($record);
       $this->entityManager->flush();
+      $this->cacheInvalidator?->invalidateUsers($assignedUserIds);
     }
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function findAssignedUserIds(RoleId $roleId): array
+  {
+    $records = $this->entityManager
+      ->getRepository(className: RoleAssignmentRecord::class)
+      ->findBy(criteria: [
+        'roleId' => $roleId->value,
+        'subjectType' => SubjectType::USER->value,
+      ]);
+
+    return array_map(
+      static fn (RoleAssignmentRecord $record): string => $record->subjectId,
+      $records,
+    );
   }
   // #endregion
 }

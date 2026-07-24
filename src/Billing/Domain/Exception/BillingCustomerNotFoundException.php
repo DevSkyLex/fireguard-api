@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Billing\Domain\Exception;
+
+use RuntimeException;
+
+use function sprintf;
+
+/**
+ * Exception BillingCustomerNotFoundException.
+ *
+ * Raised when an operation requires an existing Stripe customer for an
+ * organization but none has been created yet (e.g. opening the Billing Portal
+ * before any checkout).
+ *
+ * @category Exception
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class BillingCustomerNotFoundException extends RuntimeException
+{
+  // #region Methods
+  /**
+   * Method forOrganization.
+   *
+   * Creates the exception for an organization without a billing customer.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   *
+   * @return self the exception instance
+   */
+  public static function forOrganization(string $organizationId): self
+  {
+    return new self(sprintf('No billing customer exists for organization "%s".', $organizationId));
+  }
+  // #endregion
+}

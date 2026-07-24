@@ -29,11 +29,13 @@ final readonly class GetCurrentUserProfileResult implements ResultMessage
    * @param UserView $user the current user view
    * @param list<string> $roles the current user role names
    * @param list<string> $permissions the current user permission names
+   * @param bool $totpEnabled whether the user has an active TOTP (authenticator app) enrollment
    */
   public function __construct(
     public UserView $user,
     public array $roles,
     public array $permissions,
+    public bool $totpEnabled = false,
   ) {
   }
   // #endregion

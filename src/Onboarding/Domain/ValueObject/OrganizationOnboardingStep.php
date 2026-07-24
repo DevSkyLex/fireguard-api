@@ -20,13 +20,13 @@ final class OrganizationOnboardingStep
   // #region Constants
   public const string CREATE_ORGANIZATION = 'create_organization';
 
+  public const string SELECT_PLAN = 'select_plan';
+
   public const string INVITE_MEMBERS = 'invite_members';
 
   public const string CREATE_FIRST_FACILITY = 'create_first_facility';
 
   public const string CREATE_FIRST_EQUIPMENT = 'create_first_equipment';
-
-  public const string RUN_FIRST_INSPECTION = 'run_first_inspection';
 
   /**
    * Steps that cannot be skipped.
@@ -37,7 +37,6 @@ final class OrganizationOnboardingStep
     self::CREATE_ORGANIZATION,
     self::CREATE_FIRST_FACILITY,
     self::CREATE_FIRST_EQUIPMENT,
-    self::RUN_FIRST_INSPECTION,
   ];
   // #endregion
 
@@ -55,10 +54,10 @@ final class OrganizationOnboardingStep
   {
     return [
       self::CREATE_ORGANIZATION,
+      self::SELECT_PLAN,
       self::INVITE_MEMBERS,
       self::CREATE_FIRST_FACILITY,
       self::CREATE_FIRST_EQUIPMENT,
-      self::RUN_FIRST_INSPECTION,
     ];
   }
 

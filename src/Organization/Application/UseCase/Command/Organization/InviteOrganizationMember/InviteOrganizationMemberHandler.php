@@ -6,16 +6,17 @@ namespace Organization\Application\UseCase\Command\Organization\InviteOrganizati
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
-use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
+use Notification\Application\Contract\Notification\NotificationChannel;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Service\{InvitationInvalidationTrait, OrganizationInvitationNotifier};
+use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Shared\Domain\ValueObject\Email;
 use Throwable;
@@ -24,11 +25,7 @@ use User\Application\Port\Outbound\UserRepositoryPort;
 use function array_map;
 use function array_unique;
 use function array_values;
-use function bin2hex;
 use function count;
-use function hash;
-use function random_bytes;
-use function sprintf;
 use function strtolower;
 use function trim;
 
@@ -43,6 +40,8 @@ use function trim;
  */
 final readonly class InviteOrganizationMemberHandler implements CommandHandler
 {
+  use InvitationInvalidationTrait;
+
   private const string DEFAULT_MEMBER_ROLE = 'member';
 
   private const int DEFAULT_EXPIRATION_DAYS = 7;
@@ -60,10 +59,12 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param UserRepositoryPort $userRepository the user repository port
-   * @param NotificationPort $notificationPort the notification module port
+   * @param OrganizationInvitationNotifier $invitationNotifier the invitation token/link/notification helper
    * @param LoggerPort $logger the logger port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -71,10 +72,12 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationInvitationRepositoryPort $invitationRepository,
     private UserRepositoryPort $userRepository,
-    private NotificationPort $notificationPort,
+    private OrganizationInvitationNotifier $invitationNotifier,
     private LoggerPort $logger,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
+    private OrganizationQuotaPort $quota,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -128,6 +131,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       }
     }
     $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
+    $emailLocale = $this->invitationNotifier->clampLocale($existingUser?->locale()->value);
 
     /** @var list<string> $resolvedRoleIds */
     $resolvedRoleIds = $this->resolveRoleIds($organizationId, $command->roleIds);
@@ -143,8 +147,9 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       throw OrganizationRoleNotFoundException::withId('one-or-more-role-ids');
     }
 
-    $token = $this->generateInvitationToken();
-    $tokenHash = $this->hashInvitationToken($token);
+    $token = $this->invitationNotifier->generateToken();
+    $tokenHash = $this->invitationNotifier->hashToken($token);
+    $acceptUrl = $this->invitationNotifier->buildAcceptUrl($token);
 
     /** @var OrganizationInvitationId $invitationId */
     $invitationId = $this->uuidFactory->create(OrganizationInvitationId::class);
@@ -163,32 +168,38 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
     $result = $this->transactionManager->transactional(function () use (
       $invitation,
       $roleIdsAsVo,
+      $acceptUrl,
     ): InviteOrganizationMemberResult {
+      // Enforce the member cap inside the transaction (a pending invitation
+      // reserves a slot) so the advisory lock serializes it against concurrent
+      // adds/invitations (see OrganizationQuotaPort::assertCanAdd).
+      $this->quota->assertCanAdd((string) $invitation->organizationId(), OrganizationQuotaResource::MEMBERS);
+
       $this->invitationRepository->save($invitation);
       $this->invitationRepository->replaceRoleIds($invitation->id(), $roleIdsAsVo);
 
-      return new InviteOrganizationMemberResult(
-        invitationId: (string) $invitation->id(),
-        organizationId: (string) $invitation->organizationId(),
-        email: (string) $invitation->email(),
-        status: $invitation->status()->value,
-        invitedByUserId: $invitation->invitedByUserId(),
-        expiresAt: $invitation->expiresAt(),
-        createdAt: $invitation->createdAt(),
-        updatedAt: $invitation->updatedAt(),
-        roleIds: $this->invitationRepository->findRoleIdsForInvitation($invitation->id()),
-      );
+      return $this->buildResult($invitation, $acceptUrl);
     });
+
+    $this->eventDispatcher->dispatch(new OrganizationInvitationSentEvent(
+      organizationId: $command->organizationId,
+      invitationId: (string) $invitation->id(),
+      invitedEmail: $command->email,
+      invitedByUserId: $command->invitedByUserId,
+      resend: false,
+    ));
 
     $notification = null;
 
     try {
-      $notification = $this->sendInvitationNotification(
+      $notification = $this->invitationNotifier->send(
         organizationName: (string) $organization->name(),
         email: (string) $invitation->email(),
-        token: $token,
+        acceptUrl: $acceptUrl,
         expiresAt: $invitation->expiresAt(),
         recipientUserId: $recipientUserId,
+        locale: $emailLocale,
+        organizationId: (string) $organizationId,
       );
     } catch (Throwable $exception) {
       $this->logger->warning('Invitation notification dispatch failed.', [
@@ -199,7 +210,7 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
       ]);
     }
 
-    if (!$this->isEmailDelivered($notification)) {
+    if (!($notification?->isDelivered(NotificationChannel::EMAIL) ?? false)) {
       $invalidated = $this->invalidateInvitation(
         invitationId: $invitation->id(),
         revokedByUserId: $command->invitedByUserId,
@@ -212,17 +223,17 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
           'recipientEmail' => (string) $invalidated->email(),
         ]);
 
-        return new InviteOrganizationMemberResult(
-          invitationId: (string) $invalidated->id(),
+        // The revocation is durable at this point (invalidateInvitation runs in
+        // its own transaction), so record the automatic revocation in the audit
+        // ledger — otherwise it would still show a live invitation.
+        $this->eventDispatcher->dispatch(new OrganizationInvitationRevokedEvent(
           organizationId: (string) $invalidated->organizationId(),
-          email: (string) $invalidated->email(),
-          status: $invalidated->status()->value,
-          invitedByUserId: $invalidated->invitedByUserId(),
-          expiresAt: $invalidated->expiresAt(),
-          createdAt: $invalidated->createdAt(),
-          updatedAt: $invalidated->updatedAt(),
-          roleIds: $this->invitationRepository->findRoleIdsForInvitation($invalidated->id()),
-        );
+          invitationId: (string) $invalidated->id(),
+          revokedByUserId: $command->invitedByUserId,
+          reason: 'delivery_failed',
+        ));
+
+        return $this->buildResult($invalidated);
       }
 
       $this->logger->warning('Invitation could not be invalidated after email delivery failure.', [
@@ -291,144 +302,35 @@ final readonly class InviteOrganizationMemberHandler implements CommandHandler
   }
 
   /**
-   * Method generateInvitationToken.
+   * Method buildResult.
    *
-   * Generates a secure invitation token.
-   *
-   * @since 1.0.0
-   */
-  private function generateInvitationToken(): string
-  {
-    return bin2hex(random_bytes(32));
-  }
-
-  /**
-   * Method hashInvitationToken.
-   *
-   * Computes a deterministic hash for invitation token lookup.
+   * Builds the use-case result from an invitation aggregate, collapsing the two
+   * near-identical constructions (fresh invite and the invalidated-on-delivery-
+   * failure path, which carries no accept URL).
    *
    * @since 1.0.0
    *
-   * @param string $token the raw token
+   * @param OrganizationInvitation $invitation the invitation aggregate
+   * @param string $acceptUrl the public accept URL, empty when none was issued
    *
-   * @return string the token hash
+   * @return InviteOrganizationMemberResult the use case result
    */
-  private function hashInvitationToken(string $token): string
-  {
-    return hash('sha256', $token);
-  }
-
-  /**
-   * Method sendInvitationNotification.
-   *
-   * Sends invitation instructions through the notification module.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationName the organization name
-   * @param string $email the recipient email
-   * @param string $token the invitation token
-   * @param DateTimeImmutable $expiresAt the invitation expiration datetime
-   * @param string|null $recipientUserId the recipient user identifier
-   *
-   * @return SentNotification the sent notification result
-   */
-  private function sendInvitationNotification(
-    string $organizationName,
-    string $email,
-    string $token,
-    DateTimeImmutable $expiresAt,
-    ?string $recipientUserId = null,
-  ): SentNotification {
-    $expiresAtIso = $expiresAt->format('c');
-
-    $subject = sprintf('Invitation to join %s', $organizationName);
-    $body = sprintf(
-      '<p>You have been invited to join <strong>%s</strong>.</p><p>Open your invitation details to continue.</p><p>This invitation expires at %s.</p>',
-      $organizationName,
-      $expiresAtIso,
+  private function buildResult(
+    OrganizationInvitation $invitation,
+    string $acceptUrl = '',
+  ): InviteOrganizationMemberResult {
+    return new InviteOrganizationMemberResult(
+      invitationId: (string) $invitation->id(),
+      organizationId: (string) $invitation->organizationId(),
+      email: (string) $invitation->email(),
+      status: $invitation->status()->value,
+      invitedByUserId: $invitation->invitedByUserId(),
+      expiresAt: $invitation->expiresAt(),
+      createdAt: $invitation->createdAt(),
+      updatedAt: $invitation->updatedAt(),
+      roleIds: $this->invitationRepository->findRoleIdsForInvitation($invitation->id()),
+      acceptUrl: $acceptUrl,
     );
-
-    $channels = [NotificationChannel::EMAIL];
-    if (null !== $recipientUserId) {
-      $channels[] = NotificationChannel::MERCURE;
-    }
-
-    return $this->notificationPort->send(new SendNotificationRequest(
-      type: NotificationType::ORGANIZATION_INVITATION,
-      subject: $subject,
-      body: $body,
-      channels: $channels,
-      payload: [
-        'organizationName' => $organizationName,
-        'expiresAt' => $expiresAtIso,
-      ],
-      deliveryPayload: [
-        NotificationChannel::EMAIL->value => [
-          'template' => 'notification/email/organization_invitation.html.twig',
-          'context' => [
-            'organizationName' => $organizationName,
-            'token' => $token,
-            'expiresAt' => $expiresAtIso,
-          ],
-        ],
-      ],
-      recipientUserId: $recipientUserId,
-      recipientEmail: $email,
-    ));
-  }
-
-  /**
-   * Method isEmailDelivered.
-   *
-   * @since 1.0.0
-   *
-   * @param SentNotification|null $notification the sent notification result
-   *
-   * @return bool true when email channel was delivered
-   */
-  private function isEmailDelivered(?SentNotification $notification): bool
-  {
-    if (null === $notification) {
-      return false;
-    }
-
-    return true === ($notification->channelDelivery[NotificationChannel::EMAIL->value] ?? false);
-  }
-
-  /**
-   * Method invalidateInvitation.
-   *
-   * Invalidates a pending invitation when delivery failed.
-   *
-   * @since 1.0.0
-   *
-   * @param OrganizationInvitationId $invitationId the invitation identifier
-   * @param string $revokedByUserId the revoker user identifier
-   *
-   * @return OrganizationInvitation|null the invalidated invitation
-   */
-  private function invalidateInvitation(
-    OrganizationInvitationId $invitationId,
-    string $revokedByUserId,
-  ): ?OrganizationInvitation {
-    /** @var OrganizationInvitation|null $invalidated */
-    $invalidated = $this->transactionManager->transactional(function () use (
-      $invitationId,
-      $revokedByUserId,
-    ): ?OrganizationInvitation {
-      $invitation = $this->invitationRepository->findById($invitationId);
-      if (null === $invitation || !$invitation->status()->isPending()) {
-        return null;
-      }
-
-      $invitation->revoke($revokedByUserId);
-      $this->invitationRepository->save($invitation);
-
-      return $invitation;
-    });
-
-    return $invalidated;
   }
   // #endregion
 }

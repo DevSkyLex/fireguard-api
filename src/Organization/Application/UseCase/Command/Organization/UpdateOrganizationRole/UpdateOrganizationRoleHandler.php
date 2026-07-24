@@ -6,9 +6,11 @@ namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizati
 
 use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 use function array_unique;
 use function array_values;
@@ -36,10 +38,12 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -89,6 +93,13 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     }
 
     $this->roleRepository->save($role);
+
+    $this->eventDispatcher->dispatch(new OrganizationRoleUpdatedEvent(
+      organizationId: $command->organizationId,
+      roleId: $command->roleId,
+      roleName: (string) $role->name(),
+      permissions: $role->permissions(),
+    ));
 
     return new UpdateOrganizationRoleResult(
       id: (string) $role->id(),

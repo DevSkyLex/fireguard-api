@@ -56,6 +56,22 @@ interface InspectionRepositoryPort
   public function findById(InspectionId $id): ?Inspection;
 
   /**
+   * Method findPublishedById.
+   *
+   * Finds a PUBLISHED inspection by identifier. Draft intervention
+   * scratchpads are invisible to this lookup: the lifecycle commands
+   * (submit, close, cancel) must not act on — nor audit — records that
+   * only exist inside an unpublished intervention.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionId $id the inspection identifier
+   *
+   * @return ?Inspection the published inspection aggregate when found
+   */
+  public function findPublishedById(InspectionId $id): ?Inspection;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists inspections for an organization with optional filters.
@@ -130,6 +146,24 @@ interface InspectionRepositoryPort
     ?string $checklistId = null,
     ?string $search = null,
   ): int;
+
+  /**
+   * Method findEquipmentIdsByIds.
+   *
+   * Resolves the equipment identifier of each given inspection, in one round
+   * trip. Backs read-side listings that need to name what an inspection
+   * belonging to a non-conformity was performed on, without hydrating the
+   * full inspection aggregate row by row.
+   *
+   * Identifiers that cannot be resolved are absent from the result.
+   *
+   * @since 1.0.0
+   *
+   * @param list<string> $inspectionIds the inspection identifiers to resolve
+   *
+   * @return array<string, string> equipment identifier keyed by inspection identifier
+   */
+  public function findEquipmentIdsByIds(array $inspectionIds): array;
 
   /**
    * Counts dashboard overview metrics for inspections in one query.

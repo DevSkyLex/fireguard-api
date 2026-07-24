@@ -24,6 +24,9 @@ services:
   Audit\Application\UseCase\Query\ListAuditEvents\ListAuditEventsHandler:
     tags: ['messenger.message_handler']
 
+  Audit\Application\UseCase\Query\ExportAuditEvents\ExportAuditEventsHandler:
+    tags: ['messenger.message_handler']
+
   Audit\Presentation\:
     resource: '../../src/Audit/Presentation/'
 

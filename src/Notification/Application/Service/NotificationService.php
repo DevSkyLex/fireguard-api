@@ -45,6 +45,7 @@ final readonly class NotificationService implements NotificationPort
       deliveryPayload: $request->deliveryPayload,
       recipientUserId: $request->recipientUserId,
       recipientEmail: $request->recipientEmail,
+      organizationId: $request->organizationId,
     ));
 
     return $this->mapResult($result);
@@ -72,6 +73,7 @@ final readonly class NotificationService implements NotificationPort
       createdAt: $result->createdAt,
       recipientUserId: $result->recipientUserId,
       recipientEmail: $result->recipientEmail,
+      organizationId: $result->organizationId,
     );
   }
   // #endregion

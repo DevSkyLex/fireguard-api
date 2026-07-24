@@ -52,4 +52,30 @@ interface AuditEventRepositoryPort
    * @return PaginatedResult<AuditEventView>
    */
   public function search(AuditEventSearchCriteria $criteria, Pagination $pagination): PaginatedResult;
+
+  /**
+   * Count audit events matching a search criteria, with no pagination
+   * applied. Used to bound exports before any row is streamed.
+   *
+   * @since 1.3.0
+   *
+   * @param AuditEventSearchCriteria $criteria the search criteria
+   *
+   * @return int the number of matching audit events
+   */
+  public function countMatching(AuditEventSearchCriteria $criteria): int;
+
+  /**
+   * Stream audit events matching a search criteria, with no pagination
+   * applied. Implementations MUST NOT materialize the full result set in
+   * memory (e.g. Doctrine's `toIterable()`), so a large export never
+   * exhausts memory.
+   *
+   * @since 1.3.0
+   *
+   * @param AuditEventSearchCriteria $criteria the search criteria
+   *
+   * @return iterable<AuditEventView>
+   */
+  public function stream(AuditEventSearchCriteria $criteria): iterable;
 }

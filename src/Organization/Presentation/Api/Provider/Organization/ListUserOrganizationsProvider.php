@@ -11,7 +11,8 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use Organization\Application\UseCase\Query\Organization\ListUserOrganizations\ListUserOrganizationsQuery;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Domain\ValueObject\OrganizationSettings;
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMembershipRoleOutput, OrganizationOutput, OrganizationSettingsOutput};
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Shared\Presentation\Api\Search\SearchExtractor;
@@ -109,7 +110,26 @@ final readonly class ListUserOrganizationsProvider implements ProviderInterface
       $output->createdByUserId = $organization->createdByUserId;
       $output->status = $organization->status;
       $output->isActive = $organization->isActive;
+      $output->description = $organization->description;
+      $output->logoUrl = $organization->logoUrl;
       $output->memberCount = $organization->memberCount;
+      $output->planId = $organization->planId;
+      $output->planName = $organization->planName;
+      $output->settings = OrganizationSettingsOutput::fromDomain($organization->settings ?? OrganizationSettings::default());
+      $output->isOwner = $organization->isOwner ?? false;
+      $roles = [];
+      foreach ($organization->roles ?? [] as $role) {
+        $roleOutput = new OrganizationMembershipRoleOutput();
+        $roleOutput->id = $role->id;
+        $roleOutput->label = $role->label;
+        $roles[] = $roleOutput;
+      }
+      $output->roles = $roles;
+      $output->country = $organization->country;
+      $output->legalType = $organization->legalType;
+      $output->legalName = $organization->legalName;
+      $output->registrationNumber = $organization->registrationNumber;
+      $output->vatNumber = $organization->vatNumber;
       $output->createdAt = $organization->createdAt->format('c');
       $output->updatedAt = $organization->updatedAt->format('c');
       $outputs[] = $output;

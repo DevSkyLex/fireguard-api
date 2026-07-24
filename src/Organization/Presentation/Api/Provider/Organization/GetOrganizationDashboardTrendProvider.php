@@ -28,6 +28,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function array_column;
+use function explode;
 use function filter_var;
 use function implode;
 use function in_array;
@@ -68,6 +69,25 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_FACILITIES_CREATED_TREND => GetOrganizationDashboardTrendHandler::METRIC_FACILITIES_CREATED,
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
     OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_RESOLVED_TREND => GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+  ];
+
+  /**
+   * Metric identifiers that may accompany a given primary metric through the
+   * `metrics` filter, keyed by primary metric. Today only the two
+   * non-conformity metrics combine, powering the two-series (opened vs
+   * resolved) chart from a single call; every other trend stays single-metric.
+   *
+   * @var array<string, list<string>>
+   */
+  private const array METRIC_COMBINABLE_METRICS = [
+    GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED => [
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+    ],
+    GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED => [
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+    ],
   ];
 
   /**
@@ -112,7 +132,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     }
 
     $metric = $this->resolveMetric($operation);
-    $this->assertMetricPermissions($user->getId(), $organizationId, $metric);
+    $this->assertMetricsPermissions($user->getId(), $organizationId, [$metric]);
 
     $filters = $this->normalizeFilters($context['filters'] ?? []);
 
@@ -127,6 +147,10 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $inspectorType = $this->extractOptionalEnumFilter($filters, 'inspectorType', InspectorType::values());
     $nonConformityStatus = $this->extractOptionalEnumFilter($filters, 'nonConformityStatus', NonConformityStatus::values());
     $nonConformitySeverity = $this->extractOptionalEnumFilter($filters, 'nonConformitySeverity', NonConformitySeverity::values());
+    $additionalMetrics = $this->extractMetricsFilter($filters, $metric);
+    if ([] !== $additionalMetrics) {
+      $this->assertMetricsPermissions($user->getId(), $organizationId, $additionalMetrics);
+    }
 
     $this->assertMetricScopedFilters(
       metric: $metric,
@@ -159,6 +183,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
         inspectorType: $inspectorType,
         nonConformityStatus: $nonConformityStatus,
         nonConformitySeverity: $nonConformitySeverity,
+        additionalMetrics: $additionalMetrics,
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -192,6 +217,7 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
     $output->summary = $this->normalizeSummary($result->summary);
     $output->series = $result->series;
     $output->comparison = $this->normalizeComparison($result->comparison);
+    $output->seriesByMetric = $this->normalizeSeriesByMetric($result->seriesByMetric);
 
     return $output;
   }
@@ -210,15 +236,70 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
   }
 
   /**
-   * Ensures the caller owns every permission required by the requested trend metric.
+   * Ensures the caller owns every permission required by every given trend
+   * metric — a loop over
+   * {@see OrganizationPermissionCatalog::dashboardTrendReadDependencies()} so
+   * requesting several metrics through the `metrics` filter cannot let a
+   * caller read one it lacks rights to.
+   *
+   * @param list<string> $metrics
    */
-  private function assertMetricPermissions(string $userId, string $organizationId, string $metric): void
+  private function assertMetricsPermissions(string $userId, string $organizationId, array $metrics): void
   {
-    foreach (OrganizationPermissionCatalog::dashboardTrendReadDependencies($metric) as $permission) {
-      if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
-        throw new AccessDeniedHttpException(sprintf('Missing %s permission.', $permission));
+    foreach ($metrics as $metric) {
+      foreach (OrganizationPermissionCatalog::dashboardTrendReadDependencies($metric) as $permission) {
+        if (!$this->authorization->hasPermission($userId, $organizationId, $permission)) {
+          throw new AccessDeniedHttpException(sprintf('Missing %s permission.', $permission));
+        }
       }
     }
+  }
+
+  /**
+   * Parses the optional `metrics` filter into the additional metric
+   * identifiers requested alongside the operation's primary metric (e.g.
+   * `non_conformities_resolved` on the opened-trend endpoint), so a two-series
+   * chart can be rendered from a single call. Only the combinations declared
+   * in {@see self::METRIC_COMBINABLE_METRICS} are accepted.
+   *
+   * @param array<string, mixed> $filters
+   *
+   * @throws BadRequestHttpException when the primary metric does not support combining, or an unknown/duplicate value is requested
+   *
+   * @return list<string>
+   */
+  private function extractMetricsFilter(array $filters, string $primaryMetric): array
+  {
+    $value = $filters['metrics'] ?? null;
+    if (!is_string($value) || '' === trim($value)) {
+      return [];
+    }
+
+    $allowedMetrics = self::METRIC_COMBINABLE_METRICS[$primaryMetric] ?? null;
+    if (null === $allowedMetrics) {
+      throw new BadRequestHttpException('The "metrics" filter is not supported for this trend.');
+    }
+
+    $additionalMetrics = [];
+    foreach (explode(',', $value) as $candidate) {
+      $candidate = trim($candidate);
+      if ('' === $candidate) {
+        continue;
+      }
+      if (!in_array($candidate, $allowedMetrics, true)) {
+        throw new BadRequestHttpException(sprintf(
+          'Invalid "metrics" filter value "%s". Allowed values: %s.',
+          $candidate,
+          implode(', ', $allowedMetrics),
+        ));
+      }
+      if ($candidate === $primaryMetric || in_array($candidate, $additionalMetrics, true)) {
+        continue;
+      }
+      $additionalMetrics[] = $candidate;
+    }
+
+    return $additionalMetrics;
   }
 
   /**
@@ -496,6 +577,43 @@ final readonly class GetOrganizationDashboardTrendProvider implements ProviderIn
       'summary' => $normalizedSummary,
       'series' => $series,
     ];
+  }
+
+  /**
+   * Defensively re-validates the `seriesByMetric` map coming back across the
+   * query bus (widened to `mixed` by Messenger serialization), mirroring how
+   * {@see self::normalizeComparison()} re-checks its own `series` shape.
+   *
+   * @param array<string, mixed> $seriesByMetric
+   *
+   * @return array<string, list<array{bucket: string, value: int}>>
+   */
+  private function normalizeSeriesByMetric(array $seriesByMetric): array
+  {
+    $normalized = [];
+    foreach ($seriesByMetric as $metric => $series) {
+      if (!is_array($series)) {
+        continue;
+      }
+
+      $points = [];
+      foreach ($series as $point) {
+        if (
+          is_array($point)
+          && isset($point['bucket'], $point['value'])
+          && is_string($point['bucket'])
+          && is_int($point['value'])
+        ) {
+          $points[] = [
+            'bucket' => $point['bucket'],
+            'value' => $point['value'],
+          ];
+        }
+      }
+      $normalized[$metric] = $points;
+    }
+
+    return $normalized;
   }
 
   /**

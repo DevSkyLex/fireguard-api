@@ -13,6 +13,7 @@ use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord, InspectionRecord, NonConformityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_unique;
@@ -59,8 +60,8 @@ final class InspectionFixturesIntegrationTest extends KernelTestCase
 
     self::assertSame(2, $this->entityManager->getRepository(ChecklistRecord::class)->count([]));
     self::assertSame(8, $this->entityManager->getRepository(ChecklistItemRecord::class)->count([]));
-    self::assertSame(25, $this->entityManager->getRepository(InspectionRecord::class)->count([]));
-    self::assertSame(14, $this->entityManager->getRepository(NonConformityRecord::class)->count([]));
+    self::assertSame(197, $this->entityManager->getRepository(InspectionRecord::class)->count([]));
+    self::assertSame(100, $this->entityManager->getRepository(NonConformityRecord::class)->count([]));
 
     /** @var InspectionRecord $passingInspection */
     $passingInspection = $inspectionFixtures->getReference(InspectionFixtures::PASSING_INSPECTION_REFERENCE, InspectionRecord::class);
@@ -88,12 +89,12 @@ final class InspectionFixturesIntegrationTest extends KernelTestCase
     }
 
     self::assertSame('pass', $passingInspection->result);
-    self::assertSame('2026-03-05', $passingInspection->performedAt->format('Y-m-d'));
+    self::assertSame(SeedTimeline::at('2026-03-05T09:00:00+00:00')->format('Y-m-d'), $passingInspection->performedAt->format('Y-m-d'));
     self::assertSame('submitted', $failingInspection->status);
-    self::assertSame('2026-03-20', $failingInspection->performedAt->format('Y-m-d'));
+    self::assertSame(SeedTimeline::at('2026-03-20T14:00:00+00:00')->format('Y-m-d'), $failingInspection->performedAt->format('Y-m-d'));
     self::assertSame(OrganizationFixtures::ORGANIZATION_ID, $failingInspection->organization?->id);
-    self::assertCount(24, array_unique($inspectionDays));
-    self::assertCount(11, array_unique($openedDays));
-    self::assertCount(8, array_unique($resolvedDays));
+    self::assertCount(39, array_unique($inspectionDays));
+    self::assertCount(26, array_unique($openedDays));
+    self::assertCount(22, array_unique($resolvedDays));
   }
 }

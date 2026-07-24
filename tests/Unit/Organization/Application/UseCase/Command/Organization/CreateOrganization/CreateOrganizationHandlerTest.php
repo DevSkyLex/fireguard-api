@@ -7,8 +7,9 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Creat
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use InvalidArgumentException;
-use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\CreateOrganization\{CreateOrganizationCommand, CreateOrganizationHandler, CreateOrganizationResult};
+use Organization\Domain\Event\Organization\OrganizationCreatedEvent;
 use Organization\Domain\Exception\OrganizationSlugAlreadyExistsException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -19,7 +20,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Infrastructure\Exception\TransactionExecutionException;
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -103,13 +104,29 @@ final class CreateOrganizationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findDefault')->willReturn(null);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event) use ($organizationId, $ownerUserId): bool {
+        return $event instanceof OrganizationCreatedEvent
+          && $organizationId === $event->organizationId
+          && 'Fireguard Lyon' === $event->name
+          && $ownerUserId === $event->ownerUserId;
+      }));
+
     $handler = new CreateOrganizationHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
+      planRepository: $planRepository,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new CreateOrganizationCommand(
@@ -128,7 +145,7 @@ final class CreateOrganizationHandlerTest extends TestCase
     self::assertSame(['organization.*'], $savedRoles[0]['permissions']);
     self::assertTrue($savedRoles[0]['isSystem']);
     self::assertSame('member', $savedRoles[1]['name']);
-    self::assertSame(['organization.read', 'organization.dashboard.read', 'organization.members.read', 'organization.roles.read', 'organization.facilities.read', 'organization.equipment.read', 'organization.inspection.read'], $savedRoles[1]['permissions']);
+    self::assertSame(['organization.read', 'organization.dashboard.read', 'organization.members.read', 'organization.roles.read', 'organization.facilities.read', 'organization.equipment.read', 'organization.inspection.read', 'organization.interventions.read', 'organization.maintenance.read', 'organization.teams.read', 'organization.messaging.read', 'organization.compliance.read', 'organization.approvals.read', 'organization.approvals.request', 'organization.events.read'], $savedRoles[1]['permissions']);
     self::assertTrue($savedRoles[1]['isSystem']);
   }
 
@@ -157,13 +174,19 @@ final class CreateOrganizationHandlerTest extends TestCase
     $transactionManager = $this->createMock(TransactionManagerPort::class);
     $transactionManager->expects(self::never())->method('transactional');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new CreateOrganizationHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
+      planRepository: $this->createStub(PlanRepositoryPort::class),
       uuidFactory: $this->createStub(UuidFactory::class),
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -225,13 +248,22 @@ final class CreateOrganizationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willThrowException(TransactionExecutionException::wrap($uniqueViolation));
 
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findDefault')->willReturn(null);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new CreateOrganizationHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       memberRepository: $memberRepository,
       userRepository: $userRepository,
+      planRepository: $planRepository,
       uuidFactory: $uuidFactory,
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationSlugAlreadyExistsException::class);

@@ -111,7 +111,15 @@ CORS_ALLOW_ORIGIN='^https://app\.fireguard\.valentin-fortin\.pro$'
 REDIS_URL=redis://redis:6379
 MERCURE_PUBLIC_URL=https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
 MERCURE_CORS_ORIGINS=https://app.fireguard.valentin-fortin.pro
+# Optionnel: duree de vie (secondes) des JWT abonnes Mercure. Defaut: 900.
+MERCURE_SUBSCRIBER_TOKEN_TTL=900
 ```
+
+`MERCURE_CORS_ORIGINS` doit lister les origines exactes de l'application. Le client
+envoie le JWT abonne dans un en-tete `Authorization`, ce qui rend la requete SSE
+"preflighted": si l'origine n'est pas listee, le hub ne renvoie aucun en-tete CORS et
+le navigateur bloque la connexion temps reel (le flux reste silencieux, sans erreur
+serveur visible).
 
 Le reseau externe doit deja exister sur le VPS:
 

@@ -1,9 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-  <body>
-    <h1>{{ subject }}</h1>
-    <p>You have been invited to join <strong>{{ organizationName }}</strong>.</p>
-    <p>Use this token to accept your invitation: <code>{{ token }}</code></p>
-    <p>This invitation expires at {{ expiresAt }}.</p>
-  </body>
-</html>
+{% extends 'notification/email/layout.html.twig' %}
+
+{% set lang = locale|default('en') %}
+
+{% block lang %}{{ lang }}{% endblock %}
+
+{% block content %}
+  <h1>{{ 'invitation.heading'|trans({ '%org%': organizationName }, 'emails', lang) }}</h1>
+  <p>{{ 'invitation.intro'|trans({ '%org%': organizationName|e }, 'emails', lang)|raw }}</p>
+  <div class="btn-wrap">
+    <a href="{{ acceptUrl }}" class="btn">{{ 'invitation.cta'|trans({}, 'emails', lang) }}</a>
+  </div>
+  <p class="muted">{{ 'invitation.fallback'|trans({}, 'emails', lang) }}</p>
+  <p class="link-fallback"><a href="{{ acceptUrl }}">{{ acceptUrl }}</a></p>
+  <p class="muted">
+    {{ 'invitation.expires'|trans({ '%date%': expiresAt }, 'emails', lang) }}
+  </p>
+{% endblock %}

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Domain\Event\Equipment\EquipmentDecommissionedEvent;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId};
+use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
@@ -28,6 +30,8 @@ final readonly class DecommissionEquipmentHandler implements CommandHandler
   public function __construct(
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
+    private MaintenanceLogRepositoryPort $maintenanceLogRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -47,15 +51,36 @@ final readonly class DecommissionEquipmentHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $equipment = $this->equipmentRepository->findById($equipmentId);
+    $equipment = $this->equipmentRepository->findPublishedById($equipmentId);
 
     if (null === $equipment || (string) $equipment->organizationId() !== (string) $organizationId) {
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
+    $wasUnderMaintenance = EquipmentStatus::UNDER_MAINTENANCE === $equipment->status();
+    $previousStatus = $equipment->status()->value;
+
     $equipment->decommission();
 
     $this->equipmentRepository->save($equipment);
+
+    // Emitted after the durable save so a failed persistence leaves no ledger
+    // row; the already-decommissioned path throws before reaching this point.
+    $this->eventDispatcher->dispatch(new EquipmentDecommissionedEvent(
+      organizationId: (string) $equipment->organizationId(),
+      equipmentId: (string) $equipment->id(),
+      previousStatus: $previousStatus,
+    ));
+
+    // Decommissioning an item mid-maintenance closes its open maintenance log, so
+    // no log is left "in progress" forever on a retired asset.
+    if ($wasUnderMaintenance) {
+      $openLog = $this->maintenanceLogRepository->findOpenByEquipmentId($equipmentId);
+      if (null !== $openLog) {
+        $openLog->close();
+        $this->maintenanceLogRepository->save($openLog);
+      }
+    }
 
     $tags = $this->tagRepository->findByEquipmentId($equipmentId);
 

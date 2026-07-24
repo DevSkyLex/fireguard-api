@@ -22,6 +22,10 @@ services:
   Auth\Application\Port\Outbound\TrustedDeviceCheckPort:
     alias: TrustedDevice\Infrastructure\Adapter\Auth\TrustedDeviceCheckAdapter
 
+  # Cross-module: implemented by the Otp module (delegates to its TOTP status inbound port)
+  Auth\Application\Port\Outbound\Mfa\TotpEnrollmentCheckPort:
+    alias: Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter
+
   # Adapters
   Auth\Infrastructure\Adapter\User\UserAuthenticationAdapter: ~
   Auth\Infrastructure\Adapter\Jwt\JwtParserAdapter: ~
@@ -33,6 +37,8 @@ services:
 
   # Logging helpers
   Auth\Infrastructure\Logging\SecurityLogSanitizer: ~
+
+  Auth\Application\Service\SecurityUserCacheInvalidator: ~
 
   # Use Case Command Handlers
   Auth\Application\UseCase\Command\Session\Login\LoginHandler:
@@ -55,6 +61,21 @@ services:
   Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\ConfirmPasswordResetHandler:
     tags: ['messenger.message_handler']
 
+  Auth\Application\UseCase\Command\Registration\RegisterUser\RegisterUserHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Registration\ResendRegistration\ResendRegistrationHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\Registration\ConfirmRegistration\ConfirmRegistrationHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordChange\RequestPasswordChange\RequestPasswordChangeHandler:
+    tags: ['messenger.message_handler']
+
+  Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange\ConfirmPasswordChangeHandler:
+    tags: ['messenger.message_handler']
+
   # Use Case Query Handlers
   Auth\Application\UseCase\Query\Session\RefreshToken\RefreshTokenHandler:
     tags: ['messenger.message_handler']
@@ -73,6 +94,15 @@ services:
   Auth\Presentation\Api\Processor\PasswordReset\RequestPasswordResetProcessor: ~
   Auth\Presentation\Api\Processor\PasswordReset\ResendPasswordResetProcessor: ~
   Auth\Presentation\Api\Processor\PasswordReset\ConfirmPasswordResetProcessor: ~
+
+  # Registration Processors
+  Auth\Presentation\Api\Processor\Registration\RegisterUserProcessor: ~
+  Auth\Presentation\Api\Processor\Registration\ResendRegistrationProcessor: ~
+  Auth\Presentation\Api\Processor\Registration\ConfirmRegistrationProcessor: ~
+
+  # Password Change Processors
+  Auth\Presentation\Api\Processor\PasswordChange\RequestPasswordChangeProcessor: ~
+  Auth\Presentation\Api\Processor\PasswordChange\ConfirmPasswordChangeProcessor: ~
 
   # Event Subscribers
   Auth\Infrastructure\EventSubscriber\RefreshTokenCookieSubscriber: ~

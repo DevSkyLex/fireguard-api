@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-  shortName: 'Facility',
+  shortName: 'LegacyFacility',
   routePrefix: '/organizations',
   description: 'Generic organizational facilities (site/building/floor/zone/area).',
   operations: [
@@ -105,6 +105,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             schema: ['type' => 'string', 'format' => 'uuid'],
           ),
           new Parameter(
+            name: 'rootsOnly',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities without a parent are returned. Cannot be combined with parentFacilityId.',
+            schema: ['type' => 'boolean', 'default' => false],
+          ),
+          new Parameter(
             name: 'code',
             in: 'query',
             required: false,
@@ -145,13 +152,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       input: false,
       output: FacilityOutput::class,
       provider: ListFacilityChildrenProvider::class,
-      paginationEnabled: false,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'List facility children',
-        description: 'Lists direct children for one facility.',
+        description: 'Lists direct children for one facility. This is the lazy tree expansion endpoint.',
         parameters: [
           new Parameter(name: 'includeArchived', in: 'query', required: false, description: 'When true, archived children are included.', schema: ['type' => 'boolean', 'default' => false]),
           new Parameter(name: 'search', in: 'query', required: false, description: 'Text search across child facilities.', schema: ['type' => 'string']),
@@ -192,6 +201,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: FacilityOperations::UPDATE_FACILITY,
       uriTemplate: '/{organizationId}/facilities/{facilityId}',
+      read: false,
       input: UpdateFacilityInput::class,
       output: FacilityOutput::class,
       processor: UpdateFacilityProcessor::class,
@@ -223,6 +233,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Facility'],
         summary: 'Archive facility',
         description: 'Archives one facility.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility archived'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
@@ -264,6 +275,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Facility'],
         summary: 'Move facility',
         description: 'Moves a facility under a new parent.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facility moved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid hierarchy'),
@@ -274,6 +286,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
   ],
 )]
+/**
+ * Resource FacilityResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class FacilityResource
 {
 }

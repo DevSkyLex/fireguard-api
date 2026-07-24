@@ -12,11 +12,15 @@ use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExi
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 
 use function sprintf;
 
@@ -35,10 +39,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::never())->method('create');
 
-    $handler = new CreateFacilityHandler(
-      facilityRepository: $repository,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $uuidFactory);
 
     $this->expectException(InvalidArgumentException::class);
 
@@ -75,10 +76,7 @@ final class CreateFacilityHandlerTest extends TestCase
       ->with(FacilityId::class)
       ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655440900'));
 
-    $handler = new CreateFacilityHandler(
-      facilityRepository: $repository,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $uuidFactory);
 
     $this->expectException(FacilityCodeAlreadyExistsException::class);
     $this->expectExceptionMessage('Facility code "SITE-001" already exists for this organization.');
@@ -107,10 +105,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::never())->method('create');
 
-    $handler = new CreateFacilityHandler(
-      facilityRepository: $repository,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $uuidFactory);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage(sprintf('Facility with ID "%s" not found.', $parentId));
@@ -148,10 +143,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::never())->method('create');
 
-    $handler = new CreateFacilityHandler(
-      facilityRepository: $repository,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $uuidFactory);
 
     $this->expectException(FacilityHierarchyException::class);
     $this->expectExceptionMessage('Parent facility must belong to the same organization.');
@@ -182,10 +174,7 @@ final class CreateFacilityHandlerTest extends TestCase
       ->with(FacilityId::class)
       ->willReturn($generatedId);
 
-    $handler = new CreateFacilityHandler(
-      facilityRepository: $repository,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $uuidFactory);
 
     $result = $handler->__invoke(new CreateFacilityCommand(
       organizationId: $organizationId,
@@ -206,6 +195,145 @@ final class CreateFacilityHandlerTest extends TestCase
     self::assertSame('active', $result->status);
     self::assertSame('1 Main Street', $result->address);
     self::assertSame(['region' => 'west'], $result->metadata);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenOnlyLatitudeIsProvided(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441950'));
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655441951',
+      type: 'site',
+      name: 'HQ',
+      latitude: 48.8566,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenOnlyLongitudeIsProvided(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441960'));
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Facility latitude and longitude must be provided together.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655441961',
+      type: 'site',
+      name: 'HQ',
+      longitude: 2.3522,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithCoordinates(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-446655441970');
+    $organizationId = '550e8400-e29b-41d4-a716-446655441971';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn($generatedId);
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Paris HQ',
+      latitude: 48.8566,
+      longitude: 2.3522,
+    ));
+
+    self::assertSame(48.8566, $result->latitude);
+    self::assertSame(2.3522, $result->longitude);
+  }
+
+  #[Test]
+  public function testInvokeReturnsResultWithNullCoordinatesWhenOmitted(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-446655441980');
+    $organizationId = '550e8400-e29b-41d4-a716-446655441981';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn($generatedId);
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'HQ Without Coordinates',
+    ));
+
+    self::assertNull($result->latitude);
+    self::assertNull($result->longitude);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenLatitudeIsOutOfRange(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655441990'));
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Facility latitude must be between -90 and 90 degrees.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655441991',
+      type: 'site',
+      name: 'HQ',
+      latitude: 90.5,
+      longitude: 2.3522,
+    ));
   }
 
   #[Test]
@@ -233,10 +361,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $uuidFactory = $this->createMock(UuidFactory::class);
     $uuidFactory->expects(self::never())->method('create');
 
-    $handler = new CreateFacilityHandler(
-      facilityRepository: $repository,
-      uuidFactory: $uuidFactory,
-    );
+    $handler = $this->handler($repository, $uuidFactory);
 
     $this->expectException(FacilityArchivedException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441941" is archived and cannot be used.');
@@ -247,5 +372,58 @@ final class CreateFacilityHandlerTest extends TestCase
       name: 'Building Under Archived',
       parentFacilityId: (string) $parentId,
     ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsAndSkipsSaveWhenQuotaExceeded(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a0'));
+
+    /** @var OrganizationQuotaPort&MockObject $quota */
+    $quota = $this->createMock(OrganizationQuotaPort::class);
+    $quota->expects(self::once())
+      ->method('assertCanAdd')
+      ->with('550e8400-e29b-41d4-a716-4466554419a1', OrganizationQuotaResource::FACILITIES)
+      ->willThrowException(OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 2));
+
+    $handler = $this->handler($repository, $uuidFactory, $quota);
+
+    $this->expectException(OrganizationQuotaExceededException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419a1',
+      type: 'site',
+      name: 'Over Quota HQ',
+    ));
+  }
+
+  /**
+   * Builds the handler with a pass-through transaction manager (invokes the
+   * operation inline) and a permissive quota port unless one is supplied.
+   */
+  private function handler(
+    FacilityRepositoryPort $repository,
+    UuidFactory $uuidFactory,
+    ?OrganizationQuotaPort $quota = null,
+  ): CreateFacilityHandler {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+      quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
+      transactionManager: $transactionManager,
+    );
   }
 }

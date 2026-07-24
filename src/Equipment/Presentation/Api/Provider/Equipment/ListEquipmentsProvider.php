@@ -75,12 +75,15 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     }
 
     $request = $this->requestStack->getCurrentRequest();
-    $facilityId = $request?->query->get('facilityId');
+    $uriFacilityId = $uriVariables['facilityId'] ?? null;
+    $queryFacilityId = $request?->query->get('facilityId');
+    $facilityId = is_string($uriFacilityId) && '' !== $uriFacilityId ? $uriFacilityId : $queryFacilityId;
     $type = $request?->query->get('type');
     $status = $request?->query->get('status');
     $brand = $request?->query->get('brand');
     $model = $request?->query->get('model');
     $subType = $request?->query->get('subType');
+    $maintenanceDueStatus = $request?->query->get('maintenanceDueStatus');
 
     $filters = $context['filters'] ?? [];
     /** @var array<string, mixed> $filters */
@@ -107,7 +110,8 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
         subType: is_string($subType) && '' !== $subType ? $subType : null,
         pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
         search: SearchExtractor::fromContext($context),
-        sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt'], 'createdAt'),
+        sorting: SortingExtractor::fromContext($context, ['type', 'status', 'brand', 'model', 'createdAt', 'updatedAt'], 'createdAt'),
+        maintenanceDueStatus: is_string($maintenanceDueStatus) && '' !== $maintenanceDueStatus ? $maintenanceDueStatus : null,
       ));
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
@@ -150,12 +154,14 @@ final readonly class ListEquipmentsProvider implements ProviderInterface
     $output->model = $result->model;
     $output->serialNumber = $result->serialNumber;
     $output->locationLabel = $result->locationLabel;
+    $output->facilityName = $result->facilityName;
     $output->status = $result->status;
     $output->installedAt = $result->installedAt;
     $output->commissionedAt = $result->commissionedAt;
     $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
+    $output->maintenanceDueStatus = $result->maintenanceDueStatus;
 
     return $output;
   }

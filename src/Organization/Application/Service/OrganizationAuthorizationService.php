@@ -8,10 +8,15 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use Organization\Domain\ValueObject\OrganizationId;
+use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Contracts\Service\ResetInterface;
+use Throwable;
 
+use function array_filter;
+use function array_values;
 use function count;
 use function explode;
+use function is_array;
 
 /**
  * Service OrganizationAuthorizationService.
@@ -24,6 +29,8 @@ use function explode;
  */
 final class OrganizationAuthorizationService implements OrganizationAuthorizationPort, ResetInterface
 {
+  private const int DEFAULT_CACHE_TTL_SECONDS = 30;
+
   /**
    * @var array<string, list<string>>
    */
@@ -42,6 +49,8 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    */
   public function __construct(
     private readonly OrganizationMemberRepositoryPort $memberRepository,
+    private readonly ?CachePort $cache = null,
+    private readonly int $cacheTtl = self::DEFAULT_CACHE_TTL_SECONDS,
   ) {
   }
   // #endregion
@@ -88,14 +97,23 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   public function getUserPermissions(string $userId, string $organizationId): array
   {
     $cacheKey = $userId . '|' . $organizationId;
-    if (isset($this->permissionCache[$cacheKey])) {
+    if (isset($this->permissionCache[$cacheKey]) && [] !== $this->permissionCache[$cacheKey]) {
       return $this->permissionCache[$cacheKey];
     }
 
-    return $this->permissionCache[$cacheKey] = $this->memberRepository->getPermissionNamesForUserInOrganization(
+    $sharedCacheKey = OrganizationCacheKeys::permissions($organizationId, $userId);
+    $cached = $this->readSharedPermissionsCache($sharedCacheKey);
+    if (null !== $cached && [] !== $cached) {
+      return $this->permissionCache[$cacheKey] = $cached;
+    }
+
+    $permissions = $this->memberRepository->getPermissionNamesForUserInOrganization(
       userId: $userId,
       organizationId: OrganizationId::fromString($organizationId),
     );
+    $this->writeSharedPermissionsCache($sharedCacheKey, $permissions);
+
+    return $this->permissionCache[$cacheKey] = $permissions;
   }
 
   /**
@@ -184,6 +202,44 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     }
 
     return count($grantedSegments) === count($requiredSegments);
+  }
+
+  /**
+   * @return list<string>|null
+   */
+  private function readSharedPermissionsCache(string $cacheKey): ?array
+  {
+    if (null === $this->cache || $this->cacheTtl <= 0) {
+      return null;
+    }
+
+    try {
+      $cached = $this->cache->get($cacheKey);
+    } catch (Throwable) {
+      return null;
+    }
+
+    if (!is_array($cached)) {
+      return null;
+    }
+
+    return array_values(array_filter($cached, 'is_string'));
+  }
+
+  /**
+   * @param list<string> $permissions
+   */
+  private function writeSharedPermissionsCache(string $cacheKey, array $permissions): void
+  {
+    if (null === $this->cache || $this->cacheTtl <= 0) {
+      return;
+    }
+
+    try {
+      $this->cache->set($cacheKey, $permissions, $this->cacheTtl);
+    } catch (Throwable) {
+      // Cache failures should not block authorization checks.
+    }
   }
   // #endregion
 }

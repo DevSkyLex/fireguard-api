@@ -51,4 +51,17 @@ final class OrganizationDashboardTrendOutput
   #[Groups([OrganizationSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $comparison = ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []];
+
+  /**
+   * Per-metric series, keyed by metric identifier, populated only when the
+   * `metrics` filter requested more than the primary `metric` (e.g. the
+   * two-series non-conformities opened/resolved chart). Every entry shares
+   * this payload's `period`, so the frontend can render several series on one
+   * chart without stitching independent calls together.
+   *
+   * @var array<string, list<array{bucket: string, value: int}>>
+   */
+  #[Groups([OrganizationSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $seriesByMetric = [];
 }

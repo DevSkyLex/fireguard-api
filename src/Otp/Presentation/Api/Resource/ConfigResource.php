@@ -36,6 +36,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: PurposeOutput::class,
       provider: ListPurposesProvider::class,
       security: "is_granted('otp_config.read')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         operationId: 'listPurposes',
         tags: ['OTP'],
@@ -62,6 +63,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: ChannelOutput::class,
       provider: ListChannelsProvider::class,
       security: "is_granted('otp_config.read')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         operationId: 'listChannels',
         tags: ['OTP'],

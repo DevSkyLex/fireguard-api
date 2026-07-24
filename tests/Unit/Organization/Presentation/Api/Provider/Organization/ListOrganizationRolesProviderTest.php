@@ -100,6 +100,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
           isSystem: false,
           createdAt: $createdAt,
           description: 'Manager role',
+          memberCount: 5,
         ),
       ]));
 
@@ -125,6 +126,7 @@ final class ListOrganizationRolesProviderTest extends TestCase
     self::assertFalse($output[0]->isSystem);
     self::assertSame($createdAt->format('c'), $output[0]->createdAt);
     self::assertSame('Manager role', $output[0]->description);
+    self::assertSame(5, $output[0]->memberCount);
   }
 
   private function createSecurityUser(string $id): SecurityUser

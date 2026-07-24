@@ -111,6 +111,23 @@ interface SessionRepositoryPort
   public function revokeAllForUser(string $userId): int;
 
   /**
+   * Method revokeAllForUserExcept.
+   *
+   * Revokes all active sessions for a user except the one identified by
+   * exceptSessionId, so the caller stays signed in on that session while
+   * every other device is signed out. Idempotent: revoking a second time
+   * once nothing else is active returns zero.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   * @param string $exceptSessionId the session ID to keep active
+   *
+   * @return int the number of sessions revoked
+   */
+  public function revokeAllForUserExcept(string $userId, string $exceptSessionId): int;
+
+  /**
    * Method delete.
    *
    * Deletes a session.

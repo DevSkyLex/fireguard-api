@@ -6,11 +6,15 @@ namespace Tests\Unit\Facility\Presentation\Api\Processor\Facility;
 
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Facility\Application\UseCase\Command\Facility\CreateFacility\CreateFacilityCommand;
+use DateTimeImmutable;
+use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
 use Facility\Domain\Exception\FacilityCodeAlreadyExistsException;
 use Facility\Presentation\Api\Dto\Input\Facility\CreateFacilityInput;
+use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Processor\Facility\CreateFacilityProcessor;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -77,6 +81,118 @@ final class CreateFacilityProcessorTest extends TestCase
       operation: new Post(),
       uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655441001'],
     );
+  }
+
+  #[Test]
+  public function testProcessMapsWrappedQuotaExceededToHttp409(): void
+  {
+    $input = new CreateFacilityInput();
+    $input->type = 'site';
+    $input->name = 'HQ';
+
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441100');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new CreateFacilityCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441101',
+        type: 'site',
+        name: 'HQ',
+      )),
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 2)],
+    );
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $processor = new CreateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655441101'],
+    );
+  }
+
+  #[Test]
+  public function testProcessPassesCoordinatesThroughToCommandAndOutput(): void
+  {
+    $input = new CreateFacilityInput();
+    $input->type = 'site';
+    $input->name = 'Paris HQ';
+    $input->latitude = 48.8566;
+    $input->longitude = 2.3522;
+
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655442000');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (CreateFacilityCommand $command): bool {
+        return 48.8566 === $command->latitude && 2.3522 === $command->longitude;
+      }))
+      ->willReturn(new CreateFacilityResult(
+        facilityId: '550e8400-e29b-41d4-a716-446655442001',
+        organizationId: '550e8400-e29b-41d4-a716-446655442002',
+        parentFacilityId: null,
+        type: 'site',
+        name: 'Paris HQ',
+        code: null,
+        status: 'active',
+        address: null,
+        metadata: [],
+        createdAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
+        updatedAt: new DateTimeImmutable('2026-02-12T10:00:00+00:00'),
+        latitude: 48.8566,
+        longitude: 2.3522,
+      ));
+
+    $processor = new CreateFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655442002'],
+    );
+
+    self::assertInstanceOf(FacilityOutput::class, $output);
+    self::assertSame(48.8566, $output->latitude);
+    self::assertSame(2.3522, $output->longitude);
   }
 
   private function createSecurityUser(string $id): SecurityUser

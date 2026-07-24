@@ -7,6 +7,7 @@ namespace Shared\Infrastructure\Symfony\Adapter\Outbound;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Outbound\EventBusPort;
 use Shared\Domain\Event\DomainEvent;
+use Symfony\Component\Messenger\Exception\NoHandlerForMessageException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 
@@ -57,6 +58,8 @@ final readonly class MessengerEventBusAdapter implements EventBusPort
     foreach ($events as $event) {
       try {
         $this->eventBus->dispatch(message: $event);
+      } catch (NoHandlerForMessageException) {
+        continue;
       } catch (Throwable $exception) {
         throw MessengerRuntimeException::wrap(
           exception: $exception,

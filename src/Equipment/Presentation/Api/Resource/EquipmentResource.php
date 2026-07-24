@@ -36,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
 #[ApiResource(
-  shortName: 'Equipment',
+  shortName: 'LegacyEquipment',
   routePrefix: '/organizations',
   description: 'Fire safety equipment and assets managed at organization level.',
   operations: [
@@ -119,10 +119,83 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Filter by exact equipment subtype.',
             schema: ['type' => 'string'],
           ),
+          new Parameter(
+            name: 'maintenanceDueStatus',
+            in: 'query',
+            required: false,
+            description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
+            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment list retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new GetCollection(
+      name: EquipmentOperations::LIST_FACILITY_EQUIPMENTS,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/equipment',
+      input: false,
+      output: EquipmentOutput::class,
+      provider: ListEquipmentsProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
+      normalizationContext: ['groups' => [EquipmentSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Equipment'],
+        summary: 'List facility equipment',
+        description: 'Lists equipment items directly assigned to one facility.',
+        parameters: [
+          new Parameter(
+            name: 'type',
+            in: 'query',
+            required: false,
+            description: 'Filter by equipment type.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'status',
+            in: 'query',
+            required: false,
+            description: 'Filter by equipment status.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'brand',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact equipment brand.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'model',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact equipment model.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'subType',
+            in: 'query',
+            required: false,
+            description: 'Filter by exact equipment subtype.',
+            schema: ['type' => 'string'],
+          ),
+          new Parameter(
+            name: 'maintenanceDueStatus',
+            in: 'query',
+            required: false,
+            description: 'Filter by cross-module maintenance due status (`unscheduled`, `up_to_date`, `due_soon`, `overdue`).',
+            schema: ['type' => 'string', 'enum' => ['unscheduled', 'up_to_date', 'due_soon', 'overdue']],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Facility equipment list retrieved'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid organization or facility identifier'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
         ],
       ),
@@ -223,6 +296,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Equipment'],
         summary: 'Commission equipment',
         description: 'Marks the equipment as commissioned and operational.',
+        deprecated: true,
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Equipment commissioned'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier or equipment not assigned to a facility'),
@@ -276,6 +350,15 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     ),
   ],
 )]
+/**
+ * Resource EquipmentResource.
+ *
+ * @category Resource
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final class EquipmentResource
 {
 }

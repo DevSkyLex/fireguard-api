@@ -12,11 +12,13 @@ use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspection
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Dto\Input\Inspection\EditInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\EditInspectionProcessor;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -92,6 +94,7 @@ final class EditInspectionProcessorTest extends TestCase
       authorization: $authorization,
       security: $this->makeSecurity(),
       requestStack: $this->makeRequestStack(['equipmentId' => self::EQUIP_ID, 'notes' => 'Updated note']),
+      outputMapper: $this->createOutputMapper(),
     );
 
     $output = $processor->process(
@@ -175,7 +178,16 @@ final class EditInspectionProcessorTest extends TestCase
       authorization: $authorization,
       security: $this->makeSecurity(),
       requestStack: $requestStack ?? $this->makeRequestStack(['notes' => 'Updated note']),
+      outputMapper: $this->createOutputMapper(),
     );
+  }
+
+  private function createOutputMapper(): InspectionOutputFactory
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('User lookup unavailable.'));
+
+    return new InspectionOutputFactory($queryBus);
   }
 
   /**

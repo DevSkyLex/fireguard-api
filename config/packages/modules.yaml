@@ -13,12 +13,22 @@ imports:
   - { resource: '../modules/facility.yaml' }
   - { resource: '../modules/equipment.yaml' }
   - { resource: '../modules/inspection.yaml' }
+  - { resource: '../modules/intervention.yaml' }
   - { resource: '../modules/otp.yaml' }
   - { resource: '../modules/notification.yaml' }
   - { resource: '../modules/trusted_device.yaml' }
   - { resource: '../modules/authorization.yaml' }
   - { resource: '../modules/audit.yaml' }
-
+  - { resource: '../modules/billing.yaml' }
+  - { resource: '../modules/maintenance.yaml' }
+  - { resource: '../modules/automation.yaml' }
+  - { resource: '../modules/messaging.yaml' }
+  - { resource: '../modules/import.yaml' }
+  - { resource: '../modules/compliance.yaml' }
+  - { resource: '../modules/webhook.yaml' }
+  - { resource: '../modules/approval.yaml' }
+  - { resource: '../modules/assistant.yaml' }
+  - { resource: '../modules/calendar.yaml' }
 
 
 

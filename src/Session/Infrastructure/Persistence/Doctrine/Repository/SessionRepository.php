@@ -11,6 +11,8 @@ use Session\Domain\Model\Session\Session;
 use Session\Domain\ValueObject\SessionId;
 use Session\Infrastructure\Persistence\Doctrine\Mapper\SessionMapper;
 use Session\Infrastructure\Persistence\Doctrine\Record\SessionRecord;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 use function array_map;
 use function is_int;
@@ -169,6 +171,38 @@ final class SessionRepository implements SessionRepositoryPort
       ->andWhere('s.revokedAt IS NULL')
       ->setParameter('now', new DateTimeImmutable())
       ->setParameter('userId', $userId);
+
+    $result = $qb->getQuery()->execute();
+
+    return is_int($result) ? $result : 0;
+  }
+
+  /**
+   * Method revokeAllForUserExcept
+   * {@inheritDoc}
+   */
+  public function revokeAllForUserExcept(string $userId, string $exceptSessionId): int
+  {
+    $qb = $this->entityManager->createQueryBuilder();
+    $qb->update(SessionRecord::class, 's')
+      ->set('s.revokedAt', ':now')
+      ->where('s.userId = :userId')
+      ->andWhere('s.revokedAt IS NULL')
+      ->setParameter('now', new DateTimeImmutable())
+      ->setParameter('userId', $userId);
+
+    // The `id` column is mapped through Symfony's UuidType (see SessionRecord);
+    // it must be bound with that same type, otherwise Doctrine compares the
+    // raw string against the converted database value and the `!=` clause
+    // never matches, silently revoking the excluded session too. Only apply
+    // the exclusion when exceptSessionId is actually a well-formed UUID: the
+    // resolver upstream falls back to the framework's HTTP session id when
+    // the current Session aggregate cannot be identified, and that id is not
+    // UUID-shaped — attempting to parse it would throw.
+    if (Uuid::isValid(uuid: $exceptSessionId)) {
+      $qb->andWhere('s.id != :exceptSessionId')
+        ->setParameter('exceptSessionId', Uuid::fromString(uuid: $exceptSessionId), UuidType::NAME);
+    }
 
     $result = $qb->getQuery()->execute();
 

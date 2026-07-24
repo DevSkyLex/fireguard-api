@@ -6,6 +6,7 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\MoveFacility;
 
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityHandler, MoveFacilityResult};
+use Facility\Domain\Event\Facility\FacilityMovedEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
@@ -13,6 +14,8 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(MoveFacilityHandler::class)]
 final class MoveFacilityHandlerTest extends TestCase
@@ -22,11 +25,16 @@ final class MoveFacilityHandlerTest extends TestCase
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('findPublishedById');
     $repository->expects(self::never())->method('findById');
     $repository->expects(self::never())->method('save');
 
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new MoveFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -71,13 +79,13 @@ final class MoveFacilityHandlerTest extends TestCase
 
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
-    $repository->expects(self::exactly(3))
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->with(self::callback(static fn (FacilityId $id): bool => $id->equals($facilityId)))
+      ->willReturn($facility);
+    $repository->expects(self::exactly(2))
       ->method('findById')
-      ->willReturnCallback(static function (FacilityId $id) use ($facilityId, $parentAId, $parentBId, $facility, $parentA, $parentB): ?Facility {
-        if ($id->equals($facilityId)) {
-          return $facility;
-        }
-
+      ->willReturnCallback(static function (FacilityId $id) use ($parentAId, $parentBId, $parentA, $parentB): ?Facility {
         if ($id->equals($parentAId)) {
           return $parentA;
         }
@@ -92,8 +100,12 @@ final class MoveFacilityHandlerTest extends TestCase
     $repository->expects(self::never())
       ->method('save');
 
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new MoveFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(FacilityHierarchyException::class);
@@ -107,16 +119,19 @@ final class MoveFacilityHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeThrowsWhenFacilityNotFound(): void
+  public function testInvokeThrowsWhenFacilityNotFoundOrDraft(): void
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn(null);
     $repository->expects(self::never())->method('save');
 
-    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442100" not found.');
@@ -141,11 +156,14 @@ final class MoveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::never())->method('save');
 
-    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442110" not found.');
@@ -173,11 +191,14 @@ final class MoveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::never())->method('save');
 
-    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
 
     $this->expectException(FacilityHierarchyException::class);
     $this->expectExceptionMessage('A facility cannot be its own parent.');
@@ -213,22 +234,19 @@ final class MoveFacilityHandlerTest extends TestCase
 
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
-    $repository->expects(self::exactly(2))
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
       ->method('findById')
-      ->willReturnCallback(static function (FacilityId $id) use ($facilityId, $parentId, $facility, $parentInOtherOrg): ?Facility {
-        if ((string) $id === (string) $facilityId) {
-          return $facility;
-        }
-
-        if ((string) $id === (string) $parentId) {
-          return $parentInOtherOrg;
-        }
-
-        return null;
-      });
+      ->with(self::callback(static fn (FacilityId $id): bool => (string) $id === (string) $parentId))
+      ->willReturn($parentInOtherOrg);
     $repository->expects(self::never())->method('save');
 
-    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
 
     $this->expectException(FacilityHierarchyException::class);
     $this->expectExceptionMessage('Parent facility must belong to the same organization.');
@@ -241,7 +259,7 @@ final class MoveFacilityHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeMovesSuccessfullyWithNullParent(): void
+  public function testInvokeMovesSuccessfullyWithNullParentAndDispatchesMovedEvent(): void
   {
     $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442140');
     $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442141');
@@ -258,13 +276,24 @@ final class MoveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::once())
       ->method('save')
       ->with(self::callback(static fn (Facility $f): bool => null === $f->parentFacilityId()));
 
-    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof FacilityMovedEvent
+          && (string) $organizationId === $event->organizationId
+          && (string) $facilityId === $event->facilityId
+          && (string) $oldParentId === $event->previousParentFacilityId
+          && null === $event->newParentFacilityId,
+      ));
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
 
     $result = $handler->__invoke(new MoveFacilityCommand(
       organizationId: (string) $organizationId,
@@ -279,6 +308,191 @@ final class MoveFacilityHandlerTest extends TestCase
     self::assertSame('floor', $result->type);
     self::assertSame('Floor 5', $result->name);
     self::assertSame('active', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeMovesToNewParentAndDispatchesMovedEvent(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442160');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442161');
+    $oldParentId = new FacilityId('550e8400-e29b-41d4-a716-446655442162');
+    $newParentId = new FacilityId('550e8400-e29b-41d4-a716-446655442163');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor 7'),
+      parentFacilityId: $oldParentId,
+    );
+
+    $newParent = Facility::create(
+      id: $newParentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building N'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->with(self::callback(static fn (FacilityId $id): bool => $id->equals($facilityId)))
+      ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->with(self::callback(static fn (FacilityId $id): bool => $id->equals($newParentId)))
+      ->willReturn($newParent);
+    $repository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(static fn (Facility $f): bool => null !== $f->parentFacilityId() && $f->parentFacilityId()->equals($newParentId)));
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof FacilityMovedEvent
+          && (string) $organizationId === $event->organizationId
+          && (string) $facilityId === $event->facilityId
+          && (string) $oldParentId === $event->previousParentFacilityId
+          && (string) $newParentId === $event->newParentFacilityId,
+      ));
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $result = $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $newParentId,
+    ));
+
+    self::assertInstanceOf(MoveFacilityResult::class, $result);
+    self::assertSame((string) $newParentId, $result->parentFacilityId);
+  }
+
+  #[Test]
+  public function testInvokeSameParentMoveDoesNotDispatchMovedEvent(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442170');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442171');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442172');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor 9'),
+      parentFacilityId: $parentId,
+    );
+
+    $parent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building S'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->with(self::callback(static fn (FacilityId $id): bool => $id->equals($parentId)))
+      ->willReturn($parent);
+    $repository->expects(self::once())
+      ->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $result = $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
+
+    self::assertInstanceOf(MoveFacilityResult::class, $result);
+    self::assertSame((string) $parentId, $result->parentFacilityId);
+  }
+
+  #[Test]
+  public function testInvokeRootToRootMoveDoesNotDispatchMovedEvent(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442180');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442181');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Root Site'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::never())->method('findById');
+    $repository->expects(self::once())
+      ->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $result = $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: null,
+    ));
+
+    self::assertInstanceOf(MoveFacilityResult::class, $result);
+    self::assertNull($result->parentFacilityId);
+  }
+
+  #[Test]
+  public function testInvokeFailedSaveDispatchesNothing(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442190');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442191');
+    $oldParentId = new FacilityId('550e8400-e29b-41d4-a716-446655442192');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor 11'),
+      parentFacilityId: $oldParentId,
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('boom');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: null,
+    ));
   }
 
   #[Test]
@@ -305,22 +519,19 @@ final class MoveFacilityHandlerTest extends TestCase
 
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
-    $repository->expects(self::exactly(2))
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
       ->method('findById')
-      ->willReturnCallback(static function (FacilityId $id) use ($facilityId, $parentId, $facility, $archivedParent): ?Facility {
-        if ((string) $id === (string) $facilityId) {
-          return $facility;
-        }
-
-        if ((string) $id === (string) $parentId) {
-          return $archivedParent;
-        }
-
-        return null;
-      });
+      ->with(self::callback(static fn (FacilityId $id): bool => (string) $id === (string) $parentId))
+      ->willReturn($archivedParent);
     $repository->expects(self::never())->method('save');
 
-    $handler = new MoveFacilityHandler(facilityRepository: $repository);
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
 
     $this->expectException(FacilityArchivedException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442152" is archived and cannot be used.');

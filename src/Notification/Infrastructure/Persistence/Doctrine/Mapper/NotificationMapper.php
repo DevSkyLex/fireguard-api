@@ -36,6 +36,7 @@ final class NotificationMapper
     $record->id = (string) $notification->id();
     $record->recipientUserId = $notification->recipientUserId();
     $record->recipientEmail = null !== $notification->recipientEmail() ? (string) $notification->recipientEmail() : null;
+    $record->organizationId = $notification->organizationId();
     $record->type = $notification->type();
     $record->subject = $notification->subject();
     $record->body = $notification->body();
@@ -78,6 +79,7 @@ final class NotificationMapper
       recipientEmail: $recipientEmail,
       isRead: $record->isRead,
       readAt: $record->readAt,
+      organizationId: $record->organizationId,
     );
   }
   // #endregion

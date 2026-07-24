@@ -6,9 +6,9 @@ namespace Session\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
-use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
+use Session\Presentation\Api\Dto\Output\Session\{RevokeOtherSessionsOutput, SessionOutput};
 use Session\Presentation\Api\Operation\SessionOperations;
-use Session\Presentation\Api\Processor\Session\{RevokeAllSessionsProcessor, RevokeSessionProcessor};
+use Session\Presentation\Api\Processor\Session\{RevokeAllSessionsProcessor, RevokeOtherSessionsProcessor, RevokeSessionProcessor};
 use Session\Presentation\Api\Provider\Session\{GetSessionProvider, ListUserSessionsProvider};
 use Session\Presentation\Api\Serialization\SessionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -131,6 +131,34 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_NO_CONTENT => new Response(
             description: 'All sessions revoked successfully',
+          ),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(
+            description: 'Authentication required',
+          ),
+          HttpResponse::HTTP_FORBIDDEN => new Response(
+            description: 'Insufficient permissions',
+          ),
+        ],
+      ),
+    ),
+    new Post(
+      name: SessionOperations::REVOKE_OTHERS,
+      description: 'Revoke every other session of the authenticated user, keeping the current one active.',
+      uriTemplate: '/sessions/revoke-others',
+      input: false,
+      output: RevokeOtherSessionsOutput::class,
+      processor: RevokeOtherSessionsProcessor::class,
+      status: HttpResponse::HTTP_OK,
+      normalizationContext: ['groups' => [SessionSerializationGroup::REVOKE_OTHERS]],
+      security: "is_granted('sessions.revoke')",
+      openapi: new Operation(
+        tags: ['Sessions'],
+        summary: 'Revoke other sessions',
+        description: 'Revokes every active session of the authenticated user except the one backing the current request, signing the user out on every other device while staying signed in here. Idempotent: calling it again once there is nothing else to revoke returns a zero count.',
+        security: [['bearerAuth' => []]],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(
+            description: 'Other sessions revoked successfully',
           ),
           HttpResponse::HTTP_UNAUTHORIZED => new Response(
             description: 'Authentication required',

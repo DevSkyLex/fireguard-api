@@ -80,4 +80,26 @@ interface OrganizationOnboardingServicePort
    * @return OrganizationOnboardingSessionState the updated flow state after rollback
    */
   public function rollbackLastStep(string $userId): OrganizationOnboardingSessionState;
+
+  /**
+   * Method dismiss.
+   *
+   * @since 3.0.0
+   *
+   * @param string $userId the authenticated user identifier
+   *
+   * @return OrganizationOnboardingSessionState the updated flow state after dismissal
+   */
+  public function dismiss(string $userId): OrganizationOnboardingSessionState;
+
+  /**
+   * Method resume.
+   *
+   * @since 3.0.0
+   *
+   * @param string $userId the authenticated user identifier
+   *
+   * @return OrganizationOnboardingSessionState the updated flow state after resuming
+   */
+  public function resume(string $userId): OrganizationOnboardingSessionState;
 }

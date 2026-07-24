@@ -20,12 +20,15 @@ services:
   Organization\Application\UseCase\Command\Organization\DeleteOrganization\DeleteOrganizationHandler:
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Command\Organization\DeleteOrganizationLegalProfile\DeleteOrganizationLegalProfileHandler:
+  Organization\Application\UseCase\Command\Organization\UpdateOrganizationSettings\UpdateOrganizationSettingsHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
+      $quota: '@Organization\Application\Port\Inbound\OrganizationQuotaPort'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\CreateOrganizationRoleHandler:
@@ -46,9 +49,25 @@ services:
   Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Team\CreateTeam\CreateTeamHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Team\UpdateTeam\UpdateTeamHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Team\DeleteTeam\DeleteTeamHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Team\AddTeamMember\AddTeamMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Team\RemoveTeamMember\RemoveTeamMemberHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\InviteOrganizationMemberHandler:
     arguments:
       $transactionManager: '@organization.main_transaction_manager'
+      $quota: '@Organization\Application\Port\Inbound\OrganizationQuotaPort'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\AcceptOrganizationInvitationHandler:
@@ -61,7 +80,29 @@ services:
       $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Command\Organization\UpsertOrganizationLegalProfile\UpsertOrganizationLegalProfileHandler:
+  Organization\Application\UseCase\Command\Organization\ResendOrganizationInvitation\ResendOrganizationInvitationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\ChangeOrganizationPlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Plan\CreatePlan\CreatePlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Plan\UpdatePlan\UpdatePlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Plan\DeletePlan\DeletePlanHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   # Query handlers
@@ -83,7 +124,7 @@ services:
   Organization\Application\UseCase\Query\Organization\ListOrganizationInvitations\ListOrganizationInvitationsHandler:
     tags: ['messenger.message_handler']
 
-  Organization\Application\UseCase\Query\Organization\GetOrganizationLegalProfile\GetOrganizationLegalProfileHandler:
+  Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\GetOrganizationInvitationPreviewHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
@@ -92,8 +133,36 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\GetNavigationCounters\GetNavigationCountersHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Query\Organization\GetCurrentOrganizationMemberProfile\GetCurrentOrganizationMemberProfileHandler:
     tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Plan\ListPlans\ListPlansHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationQuota\GetOrganizationQuotaHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Team\GetTeam\GetTeamHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Team\ListTeams\ListTeamsHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Team\ListTeamMembers\ListTeamMembersHandler:
+    tags: ['messenger.message_handler']
+
+  # Event subscribers (react to Symfony's core event dispatcher, the
+  # mechanism EventDispatcherPort uses for every Organization domain event)
+  Organization\Infrastructure\EventSubscriber\RemoveTeamMembershipsOnMemberRemovedHandler: ~
 
   # Repositories
   Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository:
@@ -108,11 +177,15 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository:
+  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
-  Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository:
+  Organization\Infrastructure\Persistence\Doctrine\Repository\PlanRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Organization\Infrastructure\Persistence\Doctrine\Repository\TeamRepository:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -126,17 +199,61 @@ services:
   Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository
 
-  Organization\Application\Port\Outbound\OrganizationLegalProfileRepositoryPort:
-    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationLegalProfileRepository
-
   Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort:
     alias: Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository
+
+  Organization\Application\Port\Outbound\PlanRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\PlanRepository
+
+  Organization\Application\Port\Outbound\TeamRepositoryPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Repository\TeamRepository
+
+  # Quota advisory lock (runs on the main connection carrying the create transaction)
+  Organization\Infrastructure\Persistence\Doctrine\Lock\PostgresOrganizationQuotaLockAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Organization\Application\Port\Outbound\OrganizationQuotaLockPort:
+    alias: Organization\Infrastructure\Persistence\Doctrine\Lock\PostgresOrganizationQuotaLockAdapter
 
   # Inbound ports
   Organization\Application\Port\Inbound\OrganizationAuthorizationPort:
     alias: Organization\Application\Service\OrganizationAuthorizationService
 
+  Organization\Application\Port\Inbound\OrganizationQuotaPort:
+    alias: Organization\Application\Service\OrganizationQuotaService
+
+  Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort:
+    alias: Organization\Application\Service\OrganizationNotificationPolicyService
+
+  Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort:
+    alias: Organization\Application\Service\OrganizationLastAdminGuardService
+
+  Organization\Application\Port\Inbound\OrganizationPermissionGrantGuardPort:
+    alias: Organization\Application\Service\OrganizationPermissionGrantGuardService
+
+  Organization\Application\Port\Inbound\TeamDirectoryPort:
+    alias: Organization\Application\Service\TeamDirectoryService
+
+  Organization\Application\Service\TeamDirectoryService: ~
+
+  Organization\Application\Service\OrganizationInvitationTokenHasher: ~
+
+  Organization\Application\Service\OrganizationInvitationNotifier:
+    arguments:
+      $frontendUrl: '%app.frontend_url%'
+
+  Organization\Application\Service\OrganizationCacheInvalidator: ~
+
   Organization\Application\Service\OrganizationAuthorizationService: ~
+
+  Organization\Application\Service\OrganizationQuotaService: ~
+
+  Organization\Application\Service\OrganizationNotificationPolicyService: ~
+
+  Organization\Application\Service\OrganizationLastAdminGuardService: ~
+
+  Organization\Application\Service\OrganizationPermissionGrantGuardService: ~
 
   Organization\Application\Port\Outbound\FacilityStatisticsPort:
     alias: Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter
@@ -144,11 +261,49 @@ services:
   Organization\Application\Port\Outbound\EquipmentStatisticsPort:
     alias: Equipment\Infrastructure\Adapter\Organization\EquipmentStatisticsAdapter
 
+  Organization\Application\Port\Outbound\EquipmentTypeCatalogPort:
+    alias: Equipment\Infrastructure\Adapter\Organization\EquipmentTypeCatalogAdapter
+
   Organization\Application\Port\Outbound\InspectionStatisticsPort:
     alias: Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter
 
   Organization\Application\Port\Outbound\NonConformityStatisticsPort:
     alias: Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter
+
+  Organization\Application\Port\Outbound\InterventionStatisticsPort:
+    alias: Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter
+
+  # R17: Approval module's regulated action-type catalog, hosted in Approval
+  Organization\Application\Port\Outbound\ApprovalActionTypeCatalogPort:
+    alias: Approval\Infrastructure\Adapter\Organization\ApprovalActionTypeCatalogAdapter
+
+  # Cross-module read model for the Maintenance module (compliance policy)
+  Organization\Infrastructure\Adapter\Maintenance\OrganizationCompliancePolicyAdapter: ~
+
+  # Cross-module read model for the Automation module (automation policy)
+  Organization\Infrastructure\Adapter\Automation\OrganizationAutomationPolicyAdapter: ~
+
+  # Cross-module read models for the Approval module (four-eyes approval policy + member directory)
+  Organization\Infrastructure\Adapter\Approval\OrganizationApprovalPolicyAdapter: ~
+  Organization\Infrastructure\Adapter\Approval\OrganizationApprovalMemberDirectoryAdapter: ~
+
+  # Cross-module read model for the Compliance module (plan-tier export entitlement gate)
+  Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter: ~
+
+  # Cross-module read model for the Assistant module (L2.2: business-context
+  # `includeBusinessContext` opt-in gate)
+  Organization\Infrastructure\Adapter\Assistant\OrganizationAssistantSettingsAdapter: ~
+
+  # Cross-module member directory for the Messaging module (mention validation,
+  # actor member resolution)
+  Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter: ~
+
+  # Cross-module member directory for the Calendar module (actor member
+  # resolution for standalone event creation)
+  Organization\Infrastructure\Adapter\Calendar\OrganizationCalendarMemberDirectoryAdapter: ~
+
+  # Image services
+  Organization\Infrastructure\Image\OrganizationLogoResizer: ~
 
   # Console Commands use #[AsCommand]
   Organization\Infrastructure\Console\CreateOrganizationConsoleCommand: ~

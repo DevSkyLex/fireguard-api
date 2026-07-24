@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\{ListEquipmentsHandler, ListEquipmentsQuery};
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -31,6 +32,8 @@ final class ListEquipmentsHandlerTest extends TestCase
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
       tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -46,6 +49,8 @@ final class ListEquipmentsHandlerTest extends TestCase
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
       tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -53,6 +58,24 @@ final class ListEquipmentsHandlerTest extends TestCase
     $handler->__invoke(new ListEquipmentsQuery(
       organizationId: self::ORG_ID,
       type: 'not_a_valid_type',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnInvalidMaintenanceDueStatus(): void
+  {
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      maintenanceDueStatus: 'not_a_real_status',
     ));
   }
 
@@ -74,9 +97,17 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findTagsByEquipmentIds')
       ->willReturn([]);
 
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([]);
+
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -119,9 +150,18 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findTagsByEquipmentIds')
       ->willReturn([]);
 
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->with(self::ORG_ID, [self::EQUIP_ID_1, self::EQUIP_ID_2])
+      ->willReturn([self::EQUIP_ID_1 => 'overdue']);
+
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -134,8 +174,11 @@ final class ListEquipmentsHandlerTest extends TestCase
     self::assertInstanceOf(GetEquipmentResult::class, $result->items[0]);
     self::assertSame(self::EQUIP_ID_1, $result->items[0]->equipmentId);
     self::assertSame('fire_extinguisher', $result->items[0]->type);
+    self::assertSame('overdue', $result->items[0]->maintenanceDueStatus);
     self::assertSame(self::EQUIP_ID_2, $result->items[1]->equipmentId);
     self::assertSame('smoke_detector', $result->items[1]->type);
+    // Not present in the batch's return map: must default to `unscheduled`, never null.
+    self::assertSame('unscheduled', $result->items[1]->maintenanceDueStatus);
   }
 
   #[Test]
@@ -170,9 +213,17 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findTagsByEquipmentIds')
       ->willReturn([]);
 
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([]);
+
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new ListEquipmentsQuery(
@@ -225,9 +276,17 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findTagsByEquipmentIds')
       ->willReturn([]);
 
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([]);
+
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $handler->__invoke(new ListEquipmentsQuery(
@@ -279,9 +338,17 @@ final class ListEquipmentsHandlerTest extends TestCase
       ->method('findTagsByEquipmentIds')
       ->willReturn([]);
 
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([]);
+
     $handler = new ListEquipmentsHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $handler->__invoke(new ListEquipmentsQuery(
@@ -291,5 +358,61 @@ final class ListEquipmentsHandlerTest extends TestCase
       model: 'ABC-9',
       subType: 'CO2',
     ));
+  }
+
+  #[Test]
+  public function testInvokeFiltersByMaintenanceDueStatusAndPaginatesInMemory(): void
+  {
+    $equipment1 = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID_1),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $equipment2 = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID_2),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::SMOKE_DETECTOR,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    // The filtered path never calls countByOrganizationId (the total is
+    // computed in-memory from the filtered candidate set instead).
+    $equipmentRepository->expects(self::never())->method('countByOrganizationId');
+    $equipmentRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->willReturn([$equipment1, $equipment2]);
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::once())
+      ->method('findTagsByEquipmentIds')
+      ->willReturn([]);
+
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->with(self::ORG_ID, [self::EQUIP_ID_1, self::EQUIP_ID_2])
+      ->willReturn([self::EQUIP_ID_1 => 'overdue', self::EQUIP_ID_2 => 'up_to_date']);
+
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
+    );
+
+    $result = $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(limit: 10, offset: 0),
+      maintenanceDueStatus: 'overdue',
+    ));
+
+    self::assertSame(1, $result->total);
+    self::assertCount(1, $result->items);
+    self::assertSame(self::EQUIP_ID_1, $result->items[0]->equipmentId);
+    self::assertSame('overdue', $result->items[0]->maintenanceDueStatus);
   }
 }

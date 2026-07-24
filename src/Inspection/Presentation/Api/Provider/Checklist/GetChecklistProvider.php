@@ -18,6 +18,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
+use function count;
 use function is_string;
 
 /** @implements ProviderInterface<ChecklistOutput> */
@@ -82,6 +83,7 @@ final readonly class GetChecklistProvider implements ProviderInterface
     $output->id = $result->checklistId;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
+    $output->referenceCode = $result->referenceCode;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');
@@ -98,6 +100,7 @@ final readonly class GetChecklistProvider implements ProviderInterface
       $itemOutputs[] = $itemOutput;
     }
     $output->items = $itemOutputs;
+    $output->itemCount = count($itemOutputs);
 
     return $output;
   }

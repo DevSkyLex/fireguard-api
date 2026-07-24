@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Equipment\Application\UseCase\Command\Equipment\CommissionEquipment;
 
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
+use Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent;
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentStatus};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 use function array_map;
@@ -29,6 +31,7 @@ final readonly class CommissionEquipmentHandler implements CommandHandler
     private EquipmentRepositoryPort $equipmentRepository,
     private TagRepositoryPort $tagRepository,
     private MaintenanceLogRepositoryPort $maintenanceLogRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -48,17 +51,32 @@ final readonly class CommissionEquipmentHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $equipment = $this->equipmentRepository->findById($equipmentId);
+    $equipment = $this->equipmentRepository->findPublishedById($equipmentId);
 
     if (null === $equipment || (string) $equipment->organizationId() !== (string) $organizationId) {
       throw EquipmentNotFoundException::withId($command->equipmentId);
     }
 
+    $previousStatus = $equipment->status()->value;
     $wasUnderMaintenance = EquipmentStatus::UNDER_MAINTENANCE === $equipment->status();
 
     $equipment->commission();
 
     $this->equipmentRepository->save($equipment);
+
+    if (EquipmentStatus::OPERATIONAL->value !== $previousStatus) {
+      // Emitted IMMEDIATELY after the durable equipment save (before the
+      // fallible maintenance-log close): a transient log failure must not
+      // leave the committed status transition permanently unrecorded — the
+      // idempotent retry would see an already-operational asset and never
+      // emit. Re-commissioning an already-operational asset stays silent.
+      $this->eventDispatcher->dispatch(new EquipmentCommissionedEvent(
+        organizationId: (string) $equipment->organizationId(),
+        equipmentId: (string) $equipment->id(),
+        facilityId: null !== $equipment->facilityId() ? (string) $equipment->facilityId() : null,
+        previousStatus: $previousStatus,
+      ));
+    }
 
     if ($wasUnderMaintenance) {
       $openLog = $this->maintenanceLogRepository->findOpenByEquipmentId($equipmentId);

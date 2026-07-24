@@ -1,0 +1,20 @@
+plan:
+  free:
+    tagline: "Démarrez le suivi de la sécurité incendie, sans frais."
+    perks:
+      - "Suivi des inspections et des équipements"
+      - "Gestion des sites et des actifs"
+      - "Support par email communautaire"
+  pro:
+    tagline: "De la marge pour grandir, avec le reporting de conformité inclus."
+    perks:
+      - "Export du registre de sécurité réglementaire (PDF)"
+      - "Canaux de messagerie d'équipe"
+      - "Support par email prioritaire"
+  max:
+    tagline: "Marge de manœuvre maximale et gouvernance pour les grandes équipes."
+    perks:
+      - "Export du registre de sécurité réglementaire (PDF)"
+      - "Workflows d'approbation à quatre yeux"
+      - "Webhooks signés et intégrations"
+      - "Support prioritaire"

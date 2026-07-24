@@ -1,0 +1,271 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Messaging\Presentation\:
+    resource: '../../src/Messaging/Presentation'
+
+  Messaging\Infrastructure\Console\BackfillMessageLinksCommand: ~
+
+
+  Messaging\Application\Service\:
+    resource: '../../src/Messaging/Application/Service'
+
+  Messaging\Domain\Service\:
+    resource: '../../src/Messaging/Domain/Service'
+
+  # Bind the rich-text message sanitizer (Quill / PrimeNG editor output).
+  Messaging\Presentation\Api\Processor\Message\PostMessageProcessor:
+    arguments:
+      $messageSanitizer: '@html_sanitizer.sanitizer.messaging.message'
+
+  Messaging\Presentation\Api\Processor\Message\EditMessageProcessor:
+    arguments:
+      $messageSanitizer: '@html_sanitizer.sanitizer.messaging.message'
+
+  # L2.5: threaded replies
+  Messaging\Presentation\Api\Processor\Message\PostReplyProcessor:
+    arguments:
+      $messageSanitizer: '@html_sanitizer.sanitizer.messaging.message'
+
+  # L1.2: message attachments + conversation Files tab (multipart)
+  Messaging\Presentation\Api\Processor\Attachment\MessagingMediaProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Outbound ports
+  Messaging\Application\Port\Outbound\MessagingConversationRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationRepository
+
+  Messaging\Application\Port\Outbound\MessagingMessageRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingMessageRepository
+
+  Messaging\Application\Port\Outbound\MessagingReadMarkerRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingReadMarkerRepository
+
+  Messaging\Application\Port\Outbound\MessagingParticipantRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingParticipantRepository
+
+  Messaging\Application\Port\Outbound\MessagingAttachmentRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingAttachmentRepository
+
+  # L1.4: emoji reactions
+  Messaging\Application\Port\Outbound\MessagingReactionRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingReactionRepository
+
+  # L1.5: saved messages + favorite conversations
+  Messaging\Application\Port\Outbound\MessagingSavedMessageRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingSavedMessageRepository
+
+  Messaging\Application\Port\Outbound\MessagingConversationFavoriteRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationFavoriteRepository
+
+  # B2: conversation links (URLs extracted from message bodies)
+  Messaging\Application\Port\Outbound\MessagingLinkRepositoryPort:
+    alias: Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingLinkRepository
+
+  Messaging\Application\Port\Outbound\MessagingRealtimePublisherPort:
+    alias: Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter
+
+  # Cross-module outbound port (adapter lives in the owning module)
+  Messaging\Application\Port\Outbound\MessagingMemberDirectoryPort:
+    alias: Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter
+
+  # Subject resolver registry — consumes every module's tagged adapter
+  Messaging\Application\Service\MessagingSubjectResolverRegistry:
+    arguments:
+      $resolvers: !tagged_iterator messaging.subject_resolver
+
+  # Repositories
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingMessageRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingReadMarkerRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingParticipantRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingAttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingReactionRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingSavedMessageRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversationFavoriteRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingLinkRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Realtime adapter
+  Messaging\Infrastructure\Adapter\Realtime\MercureMessagingRealtimePublisherAdapter:
+    arguments:
+      $hub: '@mercure.hub.default'
+
+  # Unified inbox seam (L1.8b): Messaging hosts the adapter under its own
+  # Infrastructure/Adapter/Notification/, tagged 'inbox.source_provider', per
+  # Notification\MODULE.md's "Unified Inbox Seam" section — Notification's own
+  # config/modules/notification.yaml is never touched to add a source.
+  Messaging\Infrastructure\Adapter\Notification\MessagingInboxSourceProviderAdapter:
+    tags: ['inbox.source_provider']
+
+  # Team-bound channel participant reconciliation — reacts to Organization
+  # domain events BY NAME (Symfony core event dispatcher), like
+  # `RemoveTeamMembershipsOnMemberRemovedHandler`; autoconfigured as an
+  # EventSubscriberInterface, no explicit tag needed.
+  Messaging\Infrastructure\EventSubscriber\SyncTeamChannelParticipantsSubscriber: ~
+
+  # Command handlers
+  Messaging\Application\UseCase\Command\Conversation\GetOrCreateConversation\GetOrCreateConversationHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.4: direct messages (1-to-1 private conversations)
+  Messaging\Application\UseCase\Command\Conversation\GetOrCreateDirectConversation\GetOrCreateDirectConversationHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Conversation\ArchiveConversation\ArchiveConversationHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\PostMessage\PostMessageHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\EditMessage\EditMessageHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\BackfillMessageLinks\BackfillMessageLinksHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\DeleteMessage\DeleteMessageHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.5: threaded replies
+  Messaging\Application\UseCase\Command\Message\PostReply\PostReplyHandler:
+    tags: ['messenger.message_handler']
+
+  # L1.3: pinned messages
+  Messaging\Application\UseCase\Command\Message\PinMessage\PinMessageHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\UnpinMessage\UnpinMessageHandler:
+    tags: ['messenger.message_handler']
+
+  # L1.4: emoji reactions
+  Messaging\Application\UseCase\Command\Message\AddReaction\AddReactionHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\RemoveReaction\RemoveReactionHandler:
+    tags: ['messenger.message_handler']
+
+  # L1.5: saved messages + favorite conversations
+  Messaging\Application\UseCase\Command\Message\SaveMessage\SaveMessageHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Message\UnsaveMessage\UnsaveMessageHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Conversation\FavoriteConversation\FavoriteConversationHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Conversation\UnfavoriteConversation\UnfavoriteConversationHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\ReadMarker\MarkConversationRead\MarkConversationReadHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Channel\CreateChannel\CreateChannelHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Channel\UpdateChannel\UpdateChannelHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Channel\BindChannelTeam\BindChannelTeamHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.6: channel parent/child hierarchy
+  Messaging\Application\UseCase\Command\Channel\SetChannelParent\SetChannelParentHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Channel\AddChannelParticipant\AddChannelParticipantHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Channel\RemoveChannelParticipant\RemoveChannelParticipantHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment\AddMessageAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment\DeleteMessageAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Messaging\Application\UseCase\Query\Conversation\ListConversations\ListConversationsHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.4 follow-up: list the acting member's direct conversations (sidebar)
+  Messaging\Application\UseCase\Query\Conversation\ListDirectConversations\ListDirectConversationsHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Conversation\GetConversation\GetConversationHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Message\ListMessages\ListMessagesHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Channel\ListChannels\ListChannelsHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Channel\GetChannel\GetChannelHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Channel\ListChannelParticipants\ListChannelParticipantsHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\ListConversationAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  # Attachment content download (GET /messaging-attachments/{id}/content)
+  Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment\DownloadMessageAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Message\ListPinnedMessages\ListPinnedMessagesHandler:
+    tags: ['messenger.message_handler']
+
+  # Conversation activity heatmap
+  Messaging\Application\UseCase\Query\Message\GetConversationActivity\GetConversationActivityHandler:
+    tags: ['messenger.message_handler']
+
+  # B2: conversation links
+  Messaging\Application\UseCase\Query\Link\ListConversationLinks\ListConversationLinksHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.5: threaded replies
+  Messaging\Application\UseCase\Query\Message\ListReplies\ListRepliesHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Message\ListSavedMessages\ListSavedMessagesHandler:
+    tags: ['messenger.message_handler']
+
+  # L2.7: online presence — no DB table, backed by Shared's CachePort
+  # (already aliased in config/modules/shared.yaml, no new port/adapter here).
+  Messaging\Application\UseCase\Command\Presence\PingPresence\PingPresenceHandler:
+    tags: ['messenger.message_handler']
+
+  Messaging\Application\UseCase\Query\Presence\GetPresence\GetPresenceHandler:
+    tags: ['messenger.message_handler']

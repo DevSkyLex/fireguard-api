@@ -32,6 +32,8 @@ final readonly class CreateFacilityResult implements ResultMessage
    * @param ?string $code the optional facility code
    * @param string $status the facility status
    * @param ?string $address the optional address
+   * @param ?float $latitude the optional latitude
+   * @param ?float $longitude the optional longitude
    * @param array<string, mixed> $metadata the optional metadata
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the update timestamp
@@ -48,6 +50,8 @@ final readonly class CreateFacilityResult implements ResultMessage
     public array $metadata,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public ?float $latitude = null,
+    public ?float $longitude = null,
   ) {
   }
   // #endregion

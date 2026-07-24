@@ -17,9 +17,9 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-use function addcslashes;
 use function array_map;
 use function count;
 use function mb_strtolower;
@@ -93,6 +93,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $existing->code = $record->code;
       $existing->status = $record->status;
       $existing->address = $record->address;
+      $existing->latitude = $record->latitude;
+      $existing->longitude = $record->longitude;
       $existing->metadata = $record->metadata;
       $existing->updatedAt = $record->updatedAt;
     } else {
@@ -124,17 +126,49 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return FacilityMapper::toDomain($record);
   }
 
+  public function findPublishedById(FacilityId $id): ?Facility
+  {
+    $record = $this->repository->find((string) $id);
+
+    if (!$record instanceof FacilityRecord || 'published' !== $record->recordStatus) {
+      return null;
+    }
+
+    return FacilityMapper::toDomain($record);
+  }
+
+  /**
+   * Method findChildren.
+   *
+   * Executes the find children operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   * @param Sorting $sorting the sorting value
+   * @param int $limit the limit value
+   * @param int $offset the offset value
+   *
+   * @return list<Facility> the find children result
+   */
   public function findChildren(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
     bool $includeArchived = false,
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
+    int $limit = 20,
+    int $offset = 0,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createChildQueryBuilder($organizationId, $facilityId, $includeArchived, $search)
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
+      ->setFirstResult($offset)
+      ->setMaxResults($limit)
       ->getQuery()
       ->getResult();
 
@@ -144,6 +178,107 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     );
   }
 
+  /**
+   * Method countChildren.
+   *
+   * Executes the count children operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   *
+   * @return int the count children result
+   */
+  public function countChildren(
+    FacilityOrganizationId $organizationId,
+    FacilityId $facilityId,
+    bool $includeArchived = false,
+    ?string $search = null,
+  ): int {
+    return (int) $this->createChildQueryBuilder($organizationId, $facilityId, $includeArchived, $search)
+      ->select('COUNT(f.id)')
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
+  /**
+   * Method countChildrenByParentIds.
+   *
+   * Executes the count children by parent ids operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param list<FacilityId> $parentIds the parent ids value
+   * @param bool $includeArchived the include archived value
+   *
+   * @return array<string, int> the count children by parent ids result
+   */
+  public function countChildrenByParentIds(
+    FacilityOrganizationId $organizationId,
+    array $parentIds,
+    bool $includeArchived = false,
+  ): array {
+    if ([] === $parentIds) {
+      return [];
+    }
+
+    $parentIdValues = [];
+    foreach ($parentIds as $parentId) {
+      $parentIdValues[] = (string) $parentId;
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    $queryBuilder = $this->entityManager->createQueryBuilder()
+      ->select('IDENTITY(f.parentFacility) AS parentId', 'COUNT(f.id) AS childCount')
+      ->from(FacilityRecord::class, 'f')
+      ->where('f.organization = :organization')
+      ->andWhere('IDENTITY(f.parentFacility) IN (:parentIds)')
+      ->setParameter('organization', $organization)
+      ->setParameter('parentIds', $parentIdValues)
+      ->groupBy('f.parentFacility');
+
+    if (!$includeArchived) {
+      $queryBuilder
+        ->andWhere('f.status = :activeStatus')
+        ->setParameter('activeStatus', FacilityStatus::ACTIVE->value);
+    }
+
+    /** @var list<array{parentId: string|null, childCount: int|string}> $rows */
+    $rows = $queryBuilder->getQuery()->getArrayResult();
+
+    $counts = [];
+    foreach ($rows as $row) {
+      if (null === $row['parentId']) {
+        continue;
+      }
+
+      $counts[(string) $row['parentId']] = (int) $row['childCount'];
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Method findDescendants.
+   *
+   * Executes the find descendants operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   * @param Sorting $sorting the sorting value
+   *
+   * @return list<Facility> the find descendants result
+   */
   public function findDescendants(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
@@ -151,44 +286,34 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $search = null,
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
   ): array {
-    $pendingParentIds = [(string) $facilityId];
-    $records = [];
-    $seen = [];
-
-    while ([] !== $pendingParentIds) {
-      $nextParentIds = [];
-
-      foreach ($pendingParentIds as $parentId) {
-        $children = $this->findChildRecords($organizationId, $parentId);
-
-        foreach ($children as $child) {
-          if (isset($seen[$child->id])) {
-            continue;
-          }
-
-          $seen[$child->id] = true;
-          $nextParentIds[] = $child->id;
-
-          if (!$includeArchived && FacilityStatus::ARCHIVED->value === $child->status) {
-            continue;
-          }
-
-          if (!$this->matchesSearch($child, $search)) {
-            continue;
-          }
-
-          $records[] = $child;
-        }
-      }
-
-      $pendingParentIds = $nextParentIds;
+    $descendantIds = $this->descendantIds($organizationId, (string) $facilityId);
+    if ([] === $descendantIds) {
+      return [];
     }
 
-    $this->sortRecords($records, $sorting);
+    /** @var list<FacilityRecord> $records */
+    $records = $this->repository->findBy(['id' => $descendantIds]);
+
+    $filtered = [];
+    foreach ($records as $record) {
+      // Archived facilities are traversed so their live descendants are reached,
+      // but excluded from the result unless explicitly requested.
+      if (!$includeArchived && FacilityStatus::ARCHIVED->value === $record->status) {
+        continue;
+      }
+
+      if (!$this->matchesSearch($record, $search)) {
+        continue;
+      }
+
+      $filtered[] = $record;
+    }
+
+    $this->sortRecords($filtered, $sorting);
 
     return array_map(
       static fn (FacilityRecord $record): Facility => FacilityMapper::toDomain($record),
-      $records,
+      $filtered,
     );
   }
 
@@ -217,6 +342,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $parentFacilityId = null,
     ?string $code = null,
     ?string $search = null,
+    bool $rootsOnly = false,
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
@@ -226,6 +352,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $parentFacilityId,
       $code,
       $search,
+      $rootsOnly,
     )
       ->select('COUNT(f.id)')
       ->getQuery()
@@ -254,6 +381,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ]);
   }
 
+  /**
+   * Method countOverviewByOrganizationId.
+   *
+   * Executes the count overview by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param ?string $type the type value
+   *
+   * @return array{total: int, active: int} the count overview by organization id result
+   */
   public function countOverviewByOrganizationId(FacilityOrganizationId $organizationId, ?string $type = null): array
   {
     /** @var OrganizationRecord $organization */
@@ -282,6 +421,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ];
   }
 
+  /**
+   * Method countByTypeForOrganizationId.
+   *
+   * Executes the count by type for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param bool $includeArchived the include archived value
+   *
+   * @return array<string, int> map of type => count
+   */
   public function countByTypeForOrganizationId(
     FacilityOrganizationId $organizationId,
     bool $includeArchived = false,
@@ -309,6 +460,21 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByCreatedDayForOrganizationId.
+   *
+   * Executes the count by created day for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param string $createdAtFrom the created at from value
+   * @param string $createdAtTo the created at to value
+   * @param ?string $timeZone the time zone value
+   * @param ?string $type the type value
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
   public function countByCreatedDayForOrganizationId(
     FacilityOrganizationId $organizationId,
     string $createdAtFrom,
@@ -356,6 +522,46 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
+   * Method getFacilityNamesByIds.
+   *
+   * Resolves facility display names for a bounded set of identifiers,
+   * scoped to the organization.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param list<string> $facilityIds the facility identifiers to resolve
+   *
+   * @return array<string, string> map of facilityId => name
+   */
+  public function getFacilityNamesByIds(FacilityOrganizationId $organizationId, array $facilityIds): array
+  {
+    if ([] === $facilityIds) {
+      return [];
+    }
+
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    /** @var list<array{id: string, name: string}> $rows */
+    $rows = $this->repository->createQueryBuilder('f')
+      ->select('f.id AS id, f.name AS name')
+      ->where('f.organization = :organization')
+      ->andWhere('f.id IN (:facilityIds)')
+      ->setParameter('organization', $organization)
+      ->setParameter('facilityIds', $facilityIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $names = [];
+    foreach ($rows as $row) {
+      $names[(string) $row['id']] = (string) $row['name'];
+    }
+
+    return $names;
+  }
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists facilities by organization identifier.
@@ -377,6 +583,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     Sorting $sorting = new Sorting('name', SortDirection::ASC),
     int $limit = 20,
     int $offset = 0,
+    bool $rootsOnly = false,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createListQueryBuilder(
@@ -387,6 +594,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $parentFacilityId,
       $code,
       $search,
+      $rootsOnly,
     )
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
@@ -401,6 +609,117 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     );
   }
 
+  /**
+   * Method hasActiveDescendants.
+   *
+   * Reports whether the facility has at least one active (non-archived,
+   * published) descendant anywhere in its sub-tree, without hydrating the tree:
+   * a single recursive CTE with an existence probe. The walk covers published
+   * records only, but does traverse archived intermediate nodes so a live
+   * descendant under an archived branch is still detected.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $facilityId the root facility identifier
+   *
+   * @return bool whether an active descendant exists
+   */
+  public function hasActiveDescendants(FacilityOrganizationId $organizationId, FacilityId $facilityId): bool
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE descendants AS (
+          SELECT id, status
+          FROM facilities
+          WHERE parent_facility_id = :rootId
+            AND organization_id = :organizationId
+            AND record_status = :published
+          UNION
+          SELECT child.id, child.status
+          FROM facilities child
+          INNER JOIN descendants ON child.parent_facility_id = descendants.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT id FROM descendants WHERE status <> :archived LIMIT 1
+      SQL;
+
+    $match = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => (string) $facilityId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+      'archived' => FacilityStatus::ARCHIVED->value,
+    ])->fetchOne();
+
+    return false !== $match;
+  }
+
+  /**
+   * Method descendantIds.
+   *
+   * Returns the ids of every facility beneath the given root (children,
+   * grandchildren, ...) within the organization in a single recursive CTE,
+   * replacing the former per-node breadth-first walk (one query per node).
+   * `UNION` (not `UNION ALL`) de-duplicates, making the walk cycle-safe. Only
+   * published records are walked (draft intervention scratchpads are invisible
+   * here, matching the former walk); the lifecycle status is deliberately NOT
+   * filtered so an archived intermediate node never hides its live descendants —
+   * the caller decides which statuses to keep.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param string $rootId the root facility identifier
+   *
+   * @return list<string> the descendant facility ids
+   */
+  private function descendantIds(FacilityOrganizationId $organizationId, string $rootId): array
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE descendants AS (
+          SELECT id
+          FROM facilities
+          WHERE parent_facility_id = :rootId
+            AND organization_id = :organizationId
+            AND record_status = :published
+          UNION
+          SELECT child.id
+          FROM facilities child
+          INNER JOIN descendants ON child.parent_facility_id = descendants.id
+          WHERE child.organization_id = :organizationId
+            AND child.record_status = :published
+      )
+      SELECT id FROM descendants
+      SQL;
+
+    /** @var list<string> $ids */
+    $ids = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => $rootId,
+      'organizationId' => (string) $organizationId,
+      'published' => 'published',
+    ])->fetchFirstColumn();
+
+    return $ids;
+  }
+
+  /**
+   * Method createListQueryBuilder.
+   *
+   * Executes the create list query builder operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $type the type value
+   * @param ?string $status the status value
+   * @param ?string $parentFacilityId the parent facility id value
+   * @param ?string $code the code value
+   * @param ?string $search the search value
+   * @param bool $rootsOnly the roots only value
+   *
+   * @return QueryBuilder the create list query builder result
+   */
   private function createListQueryBuilder(
     FacilityOrganizationId $organizationId,
     bool $includeArchived,
@@ -409,6 +728,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $parentFacilityId,
     ?string $code,
     ?string $search,
+    bool $rootsOnly = false,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -417,6 +737,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       ->select('f')
       ->from(FacilityRecord::class, 'f')
       ->where('f.organization = :organization')
+      ->andWhere('f.recordStatus = :publishedRecordStatus')
+      ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
     if (null === $status && !$includeArchived) {
@@ -437,7 +759,9 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         ->setParameter('status', $status);
     }
 
-    if (null !== $parentFacilityId) {
+    if ($rootsOnly) {
+      $queryBuilder->andWhere('f.parentFacility IS NULL');
+    } elseif (null !== $parentFacilityId) {
       $queryBuilder
         ->andWhere('IDENTITY(f.parentFacility) = :parentFacilityId')
         ->setParameter('parentFacilityId', $parentFacilityId);
@@ -449,23 +773,34 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         ->setParameter('code', $code);
     }
 
-    if (null !== $search && '' !== $search) {
-      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
-
-      $queryBuilder
-        ->andWhere('(
-          LOWER(f.name) LIKE :search OR
-          LOWER(f.type) LIKE :search OR
-          LOWER(COALESCE(f.code, \'\')) LIKE :search OR
-          LOWER(f.status) LIKE :search OR
-          LOWER(COALESCE(f.address, \'\')) LIKE :search
-        )')
-        ->setParameter('search', $normalizedSearch);
-    }
+    TrigramSearchExpression::apply(
+      $queryBuilder,
+      'search',
+      $search,
+      'f.name',
+      'f.type',
+      'f.code',
+      'f.status',
+      'f.address',
+    );
 
     return $queryBuilder;
   }
 
+  /**
+   * Method createChildQueryBuilder.
+   *
+   * Executes the create child query builder operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization id value
+   * @param FacilityId $facilityId the facility id value
+   * @param bool $includeArchived the include archived value
+   * @param ?string $search the search value
+   *
+   * @return QueryBuilder the create child query builder result
+   */
   private function createChildQueryBuilder(
     FacilityOrganizationId $organizationId,
     FacilityId $facilityId,
@@ -484,26 +819,17 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
-   * @return list<FacilityRecord>
+   * Method matchesSearch.
+   *
+   * Executes the matches search operation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the record value
+   * @param ?string $search the search value
+   *
+   * @return bool the matches search result
    */
-  private function findChildRecords(FacilityOrganizationId $organizationId, string $parentId): array
-  {
-    /** @var list<FacilityRecord> $records */
-    $records = $this->createListQueryBuilder(
-      $organizationId,
-      true,
-      null,
-      null,
-      $parentId,
-      null,
-      null,
-    )
-      ->getQuery()
-      ->getResult();
-
-    return $records;
-  }
-
   private function matchesSearch(FacilityRecord $record, ?string $search): bool
   {
     if (null === $search || '' === $search) {
@@ -540,6 +866,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
         'type' => $left->type <=> $right->type,
         'status' => $left->status <=> $right->status,
         'createdAt' => $left->createdAt <=> $right->createdAt,
+        'updatedAt' => $left->updatedAt <=> $right->updatedAt,
         'code' => ($left->code ?? '') <=> ($right->code ?? ''),
         default => $left->name <=> $right->name,
       };
@@ -552,12 +879,24 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     });
   }
 
+  /**
+   * Method resolveSortField.
+   *
+   * Executes the resolve sort field operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $field the field value
+   *
+   * @return string the resolve sort field result
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {
       'type' => 'f.type',
       'status' => 'f.status',
       'createdAt' => 'f.createdAt',
+      'updatedAt' => 'f.updatedAt',
       'code' => 'f.code',
       default => 'f.name',
     };
@@ -609,6 +948,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method resolveBucketTimeZone.
+   *
+   * Executes the resolve bucket time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $timeZone the time zone value
+   * @param string $lowerBound the lower bound value
+   *
+   * @return DateTimeZone the resolve bucket time zone result
+   */
   private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -618,6 +969,15 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     return new DateTimeImmutable($lowerBound)->getTimezone();
   }
 
+  /**
+   * Method resolveStorageTimeZone.
+   *
+   * Executes the resolve storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeZone the resolve storage time zone result
+   */
   private function resolveStorageTimeZone(): DateTimeZone
   {
     try {
@@ -627,12 +987,34 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     }
   }
 
+  /**
+   * Method normalizeTimestampToStorageDateTime.
+   *
+   * Executes the normalize timestamp to storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   *
+   * @return DateTimeImmutable the normalize timestamp to storage date time result
+   */
   private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
   {
     return new DateTimeImmutable($value)
       ->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method reinterpretStorageDateTime.
+   *
+   * Executes the reinterpret storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param DateTimeImmutable $value the value value
+   *
+   * @return DateTimeImmutable the reinterpret storage date time result
+   */
   private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
   {
     return DateTimeImmutable::createFromFormat(
@@ -642,6 +1024,18 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ) ?: $value->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method normalizeTimestampForStorageTimeZone.
+   *
+   * Executes the normalize timestamp for storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   * @param DateTimeZone $storageTimeZone the storage time zone value
+   *
+   * @return string the normalize timestamp for storage time zone result
+   */
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
     return new DateTimeImmutable($value)

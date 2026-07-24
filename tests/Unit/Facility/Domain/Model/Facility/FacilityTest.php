@@ -6,7 +6,7 @@ namespace Tests\Unit\Facility\Domain\Model\Facility;
 
 use DateTimeImmutable;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
+use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -64,6 +64,30 @@ final class FacilityTest extends TestCase
     self::assertSame('BLDG-1', $facility->code());
     self::assertSame('10 rue de la Paix', $facility->address());
     self::assertSame(['floor_count' => 5], $facility->metadata());
+  }
+
+  #[Test]
+  public function testCreateSetsCoordinatesWhenProvided(): void
+  {
+    $facility = Facility::create(
+      id: $this->id,
+      organizationId: $this->organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Paris HQ'),
+      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+    );
+
+    self::assertNotNull($facility->coordinates());
+    self::assertSame(48.8566, $facility->coordinates()->latitude());
+    self::assertSame(2.3522, $facility->coordinates()->longitude());
+  }
+
+  #[Test]
+  public function testCreateDefaultsCoordinatesToNull(): void
+  {
+    $facility = $this->makeActiveFacility();
+
+    self::assertNull($facility->coordinates());
   }
 
   #[Test]
@@ -165,6 +189,34 @@ final class FacilityTest extends TestCase
     $this->expectExceptionMessage('Facility address must be at most 255 characters.');
 
     $facility->changeAddress(str_repeat('A', 256));
+  }
+
+  #[Test]
+  public function testChangeCoordinatesSetsCoordinates(): void
+  {
+    $facility = $this->makeActiveFacility();
+
+    $facility->changeCoordinates(new FacilityCoordinates(45.7640, 4.8357));
+
+    self::assertNotNull($facility->coordinates());
+    self::assertSame(45.7640, $facility->coordinates()->latitude());
+    self::assertSame(4.8357, $facility->coordinates()->longitude());
+  }
+
+  #[Test]
+  public function testChangeCoordinatesClearsCoordinates(): void
+  {
+    $facility = Facility::create(
+      id: $this->id,
+      organizationId: $this->organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Main Facility'),
+      coordinates: new FacilityCoordinates(48.8566, 2.3522),
+    );
+
+    $facility->changeCoordinates(null);
+
+    self::assertNull($facility->coordinates());
   }
 
   #[Test]

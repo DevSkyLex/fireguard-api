@@ -10,6 +10,7 @@ use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\{RemoveOrganizationMemberCommand, RemoveOrganizationMemberHandler, RemoveOrganizationMemberResult};
+use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -18,7 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 
 use function is_string;
 
@@ -76,7 +77,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
           && 'Fireguard Paris' === ($request->payload['organizationName'] ?? null)
           && is_string($request->payload['removedAt'] ?? null)
           && self::USER_ID === $request->recipientUserId
-          && null === $request->recipientEmail;
+          && null === $request->recipientEmail
+          && self::ORG_ID === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655449003',
@@ -99,11 +101,23 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        return $event instanceof OrganizationMemberRemovedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::MEMBER_ID === $event->memberId
+          && self::USER_ID === $event->userId;
+      }));
+
     $handler = new RemoveOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new RemoveOrganizationMemberCommand(
@@ -137,11 +151,16 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new RemoveOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -180,11 +199,16 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new RemoveOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -231,11 +255,16 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new RemoveOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -294,11 +323,23 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
         ],
       );
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        return $event instanceof OrganizationMemberRemovedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::MEMBER_ID === $event->memberId
+          && self::USER_ID === $event->userId;
+      }));
+
     $handler = new RemoveOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new RemoveOrganizationMemberCommand(
@@ -348,11 +389,16 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new RemoveOrganizationMemberHandler(
       organizationRepository: $organizationRepository,
       memberRepository: $memberRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new RemoveOrganizationMemberCommand(

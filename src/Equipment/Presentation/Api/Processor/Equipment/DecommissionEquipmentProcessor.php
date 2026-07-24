@@ -6,6 +6,9 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
+use Approval\Application\Contract\Action\ApprovalActionTypes;
+use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
+use Approval\Application\Port\Inbound\ApprovalGatePort;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{DecommissionEquipmentCommand, DecommissionEquipmentResult};
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
@@ -16,6 +19,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\{JsonResponse, Response as HttpResponse};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 use function array_map;
@@ -40,6 +44,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private ApprovalGatePort $approvalGate,
     private Security $security,
   ) {
   }
@@ -51,7 +56,7 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
    *
    * @since 1.0.0
    */
-  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput
+  public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): EquipmentOutput|HttpResponse
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -67,6 +72,21 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
 
     if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.equipment.write')) {
       throw new AccessDeniedHttpException('Missing organization.equipment.write permission.');
+    }
+
+    $decision = $this->approvalGate->evaluate(new ApprovalGateRequest(
+      organizationId: $organizationId,
+      actionType: ApprovalActionTypes::EQUIPMENT_DECOMMISSION,
+      subjectId: $equipmentId,
+      requestedByUserId: $user->getId(),
+      payload: [
+        'organizationId' => $organizationId,
+        'equipmentId' => $equipmentId,
+      ],
+    ));
+
+    if ($decision->deferred) {
+      return self::deferredResponse($decision);
     }
 
     try {
@@ -118,6 +138,31 @@ final readonly class DecommissionEquipmentProcessor implements ProcessorInterfac
     $output->updatedAt = $result->updatedAt->format('c');
 
     return $output;
+  }
+
+  /**
+   * Method deferredResponse.
+   *
+   * @static
+   *
+   * Builds the HTTP 202 response carrying the pending approval request
+   * summary, returned instead of decommissioning the equipment when the
+   * organization's approval policy defers this action.
+   *
+   * @since 1.0.0
+   *
+   * @param ApprovalGateDecision $decision the deferred gate decision
+   *
+   * @return JsonResponse the 202 deferred response
+   */
+  private static function deferredResponse(ApprovalGateDecision $decision): JsonResponse
+  {
+    return new JsonResponse([
+      'status' => 'pending_approval',
+      'approvalRequestId' => $decision->requestId,
+      'approvalStatus' => $decision->status,
+      'expiresAt' => $decision->expiresAt?->format('c'),
+    ], HttpResponse::HTTP_ACCEPTED);
   }
   // #endregion
 }

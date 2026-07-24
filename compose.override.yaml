@@ -1,4 +1,29 @@
 services:
+  # FrankenPHP worker mode (dev): keeps the Symfony kernel warm between requests,
+  # which removes the per-request boot cost that is crippling over the Windows
+  # bind mount. Requires runtime/frankenphp-symfony. Backend code changes need a
+  # `docker compose restart app` to be picked up.
+  app:
+    environment:
+      APP_RUNTIME: 'Runtime\FrankenPhpSymfony\Runtime'
+      FRANKENPHP_CONFIG: 'worker ./public/index.php'
+    # Warm the DI container via the CLI (max_execution_time=0) BEFORE the worker
+    # starts serving. A backend change invalidates the compiled container; left to
+    # the worker, the recompile runs inside a 30 s web request and — because it
+    # scans src/ + config/ over the Windows bind mount (~90 s) — times out, 500s
+    # every request (preflight included) and never finalizes the cache, looping
+    # forever. Doing it here means any restart recompiles off the request path and
+    # the worker always boots warm. `exec` keeps frankenphp as PID 1 for clean
+    # restart/stop signals. FRANKENPHP_CONFIG (worker mode) still applies.
+    command:
+      - sh
+      - -c
+      - php bin/console cache:warmup && exec frankenphp run --config /etc/frankenphp/Caddyfile
+    healthcheck:
+      # A stale-cache cold boot recompiles (~90 s) before serving; give it room so
+      # the container is not flagged unhealthy (which would also stall stripe-cli).
+      start_period: 150s
+
 ###> doctrine/doctrine-bundle ###
   auth_database:
     ports:
@@ -25,3 +50,19 @@ services:
     ports:
       - "3000:80"
 ###< symfony/mercure-bundle ###
+
+###> stripe/stripe-cli ###
+  # Forwards Stripe webhooks to the API over the compose network (dev only).
+  # Authenticates with the test secret key passed from the host shell:
+  #   export STRIPE_SECRET_KEY=sk_test_...   (then: docker compose up -d stripe-cli)
+  # The signing secret is printed in its logs — copy it into STRIPE_WEBHOOK_SECRET.
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    command: listen --forward-to http://app:8000/api/billing/webhook
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    tty: true
+###< stripe/stripe-cli ###

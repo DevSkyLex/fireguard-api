@@ -19,6 +19,30 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class FacilityOutput
 {
+  /**
+   * Property intervention.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  public ?string $intervention = null;
+
+  /**
+   * Property recordStatus.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  public string $recordStatus = 'published';
+
+  /**
+   * Property revision.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  public int $revision = 1;
+
   // #region Properties
   /**
    * Property id.
@@ -46,6 +70,28 @@ final class FacilityOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $parentFacilityId = null;
+
+  /**
+   * Property hasChildren.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public bool $hasChildren = false;
+
+  /**
+   * Property equipmentCount.
+   *
+   * Active (non-decommissioned, published) equipment assigned to this facility.
+   * Read through the Equipment module's outbound port — the Facility module
+   * owns no equipment data of its own.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Active equipment assigned to this facility')]
+  public int $equipmentCount = 0;
 
   /**
    * Property type.
@@ -91,6 +137,24 @@ final class FacilityOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public ?string $address = null;
+
+  /**
+   * Property latitude.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?float $latitude = null;
+
+  /**
+   * Property longitude.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public ?float $longitude = null;
 
   /**
    * Property metadata.

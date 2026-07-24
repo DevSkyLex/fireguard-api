@@ -8,21 +8,26 @@ use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Domain\Event\Role\OrganizationRoleAssignedEvent;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
+use function array_diff;
 use function array_map;
 use function array_unique;
 use function array_values;
 use function count;
+use function in_array;
 use function sprintf;
 
 /**
@@ -52,6 +57,8 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
    * @param UserRepositoryPort $userRepository the user repository port
    * @param UuidFactory $uuidFactory the UUID factory
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -62,6 +69,8 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     private LoggerPort $logger,
     private UuidFactory $uuidFactory,
     private TransactionManagerPort $transactionManager,
+    private OrganizationQuotaPort $quota,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -108,6 +117,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
     }
 
     $shouldNotifyMember = false;
+    $previousRoleIds = [];
 
     /** @var AddOrganizationMemberResult $result */
     $result = $this->transactionManager->transactional(function () use (
@@ -115,7 +125,16 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
       $command,
       $roles,
       &$shouldNotifyMember,
+      &$previousRoleIds,
     ): AddOrganizationMemberResult {
+      // Enforce the member cap inside the transaction so the advisory lock
+      // serializes concurrent additions/invitations (TOCTOU). Skipped on the
+      // accept path, which has already taken the lock via assertCanAcceptMember
+      // and must count active members only (see AddOrganizationMemberCommand).
+      if ($command->enforceQuota) {
+        $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::MEMBERS);
+      }
+
       $member = $this->memberRepository->findByOrganizationAndUser($organizationId, $command->userId);
 
       if (null === $member) {
@@ -134,6 +153,12 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         $shouldNotifyMember = true;
       }
 
+      // Snapshot the pre-existing roles of an already-active member so the
+      // newly granted ones can be audited individually after the commit.
+      if (!$shouldNotifyMember) {
+        $previousRoleIds = $this->memberRepository->findRoleIdsForMember($member->id());
+      }
+
       foreach ($roles as $role) {
         $this->memberRepository->assignRole($member->id(), $role->id());
       }
@@ -147,8 +172,38 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         roleIds: $assignedRoleIds,
         isActive: $member->isActive(),
         joinedAt: $member->joinedAt(),
+        wasCreatedOrReactivated: $shouldNotifyMember,
       );
     });
+
+    // Audit only after this handler's own transaction has committed. When the
+    // caller runs this handler inside an outer transaction (accept path), it
+    // sets emitMemberAddedEvent=false and dispatches post-commit itself, so a
+    // rollback of the outer transaction can never leave a phantom ledger row.
+    if ($command->emitMemberAddedEvent) {
+      if ($shouldNotifyMember) {
+        $this->eventDispatcher->dispatch(new OrganizationMemberAddedEvent(
+          organizationId: $command->organizationId,
+          memberId: $result->memberId,
+          userId: $command->userId,
+          roleIds: $result->roleIds,
+        ));
+      } else {
+        // The user was already an active member: the operation is a role
+        // grant, so audit each newly assigned role instead.
+        $newRoleIds = array_values(array_diff($result->roleIds, $previousRoleIds));
+        foreach ($roles as $role) {
+          if (in_array((string) $role->id(), $newRoleIds, true)) {
+            $this->eventDispatcher->dispatch(new OrganizationRoleAssignedEvent(
+              organizationId: $command->organizationId,
+              memberId: $result->memberId,
+              roleId: (string) $role->id(),
+              roleName: (string) $role->name(),
+            ));
+          }
+        }
+      }
+    }
 
     if (!$command->sendMemberNotification || !$shouldNotifyMember) {
       return $result;
@@ -169,6 +224,7 @@ final readonly class AddOrganizationMemberHandler implements CommandHandler
         ],
         recipientUserId: $command->userId,
         recipientEmail: (string) $user->email(),
+        organizationId: (string) $organizationId,
       ));
     } catch (Throwable $exception) {
       $this->logger->warning('Organization member added notification dispatch failed.', [

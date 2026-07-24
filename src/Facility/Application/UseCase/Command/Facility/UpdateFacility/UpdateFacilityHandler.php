@@ -14,6 +14,7 @@ use Facility\Domain\Exception\{
   FacilityNotFoundException
 };
 use Facility\Domain\ValueObject\{
+  FacilityCoordinates,
   FacilityId,
   FacilityName,
   FacilityOrganizationId,
@@ -98,6 +99,10 @@ final readonly class UpdateFacilityHandler implements CommandHandler
         $facility->changeAddress($command->address);
       }
 
+      if ($command->hasLatitude || $command->hasLongitude) {
+        $facility->changeCoordinates($this->resolveCoordinates($command));
+      }
+
       if ($command->hasMetadata) {
         $facility->changeMetadata($command->metadata ?? []);
       }
@@ -131,7 +136,40 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       metadata: $facility->metadata(),
       createdAt: $facility->createdAt(),
       updatedAt: $facility->updatedAt(),
+      latitude: $facility->coordinates()?->latitude(),
+      longitude: $facility->coordinates()?->longitude(),
     );
+  }
+
+  /**
+   * Method resolveCoordinates.
+   *
+   * Builds the facility coordinates value object from the partial update
+   * command. Latitude and longitude must both be provided together (to set
+   * or replace coordinates), or both omitted from the payload (to clear
+   * coordinates), when either is present.
+   *
+   * @since 1.0.0
+   *
+   * @param UpdateFacilityCommand $command the command payload
+   *
+   * @return ?FacilityCoordinates the resolved coordinates, or null to clear them
+   */
+  private function resolveCoordinates(UpdateFacilityCommand $command): ?FacilityCoordinates
+  {
+    if ($command->hasLatitude !== $command->hasLongitude) {
+      throw InvalidValueException::because('Facility latitude and longitude must be provided together.');
+    }
+
+    if (null === $command->latitude && null === $command->longitude) {
+      return null;
+    }
+
+    if (null === $command->latitude || null === $command->longitude) {
+      throw InvalidValueException::because('Facility latitude and longitude must be provided together.');
+    }
+
+    return new FacilityCoordinates($command->latitude, $command->longitude);
   }
 
   /**

@@ -19,8 +19,11 @@ use Inspection\Domain\ValueObject\{
   InspectorType
 };
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
 
@@ -36,12 +39,29 @@ use ValueError;
 final readonly class CreateInspectionHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateInspectionHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionRepositoryPort $inspectionRepository the inspection repository value
+   * @param EquipmentValidationPort $equipmentValidation the equipment validation value
+   * @param FacilityValidationPort $facilityValidation the facility validation value
+   * @param ChecklistValidationPort $checklistValidation the checklist validation value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param TransactionManagerPort $transactionManager the transaction manager
+   */
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
     private EquipmentValidationPort $equipmentValidation,
     private FacilityValidationPort $facilityValidation,
     private ChecklistValidationPort $checklistValidation,
     private UuidFactory $uuidFactory,
+    private OrganizationQuotaPort $quota,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -61,7 +81,7 @@ final readonly class CreateInspectionHandler implements CommandHandler
   public function __invoke(CreateInspectionCommand $command): CreateInspectionResult
   {
     try {
-      $this->equipmentValidation->assertEquipmentExists($command->equipmentId, $command->organizationId);
+      $this->equipmentValidation->assertEquipmentIsInspectable($command->equipmentId, $command->organizationId, $command->facilityId);
 
       if (null !== $command->facilityId) {
         $this->facilityValidation->assertFacilityIsUsable($command->facilityId, $command->organizationId);
@@ -93,7 +113,9 @@ final readonly class CreateInspectionHandler implements CommandHandler
       $performedAt = new DateTimeImmutable($command->performedAt);
 
       /** @var InspectionId $inspectionId */
-      $inspectionId = $this->uuidFactory->create(InspectionId::class);
+      $inspectionId = null === $command->resourceId
+        ? $this->uuidFactory->create(InspectionId::class)
+        : InspectionId::fromString($command->resourceId);
 
       $inspection = Inspection::create(
         id: $inspectionId,
@@ -117,7 +139,13 @@ final readonly class CreateInspectionHandler implements CommandHandler
       throw $exception;
     }
 
-    $this->inspectionRepository->save($inspection);
+    // Enforce the plan quota and persist atomically: assertCanAdd takes a
+    // transaction-scoped advisory lock so concurrent creates at the cap cannot
+    // both slip through the count (see OrganizationQuotaPort::assertCanAdd).
+    $this->transactionManager->transactional(function () use ($command, $inspection): void {
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::INSPECTIONS);
+      $this->inspectionRepository->save($inspection);
+    });
 
     return new CreateInspectionResult(
       inspectionId: (string) $inspection->id(),

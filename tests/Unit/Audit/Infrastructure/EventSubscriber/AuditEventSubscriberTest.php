@@ -5,16 +5,26 @@ declare(strict_types=1);
 namespace Tests\Unit\Audit\Infrastructure\EventSubscriber;
 
 use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand, RecordAuditEventResult};
+use Audit\Domain\Event\AuditEventsExportedEvent;
 use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
+use Auth\Infrastructure\Security\User\SecurityUser;
+use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
+use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
+use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
+use Organization\Domain\Event\Security\OrganizationLastAdminLockoutPreventedEvent;
+use Organization\Domain\Event\Team\{TeamCreatedEvent, TeamMemberAddedEvent};
+use Otp\Domain\Event\Totp\{TotpEnrollmentConfirmedEvent, TotpEnrollmentDisabledEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
+use Webhook\Domain\Event\Subscription\{WebhookSubscriptionCreatedEvent, WebhookSubscriptionDeletedEvent};
 
 use function hash;
 
@@ -41,6 +51,72 @@ final class AuditEventSubscriberTest extends TestCase
       'oauth.token_refresh_failed_event' => 'onOAuthTokenRefreshFailed',
       'oauth.token_revoked_event' => 'onOAuthTokenRevoked',
       'oauth.consent_granted_event' => 'onConsentGranted',
+      'otp.totp_enrollment_confirmed_event' => 'onTotpEnrollmentConfirmed',
+      'otp.totp_enrollment_disabled_event' => 'onTotpEnrollmentDisabled',
+      'organization.organization_created_event' => 'onOrganizationCreated',
+      'organization.organization_archived_event' => 'onOrganizationArchived',
+      'organization.organization_restored_event' => 'onOrganizationRestored',
+      'organization.organization_suspended_event' => 'onOrganizationSuspended',
+      'organization.organization_settings_updated_event' => 'onOrganizationSettingsUpdated',
+      'organization.organization_role_created_event' => 'onOrganizationRoleCreated',
+      'organization.organization_role_updated_event' => 'onOrganizationRoleUpdated',
+      'organization.organization_role_deleted_event' => 'onOrganizationRoleDeleted',
+      'organization.organization_role_assigned_event' => 'onOrganizationRoleAssigned',
+      'organization.organization_role_unassigned_event' => 'onOrganizationRoleUnassigned',
+      'organization.organization_member_added_event' => 'onOrganizationMemberAdded',
+      'organization.organization_member_removed_event' => 'onOrganizationMemberRemoved',
+      'organization.organization_invitation_sent_event' => 'onOrganizationInvitationSent',
+      'organization.organization_invitation_accepted_event' => 'onOrganizationInvitationAccepted',
+      'organization.organization_invitation_revoked_event' => 'onOrganizationInvitationRevoked',
+      'organization.organization_plan_changed_event' => 'onOrganizationPlanChanged',
+      'organization.organization_permission_grant_denied_event' => 'onOrganizationPermissionGrantDenied',
+      'organization.organization_last_admin_lockout_prevented_event' => 'onOrganizationLastAdminLockoutPrevented',
+      'organization.team_created_event' => 'onTeamCreated',
+      'organization.team_updated_event' => 'onTeamUpdated',
+      'organization.team_deleted_event' => 'onTeamDeleted',
+      'organization.team_member_added_event' => 'onTeamMemberAdded',
+      'organization.team_member_removed_event' => 'onTeamMemberRemoved',
+      'inspection.inspection_submitted_event' => 'onInspectionSubmitted',
+      'inspection.inspection_closed_event' => 'onInspectionClosed',
+      'inspection.inspection_cancelled_event' => 'onInspectionCancelled',
+      'inspection.non_conformity_recorded_event' => 'onNonConformityRecorded',
+      'inspection.non_conformity_status_changed_event' => 'onNonConformityStatusChanged',
+      'facility.facility_archived_event' => 'onFacilityArchived',
+      'facility.facility_restored_event' => 'onFacilityRestored',
+      'facility.facility_moved_event' => 'onFacilityMoved',
+      'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
+      'equipment.equipment_put_under_maintenance_event' => 'onEquipmentPutUnderMaintenance',
+      'equipment.equipment_returned_to_stock_event' => 'onEquipmentReturnedToStock',
+      'equipment.equipment_decommissioned_event' => 'onEquipmentDecommissioned',
+      'intervention.intervention_published_event' => 'onInterventionPublished',
+      'intervention.intervention_publication_failed_event' => 'onInterventionPublicationFailed',
+      'intervention.intervention_recurrence_created_event' => 'onInterventionRecurrenceCreated',
+      'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
+      'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
+      'intervention.intervention_recurrence_materialized_event' => 'onInterventionRecurrenceMaterialized',
+      'maintenance.maintenance_schedule_overridden_event' => 'onMaintenanceScheduleOverridden',
+      'maintenance.maintenance_campaign_generated_event' => 'onMaintenanceCampaignGenerated',
+      'automation.automation_rule_executed_event' => 'onAutomationRuleExecuted',
+      'automation.automation_rule_failed_event' => 'onAutomationRuleFailed',
+      'messaging.messaging_conversation_archived_event' => 'onMessagingConversationArchived',
+      'messaging.messaging_message_moderated_event' => 'onMessagingMessageModerated',
+      'messaging.messaging_message_unpin_moderated_event' => 'onMessagingMessageUnpinModerated',
+      'messaging.messaging_channel_created_event' => 'onMessagingChannelCreated',
+      'messaging.messaging_channel_participant_added_event' => 'onMessagingChannelParticipantAdded',
+      'messaging.messaging_channel_participant_removed_event' => 'onMessagingChannelParticipantRemoved',
+      'messaging.messaging_channel_team_binding_changed_event' => 'onMessagingChannelTeamBindingChanged',
+      'messaging.messaging_channel_parent_changed_event' => 'onMessagingChannelParentChanged',
+      'import.import_job_completed_event' => 'onImportJobCompleted',
+      'import.import_job_failed_event' => 'onImportJobFailed',
+      'compliance.safety_register_exported_event' => 'onSafetyRegisterExported',
+      'webhook.webhook_subscription_created_event' => 'onWebhookSubscriptionCreated',
+      'webhook.webhook_subscription_deleted_event' => 'onWebhookSubscriptionDeleted',
+      'approval.approval_requested_event' => 'onApprovalRequested',
+      'approval.approval_approved_event' => 'onApprovalApproved',
+      'approval.approval_rejected_event' => 'onApprovalRejected',
+      'approval.approval_expired_event' => 'onApprovalExpired',
+      'approval.approval_execution_failed_event' => 'onApprovalExecutionFailed',
+      'audit.audit_events_exported_event' => 'onAuditEventsExported',
     ], AuditEventSubscriber::getSubscribedEvents());
   }
 
@@ -81,6 +157,7 @@ final class AuditEventSubscriberTest extends TestCase
       commandBus: $commandBus,
       sanitizer: $sanitizer,
       requestStack: $requestStack,
+      security: $this->securityWithUser(null),
       logger: $logger,
     );
 
@@ -115,6 +192,7 @@ final class AuditEventSubscriberTest extends TestCase
       commandBus: $commandBus,
       sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: null),
       requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
       logger: $logger,
     );
 
@@ -123,6 +201,388 @@ final class AuditEventSubscriberTest extends TestCase
       ipAddress: '127.0.0.1',
       reason: 'invalid_password',
     ));
+  }
+
+  #[Test]
+  public function testOnTotpEnrollmentConfirmedDispatchesAuditCommand(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'otp.totp_enrolled' === $command->action
+        && 'user' === $command->actorType
+        && 'user-123' === $command->actorId))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-124'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onTotpEnrollmentConfirmed(new TotpEnrollmentConfirmedEvent(userId: 'user-123'));
+  }
+
+  #[Test]
+  public function testOnTotpEnrollmentDisabledDispatchesAuditCommand(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'otp.totp_disabled' === $command->action
+        && 'user' === $command->actorType
+        && 'user-123' === $command->actorId))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-125'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: false, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onTotpEnrollmentDisabled(new TotpEnrollmentDisabledEvent(userId: 'user-123'));
+  }
+
+  #[Test]
+  public function testOnOrganizationRoleCreatedResolvesActorFromSecurityToken(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'organization.role_created' === $command->action
+        && 'user' === $command->actorType
+        && 'admin-1' === $command->actorId
+        && 'admin@example.com' === $command->actorEmail
+        && 'organization_role' === $command->subjectType
+        && 'role-1' === $command->subjectId
+        && [
+          'role_name' => 'Managers',
+          'permissions' => ['organization.read'],
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-126'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(new SecurityUser(
+        id: 'admin-1',
+        email: 'admin@example.com',
+        password: 'irrelevant',
+      )),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onOrganizationRoleCreated(new OrganizationRoleCreatedEvent(
+      organizationId: 'org-1',
+      roleId: 'role-1',
+      roleName: 'Managers',
+      permissions: ['organization.read'],
+    ));
+  }
+
+  #[Test]
+  public function testOnOrganizationMemberRemovedFallsBackToSystemActor(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'organization.member_removed' === $command->action
+        && 'system' === $command->actorType
+        && null === $command->actorId
+        && null === $command->actorEmail
+        && 'organization_member' === $command->subjectType
+        && 'member-1' === $command->subjectId
+        && [
+          'user_id' => 'user-9',
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-127'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onOrganizationMemberRemoved(new OrganizationMemberRemovedEvent(
+      organizationId: 'org-1',
+      memberId: 'member-1',
+      userId: 'user-9',
+    ));
+  }
+
+  #[Test]
+  public function testOnOrganizationInvitationSentPrefersExplicitActorFromEvent(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'organization.invitation_sent' === $command->action
+        && 'user' === $command->actorType
+        && 'admin-7' === $command->actorId
+        && null === $command->actorEmail
+        && 'organization_invitation' === $command->subjectType
+        && 'inv-1' === $command->subjectId
+        && [
+          'invited_email' => 'invitee@example.com',
+          'invited_email_hash' => hash('sha256', 'invitee@example.com'),
+          'resend' => true,
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-128'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(new SecurityUser(
+        id: 'other-2',
+        email: 'other@example.com',
+        password: 'irrelevant',
+      )),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onOrganizationInvitationSent(new OrganizationInvitationSentEvent(
+      organizationId: 'org-1',
+      invitationId: 'inv-1',
+      invitedEmail: 'invitee@example.com',
+      invitedByUserId: 'admin-7',
+      resend: true,
+    ));
+  }
+
+  #[Test]
+  public function testOnOrganizationLastAdminLockoutPreventedRecordsRefusal(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'organization.last_admin_lockout_prevented' === $command->action
+        && 'system' === $command->actorType
+        && 'organization' === $command->subjectType
+        && 'org-1' === $command->subjectId
+        && [
+          'attempted_action' => 'remove_member',
+          'member_id' => 'member-1',
+          'role_id' => null,
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-129'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onOrganizationLastAdminLockoutPrevented(new OrganizationLastAdminLockoutPreventedEvent(
+      organizationId: 'org-1',
+      attemptedAction: 'remove_member',
+      memberId: 'member-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnTeamCreatedRecordsTeamAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'organization.team_created' === $command->action
+        && 'organization_team' === $command->subjectType
+        && 'team-1' === $command->subjectId
+        && [
+          'name' => 'Field crew A',
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-130'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onTeamCreated(new TeamCreatedEvent(
+      organizationId: 'org-1',
+      teamId: 'team-1',
+      name: 'Field crew A',
+    ));
+  }
+
+  #[Test]
+  public function testOnTeamMemberAddedRecordsTeamMemberAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'organization.team_member_added' === $command->action
+        && 'organization_team_member' === $command->subjectType
+        && 'member-1' === $command->subjectId
+        && [
+          'team_id' => 'team-1',
+          'role' => 'lead',
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-131'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onTeamMemberAdded(new TeamMemberAddedEvent(
+      organizationId: 'org-1',
+      teamId: 'team-1',
+      memberId: 'member-1',
+      role: 'lead',
+    ));
+  }
+
+  #[Test]
+  public function testOnWebhookSubscriptionCreatedRecordsSubscriptionAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'webhook.subscription_created' === $command->action
+        && 'webhook_subscription' === $command->subjectType
+        && 'sub-1' === $command->subjectId
+        && 'user' === $command->actorType
+        && 'admin-1' === $command->actorId
+        && [
+          'url_host' => 'example.com',
+          'event_types' => ['intervention.published'],
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-132'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onWebhookSubscriptionCreated(new WebhookSubscriptionCreatedEvent(
+      organizationId: 'org-1',
+      subscriptionId: 'sub-1',
+      urlHost: 'example.com',
+      eventTypes: ['intervention.published'],
+      actorUserId: 'admin-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnWebhookSubscriptionDeletedRecordsSubscriptionAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'webhook.subscription_deleted' === $command->action
+        && 'webhook_subscription' === $command->subjectType
+        && 'sub-1' === $command->subjectId
+        && 'user' === $command->actorType
+        && 'admin-1' === $command->actorId
+        && ['organization_id' => 'org-1'] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-133'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onWebhookSubscriptionDeleted(new WebhookSubscriptionDeletedEvent(
+      organizationId: 'org-1',
+      subscriptionId: 'sub-1',
+      actorUserId: 'admin-1',
+    ));
+  }
+
+  #[Test]
+  public function testOnAuditEventsExportedRecordsExportAuditWithoutRawFilterValues(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'audit.export_performed' === $command->action
+        && 'user' === $command->actorType
+        && 'user-1' === $command->actorId
+        && 'audit_export' === $command->subjectType
+        && null === $command->subjectId
+        && 'tenant-1' === $command->tenantId
+        && [
+          'format' => 'csv',
+          'row_count' => 42,
+          'filter_keys' => ['action', 'from', 'to'],
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-134'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onAuditEventsExported(new AuditEventsExportedEvent(
+      actorUserId: 'user-1',
+      tenantId: 'tenant-1',
+      format: 'csv',
+      rowCount: 42,
+      filterKeys: ['action', 'from', 'to'],
+    ));
+  }
+  // #endregion
+
+  // #region Helpers
+  /**
+   * Method securityWithUser.
+   *
+   * Builds a Security stub resolving the given user.
+   *
+   * @param SecurityUser|null $user the authenticated user, or null
+   *
+   * @return Security the security stub
+   */
+  private function securityWithUser(?SecurityUser $user): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    return $security;
   }
   // #endregion
 }

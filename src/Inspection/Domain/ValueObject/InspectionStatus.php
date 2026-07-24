@@ -20,6 +20,7 @@ enum InspectionStatus: string
   case DRAFT = 'draft';
   case SUBMITTED = 'submitted';
   case CLOSED = 'closed';
+  case CANCELLED = 'cancelled';
 
   // #region Methods
   /**
@@ -66,12 +67,23 @@ enum InspectionStatus: string
     return self::SUBMITTED === $this;
   }
 
+  /**
+   * Method isCancelled.
+   *
+   * @since 1.0.0
+   */
+  public function isCancelled(): bool
+  {
+    return self::CANCELLED === $this;
+  }
+
   public function label(): string
   {
     return match ($this) {
       self::DRAFT => 'Draft',
       self::SUBMITTED => 'Submitted',
       self::CLOSED => 'Closed',
+      self::CANCELLED => 'Cancelled',
     };
   }
   // #endregion

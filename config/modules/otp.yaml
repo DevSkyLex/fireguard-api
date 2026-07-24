@@ -1,3 +1,8 @@
+parameters:
+  # Fallback when TOTP_DIGITS is absent from the environment (.env.example
+  # documents it); 6 digits is the authenticator-app standard.
+  env(TOTP_DIGITS): '6'
+
 services:
   _defaults:
     autowire: true
@@ -13,8 +18,14 @@ services:
   Otp\Application\Port\Outbound\Totp\TotpServicePort:
     alias: Otp\Infrastructure\Adapter\Notifier\TotpAdapter
 
+  Otp\Application\Port\Outbound\Totp\TotpEnrollmentRepositoryPort:
+    alias: Otp\Infrastructure\Persistence\Doctrine\Repository\TotpEnrollmentRepository
+
   Otp\Application\Port\Inbound\Challenge\OtpChallengePort:
     alias: Otp\Application\Service\OtpChallengeService
+
+  Otp\Application\Port\Inbound\Totp\TotpStatusPort:
+    alias: Otp\Application\Service\TotpStatusService
 
   # OTP Repository
   Otp\Infrastructure\Persistence\Doctrine\Repository\OtpRepository:
@@ -22,6 +33,17 @@ services:
       $entityManager: '@doctrine.orm.auth_entity_manager'
 
   Otp\Infrastructure\Persistence\Doctrine\Mapper\OtpMapper: ~
+
+  # TOTP Enrollment Repository
+  Otp\Infrastructure\Persistence\Doctrine\Repository\TotpEnrollmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.auth_entity_manager'
+
+  Otp\Infrastructure\Persistence\Doctrine\Mapper\TotpEnrollmentMapper: ~
+
+  Otp\Application\Service\TotpStatusService: ~
+
+  Otp\Infrastructure\Adapter\Auth\TotpEnrollmentCheckAdapter: ~
 
   # OTP Notifier
   Otp\Infrastructure\Adapter\Notifier\OtpNotifierAdapter:
@@ -40,6 +62,10 @@ services:
     tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Totp\SetupTotp\SetupTotpHandler:
     tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Command\Totp\ConfirmTotp\ConfirmTotpHandler:
+    tags: ['messenger.message_handler']
+  Otp\Application\UseCase\Command\Totp\DisableTotp\DisableTotpHandler:
+    tags: ['messenger.message_handler']
   Otp\Application\UseCase\Command\Challenge\ResendChallenge\ResendChallengeHandler:
     tags: ['messenger.message_handler']
 
@@ -54,6 +80,8 @@ services:
   # API Processors
   Otp\Presentation\Api\Processor\Challenge\VerifyOtpProcessor: ~
   Otp\Presentation\Api\Processor\Totp\SetupTotpProcessor: ~
+  Otp\Presentation\Api\Processor\Totp\ConfirmTotpProcessor: ~
+  Otp\Presentation\Api\Processor\Totp\DisableTotpProcessor: ~
   Otp\Presentation\Api\Processor\Challenge\CreateChallengeProcessor: ~
   Otp\Presentation\Api\Processor\Challenge\ResendChallengeProcessor: ~
 

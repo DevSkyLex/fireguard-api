@@ -4,19 +4,67 @@ framework:
         # failure_transport: failed
 
         transports:
-            # https://symfony.com/doc/current/messenger.html#transport-configuration
-            # async: '%env(MESSENGER_TRANSPORT_DSN)%'
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: async
             # failed: 'doctrine://default?queue_name=failed'
             sync: 'sync://'
+            # Dedicated transport for outbound webhook fan-out/delivery: isolated
+            # from the general-purpose `async` transport so a slow/unreachable
+            # third-party endpoint (and its retries) cannot starve other async
+            # work, with its own tuned backoff and a per-transport dead-letter.
+            webhook:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: webhook
+                retry_strategy:
+                    max_retries: 5
+                    delay: 1000
+                    multiplier: 3
+                    max_delay: 3600000
+                    jitter: 0.5
+                failure_transport: failed
+            # Dedicated transport for AI-assistant reply generation: isolated
+            # from the general-purpose `async` transport for the same reason
+            # as `webhook` (an unresponsive Ollama backend and its retries
+            # must never starve other async work), with its own dead-letter.
+            # `max_retries: 1` is deliberate and NOT a copy/paste of
+            # `webhook`'s 5: a retried generation command would re-run
+            # against a message that may already be partially `streaming` —
+            # replaying it re-publishes the same fragments and the member
+            # would see the answer twice. One retry only, then straight to
+            # `failed` (the pending/streaming assistant message is settled by
+            # `GenerateAssistantReplyHandler` calling `AssistantMessage::markFailed()`).
+            assistant:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: assistant
+                retry_strategy:
+                    max_retries: 1
+                    delay: 1000
+                    multiplier: 2
+                failure_transport: failed
+            # Explicit "auth" connection name (not the "default" alias, which
+            # is not a registered Doctrine connection name in this project —
+            # see config/packages/doctrine.yaml's `default_connection: auth`).
+            failed: 'doctrine://auth?queue_name=failed'
 
         routing:
-            # Route your messages to the transports
-            # 'App\Message\YourMessage': async
+            'Intervention\Application\UseCase\Command\Publication\ExecutePublication\ExecutePublicationCommand': async
+            'Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesCommand': async
+            'Maintenance\Application\UseCase\Command\Sweep\RecomputeMaintenanceSchedules\RecomputeMaintenanceSchedulesCommand': async
+            'Automation\Application\UseCase\Command\Rule\ExecuteAutomationRule\ExecuteAutomationRuleCommand': async
+            'Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobCommand': async
+            'Approval\Application\UseCase\Command\Sweep\ExpireStaleApprovalRequests\ExpireStaleApprovalRequestsCommand': async
+            'Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWebhookEventCommand': webhook
+            'Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\DeliverWebhookCommand': webhook
+            'Assistant\Application\UseCase\Command\Message\GenerateAssistantReply\GenerateAssistantReplyCommand': assistant
 
-# when@test:
-#    framework:
-#        messenger:
-#            transports:
-#                # replace with your transport name here (e.g., my_transport: 'in-memory://')
-#                # For more Messenger testing tools, see https://github.com/zenstruck/messenger-test
-#                async: 'in-memory://'
+when@test:
+    framework:
+        messenger:
+            transports:
+                async: 'in-memory://'
+                webhook: 'in-memory://'
+                assistant: 'in-memory://'

@@ -1,0 +1,47 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Import\Presentation\:
+    resource: '../../src/Import/Presentation'
+
+  Import\Application\Service\:
+    resource: '../../src/Import/Application/Service'
+
+  Import\Infrastructure\:
+    resource: '../../src/Import/Infrastructure'
+
+  # Outbound ports
+  Import\Application\Port\Outbound\ImportJobRepositoryPort:
+    alias: Import\Infrastructure\Persistence\Doctrine\Repository\ImportJobRepository
+
+  Import\Application\Port\Outbound\ImportJobQueuePort:
+    alias: Import\Infrastructure\Adapter\Messenger\MessengerImportJobQueueAdapter
+
+  Import\Application\Port\Outbound\CsvRowStreamerPort:
+    alias: Import\Infrastructure\Csv\CsvRowStreamer
+
+  # Repository
+  Import\Infrastructure\Persistence\Doctrine\Repository\ImportJobRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # Fire-and-forget async dispatch (mirrors Intervention's MessengerPublicationQueueAdapter)
+  Import\Infrastructure\Adapter\Messenger\MessengerImportJobQueueAdapter:
+    arguments:
+      $messageBus: '@messenger.default_bus'
+
+  # Command handlers
+  Import\Application\UseCase\Command\CreateImportJob\CreateImportJobHandler:
+    tags: ['messenger.message_handler']
+
+  Import\Application\UseCase\Command\ProcessImportJob\ProcessImportJobHandler:
+    tags: ['messenger.message_handler']
+
+  # Query handlers
+  Import\Application\UseCase\Query\GetImportJob\GetImportJobHandler:
+    tags: ['messenger.message_handler']
+
+  Import\Application\UseCase\Query\ListImportJobs\ListImportJobsHandler:
+    tags: ['messenger.message_handler']

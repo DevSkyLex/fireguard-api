@@ -6,10 +6,10 @@ namespace Organization\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
-use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
+use Organization\Presentation\Api\Dto\Input\Organization\{AddOrganizationMemberInput, RemoveOrganizationMembersInput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMemberOutput, RemoveOrganizationMembersOutput};
 use Organization\Presentation\Api\Operation\OrganizationOperations;
-use Organization\Presentation\Api\Processor\Organization\{AddOrganizationMemberProcessor, RemoveOrganizationMemberProcessor};
+use Organization\Presentation\Api\Processor\Organization\{AddOrganizationMemberProcessor, RemoveOrganizationMemberProcessor, RemoveOrganizationMembersProcessor};
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationMembersProvider;
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -58,6 +58,21 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Organization Members'],
         summary: 'List Organization members',
         description: 'Lists Organization members and assigned roles.',
+      ),
+    ),
+    new Post(
+      name: OrganizationOperations::BATCH_REMOVE_ORGANIZATION_MEMBERS,
+      uriTemplate: '/{organizationId}/members/batch-remove',
+      input: RemoveOrganizationMembersInput::class,
+      output: RemoveOrganizationMembersOutput::class,
+      processor: RemoveOrganizationMembersProcessor::class,
+      denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization Members'],
+        summary: 'Batch remove Organization members',
+        description: 'Removes several members in one request, reporting removed and failed IDs.',
       ),
     ),
     new Delete(

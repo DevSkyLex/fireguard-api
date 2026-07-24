@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\User\Application\UseCase\Query\User\GetCurrentUserProfile;
 
 use Authorization\Application\Port\Inbound\AuthorizationPort;
+use Otp\Application\Port\Inbound\Totp\TotpStatusPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -54,9 +55,17 @@ final class GetCurrentUserProfileHandlerTest extends TestCase
       ->with($userId)
       ->willReturn(['users.read', 'roles.read']);
 
+    /** @var TotpStatusPort&MockObject $totpStatus */
+    $totpStatus = $this->createMock(TotpStatusPort::class);
+    $totpStatus->expects(self::once())
+      ->method('isEnabled')
+      ->with($userId)
+      ->willReturn(true);
+
     $handler = new GetCurrentUserProfileHandler(
       userRepository: $repository,
       authorization: $authorization,
+      totpStatus: $totpStatus,
     );
 
     $result = $handler->__invoke(new GetCurrentUserProfileQuery($userId));
@@ -66,6 +75,7 @@ final class GetCurrentUserProfileHandlerTest extends TestCase
     self::assertSame('jdoe', $result->user->username);
     self::assertSame(['admin'], $result->roles);
     self::assertSame(['users.read', 'roles.read'], $result->permissions);
+    self::assertTrue($result->totpEnabled);
   }
 
   #[Test]
@@ -82,9 +92,14 @@ final class GetCurrentUserProfileHandlerTest extends TestCase
     $authorization->expects(self::never())->method('getUserRoleNames');
     $authorization->expects(self::never())->method('getUserPermissionNames');
 
+    /** @var TotpStatusPort&MockObject $totpStatus */
+    $totpStatus = $this->createMock(TotpStatusPort::class);
+    $totpStatus->expects(self::never())->method('isEnabled');
+
     $handler = new GetCurrentUserProfileHandler(
       userRepository: $repository,
       authorization: $authorization,
+      totpStatus: $totpStatus,
     );
 
     $this->expectException(UserNotFoundException::class);

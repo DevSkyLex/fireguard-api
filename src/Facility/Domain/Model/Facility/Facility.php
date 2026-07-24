@@ -6,6 +6,7 @@ namespace Facility\Domain\Model\Facility;
 
 use DateTimeImmutable;
 use Facility\Domain\ValueObject\{
+  FacilityCoordinates,
   FacilityId,
   FacilityName,
   FacilityOrganizationId,
@@ -49,6 +50,7 @@ final class Facility
    * @param ?string $code the optional facility code
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
+   * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    */
   private function __construct(
     private FacilityId $id,
@@ -62,6 +64,7 @@ final class Facility
     private ?string $code = null,
     private ?string $address = null,
     private array $metadata = [],
+    private ?FacilityCoordinates $coordinates = null,
   ) {
   }
   // #endregion
@@ -82,6 +85,7 @@ final class Facility
    * @param ?string $code the optional facility code
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
+   * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    *
    * @return self the created facility aggregate
    */
@@ -94,6 +98,7 @@ final class Facility
     ?string $code = null,
     ?string $address = null,
     array $metadata = [],
+    ?FacilityCoordinates $coordinates = null,
   ): self {
     $now = new DateTimeImmutable();
 
@@ -109,6 +114,7 @@ final class Facility
       code: self::normalizeCode($code),
       address: self::normalizeAddress($address),
       metadata: self::normalizeMetadata($metadata),
+      coordinates: $coordinates,
     );
   }
 
@@ -130,6 +136,7 @@ final class Facility
    * @param ?string $code the optional facility code
    * @param ?string $address the optional address
    * @param array<string, mixed> $metadata the optional metadata
+   * @param ?FacilityCoordinates $coordinates the optional geographic coordinates
    *
    * @return self the reconstituted facility aggregate
    */
@@ -145,6 +152,7 @@ final class Facility
     ?string $code = null,
     ?string $address = null,
     array $metadata = [],
+    ?FacilityCoordinates $coordinates = null,
   ): self {
     return new self(
       id: $id,
@@ -158,6 +166,7 @@ final class Facility
       code: self::normalizeCode($code),
       address: self::normalizeAddress($address),
       metadata: self::normalizeMetadata($metadata),
+      coordinates: $coordinates,
     );
   }
 
@@ -213,6 +222,17 @@ final class Facility
   public function changeAddress(?string $address): void
   {
     $this->address = self::normalizeAddress($address);
+    $this->touch();
+  }
+
+  /**
+   * Method changeCoordinates.
+   *
+   * @since 1.0.0
+   */
+  public function changeCoordinates(?FacilityCoordinates $coordinates): void
+  {
+    $this->coordinates = $coordinates;
     $this->touch();
   }
 
@@ -337,6 +357,16 @@ final class Facility
   public function address(): ?string
   {
     return $this->address;
+  }
+
+  /**
+   * Method coordinates.
+   *
+   * @since 1.0.0
+   */
+  public function coordinates(): ?FacilityCoordinates
+  {
+    return $this->coordinates;
   }
 
   /**

@@ -7,9 +7,11 @@ namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\ArchiveFacili
 use DateTimeImmutable;
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
+use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacilityCommand, ArchiveFacilityHandler, ArchiveFacilityResult};
-use Facility\Domain\Exception\FacilityNotFoundException;
+use Facility\Domain\Event\Facility\FacilityArchivedEvent;
+use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
@@ -23,7 +25,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 
 use function is_string;
 
@@ -43,7 +45,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
 
     $driverException = new class ('SQLSTATE[23503]: update on table "facilities" violates foreign key constraint "fk_facility_organization"') extends RuntimeException implements DoctrineDriverException {
@@ -66,11 +68,17 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -88,7 +96,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn(null);
     $repository->expects(self::never())->method('save');
 
@@ -104,11 +112,17 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -133,7 +147,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::never())->method('save');
 
@@ -149,11 +163,17 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(FacilityNotFoundException::class);
@@ -182,7 +202,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::once())
       ->method('save')
@@ -218,7 +238,8 @@ final class ArchiveFacilityHandlerTest extends TestCase
           && 'Building C' === ($request->payload['facilityName'] ?? null)
           && 'building' === ($request->payload['facilityType'] ?? null)
           && is_string($request->payload['archivedAt'] ?? null)
-          && '550e8400-e29b-41d4-a716-446655442022' === $request->recipientUserId;
+          && '550e8400-e29b-41d4-a716-446655442022' === $request->recipientUserId
+          && (string) $organizationId === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655449030',
@@ -236,11 +257,23 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event) use ($facilityId, $organizationId): bool {
+        return $event instanceof FacilityArchivedEvent
+          && (string) $organizationId === $event->organizationId
+          && (string) $facilityId === $event->facilityId;
+      }));
+
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new ArchiveFacilityCommand(
@@ -270,7 +303,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::once())
       ->method('save')
@@ -312,11 +345,23 @@ final class ArchiveFacilityHandlerTest extends TestCase
         ],
       );
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        return $event instanceof FacilityArchivedEvent
+          && '550e8400-e29b-41d4-a716-446655442024' === $event->organizationId
+          && '550e8400-e29b-41d4-a716-446655442023' === $event->facilityId;
+      }));
+
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new ArchiveFacilityCommand(
@@ -326,6 +371,53 @@ final class ArchiveFacilityHandlerTest extends TestCase
 
     self::assertInstanceOf(ArchiveFacilityResult::class, $result);
     self::assertSame('archived', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeRefusesToArchiveWhenActiveDependentsExist(): void
+  {
+    $facility = Facility::create(
+      id: new FacilityId('550e8400-e29b-41d4-a716-4466554429a0'),
+      organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-4466554429a1'),
+      type: FacilityType::SITE,
+      name: new FacilityName('HQ'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($facility);
+    $repository->expects(self::never())->method('save');
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::never())->method('findById');
+
+    /** @var FacilityArchivalGuardPort&MockObject $guard */
+    $guard = $this->createMock(FacilityArchivalGuardPort::class);
+    $guard->expects(self::once())
+      ->method('assertNoActiveDependents')
+      ->with('550e8400-e29b-41d4-a716-4466554429a1', '550e8400-e29b-41d4-a716-4466554429a0')
+      ->willThrowException(FacilityHasActiveDependentsException::withActiveEquipment('550e8400-e29b-41d4-a716-4466554429a0'));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new ArchiveFacilityHandler(
+      facilityRepository: $repository,
+      organizationRepository: $organizationRepository,
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      archivalGuard: $guard,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(FacilityHasActiveDependentsException::class);
+
+    $handler->__invoke(new ArchiveFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554429a1',
+      facilityId: '550e8400-e29b-41d4-a716-4466554429a0',
+    ));
   }
 
   #[Test]
@@ -342,7 +434,7 @@ final class ArchiveFacilityHandlerTest extends TestCase
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($facility);
     $repository->expects(self::once())
       ->method('save')
@@ -360,11 +452,17 @@ final class ArchiveFacilityHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new ArchiveFacilityHandler(
       facilityRepository: $repository,
       organizationRepository: $organizationRepository,
       notificationPort: $notificationPort,
       logger: $logger,
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new ArchiveFacilityCommand(
@@ -374,5 +472,47 @@ final class ArchiveFacilityHandlerTest extends TestCase
 
     self::assertInstanceOf(ArchiveFacilityResult::class, $result);
     self::assertSame('archived', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeTreatsDraftFacilityAsNotFoundAndDispatchesNothing(): void
+  {
+    // A draft intervention scratchpad is invisible to findPublishedById, so
+    // the command hits the not-found path and never saves nor emits.
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn(null);
+    $repository->expects(self::never())->method('findById');
+    $repository->expects(self::never())->method('save');
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::never())->method('findById');
+
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new ArchiveFacilityHandler(
+      facilityRepository: $repository,
+      organizationRepository: $organizationRepository,
+      notificationPort: $notificationPort,
+      logger: $this->createStub(LoggerPort::class),
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(FacilityNotFoundException::class);
+
+    $handler->__invoke(new ArchiveFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655442031',
+      facilityId: '550e8400-e29b-41d4-a716-446655442030',
+    ));
   }
 }

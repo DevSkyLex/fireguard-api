@@ -31,6 +31,10 @@ services:
   Authorization\Application\UseCase\Command\Permission\DeletePermission\DeletePermissionHandler:
     tags: ['messenger.message_handler']
 
+  # Event Handlers
+  Authorization\Application\EventHandler\AssignDefaultRoleOnUserCreatedHandler:
+    tags: ['messenger.message_handler']
+
   # Query Handlers
   Authorization\Application\UseCase\Query\Role\GetRole\GetRoleHandler:
     tags: ['messenger.message_handler']
@@ -71,6 +75,8 @@ services:
       $entityManager: '@doctrine.orm.auth_entity_manager'
 
   # Authorization Service
+  Authorization\Application\Service\AuthorizationCacheInvalidator: ~
+
   Authorization\Application\Service\AuthorizationService:
     arguments:
       $permissionCacheTtl: '%env(int:AUTHZ_PERMISSION_CACHE_TTL)%'

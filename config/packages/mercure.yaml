@@ -1,3 +1,20 @@
+parameters:
+    # Lifetime, in seconds, of the Mercure *subscriber* JWTs minted by the
+    # subscription endpoints (Notification, Messaging, Assistant).
+    #
+    # These are bearer credentials granting read access to a private topic, so
+    # they must age out quickly: the hub validates `exp` only when a connection
+    # is opened, and an already-established stream survives past expiry. The TTL
+    # therefore bounds how long a leaked token can be used to open a *new*
+    # stream, not how long an honest client stays connected.
+    #
+    # The Mercure bundle hardcodes a null lifetime into its LcobucciFactory
+    # (MercureExtension::load), which emits no `exp` claim at all — hence the
+    # explicit claim at each call site rather than factory configuration.
+    #
+    # Override per-environment with MERCURE_SUBSCRIBER_TOKEN_TTL.
+    mercure_subscriber_token_ttl: 900
+
 mercure:
     hubs:
         default:

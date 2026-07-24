@@ -37,6 +37,7 @@ final readonly class UserView
    * @param DateTimeImmutable $createdAt when the user was created
    * @param DateTimeImmutable|null $lastLoginAt last login time (if any)
    * @param bool $canLogin whether the user can login
+   * @param string $locale the preferred display language ("system" follows the browser)
    */
   public function __construct(
     public string $id,
@@ -51,6 +52,7 @@ final readonly class UserView
     public DateTimeImmutable $createdAt,
     public ?DateTimeImmutable $lastLoginAt,
     public bool $canLogin,
+    public string $locale = 'system',
   ) {
   }
   // #endregion

@@ -67,7 +67,7 @@ final readonly class EditInspectionHandler implements CommandHandler
       throw $exception;
     }
 
-    $inspection = $this->inspectionRepository->findById($inspectionId);
+    $inspection = $this->inspectionRepository->findPublishedById($inspectionId);
 
     if (null === $inspection || (string) $inspection->organizationId() !== (string) $organizationId) {
       throw InspectionNotFoundException::withId($command->inspectionId);

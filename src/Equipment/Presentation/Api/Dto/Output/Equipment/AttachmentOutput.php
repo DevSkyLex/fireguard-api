@@ -75,6 +75,15 @@ final class AttachmentOutput
   public ?string $label = null;
 
   /**
+   * Property revision.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public int $revision = 1;
+
+  /**
    * Property uploadedAt.
    *
    * @since 1.0.0

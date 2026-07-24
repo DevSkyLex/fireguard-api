@@ -8,8 +8,14 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{GetOrganizationMemberResult, ListOrganizationMembersQuery};
+use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{
+  GetOrganizationRoleResult,
+  ListOrganizationRolesQuery,
+  ListOrganizationRolesResult
+};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationMembersProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -19,6 +25,8 @@ use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use User\Application\Contract\User\UserView;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function iterator_to_array;
 
@@ -93,24 +101,51 @@ final class ListOrganizationMembersProviderTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
+    $queryBus->expects(self::exactly(3))
       ->method('ask')
-      ->with(self::isInstanceOf(ListOrganizationMembersQuery::class))
-      ->willReturn(new PaginatedResult(
-        items: [
-          new GetOrganizationMemberResult(
-            id: '550e8400-e29b-41d4-a716-446655441711',
+      ->willReturnCallback(static fn (object $query): object => match (true) {
+        $query instanceof ListOrganizationMembersQuery => new PaginatedResult(
+          items: [
+            new GetOrganizationMemberResult(
+              id: '550e8400-e29b-41d4-a716-446655441711',
+              organizationId: '550e8400-e29b-41d4-a716-446655441710',
+              userId: '550e8400-e29b-41d4-a716-446655441712',
+              isActive: true,
+              joinedAt: $joinedAt,
+              roleIds: ['550e8400-e29b-41d4-a716-446655441713'],
+              isOwner: true,
+            ),
+          ],
+          total: 1,
+          limit: 1,
+          offset: 0,
+        ),
+        $query instanceof ListOrganizationRolesQuery => new ListOrganizationRolesResult([
+          new GetOrganizationRoleResult(
+            id: '550e8400-e29b-41d4-a716-446655441713',
             organizationId: '550e8400-e29b-41d4-a716-446655441710',
-            userId: '550e8400-e29b-41d4-a716-446655441712',
-            isActive: true,
-            joinedAt: $joinedAt,
-            roleIds: ['550e8400-e29b-41d4-a716-446655441713'],
+            name: 'Field inspector',
+            permissions: [],
+            isSystem: false,
+            createdAt: $joinedAt,
           ),
-        ],
-        total: 1,
-        limit: 1,
-        offset: 0,
-      ));
+        ]),
+        $query instanceof GetUserQuery => new GetUserResult(new UserView(
+          id: '550e8400-e29b-41d4-a716-446655441712',
+          username: 'jane.doe',
+          email: 'jane@example.com',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          avatarUrl: 'https://api.example.com/api/users/550e8400-e29b-41d4-a716-446655441712/avatar',
+          status: 'active',
+          emailVerified: true,
+          tenantId: null,
+          createdAt: $joinedAt,
+          lastLoginAt: null,
+          canLogin: true,
+        )),
+        default => throw new LogicException('Unexpected query.'),
+      });
 
     $provider = new ListOrganizationMembersProvider(
       queryBus: $queryBus,
@@ -126,8 +161,17 @@ final class ListOrganizationMembersProviderTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655441711', $items[0]->id);
     self::assertSame('550e8400-e29b-41d4-a716-446655441710', $items[0]->organizationId);
     self::assertSame('550e8400-e29b-41d4-a716-446655441712', $items[0]->userId);
+    self::assertSame('Jane', $items[0]->firstName);
+    self::assertSame('Doe', $items[0]->lastName);
+    self::assertSame('Jane Doe', $items[0]->displayName);
+    self::assertSame(
+      'https://api.example.com/api/users/550e8400-e29b-41d4-a716-446655441712/avatar',
+      $items[0]->avatarUrl,
+    );
     self::assertSame(['550e8400-e29b-41d4-a716-446655441713'], $items[0]->roleIds);
+    self::assertSame(['Field inspector'], $items[0]->roleNames);
     self::assertSame($joinedAt->format('c'), $items[0]->joinedAt);
+    self::assertTrue($items[0]->isOwner);
   }
 
   #[Test]
@@ -168,23 +212,28 @@ final class ListOrganizationMembersProviderTest extends TestCase
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
-    $queryBus->expects(self::once())
+    $queryBus->expects(self::exactly(3))
       ->method('ask')
-      ->willReturn(new PaginatedResult(
-        items: [
-          new GetOrganizationMemberResult(
-            id: '550e8400-e29b-41d4-a716-446655441732',
-            organizationId: $organizationId,
-            userId: '550e8400-e29b-41d4-a716-446655441733',
-            isActive: true,
-            joinedAt: $joinedAt,
-            roleIds: [],
-          ),
-        ],
-        total: 1,
-        limit: 1,
-        offset: 0,
-      ));
+      ->willReturnCallback(static fn (object $query): object => match (true) {
+        $query instanceof ListOrganizationMembersQuery => new PaginatedResult(
+          items: [
+            new GetOrganizationMemberResult(
+              id: '550e8400-e29b-41d4-a716-446655441732',
+              organizationId: $organizationId,
+              userId: '550e8400-e29b-41d4-a716-446655441733',
+              isActive: true,
+              joinedAt: $joinedAt,
+              roleIds: [],
+            ),
+          ],
+          total: 1,
+          limit: 1,
+          offset: 0,
+        ),
+        $query instanceof ListOrganizationRolesQuery => new ListOrganizationRolesResult([]),
+        $query instanceof GetUserQuery => new GetUserResult(null),
+        default => throw new LogicException('Unexpected query.'),
+      });
 
     $provider = new ListOrganizationMembersProvider(
       queryBus: $queryBus,

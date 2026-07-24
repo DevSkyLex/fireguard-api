@@ -75,6 +75,12 @@ deptrac:
         - type: directory
           value: src/Shared/Infrastructure/.*
 
+    # Shared Presentation - HTTP and transport helpers shared by API modules
+    - name: SharedPresentation
+      collectors:
+        - type: directory
+          value: src/Shared/Presentation/.*
+
   ruleset:
     # ============================================
     # Hexagonal Architecture Rules
@@ -105,6 +111,7 @@ deptrac:
       - SharedDomain
       - SharedApplication
       - SharedInfrastructure
+      - SharedPresentation
       - Infrastructure
 
     # ============================================
@@ -120,5 +127,10 @@ deptrac:
 
     # SharedInfrastructure: Can depend on Shared layers
     SharedInfrastructure:
+      - SharedDomain
+      - SharedApplication
+
+    # SharedPresentation: Transport helpers can use shared contracts only
+    SharedPresentation:
       - SharedDomain
       - SharedApplication

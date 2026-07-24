@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\UseCase\Query\Organization\ListOrganizationRoles;
 
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\QueryHandler;
@@ -31,10 +31,12 @@ final readonly class ListOrganizationRolesHandler implements QueryHandler
    *
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
+   * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
+    private OrganizationMemberRepositoryPort $memberRepository,
   ) {
   }
   // #endregion
@@ -60,17 +62,20 @@ final readonly class ListOrganizationRolesHandler implements QueryHandler
     }
 
     $roles = $this->roleRepository->findByOrganizationId($organizationId);
+    $memberCountsByRoleId = $this->memberRepository->countActiveMembersGroupedByRoleId($organizationId);
     $results = [];
 
     foreach ($roles as $role) {
+      $roleId = (string) $role->id();
       $results[] = new GetOrganizationRoleResult(
-        id: (string) $role->id(),
+        id: $roleId,
         organizationId: (string) $role->organizationId(),
         name: (string) $role->name(),
         permissions: $role->permissions(),
         isSystem: $role->isSystem(),
         createdAt: $role->createdAt(),
         description: $role->description(),
+        memberCount: $memberCountsByRoleId[$roleId] ?? 0,
       );
     }
 

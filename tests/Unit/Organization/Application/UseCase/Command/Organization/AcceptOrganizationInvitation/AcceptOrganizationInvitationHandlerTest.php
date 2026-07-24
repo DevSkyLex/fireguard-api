@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\SentNotification;
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationHandler, AcceptOrganizationInvitationResult};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler;
+use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
+use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -22,7 +27,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Shared\Domain\ValueObject\Email;
 use Tests\Support\Factory\UserTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
@@ -159,6 +164,8 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       logger: $addMemberLogger,
       uuidFactory: $uuidFactory,
       transactionManager: $addMemberTransactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -176,7 +183,8 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
           && $invitationId === ($request->payload['invitationId'] ?? null)
           && $inviteeUserId === ($request->payload['acceptedUserId'] ?? null)
           && 'member@example.com' === ($request->payload['acceptedEmail'] ?? null)
-          && is_string($request->payload['acceptedAt'] ?? null);
+          && is_string($request->payload['acceptedAt'] ?? null)
+          && $organizationId === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655449002',
@@ -208,13 +216,26 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       ->with(self::isCallable())
       ->willReturnCallback(static fn (callable $operation): mixed => $operation());
 
+    $dispatchedEvents = [];
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::exactly(2))
+      ->method('dispatch')
+      ->willReturnCallback(static function (object $event) use (&$dispatchedEvents): void {
+        $dispatchedEvents[] = $event;
+      });
+
     $handler = new AcceptOrganizationInvitationHandler(
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -231,6 +252,24 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     self::assertSame([$roleId], $result->roleIds);
     self::assertTrue($result->isActive);
     self::assertInstanceOf(DateTimeImmutable::class, $result->joinedAt);
+
+    // Both audit events are dispatched post-commit: the membership creation
+    // first, then the invitation acceptance (each with the granted roles).
+    self::assertCount(2, $dispatchedEvents);
+    $memberAdded = $dispatchedEvents[0];
+    self::assertInstanceOf(OrganizationMemberAddedEvent::class, $memberAdded);
+    self::assertSame($organizationId, $memberAdded->organizationId);
+    self::assertSame($memberId, $memberAdded->memberId);
+    self::assertSame($inviteeUserId, $memberAdded->userId);
+    self::assertSame([$roleId], $memberAdded->roleIds);
+    $accepted = $dispatchedEvents[1];
+    self::assertInstanceOf(OrganizationInvitationAcceptedEvent::class, $accepted);
+    self::assertSame($organizationId, $accepted->organizationId);
+    self::assertSame($invitationId, $accepted->invitationId);
+    self::assertSame($memberId, $accepted->memberId);
+    self::assertSame($inviteeUserId, $accepted->userId);
+    self::assertSame('Member@example.com', $accepted->userEmail);
+    self::assertSame([$roleId], $accepted->roleIds);
   }
 
   #[Test]
@@ -352,6 +391,8 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       logger: $addMemberLogger,
       uuidFactory: $uuidFactory,
       transactionManager: $addMemberTransactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     /** @var NotificationPort&MockObject $notificationPort */
@@ -402,9 +443,12 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -421,12 +465,14 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
     self::assertSame($organizationId, $capturedRequests[0]->payload['organizationId'] ?? null);
     self::assertSame($invitationId, $capturedRequests[0]->payload['invitationId'] ?? null);
     self::assertSame($inviteeUserId, $capturedRequests[0]->payload['acceptedUserId'] ?? null);
+    self::assertSame($organizationId, $capturedRequests[0]->organizationId);
     self::assertSame(NotificationType::ORGANIZATION_MEMBER_JOINED, $capturedRequests[1]->type);
     self::assertSame($ownerUserId, $capturedRequests[1]->recipientUserId);
     self::assertSame($organizationId, $capturedRequests[1]->payload['organizationId'] ?? null);
     self::assertSame($invitationId, $capturedRequests[1]->payload['invitationId'] ?? null);
     self::assertSame($memberId, $capturedRequests[1]->payload['memberId'] ?? null);
     self::assertSame($inviteeUserId, $capturedRequests[1]->payload['joinedUserId'] ?? null);
+    self::assertSame($organizationId, $capturedRequests[1]->organizationId);
   }
 
   #[Test]
@@ -529,15 +575,19 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       logger: $addMemberLogger,
       uuidFactory: $uuidFactory,
       transactionManager: $addMemberTransactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $capturedTypes = [];
+    $capturedOrganizationIds = [];
     $notificationPort->expects(self::exactly(2))
       ->method('send')
-      ->willReturnCallback(function (SendNotificationRequest $request) use (&$capturedTypes, $organizationId, $ownerUserId): SentNotification {
+      ->willReturnCallback(function (SendNotificationRequest $request) use (&$capturedTypes, &$capturedOrganizationIds, $organizationId, $ownerUserId): SentNotification {
         $capturedTypes[] = $request->type;
+        $capturedOrganizationIds[] = $request->organizationId;
 
         if (NotificationType::ORGANIZATION_INVITATION_ACCEPTED === $request->type) {
           throw new RuntimeException('Mercure inviter channel unavailable.');
@@ -581,9 +631,12 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
       notificationPort: $notificationPort,
       logger: $logger,
       transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new AcceptOrganizationInvitationCommand(
@@ -594,5 +647,86 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
 
     self::assertInstanceOf(AcceptOrganizationInvitationResult::class, $result);
     self::assertSame([NotificationType::ORGANIZATION_INVITATION_ACCEPTED, NotificationType::ORGANIZATION_MEMBER_JOINED], $capturedTypes);
+    self::assertSame([$organizationId, $organizationId], $capturedOrganizationIds);
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchAcceptedEventWhenInvitationIsExpired(): void
+  {
+    $token = 'plain-token-expired';
+    $organizationId = '550e8400-e29b-41d4-a716-446655442140';
+    $invitationId = '550e8400-e29b-41d4-a716-446655442141';
+    $inviterUserId = '550e8400-e29b-41d4-a716-446655442142';
+    $inviteeUserId = '550e8400-e29b-41d4-a716-446655442143';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId($invitationId),
+      organizationId: new OrganizationId($organizationId),
+      email: new Email('member@example.com'),
+      tokenHash: hash('sha256', $token),
+      invitedByUserId: $inviterUserId,
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('-1 hour'),
+      createdAt: new DateTimeImmutable('-8 days'),
+      updatedAt: new DateTimeImmutable('-8 days'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())
+      ->method('findByTokenHash')
+      ->with(hash('sha256', $token))
+      ->willReturn($invitation);
+    $invitationRepository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(static fn (OrganizationInvitation $updatedInvitation): bool => 'expired' === $updatedInvitation->status()->value));
+    $invitationRepository->expects(self::never())
+      ->method('findRoleIdsForInvitation');
+
+    $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      userRepository: $this->createStub(UserRepositoryPort::class),
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $this->createStub(TransactionManagerPort::class),
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new AcceptOrganizationInvitationHandler(
+      invitationRepository: $invitationRepository,
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      notificationPort: $notificationPort,
+      logger: $this->createStub(LoggerPort::class),
+      transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invitation has expired.');
+
+    $handler->__invoke(new AcceptOrganizationInvitationCommand(
+      token: $token,
+      userId: $inviteeUserId,
+      userEmail: 'member@example.com',
+    ));
   }
 }

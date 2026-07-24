@@ -61,6 +61,17 @@ final class SessionOperations
   public const string REVOKE_ALL = 'session_revoke_all';
 
   /**
+   * Constant REVOKE_OTHERS.
+   *
+   * Revoke other sessions operation name.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string REVOKE_OTHERS = 'session_revoke_others';
+
+  /**
    * Constant ALL.
    *
    * All session operation names.
@@ -74,6 +85,7 @@ final class SessionOperations
     self::GET,
     self::REVOKE,
     self::REVOKE_ALL,
+    self::REVOKE_OTHERS,
   ];
   // #endregion
 }

@@ -12,6 +12,7 @@ use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspection
 use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Dto\Input\Inspection\EditInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -30,15 +31,44 @@ final readonly class EditInspectionProcessor implements ProcessorInterface
 {
   use InspectionExceptionUnwrapperTrait;
 
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the EditInspectionProcessor class.
+   *
+   * @since 1.0.0
+   *
+   * @param CommandBusPort $commandBus the command bus value
+   * @param QueryBusPort $queryBus the query bus value
+   * @param InspectionOutputFactory $outputMapper the output mapper value
+   * @param OrganizationAuthorizationPort $authorization the authorization value
+   * @param Security $security the security value
+   * @param RequestStack $requestStack the request stack value
+   */
   public function __construct(
     private CommandBusPort $commandBus,
     private QueryBusPort $queryBus,
+    private InspectionOutputFactory $outputMapper,
     private OrganizationAuthorizationPort $authorization,
     private Security $security,
     private RequestStack $requestStack,
   ) {
   }
 
+  /**
+   * Method process.
+   *
+   * Executes the process operation.
+   *
+   * @since 1.0.0
+   *
+   * @param mixed $data the data value
+   * @param Operation $operation the operation value
+   * @param array<string, mixed> $uriVariables the uri variables value
+   * @param array<string, mixed> $context the context value
+   *
+   * @return InspectionOutput the process result
+   */
   public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): InspectionOutput
   {
     /** @var EditInspectionInput $data */
@@ -135,27 +165,19 @@ final readonly class EditInspectionProcessor implements ProcessorInterface
     return $this->mapResult($result);
   }
 
+  /**
+   * Method mapResult.
+   *
+   * Executes the map result operation.
+   *
+   * @since 1.0.0
+   *
+   * @param GetInspectionResult $result the result value
+   *
+   * @return InspectionOutput the map result result
+   */
   private function mapResult(GetInspectionResult $result): InspectionOutput
   {
-    $output = new InspectionOutput();
-    $output->id = $result->inspectionId;
-    $output->organizationId = $result->organizationId;
-    $output->equipmentId = $result->equipmentId;
-    $output->facilityId = $result->facilityId;
-    $output->result = $result->result;
-    $output->status = $result->status;
-    $output->performedAt = $result->performedAt;
-    $output->inspectorType = $result->inspectorType;
-    $output->inspectorName = $result->inspectorName;
-    $output->inspectorUserId = $result->inspectorUserId;
-    $output->inspectorOrganizationName = $result->inspectorOrganizationName;
-    $output->checklistId = $result->checklistId;
-    $output->notes = $result->notes;
-    $output->signature = $result->signature;
-    $output->nonConformitiesCount = $result->nonConformitiesCount;
-    $output->createdAt = $result->createdAt->format('c');
-    $output->updatedAt = $result->updatedAt->format('c');
-
-    return $output;
+    return $this->outputMapper->fromGetResult($result);
   }
 }

@@ -1,0 +1,20 @@
+plan:
+  free:
+    tagline: "Empieza con el seguimiento esencial de seguridad contra incendios, sin coste."
+    perks:
+      - "Seguimiento de inspecciones y equipos"
+      - "Gestión de instalaciones y activos"
+      - "Soporte por email comunitario"
+  pro:
+    tagline: "Margen para crecer, con informes de cumplimiento incluidos."
+    perks:
+      - "Exportación del registro de seguridad normativo (PDF)"
+      - "Canales de mensajería de equipo"
+      - "Soporte por email prioritario"
+  max:
+    tagline: "Máximo margen de maniobra y gobernanza para equipos grandes."
+    perks:
+      - "Exportación del registro de seguridad normativo (PDF)"
+      - "Flujos de aprobación de cuatro ojos"
+      - "Webhooks firmados e integraciones"
+      - "Soporte prioritario"

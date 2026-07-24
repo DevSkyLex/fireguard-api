@@ -1,7 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-  <body>
-    <h1>{{ subject }}</h1>
-    <div>{{ body|raw }}</div>
-  </body>
-</html>
+{% extends 'notification/email/layout.html.twig' %}
+
+{% block content %}
+  <h1>{{ subject }}</h1>
+  <div>{{ body|raw }}</div>
+{% endblock %}

@@ -33,6 +33,7 @@ final readonly class SentNotification
    * @param DateTimeImmutable $createdAt the creation datetime
    * @param string|null $recipientUserId the recipient user identifier
    * @param string|null $recipientEmail the recipient email
+   * @param string|null $organizationId the organization this notification belongs to, when any
    */
   public function __construct(
     public string $id,
@@ -45,7 +46,28 @@ final readonly class SentNotification
     public DateTimeImmutable $createdAt,
     public ?string $recipientUserId = null,
     public ?string $recipientEmail = null,
+    public ?string $organizationId = null,
   ) {
+  }
+  // #endregion
+
+  // #region Methods
+  /**
+   * Method isDelivered.
+   *
+   * Tells whether this notification reports a successful delivery on the given
+   * channel, so callers stop re-implementing the `channelDelivery[...] ?? false`
+   * lookup.
+   *
+   * @since 1.0.0
+   *
+   * @param NotificationChannel $channel the channel to check
+   *
+   * @return bool true when the channel reports a successful delivery
+   */
+  public function isDelivered(NotificationChannel $channel): bool
+  {
+    return true === ($this->channelDelivery[$channel->value] ?? false);
   }
   // #endregion
 }

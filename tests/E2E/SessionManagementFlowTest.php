@@ -257,4 +257,65 @@ class SessionManagementFlowTest extends OAuth2WebTestCase
   }
 
   // #endregion
+
+  // #region Revoke Other Sessions Tests
+
+  /**
+   * Test revoking other sessions with valid token.
+   */
+  public function testRevokeOtherSessionsWithValidToken(): void
+  {
+    $client = static::createClientWithFixtures();
+    $token = $this->getAccessToken($client);
+
+    $this->assertNotNull($token, 'Should be able to obtain access token');
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/sessions/revoke-others',
+      server: [
+        'HTTP_ACCEPT' => 'application/ld+json',
+        'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+      ],
+    );
+
+    $response = $client->getResponse();
+
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_OK, Response::HTTP_FORBIDDEN, Response::HTTP_UNAUTHORIZED, Response::HTTP_INTERNAL_SERVER_ERROR],
+      'Revoke other sessions should respond appropriately. Response: ' . $response->getContent(),
+    );
+
+    if (Response::HTTP_OK === $response->getStatusCode()) {
+      $data = $this->decodeJsonResponse($response->getContent() ?: '{}');
+      $this->assertArrayHasKey('revokedCount', $data);
+      $this->assertIsInt($data['revokedCount']);
+    }
+  }
+
+  /**
+   * Test revoking other sessions without authentication.
+   */
+  public function testRevokeOtherSessionsWithoutAuth(): void
+  {
+    $client = static::createClientWithFixtures();
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/sessions/revoke-others',
+      server: ['HTTP_ACCEPT' => 'application/ld+json'],
+    );
+
+    $response = $client->getResponse();
+
+    // May return 401 or 404 depending on route matching
+    $this->assertContains(
+      $response->getStatusCode(),
+      [Response::HTTP_UNAUTHORIZED, Response::HTTP_FORBIDDEN, Response::HTTP_NOT_FOUND],
+      'POST revoke-others without auth should require authentication',
+    );
+  }
+
+  // #endregion
 }

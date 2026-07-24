@@ -141,7 +141,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
     $requestStack = new RequestStack();
     $requestStack->push($request);
 
-    $userView = $this->makeUserView('user-1', 'https://api.example.com/api/users/user-1/avatar');
+    $userView = $this->makeUserView('user-1', 'https://api.example.com/api/users/user-1/avatar/256.webp');
 
     /** @var AvatarResizer&MockObject $resizer */
     $resizer = $this->createMock(AvatarResizer::class);
@@ -155,7 +155,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
       ->with(self::callback(
         fn (UpdateUserCommand $cmd) => 'user-1' === $cmd->id
           && null !== $cmd->avatarUrl
-          && str_contains($cmd->avatarUrl, '/api/users/user-1/avatar'),
+          && str_contains($cmd->avatarUrl, '/api/users/user-1/avatar/256.webp'),
       ));
 
     /** @var QueryBusPort&MockObject $queryBus */
@@ -180,7 +180,7 @@ final class UploadUserAvatarProcessorTest extends TestCase
 
     self::assertInstanceOf(UserOutput::class, $output);
     self::assertSame('user-1', $output->id);
-    self::assertSame('https://api.example.com/api/users/user-1/avatar', $output->avatarUrl);
+    self::assertSame('https://api.example.com/api/users/user-1/avatar/256.webp', $output->avatarUrl);
   }
 
   #[Test]

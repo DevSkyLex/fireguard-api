@@ -11,6 +11,7 @@ use Inspection\Application\UseCase\Command\Inspection\SubmitInspection\{
   SubmitInspectionHandler,
   SubmitInspectionResult
 };
+use Inspection\Domain\Event\Inspection\InspectionSubmittedEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\ValueObject\{
@@ -24,6 +25,7 @@ use Inspection\Domain\ValueObject\{
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Test SubmitInspectionHandlerTest.
@@ -51,12 +53,27 @@ final class SubmitInspectionHandlerTest extends TestCase
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($inspection);
     $repository->expects(self::once())
       ->method('save');
 
-    $handler = new SubmitInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof InspectionSubmittedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::INSP_ID === $event->inspectionId
+          && self::EQUIP_ID === $event->equipmentId
+          && InspectionResult::PASS->value === $event->result,
+      ));
+
+    $handler = new SubmitInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $result = $handler->__invoke(new SubmitInspectionCommand(
       organizationId: self::ORG_ID,
@@ -73,9 +90,16 @@ final class SubmitInspectionHandlerTest extends TestCase
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findPublishedById')->willReturn(null);
 
-    $handler = new SubmitInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new SubmitInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $this->expectException(InspectionNotFoundException::class);
 
@@ -91,9 +115,16 @@ final class SubmitInspectionHandlerTest extends TestCase
     $inspection = $this->makeDraftInspection();
 
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
 
-    $handler = new SubmitInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new SubmitInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
 
     $this->expectException(InspectionNotFoundException::class);
 

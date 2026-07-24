@@ -96,6 +96,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
             isSystem: false,
             createdAt: $roleCreatedAt,
             description: 'Manager role',
+            memberCount: 7,
           ),
         ],
         permissions: ['organization.read', 'organization.members.read'],
@@ -114,6 +115,7 @@ final class GetCurrentOrganizationMemberProfileProviderTest extends TestCase
     self::assertSame('550e8400-e29b-41d4-a716-446655442303', $output->userId);
     self::assertCount(1, $output->roles);
     self::assertSame('manager', $output->roles[0]->name);
+    self::assertSame(7, $output->roles[0]->memberCount);
     self::assertCount(2, $output->permissions);
     self::assertSame('organization.read', $output->permissions[0]->name);
   }

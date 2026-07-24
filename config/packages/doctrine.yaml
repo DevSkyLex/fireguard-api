@@ -6,6 +6,13 @@ doctrine:
         url: "%env(resolve:AUTH_DATABASE_URL)%"
         profiling_collect_backtrace: "%kernel.debug%"
         use_savepoints: true
+        # messenger_messages is owned by Symfony Messenger's doctrine transport
+        # (the `failed` transport uses doctrine://auth), not by our mappings, so
+        # its schema tracks the library version and drifts from any migration
+        # that froze it. Exclude it from schema introspection: schema:validate
+        # and migrations:diff ignore the framework table. Combined (AND) with the
+        # tagged SchemaFilterListener that hides the migration-versions tables.
+        schema_filter: ~^(?!messenger_messages)~
       main:
         url: "%env(resolve:MAIN_DATABASE_URL)%"
         profiling_collect_backtrace: "%kernel.debug%"
@@ -120,6 +127,66 @@ doctrine:
             dir: '%kernel.project_dir%/src/Inspection/Infrastructure/Persistence/Doctrine/Record'
             prefix: 'Inspection\Infrastructure\Persistence\Doctrine\Record'
             alias: Inspection
+          Intervention:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Intervention/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Intervention\Infrastructure\Persistence\Doctrine\Record'
+            alias: Intervention
+          Billing:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Billing/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Billing\Infrastructure\Persistence\Doctrine\Record'
+            alias: Billing
+          Maintenance:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Maintenance/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Maintenance\Infrastructure\Persistence\Doctrine\Record'
+            alias: Maintenance
+          Automation:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Automation/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Automation\Infrastructure\Persistence\Doctrine\Record'
+            alias: Automation
+          Messaging:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Messaging/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Messaging\Infrastructure\Persistence\Doctrine\Record'
+            alias: Messaging
+          Import:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Import/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Import\Infrastructure\Persistence\Doctrine\Record'
+            alias: Import
+          Webhook:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Webhook/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Webhook\Infrastructure\Persistence\Doctrine\Record'
+            alias: Webhook
+          Approval:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Approval/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Approval\Infrastructure\Persistence\Doctrine\Record'
+            alias: Approval
+          Assistant:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Assistant/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Assistant\Infrastructure\Persistence\Doctrine\Record'
+            alias: Assistant
+          Calendar:
+            is_bundle: false
+            type: attribute
+            dir: '%kernel.project_dir%/src/Calendar/Infrastructure/Persistence/Doctrine/Record'
+            prefix: 'Calendar\Infrastructure\Persistence\Doctrine\Record'
+            alias: Calendar
     controller_resolver:
       auto_mapping: false
 

@@ -8,15 +8,15 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\UpdateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 use function array_map;
 use function is_string;
@@ -50,6 +50,8 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
+    private OrganizationPermissionGrantGuardPort $grantGuard,
+    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -92,6 +94,9 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     }
 
     try {
+      $this->grantGuard->assertCanGrantPermissions($user->getId(), $organizationId, $data->permissions);
+      $this->lastAdminGuard->assertCanUpdateRolePermissions($organizationId, $roleId, $data->permissions);
+
       /** @var UpdateOrganizationRoleResult $result */
       $result = $this->commandBus->dispatch(new UpdateOrganizationRoleCommand(
         organizationId: $organizationId,
@@ -99,6 +104,10 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
         permissions: $data->permissions,
         description: $data->description,
       ));
+    } catch (OrganizationAccessDeniedException $exception) {
+      throw new AccessDeniedHttpException($exception->getMessage(), $exception);
+    } catch (OrganizationLastAdminException $exception) {
+      throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

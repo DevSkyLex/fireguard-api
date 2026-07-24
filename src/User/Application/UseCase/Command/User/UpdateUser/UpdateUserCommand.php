@@ -30,12 +30,14 @@ final readonly class UpdateUserCommand implements CommandMessage
    * @param string|null $firstName the first name
    * @param string|null $lastName the last name
    * @param string|null $avatarUrl the avatar URL
+   * @param string|null $locale the preferred display language; null leaves it unchanged (merge semantics)
    */
   public function __construct(
     public readonly string $id,
     public readonly ?string $firstName = null,
     public readonly ?string $lastName = null,
     public readonly ?string $avatarUrl = null,
+    public readonly ?string $locale = null,
   ) {
   }
   // #endregion

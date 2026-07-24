@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\ListOrganizationRoles;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesHandler, ListOrganizationRolesQuery, ListOrganizationRolesResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
@@ -55,9 +55,17 @@ final class ListOrganizationRolesHandlerTest extends TestCase
       ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
       ->willReturn([$role]);
 
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('countActiveMembersGroupedByRoleId')
+      ->with(self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id))
+      ->willReturn([$roleId => 4]);
+
     $handler = new ListOrganizationRolesHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      memberRepository: $memberRepository,
     );
 
     $result = $handler->__invoke(new ListOrganizationRolesQuery($organizationId));
@@ -70,6 +78,90 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     self::assertSame(['organization.read', 'organization.members.read'], $result->roles[0]->permissions);
     self::assertFalse($result->roles[0]->isSystem);
     self::assertSame('', $result->roles[0]->description);
+    self::assertSame(4, $result->roles[0]->memberCount);
+  }
+
+  #[Test]
+  public function testInvokeIssuesSingleGroupedCountQueryRegardlessOfRoleCountAndDefaultsMissingRolesToZero(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441010';
+    $roleIdWithMembers = '550e8400-e29b-41d4-a716-446655441011';
+    $roleIdWithoutMembers = '550e8400-e29b-41d4-a716-446655441012';
+    $roleIdWithDeactivatedOnlyMember = '550e8400-e29b-41d4-a716-446655441013';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Marseille'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-5 days'),
+    );
+
+    $roles = [
+      OrganizationRole::reconstitute(
+        id: new OrganizationRoleId($roleIdWithMembers),
+        organizationId: new OrganizationId($organizationId),
+        name: new OrganizationRoleName('technician'),
+        permissions: ['organization.read'],
+        isSystem: false,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
+      OrganizationRole::reconstitute(
+        id: new OrganizationRoleId($roleIdWithoutMembers),
+        organizationId: new OrganizationId($organizationId),
+        name: new OrganizationRoleName('auditor'),
+        permissions: ['organization.read'],
+        isSystem: false,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
+      // A role whose only assignment belongs to a deactivated member: the
+      // grouped repository query filters on `is_active = true`, so this role
+      // is simply absent from the returned map, not present with count 0.
+      OrganizationRole::reconstitute(
+        id: new OrganizationRoleId($roleIdWithDeactivatedOnlyMember),
+        organizationId: new OrganizationId($organizationId),
+        name: new OrganizationRoleName('legacy'),
+        permissions: ['organization.read'],
+        isSystem: false,
+        createdAt: new DateTimeImmutable('-1 day'),
+      ),
+    ];
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($organization);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->willReturn($roles);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('countActiveMembersGroupedByRoleId')
+      ->willReturn([$roleIdWithMembers => 3]);
+
+    $handler = new ListOrganizationRolesHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      memberRepository: $memberRepository,
+    );
+
+    $result = $handler->__invoke(new ListOrganizationRolesQuery($organizationId));
+
+    self::assertCount(3, $result->roles);
+    $memberCountsByRoleId = [];
+    foreach ($result->roles as $role) {
+      $memberCountsByRoleId[$role->id] = $role->memberCount;
+    }
+
+    self::assertSame(3, $memberCountsByRoleId[$roleIdWithMembers]);
+    self::assertSame(0, $memberCountsByRoleId[$roleIdWithoutMembers]);
+    self::assertSame(0, $memberCountsByRoleId[$roleIdWithDeactivatedOnlyMember]);
   }
 
   #[Test]
@@ -85,9 +177,14 @@ final class ListOrganizationRolesHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::never())->method('findByOrganizationId');
 
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('countActiveMembersGroupedByRoleId');
+
     $handler = new ListOrganizationRolesHandler(
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
+      memberRepository: $memberRepository,
     );
 
     $this->expectException(OrganizationNotFoundException::class);

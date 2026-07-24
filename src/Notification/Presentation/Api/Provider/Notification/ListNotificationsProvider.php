@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace Notification\Presentation\Api\Provider\Notification;
 
 use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
+use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Application\UseCase\Query\Notification\ListUserNotifications\{ListUserNotificationsQuery, ListUserNotificationsResult};
 use Notification\Domain\ValueObject\NotificationType;
 use Notification\Presentation\Api\Dto\Output\Notification\NotificationOutput;
-use Shared\Application\Contract\Sorting\SortDirection;
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Port\Inbound\QueryBusPort;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -22,8 +23,6 @@ use function array_map;
 use function in_array;
 use function is_numeric;
 use function is_string;
-use function max;
-use function min;
 use function strtolower;
 use function trim;
 
@@ -40,6 +39,8 @@ use function trim;
  */
 final readonly class ListNotificationsProvider implements ProviderInterface
 {
+  private const int DEFAULT_ITEMS_PER_PAGE = 20;
+
   // #region Constructor
   /**
    * Constructor.
@@ -66,9 +67,9 @@ final readonly class ListNotificationsProvider implements ProviderInterface
    * @param array<string, mixed> $uriVariables URI variables
    * @param array<string, mixed> $context provider context
    *
-   * @return list<NotificationOutput> the notifications
+   * @return TraversablePaginator<NotificationOutput> the paginated notifications
    */
-  public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+  public function provide(Operation $operation, array $uriVariables = [], array $context = []): TraversablePaginator
   {
     $user = $this->security->getUser();
     if (!$user instanceof SecurityUser) {
@@ -79,17 +80,37 @@ final readonly class ListNotificationsProvider implements ProviderInterface
     $filters = $context['filters'] ?? [];
 
     $onlyUnread = $this->toBool($filters['unreadOnly'] ?? false);
-    $limit = $this->toLimit($filters['limit'] ?? 50);
     $type = $this->toNullableString($filters['type'] ?? null);
     $category = $this->toNullableString($filters['category'] ?? null);
+    $organizationId = $this->toNullableString($filters['organization'] ?? null);
+
+    // Backward compatibility: before this endpoint became a real paginated
+    // collection it accepted a bare `limit`, and existing clients still send
+    // it. `limit` is therefore honoured as an alias for `itemsPerPage` —
+    // WITHOUT it, such a client silently gets the default page size while its
+    // own paginator computes offsets for the size it asked for, which skips
+    // and duplicates rows rather than failing visibly.
+    //
+    // Deliberately scoped to this provider rather than added to the shared
+    // `PaginationExtractor`: `limit` is legacy vocabulary for this one
+    // endpoint, and teaching every collection in the API a second pagination
+    // parameter would be a far larger contract change than the one being
+    // repaired. `itemsPerPage` wins when both are present.
+    $legacyLimit = $filters['limit'] ?? null;
+    if (!isset($filters['itemsPerPage']) && is_numeric($legacyLimit)) {
+      $filters['itemsPerPage'] = (int) $legacyLimit;
+    }
+
+    $pagination = PaginationExtractor::fromContext(['filters' => $filters], self::DEFAULT_ITEMS_PER_PAGE);
 
     /** @var ListUserNotificationsResult $result */
     $result = $this->queryBus->ask(new ListUserNotificationsQuery(
       userId: $user->getId(),
       onlyUnread: $onlyUnread,
-      limit: $limit,
+      pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
       type: $type,
       category: $category,
+      organizationId: $organizationId,
     ));
 
     $outputs = array_map(
@@ -97,12 +118,12 @@ final readonly class ListNotificationsProvider implements ProviderInterface
       $result->notifications,
     );
 
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['type', 'category', 'subject', 'body']);
-
-    $sorting = SortingExtractor::fromContext($context, ['type', 'category', 'isRead', 'createdAt'], 'createdAt', SortDirection::DESC);
-
-    return CollectionSorter::sort($outputs, $sorting);
+    return new TraversablePaginator(
+      traversable: new ArrayIterator($outputs),
+      currentPage: (float) $pagination->page,
+      itemsPerPage: (float) $pagination->itemsPerPage,
+      totalItems: (float) $result->total,
+    );
   }
 
   /**
@@ -127,6 +148,7 @@ final readonly class ListNotificationsProvider implements ProviderInterface
     $output->isRead = $result->isRead;
     $output->createdAt = $result->createdAt->format('c');
     $output->readAt = null !== $result->readAt ? $result->readAt->format('c') : null;
+    $output->organizationId = $result->organizationId;
 
     return $output;
   }
@@ -171,26 +193,6 @@ final readonly class ListNotificationsProvider implements ProviderInterface
     }
 
     return in_array(strtolower($value), ['1', 'true', 'yes', 'on'], true);
-  }
-
-  /**
-   * Method toLimit.
-   *
-   * @since 1.0.0
-   *
-   * @param mixed $value the raw value
-   *
-   * @return int the normalized limit
-   */
-  private function toLimit(mixed $value): int
-  {
-    if (!is_numeric($value)) {
-      return 50;
-    }
-
-    $normalized = (int) $value;
-
-    return min(100, max(1, $normalized));
   }
   // #endregion
 }

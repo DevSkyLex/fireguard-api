@@ -7,6 +7,10 @@ namespace Organization\Domain\ValueObject;
 /**
  * Enum OrganizationLegalType.
  *
+ * Country-agnostic legal entity type, used on reports, invoices and
+ * compliance documents alongside the rest of the organization's legal
+ * profile.
+ *
  * @category ValueObject
  *
  * @version 1.0.0
@@ -15,10 +19,12 @@ namespace Organization\Domain\ValueObject;
  */
 enum OrganizationLegalType: string
 {
-  case COMPANY = 'company';
-  case NON_PROFIT = 'non_profit';
-  case PUBLIC_SECTOR = 'public_sector';
-  case INDIVIDUAL = 'individual';
+  case SOLE_PROPRIETORSHIP = 'sole_proprietorship';
+  case PARTNERSHIP = 'partnership';
+  case LIMITED_LIABILITY_COMPANY = 'limited_liability_company';
+  case PUBLIC_LIMITED_COMPANY = 'public_limited_company';
+  case NON_PROFIT_ASSOCIATION = 'non_profit_association';
+  case PUBLIC_ENTITY = 'public_entity';
   case OTHER = 'other';
 
   // #region Methods
@@ -34,29 +40,14 @@ enum OrganizationLegalType: string
   public static function values(): array
   {
     return [
-      self::COMPANY->value,
-      self::NON_PROFIT->value,
-      self::PUBLIC_SECTOR->value,
-      self::INDIVIDUAL->value,
+      self::SOLE_PROPRIETORSHIP->value,
+      self::PARTNERSHIP->value,
+      self::LIMITED_LIABILITY_COMPANY->value,
+      self::PUBLIC_LIMITED_COMPANY->value,
+      self::NON_PROFIT_ASSOCIATION->value,
+      self::PUBLIC_ENTITY->value,
       self::OTHER->value,
     ];
-  }
-
-  /**
-   * Method requiresRegistrationNumber.
-   *
-   * Returns whether a registration number is mandatory for this legal type.
-   *
-   * @since 1.0.0
-   *
-   * @return bool true when registration number is required
-   */
-  public function requiresRegistrationNumber(): bool
-  {
-    return match ($this) {
-      self::COMPANY, self::NON_PROFIT => true,
-      self::PUBLIC_SECTOR, self::INDIVIDUAL, self::OTHER => false,
-    };
   }
   // #endregion
 }

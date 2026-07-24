@@ -8,8 +8,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
-use Inspection\Application\UseCase\Query\Checklist\GetChecklist\GetChecklistResult;
-use Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsQuery;
+use Inspection\Application\UseCase\Query\Checklist\ListChecklists\{ListChecklistResult, ListChecklistsQuery};
 use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Provider\Checklist\ListChecklistsProvider;
 use InvalidArgumentException;
@@ -123,15 +122,16 @@ final class ListChecklistsProviderTest extends TestCase
       }))
       ->willReturn(new PaginatedResult(
         items: [
-          new GetChecklistResult(
+          new ListChecklistResult(
             checklistId: self::CHECKLIST_ID,
             organizationId: self::ORG_ID,
             name: 'Annual Safety Checklist',
             version: '1.0',
             status: 'active',
-            items: [],
+            itemCount: 1,
             createdAt: $now,
             updatedAt: $now,
+            referenceCode: 'CHK-EXT-Q',
           ),
         ],
         total: 1,
@@ -164,7 +164,12 @@ final class ListChecklistsProviderTest extends TestCase
     self::assertInstanceOf(ChecklistOutput::class, $items[0]);
     self::assertSame(self::CHECKLIST_ID, $items[0]->id);
     self::assertSame('Annual Safety Checklist', $items[0]->name);
+    self::assertSame('CHK-EXT-Q', $items[0]->referenceCode);
     self::assertSame('active', $items[0]->status);
+    // Breaking change vs. the previous contract: the list response no
+    // longer ships the full item array, only the scalar count.
+    self::assertSame(1, $items[0]->itemCount);
+    self::assertSame([], $items[0]->items);
   }
 
   #[Test]

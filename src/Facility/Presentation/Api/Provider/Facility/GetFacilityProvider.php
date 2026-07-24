@@ -99,11 +99,15 @@ final readonly class GetFacilityProvider implements ProviderInterface
     $output->id = $result->facilityId;
     $output->organizationId = $result->organizationId;
     $output->parentFacilityId = $result->parentFacilityId;
+    $output->hasChildren = $result->hasChildren;
+    $output->equipmentCount = $result->equipmentCount;
     $output->type = $result->type;
     $output->name = $result->name;
     $output->code = $result->code;
     $output->status = $result->status;
     $output->address = $result->address;
+    $output->latitude = $result->latitude;
+    $output->longitude = $result->longitude;
     $output->metadata = $result->metadata;
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');

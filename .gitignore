@@ -1,4 +1,5 @@
 ###> symfony/framework-bundle ###
+/.env
 /.env.local
 /.env.local.php
 /.env.*.local
@@ -42,3 +43,7 @@ phpstan.neon
 ###> test output ###
 /test_output.txt
 ###< test output ###
+
+###> stray Windows temp-path dirs (e.g. a tool writing to "C:\..." as a relative path) ###
+/[A-Za-z]:/
+###< stray Windows temp-path dirs ###

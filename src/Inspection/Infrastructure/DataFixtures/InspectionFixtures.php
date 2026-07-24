@@ -16,6 +16,10 @@ use Inspection\Domain\ValueObject\{ChecklistStatus, InspectionResult, Inspection
 use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistItemRecord, ChecklistRecord, InspectionRecord, NonConformityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Infrastructure\DataFixtures\SeedTimeline;
+
+use function intdiv;
+use function sprintf;
 
 final class InspectionFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
@@ -59,6 +63,22 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $alarmPanel = $this->getReference(EquipmentFixtures::ALARM_PANEL_REFERENCE, EquipmentRecord::class);
     /** @var EquipmentRecord $heatDetector */
     $heatDetector = $this->getReference(EquipmentFixtures::HEAT_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $siteEmergencyLighting */
+    $siteEmergencyLighting = $this->getReference(EquipmentFixtures::SITE_EMERGENCY_LIGHTING_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $buildingFireDoor */
+    $buildingFireDoor = $this->getReference(EquipmentFixtures::BUILDING_FIRE_DOOR_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $floorOneCamera */
+    $floorOneCamera = $this->getReference(EquipmentFixtures::FLOOR_ONE_CAMERA_REFERENCE, EquipmentRecord::class);
+    /** @var EquipmentRecord $floorTwoGasDetector */
+    $floorTwoGasDetector = $this->getReference(EquipmentFixtures::FLOOR_TWO_GAS_DETECTOR_REFERENCE, EquipmentRecord::class);
+    /** @var FacilityRecord $site */
+    $site = $this->getReference(FacilityFixtures::SITE_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $building */
+    $building = $this->getReference(FacilityFixtures::BUILDING_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $floorOne */
+    $floorOne = $this->getReference(FacilityFixtures::FLOOR_ONE_REFERENCE, FacilityRecord::class);
+    /** @var FacilityRecord $floorTwo */
+    $floorTwo = $this->getReference(FacilityFixtures::FLOOR_TWO_REFERENCE, FacilityRecord::class);
     /** @var FacilityRecord $zone */
     $zone = $this->getReference(FacilityFixtures::ZONE_REFERENCE, FacilityRecord::class);
     /** @var FacilityRecord $area */
@@ -74,8 +94,8 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $checklist->name = 'Monthly Equipment Check';
     $checklist->version = 'v1.0';
     $checklist->status = ChecklistStatus::ACTIVE->value;
-    $checklist->createdAt = new DateTimeImmutable('2026-03-01T08:00:00+00:00');
-    $checklist->updatedAt = new DateTimeImmutable('2026-03-01T08:00:00+00:00');
+    $checklist->createdAt = SeedTimeline::at('2026-03-01T08:00:00+00:00');
+    $checklist->updatedAt = SeedTimeline::at('2026-03-01T08:00:00+00:00');
     $manager->persist($checklist);
     $this->addReference(self::CHECKLIST_REFERENCE, $checklist);
 
@@ -103,7 +123,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-05T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-05T09:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Monthly extinguisher inspection completed successfully.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -120,7 +140,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-10T09:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-10T09:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Detector test passed after routine maintenance.',
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -136,7 +156,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-14T11:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-14T11:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Extinguisher remained operational but signage update was required.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -152,7 +172,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'External Safety Services',
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
-      performedAt: new DateTimeImmutable('2026-03-20T14:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-20T14:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Smoke detector signal did not trigger panel alert.',
       inspectorOrganizationName: 'External Safety Services',
@@ -169,7 +189,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'External Safety Services',
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-24T15:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-24T15:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Detector still failed the panel acknowledgment sequence.',
       inspectorOrganizationName: 'External Safety Services',
@@ -185,7 +205,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
-      performedAt: new DateTimeImmutable('2026-03-29T09:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-29T09:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Detector recovered partially but still requires follow-up calibration.',
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -201,12 +221,177 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-04-01T08:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-04-01T08:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Final verification passed after corrective actions.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
     );
     $manager->persist($recentPassInspection);
+
+    $siteEmergencyLightingInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444484',
+      organization: $organization,
+      equipmentId: $siteEmergencyLighting->id,
+      facilityId: $site->id,
+      inspectorType: InspectorType::USER->value,
+      inspectorName: 'Admin User',
+      result: InspectionResult::PASS->value,
+      status: InspectionStatus::CLOSED->value,
+      performedAt: SeedTimeline::at('2026-04-04T08:00:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Emergency lighting autonomy test passed at site entrance.',
+      inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
+    );
+    $manager->persist($siteEmergencyLightingInspection);
+
+    $buildingFireDoorInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444485',
+      organization: $organization,
+      equipmentId: $buildingFireDoor->id,
+      facilityId: $building->id,
+      inspectorType: InspectorType::EXTERNAL->value,
+      inspectorName: 'SafeCheck Consultants',
+      result: InspectionResult::PARTIAL->value,
+      status: InspectionStatus::SUBMITTED->value,
+      performedAt: SeedTimeline::at('2026-04-04T09:30:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Fire door closes correctly but the closer needs tension adjustment.',
+      inspectorOrganizationName: 'SafeCheck Consultants',
+    );
+    $manager->persist($buildingFireDoorInspection);
+
+    $floorOneCameraInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444486',
+      organization: $organization,
+      equipmentId: $floorOneCamera->id,
+      facilityId: $floorOne->id,
+      inspectorType: InspectorType::USER->value,
+      inspectorName: 'Test User',
+      result: InspectionResult::PASS->value,
+      status: InspectionStatus::CLOSED->value,
+      performedAt: SeedTimeline::at('2026-04-04T10:15:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Camera view, recording, and retention checks passed.',
+      inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
+    );
+    $manager->persist($floorOneCameraInspection);
+
+    $floorTwoGasDetectorInspection = $this->createInspection(
+      id: '44444444-4444-4444-8444-444444444487',
+      organization: $organization,
+      equipmentId: $floorTwoGasDetector->id,
+      facilityId: $floorTwo->id,
+      inspectorType: InspectorType::EXTERNAL->value,
+      inspectorName: 'External Safety Services',
+      result: InspectionResult::FAIL->value,
+      status: InspectionStatus::SUBMITTED->value,
+      performedAt: SeedTimeline::at('2026-04-04T11:00:00+00:00'),
+      checklistId: $checklist->id,
+      notes: 'Gas detector calibration drift exceeded tolerance.',
+      inspectorOrganizationName: 'External Safety Services',
+    );
+    $manager->persist($floorTwoGasDetectorInspection);
+
+    $manager->persist($this->createNonConformity(
+      id: '44444444-4444-4444-8444-444444444488',
+      inspection: $buildingFireDoorInspection,
+      description: 'Door closer tension below expected threshold.',
+      severity: NonConformitySeverity::LOW->value,
+      status: NonConformityStatus::OPEN->value,
+      createdAt: SeedTimeline::at('2026-04-04T09:45:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-04-04T09:45:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-18T12:00:00+00:00'),
+      notes: 'Adjustment can be handled during the next maintenance visit.',
+    ));
+
+    $manager->persist($this->createNonConformity(
+      id: '44444444-4444-4444-8444-444444444489',
+      inspection: $floorTwoGasDetectorInspection,
+      description: 'Calibration drift above tolerance on gas detector channel A.',
+      severity: NonConformitySeverity::HIGH->value,
+      status: NonConformityStatus::IN_PROGRESS->value,
+      createdAt: SeedTimeline::at('2026-04-04T11:20:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-04-04T11:20:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
+      notes: 'Replacement sensor requested from vendor.',
+    ));
+
+    $bulkInspectionIndex = 0;
+    $bulkNonConformityIndex = 0;
+    foreach (EquipmentFixtures::ADDITIONAL_EQUIPMENT_SEEDS as $equipmentIndex => $seed) {
+      /** @var EquipmentRecord $equipment */
+      $equipment = $this->getReference($seed['reference'], EquipmentRecord::class);
+
+      for ($inspectionIndex = 0; $inspectionIndex < 3; ++$inspectionIndex) {
+        $result = match (($equipmentIndex + $inspectionIndex) % 4) {
+          1 => InspectionResult::PARTIAL->value,
+          2 => InspectionResult::FAIL->value,
+          default => InspectionResult::PASS->value,
+        };
+        $status = InspectionResult::PASS->value === $result || 0 === $inspectionIndex
+          ? InspectionStatus::CLOSED->value
+          : InspectionStatus::SUBMITTED->value;
+        $inspectorType = 0 === ($equipmentIndex + $inspectionIndex) % 3
+          ? InspectorType::EXTERNAL->value
+          : InspectorType::USER->value;
+        $performedAt = SeedTimeline::at(sprintf(
+          '2026-04-%02dT%02d:00:00+00:00',
+          6 + intdiv($equipmentIndex, 4),
+          8 + $inspectionIndex,
+        ));
+
+        $inspection = $this->createInspection(
+          id: sprintf('44444444-4444-4444-8444-4444444445%02x', $bulkInspectionIndex++),
+          organization: $organization,
+          equipmentId: $equipment->id,
+          facilityId: $equipment->facilityId,
+          inspectorType: $inspectorType,
+          inspectorName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : (0 === $inspectionIndex % 2 ? 'Admin User' : 'Test User'),
+          result: $result,
+          status: $status,
+          performedAt: $performedAt,
+          checklistId: $checklist->id,
+          notes: sprintf('Seed inspection %d for %s.', $inspectionIndex + 1, $seed['locationLabel']),
+          inspectorUserId: InspectorType::USER->value === $inspectorType ? (0 === $inspectionIndex % 2 ? 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890' : 'b2c3d4e5-f6a7-4901-8cde-f23456789012') : null,
+          inspectorOrganizationName: InspectorType::EXTERNAL->value === $inspectorType ? 'SafeCheck Consultants' : null,
+        );
+        $manager->persist($inspection);
+
+        if (InspectionResult::PASS->value !== $result) {
+          $nonConformityIndex = $bulkNonConformityIndex++;
+
+          // Severity and status are spread deterministically across all four
+          // values so the register's severity breakdown is never a single
+          // flat bar — a FAIL still skews high/critical, a PARTIAL low/medium.
+          $severity = InspectionResult::FAIL->value === $result
+            ? (0 === $nonConformityIndex % 3 ? NonConformitySeverity::CRITICAL->value : NonConformitySeverity::HIGH->value)
+            : (0 === $nonConformityIndex % 2 ? NonConformitySeverity::LOW->value : NonConformitySeverity::MEDIUM->value);
+          $nonConformityStatus = match ($nonConformityIndex % 5) {
+            0 => NonConformityStatus::IN_PROGRESS->value,
+            3 => NonConformityStatus::DONE->value,
+            4 => NonConformityStatus::WAIVED->value,
+            default => NonConformityStatus::OPEN->value,
+          };
+          $isResolved = NonConformityStatus::DONE->value === $nonConformityStatus
+            || NonConformityStatus::WAIVED->value === $nonConformityStatus;
+
+          $manager->persist($this->createNonConformity(
+            id: sprintf('44444444-4444-4444-8444-4444444446%02x', $nonConformityIndex),
+            inspection: $inspection,
+            description: InspectionResult::FAIL->value === $result
+              ? sprintf('%s failed validation during seeded inspection.', $seed['locationLabel'])
+              : sprintf('%s requires follow-up adjustment after seeded inspection.', $seed['locationLabel']),
+            severity: $severity,
+            status: $nonConformityStatus,
+            createdAt: $performedAt->modify('+15 minutes'),
+            updatedAt: $performedAt->modify($isResolved ? '+6 days' : '+15 minutes'),
+            dueAt: $isResolved ? null : $performedAt->modify('+14 days'),
+            resolvedAt: $isResolved ? $performedAt->modify('+6 days') : null,
+            notes: 'Generated from dense seed fixture data.',
+          ));
+        }
+      }
+    }
 
     $manager->persist($this->createNonConformity(
       id: '44444444-4444-4444-8444-444444444448',
@@ -214,9 +399,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Pressure gauge label needed replacement.',
       severity: NonConformitySeverity::MEDIUM->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-03-14T11:15:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-16T09:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-03-16T09:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-14T11:15:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-16T09:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-03-16T09:00:00+00:00'),
       notes: 'Label replaced during the next maintenance round.',
     ));
 
@@ -226,9 +411,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Alarm propagation failed during smoke detector test.',
       severity: NonConformitySeverity::CRITICAL->value,
       status: NonConformityStatus::OPEN->value,
-      createdAt: new DateTimeImmutable('2026-03-20T14:30:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-20T14:30:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-03-29T12:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-20T14:30:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-20T14:30:00+00:00'),
+      dueAt: SeedTimeline::at('2026-03-29T12:00:00+00:00'),
       notes: 'Requires panel and detector troubleshooting.',
     ));
 
@@ -238,9 +423,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Detector casing needed repositioning.',
       severity: NonConformitySeverity::LOW->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-03-20T14:35:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-24T11:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-03-24T11:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-20T14:35:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-24T11:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-03-24T11:00:00+00:00'),
       notes: 'Resolved after bracket replacement.',
     ));
 
@@ -250,9 +435,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Temporary alert delay accepted until replacement kit arrives.',
       severity: NonConformitySeverity::HIGH->value,
       status: NonConformityStatus::WAIVED->value,
-      createdAt: new DateTimeImmutable('2026-03-21T08:30:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-28T10:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-03-28T10:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-21T08:30:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-28T10:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-03-28T10:00:00+00:00'),
       notes: 'Risk accepted temporarily by the safety lead.',
     ));
 
@@ -262,9 +447,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Control panel acknowledgment sequence still unstable.',
       severity: NonConformitySeverity::MEDIUM->value,
       status: NonConformityStatus::IN_PROGRESS->value,
-      createdAt: new DateTimeImmutable('2026-03-24T16:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-27T14:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-04-03T12:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-24T16:00:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-27T14:00:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-03T12:00:00+00:00'),
       notes: 'Vendor intervention scheduled.',
     ));
 
@@ -274,9 +459,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Calibration drift corrected after follow-up inspection.',
       severity: NonConformitySeverity::LOW->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-03-31T09:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-04-01T08:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-04-01T08:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-31T09:00:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-04-01T08:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-04-01T08:00:00+00:00'),
       notes: 'Resolved after recalibration and validation.',
     ));
 
@@ -287,8 +472,8 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
     $annualChecklist->name = 'Annual Safety Audit';
     $annualChecklist->version = 'v1.0';
     $annualChecklist->status = ChecklistStatus::ACTIVE->value;
-    $annualChecklist->createdAt = new DateTimeImmutable('2026-02-01T08:00:00+00:00');
-    $annualChecklist->updatedAt = new DateTimeImmutable('2026-02-01T08:00:00+00:00');
+    $annualChecklist->createdAt = SeedTimeline::at('2026-02-01T08:00:00+00:00');
+    $annualChecklist->updatedAt = SeedTimeline::at('2026-02-01T08:00:00+00:00');
     $manager->persist($annualChecklist);
     $this->addReference(self::ANNUAL_CHECKLIST_REFERENCE, $annualChecklist);
 
@@ -317,7 +502,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-02-10T10:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-02-10T10:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Annual hydrant inspection passed with no deficiencies.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -334,7 +519,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'AquaFire Maintenance',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-02-20T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-02-20T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Sprinkler head coverage confirmed, flow test passed.',
       inspectorOrganizationName: 'AquaFire Maintenance',
@@ -351,7 +536,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'SafeCheck Consultants',
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-02-25T13:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-02-25T13:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Panel functional but event log exceeded manufacturer threshold.',
       inspectorOrganizationName: 'SafeCheck Consultants',
@@ -364,9 +549,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Event log buffer over 80% capacity, requires archiving.',
       severity: NonConformitySeverity::MEDIUM->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-02-25T13:30:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-02T10:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-03-02T10:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-02-25T13:30:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-02T10:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-03-02T10:00:00+00:00'),
       notes: 'Log archived and buffer reset by certified technician.',
     ));
 
@@ -376,9 +561,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Zone 3 supervision fault indicator occasionally flashing.',
       severity: NonConformitySeverity::LOW->value,
       status: NonConformityStatus::IN_PROGRESS->value,
-      createdAt: new DateTimeImmutable('2026-02-25T13:35:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-05T09:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-04-10T12:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-02-25T13:35:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-05T09:00:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-10T12:00:00+00:00'),
       notes: 'Wiring inspection scheduled, intermittent fault under investigation.',
     ));
 
@@ -392,7 +577,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::DRAFT->value,
-      performedAt: new DateTimeImmutable('2026-03-18T08:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-18T08:00:00+00:00'),
       checklistId: $checklist->id,
       notes: null,
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -409,7 +594,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-04-02T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-04-02T09:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Extinguisher redeployed to server room entrance after last maintenance.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -426,7 +611,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::SUBMITTED->value,
-      performedAt: new DateTimeImmutable('2026-04-03T07:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-04-03T07:30:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'One sprinkler head showed minor corrosion, replacement ordered.',
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -439,9 +624,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Corrosion visible on sprinkler head at position 4B.',
       severity: NonConformitySeverity::HIGH->value,
       status: NonConformityStatus::OPEN->value,
-      createdAt: new DateTimeImmutable('2026-04-03T07:45:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-04-03T07:45:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-04-17T12:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-04-03T07:45:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-04-03T07:45:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-17T12:00:00+00:00'),
       notes: 'Replacement part ordered, estimated delivery within 10 days.',
     ));
 
@@ -457,7 +642,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-01-06T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-01-06T09:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'January routine check – extinguisher in good condition.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -474,7 +659,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-01-12T10:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-01-12T10:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Smoke detector operational. Battery level nominal.',
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -491,7 +676,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'AquaFire Maintenance',
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-01-19T14:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-01-19T14:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Hydrant coupling thread worn, pressure drop observed.',
       inspectorOrganizationName: 'AquaFire Maintenance',
@@ -504,9 +689,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Hydrant coupling thread worn, coupling replacement required.',
       severity: NonConformitySeverity::HIGH->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-01-19T14:30:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-03T11:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-02-03T11:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-01-19T14:30:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-02-03T11:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-02-03T11:00:00+00:00'),
       notes: 'Coupling replaced by certified technician on Feb 3.',
     ));
 
@@ -520,7 +705,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-01-23T11:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-01-23T11:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Alarm panel self-test passed. All zones responsive.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -537,7 +722,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'AquaFire Maintenance',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-01-28T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-01-28T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Post-installation commissioning test passed.',
       inspectorOrganizationName: 'AquaFire Maintenance',
@@ -556,7 +741,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-02-05T08:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-02-05T08:30:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Heat detector response time within spec.',
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -573,7 +758,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-02-14T10:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-02-14T10:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Extinguisher functional but service sticker expired.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -586,9 +771,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Service sticker expired – maintenance log not updated after last charge.',
       severity: NonConformitySeverity::LOW->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-02-14T10:15:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-02-15T09:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-02-15T09:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-02-14T10:15:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-02-15T09:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-02-15T09:00:00+00:00'),
       notes: 'Sticker updated and log corrected on site.',
     ));
 
@@ -604,7 +789,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Test User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-04T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-04T09:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Sprinkler monthly check passed. No anomaly detected.',
       inspectorUserId: 'b2c3d4e5-f6a7-4901-8cde-f23456789012',
@@ -621,7 +806,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'SafeCheck Consultants',
       result: InspectionResult::FAIL->value,
       status: InspectionStatus::SUBMITTED->value,
-      performedAt: new DateTimeImmutable('2026-03-11T13:30:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-11T13:30:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Zone 2 failed to report to central panel during test sequence.',
       inspectorOrganizationName: 'SafeCheck Consultants',
@@ -634,9 +819,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Zone 2 end-of-line resistor missing, zone supervision lost.',
       severity: NonConformitySeverity::CRITICAL->value,
       status: NonConformityStatus::IN_PROGRESS->value,
-      createdAt: new DateTimeImmutable('2026-03-11T14:00:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-28T09:00:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-04-11T12:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-11T14:00:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-28T09:00:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
       notes: 'Wire pinched behind panel cabinet. Repair kit ordered.',
     ));
 
@@ -646,9 +831,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Remote annunciator display blank during Zone 2 test.',
       severity: NonConformitySeverity::MEDIUM->value,
       status: NonConformityStatus::OPEN->value,
-      createdAt: new DateTimeImmutable('2026-03-11T14:05:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-11T14:05:00+00:00'),
-      dueAt: new DateTimeImmutable('2026-04-11T12:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-11T14:05:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-11T14:05:00+00:00'),
+      dueAt: SeedTimeline::at('2026-04-11T12:00:00+00:00'),
       notes: 'Likely caused by same wiring fault. Pending repair validation.',
     ));
 
@@ -662,7 +847,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PARTIAL->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-17T10:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-17T10:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Heat detector slow to respond during candle test, within tolerance but flagged.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',
@@ -675,9 +860,9 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       description: 'Response time 8.2 s vs. 6 s spec – sensor aging suspected.',
       severity: NonConformitySeverity::MEDIUM->value,
       status: NonConformityStatus::DONE->value,
-      createdAt: new DateTimeImmutable('2026-03-17T10:20:00+00:00'),
-      updatedAt: new DateTimeImmutable('2026-03-25T10:00:00+00:00'),
-      resolvedAt: new DateTimeImmutable('2026-03-25T10:00:00+00:00'),
+      createdAt: SeedTimeline::at('2026-03-17T10:20:00+00:00'),
+      updatedAt: SeedTimeline::at('2026-03-25T10:00:00+00:00'),
+      resolvedAt: SeedTimeline::at('2026-03-25T10:00:00+00:00'),
       notes: 'Sensor replaced under warranty. Re-test confirmed 5.8 s response.',
     ));
 
@@ -691,7 +876,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'AquaFire Maintenance',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-03-26T09:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-03-26T09:00:00+00:00'),
       checklistId: $annualChecklist->id,
       notes: 'Post-repair validation passed. Coupling threads confirmed sound.',
       inspectorOrganizationName: 'AquaFire Maintenance',
@@ -710,7 +895,7 @@ final class InspectionFixtures extends Fixture implements DependentFixtureInterf
       inspectorName: 'Admin User',
       result: InspectionResult::PASS->value,
       status: InspectionStatus::CLOSED->value,
-      performedAt: new DateTimeImmutable('2026-04-03T08:00:00+00:00'),
+      performedAt: SeedTimeline::at('2026-04-03T08:00:00+00:00'),
       checklistId: $checklist->id,
       notes: 'Follow-up check after sensor replacement. Response time compliant.',
       inspectorUserId: 'a1b2c3d4-e5f6-4890-8bcd-ef1234567890',

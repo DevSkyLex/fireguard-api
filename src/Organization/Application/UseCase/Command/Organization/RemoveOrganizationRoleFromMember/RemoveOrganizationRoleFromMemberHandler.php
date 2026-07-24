@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember;
 
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
+use Organization\Domain\Event\Role\OrganizationRoleUnassignedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * UseCase RemoveOrganizationRoleFromMemberHandler.
@@ -32,11 +34,13 @@ final readonly class RemoveOrganizationRoleFromMemberHandler implements CommandH
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
+   * @param EventDispatcherPort $eventDispatcher the event dispatcher
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -77,6 +81,12 @@ final readonly class RemoveOrganizationRoleFromMemberHandler implements CommandH
     }
 
     $this->memberRepository->unassignRole($memberId, $roleId);
+
+    $this->eventDispatcher->dispatch(new OrganizationRoleUnassignedEvent(
+      organizationId: $command->organizationId,
+      memberId: $command->memberId,
+      roleId: $command->roleId,
+    ));
 
     return new RemoveOrganizationRoleFromMemberResult(
       memberId: (string) $memberId,

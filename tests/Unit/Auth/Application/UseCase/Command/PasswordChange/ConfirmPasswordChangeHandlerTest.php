@@ -1,0 +1,192 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Auth\Application\UseCase\Command\PasswordChange;
+
+use Auth\Application\Port\Outbound\TokenRevocationPort;
+use Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange\{
+  ConfirmPasswordChangeCommand,
+  ConfirmPasswordChangeHandler,
+  ConfirmPasswordChangeResult
+};
+use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
+use Otp\Domain\Model\Otp;
+use Otp\Domain\ValueObject\{OtpChannel, OtpId, OtpPurpose};
+use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Session\Application\Port\Outbound\SessionRepositoryPort;
+use Shared\Domain\ValueObject\Email;
+use Tests\Helper\TestEventIdProvider;
+use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
+
+#[CoversClass(ConfirmPasswordChangeHandler::class)]
+final class ConfirmPasswordChangeHandlerTest extends TestCase
+{
+  private const string USER_ID = '00000000-0000-4000-a000-000000000001';
+
+  private const string OTP_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+  private const string NEW_PASSWORD = 'NewSecureP@ss1!';
+
+  // #region Methods
+  #[Test]
+  public function testFailsWhenTokenIsUnknown(): void
+  {
+    $otpRepo = $this->createStub(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn(null);
+
+    $result = $this->makeHandler(otpRepository: $otpRepo)(
+      $this->makeCommand(code: '123456')
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN, $result->errorCode);
+  }
+
+  #[Test]
+  public function testFailsWhenOtpBelongsToAnotherUser(): void
+  {
+    $otp = $this->makeOtp(userId: 'another-user', purpose: OtpPurpose::SENSITIVE_OPERATION);
+
+    $otpRepo = $this->createStub(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+
+    $result = $this->makeHandler(otpRepository: $otpRepo)(
+      $this->makeCommand(code: $otp->code()->plain())
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN, $result->errorCode);
+  }
+
+  #[Test]
+  public function testFailsWhenOtpHasWrongPurpose(): void
+  {
+    $otp = $this->makeOtp(userId: self::USER_ID, purpose: OtpPurpose::PASSWORD_RESET);
+
+    $otpRepo = $this->createStub(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+
+    $result = $this->makeHandler(otpRepository: $otpRepo)(
+      $this->makeCommand(code: $otp->code()->plain())
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN, $result->errorCode);
+  }
+
+  #[Test]
+  public function testFailsWhenCodeIsInvalid(): void
+  {
+    $otp = $this->makeOtp(userId: self::USER_ID, purpose: OtpPurpose::SENSITIVE_OPERATION);
+
+    /** @var OtpRepositoryPort&MockObject $otpRepo */
+    $otpRepo = $this->createMock(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+    // Failed attempt must be persisted
+    $otpRepo->expects(self::once())->method('save')->with($otp);
+
+    $result = $this->makeHandler(otpRepository: $otpRepo)(
+      $this->makeCommand(code: '000000')
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_INVALID_CODE, $result->errorCode);
+  }
+
+  #[Test]
+  public function testChangesPasswordAndRevokesSessionsOnSuccess(): void
+  {
+    $otp = $this->makeOtp(userId: self::USER_ID, purpose: OtpPurpose::SENSITIVE_OPERATION);
+    $code = $otp->code()->plain();
+    $user = $this->makeUser();
+
+    /** @var OtpRepositoryPort&MockObject $otpRepo */
+    $otpRepo = $this->createMock(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+    $otpRepo->expects(self::once())->method('save')->with($otp);
+
+    /** @var UserRepositoryPort&MockObject $userRepo */
+    $userRepo = $this->createMock(UserRepositoryPort::class);
+    $userRepo->method('findById')->willReturn($user);
+    $userRepo->expects(self::once())->method('save')->with($user);
+
+    /** @var SessionRepositoryPort&MockObject $sessionRepo */
+    $sessionRepo = $this->createMock(SessionRepositoryPort::class);
+    $sessionRepo->expects(self::once())->method('revokeAllForUser')->with(self::USER_ID);
+
+    /** @var TokenRevocationPort&MockObject $tokenRevocation */
+    $tokenRevocation = $this->createMock(TokenRevocationPort::class);
+    $tokenRevocation->expects(self::once())->method('revokeAllUserTokens')->with(self::USER_ID);
+
+    $handler = $this->makeHandler(
+      otpRepository: $otpRepo,
+      userRepository: $userRepo,
+      sessionRepository: $sessionRepo,
+      tokenRevocation: $tokenRevocation,
+    );
+
+    $result = $handler($this->makeCommand(code: $code));
+
+    self::assertTrue($result->success);
+    self::assertTrue($user->authenticate(self::NEW_PASSWORD));
+  }
+  // #endregion
+
+  // #region Helpers
+  private function makeHandler(
+    ?OtpRepositoryPort $otpRepository = null,
+    ?UserRepositoryPort $userRepository = null,
+    ?SessionRepositoryPort $sessionRepository = null,
+    ?TokenRevocationPort $tokenRevocation = null,
+  ): ConfirmPasswordChangeHandler {
+    return new ConfirmPasswordChangeHandler(
+      otpRepository: $otpRepository ?? $this->createStub(OtpRepositoryPort::class),
+      userRepository: $userRepository ?? $this->createStub(UserRepositoryPort::class),
+      sessionRepository: $sessionRepository ?? $this->createStub(SessionRepositoryPort::class),
+      tokenRevocation: $tokenRevocation ?? $this->createStub(TokenRevocationPort::class),
+    );
+  }
+
+  private function makeCommand(string $code): ConfirmPasswordChangeCommand
+  {
+    return new ConfirmPasswordChangeCommand(
+      userId: self::USER_ID,
+      token: 'a-valid-challenge-token-string',
+      code: $code,
+      newPassword: self::NEW_PASSWORD,
+    );
+  }
+
+  private function makeOtp(string $userId, OtpPurpose $purpose): Otp
+  {
+    return Otp::generate(
+      id: new OtpId(self::OTP_ID),
+      userId: $userId,
+      purpose: $purpose,
+      channel: OtpChannel::EMAIL,
+      recipient: 'jdoe@example.com',
+    );
+  }
+
+  private function makeUser(): User
+  {
+    $user = User::register(
+      id: new UserId(self::USER_ID),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain('OldP@ssw0rd!'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+    $user->verifyEmail(new TestEventIdProvider());
+    $user->activate();
+
+    return $user;
+  }
+  // #endregion
+}

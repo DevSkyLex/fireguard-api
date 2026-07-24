@@ -61,7 +61,8 @@ final class OrganizationOnboardingProviderTest extends TestCase
     self::assertSame('create_organization', $output->nextStep);
     self::assertCount(5, $output->steps);
     self::assertSame('create_organization', $output->steps[0]->key);
-    self::assertSame('invite_members', $output->steps[1]->key);
+    self::assertSame('select_plan', $output->steps[1]->key);
+    self::assertSame('invite_members', $output->steps[2]->key);
   }
 
   private function createSecurityUser(string $id): SecurityUser

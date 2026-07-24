@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit\Inspection\Application\UseCase\Command\Inspection\CloseInspection;
 
 use DateTimeImmutable;
-use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Application\Port\Outbound\{InspectionMaintenanceSynchronizerPort, InspectionRepositoryPort};
 use Inspection\Application\UseCase\Command\Inspection\CloseInspection\{
   CloseInspectionCommand,
   CloseInspectionHandler,
   CloseInspectionResult
 };
+use Inspection\Domain\Event\Inspection\InspectionClosedEvent;
 use Inspection\Domain\Exception\{
   InspectionNotFoundException,
   InspectionNotSubmittedException
@@ -27,6 +28,9 @@ use Inspection\Domain\ValueObject\{
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Test CloseInspectionHandlerTest.
@@ -54,12 +58,35 @@ final class CloseInspectionHandlerTest extends TestCase
     /** @var InspectionRepositoryPort&MockObject $repository */
     $repository = $this->createMock(InspectionRepositoryPort::class);
     $repository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($inspection);
     $repository->expects(self::once())
       ->method('save');
 
-    $handler = new CloseInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof InspectionClosedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::INSP_ID === $event->inspectionId
+          && self::EQUIP_ID === $event->equipmentId
+          && InspectionResult::PASS->value === $event->result,
+      ));
+
+    /** @var InspectionMaintenanceSynchronizerPort&MockObject $maintenanceSynchronizer */
+    $maintenanceSynchronizer = $this->createMock(InspectionMaintenanceSynchronizerPort::class);
+    $maintenanceSynchronizer->expects(self::once())
+      ->method('onInspectionClosed')
+      ->with(self::ORG_ID, self::EQUIP_ID, self::isInstanceOf(DateTimeImmutable::class));
+
+    $handler = new CloseInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+      maintenanceSynchronizer: $maintenanceSynchronizer,
+      logger: new NullLogger(),
+    );
 
     $result = $handler->__invoke(new CloseInspectionCommand(
       organizationId: self::ORG_ID,
@@ -73,12 +100,52 @@ final class CloseInspectionHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeSucceedsWhenMaintenanceSynchronizationFails(): void
+  {
+    $inspection = $this->makeSubmittedInspection();
+
+    $repository = $this->createStub(InspectionRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($inspection);
+
+    $eventDispatcher = $this->createStub(EventDispatcherPort::class);
+
+    /** @var InspectionMaintenanceSynchronizerPort&MockObject $maintenanceSynchronizer */
+    $maintenanceSynchronizer = $this->createMock(InspectionMaintenanceSynchronizerPort::class);
+    $maintenanceSynchronizer->expects(self::once())
+      ->method('onInspectionClosed')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $handler = new CloseInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+      maintenanceSynchronizer: $maintenanceSynchronizer,
+      logger: new NullLogger(),
+    );
+
+    $result = $handler->__invoke(new CloseInspectionCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+    ));
+
+    self::assertSame(InspectionStatus::CLOSED->value, $result->status);
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn(null);
+    $repository->method('findPublishedById')->willReturn(null);
 
-    $handler = new CloseInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CloseInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+      maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
+      logger: new NullLogger(),
+    );
 
     $this->expectException(InspectionNotFoundException::class);
 
@@ -94,9 +161,18 @@ final class CloseInspectionHandlerTest extends TestCase
     $inspection = $this->makeSubmittedInspection();
 
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
 
-    $handler = new CloseInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CloseInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+      maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
+      logger: new NullLogger(),
+    );
 
     $this->expectException(InspectionNotFoundException::class);
 
@@ -112,9 +188,18 @@ final class CloseInspectionHandlerTest extends TestCase
     $inspection = $this->makeDraftInspection();
 
     $repository = $this->createStub(InspectionRepositoryPort::class);
-    $repository->method('findById')->willReturn($inspection);
+    $repository->method('findPublishedById')->willReturn($inspection);
 
-    $handler = new CloseInspectionHandler(inspectionRepository: $repository);
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CloseInspectionHandler(
+      inspectionRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+      maintenanceSynchronizer: $this->createStub(InspectionMaintenanceSynchronizerPort::class),
+      logger: new NullLogger(),
+    );
 
     $this->expectException(InspectionNotSubmittedException::class);
 

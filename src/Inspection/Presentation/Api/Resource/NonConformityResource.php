@@ -10,7 +10,7 @@ use Inspection\Presentation\Api\Dto\Input\NonConformity\{AddNonConformityInput, 
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Operation\InspectionOperations;
 use Inspection\Presentation\Api\Processor\NonConformity\{AddNonConformityProcessor, UpdateNonConformityStatusProcessor};
-use Inspection\Presentation\Api\Provider\NonConformity\{GetNonConformityProvider, ListNonConformitiesProvider};
+use Inspection\Presentation\Api\Provider\NonConformity\{GetNonConformityProvider, ListNonConformitiesProvider, ListOrganizationNonConformitiesProvider};
 use Inspection\Presentation\Api\Serialization\InspectionSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -62,6 +62,31 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Inspection not found'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new GetCollection(
+      name: InspectionOperations::LIST_ORGANIZATION_NON_CONFORMITIES,
+      uriTemplate: '/{organizationId}/non-conformities',
+      input: false,
+      output: NonConformityOutput::class,
+      provider: ListOrganizationNonConformitiesProvider::class,
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
+      normalizationContext: ['groups' => [InspectionSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Inspection'],
+        summary: 'List organization non-conformities',
+        description: 'Lists non-conformities across every inspection of an organization, newest first.',
+        parameters: [
+          new Parameter(name: 'severity', in: 'query', description: 'Filter by severity (low, medium, high, critical)', required: false, schema: ['type' => 'string']),
+          new Parameter(name: 'status', in: 'query', description: 'Filter by status (open, in_progress, done, waived)', required: false, schema: ['type' => 'string']),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Non-conformity list'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
         ],
       ),

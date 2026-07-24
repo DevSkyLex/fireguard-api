@@ -4,13 +4,25 @@ declare(strict_types=1);
 
 namespace Organization\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Post};
-use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
-use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationInput;
-use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
+use ApiPlatform\OpenApi\Model\{Operation, Parameter, RequestBody, Response};
+use ArrayObject;
+use Organization\Presentation\Api\Dto\Input\Organization\{ChangeOrganizationPlanInput, CreateOrganizationInput, UpdateOrganizationSettingsInput};
+use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationQuotaOutput};
 use Organization\Presentation\Api\Operation\OrganizationOperations;
-use Organization\Presentation\Api\Processor\Organization\CreateOrganizationProcessor;
-use Organization\Presentation\Api\Provider\Organization\{GetOrganizationProvider, ListUserOrganizationsProvider};
+use Organization\Presentation\Api\Processor\Organization\{
+  ChangeOrganizationPlanProcessor,
+  CreateOrganizationProcessor,
+  DeleteOrganizationProcessor,
+  UpdateOrganizationSettingsProcessor,
+  UploadOrganizationLogoProcessor
+};
+use Organization\Presentation\Api\Provider\Organization\{
+  GetOrganizationLogoProvider,
+  GetOrganizationProvider,
+  GetOrganizationQuotaProvider,
+  ListUserOrganizationsProvider
+};
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -85,6 +97,153 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Organization'],
         summary: 'Get Organization',
         description: 'Returns Organization details if the user has Organization.read permission in that Organization.',
+      ),
+    ),
+    new Patch(
+      name: OrganizationOperations::UPDATE_ORGANIZATION_SETTINGS,
+      uriTemplate: '/{id}',
+      read: false,
+      input: UpdateOrganizationSettingsInput::class,
+      output: OrganizationOutput::class,
+      processor: UpdateOrganizationSettingsProcessor::class,
+      denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Update Organization settings',
+        description: 'Updates organization settings — general & branding (name, slug, description, active status) plus the notifications and regional sections. Requires the organization.settings.write permission.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Organization updated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - validation failed'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Slug already in use'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+        ],
+      ),
+    ),
+    new Get(
+      name: OrganizationOperations::GET_ORGANIZATION_QUOTA,
+      uriTemplate: '/{organizationId}/quota',
+      input: false,
+      output: OrganizationQuotaOutput::class,
+      provider: GetOrganizationQuotaProvider::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Get Organization quota usage',
+        description: 'Returns the current usage and plan limit of each capped resource (members, facilities, equipment, inspections). Requires the organization.read permission.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Quota usage retrieved'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+        ],
+      ),
+    ),
+    new Patch(
+      name: OrganizationOperations::CHANGE_ORGANIZATION_PLAN,
+      uriTemplate: '/{id}/plan',
+      read: false,
+      input: ChangeOrganizationPlanInput::class,
+      output: OrganizationOutput::class,
+      processor: ChangeOrganizationPlanProcessor::class,
+      denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Change Organization plan',
+        description: 'Assigns a subscription plan to the organization. Self-service — requires the organization.settings.write permission. When the target plan\'s caps sit below the current usage, the change is refused with HTTP 409 listing the exceeded resources; re-submit with acknowledgeOveruse: true to confirm the downgrade.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Organization plan updated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid request - plan not selectable'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or plan not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Paid plan requires the billing checkout flow, or current usage exceeds the selected plan limits (confirm with acknowledgeOveruse)'),
+        ],
+      ),
+    ),
+    new Post(
+      name: OrganizationOperations::UPLOAD_ORGANIZATION_LOGO,
+      uriTemplate: '/{organizationId}/logo',
+      input: false,
+      output: OrganizationOutput::class,
+      processor: UploadOrganizationLogoProcessor::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Upload Organization logo',
+        description: 'Uploads a logo image for the organization. Accepted formats: JPEG, PNG, WebP, GIF (max 5 MB). The image is scaled down to a single WebP variant. Requires the organization.settings.write permission.',
+        requestBody: new RequestBody(
+          description: 'Logo image file (JPEG, PNG, WebP or GIF, max 5 MB)',
+          content: new ArrayObject([
+            'multipart/form-data' => [
+              'schema' => [
+                'type' => 'object',
+                'required' => ['logo'],
+                'properties' => [
+                  'logo' => [
+                    'type' => 'string',
+                    'format' => 'binary',
+                    'description' => 'Image file (JPEG, PNG, WebP or GIF), max 5 MB',
+                  ],
+                ],
+              ],
+            ],
+          ]),
+          required: true,
+        ),
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Logo uploaded — organization output with updated logoUrl returned'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Invalid file — missing, too large, or unsupported MIME type'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+        ],
+      ),
+    ),
+    new Get(
+      name: OrganizationOperations::GET_ORGANIZATION_LOGO,
+      uriTemplate: '/{organizationId}/logo.webp',
+      input: false,
+      output: false,
+      provider: GetOrganizationLogoProvider::class,
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Get Organization logo',
+        description: 'Streams the organization logo as WebP. Public endpoint.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Logo image (WebP)'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization logo not found'),
+        ],
+      ),
+    ),
+    new Delete(
+      name: OrganizationOperations::DELETE_ORGANIZATION,
+      uriTemplate: '/{id}',
+      input: false,
+      output: false,
+      processor: DeleteOrganizationProcessor::class,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Archive Organization',
+        description: 'Archives the organization (reversible soft delete — NOT a permanent removal): it is hidden from the default listing and its owned data (facilities, equipment, inspections, interventions) is preserved rather than orphaned, and can be restored through the settings PATCH (isActive: true). Requires the organization.delete permission plus a danger-zone confirmation: the "slug" query parameter must exactly match the organization\'s current slug (case-insensitive, trimmed). A missing or mismatched confirmation is rejected with HTTP 422 and nothing is archived. Idempotent when already archived, provided the confirmation is still correct.',
+        parameters: [
+          new Parameter(
+            name: 'slug',
+            in: 'query',
+            required: true,
+            description: 'Danger-zone confirmation: the organization\'s current slug, typed by the caller.',
+            schema: ['type' => 'string'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Organization archived'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Missing or mismatched slug confirmation'),
+        ],
       ),
     ),
   ],

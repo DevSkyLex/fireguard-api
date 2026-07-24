@@ -23,7 +23,7 @@ final readonly class ListMaintenanceLogsResult implements ResultMessage
    *
    * @since 1.0.0
    *
-   * @param list<array{id: string, equipmentId: string, organizationId: string, startedAt: string, completedAt: ?string}> $logs the log list
+   * @param list<array{id: string, equipmentId: string, organizationId: string, startedAt: string, completedAt: ?string, source: string, interventionId: ?string, interventionNumber: ?int, workItemAction: ?string, actorId: ?string, summary: ?string}> $logs the log list
    * @param int $total the total count unaffected by pagination
    */
   public function __construct(

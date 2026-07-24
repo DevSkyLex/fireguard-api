@@ -182,6 +182,9 @@ HELP
         organizationId: $organizationIdStr,
         userId: $userId,
         roleIds: [$ownerRole->id()->value],
+        // Break-glass/operator path: granting an owner must not be blocked by the
+        // plan member cap (e.g. recovering an org left over-cap by a downgrade).
+        enforceQuota: false,
       ));
 
       $io->success(sprintf(

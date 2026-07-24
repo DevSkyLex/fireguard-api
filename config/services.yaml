@@ -6,6 +6,8 @@
 parameters:
   shared.file_storage.base_path: '%kernel.project_dir%/var/storage'
   database_storage_timezone_default: 'UTC'
+  # Public frontend base URL used to build deep links in transactional emails
+  app.frontend_url: '%env(APP_FRONTEND_URL)%'
   # Security headers configuration with defaults
   security_headers.enabled_default: 'true'
   security_headers.csp_default: ''
@@ -41,5 +43,11 @@ services:
       - { name: 'kernel.event_listener', event: 'console.command', method: 'onConsoleCommand' }
       - { name: 'doctrine.dbal.schema_filter', connection: 'auth' }
       - { name: 'doctrine.dbal.schema_filter', connection: 'main' }
+
+  # Re-declares main's PostgreSQL partial indexes (which ORM attributes cannot
+  # express) so schema:validate and migrations:diff stop flagging them as drift.
+  Shared\Infrastructure\Doctrine\PartialIndexSchemaListener:
+    tags:
+      - { name: 'doctrine.event_listener', event: 'postGenerateSchema', connection: 'main' }
 
 

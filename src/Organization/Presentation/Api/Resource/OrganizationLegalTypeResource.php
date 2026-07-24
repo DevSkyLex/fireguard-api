@@ -5,25 +5,17 @@ declare(strict_types=1);
 namespace Organization\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, GetCollection};
-use ApiPlatform\OpenApi\Model\{Operation, Parameter};
+use ApiPlatform\OpenApi\Model\{Operation, Response};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationLegalTypeOptionOutput;
 use Organization\Presentation\Api\Operation\OrganizationOperations;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationLegalTypesProvider;
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
-/**
- * Resource OrganizationLegalTypeResource.
- *
- * @category Resource
- *
- * @version 1.0.0
- *
- * @author Valentin FORTIN <contact@valentin-fortin.pro>
- */
 #[ApiResource(
   shortName: 'OrganizationLegalType',
   routePrefix: '/organizations',
-  description: 'Reference data for organization legal types.',
+  description: 'Reference data for organization legal entity types.',
   operations: [
     new GetCollection(
       name: OrganizationOperations::LIST_ORGANIZATION_LEGAL_TYPES,
@@ -33,18 +25,14 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       provider: ListOrganizationLegalTypesProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Organization'],
         summary: 'List organization legal types',
-        description: 'Returns legal types and related constraints for UI selects. Rules can be adapted with the optional countryCode query parameter.',
-        parameters: [
-          new Parameter(
-            name: 'countryCode',
-            in: 'query',
-            required: false,
-            description: 'ISO 3166-1 alpha-2 country code used to tailor legal requirements. Default: FR.',
-            schema: ['type' => 'string', 'pattern' => '^[A-Za-z]{2}$', 'example' => 'FR'],
-          ),
+        description: 'Returns organization legal entity type values for the Legal profile settings tab select.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Organization legal types retrieved'),
+          HttpResponse::HTTP_UNAUTHORIZED => new Response(description: 'Authentication required'),
         ],
       ),
     ),

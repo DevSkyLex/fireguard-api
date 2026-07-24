@@ -4,59 +4,109 @@ framework:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
     mfa_verify:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
     oauth_token:
       policy: 'sliding_window'
       limit: 20
       interval: '1 minute'
+      lock_factory: null
     oauth_authorize:
       policy: 'sliding_window'
       limit: 30
       interval: '1 minute'
+      lock_factory: null
     oauth_introspection:
       policy: 'sliding_window'
       limit: 60
       interval: '1 minute'
+      lock_factory: null
     oauth_revocation:
       policy: 'sliding_window'
       limit: 30
       interval: '1 minute'
+      lock_factory: null
     oauth_consent_check:
       policy: 'sliding_window'
       limit: 60
       interval: '1 minute'
+      lock_factory: null
     oauth_consent_grant:
       policy: 'sliding_window'
       limit: 30
       interval: '1 minute'
+      lock_factory: null
     token_refresh:
       policy: 'sliding_window'
       limit: 20
       interval: '1 minute'
+      lock_factory: null
     password_reset_request:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
     password_reset:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
     password_reset_confirm:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
+    password_change_request:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    password_change_confirm:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
     mfa_resend:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
     otp_challenge_create:
       policy: 'sliding_window'
       limit: 10
       interval: '1 minute'
+      lock_factory: null
     otp_challenge_verify:
       policy: 'sliding_window'
       limit: 5
       interval: '1 minute'
+      lock_factory: null
+    otp_totp_confirm:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    otp_totp_disable:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    invitation_preview:
+      policy: 'sliding_window'
+      limit: 30
+      interval: '1 minute'
+      lock_factory: null
+    invitation_resend:
+      policy: 'sliding_window'
+      limit: 5
+      interval: '1 minute'
+      lock_factory: null
+    messaging_presence_ping:
+      policy: 'sliding_window'
+      limit: 6
+      interval: '1 minute'
+      lock_factory: null

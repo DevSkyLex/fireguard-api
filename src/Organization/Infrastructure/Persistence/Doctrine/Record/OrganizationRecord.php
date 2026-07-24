@@ -26,6 +26,8 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\{ChecklistRecord, Insp
 #[ORM\Index(name: 'idx_organization_owner_user', columns: ['owner_user_id'])]
 #[ORM\Index(name: 'idx_organization_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_organization_status_name', columns: ['status', 'name'])]
+#[ORM\Index(name: 'idx_organization_plan', columns: ['plan_id'])]
+#[ORM\Index(name: 'idx_organization_purge_scheduled_at', columns: ['purge_scheduled_at'])]
 #[ORM\UniqueConstraint(name: 'uniq_organization_slug', columns: ['slug'])]
 class OrganizationRecord
 {
@@ -88,6 +90,129 @@ class OrganizationRecord
   public bool $isActive = true;
 
   /**
+   * Property description.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'description', type: 'text', nullable: true)]
+  public ?string $description = null;
+
+  /**
+   * Property logoUrl.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'logo_url', type: 'string', length: 500, nullable: true)]
+  public ?string $logoUrl = null;
+
+  /**
+   * Property settings.
+   *
+   * Structured organization preferences (notifications, regional) persisted as
+   * a JSON blob.
+   *
+   * @var array<string, mixed>
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'settings', type: 'json', options: ['default' => '{}'])]
+  public array $settings = [];
+
+  /**
+   * Property planId.
+   *
+   * Soft reference to the assigned subscription plan. Null falls back to the
+   * catalog default plan when resolving features.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'plan_id', type: 'string', length: 36, nullable: true)]
+  public ?string $planId = null;
+
+  /**
+   * Property country.
+   *
+   * ISO 3166-1 alpha-2 legal country code. Part of the organization's legal
+   * profile (L3.1) — read/written through {@see \Organization\Domain\ValueObject\OrganizationCountry}.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'country', type: 'string', length: 2, nullable: true)]
+  public ?string $country = null;
+
+  /**
+   * Property legalType.
+   *
+   * Legal entity type (e.g. company form). Part of the organization's legal
+   * profile (L3.1) — read/written through {@see \Organization\Domain\ValueObject\OrganizationLegalType}.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'legal_type', type: 'string', length: 32, nullable: true)]
+  public ?string $legalType = null;
+
+  /**
+   * Property legalName.
+   *
+   * Registered legal name, which may differ from the organization's display
+   * `name`. Part of the organization's legal profile (L3.1).
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'legal_name', type: 'string', length: 255, nullable: true)]
+  public ?string $legalName = null;
+
+  /**
+   * Property registrationNumber.
+   *
+   * Company/registration number in the jurisdiction identified by `country`.
+   * Part of the organization's legal profile (L3.1) — read/written through
+   * {@see \Organization\Domain\ValueObject\OrganizationRegistrationNumber}.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'registration_number', type: 'string', length: 64, nullable: true)]
+  public ?string $registrationNumber = null;
+
+  /**
+   * Property vatNumber.
+   *
+   * Part of the organization's legal profile (L3.1) — read/written through
+   * {@see \Organization\Domain\ValueObject\OrganizationVatNumber}.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'vat_number', type: 'string', length: 32, nullable: true)]
+  public ?string $vatNumber = null;
+
+  /**
+   * Property purgeScheduledAt.
+   *
+   * NULL means "not scheduled for purge". Archiving an organization does
+   * NOT, by itself, set this — lot L3.3 owns the policy deciding when an
+   * archived organization becomes purge-eligible. Once set, the organization
+   * becomes eligible for permanent purge after this instant elapses.
+   * Scaffolded inert by lot L3.0; activated by lot L3.3.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'purge_scheduled_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $purgeScheduledAt = null;
+
+  /**
+   * Property purgedAt.
+   *
+   * NULL means "not yet purged". Set once the purge has completed, which
+   * makes the purge sweep idempotent and resumable — it spans two databases
+   * with no global transaction. Scaffolded inert by lot L3.0; activated by
+   * lot L3.3.
+   *
+   * @since 1.1.0
+   */
+  #[ORM\Column(name: 'purged_at', type: 'datetime_immutable', nullable: true)]
+  public ?DateTimeImmutable $purgedAt = null;
+
+  /**
    * Property createdAt.
    *
    * @since 1.0.0
@@ -126,14 +251,6 @@ class OrganizationRecord
    */
   #[ORM\OneToMany(mappedBy: 'organization', targetEntity: OrganizationInvitationRecord::class, cascade: ['remove'])]
   public Collection $invitations;
-
-  /**
-   * Property legalProfile.
-   *
-   * @since 1.0.0
-   */
-  #[ORM\OneToOne(mappedBy: 'organization', targetEntity: OrganizationLegalProfileRecord::class, cascade: ['remove'])]
-  public ?OrganizationLegalProfileRecord $legalProfile = null;
 
   /**
    * Property facilities.

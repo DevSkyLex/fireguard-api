@@ -6,7 +6,10 @@ namespace Inspection\Presentation\Api\Trait\Inspection;
 
 use Inspection\Domain\Exception\{
   ChecklistArchivedException,
+  ChecklistInUseException,
   ChecklistNotFoundException,
+  ChecklistReferenceCodeAlreadyExistsException,
+  InspectionAlreadyCancelledException,
   InspectionAlreadyClosedException,
   InspectionAlreadySubmittedException,
   InspectionNotFoundException,
@@ -28,6 +31,11 @@ trait InspectionExceptionUnwrapperTrait
   private function findInspectionAlreadyClosedException(Throwable $exception): ?InspectionAlreadyClosedException
   {
     return $this->findException($exception, InspectionAlreadyClosedException::class);
+  }
+
+  private function findInspectionAlreadyCancelledException(Throwable $exception): ?InspectionAlreadyCancelledException
+  {
+    return $this->findException($exception, InspectionAlreadyCancelledException::class);
   }
 
   private function findInspectionAlreadySubmittedException(Throwable $exception): ?InspectionAlreadySubmittedException
@@ -58,6 +66,16 @@ trait InspectionExceptionUnwrapperTrait
   private function findChecklistArchivedException(Throwable $exception): ?ChecklistArchivedException
   {
     return $this->findException($exception, ChecklistArchivedException::class);
+  }
+
+  private function findChecklistInUseException(Throwable $exception): ?ChecklistInUseException
+  {
+    return $this->findException($exception, ChecklistInUseException::class);
+  }
+
+  private function findChecklistReferenceCodeAlreadyExistsException(Throwable $exception): ?ChecklistReferenceCodeAlreadyExistsException
+  {
+    return $this->findException($exception, ChecklistReferenceCodeAlreadyExistsException::class);
   }
 
   private function findInvalidArgumentException(Throwable $exception): ?InvalidArgumentException

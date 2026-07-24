@@ -65,19 +65,34 @@ final readonly class ListUserNotificationsHandler implements QueryHandler
    */
   public function __invoke(ListUserNotificationsQuery $query): ListUserNotificationsResult
   {
-    $limit = min(100, max(1, $query->limit));
+    $limit = min(100, max(1, $query->pagination->limit));
+    $offset = max(0, $query->pagination->offset);
+
     $hideReadBefore = $query->onlyUnread
       ? null
       : new DateTimeImmutable()->modify('-' . self::HIDE_READ_AFTER_DAYS . ' days');
+    $hiddenReadCategories = $query->onlyUnread ? [] : self::HIDDEN_READ_CATEGORIES;
 
     $notifications = $this->notificationRepository->findByUserId(
       userId: $query->userId,
       onlyUnread: $query->onlyUnread,
       limit: $limit,
+      offset: $offset,
       type: $query->type,
       category: $query->category,
+      organizationId: $query->organizationId,
       hideReadBefore: $hideReadBefore,
-      hiddenReadCategories: $query->onlyUnread ? [] : self::HIDDEN_READ_CATEGORIES,
+      hiddenReadCategories: $hiddenReadCategories,
+    );
+
+    $total = $this->notificationRepository->countByUserId(
+      userId: $query->userId,
+      onlyUnread: $query->onlyUnread,
+      type: $query->type,
+      category: $query->category,
+      organizationId: $query->organizationId,
+      hideReadBefore: $hideReadBefore,
+      hiddenReadCategories: $hiddenReadCategories,
     );
 
     $results = array_map(
@@ -85,7 +100,12 @@ final readonly class ListUserNotificationsHandler implements QueryHandler
       $notifications,
     );
 
-    return new ListUserNotificationsResult($results);
+    return new ListUserNotificationsResult(
+      notifications: $results,
+      total: $total,
+      limit: $limit,
+      offset: $offset,
+    );
   }
 
   /**
@@ -109,6 +129,7 @@ final readonly class ListUserNotificationsHandler implements QueryHandler
       isRead: $notification->isRead(),
       createdAt: $notification->createdAt(),
       readAt: $notification->readAt(),
+      organizationId: $notification->organizationId(),
     );
   }
   // #endregion

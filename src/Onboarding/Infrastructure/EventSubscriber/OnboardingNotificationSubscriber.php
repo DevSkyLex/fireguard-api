@@ -7,6 +7,7 @@ namespace Onboarding\Infrastructure\EventSubscriber;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Onboarding\Domain\Event\OrganizationOnboardingSessionCompletedEvent;
+use Organization\Application\Port\Inbound\OrganizationNotificationPolicyPort;
 use Psr\Log\LoggerInterface;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -51,11 +52,13 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
    * @param NotificationPort $notificationPort the notification inbound port
    * @param QueryBusPort $queryBus the shared query bus
    * @param LoggerInterface $logger the PSR logger
+   * @param OrganizationNotificationPolicyPort $policyPort the organization notification policy port
    */
   public function __construct(
     private NotificationPort $notificationPort,
     private QueryBusPort $queryBus,
     private LoggerInterface $logger,
+    private OrganizationNotificationPolicyPort $policyPort,
   ) {
   }
   // #endregion
@@ -89,9 +92,20 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
     try {
       $recipientEmail = $this->resolveUserEmail($event->userId);
 
-      $channels = null !== $recipientEmail
-        ? [NotificationChannel::EMAIL, NotificationChannel::MERCURE]
-        : [NotificationChannel::MERCURE];
+      $policy = $this->policyPort->notificationPolicy($event->targetOrganizationId);
+
+      // Honor the organization channel toggles: drop a channel when its delivery
+      // is disabled, and skip entirely when no channel remains enabled.
+      $channels = [];
+      if ($policy->inAppEnabled) {
+        $channels[] = NotificationChannel::MERCURE;
+      }
+      if ($policy->emailEnabled && null !== $recipientEmail) {
+        $channels[] = NotificationChannel::EMAIL;
+      }
+      if ([] === $channels) {
+        return;
+      }
 
       $completedAt = $event->completedAt->format('c');
 
@@ -120,6 +134,7 @@ final readonly class OnboardingNotificationSubscriber implements EventSubscriber
         ],
         recipientUserId: $event->userId,
         recipientEmail: $recipientEmail,
+        organizationId: $event->targetOrganizationId,
       ));
     } catch (Throwable $exception) {
       $this->logger->error('Failed to send onboarding completion notification.', [

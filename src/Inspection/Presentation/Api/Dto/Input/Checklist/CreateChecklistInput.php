@@ -23,6 +23,11 @@ final class CreateChecklistInput
   #[ApiProperty(description: 'Version label', required: true, example: '1.0')]
   public string $version = '';
 
+  #[Assert\Length(max: 40)]
+  #[Groups([InspectionSerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional human-facing reference code, unique per organization', required: false, example: 'CHK-EXT-Q')]
+  public ?string $referenceCode = null;
+
   /**
    * @var list<ChecklistItemInput>
    */

@@ -107,6 +107,55 @@ php bin/console doctrine:schema:validate --em=auth
 php bin/console doctrine:schema:validate --em=main
 ```
 
+### Object Storage (STORAGE_DSN)
+
+`Shared\Application\Port\Outbound\FileStoragePort` (equipment attachments,
+user avatars, organization logos) is backed by a Flysystem operator selected
+by the `STORAGE_DSN` env var (`Shared\Infrastructure\Storage\FlysystemFactory`).
+See `src/Shared/MODULE.md` for the DSN grammar and adapter details.
+
+**Local disk (dev/test/default)**:
+```env
+STORAGE_DSN=local://var/storage
+```
+Relative paths resolve against `%kernel.project_dir%`; use an absolute path
+(`local:///data/storage` or `local://C:\data\storage`) to point elsewhere.
+
+**S3/MinIO (staging/prod)**:
+```env
+STORAGE_DSN=s3://<accessKeyId>:<secretAccessKey>@<bucket>?region=<region>
+# MinIO / non-AWS S3-compatible endpoint (both params usually required together):
+STORAGE_DSN=s3://<accessKeyId>:<secretAccessKey>@<bucket>?region=us-east-1&endpoint=<url-encoded-endpoint>&use_path_style_endpoint=1
+```
+- `endpoint` must be URL-encoded (e.g. `http%3A%2F%2Fminio.internal%3A9000`).
+- `use_path_style_endpoint=1` is required by most MinIO deployments (bucket
+  addressed as a path segment rather than a subdomain).
+- Credentials containing special characters (`:`, `@`, `/`) must also be
+  URL-encoded in the DSN.
+
+**MinIO bucket bootstrap** (example with the `mc` CLI):
+```bash
+mc alias set fireguard http://minio.internal:9000 <accessKeyId> <secretAccessKey>
+mc mb fireguard/fireguard-storage
+mc anonymous set none fireguard/fireguard-storage
+```
+
+**One-time prod file migration** (local disk -> S3/MinIO):
+
+Storage keys are relative and unchanged by the backend switch (equipment
+attachments, avatar variants, org logos), so cutover is a plain bulk copy at
+identical keys — no `storagePath` column changes, no schema migration:
+```bash
+# Using the AWS CLI
+aws s3 sync var/storage/ s3://fireguard-storage/ --no-progress
+
+# Using the MinIO client
+mc mirror var/storage/ fireguard/fireguard-storage/
+```
+Run the sync, verify a sample of keys resolve (avatar `GET`, a known
+equipment attachment `GET`), then flip `STORAGE_DSN` to `s3://...` and
+restart the app. The sync is idempotent and safe to re-run before cutover.
+
 ### RBAC Permission Sync
 
 When permissions are updated in code (fixtures/catalog), synchronize them to the database:
@@ -452,6 +501,62 @@ php bin/console debug:config framework rate_limiter
 ---
 
 ## Scheduled Tasks
+
+### Messenger Worker & Scheduler (required)
+
+**Purpose**: asynchronous commands (intervention publication, maintenance
+sweeps, recurrence materialization, automation rules) and the recurring
+schedules provided by the `Maintenance`, `Intervention` and `Approval`
+modules (`#[AsSchedule('maintenance')]`, `#[AsSchedule('intervention')]`,
+`#[AsSchedule('approval')]`).
+
+**The `assistant` transport now has its own container**, `assistant_worker`, in
+both `compose.yaml` and `compose.prod.yaml` — separate from the general worker
+for the same reason its transport is separate from `async`: an unresponsive
+Ollama backend must never starve the other queues. A deployment that runs the
+general worker below **and** the compose stack is already covered; a deployment
+that runs neither leaves every assistant reply at `pending` forever, with no
+cancel endpoint and no server-side deadline to settle it.
+
+**Worker command** (must run permanently, e.g. under supervisor/systemd):
+```bash
+php bin/console messenger:consume \
+  async webhook assistant \
+  scheduler_maintenance scheduler_intervention scheduler_approval \
+  --time-limit=3600
+```
+
+**The transport list must be kept in sync with `config/packages/messenger.yaml`.**
+A transport with no consumer does not error — it silently accumulates messages
+that are never processed, which is indistinguishable from "the feature does not
+work" and produces no log line to investigate. Concretely, per transport:
+
+| Transport | Omitting it means |
+| --- | --- |
+| `async` | Intervention publication, recurrence materialization, maintenance recompute, automation rules and CSV imports never execute |
+| `webhook` | No outbound webhook is ever delivered; subscriptions look healthy and fire nothing |
+| `assistant` | **Every assistant question stays `pending` forever** — the user asks, no answer and no error ever arrives |
+| `scheduler_maintenance` | Inspection due dates are never recomputed; no due/overdue reminders |
+| `scheduler_intervention` | Recurring interventions are never materialized |
+| `scheduler_approval` | Pending four-eyes approval requests never expire; they accumulate until manually decided |
+
+The `webhook` and `assistant` transports are deliberately isolated from `async`
+so a slow or unreachable third party (or a cold model load) cannot starve
+ordinary async work. `assistant` runs with `retry_strategy.max_retries: 1`
+because replaying a partially streamed reply would republish its fragments —
+the `assistant_messages.status` state machine is what makes a retry replace
+rather than append.
+
+Notes:
+- Each `#[AsSchedule('<name>')]` provider exposes a `scheduler_<name>`
+  transport that the worker must consume for its ticks to fire; consuming
+  `async` alone runs the routed commands but never triggers the schedules.
+- Schedules are `stateful()` (missed runs recovered from cache) and
+  `lock()`-guarded, so multiple workers can consume the scheduler transports
+  without duplicate ticks — **provided `LOCK_DSN` points to a shared store in
+  production** (e.g. `pgsql+advisory://…` on the main database). The dev
+  default `flock` only protects a single host.
+- List schedules and next run dates: `php bin/console debug:scheduler`.
 
 ### Data Cleanup
 

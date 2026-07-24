@@ -6,7 +6,7 @@ namespace Auth\Application\UseCase\Command\Session\Login;
 
 use Auth\Application\Contract\User\UserAuthenticationResult;
 use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort, TrustedDeviceCheckPort, UserAuthenticationPort};
-use Auth\Application\Port\Outbound\Mfa\ChallengeGeneratorPort;
+use Auth\Application\Port\Outbound\Mfa\{ChallengeGeneratorPort, TotpEnrollmentCheckPort};
 use Auth\Application\UseCase\Command\Mfa\MfaChallenge\MfaChallengeCommand;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Domain\Event\Token\TokenIssuedEvent;
@@ -51,6 +51,7 @@ final readonly class LoginHandler implements CommandHandler
    * @param EventDispatcherPort $eventDispatcher the event dispatcher
    * @param RateLimiterPort $rateLimiter the rate limiter
    * @param TrustedDeviceCheckPort $trustedDeviceCheck the trusted device check port
+   * @param TotpEnrollmentCheckPort $totpEnrollmentCheck the TOTP enrollment check port
    * @param bool $mfaEnabled whether MFA is enabled globally
    */
   public function __construct(
@@ -61,6 +62,7 @@ final readonly class LoginHandler implements CommandHandler
     private readonly EventDispatcherPort $eventDispatcher,
     private readonly RateLimiterPort $rateLimiter,
     private readonly TrustedDeviceCheckPort $trustedDeviceCheck,
+    private readonly TotpEnrollmentCheckPort $totpEnrollmentCheck,
     #[Autowire('%env(bool:MFA_ENABLED)%')]
     private readonly bool $mfaEnabled,
   ) {
@@ -123,10 +125,15 @@ final readonly class LoginHandler implements CommandHandler
 
       // Check if MFA is required (enabled globally and device is not trusted)
       if ($this->shouldRequireMfa($userId, $command->trustedDeviceToken)) {
+        // Users with an active TOTP (authenticator app) enrollment use it as
+        // their MFA channel; no email is sent in that case. Otherwise, MFA
+        // falls back to an emailed one-time code.
+        $channel = $this->hasActiveTotpEnrollment($userId) ? 'totp' : 'email';
+
         $challengeCommand = new MfaChallengeCommand(
           userId: $userId,
           purpose: 'login',
-          channel: 'email',
+          channel: $channel,
           recipient: $email,
         );
 
@@ -148,7 +155,7 @@ final readonly class LoginHandler implements CommandHandler
           mfaToken: $preAuthToken,
           challengeToken: $challenge->challengeToken,
           mfaMethod: $challengeCommand->channel,
-          mfaDestination: \Shared\Domain\ValueObject\MaskedDestination::maskEmail($email),
+          mfaDestination: $challenge->maskedRecipient,
         );
       }
 
@@ -301,6 +308,28 @@ final readonly class LoginHandler implements CommandHandler
     }
 
     return true;
+  }
+
+  /**
+   * Method hasActiveTotpEnrollment.
+   *
+   * Checks if the user has an active TOTP (authenticator app) enrollment,
+   * used to pick the MFA challenge channel. Falls back to false (i.e. email
+   * MFA) if the check fails, so login is never blocked by it.
+   *
+   * @since 1.0.0
+   *
+   * @param string $userId the user ID
+   *
+   * @return bool true if the user has an active TOTP enrollment
+   */
+  private function hasActiveTotpEnrollment(string $userId): bool
+  {
+    try {
+      return $this->totpEnrollmentCheck->isEnrolled($userId);
+    } catch (Throwable) {
+      return false;
+    }
   }
   // #endregion
 }

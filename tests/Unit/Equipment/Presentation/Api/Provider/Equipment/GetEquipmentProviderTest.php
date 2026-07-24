@@ -116,6 +116,7 @@ final class GetEquipmentProviderTest extends TestCase
         tags: [['id' => '550e8400-e29b-41d4-a716-446655441400', 'name' => 'urgent', 'organizationId' => $organizationId]],
         createdAt: $now,
         updatedAt: $now,
+        maintenanceDueStatus: 'due_soon',
       ));
 
     $provider = new GetEquipmentProvider(
@@ -142,6 +143,7 @@ final class GetEquipmentProviderTest extends TestCase
     self::assertInstanceOf(TagOutput::class, $output->tags[0]);
     self::assertSame('urgent', $output->tags[0]->name);
     self::assertSame($organizationId, $output->tags[0]->organizationId);
+    self::assertSame('due_soon', $output->maintenanceDueStatus);
   }
 
   private function createSecurityUser(string $id): SecurityUser

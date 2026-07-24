@@ -13,6 +13,8 @@ use Equipment\Presentation\Api\Dto\Input\Equipment\CreateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\CreateEquipmentProcessor;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -72,6 +74,52 @@ final class CreateEquipmentProcessorTest extends TestCase
 
     $this->expectException(ConflictHttpException::class);
     $this->expectExceptionMessage('Serial number "EXT-2026-001" already exists in this organization.');
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => $organizationId],
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsWrappedQuotaExceededToHttp409(): void
+  {
+    $input = new CreateEquipmentInput();
+    $input->type = 'fire_extinguisher';
+
+    $organizationId = '550e8400-e29b-41d4-a716-446655441110';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441111');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new CreateEquipmentCommand(organizationId: $organizationId, type: 'fire_extinguisher')),
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::EQUIPMENT, 50)],
+    );
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $processor = new CreateEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
 
     $processor->process(
       data: $input,

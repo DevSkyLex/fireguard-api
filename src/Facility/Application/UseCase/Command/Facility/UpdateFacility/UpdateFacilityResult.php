@@ -38,6 +38,8 @@ final readonly class UpdateFacilityResult implements ResultMessage
     public array $metadata,
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
+    public ?float $latitude = null,
+    public ?float $longitude = null,
   ) {
   }
   // #endregion

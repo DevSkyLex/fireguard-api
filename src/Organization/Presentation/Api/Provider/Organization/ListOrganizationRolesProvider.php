@@ -112,6 +112,7 @@ final readonly class ListOrganizationRolesProvider implements ProviderInterface
       $output->isSystem = $role->isSystem;
       $output->createdAt = $role->createdAt->format('c');
       $output->description = $role->description;
+      $output->memberCount = $role->memberCount;
       $outputs[] = $output;
     }
 

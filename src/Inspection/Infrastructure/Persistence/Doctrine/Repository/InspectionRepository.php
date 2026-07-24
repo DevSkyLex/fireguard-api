@@ -17,13 +17,21 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
+use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
-use function addcslashes;
 use function array_map;
-use function mb_strtolower;
 use function strtoupper;
 
+/**
+ * Repository InspectionRepository.
+ *
+ * @category Repository
+ *
+ * @version 1.0.0
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
 final readonly class InspectionRepository implements InspectionRepositoryPort
 {
   /**
@@ -31,6 +39,16 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
    */
   private EntityRepository $repository;
 
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the InspectionRepository class.
+   *
+   * @since 1.0.0
+   *
+   * @param EntityManagerInterface $entityManager the entity manager value
+   * @param string $storageTimeZone the storage time zone value
+   */
   public function __construct(
     private EntityManagerInterface $entityManager,
     #[Autowire('%env(default:database_storage_timezone_default:DATABASE_STORAGE_TIMEZONE)%')]
@@ -39,6 +57,15 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $this->repository = $this->entityManager->getRepository(InspectionRecord::class);
   }
 
+  /**
+   * Method save.
+   *
+   * Executes the save operation.
+   *
+   * @since 1.0.0
+   *
+   * @param Inspection $inspection the inspection value
+   */
   public function save(Inspection $inspection): void
   {
     $record = $this->normalizeRecordDateTimesToStorage(InspectionMapper::toRecord($inspection));
@@ -69,6 +96,15 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method remove.
+   *
+   * Executes the remove operation.
+   *
+   * @since 1.0.0
+   *
+   * @param Inspection $inspection the inspection value
+   */
   public function remove(Inspection $inspection): void
   {
     $record = $this->repository->find((string) $inspection->id());
@@ -81,6 +117,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $this->entityManager->flush();
   }
 
+  /**
+   * Method findById.
+   *
+   * Executes the find by id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionId $id the id value
+   *
+   * @return ?Inspection the find by id result
+   */
   public function findById(InspectionId $id): ?Inspection
   {
     $record = $this->repository->find((string) $id);
@@ -92,6 +139,41 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return InspectionMapper::toDomain($this->reinterpretRecordDateTimesFromStorage($record));
   }
 
+  public function findPublishedById(InspectionId $id): ?Inspection
+  {
+    $record = $this->repository->find((string) $id);
+
+    if (!$record instanceof InspectionRecord || 'published' !== $record->recordStatus) {
+      return null;
+    }
+
+    return InspectionMapper::toDomain($this->reinterpretRecordDateTimesFromStorage($record));
+  }
+
+  /**
+   * Method findByOrganizationId.
+   *
+   * Executes the find by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param ?string $equipmentId the equipment id value
+   * @param ?string $facilityId the facility id value
+   * @param ?string $result the result value
+   * @param ?string $status the status value
+   * @param ?string $performedAtFrom the performed at from value
+   * @param ?string $performedAtTo the performed at to value
+   * @param ?string $inspectorUserId the inspector user id value
+   * @param ?string $inspectorType the inspector type value
+   * @param ?string $checklistId the checklist id value
+   * @param ?string $search the search value
+   * @param Sorting $sorting the sorting value
+   * @param int $limit the limit value
+   * @param int $offset the offset value
+   *
+   * @return list<Inspection> the find by organization id result
+   */
   public function findByOrganizationId(
     InspectionOrganizationId $organizationId,
     ?string $equipmentId = null,
@@ -135,6 +217,27 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     );
   }
 
+  /**
+   * Method countByOrganizationId.
+   *
+   * Executes the count by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param ?string $equipmentId the equipment id value
+   * @param ?string $facilityId the facility id value
+   * @param ?string $result the result value
+   * @param ?string $status the status value
+   * @param ?string $performedAtFrom the performed at from value
+   * @param ?string $performedAtTo the performed at to value
+   * @param ?string $inspectorUserId the inspector user id value
+   * @param ?string $inspectorType the inspector type value
+   * @param ?string $checklistId the checklist id value
+   * @param ?string $search the search value
+   *
+   * @return int the count by organization id result
+   */
   public function countByOrganizationId(
     InspectionOrganizationId $organizationId,
     ?string $equipmentId = null,
@@ -166,6 +269,56 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->getSingleScalarResult();
   }
 
+  /**
+   * Method findEquipmentIdsByIds.
+   *
+   * Single query resolving the equipment identifier of each requested
+   * inspection, so a caller batching a page of non-conformities asks once
+   * rather than once per row. Mirrors `ChecklistRepository::findNamesByIds()`.
+   *
+   * @since 1.0.0
+   *
+   * @param list<string> $inspectionIds
+   *
+   * @return array<string, string>
+   */
+  public function findEquipmentIdsByIds(array $inspectionIds): array
+  {
+    if ([] === $inspectionIds) {
+      return [];
+    }
+
+    /** @var list<array{id: string, equipmentId: string}> $rows */
+    $rows = $this->entityManager->createQueryBuilder()
+      ->select('i.id AS id', 'i.equipmentId AS equipmentId')
+      ->from(InspectionRecord::class, 'i')
+      ->where('i.id IN (:inspectionIds)')
+      ->setParameter('inspectionIds', $inspectionIds)
+      ->getQuery()
+      ->getArrayResult();
+
+    $equipmentIds = [];
+    foreach ($rows as $row) {
+      $equipmentIds[(string) $row['id']] = (string) $row['equipmentId'];
+    }
+
+    return $equipmentIds;
+  }
+
+  /**
+   * Method countOverviewByOrganizationId.
+   *
+   * Executes the count overview by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param ?string $status the status value
+   * @param ?string $result the result value
+   * @param ?string $inspectorType the inspector type value
+   *
+   * @return array{total: int, draft: int, submitted: int, closed: int, pass: int, fail: int, partial: int} the count overview by organization id result
+   */
   public function countOverviewByOrganizationId(
     InspectionOrganizationId $organizationId,
     ?string $status = null,
@@ -219,6 +372,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ];
   }
 
+  /**
+   * Method countByStatusForOrganizationId.
+   *
+   * Executes the count by status for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   *
+   * @return array<string, int> map of status => count
+   */
   public function countByStatusForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{status: string, inspectionCount: int|string}> $rows */
@@ -248,6 +412,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByResultForOrganizationId.
+   *
+   * Executes the count by result for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   *
+   * @return array<string, int> map of result => count
+   */
   public function countByResultForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{result: string, inspectionCount: int|string}> $rows */
@@ -277,6 +452,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByInspectorTypeForOrganizationId.
+   *
+   * Executes the count by inspector type for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   *
+   * @return array<string, int> map of inspector type => count
+   */
   public function countByInspectorTypeForOrganizationId(InspectionOrganizationId $organizationId): array
   {
     /** @var list<array{inspectorType: string, inspectionCount: int|string}> $rows */
@@ -306,6 +492,23 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countByPerformedDayForOrganizationId.
+   *
+   * Executes the count by performed day for organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param string $performedAtFrom the performed at from value
+   * @param string $performedAtTo the performed at to value
+   * @param ?string $timeZone the time zone value
+   * @param ?string $status the status value
+   * @param ?string $result the result value
+   * @param ?string $inspectorType the inspector type value
+   *
+   * @return array<string, int> map of YYYY-MM-DD => count
+   */
   public function countByPerformedDayForOrganizationId(
     InspectionOrganizationId $organizationId,
     string $performedAtFrom,
@@ -356,6 +559,22 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method countPeriodMetricsByOrganizationId.
+   *
+   * Executes the count period metrics by organization id operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param string $performedAtFrom the performed at from value
+   * @param string $performedAtTo the performed at to value
+   * @param ?string $status the status value
+   * @param ?string $result the result value
+   * @param ?string $inspectorType the inspector type value
+   *
+   * @return array{total: int, closed: int, pass: int, fail: int, partial: int} the count period metrics by organization id result
+   */
   public function countPeriodMetricsByOrganizationId(
     InspectionOrganizationId $organizationId,
     string $performedAtFrom,
@@ -409,6 +628,27 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ];
   }
 
+  /**
+   * Method createListQueryBuilder.
+   *
+   * Executes the create list query builder operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionOrganizationId $organizationId the organization id value
+   * @param ?string $equipmentId the equipment id value
+   * @param ?string $facilityId the facility id value
+   * @param ?string $result the result value
+   * @param ?string $status the status value
+   * @param ?string $performedAtFrom the performed at from value
+   * @param ?string $performedAtTo the performed at to value
+   * @param ?string $inspectorUserId the inspector user id value
+   * @param ?string $inspectorType the inspector type value
+   * @param ?string $checklistId the checklist id value
+   * @param ?string $search the search value
+   *
+   * @return QueryBuilder the create list query builder result
+   */
   private function createListQueryBuilder(
     InspectionOrganizationId $organizationId,
     ?string $equipmentId,
@@ -429,6 +669,8 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
       ->select('i')
       ->from(InspectionRecord::class, 'i')
       ->where('i.organization = :organization')
+      ->andWhere('i.recordStatus = :publishedRecordStatus')
+      ->setParameter('publishedRecordStatus', 'published')
       ->setParameter('organization', $organization);
 
     if (null !== $equipmentId) {
@@ -485,24 +727,32 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
         ->setParameter('checklistId', $checklistId);
     }
 
-    if (null !== $search && '' !== $search) {
-      $normalizedSearch = '%' . addcslashes(mb_strtolower($search), '%_') . '%';
-
-      $queryBuilder
-        ->andWhere('(
-          LOWER(i.result) LIKE :search OR
-          LOWER(i.status) LIKE :search OR
-          LOWER(i.inspectorName) LIKE :search OR
-          LOWER(i.equipmentId) LIKE :search OR
-          LOWER(COALESCE(i.facilityId, \'\')) LIKE :search OR
-          LOWER(COALESCE(i.checklistId, \'\')) LIKE :search
-        )')
-        ->setParameter('search', $normalizedSearch);
-    }
+    TrigramSearchExpression::apply(
+      $queryBuilder,
+      'search',
+      $search,
+      'i.result',
+      'i.status',
+      'i.inspectorName',
+      'i.equipmentId',
+      'i.facilityId',
+      'i.checklistId',
+    );
 
     return $queryBuilder;
   }
 
+  /**
+   * Method resolveSortField.
+   *
+   * Executes the resolve sort field operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $field the field value
+   *
+   * @return string the resolve sort field result
+   */
   private function resolveSortField(string $field): string
   {
     return match ($field) {
@@ -513,6 +763,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     };
   }
 
+  /**
+   * Method normalizeRecordDateTimesToStorage.
+   *
+   * Executes the normalize record date times to storage operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionRecord $record the record value
+   *
+   * @return InspectionRecord the normalize record date times to storage result
+   */
   private function normalizeRecordDateTimesToStorage(InspectionRecord $record): InspectionRecord
   {
     $record->performedAt = $this->normalizeDateTimeForStorage($record->performedAt);
@@ -522,6 +783,17 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $record;
   }
 
+  /**
+   * Method reinterpretRecordDateTimesFromStorage.
+   *
+   * Executes the reinterpret record date times from storage operation.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionRecord $record the record value
+   *
+   * @return InspectionRecord the reinterpret record date times from storage result
+   */
   private function reinterpretRecordDateTimesFromStorage(InspectionRecord $record): InspectionRecord
   {
     $normalized = clone $record;
@@ -590,6 +862,18 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $counts;
   }
 
+  /**
+   * Method resolveBucketTimeZone.
+   *
+   * Executes the resolve bucket time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param ?string $timeZone the time zone value
+   * @param string $lowerBound the lower bound value
+   *
+   * @return DateTimeZone the resolve bucket time zone result
+   */
   private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -599,6 +883,15 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return new DateTimeImmutable($lowerBound)->getTimezone();
   }
 
+  /**
+   * Method resolveStorageTimeZone.
+   *
+   * Executes the resolve storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @return DateTimeZone the resolve storage time zone result
+   */
   private function resolveStorageTimeZone(): DateTimeZone
   {
     try {
@@ -608,17 +901,50 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     }
   }
 
+  /**
+   * Method normalizeTimestampToStorageDateTime.
+   *
+   * Executes the normalize timestamp to storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   *
+   * @return DateTimeImmutable the normalize timestamp to storage date time result
+   */
   private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
   {
     return new DateTimeImmutable($value)
       ->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method normalizeDateTimeForStorage.
+   *
+   * Executes the normalize date time for storage operation.
+   *
+   * @since 1.0.0
+   *
+   * @param DateTimeImmutable $value the value value
+   *
+   * @return DateTimeImmutable the normalize date time for storage result
+   */
   private function normalizeDateTimeForStorage(DateTimeImmutable $value): DateTimeImmutable
   {
     return $value->setTimezone($this->resolveStorageTimeZone());
   }
 
+  /**
+   * Method reinterpretStorageDateTime.
+   *
+   * Executes the reinterpret storage date time operation.
+   *
+   * @since 1.0.0
+   *
+   * @param DateTimeImmutable $value the value value
+   *
+   * @return DateTimeImmutable the reinterpret storage date time result
+   */
   private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
   {
     $normalized = DateTimeImmutable::createFromFormat(
@@ -634,6 +960,18 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     return $normalized;
   }
 
+  /**
+   * Method normalizeTimestampForStorageTimeZone.
+   *
+   * Executes the normalize timestamp for storage time zone operation.
+   *
+   * @since 1.0.0
+   *
+   * @param string $value the value value
+   * @param DateTimeZone $storageTimeZone the storage time zone value
+   *
+   * @return string the normalize timestamp for storage time zone result
+   */
   private function normalizeTimestampForStorageTimeZone(string $value, DateTimeZone $storageTimeZone): string
   {
     return new DateTimeImmutable($value)

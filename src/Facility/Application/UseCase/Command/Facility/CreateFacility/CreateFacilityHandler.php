@@ -17,14 +17,18 @@ use Facility\Domain\Exception\{
 };
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
+  FacilityCoordinates,
   FacilityId,
   FacilityName,
   FacilityOrganizationId,
   FacilityType
 };
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationQuotaPort;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -44,9 +48,23 @@ use function strtolower;
 final readonly class CreateFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * Initializes a new instance of the CreateFacilityHandler class.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param UuidFactory $uuidFactory the uuid factory value
+   * @param OrganizationQuotaPort $quota the organization quota enforcement port
+   * @param TransactionManagerPort $transactionManager the transaction manager
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private UuidFactory $uuidFactory,
+    private OrganizationQuotaPort $quota,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -85,7 +103,9 @@ final readonly class CreateFacilityHandler implements CommandHandler
       }
 
       /** @var FacilityId $facilityId */
-      $facilityId = $this->uuidFactory->create(FacilityId::class);
+      $facilityId = null === $command->resourceId
+        ? $this->uuidFactory->create(FacilityId::class)
+        : FacilityId::fromString($command->resourceId);
 
       $facility = Facility::create(
         id: $facilityId,
@@ -96,28 +116,36 @@ final readonly class CreateFacilityHandler implements CommandHandler
         code: $command->code,
         address: $command->address,
         metadata: $command->metadata,
+        coordinates: $this->resolveCoordinates($command->latitude, $command->longitude),
       );
     } catch (InvalidValueException|ValueError $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    try {
-      $this->facilityRepository->save($facility);
-    } catch (Throwable $exception) {
-      if ($this->isDuplicateCodeConstraintViolation($exception)) {
-        throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
-      }
+    // Enforce the plan quota and persist in one transaction: assertCanAdd takes a
+    // transaction-scoped advisory lock so two concurrent creates at the cap cannot
+    // both pass the count and both insert (see OrganizationQuotaPort::assertCanAdd).
+    $this->transactionManager->transactional(function () use ($command, $facility, $parentId): void {
+      $this->quota->assertCanAdd($command->organizationId, OrganizationQuotaResource::FACILITIES);
 
-      if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
-      }
+      try {
+        $this->facilityRepository->save($facility);
+      } catch (Throwable $exception) {
+        if ($this->isDuplicateCodeConstraintViolation($exception)) {
+          throw FacilityCodeAlreadyExistsException::withCode($facility->code() ?? 'unknown');
+        }
 
-      if ($this->isParentConstraintViolation($exception)) {
-        throw FacilityNotFoundException::withId((string) ($parentId ?? 'unknown'));
-      }
+        if ($this->isOrganizationConstraintViolation($exception)) {
+          throw new InvalidArgumentException('Organization not found.');
+        }
 
-      throw $exception;
-    }
+        if ($this->isParentConstraintViolation($exception)) {
+          throw FacilityNotFoundException::withId((string) ($parentId ?? 'unknown'));
+        }
+
+        throw $exception;
+      }
+    });
 
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),
@@ -131,6 +159,8 @@ final readonly class CreateFacilityHandler implements CommandHandler
       metadata: $facility->metadata(),
       createdAt: $facility->createdAt(),
       updatedAt: $facility->updatedAt(),
+      latitude: $facility->coordinates()?->latitude(),
+      longitude: $facility->coordinates()?->longitude(),
     );
   }
 
@@ -150,6 +180,32 @@ final readonly class CreateFacilityHandler implements CommandHandler
     }
 
     return FacilityId::fromString($parentFacilityId);
+  }
+
+  /**
+   * Method resolveCoordinates.
+   *
+   * Builds the facility coordinates value object. Latitude and longitude
+   * must both be provided together, or both omitted.
+   *
+   * @since 1.0.0
+   *
+   * @param ?float $latitude the optional latitude
+   * @param ?float $longitude the optional longitude
+   *
+   * @return ?FacilityCoordinates the resolved coordinates
+   */
+  private function resolveCoordinates(?float $latitude, ?float $longitude): ?FacilityCoordinates
+  {
+    if (null === $latitude && null === $longitude) {
+      return null;
+    }
+
+    if (null === $latitude || null === $longitude) {
+      throw InvalidValueException::because('Facility latitude and longitude must be provided together.');
+    }
+
+    return new FacilityCoordinates($latitude, $longitude);
   }
 
   /**

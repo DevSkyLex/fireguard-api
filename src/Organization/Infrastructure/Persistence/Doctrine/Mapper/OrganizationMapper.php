@@ -5,7 +5,18 @@ declare(strict_types=1);
 namespace Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationSlug, OrganizationStatus};
+use Organization\Domain\ValueObject\{
+  OrganizationCountry,
+  OrganizationId,
+  OrganizationLegalType,
+  OrganizationName,
+  OrganizationRegistrationNumber,
+  OrganizationSettings,
+  OrganizationSlug,
+  OrganizationStatus,
+  OrganizationVatNumber,
+  PlanId
+};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 
 /**
@@ -48,6 +59,15 @@ final class OrganizationMapper
       ownerUserId: $record->ownerUserId,
       slug: new OrganizationSlug($record->slug),
       status: $status,
+      description: $record->description,
+      logoUrl: $record->logoUrl,
+      settings: OrganizationSettings::fromArray($record->settings),
+      planId: null !== $record->planId ? PlanId::fromString($record->planId) : null,
+      country: null !== $record->country ? new OrganizationCountry($record->country) : null,
+      legalType: null !== $record->legalType ? OrganizationLegalType::from($record->legalType) : null,
+      legalName: $record->legalName,
+      registrationNumber: null !== $record->registrationNumber ? new OrganizationRegistrationNumber($record->registrationNumber) : null,
+      vatNumber: null !== $record->vatNumber ? new OrganizationVatNumber($record->vatNumber) : null,
     );
   }
 
@@ -72,6 +92,15 @@ final class OrganizationMapper
     $record->createdByUserId = $organization->createdByUserId();
     $record->status = $organization->status()->value;
     $record->isActive = $organization->isActive();
+    $record->description = $organization->description();
+    $record->logoUrl = $organization->logoUrl();
+    $record->settings = $organization->settings()->toArray();
+    $record->planId = null !== $organization->planId() ? (string) $organization->planId() : null;
+    $record->country = null !== $organization->country() ? (string) $organization->country() : null;
+    $record->legalType = $organization->legalType()?->value;
+    $record->legalName = $organization->legalName();
+    $record->registrationNumber = null !== $organization->registrationNumber() ? (string) $organization->registrationNumber() : null;
+    $record->vatNumber = null !== $organization->vatNumber() ? (string) $organization->vatNumber() : null;
     $record->createdAt = $organization->createdAt();
     $record->updatedAt = $organization->updatedAt();
 

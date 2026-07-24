@@ -19,6 +19,30 @@ use Symfony\Component\Serializer\Attribute\Groups;
  */
 final class EquipmentOutput
 {
+  /**
+   * Property intervention.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public ?string $intervention = null;
+
+  /**
+   * Property recordStatus.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public string $recordStatus = 'published';
+
+  /**
+   * Property revision.
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  public int $revision = 1;
+
   // #region Properties
   /**
    * Property id.
@@ -102,6 +126,20 @@ final class EquipmentOutput
   public ?string $locationLabel = null;
 
   /**
+   * Property facilityName.
+   *
+   * Display name of the assigned facility, resolved through the Facility
+   * module's naming port — the Equipment module stores only the identifier.
+   * Null when the equipment is unassigned, or when the facility could not be
+   * resolved: an unresolved name is not a blank name.
+   *
+   * @since 1.1.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false, description: 'Display name of the assigned facility')]
+  public ?string $facilityName = null;
+
+  /**
    * Property status.
    *
    * @since 1.0.0
@@ -138,6 +176,21 @@ final class EquipmentOutput
   #[Groups([EquipmentSerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $tags = [];
+
+  /**
+   * Property maintenanceDueStatus.
+   *
+   * Resolved cross-module from the Maintenance module
+   * (`unscheduled`|`up_to_date`|`due_soon`|`overdue`); `unscheduled` when the
+   * equipment has no maintenance schedule. There is no per-equipment
+   * equivalent of a mockup "non-conformity" state: non-conformities attach
+   * to inspections, not to equipment (see `src/Equipment/MODULE.md`).
+   *
+   * @since 1.0.0
+   */
+  #[Groups([EquipmentSerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public string $maintenanceDueStatus = 'unscheduled';
 
   /**
    * Property createdAt.

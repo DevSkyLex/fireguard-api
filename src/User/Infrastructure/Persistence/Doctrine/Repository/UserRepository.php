@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace User\Infrastructure\Persistence\Doctrine\Repository;
 
+use Auth\Application\Service\SecurityUserCacheInvalidator;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Shared\Application\Contract\Sorting\Sorting;
 use Shared\Domain\ValueObject\Email;
@@ -40,6 +41,7 @@ final readonly class UserRepository implements UserRepositoryPort
   public function __construct(
     private EntityManagerInterface $entityManager,
     private UserMapper $mapper,
+    private ?SecurityUserCacheInvalidator $securityUserCacheInvalidator = null,
   ) {
   }
 
@@ -58,6 +60,7 @@ final readonly class UserRepository implements UserRepositoryPort
     }
 
     $this->entityManager->flush();
+    $this->securityUserCacheInvalidator?->invalidateUser($user->id()->value);
   }
 
   public function findById(UserId $id): ?User
@@ -111,6 +114,7 @@ final readonly class UserRepository implements UserRepositoryPort
     if ($record) {
       $this->entityManager->remove($record);
       $this->entityManager->flush();
+      $this->securityUserCacheInvalidator?->invalidateUser($user->id()->value);
     }
   }
 

@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\ListFacilities;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
+use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus, FacilityType};
 use InvalidArgumentException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Message\QueryHandler;
 use Shared\Domain\Exception\InvalidValueException;
 use ValueError;
+
+use function array_map;
 
 /**
  * UseCase ListFacilitiesHandler.
@@ -27,6 +30,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
   // #region Constructor
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private FacilityEquipmentDependencyPort $equipmentDependency,
   ) {
   }
   // #endregion
@@ -56,27 +60,44 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
+    if ($query->rootsOnly && null !== $parentFacilityId) {
+      throw new InvalidArgumentException('rootsOnly cannot be combined with parentFacilityId.');
+    }
+
     $facilities = $this->facilityRepository->findByOrganizationId(
-      $organizationId,
-      $query->includeArchived,
-      $type,
-      $status,
-      $parentFacilityId,
-      $query->code,
-      $query->search,
-      $query->sorting,
-      $query->pagination->limit,
-      $query->pagination->offset,
+      organizationId: $organizationId,
+      includeArchived: $query->includeArchived,
+      type: $type,
+      status: $status,
+      parentFacilityId: $parentFacilityId,
+      code: $query->code,
+      search: $query->search,
+      sorting: $query->sorting,
+      limit: $query->pagination->limit,
+      offset: $query->pagination->offset,
+      rootsOnly: $query->rootsOnly,
     );
 
     $total = $this->facilityRepository->countByOrganizationId(
+      organizationId: $organizationId,
+      includeArchived: $query->includeArchived,
+      type: $type,
+      status: $status,
+      parentFacilityId: $parentFacilityId,
+      code: $query->code,
+      search: $query->search,
+      rootsOnly: $query->rootsOnly,
+    );
+
+    $childCounts = $this->facilityRepository->countChildrenByParentIds(
       $organizationId,
+      $this->facilityIds($facilities),
       $query->includeArchived,
-      $type,
-      $status,
-      $parentFacilityId,
-      $query->code,
-      $query->search,
+    );
+
+    $equipmentCounts = $this->equipmentDependency->countActiveEquipmentByFacility(
+      (string) $organizationId,
+      array_map(static fn (FacilityId $id): string => (string) $id, $this->facilityIds($facilities)),
     );
 
     $results = [];
@@ -94,6 +115,10 @@ final readonly class ListFacilitiesHandler implements QueryHandler
         metadata: $facility->metadata(),
         createdAt: $facility->createdAt(),
         updatedAt: $facility->updatedAt(),
+        hasChildren: ($childCounts[(string) $facility->id()] ?? 0) > 0,
+        latitude: $facility->coordinates()?->latitude(),
+        longitude: $facility->coordinates()?->longitude(),
+        equipmentCount: $equipmentCounts[(string) $facility->id()] ?? 0,
       );
     }
 
@@ -103,6 +128,21 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
     );
+  }
+
+  /**
+   * @param list<Facility> $facilities
+   *
+   * @return list<FacilityId>
+   */
+  private function facilityIds(array $facilities): array
+  {
+    $ids = [];
+    foreach ($facilities as $facility) {
+      $ids[] = $facility->id();
+    }
+
+    return $ids;
   }
   // #endregion
 }

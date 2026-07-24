@@ -6,12 +6,24 @@ monolog:
 when@dev:
     monolog:
         handlers:
-            # Main application log
+            # Main application log.
+            #
+            # `!doctrine` is excluded on purpose: at `debug` the doctrine channel
+            # logs every statement with its parameters, which grew this file to
+            # 700 MB in the container. SQL tracing belongs in the profiler, which
+            # is where anyone actually reads it.
             main:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
-                channels: ["!event"]
+                channels: ["!event", "!doctrine"]
+
+            # Doctrine, at a level worth keeping on disk.
+            doctrine:
+                type: stream
+                path: "%kernel.logs_dir%/%kernel.environment%.log"
+                level: warning
+                channels: [doctrine]
 
             # Security events (login, logout, token generation)
             security:

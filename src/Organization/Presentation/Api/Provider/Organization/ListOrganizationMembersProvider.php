@@ -11,20 +11,26 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{GetOrganizationMemberResult, ListOrganizationMembersQuery};
+use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Presentation\Api\Pagination\PaginationExtractor;
 use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
 use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Throwable;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
+use function array_filter;
+use function array_map;
 use function array_slice;
+use function array_values;
 use function count;
-use function is_numeric;
 use function is_string;
-use function max;
+use function trim;
 
 /**
  * Provider ListOrganizationMembersProvider.
@@ -73,9 +79,6 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
    * @param array<string, mixed> $context processing context values
    *
-   * @return list<OrganizationMemberOutput>
-   */
-  /**
    * @return TraversablePaginator<OrganizationMemberOutput>
    */
   public function provide(Operation $operation, array $uriVariables = [], array $context = []): object
@@ -94,27 +97,23 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       throw new AccessDeniedHttpException('Missing Organization.members.read permission.');
     }
 
-    $filters = $context['filters'] ?? [];
-    /** @var array<string, mixed> $filters */
-    $pageValue = $filters['page'] ?? 1;
-    $itemsPerPageValue = $filters['itemsPerPage'] ?? 30;
-
-    $page = is_numeric($pageValue) ? (int) $pageValue : 1;
-    $itemsPerPage = is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : 30;
-
-    $page = max(1, $page);
-    $itemsPerPage = max(1, $itemsPerPage);
-
-    $offset = ($page - 1) * $itemsPerPage;
+    $pagination = PaginationExtractor::fromContext($context);
 
     try {
       /** @var PaginatedResult<GetOrganizationMemberResult> $result */
       $result = $this->queryBus->ask(new ListOrganizationMembersQuery(
         organizationId: $organizationId,
-        pagination: new Pagination(offset: $offset, limit: $itemsPerPage),
+        pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
       ));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    }
+
+    /** @var ListOrganizationRolesResult $rolesResult */
+    $rolesResult = $this->queryBus->ask(new ListOrganizationRolesQuery($organizationId));
+    $roleNamesById = [];
+    foreach ($rolesResult->roles as $role) {
+      $roleNamesById[$role->id] = $role->name;
     }
 
     $outputs = [];
@@ -123,28 +122,62 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       $output->id = $member->id;
       $output->organizationId = $member->organizationId;
       $output->userId = $member->userId;
+      $output->displayName = $member->userId;
       $output->isActive = $member->isActive;
+      $output->isOwner = $member->isOwner;
       $output->joinedAt = $member->joinedAt->format('c');
       $output->roleIds = $member->roleIds;
+      $output->roleNames = array_values(array_filter(array_map(
+        static fn (string $roleId): ?string => $roleNamesById[$roleId] ?? null,
+        $member->roleIds,
+      )));
+
+      $userResult = $this->findUser($member->userId);
+      if ($userResult instanceof GetUserResult && null !== $userResult->user) {
+        $output->email = $userResult->user->email;
+        $output->firstName = $userResult->user->firstName;
+        $output->lastName = $userResult->user->lastName;
+        $output->displayName = trim($userResult->user->firstName . ' ' . $userResult->user->lastName)
+          ?: $userResult->user->username
+          ?: $member->userId;
+        $output->avatarUrl = $userResult->user->avatarUrl;
+      }
+
       $outputs[] = $output;
     }
 
     $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['userId']);
+    $outputs = CollectionSearcher::search($outputs, $search, ['userId', 'displayName', 'firstName', 'lastName', 'email']);
 
     $total = count($outputs);
 
     $sorting = SortingExtractor::fromContext($context, ['userId', 'isActive', 'joinedAt'], 'joinedAt');
     $outputs = CollectionSorter::sort($outputs, $sorting);
 
-    $outputs = array_slice($outputs, $offset, $itemsPerPage);
+    $outputs = array_slice($outputs, $pagination->offset, $pagination->itemsPerPage);
 
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
-      currentPage: (float) $page,
-      itemsPerPage: (float) $itemsPerPage,
+      currentPage: (float) $pagination->page,
+      itemsPerPage: (float) $pagination->itemsPerPage,
       totalItems: (float) $total,
     );
+  }
+
+  /**
+   * Resolves a user profile without making member listing fail when the user
+   * record is unavailable.
+   */
+  private function findUser(string $userId): ?GetUserResult
+  {
+    try {
+      /** @var GetUserResult $result */
+      $result = $this->queryBus->ask(new GetUserQuery($userId));
+    } catch (Throwable) {
+      return null;
+    }
+
+    return $result;
   }
   // #endregion
 }

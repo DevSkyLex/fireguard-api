@@ -31,6 +31,13 @@ final class EquipmentOperations
   public const string LIST_EQUIPMENTS = 'equipment_list';
 
   /**
+   * Constant LIST_FACILITY_EQUIPMENTS.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_EQUIPMENTS = 'facility_equipment_list';
+
+  /**
    * Constant GET_EQUIPMENT.
    *
    * @var string
@@ -141,5 +148,12 @@ final class EquipmentOperations
    * @var string
    */
   public const string LIST_MAINTENANCE_LOGS = 'equipment_list_maintenance_logs';
+
+  /**
+   * Constant GET_EQUIPMENT_KPIS.
+   *
+   * @var string
+   */
+  public const string GET_EQUIPMENT_KPIS = 'equipment_get_kpis';
   // #endregion
 }

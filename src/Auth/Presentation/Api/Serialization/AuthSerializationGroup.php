@@ -51,5 +51,29 @@ final readonly class AuthSerializationGroup
    * @var string
    */
   public const string PASSWORD_RESET_WRITE = 'password_reset:write';
+
+  /**
+   * Constant PASSWORD_CHANGE_WRITE.
+   *
+   * Group PASSWORD_CHANGE_WRITE
+   * Used for authenticated password change operations.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string PASSWORD_CHANGE_WRITE = 'password_change:write';
+
+  /**
+   * Constant REGISTRATION_WRITE.
+   *
+   * Group REGISTRATION_WRITE
+   * Used for public self-service registration operations.
+   *
+   * @since 1.0.0
+   *
+   * @var string
+   */
+  public const string REGISTRATION_WRITE = 'registration:write';
   // #endregion
 }

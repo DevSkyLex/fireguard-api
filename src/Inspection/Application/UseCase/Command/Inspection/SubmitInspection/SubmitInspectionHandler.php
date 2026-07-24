@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Inspection\Application\UseCase\Command\Inspection\SubmitInspection;
 
 use Inspection\Application\Port\Outbound\InspectionRepositoryPort;
+use Inspection\Domain\Event\Inspection\InspectionSubmittedEvent;
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Domain\ValueObject\{InspectionId, InspectionOrganizationId};
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 
 /**
@@ -25,6 +27,7 @@ final readonly class SubmitInspectionHandler implements CommandHandler
   // #region Constructor
   public function __construct(
     private InspectionRepositoryPort $inspectionRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -44,7 +47,7 @@ final readonly class SubmitInspectionHandler implements CommandHandler
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
     }
 
-    $inspection = $this->inspectionRepository->findById($inspectionId);
+    $inspection = $this->inspectionRepository->findPublishedById($inspectionId);
 
     if (null === $inspection || (string) $inspection->organizationId() !== (string) $organizationId) {
       throw InspectionNotFoundException::withId($command->inspectionId);
@@ -53,6 +56,13 @@ final readonly class SubmitInspectionHandler implements CommandHandler
     $inspection->submit();
 
     $this->inspectionRepository->save($inspection);
+
+    $this->eventDispatcher->dispatch(new InspectionSubmittedEvent(
+      organizationId: (string) $inspection->organizationId(),
+      inspectionId: (string) $inspection->id(),
+      equipmentId: (string) $inspection->equipmentId(),
+      result: $inspection->result()->value,
+    ));
 
     return new SubmitInspectionResult(
       inspectionId: (string) $inspection->id(),

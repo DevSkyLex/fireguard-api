@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Inspection\Domain\Model\Inspection;
 
 use DateTimeImmutable;
-use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotSubmittedException};
+use Inspection\Domain\Exception\{InspectionAlreadyCancelledException, InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotSubmittedException};
 use Inspection\Domain\ValueObject\{
   InspectionChecklistId,
   InspectionEquipmentId,
@@ -221,6 +221,29 @@ final class Inspection
     }
 
     $this->status = InspectionStatus::CLOSED;
+    $this->touch();
+  }
+
+  /**
+   * Method cancel.
+   *
+   * Cancels the inspection logically (draft or submitted), preserving the row
+   * and its non-conformities. A closed or already-cancelled inspection cannot
+   * be cancelled.
+   *
+   * @since 1.0.0
+   */
+  public function cancel(): void
+  {
+    if ($this->status->isClosed()) {
+      throw InspectionAlreadyClosedException::withId((string) $this->id);
+    }
+
+    if ($this->status->isCancelled()) {
+      throw InspectionAlreadyCancelledException::withId((string) $this->id);
+    }
+
+    $this->status = InspectionStatus::CANCELLED;
     $this->touch();
   }
 

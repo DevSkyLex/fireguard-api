@@ -6,6 +6,26 @@ services:
   Inspection\Presentation\:
     resource: '../../src/Inspection/Presentation'
 
+  Inspection\Presentation\Api\Provider\Inspection\CanonicalInspectionProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Processor\Inspection\CanonicalInspectionMutationProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Processor\InspectionResponse\InspectionResponseProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Provider\InspectionResponse\InspectionResponseProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Repositories
   Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository:
     arguments:
@@ -19,16 +39,84 @@ services:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
+  Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # R11b: generalized inspection + non-conformity attachments (multipart)
+  Inspection\Presentation\Api\Processor\Attachment\InspectionMediaProcessor:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Presentation\Api\Provider\Attachment\InspectionMediaProvider:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  inspection.main_transaction_manager:
+    class: Shared\Infrastructure\Symfony\Adapter\Outbound\DoctrineTransactionManagerAdapter
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   # Port aliases
   Inspection\Application\Port\Outbound\InspectionRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository
 
   Inspection\Infrastructure\Adapter\Organization\InspectionStatisticsAdapter: ~
 
+  # Reports in-progress inspections targeting a facility (for the facility archival guard)
+  Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
+
+  Inspection\Infrastructure\Adapter\Messaging\InspectionMessagingSubjectResolverAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags: ['messaging.subject_resolver']
+
+  # R17: re-executes the non-conformity waiver on approval
+  Inspection\Infrastructure\Adapter\Approval\NonConformityWaiverExecutorAdapter:
+    tags: ['approval.deferred_action_executor']
+
   Inspection\Infrastructure\Adapter\Organization\NonConformityStatisticsAdapter: ~
+
+  # Cross-module read model for the Calendar module (unified feed source)
+  Inspection\Infrastructure\Adapter\Calendar\InspectionCalendarFeedAdapter: ~
+
+  # Cross-module outbound port for the Equipment module (adapter hosted here,
+  # in the module owning the read model): org-wide open non-conformity count
+  # for the equipment KPI band (L2.11) — see the port's docblock for why this
+  # cannot be narrowed to a per-equipment count.
+  Equipment\Application\Port\Outbound\NonConformityStatisticsPort:
+    alias: Inspection\Infrastructure\Adapter\Equipment\EquipmentNonConformityStatisticsAdapter
+
+  Inspection\Infrastructure\Adapter\Equipment\EquipmentNonConformityStatisticsAdapter: ~
+
+  # Cross-module read model for the Compliance module (open non-conformities by severity, by facility)
+  Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  # L2.2: Assistant business-context seam — this module's own adapter,
+  # tagged `assistant.context_provider` (priority 20: rendered after
+  # Compliance's org-wide summary, ahead of Maintenance's due dates).
+  # Assistant's own config/modules/assistant.yaml is never touched to add
+  # this source.
+  Inspection\Infrastructure\Adapter\Assistant\InspectionAssistantContextProviderAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+    tags:
+      - { name: 'assistant.context_provider', priority: 20 }
 
   Inspection\Application\Port\Outbound\NonConformityRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\NonConformityRepository
+
+  Inspection\Application\Port\Outbound\InspectionAttachmentRepositoryPort:
+    alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionAttachmentRepository
 
   Inspection\Application\Port\Outbound\ChecklistRepositoryPort:
     alias: Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository
@@ -42,14 +130,40 @@ services:
   Inspection\Application\Port\Outbound\ChecklistValidationPort:
     alias: Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter
 
+  # Cross-module: notifies the Maintenance module when an inspection closes
+  Inspection\Application\Port\Outbound\InspectionMaintenanceSynchronizerPort:
+    alias: Maintenance\Infrastructure\Adapter\Inspection\MaintenanceScheduleSynchronizerAdapter
+
   Equipment\Infrastructure\Adapter\Inspection\EquipmentValidationAdapter: ~
 
   Facility\Infrastructure\Adapter\Inspection\FacilityValidationAdapter: ~
+
+  # Read-side label lookups, deliberately separate from the validation ports
+  # above: resolving a name must not go through a contract that throws.
+  #
+  # Both are wired to `main` explicitly. Autowiring hands over the default
+  # entity manager, which maps neither record — a perfectly typed adapter whose
+  # every query fails at runtime.
+  Inspection\Application\Port\Outbound\EquipmentNamingPort:
+    alias: Equipment\Infrastructure\Adapter\Inspection\EquipmentNamingAdapter
+
+  Equipment\Infrastructure\Adapter\Inspection\EquipmentNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Inspection\Application\Port\Outbound\FacilityNamingPort:
+    alias: Facility\Infrastructure\Adapter\Inspection\FacilityNamingAdapter
+
+  Facility\Infrastructure\Adapter\Inspection\FacilityNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
 
   Inspection\Infrastructure\Adapter\Checklist\ChecklistValidationAdapter: ~
 
   # Command Handlers
   Inspection\Application\UseCase\Command\Inspection\CreateInspection\CreateInspectionHandler:
+    arguments:
+      $transactionManager: '@inspection.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Command\Inspection\EditInspection\EditInspectionHandler:
@@ -76,6 +190,15 @@ services:
   Inspection\Application\UseCase\Command\Checklist\ArchiveChecklist\ArchiveChecklistHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Attachment\AddInspectionAttachment\AddInspectionAttachmentHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Command\Attachment\DeleteInspectionAttachment\DeleteInspectionAttachmentHandler:
+    tags: ['messenger.message_handler']
+
   # Query Handlers
   Inspection\Application\UseCase\Query\Inspection\GetInspection\GetInspectionHandler:
     tags: ['messenger.message_handler']
@@ -86,6 +209,9 @@ services:
   Inspection\Application\UseCase\Query\NonConformity\ListNonConformities\ListNonConformitiesHandler:
     tags: ['messenger.message_handler']
 
+  Inspection\Application\UseCase\Query\NonConformity\ListOrganizationNonConformities\ListOrganizationNonConformitiesHandler:
+    tags: ['messenger.message_handler']
+
   Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityHandler:
     tags: ['messenger.message_handler']
 
@@ -93,5 +219,8 @@ services:
     tags: ['messenger.message_handler']
 
   Inspection\Application\UseCase\Query\Checklist\ListChecklists\ListChecklistsHandler:
+    tags: ['messenger.message_handler']
+
+  Inspection\Application\UseCase\Query\Attachment\ListInspectionAttachments\ListInspectionAttachmentsHandler:
     tags: ['messenger.message_handler']
 

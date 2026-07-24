@@ -6,6 +6,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Provider\Organization;
 
 use ApiPlatform\Metadata\Get;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\{GetOrganizationDashboardQuery, GetOrganizationDashboardResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
@@ -20,6 +21,8 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use User\Application\Contract\User\UserView;
+use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function get_object_vars;
 use function in_array;
@@ -147,6 +150,13 @@ final class GetOrganizationDashboardProviderTest extends TestCase
             'deltas' => ['inspectionCompletionRate' => 25.0],
           ],
         ],
+        trends: [
+          'facilities' => [['bucket' => '2026-03-01', 'value' => 2]],
+          'members' => [['bucket' => '2026-03-01', 'value' => 4]],
+          'equipment' => [['bucket' => '2026-03-01', 'value' => 6]],
+          'inspections' => [['bucket' => '2026-03-01', 'value' => 8]],
+        ],
+        recentInterventions: [],
       ));
 
     $provider = new GetOrganizationDashboardProvider(
@@ -242,6 +252,11 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     self::assertSame(100.0, $output->comparison['health']['metrics'][0]['max']);
     self::assertSame('up', $output->comparison['health']['metrics'][0]['direction']);
     self::assertArrayNotHasKey('trendMetrics', get_object_vars($output));
+    self::assertSame([['bucket' => '2026-03-01', 'value' => 2]], $output->trends['facilities']);
+    self::assertSame([['bucket' => '2026-03-01', 'value' => 4]], $output->trends['members']);
+    self::assertSame([['bucket' => '2026-03-01', 'value' => 6]], $output->trends['equipment']);
+    self::assertSame([['bucket' => '2026-03-01', 'value' => 8]], $output->trends['inspections']);
+    self::assertSame([], $output->recentInterventions);
     self::assertArrayNotHasKey('total', $output->overview['members']);
   }
 
@@ -433,6 +448,70 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     self::assertNotNull($nonConformitiesPrimary);
     self::assertSame('inProgress', $nonConformitiesPrimary['key']);
     self::assertSame(3, $nonConformitiesPrimary['value']);
+  }
+
+  /**
+   * L3.10: the by-severity breakdown the handler adds to
+   * `overview.nonConformities` (`severityLow`/`severityMedium`/
+   * `severityHigh`/`severityCritical`) are plain integer fields, so they
+   * flow through `normalizeOverview()`'s generic summary-list mapping like
+   * every other overview count — no dedicated provider mapping code exists
+   * or is needed for them. This test pins that pass-through.
+   */
+  #[Test]
+  public function testProvidePassesThroughNonConformitySeverityBreakdownAsSummaryEntries(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn($this->createEmptyResult(
+        overview: [
+          'nonConformities' => [
+            'total' => 7,
+            'open' => 4,
+            'inProgress' => 1,
+            'done' => 1,
+            'waived' => 1,
+            'overdue' => 0,
+            'criticalOpen' => 0,
+            'severityLow' => 2,
+            'severityMedium' => 3,
+            'severityHigh' => 1,
+            'severityCritical' => 1,
+          ],
+        ],
+      ));
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $output = $provider->provide(
+      new Get(),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+    );
+
+    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
+    $summary = [];
+    foreach ($output->overview['nonConformities']['summary'] as $entry) {
+      $summary[$entry['key']] = $entry['value'];
+    }
+
+    self::assertSame(2, $summary['severityLow']);
+    self::assertSame(3, $summary['severityMedium']);
+    self::assertSame(1, $summary['severityHigh']);
+    self::assertSame(1, $summary['severityCritical']);
+    // Unaffected by the L3.10 addition: the primary metric still defaults to
+    // the status-based `open` key (no `nonConformityStatus` filter here).
+    $nonConformitiesPrimary = $output->overview['nonConformities']['primary'];
+    self::assertNotNull($nonConformitiesPrimary);
+    self::assertSame('open', $nonConformitiesPrimary['key']);
+    self::assertSame(4, $nonConformitiesPrimary['value']);
   }
 
   #[Test]
@@ -678,6 +757,135 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
   }
 
+  #[Test]
+  public function testProvideEnrichesRecentInterventionsWithResolvedUserProfile(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::exactly(2))
+      ->method('ask')
+      ->willReturnCallback(static fn (object $query): object => match (true) {
+        $query instanceof GetOrganizationDashboardQuery => new GetOrganizationDashboardResult(
+          generatedAt: '2026-03-29T10:00:00+00:00',
+          period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'comparison' => 'none', 'timezone' => 'UTC'],
+          overview: [],
+          health: [],
+          alerts: [],
+          comparison: ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
+          trends: ['facilities' => [], 'members' => [], 'equipment' => [], 'inspections' => []],
+          recentInterventions: [
+            [
+              'id' => 'intervention-1',
+              'number' => 42,
+              'name' => 'Contrôle annuel extincteurs',
+              'status' => 'in_progress',
+              'priority' => 'high',
+              'siteId' => 'site-1',
+              'siteName' => 'Siège — Paris 12e',
+              'responsibleId' => 'member-1',
+              'responsibleUserId' => 'user-1',
+              'dueAt' => '2026-04-01T00:00:00+00:00',
+              'updatedAt' => '2026-03-28T09:00:00+00:00',
+            ],
+          ],
+        ),
+        $query instanceof GetUserQuery => new GetUserResult(new UserView(
+          id: 'user-1',
+          username: 'claire.lefevre',
+          email: 'claire@example.com',
+          firstName: 'Claire',
+          lastName: 'Lefèvre',
+          avatarUrl: 'https://api.example.com/api/users/user-1/avatar',
+          status: 'active',
+          emailVerified: true,
+          tenantId: null,
+          createdAt: $createdAt,
+          lastLoginAt: null,
+          canLogin: true,
+        )),
+        default => throw new AccessDeniedHttpException('Unexpected query.'),
+      });
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $output = $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+
+    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
+    self::assertCount(1, $output->recentInterventions);
+    self::assertSame('intervention-1', $output->recentInterventions[0]['id']);
+    self::assertSame(42, $output->recentInterventions[0]['number']);
+    self::assertSame('site-1', $output->recentInterventions[0]['siteId']);
+    self::assertSame('Siège — Paris 12e', $output->recentInterventions[0]['siteName']);
+    self::assertSame('member-1', $output->recentInterventions[0]['responsibleId']);
+    self::assertSame('Claire Lefèvre', $output->recentInterventions[0]['responsibleName']);
+    self::assertSame('https://api.example.com/api/users/user-1/avatar', $output->recentInterventions[0]['responsibleAvatarUrl']);
+    self::assertArrayNotHasKey('responsibleUserId', $output->recentInterventions[0]);
+  }
+
+  #[Test]
+  public function testProvideFallsBackToMemberIdWhenResponsibleUserProfileIsUnavailable(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::exactly(2))
+      ->method('ask')
+      ->willReturnCallback(static fn (object $query): object => match (true) {
+        $query instanceof GetOrganizationDashboardQuery => new GetOrganizationDashboardResult(
+          generatedAt: '2026-03-29T10:00:00+00:00',
+          period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'comparison' => 'none', 'timezone' => 'UTC'],
+          overview: [],
+          health: [],
+          alerts: [],
+          comparison: ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
+          trends: ['facilities' => [], 'members' => [], 'equipment' => [], 'inspections' => []],
+          recentInterventions: [
+            [
+              'id' => 'intervention-2',
+              'number' => 41,
+              'name' => 'Inventaire équipements',
+              'status' => 'draft',
+              'priority' => 'low',
+              'siteId' => null,
+              'siteName' => null,
+              'responsibleId' => 'member-2',
+              'responsibleUserId' => 'user-2',
+              'dueAt' => null,
+              'updatedAt' => '2026-03-27T09:00:00+00:00',
+            ],
+          ],
+        ),
+        $query instanceof GetUserQuery => new GetUserResult(null),
+        default => throw new AccessDeniedHttpException('Unexpected query.'),
+      });
+
+    $provider = new GetOrganizationDashboardProvider(
+      queryBus: $queryBus,
+      authorization: $this->createDashboardAuthorizationMock(),
+      security: $security,
+    );
+
+    $output = $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+
+    self::assertInstanceOf(OrganizationDashboardOutput::class, $output);
+    self::assertCount(1, $output->recentInterventions);
+    self::assertNull($output->recentInterventions[0]['siteId']);
+    self::assertNull($output->recentInterventions[0]['siteName']);
+    self::assertSame('member-2', $output->recentInterventions[0]['responsibleId']);
+    self::assertSame('member-2', $output->recentInterventions[0]['responsibleName']);
+    self::assertNull($output->recentInterventions[0]['responsibleAvatarUrl']);
+    self::assertNull($output->recentInterventions[0]['dueAt']);
+  }
+
   /**
    * @return array<string, array{0: string, 1: bool}>
    */
@@ -701,6 +909,8 @@ final class GetOrganizationDashboardProviderTest extends TestCase
    * @param array<string, float> $health
    * @param list<array{code: string, severity: string, count: int}> $alerts
    * @param array<string, mixed> $comparison
+   * @param array{facilities: list<array{bucket: string, value: int}>, members: list<array{bucket: string, value: int}>, equipment: list<array{bucket: string, value: int}>, inspections: list<array{bucket: string, value: int}>} $trends
+   * @param list<array{id: string, number: int, name: string, status: string, priority: string, siteId: ?string, siteName: ?string, responsibleId: ?string, responsibleUserId: ?string, dueAt: ?string, updatedAt: string}> $recentInterventions
    */
   private function createEmptyResult(
     array $period = ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'comparison' => 'none', 'timezone' => 'UTC'],
@@ -708,6 +918,8 @@ final class GetOrganizationDashboardProviderTest extends TestCase
     array $health = [],
     array $alerts = [],
     array $comparison = ['mode' => 'none', 'current' => [], 'previous' => [], 'deltas' => [], 'health' => ['current' => [], 'previous' => [], 'deltas' => []]],
+    array $trends = ['facilities' => [], 'members' => [], 'equipment' => [], 'inspections' => []],
+    array $recentInterventions = [],
   ): GetOrganizationDashboardResult {
     return new GetOrganizationDashboardResult(
       generatedAt: '2026-03-29T10:00:00+00:00',
@@ -716,6 +928,8 @@ final class GetOrganizationDashboardProviderTest extends TestCase
       health: $health,
       alerts: $alerts,
       comparison: $comparison,
+      trends: $trends,
+      recentInterventions: $recentInterventions,
     );
   }
 

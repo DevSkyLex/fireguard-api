@@ -11,6 +11,7 @@ use Inspection\Application\UseCase\Command\NonConformity\AddNonConformity\{
   AddNonConformityHandler,
   AddNonConformityResult
 };
+use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
 use Inspection\Domain\Exception\{
   InspectionAlreadyClosedException,
   InspectionNotFoundException
@@ -28,6 +29,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 /**
  * Test AddNonConformityHandlerTest.
@@ -68,10 +70,23 @@ final class AddNonConformityHandlerTest extends TestCase
     $ncRepository = $this->createMock(NonConformityRepositoryPort::class);
     $ncRepository->expects(self::once())->method('save');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof NonConformityRecordedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::INSP_ID === $event->inspectionId
+          && self::NC_ID === $event->nonConformityId
+          && 'high' === $event->severity,
+      ));
+
     $handler = new AddNonConformityHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new AddNonConformityCommand(
@@ -101,10 +116,15 @@ final class AddNonConformityHandlerTest extends TestCase
 
     $ncRepository = $this->createStub(NonConformityRepositoryPort::class);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new AddNonConformityHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -129,10 +149,15 @@ final class AddNonConformityHandlerTest extends TestCase
     $ncRepository = $this->createMock(NonConformityRepositoryPort::class);
     $ncRepository->expects(self::never())->method('save');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new AddNonConformityHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InspectionAlreadyClosedException::class);

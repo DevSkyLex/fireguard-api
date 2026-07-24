@@ -48,6 +48,7 @@ final class OrganizationOnboardingSession
    * @param list<StepHistoryEntry> $stepHistory ordered log of step completions and skips
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
+   * @param ?DateTimeImmutable $dismissedAt when the user voluntarily hid the activation flow, or null
    */
   private function __construct(
     private string $id,
@@ -64,6 +65,7 @@ final class OrganizationOnboardingSession
     private array $stepHistory,
     private DateTimeImmutable $createdAt,
     private DateTimeImmutable $updatedAt,
+    private ?DateTimeImmutable $dismissedAt = null,
   ) {
   }
   // #endregion
@@ -98,6 +100,7 @@ final class OrganizationOnboardingSession
       stepHistory: [],
       createdAt: $now,
       updatedAt: $now,
+      dismissedAt: null,
     );
   }
 
@@ -120,6 +123,7 @@ final class OrganizationOnboardingSession
    * @param list<StepHistoryEntry> $stepHistory the persisted step history entries
    * @param DateTimeImmutable $createdAt the creation timestamp
    * @param DateTimeImmutable $updatedAt the last update timestamp
+   * @param ?DateTimeImmutable $dismissedAt the persisted dismissal timestamp, or null
    *
    * @return self the reconstituted session
    */
@@ -138,6 +142,7 @@ final class OrganizationOnboardingSession
     array $stepHistory,
     DateTimeImmutable $createdAt,
     DateTimeImmutable $updatedAt,
+    ?DateTimeImmutable $dismissedAt = null,
   ): self {
     $normalizedCompletedSteps = array_values(array_filter(
       $completedSteps,
@@ -164,6 +169,7 @@ final class OrganizationOnboardingSession
       stepHistory: $stepHistory,
       createdAt: $createdAt,
       updatedAt: $updatedAt,
+      dismissedAt: $dismissedAt,
     );
   }
 
@@ -313,6 +319,66 @@ final class OrganizationOnboardingSession
   public function updatedAt(): DateTimeImmutable
   {
     return $this->updatedAt;
+  }
+
+  /**
+   * Method dismissedAt.
+   *
+   * @since 3.0.0
+   *
+   * @return ?DateTimeImmutable when the activation flow was voluntarily hidden, or null
+   */
+  public function dismissedAt(): ?DateTimeImmutable
+  {
+    return $this->dismissedAt;
+  }
+
+  /**
+   * Method isDismissed.
+   *
+   * @since 3.0.0
+   *
+   * @return bool true when the user has voluntarily hidden the activation flow
+   */
+  public function isDismissed(): bool
+  {
+    return null !== $this->dismissedAt;
+  }
+
+  /**
+   * Method dismiss.
+   *
+   * Voluntarily hides the (non-blocking) activation flow without completing it.
+   * Dismissal is a user preference orthogonal to step progression: the persisted
+   * `state` is left untouched so the flow can still complete or be resumed later.
+   *
+   * @since 3.0.0
+   */
+  public function dismiss(): void
+  {
+    if (null !== $this->dismissedAt) {
+      return;
+    }
+
+    $this->dismissedAt = new DateTimeImmutable();
+    $this->touch();
+  }
+
+  /**
+   * Method resume.
+   *
+   * Clears a previous dismissal so the activation flow becomes visible again.
+   *
+   * @since 3.0.0
+   */
+  public function resume(): void
+  {
+    if (null === $this->dismissedAt) {
+      return;
+    }
+
+    $this->dismissedAt = null;
+    $this->touch();
   }
 
   /**

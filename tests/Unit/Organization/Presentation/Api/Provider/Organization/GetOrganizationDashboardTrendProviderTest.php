@@ -719,6 +719,179 @@ final class GetOrganizationDashboardTrendProviderTest extends TestCase
     ];
   }
 
+  #[Test]
+  public function testProvideCombinesNonConformityMetricsIntoQueryAndPermissionChecksBoth(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::exactly(2))
+      ->method('hasPermission')
+      ->with('550e8400-e29b-41d4-a716-446655441600', '550e8400-e29b-41d4-a716-446655441610', 'organization.inspection.read')
+      ->willReturn(true);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (GetOrganizationDashboardTrendQuery $query): bool {
+        return GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED === $query->metric
+          && [GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED] === $query->additionalMetrics;
+      }))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'none', 'timezone' => 'UTC'],
+        summary: ['total' => 2],
+        series: [['bucket' => '2026-03-01', 'value' => 2]],
+        comparison: ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+        seriesByMetric: [
+          GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED => [['bucket' => '2026-03-01', 'value' => 2]],
+          GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED => [['bucket' => '2026-03-01', 'value' => 1]],
+        ],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $output = $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['metrics' => 'non_conformities_resolved']],
+    );
+
+    self::assertInstanceOf(OrganizationDashboardTrendOutput::class, $output);
+    self::assertSame([
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED => [['bucket' => '2026-03-01', 'value' => 2]],
+      GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED => [['bucket' => '2026-03-01', 'value' => 1]],
+    ], $output->seriesByMetric);
+  }
+
+  #[Test]
+  public function testProvideIgnoresPrimaryMetricAndDuplicatesWithinMetricsFilter(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (GetOrganizationDashboardTrendQuery $query): bool {
+        return [GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED] === $query->additionalMetrics;
+      }))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'none', 'timezone' => 'UTC'],
+        summary: ['total' => 0],
+        series: [],
+        comparison: ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      // primary metric repeated + resolved metric duplicated + blank entries: must dedupe to a single additional metric.
+      ['filters' => ['metrics' => 'non_conformities_opened, non_conformities_resolved,,non_conformities_resolved']],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenMetricsFilterUsedOnNonCombinableTrend(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('The "metrics" filter is not supported for this trend.');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['metrics' => 'equipment_created']],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenMetricsFilterValueIsUnknown(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createMetricAuthorizationMock();
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid "metrics" filter value "equipment_created".');
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => ['metrics' => 'equipment_created']],
+    );
+  }
+
+  #[Test]
+  public function testProvideCombinesMetricsFilterWithNonConformityScopedFilters(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    // Both combinable non-conformity metrics share the same permission
+    // ("organization.inspection.read"), so this asserts the provider still runs a SEPARATE
+    // assertMetricsPermissions() pass for the additional metric (2 total hasPermission calls)
+    // rather than skipping it because the primary metric already passed, and that the
+    // `nonConformityStatus`/`nonConformitySeverity` filters still reach the query alongside
+    // `metrics` — the combined chart is filtered the same way as either single-metric call.
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::exactly(2))
+      ->method('hasPermission')
+      ->with('550e8400-e29b-41d4-a716-446655441600', '550e8400-e29b-41d4-a716-446655441610', 'organization.inspection.read')
+      ->willReturn(true);
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (GetOrganizationDashboardTrendQuery $query): bool {
+        return [GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED] === $query->additionalMetrics
+          && 'critical' === $query->nonConformitySeverity
+          && 'open' === $query->nonConformityStatus;
+      }))
+      ->willReturn(new GetOrganizationDashboardTrendResult(
+        generatedAt: '2026-03-29T10:00:00+00:00',
+        metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+        period: ['from' => '2026-03-01T00:00:00+00:00', 'to' => '2026-03-29T23:59:59+00:00', 'granularity' => 'day', 'comparison' => 'none', 'timezone' => 'UTC'],
+        summary: ['total' => 0],
+        series: [],
+        comparison: ['mode' => 'none', 'from' => null, 'to' => null, 'summary' => [], 'series' => []],
+      ));
+
+    $provider = new GetOrganizationDashboardTrendProvider(queryBus: $queryBus, authorization: $authorization, security: $security);
+
+    $provider->provide(
+      new Get(name: OrganizationOperations::GET_ORGANIZATION_DASHBOARD_NON_CONFORMITIES_OPENED_TREND),
+      ['organizationId' => '550e8400-e29b-41d4-a716-446655441610'],
+      ['filters' => [
+        'metrics' => 'non_conformities_resolved',
+        'nonConformitySeverity' => 'critical',
+        'nonConformityStatus' => 'open',
+      ]],
+    );
+  }
+
   /**
    * @return array<string, array{0: string, 1: array<string, string>, 2: string}>
    */

@@ -33,6 +33,7 @@ use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
       provider: ListFacilityTypesProvider::class,
       normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Facility'],
         summary: 'List facility types',

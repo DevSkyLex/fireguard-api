@@ -15,6 +15,10 @@ services:
     tags:
       - { name: 'app.seed_fixture.auth' }
 
+  Organization\Infrastructure\DataFixtures\PlanFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
   Organization\Infrastructure\DataFixtures\OrganizationFixtures:
     tags:
       - { name: 'app.seed_fixture.main' }
@@ -32,5 +36,17 @@ services:
       - { name: 'app.seed_fixture.main' }
 
   Inspection\Infrastructure\DataFixtures\InspectionFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Maintenance\Infrastructure\DataFixtures\MaintenanceFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Calendar\Infrastructure\DataFixtures\CalendarFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
+  Messaging\Infrastructure\DataFixtures\MessagingFixtures:
     tags:
       - { name: 'app.seed_fixture.main' }

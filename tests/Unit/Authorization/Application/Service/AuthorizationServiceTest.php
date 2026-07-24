@@ -123,6 +123,27 @@ final class AuthorizationServiceTest extends TestCase
   }
 
   #[Test]
+  public function testGetUserRoleNamesReturnsCachedRoles(): void
+  {
+    /** @var RoleAssignmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $repository->expects(self::never())
+      ->method('findRolesForSubject');
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->with('authz.roles.user-cached')
+      ->willReturn(['admin', 'viewer']);
+    $cache->expects(self::never())->method('set');
+
+    $service = new AuthorizationService($repository, $cache);
+
+    self::assertSame(['admin', 'viewer'], $service->getUserRoleNames('user-cached'));
+  }
+
+  #[Test]
   public function testGetUserPermissionsDeduplicates(): void
   {
     $permissionId = new PermissionId('550e8400-e29b-41d4-a716-446655440200');

@@ -7,6 +7,7 @@ namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\PutUnderMai
 use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceLogRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\{PutUnderMaintenanceCommand, PutUnderMaintenanceHandler, PutUnderMaintenanceResult};
+use Equipment\Domain\Event\Equipment\EquipmentPutUnderMaintenanceEvent;
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
@@ -22,7 +23,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\LoggerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 
 use function is_string;
 
@@ -48,11 +49,12 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    $equipment->commission();
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
     $equipmentRepository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
@@ -95,7 +97,8 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
           && 'Fire Extinguisher' === ($request->payload['equipmentLabel'] ?? null)
           && 'under_maintenance' === ($request->payload['status'] ?? null)
           && is_string($request->payload['updatedAt'] ?? null)
-          && '550e8400-e29b-41d4-a716-446655442011' === $request->recipientUserId;
+          && '550e8400-e29b-41d4-a716-446655442011' === $request->recipientUserId
+          && self::ORG_ID === $request->organizationId;
       }))
       ->willReturn(new SentNotification(
         id: '550e8400-e29b-41d4-a716-446655449040',
@@ -117,6 +120,18 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $uuidFactory->method('create')
       ->willReturn(MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        return $event instanceof EquipmentPutUnderMaintenanceEvent
+          && self::ORG_ID === $event->organizationId
+          && self::EQUIP_ID === $event->equipmentId
+          && self::FACILITY_ID === $event->facilityId
+          && 'operational' === $event->previousStatus;
+      }));
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
@@ -125,6 +140,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new PutUnderMaintenanceCommand(
@@ -139,9 +155,12 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
   #[Test]
   public function testInvokeThrowsWhenEquipmentNotFound(): void
   {
+    // findPublishedById also returns null for draft intervention
+    // scratchpads, so this path covers both "missing" and "draft":
+    // neither may be mutated nor audited.
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
-    $equipmentRepository->method('findById')->willReturn(null);
+    $equipmentRepository->method('findPublishedById')->willReturn(null);
     $equipmentRepository->expects(self::never())->method('save');
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
@@ -158,6 +177,10 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
@@ -166,6 +189,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -188,7 +212,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
-    $equipmentRepository->method('findById')->willReturn($equipment);
+    $equipmentRepository->method('findPublishedById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
@@ -205,6 +229,10 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
@@ -213,6 +241,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(EquipmentAlreadyDecommissionedException::class);
@@ -224,8 +253,10 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
   }
 
   #[Test]
-  public function testInvokeThrowsWhenNoFacilityAssigned(): void
+  public function testInvokeThrowsWhenEquipmentIsInStock(): void
   {
+    // An in-stock (never commissioned) equipment cannot go straight into
+    // maintenance — it must be commissioned first (operational ↔ maintenance).
     $equipment = Equipment::create(
       id: EquipmentId::fromString(self::EQUIP_ID),
       organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
@@ -234,7 +265,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
-    $equipmentRepository->method('findById')->willReturn($equipment);
+    $equipmentRepository->method('findPublishedById')->willReturn($equipment);
     $equipmentRepository->expects(self::never())->method('save');
 
     $tagRepository = $this->createStub(TagRepositoryPort::class);
@@ -251,6 +282,10 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
@@ -259,10 +294,11 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);
-    $this->expectExceptionMessage('Equipment must be assigned to a facility before putting it under maintenance.');
+    $this->expectExceptionMessage('In-stock equipment must be commissioned before it can be put under maintenance.');
 
     $handler->__invoke(new PutUnderMaintenanceCommand(
       organizationId: self::ORG_ID,
@@ -282,12 +318,13 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    $equipment->commission();
     $equipment->putUnderMaintenance();
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
     $equipmentRepository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
@@ -310,6 +347,11 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::never())->method('warning');
 
+    // Idempotent repeat: the status did not change, so no audit event.
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
@@ -318,6 +360,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new PutUnderMaintenanceCommand(
@@ -340,11 +383,12 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       EquipmentFacilityId::fromString(self::FACILITY_ID),
       new DateTimeImmutable(),
     );
+    $equipment->commission();
 
     /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
     $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
     $equipmentRepository->expects(self::once())
-      ->method('findById')
+      ->method('findPublishedById')
       ->willReturn($equipment);
     $equipmentRepository->expects(self::once())->method('save');
 
@@ -395,6 +439,20 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     $uuidFactory->method('create')
       ->willReturn(MaintenanceLogId::fromString('550e8400-e29b-41d4-a716-446655442010'));
 
+    // The audit event follows the persisted state change and must not be
+    // held back by a best-effort notification failure.
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        return $event instanceof EquipmentPutUnderMaintenanceEvent
+          && self::ORG_ID === $event->organizationId
+          && self::EQUIP_ID === $event->equipmentId
+          && self::FACILITY_ID === $event->facilityId
+          && 'operational' === $event->previousStatus;
+      }));
+
     $handler = new PutUnderMaintenanceHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
@@ -403,6 +461,7 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       uuidFactory: $uuidFactory,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new PutUnderMaintenanceCommand(

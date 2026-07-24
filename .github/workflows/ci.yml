@@ -66,7 +66,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
 
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse -c phpstan.dist.neon --memory-limit=512M
+        run: vendor/bin/phpstan analyse -c phpstan.dist.neon --memory-limit=1G
 
   # ==========================================================================
   # Architecture Rules (Deptrac)
@@ -196,12 +196,17 @@ jobs:
         continue-on-error: true
 
   # ==========================================================================
-  # End-to-End Flow Tests (manual opt-in only)
+  # End-to-End Flow Tests
   # ==========================================================================
+  # Runs on every pull request. Still opt-in for a manual run (workflow_dispatch
+  # + run_e2e) on a branch without a PR, and skipped in the release/deploy
+  # preflight (workflow_call) to keep those fast.
   tests-end-to-end:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.run_e2e == true
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_e2e == true)
     env:
       APP_ENV: test
       APP_DEBUG: 0
@@ -255,7 +260,8 @@ jobs:
         run: php bin/console lint:container --env=dev
 
       - name: Lint YAML files
-        run: php bin/console lint:yaml config
+        # --parse-tags: several module configs use !tagged_iterator.
+        run: php bin/console lint:yaml config --parse-tags
 
   # ==========================================================================
   # Security Check
@@ -274,7 +280,8 @@ jobs:
           install-dependencies: 'false'
 
       - name: Check for security vulnerabilities
-        run: composer audit
+        # --locked audits composer.lock: this job installs no dependencies.
+        run: composer audit --locked
 
   # ==========================================================================
   # Mutation Testing (manual opt-in only)

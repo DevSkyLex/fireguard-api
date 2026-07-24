@@ -6,14 +6,15 @@ namespace Organization\Application\UseCase\Command\Organization\RevokeOrganizati
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
+use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{LoggerPort, TransactionManagerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
 use User\Application\Port\Outbound\UserRepositoryPort;
 
@@ -38,6 +39,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
    *
    * @param OrganizationInvitationRepositoryPort $invitationRepository the organization invitation repository port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
@@ -45,6 +47,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private TransactionManagerPort $transactionManager,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -110,6 +113,12 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       );
     });
 
+    $this->eventDispatcher->dispatch(new OrganizationInvitationRevokedEvent(
+      organizationId: $command->organizationId,
+      invitationId: $command->invitationId,
+      revokedByUserId: $command->revokedByUserId,
+    ));
+
     $existingUser = $this->userRepository->findByEmail($invitation->email());
     $recipientUserId = null !== $existingUser ? (string) $existingUser->id() : null;
     $channels = [NotificationChannel::EMAIL];
@@ -133,6 +142,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
         ],
         recipientUserId: $recipientUserId,
         recipientEmail: (string) $invitation->email(),
+        organizationId: (string) $invitation->organizationId(),
       ));
     } catch (Throwable $exception) {
       $this->logger->warning('Invitation revoked notification dispatch failed.', [
@@ -144,7 +154,7 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
       ]);
     }
 
-    if (null !== $notification && !$this->isEmailDelivered($notification)) {
+    if (null !== $notification && !$notification->isDelivered(NotificationChannel::EMAIL)) {
       $this->logger->warning('Invitation revoked email delivery failed.', [
         'organizationId' => (string) $invitation->organizationId(),
         'invitationId' => (string) $invitation->id(),
@@ -154,15 +164,6 @@ final readonly class RevokeOrganizationInvitationHandler implements CommandHandl
     }
 
     return $result;
-  }
-
-  private function isEmailDelivered(?SentNotification $notification): bool
-  {
-    if (null === $notification) {
-      return false;
-    }
-
-    return true === ($notification->channelDelivery[NotificationChannel::EMAIL->value] ?? false);
   }
   // #endregion
 }

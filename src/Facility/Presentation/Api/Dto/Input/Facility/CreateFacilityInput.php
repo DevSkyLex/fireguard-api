@@ -21,6 +21,36 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class CreateFacilityInput
 {
+  /**
+   * Property clientId.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Uuid(message: 'Client ID must be a valid UUID.')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Client-generated UUID for idempotent offline creation', required: false)]
+  public ?string $clientId = null;
+
+  /**
+   * Property organization.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Regex(pattern: '#^/api/organizations/[0-9a-fA-F-]{36}$#', message: 'Organization must be a valid organization IRI.')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Organization IRI, required on the canonical endpoint', required: false)]
+  public ?string $organization = null;
+
+  /**
+   * Property intervention.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Regex(pattern: '#^/api/interventions/[0-9a-fA-F-]{36}$#', message: 'Intervention must be a valid intervention IRI.')]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional field intervention IRI', required: false)]
+  public ?string $intervention = null;
+
   // #region Properties
   /**
    * Property type.
@@ -74,6 +104,26 @@ final class CreateFacilityInput
   #[Groups([FacilitySerializationGroup::WRITE])]
   #[ApiProperty(description: 'Optional address', required: false, example: '10 rue de Rivoli, Paris')]
   public ?string $address = null;
+
+  /**
+   * Property latitude.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Range(min: -90, max: 90)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional latitude, required together with longitude', required: false, example: 48.8566)]
+  public ?float $latitude = null;
+
+  /**
+   * Property longitude.
+   *
+   * @since 1.0.0
+   */
+  #[Assert\Range(min: -180, max: 180)]
+  #[Groups([FacilitySerializationGroup::WRITE])]
+  #[ApiProperty(description: 'Optional longitude, required together with latitude', required: false, example: 2.3522)]
+  public ?float $longitude = null;
 
   /**
    * Property metadata.

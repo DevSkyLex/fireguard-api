@@ -17,25 +17,33 @@ final class OrganizationOperations
 {
   public const string CREATE_ORGANIZATION = 'createOrganization';
 
-  public const string LIST_ORGANIZATION_COUNTRIES = 'listOrganizationCountries';
-
   public const string LIST_ORGANIZATION_STATUSES = 'listOrganizationStatuses';
-
-  public const string LIST_ORGANIZATION_INVITATION_STATUSES = 'listOrganizationInvitationStatuses';
 
   public const string LIST_ORGANIZATION_LEGAL_TYPES = 'listOrganizationLegalTypes';
 
-  public const string GET_ORGANIZATION_LEGAL_PROFILE = 'getOrganizationLegalProfile';
-
-  public const string UPSERT_ORGANIZATION_LEGAL_PROFILE = 'upsertOrganizationLegalProfile';
+  public const string LIST_ORGANIZATION_INVITATION_STATUSES = 'listOrganizationInvitationStatuses';
 
   public const string LIST_USER_ORGANIZATIONS = 'listUserOrganizations';
 
   public const string GET_ORGANIZATION = 'getOrganization';
 
+  public const string UPDATE_ORGANIZATION_SETTINGS = 'updateOrganizationSettings';
+
+  public const string CHANGE_ORGANIZATION_PLAN = 'changeOrganizationPlan';
+
+  public const string GET_ORGANIZATION_QUOTA = 'getOrganizationQuota';
+
+  public const string DELETE_ORGANIZATION = 'deleteOrganization';
+
+  public const string UPLOAD_ORGANIZATION_LOGO = 'uploadOrganizationLogo';
+
+  public const string GET_ORGANIZATION_LOGO = 'getOrganizationLogo';
+
   public const string GET_CURRENT_ORGANIZATION_MEMBER_PROFILE = 'getCurrentOrganizationMemberProfile';
 
   public const string GET_ORGANIZATION_DASHBOARD = 'getOrganizationDashboard';
+
+  public const string GET_ORGANIZATION_NAVIGATION_COUNTERS = 'getOrganizationNavigationCounters';
 
   public const string GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND = 'getOrganizationDashboardInspectionsTrend';
 
@@ -63,6 +71,8 @@ final class OrganizationOperations
 
   public const string REMOVE_ORGANIZATION_MEMBER = 'removeOrganizationMember';
 
+  public const string BATCH_REMOVE_ORGANIZATION_MEMBERS = 'batchRemoveOrganizationMembers';
+
   public const string REMOVE_ORGANIZATION_ROLE_FROM_MEMBER = 'removeOrganizationRoleFromMember';
 
   public const string DELETE_ORGANIZATION_ROLE = 'deleteOrganizationRole';
@@ -74,4 +84,24 @@ final class OrganizationOperations
   public const string ACCEPT_ORGANIZATION_INVITATION = 'acceptOrganizationInvitation';
 
   public const string REVOKE_ORGANIZATION_INVITATION = 'revokeOrganizationInvitation';
+
+  public const string RESEND_ORGANIZATION_INVITATION = 'resendOrganizationInvitation';
+
+  public const string GET_ORGANIZATION_INVITATION_PREVIEW = 'getOrganizationInvitationPreview';
+
+  public const string CREATE_TEAM = 'createTeam';
+
+  public const string LIST_TEAMS = 'listTeams';
+
+  public const string GET_TEAM = 'getTeam';
+
+  public const string UPDATE_TEAM = 'updateTeam';
+
+  public const string DELETE_TEAM = 'deleteTeam';
+
+  public const string ADD_TEAM_MEMBER = 'addTeamMember';
+
+  public const string REMOVE_TEAM_MEMBER = 'removeTeamMember';
+
+  public const string LIST_TEAM_MEMBERS = 'listTeamMembers';
 }

@@ -37,6 +37,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       provider: ListNotificationTypesProvider::class,
       normalizationContext: ['groups' => [NotificationSerializationGroup::NOTIFICATION_TYPE_READ]],
       security: "is_granted('ROLE_USER')",
+      cacheHeaders: ['max_age' => 3600, 'shared_max_age' => 0],
       openapi: new Operation(
         tags: ['Notification'],
         summary: 'List notification types',

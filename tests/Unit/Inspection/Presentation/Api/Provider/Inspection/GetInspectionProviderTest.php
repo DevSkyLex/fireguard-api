@@ -10,11 +10,13 @@ use DateTimeImmutable;
 use Inspection\Application\UseCase\Query\Inspection\GetInspection\{GetInspectionQuery, GetInspectionResult};
 use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Provider\Inspection\GetInspectionProvider;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -42,6 +44,7 @@ final class GetInspectionProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -62,6 +65,7 @@ final class GetInspectionProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $this->expectException(BadRequestHttpException::class);
@@ -85,6 +89,7 @@ final class GetInspectionProviderTest extends TestCase
       queryBus: $this->createStub(QueryBusPort::class),
       authorization: $authorization,
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $this->expectException(AccessDeniedHttpException::class);
@@ -138,6 +143,7 @@ final class GetInspectionProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
 
     $output = $provider->provide(
@@ -151,7 +157,7 @@ final class GetInspectionProviderTest extends TestCase
     self::assertSame(self::EQUIP_ID, $output->equipmentId);
     self::assertSame('pass', $output->result);
     self::assertSame('draft', $output->status);
-    self::assertSame('John Doe', $output->inspectorName);
+    self::assertSame('John Doe', $output->inspector?->displayName);
     self::assertSame('All good', $output->notes);
     self::assertSame(0, $output->nonConformitiesCount);
   }
@@ -203,7 +209,16 @@ final class GetInspectionProviderTest extends TestCase
       queryBus: $queryBus,
       authorization: $authorization,
       security: $security,
+      outputMapper: $this->createOutputMapper(),
     );
+  }
+
+  private function createOutputMapper(): InspectionOutputFactory
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('User lookup unavailable.'));
+
+    return new InspectionOutputFactory($queryBus);
   }
 
   private function createSecurityUser(): SecurityUser

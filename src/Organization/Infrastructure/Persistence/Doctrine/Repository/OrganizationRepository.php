@@ -7,7 +7,7 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\Model\Organization\Organization;
-use Organization\Domain\ValueObject\OrganizationId;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
@@ -75,6 +75,15 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       $existing->createdByUserId = $record->createdByUserId;
       $existing->status = $record->status;
       $existing->isActive = $record->isActive;
+      $existing->description = $record->description;
+      $existing->logoUrl = $record->logoUrl;
+      $existing->settings = $record->settings;
+      $existing->planId = $record->planId;
+      $existing->country = $record->country;
+      $existing->legalType = $record->legalType;
+      $existing->legalName = $record->legalName;
+      $existing->registrationNumber = $record->registrationNumber;
+      $existing->vatNumber = $record->vatNumber;
       $existing->updatedAt = $record->updatedAt;
     } else {
       $this->entityManager->persist($record);
@@ -217,6 +226,12 @@ final readonly class OrganizationRepository implements OrganizationRepositoryPor
       $queryBuilder
         ->andWhere('o.status = :status')
         ->setParameter('status', $status);
+    } else {
+      // Archived (soft-deleted) organizations are hidden from the default
+      // listing; an explicit status filter can still surface them.
+      $queryBuilder
+        ->andWhere('o.status != :excludedStatus')
+        ->setParameter('excludedStatus', OrganizationStatus::ARCHIVED->value);
     }
 
     if (null !== $search && '' !== $search) {

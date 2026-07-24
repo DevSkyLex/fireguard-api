@@ -28,4 +28,11 @@ final class AuditOperations
    * @since 1.0.0
    */
   public const string GET = 'audit_event_get';
+
+  /**
+   * Export audit events operation (streamed CSV).
+   *
+   * @since 1.3.0
+   */
+  public const string EXPORT = 'audit_events_export';
 }

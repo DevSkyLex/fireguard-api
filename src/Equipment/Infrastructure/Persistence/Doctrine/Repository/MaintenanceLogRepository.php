@@ -138,5 +138,51 @@ final readonly class MaintenanceLogRepository implements MaintenanceLogRepositor
 
     return (int) $qb->getQuery()->getSingleScalarResult();
   }
+
+  /**
+   * Method appendInterventionServiceEntry.
+   *
+   * A raw DBAL statement — not the ORM's persist()/flush() — is used
+   * deliberately: a unique-constraint violation during an ORM flush() closes
+   * the EntityManager (see
+   * `Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository::reserveRun()`
+   * and `Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter::reserveRun()`
+   * for the same concern and precedent). A duplicate dedup key is an
+   * expected, routine outcome here (at-least-once event redelivery, or a
+   * later publication re-reading an already-applied change), not an
+   * exceptional one.
+   *
+   * @since 1.0.0
+   */
+  public function appendInterventionServiceEntry(EquipmentMaintenanceLog $entry, string $dedupKey): void
+  {
+    // ON CONFLICT DO NOTHING makes a duplicate dedup_key an in-DB no-op: no
+    // exception is raised and the surrounding transaction is never aborted
+    // (catching the violation instead poisons it on PostgreSQL).
+    $this->entityManager->getConnection()->executeStatement(
+      'INSERT INTO equipment_maintenance_logs '
+      . '(id, equipment_id, organization_id, started_at, completed_at, source, intervention_id, intervention_number, work_item_action, actor_id, summary, dedup_key) '
+      . 'VALUES (:id, :equipmentId, :organizationId, :startedAt, :completedAt, :source, :interventionId, :interventionNumber, :workItemAction, :actorId, :summary, :dedupKey) '
+      . 'ON CONFLICT DO NOTHING',
+      [
+        'id' => (string) $entry->id(),
+        'equipmentId' => (string) $entry->equipmentId(),
+        'organizationId' => (string) $entry->organizationId(),
+        'startedAt' => $entry->startedAt(),
+        'completedAt' => $entry->completedAt(),
+        'source' => $entry->source()->value,
+        'interventionId' => $entry->interventionId(),
+        'interventionNumber' => $entry->interventionNumber(),
+        'workItemAction' => $entry->workItemAction(),
+        'actorId' => $entry->actorId(),
+        'summary' => $entry->summary(),
+        'dedupKey' => $dedupKey,
+      ],
+      [
+        'startedAt' => 'datetime_immutable',
+        'completedAt' => 'datetime_immutable',
+      ],
+    );
+  }
   // #endregion
 }

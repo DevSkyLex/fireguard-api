@@ -57,6 +57,7 @@ final class GetCurrentUserProfileProviderTest extends TestCase
         user: $user,
         roles: ['admin'],
         permissions: ['users.read', 'roles.read'],
+        totpEnabled: true,
       ));
 
     $provider = new GetCurrentUserProfileProvider(
@@ -71,6 +72,7 @@ final class GetCurrentUserProfileProviderTest extends TestCase
     self::assertSame('jdoe', $output->username);
     self::assertSame(['admin'], $output->roles);
     self::assertSame(['users.read', 'roles.read'], $output->permissions);
+    self::assertTrue($output->totpEnabled);
   }
 
   #[Test]

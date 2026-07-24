@@ -33,6 +33,7 @@ final readonly class GetUserNotificationResult implements ResultMessage
    * @param bool $isRead whether notification is read
    * @param DateTimeImmutable $createdAt the creation datetime
    * @param DateTimeImmutable|null $readAt the read datetime
+   * @param string|null $organizationId the organization this notification belongs to, when any
    */
   public function __construct(
     public string $id,
@@ -44,6 +45,7 @@ final readonly class GetUserNotificationResult implements ResultMessage
     public bool $isRead,
     public DateTimeImmutable $createdAt,
     public ?DateTimeImmutable $readAt = null,
+    public ?string $organizationId = null,
   ) {
   }
   // #endregion

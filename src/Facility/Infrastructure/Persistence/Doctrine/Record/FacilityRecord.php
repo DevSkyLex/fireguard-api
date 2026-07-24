@@ -27,6 +27,7 @@ use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 #[ORM\Index(name: 'idx_facility_organization_type', columns: ['organization_id', 'type'])]
 #[ORM\Index(name: 'idx_facility_organization_status_type', columns: ['organization_id', 'status', 'type'])]
 #[ORM\Index(name: 'idx_facility_organization_created_at', columns: ['organization_id', 'created_at'])]
+#[ORM\Index(name: 'idx_facility_intervention_record_status', columns: ['intervention_id', 'record_status'])]
 #[ORM\UniqueConstraint(name: 'uniq_facility_organization_code', columns: ['organization_id', 'code'])]
 class FacilityRecord
 {
@@ -48,6 +49,38 @@ class FacilityRecord
   #[ORM\ManyToOne(targetEntity: OrganizationRecord::class, inversedBy: 'facilities')]
   #[ORM\JoinColumn(name: 'organization_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
   public ?OrganizationRecord $organization = null;
+
+  /**
+   * Property interventionId.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'intervention_id', type: 'string', length: 36, nullable: true)]
+  public ?string $interventionId = null;
+
+  /**
+   * Property clientId.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'client_id', type: 'string', length: 36, nullable: true, unique: true)]
+  public ?string $clientId = null;
+
+  /**
+   * Property recordStatus.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'record_status', type: 'string', length: 16, options: ['default' => 'published'])]
+  public string $recordStatus = 'published';
+
+  /**
+   * Property revision.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'revision', type: 'integer', options: ['default' => 1])]
+  public int $revision = 1;
 
   /**
    * Property parentFacility.
@@ -105,6 +138,22 @@ class FacilityRecord
    */
   #[ORM\Column(name: 'address', type: 'string', length: 255, nullable: true)]
   public ?string $address = null;
+
+  /**
+   * Property latitude.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'latitude', type: 'float', nullable: true)]
+  public ?float $latitude = null;
+
+  /**
+   * Property longitude.
+   *
+   * @since 1.0.0
+   */
+  #[ORM\Column(name: 'longitude', type: 'float', nullable: true)]
+  public ?float $longitude = null;
 
   /**
    * Property metadata.

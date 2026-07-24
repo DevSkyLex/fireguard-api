@@ -107,12 +107,14 @@ final readonly class GetEquipmentProvider implements ProviderInterface
     $output->model = $result->model;
     $output->serialNumber = $result->serialNumber;
     $output->locationLabel = $result->locationLabel;
+    $output->facilityName = $result->facilityName;
     $output->status = $result->status;
     $output->installedAt = $result->installedAt;
     $output->commissionedAt = $result->commissionedAt;
     $output->tags = array_map(TagOutput::fromArray(...), $result->tags);
     $output->createdAt = $result->createdAt->format('c');
     $output->updatedAt = $result->updatedAt->format('c');
+    $output->maintenanceDueStatus = $result->maintenanceDueStatus;
 
     return $output;
   }

@@ -10,16 +10,22 @@ use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\Inspection\CreateInspection\{CreateInspectionCommand, CreateInspectionResult};
 use Inspection\Presentation\Api\Dto\Input\Inspection\CreateInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
+use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\CreateInspectionProcessor;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
-use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 #[CoversClass(CreateInspectionProcessor::class)]
 final class CreateInspectionProcessorTest extends TestCase
@@ -40,6 +46,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
@@ -61,6 +68,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
       security: $security,
     );
@@ -85,6 +93,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -148,6 +157,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -188,6 +198,7 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
@@ -226,12 +237,127 @@ final class CreateInspectionProcessorTest extends TestCase
 
     $processor = new CreateInspectionProcessor(
       commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
       authorization: $authorization,
       security: $security,
     );
 
     $this->expectException(BadRequestHttpException::class);
     $this->expectExceptionMessage('Wrapped invalid argument.');
+
+    $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessDefaultsInspectorUserIdToAuthenticatedUserForUserType(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $now = new DateTimeImmutable('2026-01-15T11:00:00+00:00');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (CreateInspectionCommand $command): bool {
+        return 'user' === $command->inspectorType
+          && self::USER_ID === $command->inspectorUserId;
+      }))
+      ->willReturn(new CreateInspectionResult(
+        inspectionId: self::INSP_ID,
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        facilityId: null,
+        result: 'pass',
+        status: 'draft',
+        performedAt: '2026-01-15T10:00:00+00:00',
+        inspectorType: 'user',
+        inspectorName: 'John Doe',
+        inspectorUserId: self::USER_ID,
+        inspectorOrganizationName: null,
+        checklistId: null,
+        notes: null,
+        signature: null,
+        createdAt: $now,
+        updatedAt: $now,
+      ));
+
+    $input = new CreateInspectionInput();
+    $input->equipmentId = self::EQUIP_ID;
+    $input->result = 'pass';
+    $input->performedAt = '2026-01-15T10:00:00+00:00';
+    $input->inspectorType = 'user';
+    $input->inspectorName = 'John Doe';
+    // inspectorUserId intentionally left null: the processor must attribute the
+    // inspection to the authenticated user for the USER inspector type.
+
+    $processor = new CreateInspectionProcessor(
+      commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+
+    self::assertInstanceOf(InspectionOutput::class, $output);
+    self::assertSame(self::INSP_ID, $output->id);
+  }
+
+  #[Test]
+  public function testProcessMapsWrappedQuotaExceededToHttp409(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new CreateInspectionCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        result: 'pass',
+        performedAt: '2026-01-15T10:00:00+00:00',
+        inspectorType: 'user',
+        inspectorName: 'John Doe',
+        inspectorUserId: self::USER_ID,
+      )),
+      [OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::INSPECTIONS, 100)],
+    );
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $input = new CreateInspectionInput();
+    $input->equipmentId = self::EQUIP_ID;
+    $input->result = 'pass';
+    $input->performedAt = '2026-01-15T10:00:00+00:00';
+    $input->inspectorType = 'user';
+    $input->inspectorName = 'John Doe';
+    $input->inspectorUserId = self::USER_ID;
+
+    $processor = new CreateInspectionProcessor(
+      commandBus: $commandBus,
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
 
     $processor->process(
       data: $input,
@@ -250,5 +376,13 @@ final class CreateInspectionProcessorTest extends TestCase
       scopes: [],
       isActive: true,
     );
+  }
+
+  private function createOutputMapper(): InspectionOutputFactory
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('User lookup unavailable.'));
+
+    return new InspectionOutputFactory($queryBus);
   }
 }

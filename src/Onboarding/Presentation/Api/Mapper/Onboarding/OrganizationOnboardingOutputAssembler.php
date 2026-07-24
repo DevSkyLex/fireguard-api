@@ -59,6 +59,8 @@ final class OrganizationOnboardingOutputAssembler
     $output->completedSteps = $state->completedSteps;
     $output->skippedSteps = $state->skippedSteps;
     $output->updatedAt = $state->updatedAt;
+    $output->dismissed = $state->dismissed;
+    $output->dismissedAt = $state->dismissedAt;
 
     // Step history
     $output->stepHistory = array_map(
@@ -91,6 +93,15 @@ final class OrganizationOnboardingOutputAssembler
         'actionMethod' => 'POST',
         'actionPath' => '/api/organizations',
       ],
+      OrganizationOnboardingStep::SELECT_PLAN => [
+        'label' => 'Choose a plan',
+        'required' => false,
+        'skippable' => true,
+        'actionMethod' => 'POST',
+        'actionPath' => null !== $orgId
+          ? sprintf('/api/organizations/%s/billing/checkout', $orgId)
+          : '/api/organizations/{organizationId}/billing/checkout',
+      ],
       OrganizationOnboardingStep::INVITE_MEMBERS => [
         'label' => 'Invite members',
         'required' => false,
@@ -117,15 +128,6 @@ final class OrganizationOnboardingOutputAssembler
         'actionPath' => null !== $orgId
           ? sprintf('/api/organizations/%s/equipment', $orgId)
           : '/api/organizations/{organizationId}/equipment',
-      ],
-      OrganizationOnboardingStep::RUN_FIRST_INSPECTION => [
-        'label' => 'Run first inspection',
-        'required' => true,
-        'skippable' => false,
-        'actionMethod' => 'POST',
-        'actionPath' => null !== $orgId
-          ? sprintf('/api/organizations/%s/inspections', $orgId)
-          : '/api/organizations/{organizationId}/inspections',
       ],
     ];
 

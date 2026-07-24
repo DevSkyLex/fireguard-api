@@ -35,6 +35,8 @@ final class OrganizationOnboardingSessionState
    * @param ?string $updatedAt the session last-updated timestamp (ISO 8601)
    * @param bool $canRollback whether a rollback action is available
    * @param ?string $lastRollbackableStep the step key that can be rolled back, or null
+   * @param bool $dismissed whether the user voluntarily hid the activation flow
+   * @param ?string $dismissedAt the dismissal timestamp (ISO 8601), or null
    */
   public function __construct(
     public readonly string $flow,
@@ -49,6 +51,8 @@ final class OrganizationOnboardingSessionState
     public readonly ?string $updatedAt,
     public readonly bool $canRollback,
     public readonly ?string $lastRollbackableStep,
+    public readonly bool $dismissed = false,
+    public readonly ?string $dismissedAt = null,
   ) {
   }
   // #endregion

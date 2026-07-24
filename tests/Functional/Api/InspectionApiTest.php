@@ -306,6 +306,31 @@ final class InspectionApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testListOrganizationNonConformitiesRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      'GET',
+      '/api/organizations/' . self::DUMMY_UUID . '/non-conformities',
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /organizations/{organizationId}/non-conformities endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /organizations/{organizationId}/non-conformities, got ' . $statusCode,
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Checklist endpoints
   // -------------------------------------------------------------------------
@@ -399,6 +424,33 @@ final class InspectionApiTest extends WebTestCase
       needle: $statusCode,
       haystack: [401, 403],
       message: 'Expected 401 or 403 for unauthenticated POST /checklists/{id}/archive, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testUpdateChecklistRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . self::DUMMY_UUID . '/checklists/' . self::DUMMY_UUID,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
+      content: (string) json_encode(['name' => 'Renamed Checklist']),
+    );
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'PATCH /checklists/{id} endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated PATCH /checklists/{id}, got ' . $statusCode,
     );
   }
 

@@ -9,12 +9,13 @@ use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationResult};
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AcceptOrganizationInvitationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
+use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 
 /**
  * Processor AcceptOrganizationInvitationProcessor.
@@ -29,6 +30,8 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
  */
 final readonly class AcceptOrganizationInvitationProcessor implements ProcessorInterface
 {
+  use MessengerExceptionUnwrapperTrait;
+
   // #region Constructor
   /**
    * Constructor.
@@ -80,6 +83,29 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      // The handler runs on the command bus, so its exceptions arrive wrapped and
+      // must be unwrapped here: the member cap (assertCanAcceptMember) maps to 409,
+      // and the domain not-found / validation failures to 404 / 400 (the direct
+      // catches above never fire for bus-dispatched errors).
+      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+        throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+      }
+
+      $notFound = $this->findException($exception, OrganizationInvitationNotFoundException::class)
+        ?? $this->findException($exception, OrganizationNotFoundException::class)
+        ?? $this->findException($exception, OrganizationRoleNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+      if ($invalidArgument instanceof InvalidArgumentException) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $output = new OrganizationMemberOutput();

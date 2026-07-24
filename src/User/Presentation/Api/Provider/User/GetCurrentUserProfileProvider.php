@@ -88,8 +88,10 @@ final readonly class GetCurrentUserProfileProvider implements ProviderInterface
     $output->tenantId = $result->user->tenantId;
     $output->createdAt = $result->user->createdAt->format(DateTimeInterface::ATOM);
     $output->lastLoginAt = $result->user->lastLoginAt?->format(DateTimeInterface::ATOM);
+    $output->locale = $result->user->locale;
     $output->roles = $result->roles;
     $output->permissions = $result->permissions;
+    $output->totpEnabled = $result->totpEnabled;
 
     return $output;
   }

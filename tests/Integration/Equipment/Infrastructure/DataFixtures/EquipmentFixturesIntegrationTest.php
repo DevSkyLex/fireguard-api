@@ -51,7 +51,7 @@ final class EquipmentFixturesIntegrationTest extends KernelTestCase
     $executor = new ORMExecutor($this->entityManager);
     $executor->execute($loader->getFixtures(), true);
 
-    self::assertSame(6, $this->entityManager->getRepository(EquipmentRecord::class)->count([]));
+    self::assertSame(66, $this->entityManager->getRepository(EquipmentRecord::class)->count([]));
     self::assertSame(2, $this->entityManager->getRepository(TagRecord::class)->count([]));
     self::assertSame(3, $this->entityManager->getRepository(EquipmentTagRecord::class)->count([]));
     self::assertSame(1, $this->entityManager->getRepository(EquipmentAttachmentRecord::class)->count([]));

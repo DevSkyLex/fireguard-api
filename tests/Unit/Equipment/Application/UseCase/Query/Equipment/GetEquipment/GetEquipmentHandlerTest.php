@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\GetEquipment;
 
-use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
+use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentHandler, GetEquipmentQuery, GetEquipmentResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
@@ -31,6 +32,8 @@ final class GetEquipmentHandlerTest extends TestCase
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -53,6 +56,8 @@ final class GetEquipmentHandlerTest extends TestCase
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -81,6 +86,8 @@ final class GetEquipmentHandlerTest extends TestCase
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceDueStatusPort: $this->createStub(MaintenanceDueStatusPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $this->expectException(EquipmentNotFoundException::class);
@@ -112,9 +119,18 @@ final class GetEquipmentHandlerTest extends TestCase
       ->method('findByEquipmentId')
       ->willReturn([]);
 
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->with(self::ORG_ID, [self::EQUIP_ID])
+      ->willReturn([self::EQUIP_ID => 'due_soon']);
+
     $handler = new GetEquipmentHandler(
       equipmentRepository: $equipmentRepository,
       tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
     );
 
     $result = $handler->__invoke(new GetEquipmentQuery(
@@ -128,5 +144,48 @@ final class GetEquipmentHandlerTest extends TestCase
     self::assertSame('fire_extinguisher', $result->type);
     self::assertSame('in_stock', $result->status);
     self::assertSame([], $result->tags);
+    self::assertSame('due_soon', $result->maintenanceDueStatus);
+  }
+
+  #[Test]
+  public function testInvokeDefaultsMaintenanceDueStatusToUnscheduledWhenPortOmitsTheId(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($equipment);
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::once())
+      ->method('findByEquipmentId')
+      ->willReturn([]);
+
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([]);
+
+    $handler = new GetEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
+    );
+
+    $result = $handler->__invoke(new GetEquipmentQuery(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertSame('unscheduled', $result->maintenanceDueStatus);
   }
 }

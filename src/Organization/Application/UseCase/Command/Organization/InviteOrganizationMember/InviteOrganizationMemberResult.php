@@ -35,6 +35,7 @@ final readonly class InviteOrganizationMemberResult implements ResultMessage
    * @param DateTimeImmutable $createdAt the invitation creation datetime
    * @param DateTimeImmutable $updatedAt the invitation update datetime
    * @param list<string> $roleIds the invitation role identifiers
+   * @param string $acceptUrl the public accept link (empty when not issued)
    */
   public function __construct(
     public string $invitationId,
@@ -46,6 +47,7 @@ final readonly class InviteOrganizationMemberResult implements ResultMessage
     public DateTimeImmutable $createdAt,
     public DateTimeImmutable $updatedAt,
     public array $roleIds,
+    public string $acceptUrl = '',
   ) {
   }
   // #endregion

@@ -31,6 +31,7 @@ final readonly class ListEquipmentsQuery implements QueryMessage
     public Pagination $pagination = new Pagination(),
     public ?string $search = null,
     public Sorting $sorting = new Sorting('createdAt', SortDirection::ASC),
+    public ?string $maintenanceDueStatus = null,
   ) {
   }
   // #endregion

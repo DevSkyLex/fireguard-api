@@ -12,6 +12,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Application\Port\Outbound\CachePort;
 use stdClass;
 use Symfony\Component\Security\Core\Exception\{UnsupportedUserException, UserNotFoundException};
 use User\Application\Contract\User\UserView;
@@ -315,6 +316,40 @@ final class SecurityUserProviderTest extends TestCase
     $user = $provider->loadUserById('user-123');
 
     $this->assertSame('tenant-abc', $user->getTenantId());
+  }
+
+  #[Test]
+  public function testLoadUserByIdUsesCachedBaseUserButAppliesCurrentTokenScopes(): void
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $authorization = $this->createMock(AuthorizationPort::class);
+    $authorization->expects(self::never())->method('getUserRoleNames');
+
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->with('auth.security_user.user-123')
+      ->willReturn([
+        'id' => 'user-123',
+        'email' => 'user@example.com',
+        'roles' => ['ROLE_USER', 'ROLE_ADMIN'],
+        'isActive' => true,
+        'tenantId' => null,
+      ]);
+    $cache->expects(self::never())->method('set');
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+      cache: $cache,
+    );
+
+    $user = $provider->loadUserById('user-123', ['fresh.scope']);
+
+    self::assertSame(['fresh.scope'], $user->getScopes());
+    self::assertContains('ROLE_ADMIN', $user->getRoles());
   }
 
   private function createUserView(bool $canLogin): UserView

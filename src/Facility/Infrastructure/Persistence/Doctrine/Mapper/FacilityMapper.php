@@ -6,6 +6,7 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
+  FacilityCoordinates,
   FacilityId,
   FacilityName,
   FacilityOrganizationId,
@@ -57,6 +58,9 @@ final class FacilityMapper
       metadata: $record->metadata,
       createdAt: $record->createdAt,
       updatedAt: $record->updatedAt,
+      coordinates: null !== $record->latitude && null !== $record->longitude
+        ? new FacilityCoordinates($record->latitude, $record->longitude)
+        : null,
     );
   }
 
@@ -80,6 +84,8 @@ final class FacilityMapper
     $record->code = $facility->code();
     $record->status = $facility->status()->value;
     $record->address = $facility->address();
+    $record->latitude = $facility->coordinates()?->latitude();
+    $record->longitude = $facility->coordinates()?->longitude();
     $record->metadata = $facility->metadata();
     $record->createdAt = $facility->createdAt();
     $record->updatedAt = $facility->updatedAt();

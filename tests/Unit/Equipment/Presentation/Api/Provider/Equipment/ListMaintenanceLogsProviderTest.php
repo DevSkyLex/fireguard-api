@@ -206,6 +206,12 @@ final class ListMaintenanceLogsProviderTest extends TestCase
           'organizationId' => self::ORG_ID,
           'startedAt' => $startedAt,
           'completedAt' => null,
+          'source' => 'intervention',
+          'interventionId' => '550e8400-e29b-41d4-a716-446655470100',
+          'interventionNumber' => 12,
+          'workItemAction' => 'status_change',
+          'actorId' => '550e8400-e29b-41d4-a716-446655470101',
+          'summary' => 'Replaced detector',
         ]],
         total: 1,
       ));
@@ -232,6 +238,12 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     self::assertSame(self::ORG_ID, $items[0]->organizationId);
     self::assertSame($startedAt, $items[0]->startedAt);
     self::assertNull($items[0]->completedAt);
+    self::assertSame('intervention', $items[0]->source);
+    self::assertSame('550e8400-e29b-41d4-a716-446655470100', $items[0]->interventionId);
+    self::assertSame(12, $items[0]->interventionNumber);
+    self::assertSame('status_change', $items[0]->workItemAction);
+    self::assertSame('550e8400-e29b-41d4-a716-446655470101', $items[0]->actorId);
+    self::assertSame('Replaced detector', $items[0]->summary);
   }
 
   private function createSecurityUser(string $id): SecurityUser

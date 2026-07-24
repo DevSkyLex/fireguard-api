@@ -38,11 +38,13 @@ final class ListInspectionStatusesProviderTest extends TestCase
 
     $outputs = $provider->provide(new GetCollection());
 
-    self::assertCount(3, $outputs);
+    self::assertCount(4, $outputs);
     self::assertSame('draft', $outputs[0]->value);
     self::assertSame('Draft', $outputs[0]->label);
     self::assertSame('submitted', $outputs[1]->value);
     self::assertSame('closed', $outputs[2]->value);
+    self::assertSame('cancelled', $outputs[3]->value);
+    self::assertSame('Cancelled', $outputs[3]->label);
   }
 
   private function createSecurityUser(): SecurityUser

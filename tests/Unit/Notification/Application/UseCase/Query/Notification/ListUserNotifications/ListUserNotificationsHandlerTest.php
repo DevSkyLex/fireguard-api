@@ -13,6 +13,7 @@ use Notification\Domain\ValueObject\{NotificationId, NotificationType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\Pagination;
 
 #[CoversClass(ListUserNotificationsHandler::class)]
 final class ListUserNotificationsHandlerTest extends TestCase
@@ -37,6 +38,8 @@ final class ListUserNotificationsHandlerTest extends TestCase
         '550e8400-e29b-41d4-a716-446655442301',
         false,
         100,
+        0,
+        null,
         null,
         null,
         self::callback(static function (?DateTimeImmutable $hideReadBefore): bool {
@@ -56,6 +59,9 @@ final class ListUserNotificationsHandlerTest extends TestCase
         ],
       )
       ->willReturn([$notification]);
+    $repository->expects(self::once())
+      ->method('countByUserId')
+      ->willReturn(1);
 
     $handler = new ListUserNotificationsHandler(
       notificationRepository: $repository,
@@ -64,11 +70,12 @@ final class ListUserNotificationsHandlerTest extends TestCase
     $result = $handler->__invoke(new ListUserNotificationsQuery(
       userId: '550e8400-e29b-41d4-a716-446655442301',
       onlyUnread: false,
-      limit: 999,
+      pagination: new Pagination(offset: 0, limit: 999),
     ));
 
     self::assertInstanceOf(ListUserNotificationsResult::class, $result);
     self::assertCount(1, $result->notifications);
+    self::assertSame(1, $result->total);
     self::assertInstanceOf(GetUserNotificationResult::class, $result->notifications[0]);
     self::assertSame(NotificationType::FACILITY_ARCHIVED, $result->notifications[0]->type);
   }
@@ -84,12 +91,17 @@ final class ListUserNotificationsHandlerTest extends TestCase
         '550e8400-e29b-41d4-a716-446655442302',
         true,
         5,
+        0,
+        null,
         null,
         null,
         null,
         [],
       )
       ->willReturn([]);
+    $repository->expects(self::once())
+      ->method('countByUserId')
+      ->willReturn(0);
 
     $handler = new ListUserNotificationsHandler(
       notificationRepository: $repository,
@@ -98,10 +110,59 @@ final class ListUserNotificationsHandlerTest extends TestCase
     $result = $handler->__invoke(new ListUserNotificationsQuery(
       userId: '550e8400-e29b-41d4-a716-446655442302',
       onlyUnread: true,
-      limit: 5,
+      pagination: new Pagination(offset: 0, limit: 5),
     ));
 
     self::assertInstanceOf(ListUserNotificationsResult::class, $result);
     self::assertSame([], $result->notifications);
+    self::assertSame(0, $result->total);
+  }
+
+  #[Test]
+  public function testInvokeAppliesOrganizationFilterAndOffset(): void
+  {
+    /** @var NotificationRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(NotificationRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findByUserId')
+      ->with(
+        '550e8400-e29b-41d4-a716-446655442303',
+        false,
+        10,
+        20,
+        null,
+        null,
+        '550e8400-e29b-41d4-a716-446655442399',
+        self::isInstanceOf(DateTimeImmutable::class),
+        self::isArray(),
+      )
+      ->willReturn([]);
+    $repository->expects(self::once())
+      ->method('countByUserId')
+      ->with(
+        '550e8400-e29b-41d4-a716-446655442303',
+        false,
+        null,
+        null,
+        '550e8400-e29b-41d4-a716-446655442399',
+        self::isInstanceOf(DateTimeImmutable::class),
+        self::isArray(),
+      )
+      ->willReturn(37);
+
+    $handler = new ListUserNotificationsHandler(
+      notificationRepository: $repository,
+    );
+
+    $result = $handler->__invoke(new ListUserNotificationsQuery(
+      userId: '550e8400-e29b-41d4-a716-446655442303',
+      onlyUnread: false,
+      pagination: new Pagination(offset: 20, limit: 10),
+      organizationId: '550e8400-e29b-41d4-a716-446655442399',
+    ));
+
+    self::assertSame(37, $result->total);
+    self::assertSame(10, $result->limit);
+    self::assertSame(20, $result->offset);
   }
 }

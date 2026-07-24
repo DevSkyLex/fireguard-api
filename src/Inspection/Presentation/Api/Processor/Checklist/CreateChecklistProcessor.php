@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Command\Checklist\CreateChecklist\{CreateChecklistCommand, CreateChecklistResult};
+use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
 use Inspection\Presentation\Api\Dto\Input\Checklist\CreateChecklistInput;
 use Inspection\Presentation\Api\Dto\Output\Checklist\{ChecklistItemOutput, ChecklistOutput};
 use Inspection\Presentation\Api\Trait\Inspection\InspectionExceptionUnwrapperTrait;
@@ -16,8 +17,9 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
 
+use function count;
 use function is_string;
 
 /** @implements ProcessorInterface<CreateChecklistInput, ChecklistOutput> */
@@ -66,10 +68,17 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
         name: $data->name,
         version: $data->version,
         items: $items,
+        referenceCode: $data->referenceCode,
       ));
+    } catch (ChecklistReferenceCodeAlreadyExistsException $exception) {
+      throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
+      $duplicateReferenceCode = $this->findChecklistReferenceCodeAlreadyExistsException($exception);
+      if ($duplicateReferenceCode instanceof ChecklistReferenceCodeAlreadyExistsException) {
+        throw new ConflictHttpException($duplicateReferenceCode->getMessage(), $exception);
+      }
       $invalidArgument = $this->findInvalidArgumentException($exception);
       if ($invalidArgument instanceof InvalidArgumentException) {
         throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
@@ -82,6 +91,7 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
     $output->id = $result->checklistId;
     $output->organizationId = $result->organizationId;
     $output->name = $result->name;
+    $output->referenceCode = $result->referenceCode;
     $output->version = $result->version;
     $output->status = $result->status;
     $output->createdAt = $result->createdAt->format('c');
@@ -98,6 +108,7 @@ final readonly class CreateChecklistProcessor implements ProcessorInterface
       $itemOutputs[] = $itemOutput;
     }
     $output->items = $itemOutputs;
+    $output->itemCount = count($itemOutputs);
 
     return $output;
   }

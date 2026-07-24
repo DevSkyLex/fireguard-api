@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Query\Facility\GetFacility;
 
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityEquipmentDependencyPort, FacilityRepositoryPort};
 use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityHandler, GetFacilityQuery, GetFacilityResult};
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,12 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(null);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441700" not found.');
@@ -52,7 +57,12 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('findById')
       ->willReturn($facility);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $this->expectException(FacilityNotFoundException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655441710" not found.');
@@ -77,6 +87,7 @@ final class GetFacilityHandlerTest extends TestCase
       code: 'BLDG-B',
       address: '123 Main St',
       metadata: ['floors' => 4],
+      coordinates: new FacilityCoordinates(48.8566, 2.3522),
     );
 
     /** @var FacilityRepositoryPort&MockObject $repository */
@@ -85,8 +96,16 @@ final class GetFacilityHandlerTest extends TestCase
       ->method('findById')
       ->with(self::callback(static fn (FacilityId $id): bool => '550e8400-e29b-41d4-a716-446655441720' === (string) $id))
       ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('countChildren')
+      ->willReturn(2);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
@@ -101,7 +120,10 @@ final class GetFacilityHandlerTest extends TestCase
     self::assertSame('Building B', $result->name);
     self::assertSame('BLDG-B', $result->code);
     self::assertSame('active', $result->status);
+    self::assertTrue($result->hasChildren);
     self::assertSame('123 Main St', $result->address);
+    self::assertSame(48.8566, $result->latitude);
+    self::assertSame(2.3522, $result->longitude);
     self::assertSame(['floors' => 4], $result->metadata);
   }
 
@@ -122,8 +144,14 @@ final class GetFacilityHandlerTest extends TestCase
 
     $repository = $this->createStub(FacilityRepositoryPort::class);
     $repository->method('findById')->willReturn($facility);
+    $repository->method('countChildren')->willReturn(0);
 
-    $handler = new GetFacilityHandler(facilityRepository: $repository);
+    $equipmentDependency = $this->createStub(FacilityEquipmentDependencyPort::class);
+
+    $equipmentDependency->method('countActiveEquipmentByFacility')->willReturn([]);
+
+
+    $handler = new GetFacilityHandler(facilityRepository: $repository, equipmentDependency: $equipmentDependency);
 
     $result = $handler->__invoke(new GetFacilityQuery(
       organizationId: (string) $organizationId,
@@ -131,5 +159,6 @@ final class GetFacilityHandlerTest extends TestCase
     ));
 
     self::assertSame((string) $parentId, $result->parentFacilityId);
+    self::assertFalse($result->hasChildren);
   }
 }

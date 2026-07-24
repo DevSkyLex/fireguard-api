@@ -64,6 +64,8 @@ final readonly class ListOrganizationMembersHandler implements QueryHandler
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
+    $ownerUserId = $organization->ownerUserId();
+
     $members = $this->memberRepository->findByOrganizationId($organizationId);
     $results = [];
 
@@ -75,6 +77,7 @@ final readonly class ListOrganizationMembersHandler implements QueryHandler
         isActive: $member->isActive(),
         joinedAt: $member->joinedAt(),
         roleIds: $this->memberRepository->findRoleIdsForMember($member->id()),
+        isOwner: $member->userId() === $ownerUserId,
       );
     }
 

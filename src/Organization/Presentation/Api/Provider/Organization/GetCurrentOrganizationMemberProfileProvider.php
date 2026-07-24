@@ -113,6 +113,7 @@ final readonly class GetCurrentOrganizationMemberProfileProvider implements Prov
         $output->isSystem = $role->isSystem;
         $output->createdAt = $role->createdAt->format('c');
         $output->description = $role->description;
+        $output->memberCount = $role->memberCount;
 
         return $output;
       },

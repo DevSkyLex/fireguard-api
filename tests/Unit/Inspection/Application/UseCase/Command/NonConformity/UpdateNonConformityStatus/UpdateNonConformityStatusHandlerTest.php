@@ -11,6 +11,7 @@ use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStat
   UpdateNonConformityStatusHandler,
   UpdateNonConformityStatusResult
 };
+use Inspection\Domain\Event\NonConformity\NonConformityStatusChangedEvent;
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Domain\Model\Inspection\Inspection;
 use Inspection\Domain\Model\NonConformity\NonConformity;
@@ -29,6 +30,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 
 #[CoversClass(UpdateNonConformityStatusHandler::class)]
 final class UpdateNonConformityStatusHandlerTest extends TestCase
@@ -55,9 +57,23 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
     $ncRepository->method('findById')->willReturn($nonConformity);
     $ncRepository->expects(self::once())->method('save');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof NonConformityStatusChangedEvent
+          && self::ORG_ID === $event->organizationId
+          && self::INSP_ID === $event->inspectionId
+          && self::NC_ID === $event->nonConformityId
+          && 'open' === $event->previousStatus
+          && 'in_progress' === $event->status,
+      ));
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $result = $handler->__invoke(new UpdateNonConformityStatusCommand(
@@ -74,6 +90,42 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeDoesNotDispatchEventOnSameStatusUpdate(): void
+  {
+    // A same-status update is a no-op, not a transition: the compliance
+    // ledger must not record a status change that never happened.
+    $inspection = $this->makeDraftInspection();
+    $nonConformity = $this->makeOpenNonConformity();
+
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
+    $inspectionRepository->method('findById')->willReturn($inspection);
+
+    /** @var NonConformityRepositoryPort&MockObject $ncRepository */
+    $ncRepository = $this->createMock(NonConformityRepositoryPort::class);
+    $ncRepository->method('findById')->willReturn($nonConformity);
+    $ncRepository->expects(self::once())->method('save');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateNonConformityStatusHandler(
+      inspectionRepository: $inspectionRepository,
+      nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new UpdateNonConformityStatusCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      nonConformityId: self::NC_ID,
+      status: 'open',
+    ));
+
+    self::assertSame('open', $result->status);
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenInspectionNotFound(): void
   {
     $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
@@ -81,9 +133,14 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
 
     $ncRepository = $this->createStub(NonConformityRepositoryPort::class);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -106,9 +163,14 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
 
     $ncRepository = $this->createStub(NonConformityRepositoryPort::class);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InspectionNotFoundException::class);
@@ -132,9 +194,14 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
     $ncRepository = $this->createStub(NonConformityRepositoryPort::class);
     $ncRepository->method('findById')->willReturn(null);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(NonConformityNotFoundException::class);
@@ -165,9 +232,14 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
     $ncRepository = $this->createStub(NonConformityRepositoryPort::class);
     $ncRepository->method('findById')->willReturn($otherInspectionNC);
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(NonConformityNotFoundException::class);
@@ -204,9 +276,14 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
     $ncRepository->method('findById')->willReturn($resolvedNC);
     $ncRepository->expects(self::never())->method('save');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(\Inspection\Domain\Exception\NonConformityAlreadyResolvedException::class);
@@ -230,9 +307,14 @@ final class UpdateNonConformityStatusHandlerTest extends TestCase
     $ncRepository = $this->createMock(NonConformityRepositoryPort::class);
     $ncRepository->expects(self::never())->method('save');
 
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
     $handler = new UpdateNonConformityStatusHandler(
       inspectionRepository: $inspectionRepository,
       nonConformityRepository: $ncRepository,
+      eventDispatcher: $eventDispatcher,
     );
 
     $this->expectException(InvalidArgumentException::class);

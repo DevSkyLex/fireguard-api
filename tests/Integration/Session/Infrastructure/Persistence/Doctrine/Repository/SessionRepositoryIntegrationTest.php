@@ -168,6 +168,60 @@ final class SessionRepositoryIntegrationTest extends KernelTestCase
   }
 
   #[Test]
+  public function testRevokeAllForUserExceptKeepsTheExcludedSessionActive(): void
+  {
+    $keptSession = $this->createSession(
+      id: '123e4567-e89b-12d3-a456-426614174060',
+      userId: 'user-7',
+      accessTokenId: 'access-9',
+      refreshTokenId: 'refresh-9',
+    );
+    $otherSession = $this->createSession(
+      id: '123e4567-e89b-12d3-a456-426614174061',
+      userId: 'user-7',
+      accessTokenId: 'access-10',
+      refreshTokenId: 'refresh-10',
+    );
+
+    $this->repository->save($keptSession);
+    $this->repository->save($otherSession);
+
+    $count = $this->repository->revokeAllForUserExcept('user-7', '123e4567-e89b-12d3-a456-426614174060');
+
+    self::assertSame(1, $count);
+
+    $active = $this->repository->findActiveByUserId('user-7');
+    self::assertCount(1, $active);
+    self::assertSame($keptSession->id()->value, $active[0]->id()->value);
+  }
+
+  #[Test]
+  public function testRevokeAllForUserExceptIsIdempotent(): void
+  {
+    $keptSession = $this->createSession(
+      id: '123e4567-e89b-12d3-a456-426614174070',
+      userId: 'user-8',
+      accessTokenId: 'access-11',
+      refreshTokenId: 'refresh-11',
+    );
+    $otherSession = $this->createSession(
+      id: '123e4567-e89b-12d3-a456-426614174071',
+      userId: 'user-8',
+      accessTokenId: 'access-12',
+      refreshTokenId: 'refresh-12',
+    );
+
+    $this->repository->save($keptSession);
+    $this->repository->save($otherSession);
+
+    $firstCount = $this->repository->revokeAllForUserExcept('user-8', '123e4567-e89b-12d3-a456-426614174070');
+    $secondCount = $this->repository->revokeAllForUserExcept('user-8', '123e4567-e89b-12d3-a456-426614174070');
+
+    self::assertSame(1, $firstCount);
+    self::assertSame(0, $secondCount);
+  }
+
+  #[Test]
   public function testDeleteRemovesSession(): void
   {
     $session = $this->createSession(
