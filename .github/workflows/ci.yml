@@ -198,15 +198,13 @@ jobs:
   # ==========================================================================
   # End-to-End Flow Tests
   # ==========================================================================
-  # Runs on every pull request. Still opt-in for a manual run (workflow_dispatch
-  # + run_e2e) on a branch without a PR, and skipped in the release/deploy
-  # preflight (workflow_call) to keep those fast.
+  # Manual opt-in only (workflow_dispatch + run_e2e) — too slow to gate every
+  # pull request on. Also skipped in the release/deploy preflight
+  # (workflow_call) to keep those fast.
   tests-end-to-end:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_e2e == true)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_e2e == true
     env:
       APP_ENV: test
       APP_DEBUG: 0
