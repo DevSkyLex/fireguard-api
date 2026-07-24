@@ -104,11 +104,20 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
   public function testApplyRejectsInvalidTargetState(): void
   {
     // Missing record.
-    $this->assertApplyConflict(self::ORGANIZATION_ID, $this->iri(self::MISSING_ID), ['name' => 'X']);
+    self::assertSame(
+      'Proposed facility change target is invalid.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $this->iri(self::MISSING_ID), ['name' => 'X'])->getMessage(),
+    );
     // Owned by another organization (tenant isolation).
-    $this->assertApplyConflict(self::OTHER_ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['name' => 'X']);
+    self::assertSame(
+      'Proposed facility change target is invalid.',
+      $this->assertApplyConflict(self::OTHER_ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['name' => 'X'])->getMessage(),
+    );
     // Still a draft scratchpad record, not the published canonical row.
-    $this->assertApplyConflict(self::ORGANIZATION_ID, $this->iri(self::DRAFT_ID), ['name' => 'X']);
+    self::assertSame(
+      'Proposed facility change target is invalid.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $this->iri(self::DRAFT_ID), ['name' => 'X'])->getMessage(),
+    );
   }
 
   #[Test]

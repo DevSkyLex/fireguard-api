@@ -15,7 +15,7 @@ use Intervention\Domain\Exception\{InterventionConflictException, InterventionRe
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{AllowMockObjectsWithoutExpectations, CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -88,6 +88,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testSupportsMatchesEquipmentResourceIris(): void
   {
     self::assertTrue($this->adapter->supports('/api/equipment/e91d8400-e29b-41d4-a716-4466551c0010'));
@@ -96,6 +97,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testSupportsResourceTypeOnlyAcceptsEquipment(): void
   {
     self::assertTrue($this->adapter->supportsResourceType(InterventionResourceType::EQUIPMENT));
@@ -104,6 +106,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testReadOnlyLookupsReflectPersistedState(): void
   {
     $equipmentId = 'e91d8400-e29b-41d4-a716-4466551c0110';
@@ -124,6 +127,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testAssignMarksRecordAsDraft(): void
   {
     $equipmentId = 'e91d8400-e29b-41d4-a716-4466551c0210';
@@ -149,6 +153,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testAssignWithoutInterventionPublishesRecord(): void
   {
     $equipmentId = 'e91d8400-e29b-41d4-a716-4466551c0220';
@@ -170,6 +175,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testAssignThrowsWhenRecordIsMissing(): void
   {
     $this->expectException(InterventionResourceNotFoundException::class);
@@ -178,6 +184,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testCountsForInterventionsAggregateAndScopeBlockers(): void
   {
     // Two for A (one with a facility, one without), one for B (without a facility).
@@ -203,6 +210,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testEquipmentDraftsMapsRecordsToDrafts(): void
   {
     $withFacility = 'e91d8400-e29b-41d4-a716-4466551c0410';
@@ -237,6 +245,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testApplyRejectsUnknownPatchFields(): void
   {
     $this->assertApplyThrows(
@@ -248,6 +257,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testApplyRejectsInvalidTargets(): void
   {
     $published = 'e91d8400-e29b-41d4-a716-4466551c0520';
@@ -401,6 +411,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testApplyRejectsInServiceEquipmentWithoutFacility(): void
   {
     $this->maintenanceSynchronizer->expects($this->never())->method('syncForStatusTransition');
@@ -452,6 +463,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testApplyRejectsIllegalStatusTransition(): void
   {
     $this->maintenanceSynchronizer->expects($this->never())->method('syncForStatusTransition');
@@ -473,6 +485,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testPublishDraftsMaterializesDraftsAndSyncsMaintenance(): void
   {
     $inStock = 'e91d8400-e29b-41d4-a716-4466551c0610';
@@ -518,6 +531,7 @@ final class EquipmentInterventionResourceAdapterTest extends KernelTestCase
   }
 
   #[Test]
+  #[AllowMockObjectsWithoutExpectations]
   public function testDiscardDraftsDeletesOnlyDrafts(): void
   {
     $draft = 'e91d8400-e29b-41d4-a716-4466551c0710';

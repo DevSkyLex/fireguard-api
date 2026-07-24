@@ -114,13 +114,18 @@ final readonly class ApprovalRequestRepository implements ApprovalRequestReposit
   public function save(ApprovalRequest $request): void
   {
     $record = $this->repository->find((string) $request->id());
+    $newRecord = false;
 
     if (!$record instanceof ApprovalRequestRecord) {
       $record = new ApprovalRequestRecord();
-      $this->entityManager->persist($record);
+      $newRecord = true;
     }
 
     ApprovalRequestMapper::toRecord($request, $record);
+
+    if ($newRecord) {
+      $this->entityManager->persist($record);
+    }
 
     $this->entityManager->flush();
   }

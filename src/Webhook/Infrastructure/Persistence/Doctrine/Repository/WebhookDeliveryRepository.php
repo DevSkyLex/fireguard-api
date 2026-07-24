@@ -101,13 +101,18 @@ final readonly class WebhookDeliveryRepository implements WebhookDeliveryReposit
   public function save(WebhookDelivery $delivery): void
   {
     $record = $this->repository->find((string) $delivery->id());
+    $newRecord = false;
 
     if (!$record instanceof WebhookDeliveryRecord) {
       $record = new WebhookDeliveryRecord();
-      $this->entityManager->persist($record);
+      $newRecord = true;
     }
 
     WebhookDeliveryMapper::toRecord($delivery, $record);
+
+    if ($newRecord) {
+      $this->entityManager->persist($record);
+    }
 
     $this->entityManager->flush();
   }

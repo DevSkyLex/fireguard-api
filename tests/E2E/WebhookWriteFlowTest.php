@@ -69,7 +69,7 @@ final class WebhookWriteFlowTest extends OAuth2WebTestCase
       ],
       content: json_encode([
         'url' => 'https://webhooks.example.com/fireguard-' . uniqid(),
-        'eventTypes' => ['inspection.inspection_submitted_event', 'equipment.equipment_commissioned_event'],
+        'eventTypes' => ['inspection.submitted', 'equipment.commissioned'],
         'description' => 'Write-flow subscription',
       ]) ?: '',
     );

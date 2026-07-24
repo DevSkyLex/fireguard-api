@@ -12,7 +12,7 @@ use Facility\Infrastructure\DataFixtures\FacilityFixtures;
 use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
-use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
+use Organization\Infrastructure\DataFixtures\{OrganizationFixtures, PlanFixtures};
 use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -90,6 +90,8 @@ abstract class OAuth2WebTestCase extends WebTestCase
     $mainEntityManager = $container->get('doctrine.orm.main_entity_manager');
 
     $mainLoader = new Loader();
+    /** @var PlanFixtures $planFixtures */
+    $planFixtures = $container->get(PlanFixtures::class);
     /** @var OrganizationFixtures $organizationFixtures */
     $organizationFixtures = $container->get(OrganizationFixtures::class);
     /** @var FacilityFixtures $facilityFixtures */
@@ -101,6 +103,7 @@ abstract class OAuth2WebTestCase extends WebTestCase
     /** @var OnboardingFixtures $onboardingFixtures */
     $onboardingFixtures = $container->get(OnboardingFixtures::class);
 
+    $mainLoader->addFixture($planFixtures);
     $mainLoader->addFixture($organizationFixtures);
     $mainLoader->addFixture($onboardingFixtures);
     $mainLoader->addFixture($facilityFixtures);

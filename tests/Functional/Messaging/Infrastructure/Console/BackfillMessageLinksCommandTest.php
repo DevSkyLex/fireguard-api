@@ -197,7 +197,7 @@ final class BackfillMessageLinksCommandTest extends KernelTestCase
   private function mockedTester(CommandBusPort $bus): CommandTester
   {
     $command = new BackfillMessageLinksCommand($bus);
-    new ConsoleApplication()->add($command);
+    new ConsoleApplication()->addCommand($command);
 
     return new CommandTester($command);
   }

@@ -89,6 +89,7 @@ use Webhook\Presentation\Api\Serialization\WebhookSerializationGroup;
     new Patch(
       name: WebhookOperations::UPDATE_WEBHOOK_SUBSCRIPTION,
       uriTemplate: '/{organizationId}/webhooks/{webhookId}',
+      read: false,
       input: UpdateWebhookSubscriptionInput::class,
       output: WebhookSubscriptionOutput::class,
       processor: UpdateWebhookSubscriptionProcessor::class,

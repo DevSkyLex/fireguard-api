@@ -51,12 +51,18 @@ final readonly class ImportJobRepository implements ImportJobRepositoryPort
   public function save(ImportJob $job): void
   {
     $record = $this->repository->find((string) $job->id());
+    $newRecord = false;
+
     if (!$record instanceof ImportJobRecord) {
       $record = new ImportJobRecord();
-      $this->entityManager->persist($record);
+      $newRecord = true;
     }
 
     ImportJobMapper::toRecord($job, $record);
+
+    if ($newRecord) {
+      $this->entityManager->persist($record);
+    }
 
     $this->entityManager->flush();
   }

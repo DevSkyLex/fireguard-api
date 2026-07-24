@@ -232,7 +232,7 @@ final class SendNotificationConsoleCommandTest extends KernelTestCase
   private function mockedTester(NotificationPort $port): CommandTester
   {
     $command = new SendNotificationConsoleCommand($port);
-    new ConsoleApplication()->add($command);
+    new ConsoleApplication()->addCommand($command);
 
     return new CommandTester($command);
   }

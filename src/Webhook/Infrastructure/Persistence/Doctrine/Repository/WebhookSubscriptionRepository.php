@@ -51,13 +51,18 @@ final readonly class WebhookSubscriptionRepository implements WebhookSubscriptio
   public function save(WebhookSubscription $subscription): void
   {
     $record = $this->repository->find((string) $subscription->id());
+    $newRecord = false;
 
     if (!$record instanceof WebhookSubscriptionRecord) {
       $record = new WebhookSubscriptionRecord();
-      $this->entityManager->persist($record);
+      $newRecord = true;
     }
 
     WebhookSubscriptionMapper::toRecord($subscription, $record);
+
+    if ($newRecord) {
+      $this->entityManager->persist($record);
+    }
 
     $this->entityManager->flush();
   }

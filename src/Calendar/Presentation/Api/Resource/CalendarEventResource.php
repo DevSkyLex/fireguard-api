@@ -74,6 +74,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
     new Patch(
       name: CalendarOperations::UPDATE_CALENDAR_EVENT,
       uriTemplate: '/{organizationId}/calendar/events/{eventId}',
+      read: false,
       input: UpdateCalendarEventInput::class,
       output: CalendarEventOutput::class,
       processor: UpdateCalendarEventProcessor::class,

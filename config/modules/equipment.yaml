@@ -3,6 +3,9 @@ services:
     autowire: true
     autoconfigure: true
 
+  Equipment\Presentation\:
+    resource: '../../src/Equipment/Presentation'
+
   Equipment\Presentation\Api\Processor\Media\MediaProcessor:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
@@ -10,9 +13,6 @@ services:
   Equipment\Presentation\Api\Provider\Media\MediaProvider:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
-
-  Equipment\Presentation\:
-    resource: '../../src/Equipment/Presentation'
 
   Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider:
     arguments:

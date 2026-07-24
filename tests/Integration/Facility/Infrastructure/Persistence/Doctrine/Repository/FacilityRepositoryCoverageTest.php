@@ -22,6 +22,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function ksort;
+
 /**
  * Test FacilityRepositoryCoverage.
  *
@@ -245,15 +247,16 @@ final class FacilityRepositoryCoverageTest extends KernelTestCase
     );
 
     // Type breakdown counts published records only; default excludes archived.
-    self::assertSame(
-      ['site' => 1, 'building' => 1],
-      $this->repository->countByTypeForOrganizationId($organizationId),
-    );
+    // The repository groups by type without an explicit ORDER BY, so key
+    // order is not guaranteed — sort both sides before comparing.
+    $byType = $this->repository->countByTypeForOrganizationId($organizationId);
+    ksort($byType);
+    self::assertSame(['building' => 1, 'site' => 1], $byType);
+
     // includeArchived keeps the archived Gamma building.
-    self::assertSame(
-      ['site' => 1, 'building' => 2],
-      $this->repository->countByTypeForOrganizationId($organizationId, includeArchived: true),
-    );
+    $byTypeWithArchived = $this->repository->countByTypeForOrganizationId($organizationId, includeArchived: true);
+    ksort($byTypeWithArchived);
+    self::assertSame(['building' => 2, 'site' => 1], $byTypeWithArchived);
   }
 
   #[Test]
