@@ -47,6 +47,116 @@ permission checks are enforced in the Application layer (query handlers) and,
 for export, in `ExportSafetyRegisterController` (mirrors the Maintenance
 module's convention).
 
+## Flows
+
+### Compliance summary read (synchronous)
+
+```mermaid
+sequenceDiagram
+  participant Provider as GetComplianceOverviewProvider
+  participant Handler as GetComplianceOverviewHandler
+  participant Auth as OrganizationAuthorizationPort
+  participant Agg as ComplianceRegisterAggregator
+  participant Facility as ComplianceFacilityDirectoryPort
+  participant Maint as MaintenanceComplianceStatisticsPort
+  participant Insp as InspectionComplianceStatisticsPort
+  participant Equip as EquipmentComplianceStatisticsPort
+  Provider->>Handler: GetComplianceOverviewQuery
+  Handler->>Auth: assertGrantedPermissions(complianceReadDependencies())
+  Handler->>Handler: cache read (permission-gate already passed)
+  Handler->>Agg: buildFacilityViews(organizationId)
+  Agg->>Facility: listFacilities(organizationId)
+  Agg->>Maint: dueStatusCountsByFacility + lastInspectionClosedAtByFacility
+  Agg->>Insp: openNonConformitiesBySeverityByFacility
+  Agg->>Equip: equipmentInventoryByFacility
+  Agg-->>Handler: list<FacilityComplianceView> (graded via ComplianceStatusPolicy)
+  Handler-->>Provider: GetComplianceOverviewResult (cached)
+```
+
+### Enriched facility tree read (synchronous)
+
+```mermaid
+sequenceDiagram
+  participant Provider as GetFacilityTreeProvider
+  participant Handler as GetFacilityTreeHandler
+  participant Auth as OrganizationAuthorizationPort
+  participant Agg as ComplianceRegisterAggregator
+  participant Builder as FacilityTreeBuilder
+  Provider->>Handler: GetFacilityTreeQuery
+  Handler->>Auth: assertGrantedPermissions(complianceReadDependencies())
+  Handler->>Handler: cache read (compliance.facility-tree.<hash>)
+  Handler->>Agg: buildFacilityViews(organizationId)
+  Note over Agg: SAME batched fan-out as the overview read — no per-node calls
+  Agg-->>Handler: list<FacilityComplianceView>
+  Handler->>Builder: build(facilityViews)
+  Builder-->>Handler: list<FacilityTreeNode> (nested, unassigned excluded)
+  Handler-->>Provider: GetFacilityTreeResult (cached)
+```
+
+### Safety register export (synchronous)
+
+`ExportSafetyRegisterController` (invokable, wired via `controller:` on the
+export `Get` operations — `read`/`write`/`serialize`/`output` disabled so API
+Platform's state pipeline steps aside and the controller's `Response` is
+returned as-is): authenticate → assert `organization.compliance.export` →
+`ComplianceExportEntitlementPort::isExportEntitled()` (403
+`ComplianceExportNotEntitledException` when the plan is below `pro`) → ask
+the SAME query as the JSON summary → `SafetyRegisterPdfRendererPort::render()`
+(Twig → dompdf) → dispatch `SafetyRegisterExportedEvent` → stream
+`application/pdf` with a `Content-Disposition: attachment` header.
+
+## Architecture
+
+- **Presentation** (`src/Compliance/Presentation/Api`): `ComplianceSummaryResource`
+  (org rollup + facility detail, both read-only `Get`s), `FacilityTreeResource`
+  (enriched facility tree, read-only `Get`), `SafetyRegisterExportResource`
+  (both export `Get`s, controller-wired), `ExportSafetyRegisterController`,
+  providers (incl. `GetFacilityTreeProvider`), `ComplianceSummaryOutputFactory`
+  / `ComplianceSummaryOutput`, `FacilityTreeOutputFactory` / `FacilityTreeOutput`,
+  `ComplianceExceptionMapperTrait`.
+- **Application** (`src/Compliance/Application`): `GetComplianceOverviewHandler` /
+  `GetFacilityComplianceHandler` / `GetFacilityTreeHandler` (query handlers),
+  `ComplianceRegisterAggregator` (fan-out + assembly), `FacilityTreeBuilder`
+  (pure reshape of the aggregator's flat views into a nested tree, zero
+  additional port calls), `ComplianceStatusPolicy` (pure grading rule),
+  contracts (`FacilityComplianceView`, `FacilityTreeNode`, `EquipmentComplianceRow`,
+  `NonConformitySeverityBreakdown`), outbound ports.
+- **Domain** (`src/Compliance/Domain`): `ComplianceStatus` enum, exceptions,
+  `SafetyRegisterExportedEvent`.
+- **Infrastructure** (`src/Compliance/Infrastructure`): `DompdfSafetyRegisterRenderer`
+  (module-local PDF adapter; remote resource loading and inline PHP are both
+  disabled in dompdf's `Options` for SSRF safety).
+
+### Ports & adapters (`config/modules/compliance.yaml`)
+
+| Port | Adapter |
+| --- | --- |
+| `SafetyRegisterPdfRendererPort` (module-local) | `DompdfSafetyRegisterRenderer` |
+| `ComplianceFacilityDirectoryPort` (cross-module) | `Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter` |
+| `MaintenanceComplianceStatisticsPort` (cross-module) | `Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter` |
+| `InspectionComplianceStatisticsPort` (cross-module) | `Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter` |
+| `EquipmentComplianceStatisticsPort` (cross-module) | `Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter` |
+| `ComplianceExportEntitlementPort` (cross-module) | `Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter` |
+| `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` *(reused, not owned)* | `Organization\Application\Service\OrganizationAuthorizationService` |
+| `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, hosted here)* | `Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter` |
+
+`GetFacilityTreeHandler` introduces **no new port**: it reuses the same four
+ports above via `ComplianceRegisterAggregator`, plus the module-local
+`FacilityTreeBuilder` service — this is the entire reason the enriched
+facility tree lives in Compliance rather than Facility.
+
+The four statistics adapters query their module's own tables directly via
+the main entity manager (raw SQL: `maintenance_schedules`, `non_conformities`
+joined to `inspections`, `equipment`) rather than growing their owning
+module's domain-facing repository port — the grouped-by-facility aggregate
+has no equivalent there, the same treatment
+`Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter`
+gives its own cross-module read model. `FacilityComplianceDirectoryAdapter`
+and `OrganizationExportEntitlementAdapter` instead reuse their module's
+existing domain-facing ports (`FacilityRepositoryPort::findByOrganizationId()`,
+`OrganizationRepositoryPort` + `PlanRepositoryPort`, mirroring
+`OrganizationQuotaService::resolvePlan()`).
+
 ## Grading rule (`ComplianceStatusPolicy`)
 
 Per facility, from raw counts (pure, I/O-free):
@@ -158,116 +268,6 @@ cross-module ports**.
   serializes nodes to `{id, name, type, parentFacilityId, equipmentCount,
   status, complianceRate, children}`), `FacilityTreeOutput`.
 
-## Flows
-
-### Compliance summary read (synchronous)
-
-```mermaid
-sequenceDiagram
-  participant Provider as GetComplianceOverviewProvider
-  participant Handler as GetComplianceOverviewHandler
-  participant Auth as OrganizationAuthorizationPort
-  participant Agg as ComplianceRegisterAggregator
-  participant Facility as ComplianceFacilityDirectoryPort
-  participant Maint as MaintenanceComplianceStatisticsPort
-  participant Insp as InspectionComplianceStatisticsPort
-  participant Equip as EquipmentComplianceStatisticsPort
-  Provider->>Handler: GetComplianceOverviewQuery
-  Handler->>Auth: assertGrantedPermissions(complianceReadDependencies())
-  Handler->>Handler: cache read (permission-gate already passed)
-  Handler->>Agg: buildFacilityViews(organizationId)
-  Agg->>Facility: listFacilities(organizationId)
-  Agg->>Maint: dueStatusCountsByFacility + lastInspectionClosedAtByFacility
-  Agg->>Insp: openNonConformitiesBySeverityByFacility
-  Agg->>Equip: equipmentInventoryByFacility
-  Agg-->>Handler: list<FacilityComplianceView> (graded via ComplianceStatusPolicy)
-  Handler-->>Provider: GetComplianceOverviewResult (cached)
-```
-
-### Enriched facility tree read (synchronous)
-
-```mermaid
-sequenceDiagram
-  participant Provider as GetFacilityTreeProvider
-  participant Handler as GetFacilityTreeHandler
-  participant Auth as OrganizationAuthorizationPort
-  participant Agg as ComplianceRegisterAggregator
-  participant Builder as FacilityTreeBuilder
-  Provider->>Handler: GetFacilityTreeQuery
-  Handler->>Auth: assertGrantedPermissions(complianceReadDependencies())
-  Handler->>Handler: cache read (compliance.facility-tree.<hash>)
-  Handler->>Agg: buildFacilityViews(organizationId)
-  Note over Agg: SAME batched fan-out as the overview read — no per-node calls
-  Agg-->>Handler: list<FacilityComplianceView>
-  Handler->>Builder: build(facilityViews)
-  Builder-->>Handler: list<FacilityTreeNode> (nested, unassigned excluded)
-  Handler-->>Provider: GetFacilityTreeResult (cached)
-```
-
-### Safety register export (synchronous)
-
-`ExportSafetyRegisterController` (invokable, wired via `controller:` on the
-export `Get` operations — `read`/`write`/`serialize`/`output` disabled so API
-Platform's state pipeline steps aside and the controller's `Response` is
-returned as-is): authenticate → assert `organization.compliance.export` →
-`ComplianceExportEntitlementPort::isExportEntitled()` (403
-`ComplianceExportNotEntitledException` when the plan is below `pro`) → ask
-the SAME query as the JSON summary → `SafetyRegisterPdfRendererPort::render()`
-(Twig → dompdf) → dispatch `SafetyRegisterExportedEvent` → stream
-`application/pdf` with a `Content-Disposition: attachment` header.
-
-## Architecture
-
-- **Presentation** (`src/Compliance/Presentation/Api`): `ComplianceSummaryResource`
-  (org rollup + facility detail, both read-only `Get`s), `FacilityTreeResource`
-  (enriched facility tree, read-only `Get`), `SafetyRegisterExportResource`
-  (both export `Get`s, controller-wired), `ExportSafetyRegisterController`,
-  providers (incl. `GetFacilityTreeProvider`), `ComplianceSummaryOutputFactory`
-  / `ComplianceSummaryOutput`, `FacilityTreeOutputFactory` / `FacilityTreeOutput`,
-  `ComplianceExceptionMapperTrait`.
-- **Application** (`src/Compliance/Application`): `GetComplianceOverviewHandler` /
-  `GetFacilityComplianceHandler` / `GetFacilityTreeHandler` (query handlers),
-  `ComplianceRegisterAggregator` (fan-out + assembly), `FacilityTreeBuilder`
-  (pure reshape of the aggregator's flat views into a nested tree, zero
-  additional port calls), `ComplianceStatusPolicy` (pure grading rule),
-  contracts (`FacilityComplianceView`, `FacilityTreeNode`, `EquipmentComplianceRow`,
-  `NonConformitySeverityBreakdown`), outbound ports.
-- **Domain** (`src/Compliance/Domain`): `ComplianceStatus` enum, exceptions,
-  `SafetyRegisterExportedEvent`.
-- **Infrastructure** (`src/Compliance/Infrastructure`): `DompdfSafetyRegisterRenderer`
-  (module-local PDF adapter; remote resource loading and inline PHP are both
-  disabled in dompdf's `Options` for SSRF safety).
-
-### Ports & adapters (`config/modules/compliance.yaml`)
-
-| Port | Adapter |
-| --- | --- |
-| `SafetyRegisterPdfRendererPort` (module-local) | `DompdfSafetyRegisterRenderer` |
-| `ComplianceFacilityDirectoryPort` (cross-module) | `Facility\Infrastructure\Adapter\Compliance\FacilityComplianceDirectoryAdapter` |
-| `MaintenanceComplianceStatisticsPort` (cross-module) | `Maintenance\Infrastructure\Adapter\Compliance\MaintenanceComplianceStatisticsAdapter` |
-| `InspectionComplianceStatisticsPort` (cross-module) | `Inspection\Infrastructure\Adapter\Compliance\InspectionComplianceStatisticsAdapter` |
-| `EquipmentComplianceStatisticsPort` (cross-module) | `Equipment\Infrastructure\Adapter\Compliance\EquipmentComplianceStatisticsAdapter` |
-| `ComplianceExportEntitlementPort` (cross-module) | `Organization\Infrastructure\Adapter\Compliance\OrganizationExportEntitlementAdapter` |
-| `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` *(reused, not owned)* | `Organization\Application\Service\OrganizationAuthorizationService` |
-| `Assistant\Application\Port\Outbound\AssistantContextProviderPort` *(cross-module, hosted here)* | `Compliance\Infrastructure\Adapter\Assistant\ComplianceAssistantContextProviderAdapter` |
-
-`GetFacilityTreeHandler` introduces **no new port**: it reuses the same four
-ports above via `ComplianceRegisterAggregator`, plus the module-local
-`FacilityTreeBuilder` service — this is the entire reason the enriched
-facility tree lives in Compliance rather than Facility.
-
-The four statistics adapters query their module's own tables directly via
-the main entity manager (raw SQL: `maintenance_schedules`, `non_conformities`
-joined to `inspections`, `equipment`) rather than growing their owning
-module's domain-facing repository port — the grouped-by-facility aggregate
-has no equivalent there, the same treatment
-`Equipment\Infrastructure\Adapter\Maintenance\EquipmentMaintenanceDirectoryAdapter`
-gives its own cross-module read model. `FacilityComplianceDirectoryAdapter`
-and `OrganizationExportEntitlementAdapter` instead reuse their module's
-existing domain-facing ports (`FacilityRepositoryPort::findByOrganizationId()`,
-`OrganizationRepositoryPort` + `PlanRepositoryPort`, mirroring
-`OrganizationQuotaService::resolvePlan()`).
-
 ## Assistant business-context provider (L2.2)
 
 `Infrastructure/Adapter/Assistant/ComplianceAssistantContextProviderAdapter`
@@ -357,14 +357,6 @@ never block a fresh read.
 - Template: `templates/compliance/safety_register.html.twig`
 - No Doctrine mapping (no table); no messenger routing (synchronous reads/export only)
 
-## Error Codes
-
-| Exception | HTTP |
-| --- | --- |
-| `ComplianceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `ComplianceExportNotEntitledException` | 403 Forbidden ("upgrade required") |
-| `ComplianceNotFoundException` | 404 Not Found |
-
 ## Testing
 
 - Unit: `tests/Unit/Compliance` — including
@@ -381,3 +373,11 @@ never block a fresh read.
 - Functional: `tests/Functional/Api/ComplianceApiTest.php` (includes the
   facility-tree endpoint auth check), `tests/Functional/Api/SafetyRegisterExportApiTest.php`
 - Run module tests: `make test tests/Unit/Compliance/`
+## Error Codes
+
+| Exception | HTTP |
+| --- | --- |
+| `ComplianceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
+| `ComplianceExportNotEntitledException` | 403 Forbidden ("upgrade required") |
+| `ComplianceNotFoundException` | 404 Not Found |
+

@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\OrganizationId;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
 use Symfony\Contracts\Service\ResetInterface;
 
@@ -297,6 +298,282 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       userId: '550e8400-e29b-41d4-a716-446655440001',
       organizationId: '550e8400-e29b-41d4-a716-446655440010',
       permissions: ['organization.members.read', 'organization.roles.manage'],
+    );
+  }
+
+  #[Test]
+  public function testHasPermissionReturnsFalseForEmptyGrantedPattern(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.read',
+    ));
+  }
+
+  #[Test]
+  public function testHasPermissionReturnsFalseForEmptyRequiredPermission(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.read']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: '',
+    ));
+  }
+
+  #[Test]
+  public function testHasPermissionReturnsTrueForGlobalWildcardPatterns(): void
+  {
+    foreach (['*', '*.*', '*.*.*'] as $wildcard) {
+      /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+      $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+      $memberRepository->expects(self::once())
+        ->method('getPermissionNamesForUserInOrganization')
+        ->willReturn([$wildcard]);
+
+      $service = new OrganizationAuthorizationService($memberRepository);
+
+      self::assertTrue($service->hasPermission(
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        organizationId: '550e8400-e29b-41d4-a716-446655440010',
+        permission: 'organization.members.manage',
+      ));
+    }
+  }
+
+  #[Test]
+  public function testHasPermissionMatchesMidPatternWildcardSegment(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.*.read']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.members.read',
+    ));
+
+    self::assertTrue($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.owners.read',
+    ));
+  }
+
+  #[Test]
+  public function testHasPermissionRejectsMidWildcardWhenRequiredIsShorter(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.*.read']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization',
+    ));
+  }
+
+  #[Test]
+  public function testHasPermissionRejectsWhenGrantedIsMoreSpecificThanRequired(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.members.read']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.members',
+    ));
+  }
+
+  #[Test]
+  public function testHasPermissionRejectsWhenGrantedPrefixIsShorterThanRequired(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.members']);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.members.read',
+    ));
+  }
+
+  #[Test]
+  public function testEmptyResolvedPermissionsAreNotCachedLocally(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::exactly(2))
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn([]);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.read',
+    ));
+
+    self::assertFalse($service->hasPermission(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+      permission: 'organization.read',
+    ));
+  }
+
+  #[Test]
+  public function testSharedCacheIsBypassedWhenTtlIsNotPositive(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.read']);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::never())->method('get');
+    $cache->expects(self::never())->method('set');
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache, 0);
+
+    self::assertSame(
+      ['organization.read'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
+    );
+  }
+
+  #[Test]
+  public function testSharedCacheReadFailureFallsBackToRepository(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.read']);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willThrowException(new RuntimeException('cache down'));
+    $cache->expects(self::once())->method('set');
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+
+    self::assertSame(
+      ['organization.read'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
+    );
+  }
+
+  #[Test]
+  public function testSharedCacheReadIgnoresNonArrayValues(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.read']);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willReturn('corrupted-entry');
+    $cache->expects(self::once())->method('set');
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+
+    self::assertSame(
+      ['organization.read'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
+    );
+  }
+
+  #[Test]
+  public function testSharedCacheReadFiltersNonStringEntries(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('getPermissionNamesForUserInOrganization');
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willReturn(['organization.read', 42, 'organization.members.read', null]);
+    $cache->expects(self::never())->method('set');
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+
+    self::assertSame(
+      ['organization.read', 'organization.members.read'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
+    );
+  }
+
+  #[Test]
+  public function testSharedCacheWriteFailureIsSwallowed(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.read']);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willReturn(null);
+    $cache->expects(self::once())
+      ->method('set')
+      ->willThrowException(new RuntimeException('cache write failed'));
+
+    $service = new OrganizationAuthorizationService($memberRepository, $cache);
+
+    self::assertSame(
+      ['organization.read'],
+      $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
     );
   }
 }

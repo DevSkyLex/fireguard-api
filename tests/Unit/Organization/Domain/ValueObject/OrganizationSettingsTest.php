@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Domain\ValueObject;
 
 use Organization\Domain\ValueObject\{
+  OrganizationApprovalSettings,
+  OrganizationAssistantSettings,
   OrganizationAutomationSettings,
   OrganizationComplianceSettings,
   OrganizationNotificationSettings,
@@ -18,6 +20,8 @@ use Shared\Domain\Exception\InvalidValueException;
 #[CoversClass(OrganizationSettings::class)]
 #[CoversClass(OrganizationNotificationSettings::class)]
 #[CoversClass(OrganizationRegionalSettings::class)]
+#[CoversClass(OrganizationApprovalSettings::class)]
+#[CoversClass(OrganizationAssistantSettings::class)]
 final class OrganizationSettingsTest extends TestCase
 {
   #[Test]
@@ -153,5 +157,73 @@ final class OrganizationSettingsTest extends TestCase
     $this->expectException(InvalidValueException::class);
 
     new OrganizationRegionalSettings(measurementSystem: 'furlongs');
+  }
+
+  #[Test]
+  public function testWithApprovalReturnsNewImmutableInstance(): void
+  {
+    $settings = OrganizationSettings::default();
+    $updated = $settings->withApproval(new OrganizationApprovalSettings(allowSelfApproval: true, approvalTtlDays: 30));
+
+    self::assertNotSame($settings, $updated);
+    self::assertFalse($settings->approval->allowSelfApproval, 'original is unchanged');
+    self::assertSame(14, $settings->approval->approvalTtlDays, 'original is unchanged');
+    self::assertTrue($updated->approval->allowSelfApproval);
+    self::assertSame(30, $updated->approval->approvalTtlDays);
+    self::assertEquals($settings->assistant, $updated->assistant, 'assistant section is preserved');
+    self::assertEquals($settings->notifications, $updated->notifications, 'notifications section is preserved');
+  }
+
+  #[Test]
+  public function testWithAssistantReturnsNewImmutableInstance(): void
+  {
+    $settings = OrganizationSettings::default();
+    $updated = $settings->withAssistant(new OrganizationAssistantSettings(enabled: true, temperature: 0.9));
+
+    self::assertNotSame($settings, $updated);
+    self::assertFalse($settings->assistant->enabled, 'original is unchanged');
+    self::assertTrue($updated->assistant->enabled);
+    self::assertSame(0.9, $updated->assistant->temperature);
+    self::assertEquals($settings->approval, $updated->approval, 'approval section is preserved');
+    self::assertEquals($settings->regional, $updated->regional, 'regional section is preserved');
+  }
+
+  #[Test]
+  public function testFromArrayHydratesApprovalAndAssistantSections(): void
+  {
+    $settings = new OrganizationSettings(
+      approval: new OrganizationApprovalSettings(allowSelfApproval: true, approvalTtlDays: 21),
+      assistant: new OrganizationAssistantSettings(
+        enabled: true,
+        model: 'llama3',
+        temperature: 0.7,
+        includeBusinessContext: false,
+      ),
+    );
+
+    $restored = OrganizationSettings::fromArray($settings->toArray());
+
+    self::assertEquals($settings, $restored);
+    self::assertTrue($restored->approval->allowSelfApproval);
+    self::assertSame(21, $restored->approval->approvalTtlDays);
+    self::assertTrue($restored->assistant->enabled);
+    self::assertSame('llama3', $restored->assistant->model);
+    self::assertSame(0.7, $restored->assistant->temperature);
+    self::assertFalse($restored->assistant->includeBusinessContext);
+  }
+
+  #[Test]
+  public function testFromArrayToleratesNonArraySubSections(): void
+  {
+    $settings = OrganizationSettings::fromArray([
+      'notifications' => 'not-an-array',
+      'regional' => 42,
+      'compliance' => false,
+      'automation' => 'nope',
+      'approval' => 3.14,
+      'assistant' => 'still-not-an-array',
+    ]);
+
+    self::assertEquals(OrganizationSettings::default(), $settings);
   }
 }

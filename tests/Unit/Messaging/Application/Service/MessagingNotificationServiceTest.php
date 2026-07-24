@@ -120,6 +120,116 @@ final class MessagingNotificationServiceTest extends TestCase
       ->channelMessagePosted(self::ORG_ID, 'conversation-1', [self::MEMBER_ID, 'author-member'], 'author-member');
   }
 
+  #[Test]
+  public function testMentionedSkipsWhenNoUserResolvesForTheMember(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('memberIsActive')->willReturn(true);
+    $members->method('resolveUserIdForMember')->willReturn(null);
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new MessagingNotificationService($notifications, $members, $this->policy())
+      ->mentioned(self::ORG_ID, 'conversation-1', 'facility', 'facility-1', self::MEMBER_ID);
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testMentionedDropsTheInAppChannelWhenInAppDeliveryIsDisabled(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('memberIsActive')->willReturn(true);
+    $members->method('resolveUserIdForMember')->willReturn(self::USER_ID);
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => [NotificationChannel::EMAIL] === $request->channels))
+      ->willReturn($this->sent());
+
+    new MessagingNotificationService($notifications, $members, $this->policy(inAppEnabled: false))
+      ->mentioned(self::ORG_ID, 'conversation-1', 'facility', 'facility-1', self::MEMBER_ID);
+  }
+
+  #[Test]
+  public function testMentionedSendsNothingWhenAllChannelsAreDisabled(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('memberIsActive')->willReturn(true);
+    $members->method('resolveUserIdForMember')->willReturn(self::USER_ID);
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new MessagingNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false))
+      ->mentioned(self::ORG_ID, 'conversation-1', 'facility', null, self::MEMBER_ID);
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testChannelMessagePostedSendsNothingWhenAllChannelsAreDisabled(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new MessagingNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false))
+      ->channelMessagePosted(self::ORG_ID, 'conversation-1', [self::MEMBER_ID], 'author-member');
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function testChannelMessagePostedSkipsInactiveAndUnresolvableParticipants(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('memberIsActive')->willReturnMap([
+      [self::ORG_ID, 'inactive-member', false],
+      [self::ORG_ID, 'unresolved-member', true],
+      [self::ORG_ID, 'active-member', true],
+    ]);
+    $members->method('resolveUserIdForMember')->willReturnMap([
+      [self::ORG_ID, 'unresolved-member', null],
+      [self::ORG_ID, 'active-member', self::USER_ID],
+    ]);
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => 'messaging.channel_message' === $request->type
+        && self::USER_ID === $request->recipientUserId
+        && 'conversation-1' === $request->payload['conversationId']))
+      ->willReturn($this->sent());
+
+    new MessagingNotificationService($notifications, $members, $this->policy())
+      ->channelMessagePosted(
+        self::ORG_ID,
+        'conversation-1',
+        ['inactive-member', 'unresolved-member', 'active-member', 'author-member'],
+        'author-member',
+      );
+  }
+
+  #[Test]
+  public function testChannelMessagePostedNeverFailsWhenNotificationDeliveryThrows(): void
+  {
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('memberIsActive')->willReturn(true);
+    $members->method('resolveUserIdForMember')->willReturn(self::USER_ID);
+
+    $notifications = $this->createStub(NotificationPort::class);
+    $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
+
+    new MessagingNotificationService($notifications, $members, $this->policy())
+      ->channelMessagePosted(self::ORG_ID, 'conversation-1', [self::MEMBER_ID], 'author-member');
+
+    self::addToAssertionCount(1);
+  }
+
   private function policy(bool $inAppEnabled = true, bool $emailEnabled = true): OrganizationNotificationPolicyPort
   {
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);

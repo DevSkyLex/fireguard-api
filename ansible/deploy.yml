@@ -251,15 +251,33 @@
       args:
         chdir: "{{ fireguard_app_dir }}"
 
-    - name: Wait for internal application health
-      ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} exec -T app curl -fsS http://localhost:8000/api/health"
-      args:
-        chdir: "{{ fireguard_app_dir }}"
-      register: fireguard_internal_health
-      changed_when: false
-      retries: "{{ fireguard_healthcheck_retries }}"
-      delay: "{{ fireguard_healthcheck_delay }}"
-      until: fireguard_internal_health.rc == 0
+    - name: Verify internal application health
+      block:
+        - name: Wait for internal application health
+          ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} exec -T app curl -fsS http://localhost:8000/api/health"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          register: fireguard_internal_health
+          changed_when: false
+          retries: "{{ fireguard_healthcheck_retries }}"
+          delay: "{{ fireguard_healthcheck_delay }}"
+          until: fireguard_internal_health.rc == 0
+      rescue:
+        # The app logs JSON to stderr in prod (monolog), so the real exception —
+        # e.g. `EnvNotFoundException: Environment variable not found: "..."` — is
+        # in `docker compose logs`, not in curl's bare "error: 500". Surface it
+        # before aborting so a failed deploy is diagnosable from the run output.
+        - name: Dump application logs after failed health check
+          ansible.builtin.command: "docker compose -f {{ fireguard_compose_file }} logs --tail=200 --no-color app"
+          args:
+            chdir: "{{ fireguard_app_dir }}"
+          changed_when: false
+        - name: Fail the deploy after surfacing application logs
+          ansible.builtin.fail:
+            msg: >-
+              The application did not become healthy. The app container logs were
+              dumped in the previous task. A startup EnvNotFoundException there
+              means a required key is missing from {{ fireguard_env_file }}.
 
     - name: Wait for public application health
       ansible.builtin.uri:

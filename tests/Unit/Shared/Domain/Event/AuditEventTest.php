@@ -73,5 +73,72 @@ final class AuditEventTest extends TestCase
     self::assertSame('client-123', $event->aggregateId());
     self::assertInstanceOf(DateTimeImmutable::class, $event->occurredAt());
   }
+
+  #[Test]
+  public function testEventIdReturnsProvidedUuid(): void
+  {
+    $eventId = new Uuid('123e4567-e89b-12d3-a456-426614174000');
+    $event = AuditEvent::loginSuccess(
+      eventId: $eventId,
+      userId: 'user-123',
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent',
+    );
+
+    self::assertSame($eventId, $event->eventId());
+    self::assertTrue($eventId->equals($event->eventId()));
+  }
+
+  #[Test]
+  public function testAggregateTypeIsAudit(): void
+  {
+    $event = AuditEvent::loginSuccess(
+      eventId: new Uuid('123e4567-e89b-12d3-a456-426614174000'),
+      userId: 'user-123',
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent',
+    );
+
+    self::assertSame('Audit', $event->aggregateType());
+  }
+
+  #[Test]
+  public function testTokenIssuedWithUserIdExposesMetadataAndAggregate(): void
+  {
+    $event = AuditEvent::tokenIssued(
+      eventId: new Uuid('123e4567-e89b-12d3-a456-426614174000'),
+      clientId: 'client-123',
+      userId: 'user-456',
+      grantType: 'authorization_code',
+      ipAddress: '10.0.0.1',
+    );
+
+    self::assertSame(['grant_type' => 'authorization_code'], $event->metadata());
+    self::assertSame('user-456', $event->userId());
+    self::assertSame('user-456', $event->aggregateId());
+  }
+
+  #[Test]
+  public function testPayloadExposesAllConstructorFields(): void
+  {
+    $event = AuditEvent::loginSuccess(
+      eventId: new Uuid('123e4567-e89b-12d3-a456-426614174000'),
+      userId: 'user-123',
+      ipAddress: '192.168.1.1',
+      userAgent: 'test-agent',
+    );
+
+    self::assertSame(
+      [
+        'action' => AuditEvent::ACTION_LOGIN_SUCCESS,
+        'user_id' => 'user-123',
+        'client_id' => null,
+        'ip_address' => '192.168.1.1',
+        'user_agent' => 'test-agent',
+        'metadata' => [],
+      ],
+      $event->payload(),
+    );
+  }
   // #endregion
 }

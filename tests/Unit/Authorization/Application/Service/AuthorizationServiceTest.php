@@ -12,6 +12,7 @@ use Authorization\Domain\ValueObject\{PermissionId, PermissionName, RoleId, Role
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
 
 /**
@@ -191,6 +192,100 @@ final class AuthorizationServiceTest extends TestCase
 
     $names = $service->getUserPermissionNames('user-999');
     self::assertSame(['roles.assign'], $names);
+  }
+
+  #[Test]
+  public function testHasPermissionSkipsEmptyCachedNamesFromCacheHit(): void
+  {
+    $repository = $this->createStub(RoleAssignmentRepositoryPort::class);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->with('authz.permissions.user-empty')
+      ->willReturn(['', 'users.create']);
+    $cache->expects(self::never())->method('set');
+
+    $service = new AuthorizationService($repository, $cache);
+
+    self::assertTrue($service->hasPermission('user-empty', 'users.create'));
+  }
+
+  #[Test]
+  public function testHasAnyRoleAndHasAllRolesFalseBranches(): void
+  {
+    $repository = $this->createStub(RoleAssignmentRepositoryPort::class);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::exactly(2))
+      ->method('get')
+      ->with('authz.roles.user-neg')
+      ->willReturn(['viewer']);
+    $cache->expects(self::never())->method('set');
+
+    $service = new AuthorizationService($repository, $cache);
+
+    self::assertFalse($service->hasAnyRole('user-neg', ['admin', 'editor']));
+    self::assertFalse($service->hasAllRoles('user-neg', ['viewer', 'admin']));
+  }
+
+  #[Test]
+  public function testGetUserRoleNamesToleratesCacheReadAndWriteFailures(): void
+  {
+    $role = Role::create(
+      id: new RoleId('550e8400-e29b-41d4-a716-446655440300'),
+      name: new RoleName('operator'),
+      description: 'Operator',
+    );
+
+    /** @var RoleAssignmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findRolesForSubject')
+      ->with(SubjectType::USER, 'user-fail')
+      ->willReturn([$role]);
+
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willThrowException(new RuntimeException('cache down'));
+    $cache->method('set')->willThrowException(new RuntimeException('cache down'));
+
+    $service = new AuthorizationService($repository, $cache);
+
+    self::assertSame(['operator'], $service->getUserRoleNames('user-fail'));
+  }
+
+  #[Test]
+  public function testGetUserPermissionNamesToleratesCacheReadAndWriteFailures(): void
+  {
+    $permission = Permission::create(
+      id: new PermissionId('550e8400-e29b-41d4-a716-446655440400'),
+      name: new PermissionName('reports.view'),
+      description: 'View reports',
+    );
+
+    $role = Role::create(
+      id: new RoleId('550e8400-e29b-41d4-a716-446655440401'),
+      name: new RoleName('analyst'),
+      description: 'Analyst',
+    );
+    $role->addPermission($permission);
+
+    /** @var RoleAssignmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findRolesForSubject')
+      ->with(SubjectType::USER, 'user-perm-fail')
+      ->willReturn([$role]);
+
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willThrowException(new RuntimeException('cache down'));
+    $cache->method('set')->willThrowException(new RuntimeException('cache down'));
+
+    $service = new AuthorizationService($repository, $cache);
+
+    self::assertSame(['reports.view'], $service->getUserPermissionNames('user-perm-fail'));
   }
   // #endregion
 }

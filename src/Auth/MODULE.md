@@ -223,7 +223,7 @@ Core endpoints:
 - `/api/.well-known/openid-configuration`
 - `/api/.well-known/jwks.json`
 
-## Authentication Flows
+## Flows
 
 ### Login with MFA
 

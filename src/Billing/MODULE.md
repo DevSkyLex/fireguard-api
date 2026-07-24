@@ -171,30 +171,6 @@ In development the `stripe-cli` compose service forwards webhooks to
 `http://app:8000/api/billing/webhook`; copy the signing secret it prints into
 `STRIPE_WEBHOOK_SECRET`.
 
-## Error Mapping
-
-- Checkout: `400` when the plan is not payable / cadence unknown, `403` on
-  missing permission, `201` on success.
-- Portal: `409` when the organization has no Stripe customer yet
-  (`BillingCustomerNotFoundException`), `403` on missing permission.
-- Cancel / Resume: `409` when there is no live subscription
-  (`NoActiveSubscriptionException`), `403` on missing permission, `200` with the
-  refreshed subscription on success.
-- Subscription / Invoices / Pricing: `403` on missing permission. Invoices
-  returns an empty list when the organization has no Stripe customer yet.
-- Payment method: `403` on missing permission; `200` with `hasPaymentMethod: false`
-  (never `404`) when the organization has no Stripe customer yet or the
-  customer has no saved card — this is the normal state for a free-plan
-  organization. `503` (`BillingGatewayUnavailableException`) when Stripe cannot
-  be reached, instead of a raw `500`.
-- Webhook: `204` on success, `400` on an invalid signature
-  (`InvalidWebhookSignatureException`); any other failure surfaces as `5xx` so
-  Stripe retries.
-
-Command-bus failures are unwrapped via the `ResolvesMessengerFailure` trait
-(`MessengerRuntimeException` → `HandlerFailedException` → domain exception) so
-processors map them to the right HTTP status.
-
 ## Testing
 
 - Unit tests: `tests/Billing`
@@ -227,6 +203,30 @@ processors map them to the right HTTP status.
   class importing `\Stripe\*`) — consistent with the rest of the module, it is
   thin glue code exercised manually via `stripe-cli` in development.
 - The Billing module is phpstan-clean at `level: max`.
+
+## Error Codes
+
+- Checkout: `400` when the plan is not payable / cadence unknown, `403` on
+  missing permission, `201` on success.
+- Portal: `409` when the organization has no Stripe customer yet
+  (`BillingCustomerNotFoundException`), `403` on missing permission.
+- Cancel / Resume: `409` when there is no live subscription
+  (`NoActiveSubscriptionException`), `403` on missing permission, `200` with the
+  refreshed subscription on success.
+- Subscription / Invoices / Pricing: `403` on missing permission. Invoices
+  returns an empty list when the organization has no Stripe customer yet.
+- Payment method: `403` on missing permission; `200` with `hasPaymentMethod: false`
+  (never `404`) when the organization has no Stripe customer yet or the
+  customer has no saved card — this is the normal state for a free-plan
+  organization. `503` (`BillingGatewayUnavailableException`) when Stripe cannot
+  be reached, instead of a raw `500`.
+- Webhook: `204` on success, `400` on an invalid signature
+  (`InvalidWebhookSignatureException`); any other failure surfaces as `5xx` so
+  Stripe retries.
+
+Command-bus failures are unwrapped via the `ResolvesMessengerFailure` trait
+(`MessengerRuntimeException` → `HandlerFailedException` → domain exception) so
+processors map them to the right HTTP status.
 
 ## Notes
 

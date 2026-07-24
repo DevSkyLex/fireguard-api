@@ -21,6 +21,121 @@ Main goals:
   modules' **Domain** layers never reference Approval.
 - Make the gate/executor seam reusable for future regulated action types.
 
+## API Endpoints
+
+| Method | Path | Description | Permission |
+| --- | --- | --- | --- |
+| GET | `/api/organizations/{organizationId}/approval-requests` | List approval requests (filters: `status`, `actionType`) | `organization.approvals.read` |
+| GET | `/api/organizations/{organizationId}/approval-requests/{requestId}` | Get a single approval request | `organization.approvals.read` |
+| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/approve` | Approve and re-execute the deferred action | `organization.approvals.decide` |
+| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/reject` | Reject; the deferred action is never executed | `organization.approvals.decide` |
+| GET | `/api/approvals/action-types` | Reference catalog of gatable action types | `ROLE_USER` |
+
+Every operation requires `ROLE_USER` at the resource level; the
+finer-grained permission checks are self-enforced in the application layer
+by each handler through `OrganizationAuthorizationPort` (the
+Webhook/Import/Maintenance convention) — processors stay thin.
+
+**Deviation from the lot brief's prose sketch:** the brief's narrative
+description implies a flatter, unprefixed `/approval-requests` route family
+with the organization resolved from a query parameter. This module instead
+nests every route under `/organizations/{organizationId}/approval-requests`,
+consistent with **every** other org-scoped resource in this API (Webhook,
+Equipment, Inspection, Team, OrganizationRole…) — avoiding a new,
+unprecedented unprefixed routing convention. The brief's "cancel" endpoint
+was **not** built as a separate public operation: it exists only as an
+internal `ApprovalRequest::cancel()` domain transition used by the approve
+flow when the deferred action is no longer applicable — no
+`CancelApprovalRequestCommand`/route exists (a pending request a requester
+wants to withdraw can be left to expire, or rejected by a decider).
+
+## Flows
+
+### Deferred (gate returns "deferred")
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Proc as Owning module Processor
+  participant Gate as ApprovalGate
+  participant Repo as ApprovalRequestRepositoryPort
+  Client->>Proc: PATCH waive / POST decommission
+  Proc->>Gate: evaluate(ApprovalGateRequest)
+  Gate->>Gate: policyFor(org) -> enabled? severity threshold?
+  Gate->>Gate: assertGrantedPermissions(organization.approvals.request)
+  Gate->>Repo: reservePending(...) [raw DBAL insert, partial-unique guarded]
+  Note over Repo: duplicate reservation returns the ALREADY pending request id
+  Gate-->>Proc: ApprovalGateDecision::deferred(id, status, expiresAt)
+  Proc-->>Client: 202 { status: pending_approval, approvalRequestId, ... }
+```
+
+### Approve
+
+```mermaid
+sequenceDiagram
+  participant Approver
+  participant H as ApproveApprovalRequestHandler
+  participant Reg as ApprovalActionExecutorRegistry
+  participant Ex as Owning module Executor
+  participant Bus as CommandBusPort
+  Approver->>H: ApproveApprovalRequestCommand
+  H->>H: assertGrantedPermissions(organization.approvals.decide)
+  H->>H: resolveMemberId + memberSatisfiesRole(minApproverRole)
+  H->>H: approver !== requester (unless allowSelfApproval)
+  H->>H: assert status === pending
+  H->>Reg: execute(DeferredActionContext)
+  Reg->>Ex: execute(context)
+  Ex->>Bus: dispatch(existing command, e.g. DecommissionEquipmentCommand)
+  alt success or idempotent already-applied
+    H->>H: request.approve() + markExecuted()
+    H-->>Approver: 200 approved
+  else DeferredActionNoLongerApplicableException
+    H->>H: request.cancel(reason) -> dispatch approval.execution_failed
+    H-->>Approver: 409 (rethrown exception)
+  end
+```
+
+## Architecture
+
+- **Domain** (`src/Approval/Domain`): `ApprovalRequest` (aggregate:
+  approve/reject/cancel/expire/markExecuted/markExecutionFailed,
+  isPending), `ApprovalRequestId`, `ApprovalStatus` (enum:
+  pending|approved|rejected|cancelled|expired), domain events
+  (`Domain/Event/Request`), exceptions.
+- **Application** (`src/Approval/Application`): `ApprovalActionTypes` /
+  `ApprovalGateRequest` / `ApprovalGateDecision` / `ApprovalPolicy` /
+  `DeferredActionContext` / `ApprovalReservation` (Contract), inbound
+  `ApprovalGatePort`, outbound `ApprovalRequestRepositoryPort` /
+  `ApprovalPolicyPort` / `ApprovalMemberDirectoryPort` /
+  `ApprovalActionExecutorPort`, `ApprovalGate` / `ApprovalActionExecutorRegistry`
+  (Service), use cases (approve/reject decisions, expiry sweep, get/list
+  queries).
+- **Infrastructure** (`src/Approval/Infrastructure`): Doctrine
+  Record/Mapper/Repository (main entity manager; `reservePending()` uses a
+  raw DBAL insert — never ORM `persist()`/`flush()` — so the partial-unique
+  conflict never closes the EntityManager, mirrors
+  `AutomationRunRepository::reserveRun()`), `ApprovalScheduleProvider`.
+- **Presentation** (`src/Approval/Presentation`): `ApprovalRequestResource`,
+  `ApprovalActionTypeCatalogResource` (reference catalog), processors,
+  providers, Input/Output DTOs, `ApprovalExceptionMapperTrait`.
+
+### Ports & adapters (`config/modules/approval.yaml`)
+
+| Port | Adapter | Hosted in |
+| --- | --- | --- |
+| `ApprovalGatePort` (inbound) | `ApprovalGate` | Approval |
+| `ApprovalRequestRepositoryPort` | `ApprovalRequestRepository` | Approval |
+| `ApprovalPolicyPort` | `OrganizationApprovalPolicyAdapter` | Organization |
+| `ApprovalMemberDirectoryPort` | `OrganizationApprovalMemberDirectoryAdapter` | Organization |
+| `ApprovalActionExecutorPort` (`!tagged_iterator approval.deferred_action_executor`) | `NonConformityWaiverExecutorAdapter`, `EquipmentDecommissionExecutorAdapter` | Inspection, Equipment |
+| `Organization\...\ApprovalActionTypeCatalogPort` | `ApprovalActionTypeCatalogAdapter` | Approval |
+
+Module cycles (Approval↔Inspection, Approval↔Equipment, Approval↔Organization)
+are acceptable: `deptrac.yaml` enforces LAYER boundaries only, not module
+acyclicity — the same shape already exists (Organization↔Maintenance,
+Organization↔Equipment via `EquipmentTypeCatalogPort`). Inspection's and
+Equipment's **Domain** layers reference nothing from Approval.
+
 ## Interception & re-execution seams (the crux)
 
 1. **Interception** — an inbound `Application\Port\Inbound\ApprovalGatePort`
@@ -89,34 +204,6 @@ while the request is still `pending` (immediate feedback to the approver):
   the executor runs again — the deferred action executes at most once per
   request.
 
-## API Endpoints
-
-| Method | Path | Description | Permission |
-| --- | --- | --- | --- |
-| GET | `/api/organizations/{organizationId}/approval-requests` | List approval requests (filters: `status`, `actionType`) | `organization.approvals.read` |
-| GET | `/api/organizations/{organizationId}/approval-requests/{requestId}` | Get a single approval request | `organization.approvals.read` |
-| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/approve` | Approve and re-execute the deferred action | `organization.approvals.decide` |
-| POST | `/api/organizations/{organizationId}/approval-requests/{requestId}/reject` | Reject; the deferred action is never executed | `organization.approvals.decide` |
-| GET | `/api/approvals/action-types` | Reference catalog of gatable action types | `ROLE_USER` |
-
-Every operation requires `ROLE_USER` at the resource level; the
-finer-grained permission checks are self-enforced in the application layer
-by each handler through `OrganizationAuthorizationPort` (the
-Webhook/Import/Maintenance convention) — processors stay thin.
-
-**Deviation from the lot brief's prose sketch:** the brief's narrative
-description implies a flatter, unprefixed `/approval-requests` route family
-with the organization resolved from a query parameter. This module instead
-nests every route under `/organizations/{organizationId}/approval-requests`,
-consistent with **every** other org-scoped resource in this API (Webhook,
-Equipment, Inspection, Team, OrganizationRole…) — avoiding a new,
-unprecedented unprefixed routing convention. The brief's "cancel" endpoint
-was **not** built as a separate public operation: it exists only as an
-internal `ApprovalRequest::cancel()` domain transition used by the approve
-flow when the deferred action is no longer applicable — no
-`CancelApprovalRequestCommand`/route exists (a pending request a requester
-wants to withdraw can be left to expire, or rejected by a decider).
-
 ## Gate call sites (owning modules)
 
 - `Inspection\Presentation\Api\Processor\NonConformity\UpdateNonConformityStatusProcessor`
@@ -140,52 +227,6 @@ body:
   "approvalStatus": "pending",
   "expiresAt": "2026-08-01T00:00:00+00:00"
 }
-```
-
-## Flow
-
-### Deferred (gate returns "deferred")
-
-```mermaid
-sequenceDiagram
-  participant Client
-  participant Proc as Owning module Processor
-  participant Gate as ApprovalGate
-  participant Repo as ApprovalRequestRepositoryPort
-  Client->>Proc: PATCH waive / POST decommission
-  Proc->>Gate: evaluate(ApprovalGateRequest)
-  Gate->>Gate: policyFor(org) -> enabled? severity threshold?
-  Gate->>Gate: assertGrantedPermissions(organization.approvals.request)
-  Gate->>Repo: reservePending(...) [raw DBAL insert, partial-unique guarded]
-  Note over Repo: duplicate reservation returns the ALREADY pending request id
-  Gate-->>Proc: ApprovalGateDecision::deferred(id, status, expiresAt)
-  Proc-->>Client: 202 { status: pending_approval, approvalRequestId, ... }
-```
-
-### Approve
-
-```mermaid
-sequenceDiagram
-  participant Approver
-  participant H as ApproveApprovalRequestHandler
-  participant Reg as ApprovalActionExecutorRegistry
-  participant Ex as Owning module Executor
-  participant Bus as CommandBusPort
-  Approver->>H: ApproveApprovalRequestCommand
-  H->>H: assertGrantedPermissions(organization.approvals.decide)
-  H->>H: resolveMemberId + memberSatisfiesRole(minApproverRole)
-  H->>H: approver !== requester (unless allowSelfApproval)
-  H->>H: assert status === pending
-  H->>Reg: execute(DeferredActionContext)
-  Reg->>Ex: execute(context)
-  Ex->>Bus: dispatch(existing command, e.g. DecommissionEquipmentCommand)
-  alt success or idempotent already-applied
-    H->>H: request.approve() + markExecuted()
-    H-->>Approver: 200 approved
-  else DeferredActionNoLongerApplicableException
-    H->>H: request.cancel(reason) -> dispatch approval.execution_failed
-    H-->>Approver: 409 (rethrown exception)
-  end
 ```
 
 ## Configuration (`approvalPolicy`)
@@ -262,47 +303,6 @@ because Automation's trigger is an event subscriber, not a scheduler).
 (or equivalent) — see `OPERATIONS.md`. Without a `scheduler_approval`
 consumer, pending requests never expire.
 
-## Architecture
-
-- **Domain** (`src/Approval/Domain`): `ApprovalRequest` (aggregate:
-  approve/reject/cancel/expire/markExecuted/markExecutionFailed,
-  isPending), `ApprovalRequestId`, `ApprovalStatus` (enum:
-  pending|approved|rejected|cancelled|expired), domain events
-  (`Domain/Event/Request`), exceptions.
-- **Application** (`src/Approval/Application`): `ApprovalActionTypes` /
-  `ApprovalGateRequest` / `ApprovalGateDecision` / `ApprovalPolicy` /
-  `DeferredActionContext` / `ApprovalReservation` (Contract), inbound
-  `ApprovalGatePort`, outbound `ApprovalRequestRepositoryPort` /
-  `ApprovalPolicyPort` / `ApprovalMemberDirectoryPort` /
-  `ApprovalActionExecutorPort`, `ApprovalGate` / `ApprovalActionExecutorRegistry`
-  (Service), use cases (approve/reject decisions, expiry sweep, get/list
-  queries).
-- **Infrastructure** (`src/Approval/Infrastructure`): Doctrine
-  Record/Mapper/Repository (main entity manager; `reservePending()` uses a
-  raw DBAL insert — never ORM `persist()`/`flush()` — so the partial-unique
-  conflict never closes the EntityManager, mirrors
-  `AutomationRunRepository::reserveRun()`), `ApprovalScheduleProvider`.
-- **Presentation** (`src/Approval/Presentation`): `ApprovalRequestResource`,
-  `ApprovalActionTypeCatalogResource` (reference catalog), processors,
-  providers, Input/Output DTOs, `ApprovalExceptionMapperTrait`.
-
-### Ports & adapters (`config/modules/approval.yaml`)
-
-| Port | Adapter | Hosted in |
-| --- | --- | --- |
-| `ApprovalGatePort` (inbound) | `ApprovalGate` | Approval |
-| `ApprovalRequestRepositoryPort` | `ApprovalRequestRepository` | Approval |
-| `ApprovalPolicyPort` | `OrganizationApprovalPolicyAdapter` | Organization |
-| `ApprovalMemberDirectoryPort` | `OrganizationApprovalMemberDirectoryAdapter` | Organization |
-| `ApprovalActionExecutorPort` (`!tagged_iterator approval.deferred_action_executor`) | `NonConformityWaiverExecutorAdapter`, `EquipmentDecommissionExecutorAdapter` | Inspection, Equipment |
-| `Organization\...\ApprovalActionTypeCatalogPort` | `ApprovalActionTypeCatalogAdapter` | Approval |
-
-Module cycles (Approval↔Inspection, Approval↔Equipment, Approval↔Organization)
-are acceptable: `deptrac.yaml` enforces LAYER boundaries only, not module
-acyclicity — the same shape already exists (Organization↔Maintenance,
-Organization↔Equipment via `EquipmentTypeCatalogPort`). Inspection's and
-Equipment's **Domain** layers reference nothing from Approval.
-
 ## Persistence
 
 - Table (**main** database): `approval_requests`. Plain `organization_id`
@@ -324,15 +324,6 @@ Equipment's **Domain** layers reference nothing from Approval.
   — see "Expiry sweep" above).
 - composer.json: `"Approval\\": "src/Approval/"` PSR-4 autoload.
 
-## Error Codes
-
-| Exception | HTTP |
-| --- | --- |
-| `ApprovalRequestNotFoundException` | 404 Not Found |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException` / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` | 403 Forbidden |
-| `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException` | 409 Conflict |
-| `InvalidArgumentException` | 400 Bad Request |
-
 ## Testing
 
 - Unit: `tests/Unit/Approval`, plus executor adapter tests in
@@ -342,3 +333,12 @@ Equipment's **Domain** layers reference nothing from Approval.
   and `tests/Unit/Equipment/Presentation/Api/Processor/Equipment`.
 - Functional: `tests/Functional/Api/ApprovalRequestApiTest.php`.
 - Run module tests: `php vendor/bin/phpunit tests/Unit/Approval`
+## Error Codes
+
+| Exception | HTTP |
+| --- | --- |
+| `ApprovalRequestNotFoundException` | 404 Not Found |
+| `Organization\Domain\Exception\OrganizationAccessDeniedException` / `SelfApprovalNotAllowedException` / `ApproverNotAuthorizedException` | 403 Forbidden |
+| `ApprovalRequestNotPendingException` / `DeferredActionNoLongerApplicableException` | 409 Conflict |
+| `InvalidArgumentException` | 400 Bad Request |
+

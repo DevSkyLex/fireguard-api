@@ -113,7 +113,7 @@ the server for confirm/disable — only the current authenticator code.
 - Functional: `tests/Functional/Api/OtpTotpApiTest.php`.
 - E2E: `tests/E2E/OtpChallengeFlowTest.php`, `tests/E2E/OtpConfigFlowTest.php`, `tests/E2E/TotpFlowTest.php`.
 
-## Error Mapping
+## Error Codes
 
 - `404 Not Found`: challenge token not found; no pending TOTP setup for confirm; TOTP not enabled for disable.
 - `422 Unprocessable Entity`: invalid/expired TOTP code on confirm or disable.

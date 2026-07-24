@@ -366,4 +366,35 @@ final class MessageTest extends TestCase
 
     self::assertSame([$reference], $message->references());
   }
+
+  #[Test]
+  public function testGettersExposeTheConstructedIdentity(): void
+  {
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-42', 'org-7', 'author-99', 'Hello', new MentionExtractor());
+
+    self::assertSame(self::MESSAGE_ID, $message->id()->value);
+    self::assertSame('conversation-42', $message->conversationId());
+    self::assertSame('org-7', $message->organizationId());
+    self::assertSame('author-99', $message->authorMemberId());
+  }
+
+  #[Test]
+  public function testCreateStampsEqualCreatedAndUpdatedTimestampsAndNoDeletion(): void
+  {
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', new MentionExtractor());
+
+    self::assertNull($message->deletedAt());
+    self::assertSame($message->createdAt(), $message->updatedAt(), 'A freshly created message shares one instant for createdAt and updatedAt.');
+  }
+
+  #[Test]
+  public function testTombstoneStampsDeletedAtAndBumpsUpdatedAt(): void
+  {
+    $message = Message::create(MessageId::fromString(self::MESSAGE_ID), 'conversation-1', 'org-1', 'author-1', 'Hello', new MentionExtractor());
+
+    self::assertTrue($message->tombstone('manager-1'));
+
+    self::assertNotNull($message->deletedAt());
+    self::assertSame($message->deletedAt(), $message->updatedAt(), 'Tombstoning bumps updatedAt to the deletion instant.');
+  }
 }

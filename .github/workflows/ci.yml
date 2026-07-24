@@ -198,15 +198,13 @@ jobs:
   # ==========================================================================
   # End-to-End Flow Tests
   # ==========================================================================
-  # Runs on every pull request. Still opt-in for a manual run (workflow_dispatch
-  # + run_e2e) on a branch without a PR, and skipped in the release/deploy
-  # preflight (workflow_call) to keep those fast.
+  # Manual opt-in only (workflow_dispatch + run_e2e) — too slow to gate every
+  # pull request on. Also skipped in the release/deploy preflight
+  # (workflow_call) to keep those fast.
   tests-end-to-end:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_e2e == true)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_e2e == true
     env:
       APP_ENV: test
       APP_DEBUG: 0
@@ -234,12 +232,28 @@ jobs:
         uses: ./.github/actions/prepare-postgres-test-environment
         with:
           php-version: ${{ env.PHP_VERSION }}
+          coverage-driver: pcov
           postgres-service-id: ${{ job.services.postgres.id }}
           auth-database-url: ${{ env.AUTH_DATABASE_URL }}
           main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
-      - name: Run end-to-end flow tests
-        run: vendor/bin/phpunit --testsuite="E2E Tests" --no-coverage
+      - name: Run end-to-end flow tests with coverage
+        run: |
+          vendor/bin/phpunit \
+            --testsuite="E2E Tests" \
+            --coverage-clover=var/coverage/e2e.xml \
+            --coverage-text \
+            --only-summary-for-coverage-text
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: github.event_name != 'workflow_call'
+        with:
+          files: var/coverage/e2e.xml
+          flags: e2e
+          fail_ci_if_error: false
+          verbose: true
+        continue-on-error: true
 
   # ==========================================================================
   # Symfony Container Lint

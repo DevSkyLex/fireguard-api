@@ -85,7 +85,7 @@ per-message Messaging events (volume/PII), and Audit's own events. Renaming
 a source domain event requires updating both `WebhookEventCatalog` and
 `WebhookEventSubscriber` — do not rename without checking both.
 
-## Flow
+## Flows
 
 ### Dispatch (event-driven, request thread — enqueue only)
 
@@ -347,6 +347,12 @@ or the `organization.*` owner wildcard.
   permissions, unlike the platform-level `Authorization` module the sync
   command actually targets); documented here to avoid re-investigating.
 
+## Testing
+
+- Unit: `tests/Unit/Webhook`
+- Functional: `tests/Functional/Api/WebhookSubscriptionApiTest.php`
+- Run module tests: `php vendor/bin/phpunit tests/Unit/Webhook`
+
 ## Error Codes
 
 | Exception | HTTP |
@@ -355,9 +361,3 @@ or the `organization.*` owner wildcard.
 | `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
 | `WebhookValidationException` | 422 Unprocessable Entity |
 | `InvalidArgumentException` | 400 Bad Request |
-
-## Testing
-
-- Unit: `tests/Unit/Webhook`
-- Functional: `tests/Functional/Api/WebhookSubscriptionApiTest.php`
-- Run module tests: `php vendor/bin/phpunit tests/Unit/Webhook`

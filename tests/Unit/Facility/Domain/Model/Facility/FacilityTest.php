@@ -253,6 +253,40 @@ final class FacilityTest extends TestCase
   }
 
   #[Test]
+  public function testRestoreReactivatesArchivedFacility(): void
+  {
+    $now = new DateTimeImmutable('2026-03-01T08:00:00+00:00');
+
+    $facility = Facility::reconstitute(
+      id: $this->id,
+      organizationId: $this->organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Archived Building'),
+      status: FacilityStatus::ARCHIVED,
+      createdAt: $now,
+      updatedAt: $now,
+    );
+
+    $facility->restore();
+
+    self::assertSame(FacilityStatus::ACTIVE, $facility->status());
+    self::assertTrue($facility->status()->isActive());
+    self::assertNotSame($now, $facility->updatedAt());
+  }
+
+  #[Test]
+  public function testRestoreIsIdempotentWhenAlreadyActive(): void
+  {
+    $facility = $this->makeActiveFacility();
+    $updatedAtBefore = $facility->updatedAt();
+
+    $facility->restore();
+
+    self::assertSame(FacilityStatus::ACTIVE, $facility->status());
+    self::assertSame($updatedAtBefore, $facility->updatedAt());
+  }
+
+  #[Test]
   public function testCreateWithNullCodeAndAddressSetsNullValues(): void
   {
     $facility = Facility::create(

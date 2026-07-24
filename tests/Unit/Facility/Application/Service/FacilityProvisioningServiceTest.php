@@ -9,13 +9,15 @@ use Facility\Application\Contract\Provisioning\{ProvisionFacilityRequest, Provis
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\Service\FacilityProvisioningService;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityResult};
-use Facility\Domain\Exception\FacilityCodeAlreadyExistsException;
+use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use InvalidArgumentException;
 use Organization\Domain\Exception\OrganizationQuotaExceededException;
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Sorting\Sorting;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
@@ -144,6 +146,120 @@ final class FacilityProvisioningServiceTest extends TestCase
     $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
 
     self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+  }
+
+  #[Test]
+  public function itSkipsParentResolutionWhenTheParentCodeIsAnEmptyString(): void
+  {
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::never())->method('findByOrganizationId');
+
+    $captured = null;
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(function (CreateFacilityCommand $command) use (&$captured): CreateFacilityResult {
+        $captured = $command;
+
+        return $this->fakeResult('facility-3');
+      });
+
+    $request = new ProvisionFacilityRequest(
+      organizationId: self::ORGANIZATION_ID,
+      type: 'site',
+      name: 'Main site',
+      parentCode: '',
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($request);
+
+    self::assertSame(ProvisionOutcome::CREATED, $result->outcome);
+    self::assertInstanceOf(CreateFacilityCommand::class, $captured);
+    self::assertNull($captured->parentFacilityId);
+  }
+
+  #[Test]
+  public function itReturnsInvalidWhenTheCommandBusRaisesAHierarchyExceptionDirectly(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      FacilityHierarchyException::parentInAnotherOrganization(),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertSame('Parent facility must belong to the same organization.', $result->message);
+  }
+
+  #[Test]
+  public function itReturnsInvalidWhenTheCommandBusRaisesAnInvalidArgumentExceptionDirectly(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(new InvalidArgumentException('Unsupported facility type.'));
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertSame('Unsupported facility type.', $result->message);
+  }
+
+  #[Test]
+  public function itUnwrapsAQuotaExceededExceptionFromAMessengerRuntimeException(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(
+        OrganizationQuotaExceededException::forResource(OrganizationQuotaResource::FACILITIES, 3),
+      ),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::QUOTA_EXCEEDED, $result->outcome);
+    self::assertNotNull($result->message);
+  }
+
+  #[Test]
+  public function itUnwrapsANotFoundExceptionRaisedLaterInTheHandledList(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(FacilityNotFoundException::withId(self::PARENT_ID)),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertNotNull($result->message);
+  }
+
+  #[Test]
+  public function itRethrowsAMessengerRuntimeExceptionWrappingAnUnhandledFailure(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Unexpected infrastructure failure.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
   }
 
   private function request(): ProvisionFacilityRequest

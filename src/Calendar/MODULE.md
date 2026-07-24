@@ -1,12 +1,5 @@
 # Calendar Module
 
-## Status: activated (L2.8)
-
-Lot **L2.0** (the wave-2 `main` schema lot) scaffolded this module's
-touchpoints only. Lot **L2.8** activates it: standalone calendar events (full
-CRUD) plus a unified, date-ranged feed merging standalone events with
-inspections, interventions, and preventive-maintenance due dates.
-
 ## Overview
 
 Two capabilities:
@@ -30,6 +23,13 @@ This module never depends on the Organization or Facility ORM mappings:
 columns/fields throughout every layer (Domain, Infrastructure, Application),
 mirroring `Automation\Infrastructure\Persistence\Doctrine\Record\AutomationRunRecord`'s
 precedent.
+
+## Status: activated (L2.8)
+
+Lot **L2.0** (the wave-2 `main` schema lot) scaffolded this module's
+touchpoints only. Lot **L2.8** activates it: standalone calendar events (full
+CRUD) plus a unified, date-ranged feed merging standalone events with
+inspections, interventions, and preventive-maintenance due dates.
 
 ## API Endpoints
 

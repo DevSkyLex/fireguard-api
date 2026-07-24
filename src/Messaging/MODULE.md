@@ -157,147 +157,6 @@ the same rule. This mirrors the client-uuid creation already used by Facility,
 Equipment, Inspection and Intervention, and reuses their
 `CreationPreconditionGuard`.
 
-## Domain Model
-
-`Conversation` aggregate (`Domain/Model/Conversation`): `id`, `organizationId`,
-`subjectType` (`MessagingSubjectType`), `subjectId` (nullable — always set in
-v1, reserved for v2 channels), `visibility` (`ConversationVisibility::SUBJECT`
-in v1, `PARTICIPANTS` reserved), `lastMessageAt`, `messagesCount`,
-`isArchived`, timestamps. `archive()`/`unarchive()` are idempotent (return
-`false` on a no-op transition so the handler skips re-emitting the domain
-event). `touchLastMessage()`/`incrementMessagesCount()` exist for domain
-completeness, but the hot path of posting a message updates
-`messages_count`/`last_message_at` through a single atomic `UPDATE` (see
-`MessagingConversationRepositoryPort::touchOnNewMessage()`), not a
-load-modify-save cycle, to stay correct under concurrent posts.
-`rename()`/`bindTeam()`/`unbindTeam()` are channel-only mutators (v1
-subject-thread conversations have no caller path to them). `setParent()`
-(L2.6, channel-only) sets or clears `parentConversationId` — it trusts
-whatever id it is given, exactly like `bindTeam()` trusts its team id: ALL
-cycle/cross-organization/max-depth validation happens BEFORE it is called,
-in `MessagingChannelHierarchyGuard` (see "Channel parent/child hierarchy"
-below), never inside the aggregate itself.
-
-`Message` aggregate (`Domain/Model/Message`): `id`, `conversationId`,
-`organizationId`, `authorMemberId`, `body`, `mentions` (`list<string>` member
-ids), `editedAt`, `deletedAt`/`deletedByMemberId`, timestamps. `edit()`
-re-validates the body and recomputes mentions, returning only the *newly
-added* mentions (so an edit doesn't re-notify already-mentioned members);
-refuses to edit an already-tombstoned message. `tombstone()` sets
-`deletedAt`/`deletedByMemberId` (idempotent) — **the body is retained**, never
-cleared; redaction happens only in `MessageOutputFactory`. `pin(memberId)`/
-`unpin()` (L1.3) set/clear `pinnedAt`/`pinnedByMemberId` — both idempotent
-(pinning an already-pinned message keeps the ORIGINAL pinner/timestamp
-rather than re-crediting the new caller; unpinning a non-pinned message is a
-silent no-op). `pin()` refuses an already-tombstoned message. **A pin is a
-property of the CONVERSATION** (every reader sees the same pinned set),
-never a per-member concept — do not confuse with a saved message
-(`messaging_saved_messages`, private to one member, L1.5). Tombstoning a
-PINNED message does NOT auto-unpin it: the pin flag is retained (so a
-manager can still find and explicitly unpin it), but the pinned entry
-renders with the same `body: null` redaction as any other tombstoned
-message in the Pins tab — never a silent content leak.
-
-`parentMessageId` (L2.5, nullable) marks a message as a threaded reply;
-`isReply()` returns `true` when it is set. `replyCount` mirrors
-`Conversation::$messagesCount`: populated on reconstitution but bumped on the
-hot path through a single atomic `UPDATE`
-(`MessagingMessageRepositoryPort::incrementReplyCount()`), never a
-load-modify-save cycle on the aggregate — `incrementReplyCount()` exists on
-`Message` itself only for domain completeness/unit testing, mirroring
-`Conversation::incrementMessagesCount()`. Threading is deliberately
-**single-level**: `PostReplyHandler` refuses a reply whose PARENT
-`isReply()` (a reply to a reply), instead of allowing unbounded nesting —
-the safer default. Replying to an already-tombstoned parent is also refused
-(mirrors `pin()`/`AddReactionHandler`/`SaveMessageHandler`'s refusal of the
-same state); both checks depend on the PARENT's state, so they live in
-`PostReplyHandler`, not on `Message` itself. An EXISTING reply remains fully
-readable (via `GET /api/messages/{id}/replies`) even after its parent is
-later tombstoned — only POSTING a NEW reply to a tombstoned parent is
-refused. See "Threaded replies" below.
-
-Value objects (`Domain/ValueObject`): `ConversationId`/`MessageId`
-(Uuid-backed), `MessagingSubjectType` (`facility` | `equipment` |
-`intervention` | `non_conformity` | `channel` | `direct` — `channel` (v2)
-and `direct` (L2.4) are the two cases with no resolver-backed subject; see
-"v2 channels" and "Direct messages" below), `ConversationVisibility`
-(`subject` | `participants`), `MessageBody` (trims, rejects blank/`>4000` chars),
-`MessagingEmoji` (L1.4 — trims, bounds to 32 characters (mirrors
-`messaging_reactions.emoji varchar(32)`), and requires EXACTLY one extended
-grapheme cluster containing at least one non-ASCII codepoint: this accepts a
-ZWJ family sequence, a flag, a skin-tone-modified emoji, or a keycap
-sequence like `3️⃣` as a single reaction, while rejecting a pasted sentence,
-several emoji in a row, or a bare letter/digit/punctuation mark that also
-happens to form one grapheme on its own. Uses `grapheme_strlen()`, provided
-by `symfony/polyfill-intl-grapheme` even where `ext-intl` is absent from the
-runtime).
-
-**Reactions have NO domain aggregate (L1.4).** `messaging_reactions` is a
-pure join table, composite-keyed `(message_id, member_id, emoji)` — exactly
-like `messaging_participants` (`MessagingParticipantRepositoryPort`), which
-also has no aggregate. There is nothing to load, mutate and save: reacting
-is an idempotent `INSERT` and un-reacting is a plain `DELETE`, both
-implemented directly against the primary key by
-`MessagingReactionRepositoryPort`/`MessagingReactionRepository` — introducing
-a read-modify-write aggregate here would be the exact anti-pattern the
-composite key is designed to make impossible (see Persistence).
-
-**Saved messages and favorite conversations also have NO domain aggregate
-(L1.5)**, for the exact same reason as reactions. `messaging_saved_messages`
-(composite PK `member_id, message_id`) and `messaging_conversation_favorites`
-(composite PK `conversation_id, member_id`) are pure join tables:
-`MessagingSavedMessageRepositoryPort`/`MessagingSavedMessageRepository` and
-`MessagingConversationFavoriteRepositoryPort`/`MessagingConversationFavoriteRepository`
-each expose an idempotent `INSERT`-style method, a plain `DELETE`-style
-method, and a batched id-lookup method (`findSavedMessageIds()`/
-`findFavoritedConversationIds()`) — no load-then-save. **A save is private
-to one member** (never visible to, or removable by, any other member — the
-primary key makes cross-member access structurally impossible). **A
-favorite is SIDEBAR ORDERING ONLY and grants no access**: it MUST NEVER be
-consulted when authorizing a read — a favorited conversation the member has
-since lost access to is denied by `GetConversation`/`GetChannel` exactly as
-if it had never been favorited, and never appears in
-`ListConversations`/`ListChannels` either, since those queries are already
-scoped to what the member can see independent of favorites (see
-Permissions/Persistence). This is a deliberate invariant, not an oversight.
-
-`Domain/Service/MentionExtractor` is a pure domain service extracting unique
-`@{memberUuid}` tokens — the **exact same regex** as
-`Intervention\...\AddInterventionCommentHandler::extractMentions()`, kept in
-lock-step on purpose (a house rule forbids importing another module's private
-static method).
-
-`Domain/Service/DirectConversationKey` (L2.4) is a pure domain service with a
-single static method, `DirectConversationKey::for($memberA, $memberB)`:
-sorts the two member ids lexicographically, joins them with `:`, and takes
-`substr(hash('sha256', …), 0, 32)`. The sort is what turns it into a PAIR
-key instead of a directed one — without it, member A starting a
-conversation with member B and member B starting one with member A would
-derive two different keys and create two separate conversations. The result
-becomes `messaging_conversations.subject_id` for a `subjectType=DIRECT`
-conversation, which is what lets `MessagingConversationRepositoryPort::getOrCreate()`'s
-EXISTING `UNIQUE (organization_id, subject_type, subject_id)` index (and its
-swallowed-`UniqueConstraintViolationException` race handling) give
-pair-uniqueness for free — no new index, no new race-handling code. **This
-is the one intentionally opaque value in the module**: it is never decoded
-back into the two member ids, and a `subject_id IS NULL` + participant-list
-convention was deliberately rejected for this, because Postgres treats
-`NULL`s as distinct values — that would give NO pair uniqueness at all (two
-members could each spawn their own "null-subject" direct conversation for
-the same pair). See "Direct messages" below.
-
-`MessagingAttachment` aggregate (`Domain/Model/Attachment`): `id`,
-`messageId`, `conversationId`, `organizationId`, `uploadedByMemberId`,
-`fileName`, `storagePath`, `mimeType`, `size`, `label`, `uploadedAt` — a file
-posted alongside a message, and the row shown in the owning conversation's
-Files tab. `MessagingAttachmentId` (Uuid-backed). Mirrors
-`Inspection\Domain\Model\Attachment\InspectionAttachment` exactly (create/
-reconstitute factories, no framework types); `revision` is a
-persistence/Presentation-only concept (the `messaging_attachments.revision`
-column, echoed through `MessageAttachmentOutput` for the delete precondition)
-and is deliberately NOT part of the aggregate, matching the Inspection
-precedent — there is no edit use case, so it never advances past `1`.
-
 ## Flows
 
 ### Get-or-create a conversation (idempotent)
@@ -767,6 +626,147 @@ beyond the cap ever becomes a real product requirement; it would need to
 either push the access-permission check into SQL (a bigger change this
 module has avoided everywhere else) or introduce a materialized
 per-member/per-conversation access index.
+
+## Domain Model
+
+`Conversation` aggregate (`Domain/Model/Conversation`): `id`, `organizationId`,
+`subjectType` (`MessagingSubjectType`), `subjectId` (nullable — always set in
+v1, reserved for v2 channels), `visibility` (`ConversationVisibility::SUBJECT`
+in v1, `PARTICIPANTS` reserved), `lastMessageAt`, `messagesCount`,
+`isArchived`, timestamps. `archive()`/`unarchive()` are idempotent (return
+`false` on a no-op transition so the handler skips re-emitting the domain
+event). `touchLastMessage()`/`incrementMessagesCount()` exist for domain
+completeness, but the hot path of posting a message updates
+`messages_count`/`last_message_at` through a single atomic `UPDATE` (see
+`MessagingConversationRepositoryPort::touchOnNewMessage()`), not a
+load-modify-save cycle, to stay correct under concurrent posts.
+`rename()`/`bindTeam()`/`unbindTeam()` are channel-only mutators (v1
+subject-thread conversations have no caller path to them). `setParent()`
+(L2.6, channel-only) sets or clears `parentConversationId` — it trusts
+whatever id it is given, exactly like `bindTeam()` trusts its team id: ALL
+cycle/cross-organization/max-depth validation happens BEFORE it is called,
+in `MessagingChannelHierarchyGuard` (see "Channel parent/child hierarchy"
+below), never inside the aggregate itself.
+
+`Message` aggregate (`Domain/Model/Message`): `id`, `conversationId`,
+`organizationId`, `authorMemberId`, `body`, `mentions` (`list<string>` member
+ids), `editedAt`, `deletedAt`/`deletedByMemberId`, timestamps. `edit()`
+re-validates the body and recomputes mentions, returning only the *newly
+added* mentions (so an edit doesn't re-notify already-mentioned members);
+refuses to edit an already-tombstoned message. `tombstone()` sets
+`deletedAt`/`deletedByMemberId` (idempotent) — **the body is retained**, never
+cleared; redaction happens only in `MessageOutputFactory`. `pin(memberId)`/
+`unpin()` (L1.3) set/clear `pinnedAt`/`pinnedByMemberId` — both idempotent
+(pinning an already-pinned message keeps the ORIGINAL pinner/timestamp
+rather than re-crediting the new caller; unpinning a non-pinned message is a
+silent no-op). `pin()` refuses an already-tombstoned message. **A pin is a
+property of the CONVERSATION** (every reader sees the same pinned set),
+never a per-member concept — do not confuse with a saved message
+(`messaging_saved_messages`, private to one member, L1.5). Tombstoning a
+PINNED message does NOT auto-unpin it: the pin flag is retained (so a
+manager can still find and explicitly unpin it), but the pinned entry
+renders with the same `body: null` redaction as any other tombstoned
+message in the Pins tab — never a silent content leak.
+
+`parentMessageId` (L2.5, nullable) marks a message as a threaded reply;
+`isReply()` returns `true` when it is set. `replyCount` mirrors
+`Conversation::$messagesCount`: populated on reconstitution but bumped on the
+hot path through a single atomic `UPDATE`
+(`MessagingMessageRepositoryPort::incrementReplyCount()`), never a
+load-modify-save cycle on the aggregate — `incrementReplyCount()` exists on
+`Message` itself only for domain completeness/unit testing, mirroring
+`Conversation::incrementMessagesCount()`. Threading is deliberately
+**single-level**: `PostReplyHandler` refuses a reply whose PARENT
+`isReply()` (a reply to a reply), instead of allowing unbounded nesting —
+the safer default. Replying to an already-tombstoned parent is also refused
+(mirrors `pin()`/`AddReactionHandler`/`SaveMessageHandler`'s refusal of the
+same state); both checks depend on the PARENT's state, so they live in
+`PostReplyHandler`, not on `Message` itself. An EXISTING reply remains fully
+readable (via `GET /api/messages/{id}/replies`) even after its parent is
+later tombstoned — only POSTING a NEW reply to a tombstoned parent is
+refused. See "Threaded replies" below.
+
+Value objects (`Domain/ValueObject`): `ConversationId`/`MessageId`
+(Uuid-backed), `MessagingSubjectType` (`facility` | `equipment` |
+`intervention` | `non_conformity` | `channel` | `direct` — `channel` (v2)
+and `direct` (L2.4) are the two cases with no resolver-backed subject; see
+"v2 channels" and "Direct messages" below), `ConversationVisibility`
+(`subject` | `participants`), `MessageBody` (trims, rejects blank/`>4000` chars),
+`MessagingEmoji` (L1.4 — trims, bounds to 32 characters (mirrors
+`messaging_reactions.emoji varchar(32)`), and requires EXACTLY one extended
+grapheme cluster containing at least one non-ASCII codepoint: this accepts a
+ZWJ family sequence, a flag, a skin-tone-modified emoji, or a keycap
+sequence like `3️⃣` as a single reaction, while rejecting a pasted sentence,
+several emoji in a row, or a bare letter/digit/punctuation mark that also
+happens to form one grapheme on its own. Uses `grapheme_strlen()`, provided
+by `symfony/polyfill-intl-grapheme` even where `ext-intl` is absent from the
+runtime).
+
+**Reactions have NO domain aggregate (L1.4).** `messaging_reactions` is a
+pure join table, composite-keyed `(message_id, member_id, emoji)` — exactly
+like `messaging_participants` (`MessagingParticipantRepositoryPort`), which
+also has no aggregate. There is nothing to load, mutate and save: reacting
+is an idempotent `INSERT` and un-reacting is a plain `DELETE`, both
+implemented directly against the primary key by
+`MessagingReactionRepositoryPort`/`MessagingReactionRepository` — introducing
+a read-modify-write aggregate here would be the exact anti-pattern the
+composite key is designed to make impossible (see Persistence).
+
+**Saved messages and favorite conversations also have NO domain aggregate
+(L1.5)**, for the exact same reason as reactions. `messaging_saved_messages`
+(composite PK `member_id, message_id`) and `messaging_conversation_favorites`
+(composite PK `conversation_id, member_id`) are pure join tables:
+`MessagingSavedMessageRepositoryPort`/`MessagingSavedMessageRepository` and
+`MessagingConversationFavoriteRepositoryPort`/`MessagingConversationFavoriteRepository`
+each expose an idempotent `INSERT`-style method, a plain `DELETE`-style
+method, and a batched id-lookup method (`findSavedMessageIds()`/
+`findFavoritedConversationIds()`) — no load-then-save. **A save is private
+to one member** (never visible to, or removable by, any other member — the
+primary key makes cross-member access structurally impossible). **A
+favorite is SIDEBAR ORDERING ONLY and grants no access**: it MUST NEVER be
+consulted when authorizing a read — a favorited conversation the member has
+since lost access to is denied by `GetConversation`/`GetChannel` exactly as
+if it had never been favorited, and never appears in
+`ListConversations`/`ListChannels` either, since those queries are already
+scoped to what the member can see independent of favorites (see
+Permissions/Persistence). This is a deliberate invariant, not an oversight.
+
+`Domain/Service/MentionExtractor` is a pure domain service extracting unique
+`@{memberUuid}` tokens — the **exact same regex** as
+`Intervention\...\AddInterventionCommentHandler::extractMentions()`, kept in
+lock-step on purpose (a house rule forbids importing another module's private
+static method).
+
+`Domain/Service/DirectConversationKey` (L2.4) is a pure domain service with a
+single static method, `DirectConversationKey::for($memberA, $memberB)`:
+sorts the two member ids lexicographically, joins them with `:`, and takes
+`substr(hash('sha256', …), 0, 32)`. The sort is what turns it into a PAIR
+key instead of a directed one — without it, member A starting a
+conversation with member B and member B starting one with member A would
+derive two different keys and create two separate conversations. The result
+becomes `messaging_conversations.subject_id` for a `subjectType=DIRECT`
+conversation, which is what lets `MessagingConversationRepositoryPort::getOrCreate()`'s
+EXISTING `UNIQUE (organization_id, subject_type, subject_id)` index (and its
+swallowed-`UniqueConstraintViolationException` race handling) give
+pair-uniqueness for free — no new index, no new race-handling code. **This
+is the one intentionally opaque value in the module**: it is never decoded
+back into the two member ids, and a `subject_id IS NULL` + participant-list
+convention was deliberately rejected for this, because Postgres treats
+`NULL`s as distinct values — that would give NO pair uniqueness at all (two
+members could each spawn their own "null-subject" direct conversation for
+the same pair). See "Direct messages" below.
+
+`MessagingAttachment` aggregate (`Domain/Model/Attachment`): `id`,
+`messageId`, `conversationId`, `organizationId`, `uploadedByMemberId`,
+`fileName`, `storagePath`, `mimeType`, `size`, `label`, `uploadedAt` — a file
+posted alongside a message, and the row shown in the owning conversation's
+Files tab. `MessagingAttachmentId` (Uuid-backed). Mirrors
+`Inspection\Domain\Model\Attachment\InspectionAttachment` exactly (create/
+reconstitute factories, no framework types); `revision` is a
+persistence/Presentation-only concept (the `messaging_attachments.revision`
+column, echoed through `MessageAttachmentOutput` for the delete precondition)
+and is deliberately NOT part of the aggregate, matching the Inspection
+precedent — there is no edit use case, so it never advances past `1`.
 
 ## Permissions
 
@@ -1577,17 +1577,6 @@ TTL:    90 seconds
   different lots). **L2.7 adds NO migration at all** — presence has no
   database table, by design (see "Online presence" above).
 
-## Error Codes
-
-| Exception | HTTP |
-| --- | --- |
-| `MessagingAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `MessagingNotFoundException` / `MessagingSubjectNotFoundException` / `MessagingAttachmentNotFoundException` | 404 Not Found |
-| `MessagingValidationException` | 422 Unprocessable Entity |
-| `MessagingConflictException` (L2.6 — a channel-hierarchy cycle, self-parenting, or a max-depth violation) | 409 Conflict |
-| `InvalidArgumentException` | 400 Bad Request |
-| Stale `If-Match` on `DELETE /messaging-attachments/{id}` | 412 Precondition Failed (missing header: 428 Precondition Required) |
-
 ## Testing
 
 - Unit: `tests/Unit/Messaging` (+ the four subject-resolver adapters under
@@ -1801,3 +1790,14 @@ TTL:    90 seconds
   cache-backed feature with no table, so the Unit tier above is this slice's
   ONLY non-thin coverage).
 - Run module tests: `make test tests/Unit/Messaging/`
+
+## Error Codes
+
+| Exception | HTTP |
+| --- | --- |
+| `MessagingAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
+| `MessagingNotFoundException` / `MessagingSubjectNotFoundException` / `MessagingAttachmentNotFoundException` | 404 Not Found |
+| `MessagingValidationException` | 422 Unprocessable Entity |
+| `MessagingConflictException` (L2.6 — a channel-hierarchy cycle, self-parenting, or a max-depth violation) | 409 Conflict |
+| `InvalidArgumentException` | 400 Bad Request |
+| Stale `If-Match` on `DELETE /messaging-attachments/{id}` | 412 Precondition Failed (missing header: 428 Precondition Required) |

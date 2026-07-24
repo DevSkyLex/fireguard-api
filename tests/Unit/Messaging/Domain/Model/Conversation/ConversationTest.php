@@ -225,4 +225,68 @@ final class ConversationTest extends TestCase
 
     self::assertSame('parent-channel-1', $channel->parentConversationId());
   }
+
+  #[Test]
+  public function testGettersExposeIdentityAndTimestamps(): void
+  {
+    $id = ConversationId::fromString(self::CONVERSATION_ID);
+    $createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $updatedAt = new DateTimeImmutable('2026-03-05T12:30:00+00:00');
+
+    $conversation = Conversation::reconstitute(
+      $id,
+      self::ORG_ID,
+      MessagingSubjectType::EQUIPMENT,
+      'equipment-9',
+      ConversationVisibility::SUBJECT,
+      null,
+      0,
+      false,
+      $createdAt,
+      $updatedAt,
+    );
+
+    self::assertSame($id, $conversation->id());
+    self::assertSame(self::CONVERSATION_ID, (string) $conversation->id());
+    self::assertSame(self::ORG_ID, $conversation->organizationId());
+    self::assertSame(MessagingSubjectType::EQUIPMENT, $conversation->subjectType());
+    self::assertSame('equipment-9', $conversation->subjectId());
+    self::assertSame($createdAt, $conversation->createdAt());
+    self::assertSame($updatedAt, $conversation->updatedAt());
+  }
+
+  #[Test]
+  public function testTouchLastMessageAlsoRefreshesUpdatedAt(): void
+  {
+    $conversation = Conversation::create(
+      ConversationId::fromString(self::CONVERSATION_ID),
+      self::ORG_ID,
+      MessagingSubjectType::NON_CONFORMITY,
+      'nc-1',
+    );
+
+    $at = new DateTimeImmutable('2026-04-02T09:15:00+00:00');
+    $conversation->touchLastMessage($at);
+
+    self::assertSame($at, $conversation->updatedAt());
+    self::assertSame(MessagingSubjectType::NON_CONFORMITY, $conversation->subjectType());
+  }
+
+  #[Test]
+  public function testCreateDirectConversationLeavesChannelFieldsNull(): void
+  {
+    $conversation = Conversation::create(
+      ConversationId::fromString(self::CONVERSATION_ID),
+      self::ORG_ID,
+      MessagingSubjectType::DIRECT,
+      'pair-key-abc',
+    );
+
+    self::assertSame(MessagingSubjectType::DIRECT, $conversation->subjectType());
+    self::assertSame('pair-key-abc', $conversation->subjectId());
+    self::assertNull($conversation->name());
+    self::assertNull($conversation->teamId());
+    self::assertNull($conversation->createdByMemberId());
+    self::assertNull($conversation->parentConversationId());
+  }
 }

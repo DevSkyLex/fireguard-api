@@ -495,15 +495,6 @@ adapters (see `Facility`, `Equipment`, `Intervention`, `Inspection`'s
   - `MERCURE_JWT_SECRET`
 - Email delivery relies on shared mailer configuration (`MAILER_DSN`, sender config in Shared mail adapter).
 
-## Error Mapping
-
-- API:
-  - `401/403` when unauthenticated or forbidden by resource security.
-  - `404` when notification does not exist or does not belong to the user.
-- Send use case:
-  - throws `InvalidArgumentException` on invalid input.
-  - channel errors are logged and reported in `channelDelivery` (no hard failure).
-
 ## Testing
 
 - Unit tests: `tests/Unit/Notification`
@@ -547,3 +538,12 @@ adapters (see `Facility`, `Equipment`, `Intervention`, `Inspection`'s
   and `tests/E2E/NotificationFlowTest.php` (full authenticated flow:
   pagination, organization filter, unread count, and read-all leaving
   another user's notifications untouched).
+
+## Error Codes
+
+- API:
+  - `401/403` when unauthenticated or forbidden by resource security.
+  - `404` when notification does not exist or does not belong to the user.
+- Send use case:
+  - throws `InvalidArgumentException` on invalid input.
+  - channel errors are logged and reported in `channelDelivery` (no hard failure).

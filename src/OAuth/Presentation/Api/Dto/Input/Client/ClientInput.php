@@ -6,7 +6,8 @@ namespace OAuth\Presentation\Api\Dto\Input\Client;
 
 use ApiPlatform\Metadata\ApiProperty;
 use OAuth\Domain\ValueObject\Security\GrantType;
-use Symfony\Component\Serializer\Attribute\SerializedName;
+use OAuth\Presentation\Api\Serialization\OAuthSerializationGroup;
+use Symfony\Component\Serializer\Attribute\{Groups, SerializedName};
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -30,6 +31,7 @@ final class ClientInput
    */
   #[Assert\NotBlank]
   #[Assert\Length(min: 3, max: 100)]
+  #[Groups([OAuthSerializationGroup::CLIENT_WRITE, OAuthSerializationGroup::CLIENT_UPDATE])]
   #[SerializedName('client_name')]
   #[ApiProperty(
     description: 'Human-readable name of the client application',
@@ -65,6 +67,7 @@ final class ClientInput
     new Assert\NotBlank(),
     new Assert\Url(protocols: ['http', 'https'], requireTld: false),
   ])]
+  #[Groups([OAuthSerializationGroup::CLIENT_WRITE, OAuthSerializationGroup::CLIENT_UPDATE])]
   #[SerializedName('redirect_uris')]
   #[ApiProperty(
     description: 'List of allowed redirect URIs for OAuth2 callbacks',
@@ -98,6 +101,7 @@ final class ClientInput
     new Assert\NotBlank(),
     new Assert\Choice(choices: GrantType::VALUES),
   ])]
+  #[Groups([OAuthSerializationGroup::CLIENT_WRITE, OAuthSerializationGroup::CLIENT_UPDATE])]
   #[SerializedName('grant_types')]
   #[ApiProperty(
     description: 'List of allowed OAuth2 grant types',
@@ -131,6 +135,7 @@ final class ClientInput
     new Assert\NotBlank(),
     new Assert\Type('string'),
   ])]
+  #[Groups([OAuthSerializationGroup::CLIENT_WRITE, OAuthSerializationGroup::CLIENT_UPDATE])]
   #[SerializedName('scopes')]
   #[ApiProperty(
     description: 'List of allowed OAuth2 scopes',

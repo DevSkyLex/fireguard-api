@@ -368,6 +368,135 @@ sequenceDiagram
   Note over W,Own: atomic — all drafts persist or none do; status → published
 ```
 
+## Architecture
+
+Hexagonal layering (Domain ← Application ← Infrastructure / Presentation, enforced
+by deptrac):
+
+- **Presentation** (`src/Intervention/Presentation/Api`): API Platform resources,
+  providers, processors, input/output DTOs, output factories, and the
+  `InterventionWorkflowExceptionMapperTrait` (domain-exception → HTTP mapping).
+- **Application** (`src/Intervention/Application`): use cases (command/query
+  handlers for workflow + publication + activity feed), outbound ports,
+  contracts, and services (`InterventionChangeApplication`,
+  `InterventionDraftPublisher`, `InterventionIssueFinder`,
+  `InterventionMemberPolicy`, `InterventionNotificationService`,
+  `InterventionResourceManager`).
+- **Domain** (`src/Intervention/Domain`): the `Intervention` aggregate + work item
+  / change / publication models, value objects, domain services
+  (`InterventionTransitionPolicy`, `InterventionChangePolicy`), and exceptions.
+- **Infrastructure** (`src/Intervention/Infrastructure`): Doctrine records / mappers
+  and the port adapters (Doctrine gateways, Messenger publication queue).
+
+### Ports & adapters (`config/modules/intervention.yaml`)
+
+| Outbound port | Adapter |
+| --- | --- |
+| `InterventionResourceGatewayPort` | `DoctrineInterventionResourceGatewayAdapter` |
+| `InterventionWorkflowGatewayPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
+| `InterventionIssueQueryPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
+| `PublicationRepositoryPort` | `DoctrinePublicationAdapter` |
+| `PublicationQueuePort` | `MessengerPublicationQueueAdapter` |
+| `InterventionActivityPort` | `DoctrineInterventionActivityAdapter` |
+| `InterventionLabelPort` | `DoctrineInterventionLabelAdapter` |
+| `InterventionTemplatePort` | `DoctrineInterventionTemplateAdapter` |
+| `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
+| `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
+| `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
+| `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
+| `Organization\Application\Port\Inbound\TeamDirectoryPort` *(cross-module, consumed BY Intervention)* | `Organization\Application\Service\TeamDirectoryService` — R9 team-assignment; consumed directly, no Intervention-side wrapper port, exactly like `OrganizationAuthorizationPort` |
+| `Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort` *(cross-module, consumed by Calendar)* | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter` |
+
+`InterventionServiceReportAdapter` (`Infrastructure/Adapter/Equipment/`,
+R12) hosts the adapter for Equipment's consumer port
+`InterventionServiceReportPort::serviceReport(interventionId)` — mirrors
+`Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter` (the
+provider module hosts the adapter, the consumer module owns the port and
+its contract types). Queries `InterventionChangeRecord` directly (main
+entity manager) for `status = 'applied'` changes whose `resource` matches
+`/api/equipment/{id}` (a single path segment, mirroring
+`EquipmentInterventionResourceAdapter::supports()`), across **all**
+publications of the intervention — not scoped to one publication, since
+each change is applied exactly once and the caller dedups on the change id.
+Returns `Equipment\Application\Contract\Intervention\InterventionServiceReport`
+(intervention `number` + `responsibleId` as `actorId`) with one
+`ServicedEquipmentEntry` per matched change (`action` = the linked work
+item's `action` when set, else a patch-derived fallback `status_change`/
+`update`; `changeToken` = the change id, used by the caller as the
+idempotency token). Registered in `config/modules/intervention.yaml`;
+aliased in `config/modules/equipment.yaml`. See the Equipment module's
+`MODULE.md` for the full R12 service-history sync flow (trigger event,
+best-effort semantics, idempotency).
+
+`InterventionStatisticsAdapter` (`Infrastructure/Adapter/Organization/`) is
+the first Organization-facing adapter in this module — mirrors
+`Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter`.
+It implements the Organization module's `InterventionStatisticsPort`
+(`findRecentInterventions(organizationId, limit)`), querying
+`InterventionRecord` directly (main entity manager, ordered by `updatedAt`
+DESC) and returning `Organization\Application\Contract\Intervention\RecentInterventionSummary`
+read models. Feeds the organization dashboard's `recentInterventions`
+section (`GetOrganizationDashboardHandler`), gated by
+`organization.interventions.read`. Registered in
+`config/modules/intervention.yaml`; aliased in
+`config/modules/organization.yaml`.
+
+`InterventionCalendarFeedAdapter` (`Infrastructure/Adapter/Calendar/`)
+implements the Calendar module's `InterventionCalendarFeedPort`
+(`findBetween(organizationId, from, to, limit)`), mirroring
+`InterventionStatisticsAdapter`: it queries `InterventionRecord` directly
+(main entity manager) rather than through an intermediate repository. An
+intervention occurs on the calendar when either its `plannedStartAt` or its
+`dueAt` falls within the requested range (`COALESCE(plannedStartAt, dueAt)`
+resolves the occurrence instant; `dueAt` also surfaces as the feed item's
+`endsAt` when it differs from the resolved start). Registered in
+`config/modules/intervention.yaml`; aliased in `config/modules/calendar.yaml`.
+See `src/Calendar/MODULE.md`.
+
+Label resolution during intervention create/update (asserting each
+`labelIds` entry belongs to the intervention's organization) is done directly
+against `InterventionLabelRecord` inside
+`DoctrineInterventionWorkflowGatewayAdapter`, not through `InterventionLabelPort`
+— the gateway already queries records directly elsewhere (e.g.
+`assertSiteBelongsToOrganization`).
+
+`InterventionActivityPort::append` is also injected into
+`DoctrineInterventionWorkflowGatewayAdapter`, which calls it inside its own
+`wrapInTransaction` to record the `created` and `status_changed` system
+activities alongside the underlying mutation (same commit/rollback unit).
+
+Tagged-iterator extension points (owning modules plug in):
+
+- `intervention.resource_owner` — resource gateways per resource type,
+- `intervention.draft_publisher` — materializes drafts on publication
+  (Facility / Equipment / Inspection),
+- `intervention.change_applier` — applies proposed changes.
+
+Async handlers are Messenger handlers: `RequestPublication`,
+`ExecutePublication`, `GetPublication`, `MutateInterventionWorkflow`,
+`GetInterventionWorkflow`, `ListInterventionWorkflow`, `ListInterventionIssues`,
+`AddInterventionComment`, `ListInterventionActivities`, `CreateInterventionLabel`,
+`UpdateInterventionLabel`, `DeleteInterventionLabel`, `ListInterventionLabels`,
+`CreateInterventionTemplate`, `UpdateInterventionTemplate`,
+`DeleteInterventionTemplate`, `InstantiateInterventionTemplate`,
+`ListInterventionTemplates`, `GetInterventionTemplate`,
+`CreateInterventionRecurrence`, `UpdateInterventionRecurrence`,
+`DeleteInterventionRecurrence`, `GetInterventionRecurrence`,
+`ListInterventionRecurrences`, `MaterializeDueRecurrences` (triggered by the
+hourly scheduler, not the API — see the Recurrences section above),
+`AssignTeamToIntervention` (R9 team-assignment; see above).
+
+`InstantiateInterventionTemplateHandler` never creates interventions itself:
+it authorizes the request, then delegates the shared instantiation core —
+template load, people re-validation/dropping, label filtering, `dueAt`
+derivation — to `Application/Service/InterventionTemplateInstantiator`, which
+calls `InterventionDraftFactoryPort` — the same single programmatic entry
+point the API itself and other automations use — passing
+`origin: 'intervention:template'`. `InterventionTemplateInstantiator` is the
+SAME service the recurrence materializer (`MaterializeDueRecurrencesHandler`)
+uses with `origin: 'intervention:recurrence'`, so both callers share
+identical business logic instead of duplicating it.
+
 ## Domain Model
 
 Aggregates and entities:
@@ -527,155 +656,6 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
 `intervention.recurrence_materialized` for every due occurrence it processes
 (success or failure) with a system actor.
 
-## Architecture
-
-Hexagonal layering (Domain ← Application ← Infrastructure / Presentation, enforced
-by deptrac):
-
-- **Presentation** (`src/Intervention/Presentation/Api`): API Platform resources,
-  providers, processors, input/output DTOs, output factories, and the
-  `InterventionWorkflowExceptionMapperTrait` (domain-exception → HTTP mapping).
-- **Application** (`src/Intervention/Application`): use cases (command/query
-  handlers for workflow + publication + activity feed), outbound ports,
-  contracts, and services (`InterventionChangeApplication`,
-  `InterventionDraftPublisher`, `InterventionIssueFinder`,
-  `InterventionMemberPolicy`, `InterventionNotificationService`,
-  `InterventionResourceManager`).
-- **Domain** (`src/Intervention/Domain`): the `Intervention` aggregate + work item
-  / change / publication models, value objects, domain services
-  (`InterventionTransitionPolicy`, `InterventionChangePolicy`), and exceptions.
-- **Infrastructure** (`src/Intervention/Infrastructure`): Doctrine records / mappers
-  and the port adapters (Doctrine gateways, Messenger publication queue).
-
-### Ports & adapters (`config/modules/intervention.yaml`)
-
-| Outbound port | Adapter |
-| --- | --- |
-| `InterventionResourceGatewayPort` | `DoctrineInterventionResourceGatewayAdapter` |
-| `InterventionWorkflowGatewayPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
-| `InterventionIssueQueryPort` | `DoctrineInterventionWorkflowGatewayAdapter` |
-| `PublicationRepositoryPort` | `DoctrinePublicationAdapter` |
-| `PublicationQueuePort` | `MessengerPublicationQueueAdapter` |
-| `InterventionActivityPort` | `DoctrineInterventionActivityAdapter` |
-| `InterventionLabelPort` | `DoctrineInterventionLabelAdapter` |
-| `InterventionTemplatePort` | `DoctrineInterventionTemplateAdapter` |
-| `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
-| `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
-| `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
-| `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
-| `Organization\Application\Port\Inbound\TeamDirectoryPort` *(cross-module, consumed BY Intervention)* | `Organization\Application\Service\TeamDirectoryService` — R9 team-assignment; consumed directly, no Intervention-side wrapper port, exactly like `OrganizationAuthorizationPort` |
-| `Calendar\Application\Port\Outbound\Feed\InterventionCalendarFeedPort` *(cross-module, consumed by Calendar)* | `Intervention\Infrastructure\Adapter\Calendar\InterventionCalendarFeedAdapter` |
-
-`InterventionServiceReportAdapter` (`Infrastructure/Adapter/Equipment/`,
-R12) hosts the adapter for Equipment's consumer port
-`InterventionServiceReportPort::serviceReport(interventionId)` — mirrors
-`Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter` (the
-provider module hosts the adapter, the consumer module owns the port and
-its contract types). Queries `InterventionChangeRecord` directly (main
-entity manager) for `status = 'applied'` changes whose `resource` matches
-`/api/equipment/{id}` (a single path segment, mirroring
-`EquipmentInterventionResourceAdapter::supports()`), across **all**
-publications of the intervention — not scoped to one publication, since
-each change is applied exactly once and the caller dedups on the change id.
-Returns `Equipment\Application\Contract\Intervention\InterventionServiceReport`
-(intervention `number` + `responsibleId` as `actorId`) with one
-`ServicedEquipmentEntry` per matched change (`action` = the linked work
-item's `action` when set, else a patch-derived fallback `status_change`/
-`update`; `changeToken` = the change id, used by the caller as the
-idempotency token). Registered in `config/modules/intervention.yaml`;
-aliased in `config/modules/equipment.yaml`. See the Equipment module's
-`MODULE.md` for the full R12 service-history sync flow (trigger event,
-best-effort semantics, idempotency).
-
-`InterventionStatisticsAdapter` (`Infrastructure/Adapter/Organization/`) is
-the first Organization-facing adapter in this module — mirrors
-`Facility\Infrastructure\Adapter\Organization\FacilityStatisticsAdapter`.
-It implements the Organization module's `InterventionStatisticsPort`
-(`findRecentInterventions(organizationId, limit)`), querying
-`InterventionRecord` directly (main entity manager, ordered by `updatedAt`
-DESC) and returning `Organization\Application\Contract\Intervention\RecentInterventionSummary`
-read models. Feeds the organization dashboard's `recentInterventions`
-section (`GetOrganizationDashboardHandler`), gated by
-`organization.interventions.read`. Registered in
-`config/modules/intervention.yaml`; aliased in
-`config/modules/organization.yaml`.
-
-`InterventionCalendarFeedAdapter` (`Infrastructure/Adapter/Calendar/`)
-implements the Calendar module's `InterventionCalendarFeedPort`
-(`findBetween(organizationId, from, to, limit)`), mirroring
-`InterventionStatisticsAdapter`: it queries `InterventionRecord` directly
-(main entity manager) rather than through an intermediate repository. An
-intervention occurs on the calendar when either its `plannedStartAt` or its
-`dueAt` falls within the requested range (`COALESCE(plannedStartAt, dueAt)`
-resolves the occurrence instant; `dueAt` also surfaces as the feed item's
-`endsAt` when it differs from the resolved start). Registered in
-`config/modules/intervention.yaml`; aliased in `config/modules/calendar.yaml`.
-See `src/Calendar/MODULE.md`.
-
-Label resolution during intervention create/update (asserting each
-`labelIds` entry belongs to the intervention's organization) is done directly
-against `InterventionLabelRecord` inside
-`DoctrineInterventionWorkflowGatewayAdapter`, not through `InterventionLabelPort`
-— the gateway already queries records directly elsewhere (e.g.
-`assertSiteBelongsToOrganization`).
-
-`InterventionActivityPort::append` is also injected into
-`DoctrineInterventionWorkflowGatewayAdapter`, which calls it inside its own
-`wrapInTransaction` to record the `created` and `status_changed` system
-activities alongside the underlying mutation (same commit/rollback unit).
-
-Tagged-iterator extension points (owning modules plug in):
-
-- `intervention.resource_owner` — resource gateways per resource type,
-- `intervention.draft_publisher` — materializes drafts on publication
-  (Facility / Equipment / Inspection),
-- `intervention.change_applier` — applies proposed changes.
-
-Async handlers are Messenger handlers: `RequestPublication`,
-`ExecutePublication`, `GetPublication`, `MutateInterventionWorkflow`,
-`GetInterventionWorkflow`, `ListInterventionWorkflow`, `ListInterventionIssues`,
-`AddInterventionComment`, `ListInterventionActivities`, `CreateInterventionLabel`,
-`UpdateInterventionLabel`, `DeleteInterventionLabel`, `ListInterventionLabels`,
-`CreateInterventionTemplate`, `UpdateInterventionTemplate`,
-`DeleteInterventionTemplate`, `InstantiateInterventionTemplate`,
-`ListInterventionTemplates`, `GetInterventionTemplate`,
-`CreateInterventionRecurrence`, `UpdateInterventionRecurrence`,
-`DeleteInterventionRecurrence`, `GetInterventionRecurrence`,
-`ListInterventionRecurrences`, `MaterializeDueRecurrences` (triggered by the
-hourly scheduler, not the API — see the Recurrences section above),
-`AssignTeamToIntervention` (R9 team-assignment; see above).
-
-`InstantiateInterventionTemplateHandler` never creates interventions itself:
-it authorizes the request, then delegates the shared instantiation core —
-template load, people re-validation/dropping, label filtering, `dueAt`
-derivation — to `Application/Service/InterventionTemplateInstantiator`, which
-calls `InterventionDraftFactoryPort` — the same single programmatic entry
-point the API itself and other automations use — passing
-`origin: 'intervention:template'`. `InterventionTemplateInstantiator` is the
-SAME service the recurrence materializer (`MaterializeDueRecurrencesHandler`)
-uses with `origin: 'intervention:recurrence'`, so both callers share
-identical business logic instead of duplicating it.
-
-## Error Codes
-
-Domain exceptions are translated to HTTP by
-`InterventionWorkflowExceptionMapperTrait::mapWorkflowException`:
-
-| Exception | HTTP |
-| --- | --- |
-| `InterventionAccessDeniedException` | 403 Forbidden |
-| `InterventionNotFoundException` | 404 Not Found |
-| `InterventionPreconditionRequiredException` | 428 Precondition Required |
-| `InterventionPreconditionFailedException` | 412 Precondition Failed |
-| `InterventionValidationException` | 422 Unprocessable Entity |
-| `InterventionConflictException` | 409 Conflict |
-| `InvalidArgumentException` | 400 Bad Request |
-
-Specializations (`InterventionBlockedException`,
-`InterventionResourceNotFoundException`, `PublicationNotFoundException`,
-`ClientResourceAlreadyExistsException`) resolve through their parent in the same
-mapper (conflict / precondition / not-found families).
-
 ## Testing
 
 - Unit: `tests/Unit/Intervention/`
@@ -698,3 +678,23 @@ mapper (conflict / precondition / not-found families).
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
   `tests/Functional/Api/InterventionAttachmentApiTest.php`
 - Run module tests: `make test tests/Unit/Intervention/`
+## Error Codes
+
+Domain exceptions are translated to HTTP by
+`InterventionWorkflowExceptionMapperTrait::mapWorkflowException`:
+
+| Exception | HTTP |
+| --- | --- |
+| `InterventionAccessDeniedException` | 403 Forbidden |
+| `InterventionNotFoundException` | 404 Not Found |
+| `InterventionPreconditionRequiredException` | 428 Precondition Required |
+| `InterventionPreconditionFailedException` | 412 Precondition Failed |
+| `InterventionValidationException` | 422 Unprocessable Entity |
+| `InterventionConflictException` | 409 Conflict |
+| `InvalidArgumentException` | 400 Bad Request |
+
+Specializations (`InterventionBlockedException`,
+`InterventionResourceNotFoundException`, `PublicationNotFoundException`,
+`ClientResourceAlreadyExistsException`) resolve through their parent in the same
+mapper (conflict / precondition / not-found families).
+

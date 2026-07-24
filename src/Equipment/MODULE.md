@@ -308,14 +308,6 @@ Cross-module contracts and lifecycle invariants:
 - `NonConformityStatisticsPort`'s adapter is aliased in `config/modules/inspection.yaml`
   (adapter hosted in the Inspection module), not here — see L2.11 above.
 
-## Error Codes
-
-- `EquipmentNotFoundException` → 404
-- `EquipmentSerialNumberAlreadyExistsException` → 409
-- `EquipmentAlreadyDecommissionedException` → 422
-- `AttachmentNotFoundException` → 404
-- `TagNotFoundException` → 404
-
 ## Testing
 
 - Unit: `tests/Unit/Equipment/`
@@ -330,3 +322,11 @@ Cross-module contracts and lifecycle invariants:
   `tests/Unit/Inspection/Infrastructure/Adapter/Equipment/EquipmentNonConformityStatisticsAdapterTest`.
 - Functional: `tests/Functional/Api/EquipmentApiTest::testGetEquipmentKpisRequiresAuthentication`.
 - Run module tests: `make test tests/Unit/Equipment/`
+
+## Error Codes
+
+- `EquipmentNotFoundException` → 404
+- `EquipmentSerialNumberAlreadyExistsException` → 409
+- `EquipmentAlreadyDecommissionedException` → 422
+- `AttachmentNotFoundException` → 404
+- `TagNotFoundException` → 404

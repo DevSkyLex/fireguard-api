@@ -432,19 +432,6 @@ Cross-module contracts and lifecycle invariants:
 - `Equipment\Application\Port\Outbound\NonConformityStatisticsPort`'s adapter
   (`EquipmentNonConformityStatisticsAdapter`) is aliased here — see L2.11 above.
 
-## Error Codes
-
-- `InspectionNotFoundException` → 404
-- `InspectionAlreadySubmittedException` → 422
-- `InspectionAlreadyClosedException` → 422
-- `InspectionNotSubmittedException` → 422 (close attempted before submit)
-- `ChecklistNotFoundException` → 404
-- `ChecklistArchivedException` → 409 (archive-on-archived and update-on-archived both map to Conflict)
-- `ChecklistInUseException` → 409 (item change rejected: checklist referenced by an existing inspection)
-- `ChecklistReferenceCodeAlreadyExistsException` → 409 (duplicate reference code within the organization)
-- `NonConformityNotFoundException` → 404
-- `NonConformityAlreadyResolvedException` → 422
-
 ## Testing
 
 - Unit: `tests/Unit/Inspection/`
@@ -513,3 +500,16 @@ Cross-module contracts and lifecycle invariants:
   `PATCH .../checklists/{id}`, and B7's
   `GET /organizations/{organizationId}/non-conformities`).
 - Run module tests: `make test tests/Unit/Inspection/`
+
+## Error Codes
+
+- `InspectionNotFoundException` → 404
+- `InspectionAlreadySubmittedException` → 422
+- `InspectionAlreadyClosedException` → 422
+- `InspectionNotSubmittedException` → 422 (close attempted before submit)
+- `ChecklistNotFoundException` → 404
+- `ChecklistArchivedException` → 409 (archive-on-archived and update-on-archived both map to Conflict)
+- `ChecklistInUseException` → 409 (item change rejected: checklist referenced by an existing inspection)
+- `ChecklistReferenceCodeAlreadyExistsException` → 409 (duplicate reference code within the organization)
+- `NonConformityNotFoundException` → 404
+- `NonConformityAlreadyResolvedException` → 422

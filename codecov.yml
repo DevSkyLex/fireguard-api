@@ -1,0 +1,47 @@
+# Codecov configuration — the coverage ratchet.
+#
+# The merged history left the codebase at ~66% line coverage: the mature modules
+# sit at 88–98% but the newer ones (Billing 0%, Webhook, Import, Intervention…)
+# dragged the total down. This config stops the bleeding by holding every PR's
+# *new* code to a high bar, so coverage converges upward instead of eroding.
+#
+# Enforcement is opt-in per repo: these statuses only *block* a merge once
+# `codecov/patch` is added to the branch-protection required checks. Until then
+# they report without blocking — so the big develop→main backlog PR (whose diff
+# is far below target) can still merge; make the check required afterwards.
+
+coverage:
+  precision: 2
+  round: down
+  range: '66...90'
+
+  status:
+    # New / changed lines must be well covered. This is the real gate.
+    patch:
+      default:
+        target: 90%
+        threshold: 0%
+        # Only the app code; tests and generated resources are excluded via
+        # phpunit's own <source> config already.
+        if_ci_failed: error
+
+    # Total coverage is informational: it may not regress, but it never blocks
+    # (avoids noise from unrelated fluctuation while the debt is paid down).
+    project:
+      default:
+        target: auto
+        threshold: 2%
+        informational: true
+
+# Combine the unit and integration uploads before computing the statuses.
+flag_management:
+  default_rules:
+    carryforward: true
+
+comment:
+  layout: 'reach, diff, flags, components, files'
+  behavior: default
+  require_changes: true
+
+github_checks:
+  annotations: true

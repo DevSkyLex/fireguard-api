@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Approval\Application\Service;
 
-use Approval\Application\Contract\Gate\ApprovalGateRequest;
+use Approval\Application\Contract\Gate\{ApprovalGateDecision, ApprovalGateRequest};
 use Approval\Application\Contract\Policy\ApprovalPolicy;
 use Approval\Application\Contract\Reservation\ApprovalReservation;
 use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
@@ -168,6 +168,124 @@ final class ApprovalGateTest extends TestCase
     self::assertTrue($decision->deferred);
     self::assertSame((string) $existing->id(), $decision->requestId);
     self::assertEquals($existingExpiresAt, $decision->expiresAt);
+  }
+
+  #[Test]
+  public function testEvaluateThrowsWhenRequesterIsNotAnOrganizationMember(): void
+  {
+    $policy = $this->createStub(ApprovalPolicyPort::class);
+    $policy->method('policyFor')->willReturn(self::enabledPolicy());
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(null);
+
+    $requests = $this->createMock(ApprovalRequestRepositoryPort::class);
+    $requests->expects(self::never())->method('reservePending');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->expectException(OrganizationAccessDeniedException::class);
+    $this->expectExceptionMessage('Missing organization.approvals.request permission.');
+
+    $this->gate($policy, $requests, $memberDirectory, eventDispatcher: $eventDispatcher)->evaluate(self::gateRequest());
+  }
+
+  #[Test]
+  public function testEvaluateDispatchesEventAndClampsTtlWhenConflictingRequestIsNoLongerFound(): void
+  {
+    $policy = $this->createStub(ApprovalPolicyPort::class);
+    $policy->method('policyFor')->willReturn(new ApprovalPolicy(
+      actionRules: ['nc_waiver' => ['enabled' => true, 'minApproverRole' => 'admin', 'minSeverity' => null]],
+      allowSelfApproval: false,
+      approvalTtlDays: 0,
+    ));
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(self::MEMBER_ID);
+
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('reservePending')->willReturn(new ApprovalReservation(self::GENERATED_ID, false));
+    $requests->method('findById')->willReturn(null);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (ApprovalRequestedEvent $event): bool {
+        self::assertSame(self::GENERATED_ID, $event->requestId);
+
+        return true;
+      }));
+
+    $decision = $this->gate($policy, $requests, $memberDirectory, eventDispatcher: $eventDispatcher)->evaluate(self::gateRequest());
+
+    self::assertTrue($decision->deferred);
+    self::assertSame(self::GENERATED_ID, $decision->requestId);
+    self::assertSame('pending', $decision->status);
+    self::assertEquals(new DateTimeImmutable('2026-01-19T00:00:00+00:00'), $decision->expiresAt);
+  }
+
+  #[Test]
+  public function testEvaluateRequiresApprovalWhenSeverityIsNotAString(): void
+  {
+    $decision = $this->deferredDecisionForPayload(minSeverity: 'high', payload: ['severity' => 123]);
+
+    self::assertTrue($decision->deferred);
+    self::assertSame('pending', $decision->status);
+  }
+
+  #[Test]
+  public function testEvaluateRequiresApprovalWhenSeverityIsUnrecognized(): void
+  {
+    $decision = $this->deferredDecisionForPayload(minSeverity: 'high', payload: ['severity' => 'catastrophic']);
+
+    self::assertTrue($decision->deferred);
+    self::assertSame('pending', $decision->status);
+  }
+
+  #[Test]
+  public function testEvaluateRequiresApprovalWhenThresholdSeverityIsUnrecognized(): void
+  {
+    $decision = $this->deferredDecisionForPayload(minSeverity: 'extreme', payload: ['severity' => 'low']);
+
+    self::assertTrue($decision->deferred);
+    self::assertSame('pending', $decision->status);
+  }
+
+  /**
+   * Method deferredDecisionForPayload.
+   *
+   * Drives {@see ApprovalGate::evaluate()} through the fail-closed severity
+   * branch (approval required) for the given threshold and payload.
+   *
+   * @param string $minSeverity the policy's minimum severity threshold
+   * @param array<string, mixed> $payload the gate request payload
+   *
+   * @return ApprovalGateDecision the resulting decision
+   */
+  private function deferredDecisionForPayload(string $minSeverity, array $payload): ApprovalGateDecision
+  {
+    $policy = $this->createStub(ApprovalPolicyPort::class);
+    $policy->method('policyFor')->willReturn(new ApprovalPolicy(
+      actionRules: ['nc_waiver' => ['enabled' => true, 'minApproverRole' => 'admin', 'minSeverity' => $minSeverity]],
+      allowSelfApproval: false,
+      approvalTtlDays: 14,
+    ));
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(self::MEMBER_ID);
+
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('reservePending')->willReturn(new ApprovalReservation(self::GENERATED_ID, true));
+
+    return $this->gate($policy, $requests, $memberDirectory)->evaluate(new ApprovalGateRequest(
+      organizationId: self::ORG_ID,
+      actionType: 'nc_waiver',
+      subjectId: 'nc-1',
+      requestedByUserId: self::USER_ID,
+      payload: $payload,
+    ));
   }
 
   private function gate(

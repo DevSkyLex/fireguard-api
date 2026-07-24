@@ -214,5 +214,173 @@ final class DPoPProofTest extends TestCase
     // Should match even without explicit port
     $this->assertTrue($proof->isValidFor('POST', 'https://auth.example.com/token'));
   }
+
+  /**
+   * Method testFromJwtWithInvalidClaimTypesThrowsException.
+   *
+   * Tests that fromJwt throws when required claims have invalid types.
+   */
+  #[Test]
+  public function testFromJwtWithInvalidClaimTypesThrowsException(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('DPoP proof claims have invalid types.');
+
+    DPoPProof::fromJwt(
+      [
+        'jti' => 'id',
+        'htm' => 'POST',
+        'htu' => 'https://auth.example.com/token',
+        'iat' => 'not-an-int',
+      ],
+      'thumbprint',
+    );
+  }
+
+  /**
+   * Method testFromJwtWithoutOptionalClaims.
+   *
+   * Tests that fromJwt defaults optional claims to null when absent.
+   */
+  #[Test]
+  public function testFromJwtWithoutOptionalClaims(): void
+  {
+    $iat = time();
+
+    $proof = DPoPProof::fromJwt(
+      [
+        'jti' => 'jwt-id',
+        'htm' => 'GET',
+        'htu' => 'https://api.example.com/resource',
+        'iat' => $iat,
+      ],
+      'thumb',
+    );
+
+    $this->assertNull($proof->ath);
+    $this->assertNull($proof->nonce);
+    $this->assertEquals(expected: $iat, actual: $proof->iat->getTimestamp());
+  }
+
+  /**
+   * Method testFromJwtWithNonStringOptionalClaims.
+   *
+   * Tests that fromJwt coerces non-string optional claims to null.
+   */
+  #[Test]
+  public function testFromJwtWithNonStringOptionalClaims(): void
+  {
+    $payload = [
+      'jti' => 'jwt-id',
+      'htm' => 'GET',
+      'htu' => 'https://api.example.com/resource',
+      'iat' => time(),
+      'ath' => 12345,
+      'nonce' => ['unexpected'],
+    ];
+
+    $proof = DPoPProof::fromJwt($payload, 'thumb');
+
+    $this->assertNull($proof->ath);
+    $this->assertNull($proof->nonce);
+  }
+
+  /**
+   * Method testIsValidForWithFutureProofFails.
+   *
+   * Tests that a proof issued in the future is rejected.
+   */
+  #[Test]
+  public function testIsValidForWithFutureProofFails(): void
+  {
+    $proof = new DPoPProof(
+      jti: 'id',
+      htm: 'POST',
+      htu: 'https://auth.example.com/token',
+      iat: new DateTimeImmutable('+10 minutes'),
+      thumbprint: 'thumb',
+    );
+
+    $this->assertFalse($proof->isValidFor('POST', 'https://auth.example.com/token'));
+  }
+
+  /**
+   * Method testIsValidForNormalizesHttpDefaultPort.
+   *
+   * Tests that the default HTTP port (80) is stripped during normalization.
+   */
+  #[Test]
+  public function testIsValidForNormalizesHttpDefaultPort(): void
+  {
+    $proof = new DPoPProof(
+      jti: 'id',
+      htm: 'GET',
+      htu: 'http://api.example.com:80/resource',
+      iat: new DateTimeImmutable(),
+      thumbprint: 'thumb',
+    );
+
+    $this->assertTrue($proof->isValidFor('GET', 'http://api.example.com/resource'));
+  }
+
+  /**
+   * Method testIsValidForKeepsNonDefaultPort.
+   *
+   * Tests that a non-default port is preserved during normalization.
+   */
+  #[Test]
+  public function testIsValidForKeepsNonDefaultPort(): void
+  {
+    $proof = new DPoPProof(
+      jti: 'id',
+      htm: 'POST',
+      htu: 'https://auth.example.com:8443/token',
+      iat: new DateTimeImmutable(),
+      thumbprint: 'thumb',
+    );
+
+    $this->assertTrue($proof->isValidFor('POST', 'https://auth.example.com:8443/token'));
+    $this->assertFalse($proof->isValidFor('POST', 'https://auth.example.com:9443/token'));
+  }
+
+  /**
+   * Method testIsValidForNormalizesMissingSchemeAndPath.
+   *
+   * Tests that a missing scheme defaults to https and a missing path to '/'.
+   */
+  #[Test]
+  public function testIsValidForNormalizesMissingSchemeAndPath(): void
+  {
+    $proof = new DPoPProof(
+      jti: 'id',
+      htm: 'POST',
+      htu: '//auth.example.com',
+      iat: new DateTimeImmutable(),
+      thumbprint: 'thumb',
+    );
+
+    $this->assertTrue($proof->isValidFor('POST', 'https://auth.example.com/'));
+  }
+
+  /**
+   * Method testIsValidForWithMalformedUri.
+   *
+   * Tests that a malformed URI is compared verbatim without normalization.
+   */
+  #[Test]
+  public function testIsValidForWithMalformedUri(): void
+  {
+    $malformed = 'https://auth.example.com:notaport/token';
+
+    $proof = new DPoPProof(
+      jti: 'id',
+      htm: 'POST',
+      htu: $malformed,
+      iat: new DateTimeImmutable(),
+      thumbprint: 'thumb',
+    );
+
+    $this->assertTrue($proof->isValidFor('POST', $malformed));
+  }
   // #endregion
 }
