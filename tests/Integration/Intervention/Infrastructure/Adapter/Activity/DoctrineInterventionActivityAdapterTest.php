@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function is_string;
 
 /**
  * Test DoctrineInterventionActivityAdapter.
