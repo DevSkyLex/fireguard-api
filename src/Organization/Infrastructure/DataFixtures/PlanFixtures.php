@@ -42,7 +42,12 @@ final class PlanFixtures extends Fixture implements FixtureGroupInterface
     ];
 
     foreach ($plans as [$id, $key, $name, $description, $limits, $isDefault, $sortOrder]) {
-      $plan = new PlanRecord();
+      // Guards against a duplicate-key violation when this fixture set is
+      // loaded more than once against the same database (e.g. re-seeding a
+      // long-lived environment): every other fixture here relies on
+      // DAMA\DoctrineTestBundle's per-test rollback for isolation, but that
+      // guarantee does not extend to non-test seed runs.
+      $plan = $manager->find(PlanRecord::class, $id) ?? new PlanRecord();
       $plan->id = $id;
       $plan->key = $key;
       $plan->name = $name;
