@@ -237,6 +237,14 @@ create an import job) and `organization.equipment.read` /
 - Cross-module wiring (additive): `config/modules/equipment.yaml`,
   `config/modules/facility.yaml`
 
+## Testing
+
+- Unit: `tests/Unit/Import`, plus the cross-module provisioning services at
+  `tests/Unit/Equipment/Application/Service/EquipmentProvisioningServiceTest.php`
+  and `tests/Unit/Facility/Application/Service/FacilityProvisioningServiceTest.php`.
+- Functional: `tests/Functional/Api/ImportJobApiTest.php`.
+- Run module tests: `make test tests/Unit/Import/`
+
 ## Error Codes
 
 | Exception | HTTP |
@@ -249,14 +257,6 @@ create an import job) and `organization.equipment.read` /
 Row-level failures (`quota_exceeded`, `invalid`, `missing_required`) never
 surface as HTTP errors — they are recorded in the job's `errorReport` and the
 request that created the job already returned `202`.
-
-## Testing
-
-- Unit: `tests/Unit/Import`, plus the cross-module provisioning services at
-  `tests/Unit/Equipment/Application/Service/EquipmentProvisioningServiceTest.php`
-  and `tests/Unit/Facility/Application/Service/FacilityProvisioningServiceTest.php`.
-- Functional: `tests/Functional/Api/ImportJobApiTest.php`.
-- Run module tests: `make test tests/Unit/Import/`
 
 ## Out of scope (documented follow-ons)
 

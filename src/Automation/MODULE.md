@@ -20,6 +20,8 @@ Main goals:
 - Never let an automation failure — or a trigger subscriber failure — affect
   the request that raised the triggering event.
 
+## API Endpoints
+
 No API endpoints in this lot: no new organization permissions, no read/write
 resources. Everything is event-driven.
 
@@ -51,23 +53,6 @@ sequenceDiagram
     Exec->>Exec: markSkipped
   end
 ```
-
-## Domain Model
-
-No aggregate: automation runs are a record-level idempotence/audit log
-(`AutomationRunRecord`), the same treatment
-`InterventionTemplateRecord`/`MaintenanceScheduleRecord` receive elsewhere.
-
-- `AutomationRunRecord`: `id`, `ruleKey` (≤ 80 chars), `organizationId`
-  (denormalized, not a foreign key), `subjectId`, `status`
-  (`succeeded` | `failed` | `skipped`), `interventionId` (nullable),
-  `error` (nullable), `createdAt`; unique per `(ruleKey, subjectId)`.
-
-Domain events (`Domain/Event/Rule`): `AutomationRuleExecutedEvent`,
-`AutomationRuleFailedEvent` — both carry `ruleKey`, `organizationId`,
-`subjectId`, and either `interventionId` or `error`. Dispatched by
-`ExecuteAutomationRuleHandler` with a system actor (no user is ever
-attributed to an automation).
 
 ## Architecture
 
@@ -165,15 +150,22 @@ Reused inbound port from another module:
 `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort` (the
 corrective intervention draft).
 
-## Configuration
+## Domain Model
 
-- Service wiring: `config/modules/automation.yaml`
-- Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
-- Messenger routing: `config/packages/messenger.yaml`
-  (`ExecuteAutomationRuleCommand` → `async`)
-- Module import: `config/packages/modules.yaml`
-- Autoload: `composer.json` (`Automation\\` → `src/Automation/`)
-- Cross-module wiring (additive): `config/modules/organization.yaml`
+No aggregate: automation runs are a record-level idempotence/audit log
+(`AutomationRunRecord`), the same treatment
+`InterventionTemplateRecord`/`MaintenanceScheduleRecord` receive elsewhere.
+
+- `AutomationRunRecord`: `id`, `ruleKey` (≤ 80 chars), `organizationId`
+  (denormalized, not a foreign key), `subjectId`, `status`
+  (`succeeded` | `failed` | `skipped`), `interventionId` (nullable),
+  `error` (nullable), `createdAt`; unique per `(ruleKey, subjectId)`.
+
+Domain events (`Domain/Event/Rule`): `AutomationRuleExecutedEvent`,
+`AutomationRuleFailedEvent` — both carry `ruleKey`, `organizationId`,
+`subjectId`, and either `interventionId` or `error`. Dispatched by
+`ExecuteAutomationRuleHandler` with a system actor (no user is ever
+attributed to an automation).
 
 ## Permissions
 
@@ -189,13 +181,23 @@ the system, never as an authenticated user.
 - Doctrine mapping: `src/Automation/Infrastructure/Persistence/Doctrine/Record`.
 - Repository: `Automation\Infrastructure\Persistence\Doctrine\Repository\AutomationRunRepository`.
 
-## Error Codes
+## Configuration
 
-| Exception | Notes |
-| --- | --- |
-| `AutomationRunNotFoundException` | Internal only (a reserved run row disappearing between `reserveRun()` and `markSucceeded()`/`markFailed()`/`markSkipped()`) — never reaches the API, since this module has none. |
+- Service wiring: `config/modules/automation.yaml`
+- Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
+- Messenger routing: `config/packages/messenger.yaml`
+  (`ExecuteAutomationRuleCommand` → `async`)
+- Module import: `config/packages/modules.yaml`
+- Autoload: `composer.json` (`Automation\\` → `src/Automation/`)
+- Cross-module wiring (additive): `config/modules/organization.yaml`
 
 ## Testing
 
 - Unit: `tests/Unit/Automation`
 - Run module tests: `make test tests/Unit/Automation/`
+
+## Error Codes
+
+| Exception | Notes |
+| --- | --- |
+| `AutomationRunNotFoundException` | Internal only (a reserved run row disappearing between `reserveRun()` and `markSucceeded()`/`markFailed()`/`markSkipped()`) — never reaches the API, since this module has none. |

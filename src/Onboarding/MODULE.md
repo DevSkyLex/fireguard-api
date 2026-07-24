@@ -20,7 +20,7 @@ Current flow:
 | POST | `/api/onboarding/organization/steps/{stepKey}/skip` | Skip an optional onboarding step |
 | POST | `/api/onboarding/organization/rollback` | Rollback the last rollbackable onboarding step |
 
-## Flow Behavior
+## Flows
 
 Organization onboarding is stateful and contains five sequential steps:
 

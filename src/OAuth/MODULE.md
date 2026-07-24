@@ -3,28 +3,6 @@
 OAuth2 and OpenID Connect provider module for **Fireguard API**.
 Implements OAuth 2.0 (RFC 6749), Token Revocation (RFC 7009), Token Introspection (RFC 7662), and Discovery (RFC 8414 / OpenID Connect Discovery).
 
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [API Endpoints](#api-endpoints)
-  - [OAuth2](#oauth2)
-  - [Client Management](#client-management)
-  - [Discovery](#discovery)
-- [Flows](#flows)
-  - [Client Credentials Flow](#client-credentials-flow)
-  - [Authorization Code with PKCE Flow](#authorization-code-with-pkce-flow)
-  - [Introspection and Revocation Flow](#introspection-and-revocation-flow)
-- [Architecture](#architecture)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [Error Codes](#error-codes)
-
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
-
 ## Overview
 
 The OAuth module exposes OAuth2 and OpenID Connect endpoints and the client management API. It relies on a hexagonal architecture (ports and adapters) with Api Platform for HTTP exposure and League OAuth2 Server as the core engine.
@@ -42,10 +20,6 @@ Request validation is handled by DTO constraints and custom validators, then map
 | Consent management | Consent check and grant endpoints |
 | Client management | Register, update, activate, deactivate, regenerate secret |
 | Rate limiting | Token, introspection, and revocation endpoints |
-
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
 
 ## API Endpoints
 
@@ -140,10 +114,6 @@ Discovery responses are built in `src/OAuth/Presentation/Api/Provider/Discovery/
 
 > [!NOTE]
 > If `OAUTH_AUTHORIZE_PATH` or `OAUTH_LOGOUT_PATH` is set, it overrides the default route or fallback path used in discovery.
-
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
 
 ## Flows
 
@@ -257,10 +227,6 @@ Introspection responses are cached by token ID for short TTL and invalidated on 
 > [!TIP]
 > When debugging token revocation, clear cache entries or lower `TOKEN_CACHE_TTL` in test environments.
 
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
-
 ## Architecture
 
 The module follows Hexagonal Architecture (Ports and Adapters). Api Platform is the presentation layer; use cases live in the application layer; domain models and events are isolated; infrastructure contains adapters for League OAuth2 Server, Doctrine, and caching.
@@ -333,10 +299,6 @@ Ports and adapters highlights:
 | `TokenCachePort` | Cache introspection results | Cache pool adapter |
 | `JwtParserPort` | Parse and validate JWT payloads | JWT parser adapter |
 
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
-
 ## Configuration
 
 Environment variables (examples):
@@ -358,10 +320,6 @@ Token input validation is defined in `src/OAuth/Presentation/Api/Dto/Input/Token
 > [!CAUTION]
 > Always align discovery metadata with the enabled grants; clients rely on it to negotiate flows.
 
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
-
 ## Testing
 
 | Test Type | Directory | Description |
@@ -369,10 +327,6 @@ Token input validation is defined in `src/OAuth/Presentation/Api/Dto/Input/Token
 | Unit | `tests/Unit/OAuth` | Domain, use cases, and infrastructure units |
 | Functional | `tests/Functional/Api` | API contract tests (OAuth2, discovery, clients) |
 | E2E | `tests/E2E` | End-to-end OAuth flows |
-
----
-
-<div align="right"><a href="#oauth-module-documentation">Back to top</a></div>
 
 ## Error Codes
 

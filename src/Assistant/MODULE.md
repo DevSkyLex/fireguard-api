@@ -1,5 +1,22 @@
 # Assistant Module
 
+## Overview
+
+Assistant lets an organization member hold a private, AI-assisted
+conversation ("thread") scoped to their own organization membership. A
+thread belongs to exactly one member: **there is no shared/organization-wide
+assistant thread in this design** — every use case asserts both the
+organization AND the requesting actor before returning a thread, and a
+mismatch on either resolves to a 404 (information hiding), never a 403.
+
+Asking a question persists the user's message (created already `complete`)
+and a placeholder `assistant`-authored reply (created `pending`) for the
+same turn, then enqueues generation onto the dedicated `assistant` Messenger
+transport. The consuming worker
+(`GenerateAssistantReplyHandler`) calls Ollama with `stream: true`,
+republishing every fragment to Mercure as it arrives, and drives the
+message through `pending -> streaming -> complete|failed`.
+
 ## Status: L2.2 — business-context injection wired (on top of L2.3's Ollama pipeline)
 
 Lot **L2.0** scaffolded this module's touchpoints (autoload, Doctrine
@@ -25,23 +42,6 @@ FOURTH context source (or a fifth, or a tenth) requires **zero edits to
 this module**: only a new adapter, implementing `AssistantContextProviderPort`,
 tagged `assistant.context_provider` in its own module's
 `config/modules/<module>.yaml`.
-
-## Overview
-
-Assistant lets an organization member hold a private, AI-assisted
-conversation ("thread") scoped to their own organization membership. A
-thread belongs to exactly one member: **there is no shared/organization-wide
-assistant thread in this design** — every use case asserts both the
-organization AND the requesting actor before returning a thread, and a
-mismatch on either resolves to a 404 (information hiding), never a 403.
-
-Asking a question persists the user's message (created already `complete`)
-and a placeholder `assistant`-authored reply (created `pending`) for the
-same turn, then enqueues generation onto the dedicated `assistant` Messenger
-transport. The consuming worker
-(`GenerateAssistantReplyHandler`) calls Ollama with `stream: true`,
-republishing every fragment to Mercure as it arrives, and drives the
-message through `pending -> streaming -> complete|failed`.
 
 ## API Endpoints
 
@@ -71,6 +71,87 @@ thread would apply (mirrors `Messaging`'s `GetMessagingSubscriptionProvider`
 `organization.assistant.use` permission ONLY. `OrganizationSettings.assistant.enabled`
 is still **not checked** — unchanged since L2.1, see "Deferred cross-module
 work" below.
+
+## Architecture
+
+- **Domain** (`src/Assistant/Domain`):
+  - `Model/Thread/AssistantThread` — `start()` now accepts an optional
+    tenant-selected `?string $model` (added as the LAST parameter so every
+    existing positional-argument call site stays valid).
+  - `Model/Message/AssistantMessage` — unchanged state machine (built in
+    L2.1, first actually driven end-to-end by this lot).
+  - `Service/AssistantModelPolicy` (**new**) — the `OLLAMA_ALLOWED_MODELS`
+    allowlist gate; empty allowlist denies everything.
+  - `Event/Message/AssistantReplyGeneratedEvent` (**new**) — dispatched by
+    `GenerateAssistantReplyHandler` on a successful `complete` outcome only
+    (a `failed` outcome is observable via the message's own status/error
+    code and the handler's log entry, no event).
+  - `Exception/AssistantValidationException::modelNotAllowed()` (**new**
+    factory).
+- **Application** (`src/Assistant/Application`):
+  - `Contract/Generation/AssistantGenerationOutcome` — the outcome
+    of one streamed generation attempt (mirrors `Webhook\Application\Contract\Http\WebhookHttpResponse`);
+    never thrown, always returned.
+  - `Contract/Context/{AssistantContextScope, AssistantContextBudget,
+    AssistantContextFragment}` (**new**, L2.2) — see "The business-context
+    injection seam" above.
+  - Outbound ports: `AssistantGenerationClientPort` (the Ollama
+    streaming call), `AssistantRealtimePublisherPort` (the Mercure
+    fan-out), `AssistantGenerationDispatcherPort` (signature extended with
+    `?model`/`?temperature`, bound to a real adapter),
+    `AssistantContextProviderPort` (**new**, L2.2, tagged-iterator seam —
+    NOT a single alias; see the ports table below),
+    `Organization\AssistantOrganizationSettingsPort` (now bound, L2.2 —
+    see "Deferred cross-module work").
+  - `Service/AssistantPromptBuilder` (`build()`'s signature extended with
+    `organizationId`/`AssistantContextScope`/`bool $includeBusinessContext`,
+    L2.2) — see "The business-context injection seam" above.
+  - `Service/AssistantContextAssembler` (**new**, L2.2) — see "The
+    business-context injection seam" above.
+  - Use cases: `UseCase/Command/Message/GenerateAssistantReply` —
+    the async worker (constructor now also takes
+    `AssistantOrganizationSettingsPort`, L2.2); `StartAssistantThread`/`AskAssistantQuestion`
+    carry `model`/`temperature` through to the dispatcher.
+- **Infrastructure** (`src/Assistant/Infrastructure`):
+  - `Adapter/Http/OllamaGenerationClientAdapter` (**new**) — calls Ollama's
+    `/api/chat` with `stream: true`, parses the NDJSON streamed response via
+    `symfony/http-client`'s chunked iteration, never throws.
+  - `Adapter/Messenger/MessengerAssistantGenerationDispatcherAdapter`
+    (**new**, replaces `NullAssistantGenerationDispatcherAdapter`, now
+    deleted) — dispatches `GenerateAssistantReplyCommand` onto the raw
+    `@messenger.default_bus` (never `CommandBusPort` — that port requires a
+    `HandledStamp` an async dispatch never produces; mirrors
+    `MessengerWebhookDeliveryQueueAdapter`).
+  - `Adapter/Realtime/MercureAssistantRealtimePublisherAdapter` (**new**) —
+    see "The Mercure topic scheme" above.
+  - **L2.2 added NO adapter under `src/Assistant/Infrastructure`.** All three
+    launch context providers, AND `AssistantOrganizationSettingsPort`'s
+    adapter, live in their OWNING modules (`Compliance`/`Inspection`/
+    `Maintenance`/`Organization`) — exactly the point of the seam: Assistant
+    only ever depends on its own port + the `Application\Contract\Context`
+    DTOs, never on a provider's concrete class.
+- **Presentation** (`src/Assistant/Presentation`):
+  - `Validator/ValidAssistantModel/` (**new**) — the UX-only allowlist
+    check, delegating to `AssistantModelPolicy` (mirrors
+    `Webhook\Presentation\Api\Validator\ValidWebhookUrl`).
+  - `Dto/Output/AssistantThreadSubscriptionOutput` (**new**).
+  - `Provider/GetAssistantThreadSubscriptionProvider` (**new**).
+  - `StartAssistantThreadInput::$model`, `AskAssistantQuestionInput::$temperature`
+    (**new** properties).
+
+### Ports & adapters (`config/modules/assistant.yaml`)
+
+| Port | Adapter | Hosted in | Status |
+| --- | --- | --- | --- |
+| `AssistantThreadRepositoryPort` | `AssistantThreadRepository` | Assistant | bound |
+| `AssistantMessageRepositoryPort` | `AssistantMessageRepository` | Assistant | bound |
+| `AssistantGenerationDispatcherPort` | `MessengerAssistantGenerationDispatcherAdapter` | Assistant | bound (L2.3, replaces the L2.1 stub) |
+| `AssistantGenerationClientPort` | `OllamaGenerationClientAdapter` | Assistant | bound (L2.3) |
+| `AssistantRealtimePublisherPort` | `MercureAssistantRealtimePublisherAdapter` | Assistant | bound (L2.3) |
+| `Organization\AssistantOrganizationSettingsPort` | `OrganizationAssistantSettingsAdapter` | Organization | bound (L2.2) |
+| `AssistantContextProviderPort` (tagged `assistant.context_provider`, fan-out — not a single alias) | `ComplianceAssistantContextProviderAdapter` (priority 30) | Compliance | bound (L2.2) |
+| ″ | `InspectionAssistantContextProviderAdapter` (priority 20) | Inspection | bound (L2.2) |
+| ″ | `MaintenanceAssistantContextProviderAdapter` (priority 10) | Maintenance | bound (L2.2) |
 
 ## The message status state machine (the crux)
 
@@ -301,86 +382,11 @@ alone) and immune to that failure mode.
      scoped by construction (every underlying query/aggregate is already
      `organizationId`-filtered).
 
-## Architecture
+## Persistence
 
-- **Domain** (`src/Assistant/Domain`):
-  - `Model/Thread/AssistantThread` — `start()` now accepts an optional
-    tenant-selected `?string $model` (added as the LAST parameter so every
-    existing positional-argument call site stays valid).
-  - `Model/Message/AssistantMessage` — unchanged state machine (built in
-    L2.1, first actually driven end-to-end by this lot).
-  - `Service/AssistantModelPolicy` (**new**) — the `OLLAMA_ALLOWED_MODELS`
-    allowlist gate; empty allowlist denies everything.
-  - `Event/Message/AssistantReplyGeneratedEvent` (**new**) — dispatched by
-    `GenerateAssistantReplyHandler` on a successful `complete` outcome only
-    (a `failed` outcome is observable via the message's own status/error
-    code and the handler's log entry, no event).
-  - `Exception/AssistantValidationException::modelNotAllowed()` (**new**
-    factory).
-- **Application** (`src/Assistant/Application`):
-  - `Contract/Generation/AssistantGenerationOutcome` — the outcome
-    of one streamed generation attempt (mirrors `Webhook\Application\Contract\Http\WebhookHttpResponse`);
-    never thrown, always returned.
-  - `Contract/Context/{AssistantContextScope, AssistantContextBudget,
-    AssistantContextFragment}` (**new**, L2.2) — see "The business-context
-    injection seam" above.
-  - Outbound ports: `AssistantGenerationClientPort` (the Ollama
-    streaming call), `AssistantRealtimePublisherPort` (the Mercure
-    fan-out), `AssistantGenerationDispatcherPort` (signature extended with
-    `?model`/`?temperature`, bound to a real adapter),
-    `AssistantContextProviderPort` (**new**, L2.2, tagged-iterator seam —
-    NOT a single alias; see the ports table below),
-    `Organization\AssistantOrganizationSettingsPort` (now bound, L2.2 —
-    see "Deferred cross-module work").
-  - `Service/AssistantPromptBuilder` (`build()`'s signature extended with
-    `organizationId`/`AssistantContextScope`/`bool $includeBusinessContext`,
-    L2.2) — see "The business-context injection seam" above.
-  - `Service/AssistantContextAssembler` (**new**, L2.2) — see "The
-    business-context injection seam" above.
-  - Use cases: `UseCase/Command/Message/GenerateAssistantReply` —
-    the async worker (constructor now also takes
-    `AssistantOrganizationSettingsPort`, L2.2); `StartAssistantThread`/`AskAssistantQuestion`
-    carry `model`/`temperature` through to the dispatcher.
-- **Infrastructure** (`src/Assistant/Infrastructure`):
-  - `Adapter/Http/OllamaGenerationClientAdapter` (**new**) — calls Ollama's
-    `/api/chat` with `stream: true`, parses the NDJSON streamed response via
-    `symfony/http-client`'s chunked iteration, never throws.
-  - `Adapter/Messenger/MessengerAssistantGenerationDispatcherAdapter`
-    (**new**, replaces `NullAssistantGenerationDispatcherAdapter`, now
-    deleted) — dispatches `GenerateAssistantReplyCommand` onto the raw
-    `@messenger.default_bus` (never `CommandBusPort` — that port requires a
-    `HandledStamp` an async dispatch never produces; mirrors
-    `MessengerWebhookDeliveryQueueAdapter`).
-  - `Adapter/Realtime/MercureAssistantRealtimePublisherAdapter` (**new**) —
-    see "The Mercure topic scheme" above.
-  - **L2.2 added NO adapter under `src/Assistant/Infrastructure`.** All three
-    launch context providers, AND `AssistantOrganizationSettingsPort`'s
-    adapter, live in their OWNING modules (`Compliance`/`Inspection`/
-    `Maintenance`/`Organization`) — exactly the point of the seam: Assistant
-    only ever depends on its own port + the `Application\Contract\Context`
-    DTOs, never on a provider's concrete class.
-- **Presentation** (`src/Assistant/Presentation`):
-  - `Validator/ValidAssistantModel/` (**new**) — the UX-only allowlist
-    check, delegating to `AssistantModelPolicy` (mirrors
-    `Webhook\Presentation\Api\Validator\ValidWebhookUrl`).
-  - `Dto/Output/AssistantThreadSubscriptionOutput` (**new**).
-  - `Provider/GetAssistantThreadSubscriptionProvider` (**new**).
-  - `StartAssistantThreadInput::$model`, `AskAssistantQuestionInput::$temperature`
-    (**new** properties).
-
-### Ports & adapters (`config/modules/assistant.yaml`)
-
-| Port | Adapter | Hosted in | Status |
-| --- | --- | --- | --- |
-| `AssistantThreadRepositoryPort` | `AssistantThreadRepository` | Assistant | bound |
-| `AssistantMessageRepositoryPort` | `AssistantMessageRepository` | Assistant | bound |
-| `AssistantGenerationDispatcherPort` | `MessengerAssistantGenerationDispatcherAdapter` | Assistant | bound (L2.3, replaces the L2.1 stub) |
-| `AssistantGenerationClientPort` | `OllamaGenerationClientAdapter` | Assistant | bound (L2.3) |
-| `AssistantRealtimePublisherPort` | `MercureAssistantRealtimePublisherAdapter` | Assistant | bound (L2.3) |
-| `Organization\AssistantOrganizationSettingsPort` | `OrganizationAssistantSettingsAdapter` | Organization | bound (L2.2) |
-| `AssistantContextProviderPort` (tagged `assistant.context_provider`, fan-out — not a single alias) | `ComplianceAssistantContextProviderAdapter` (priority 30) | Compliance | bound (L2.2) |
-| ″ | `InspectionAssistantContextProviderAdapter` (priority 20) | Inspection | bound (L2.2) |
-| ″ | `MaintenanceAssistantContextProviderAdapter` (priority 10) | Maintenance | bound (L2.2) |
+Unchanged from L2.0/L2.1 — no migration was added by this lot either. See
+the previous lots' notes; tables are `assistant_threads`/`assistant_messages`
+(**main** database), migration `Version20260718124213`.
 
 ## Configuration
 
@@ -413,24 +419,6 @@ alone) and immune to that failure mode.
     usage without `--resolve-env-vars`) and none of this lot's own tests
     boot the full container, so this is safe to defer, but a real worker
     deployment needs real values.
-
-## Persistence
-
-Unchanged from L2.0/L2.1 — no migration was added by this lot either. See
-the previous lots' notes; tables are `assistant_threads`/`assistant_messages`
-(**main** database), migration `Version20260718124213`.
-
-## Error Codes
-
-| Exception / error code | HTTP / meaning |
-| --- | --- |
-| `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `AssistantThreadNotFoundException` (also another organization's/member's thread) | 404 Not Found |
-| `AssistantMessageIllegalStatusTransitionException` | 409 Conflict |
-| `AssistantValidationException` (blank question body, or a model outside `OLLAMA_ALLOWED_MODELS`) | 422 Unprocessable Entity |
-| `InvalidArgumentException` | 400 Bad Request |
-| `ollama_unreachable` / `ollama_timeout` / `ollama_http_error` / `ollama_stream_error` / `ollama_empty_response` | `AssistantMessage.errorCode`, message settles `failed` |
-| `assistant_thread_not_found` / `ollama_model_not_configured` | `AssistantMessage.errorCode` (worker-side guard clauses), message settles `failed` |
 
 ## Testing
 
@@ -469,3 +457,15 @@ the previous lots' notes; tables are `assistant_threads`/`assistant_messages`
   (L2.3; unchanged by L2.2 — the business-context seam is exercised through
   the async worker, not a new HTTP surface).
 - Run module tests: `php -d memory_limit=1G vendor/bin/phpunit --no-coverage tests/Unit/Assistant tests/Integration/Assistant`
+## Error Codes
+
+| Exception / error code | HTTP / meaning |
+| --- | --- |
+| `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
+| `AssistantThreadNotFoundException` (also another organization's/member's thread) | 404 Not Found |
+| `AssistantMessageIllegalStatusTransitionException` | 409 Conflict |
+| `AssistantValidationException` (blank question body, or a model outside `OLLAMA_ALLOWED_MODELS`) | 422 Unprocessable Entity |
+| `InvalidArgumentException` | 400 Bad Request |
+| `ollama_unreachable` / `ollama_timeout` / `ollama_http_error` / `ollama_stream_error` / `ollama_empty_response` | `AssistantMessage.errorCode`, message settles `failed` |
+| `assistant_thread_not_found` / `ollama_model_not_configured` | `AssistantMessage.errorCode` (worker-side guard clauses), message settles `failed` |
+

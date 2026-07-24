@@ -13,7 +13,12 @@ Modular API for fire safety management built with Symfony. It covers the full st
   - [OAuth2 and OIDC](#oauth2-and-oidc)
   - [Discovery](#discovery)
   - [Administration](#administration)
-  - [Business domain](#business-domain)
+  - [Organizations and billing](#organizations-and-billing)
+  - [Field operations](#field-operations)
+  - [Interventions, approval and automation](#interventions-approval-and-automation)
+  - [Collaboration and assistant](#collaboration-and-assistant)
+  - [Calendar, import and webhooks](#calendar-import-and-webhooks)
+  - [Onboarding](#onboarding)
   - [Audit](#audit)
 - [Flows](#flows)
   - [OAuth2 and OIDC core flow](#oauth2-and-oidc-core-flow)
@@ -47,13 +52,24 @@ Fireguard API is a modular platform designed around clear module boundaries and 
 | Sessions | Session tracking, revocation, and trusted devices |
 | Multi-tenant | Tenant-aware resources and policies |
 | RBAC | Roles and permissions management |
-| Organizations | Organization membership and organization-scoped RBAC |
+| Audit | Append-only, hash-chained security event ledger |
+| Organizations | Organization membership, teams, and organization-scoped RBAC |
+| Billing | Stripe-hosted Checkout/Portal, subscription plans, invoices, payment method |
+| Onboarding | Guided organization onboarding flow |
 | Facilities | Location hierarchy (site → building → floor → zone → area) |
 | Equipment | Fire safety asset inventory with lifecycle management |
 | Inspections | Inspection workflow, checklists, and non-conformity tracking |
-| Onboarding | Guided organization onboarding flow |
-| Notifications | Email and real-time (Mercure) notification delivery |
-| Audit | Append-only, hash-chained security event ledger |
+| Maintenance | Preventive maintenance schedules recomputed from inspection history |
+| Interventions | Staged field-intervention workflow from draft to atomic publication, offline-friendly |
+| Approval | Optional four-eyes approval workflow for regulated actions |
+| Automation | Event-driven rule engine reacting to domain events (no HTTP surface) |
+| Compliance | Read-only compliance rollups and "registre de sécurité" PDF export |
+| Calendar | Unified calendar feed merging events, inspections, interventions, and maintenance |
+| Messaging | Organization channels, direct messages, threads, reactions, presence |
+| Assistant | Organization-scoped AI chat assistant (Ollama), streamed over Mercure |
+| Notifications | Email and real-time (Mercure) notification delivery, unified inbox |
+| Import | Bulk CSV import of equipment and facilities |
+| Webhooks | Outbound event subscriptions with HMAC signing, retry, and replay |
 | API Platform | HTTP exposure, validation, and rate limiting |
 
 ---
@@ -105,18 +121,70 @@ High-level endpoints are grouped below. See each module document for full detail
 | `/api/permissions` | Permission management |
 | `/api/clients` | OAuth client management |
 
-### Business domain
+### Organizations and billing
 
 | Endpoint group | Description |
 | --- | --- |
-| `/api/organizations/{organizationId}/facilities` | Facility hierarchy (site, building, floor, zone, area) |
-| `/api/organizations/{organizationId}/equipment` | Equipment inventory and lifecycle |
+| `/api/organizations` | Organization CRUD, settings, legal/compliance profile, archive |
+| `/api/organizations/{id}/members`, `/invitations`, `/roles` | Membership, email invitations, RBAC role assignment |
+| `/api/organizations/{id}/teams` | Named member groupings, team-scoped membership |
+| `/api/organizations/{id}/dashboard` (+ `/dashboard/trends/*`) | KPI overview, sparkline trends, recent interventions |
+| `/api/organizations/{id}/navigation-counters` | Sidebar badge counters (open interventions / non-conformities) |
+| `/api/plans` | Subscription plan catalog (quotas, marketing copy) |
+| `/api/organizations/{id}/billing/checkout`, `/portal` | Stripe-hosted Checkout / Billing Portal session |
+| `/api/organizations/{id}/billing/subscription`, `/payment-method`, `/invoices` | Current subscription, saved card, invoice history |
+| `/api/billing/pricing` | Display pricing catalog |
+| `/api/billing/webhook` | Stripe webhook — source of truth for subscription state (public, signature-verified) |
+
+### Field operations
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/organizations/{organizationId}/facilities` | Facility hierarchy (site, building, floor, zone, area), archive, move |
+| `/api/organizations/{organizationId}/equipment` | Equipment inventory and lifecycle (commission / maintenance / decommission), KPIs |
 | `/api/organizations/{organizationId}/inspections` | Inspections with submit / close workflow |
-| `/api/organizations/{organizationId}/checklists` | Reusable inspection checklist templates |
-| `/api/organizations/{organizationId}/inspections/{id}/non-conformities` | Deficiency tracking |
-| `/api/organizations` | Organization CRUD and membership |
-| `/api/onboarding/organization` | Guided organization onboarding |
-| `/api/notifications` | User notifications and real-time subscriptions |
+| `/api/organizations/{organizationId}/checklists` | Reusable, versioned inspection checklist templates |
+| `/api/organizations/{organizationId}/non-conformities` | Deficiency tracking through resolution |
+| `/api/maintenance/schedules` | Preventive maintenance schedules and per-equipment overrides |
+| `/api/maintenance/campaigns` | Generate an intervention draft from due/overdue schedules |
+| `/api/organizations/{id}/compliance`, `/facility-tree`, `/compliance/export` | Compliance rollups and "registre de sécurité" PDF export |
+
+### Interventions, approval and automation
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/interventions` | Staged field-intervention workflow (draft → work items/changes → atomic publish) |
+| `/api/interventions/{id}/publications`, `/issues` | Async publication, blocking-issue checks |
+| `/api/interventions/{id}/attachments` | Execution evidence file attachments |
+| `/api/organizations/{organizationId}/approval-requests` | Four-eyes approval workflow for regulated actions (waive non-conformity, decommission equipment) |
+| `/api/approvals/action-types` | Reference catalog of gatable action types |
+| Automation | No HTTP surface — reacts to domain events (e.g. auto-drafts an intervention on a critical non-conformity) |
+
+### Collaboration and assistant
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/conversations`, `/api/direct-conversations` | Subject threads and 1-to-1 direct conversations |
+| `/api/channels` | Named group channels, participants, team binding, parent/child hierarchy |
+| `/api/messages/{id}` | Post/edit messages, pins, reactions, saves |
+| `/api/presence` | Lightweight cache-backed online presence |
+| `/api/organizations/{organizationId}/assistant/threads` | Organization-scoped AI chat threads (async generation via Ollama) |
+| `/api/notifications` | User notifications, delivery preferences, unified inbox, real-time subscriptions |
+
+### Calendar, import and webhooks
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/organizations/{organizationId}/calendar/events` | Standalone calendar events (CRUD) |
+| `/api/organizations/{organizationId}/calendar/feed` | Bounded, merged feed (events + inspections + interventions + maintenance) |
+| `/api/imports` | Bulk CSV import of equipment/facilities, processed asynchronously |
+| `/api/organizations/{organizationId}/webhooks` | Outbound event subscriptions, HMAC-signed, retried deliveries |
+
+### Onboarding
+
+| Endpoint group | Description |
+| --- | --- |
+| `/api/onboarding/organization` | Guided organization onboarding: status, start, per-step execute/skip, rollback |
 
 ### Audit
 
@@ -165,7 +233,13 @@ See `ARCHITECTURE.md` for the full ruleset.
 flowchart LR
   Client[Client Apps] -->|HTTP| API[API Platform]
 
-  subgraph Auth & Identity
+  API --> identity
+  API --> orgbilling
+  API --> fieldops
+  API --> collab
+  API --> platform
+
+  subgraph identity [Identity & Access]
     Auth[Auth]
     OAuth[OAuth]
     User[User]
@@ -176,48 +250,51 @@ flowchart LR
     Authorization[Authorization]
   end
 
-  subgraph Business Domain
+  subgraph orgbilling [Organization & Billing]
     Organization[Organization]
+    Billing[Billing]
+    Onboarding[Onboarding]
+  end
+
+  subgraph fieldops [Field Operations]
     Facility[Facility]
     Equipment[Equipment]
     Inspection[Inspection]
-    Onboarding[Onboarding]
-    Notification[Notification]
-    Audit[Audit]
+    Maintenance[Maintenance]
+    Intervention[Intervention]
+    Compliance[Compliance]
+    Calendar[Calendar]
   end
 
-  API --> Auth
-  API --> OAuth
-  API --> User
-  API --> Session
-  API --> TrustedDevice
-  API --> Otp
-  API --> Tenant
-  API --> Authorization
-  API --> Organization
-  API --> Facility
-  API --> Equipment
-  API --> Inspection
-  API --> Onboarding
-  API --> Notification
-  API --> Audit
+  subgraph collab [Collaboration & AI]
+    Messaging[Messaging]
+    Assistant[Assistant]
+    Notification[Notification]
+  end
 
-  Auth --> Shared[Shared]
-  OAuth --> Shared
-  User --> Shared
-  Session --> Shared
-  TrustedDevice --> Shared
-  Otp --> Shared
-  Tenant --> Shared
-  Authorization --> Shared
-  Organization --> Shared
-  Facility --> Shared
-  Equipment --> Shared
-  Inspection --> Shared
-  Onboarding --> Shared
-  Notification --> Shared
-  Audit --> Shared
+  subgraph platform [Platform]
+    Audit[Audit]
+    Automation[Automation]
+    Approval[Approval]
+    Import[Import]
+    Webhook[Webhook]
+  end
+
+  identity --> Shared[Shared kernel]
+  orgbilling --> Shared
+  fieldops --> Shared
+  collab --> Shared
+  platform --> Shared
 ```
+
+`src/` has 28 top-level namespaces: `App` (kernel bootstrap, no `MODULE.md`),
+`Shared` (repo-wide kernel: health check, file storage, attachment kernel — no
+business scope of its own), and 26 business modules each documented in its own
+`src/<Module>/MODULE.md`: `Auth`, `OAuth`, `User`, `Session`, `TrustedDevice`,
+`Otp`, `Tenant`, `Authorization`, `Audit`, `Organization`, `Billing`,
+`Onboarding`, `Facility`, `Equipment`, `Inspection`, `Maintenance`,
+`Intervention`, `Compliance`, `Calendar`, `Messaging`, `Assistant`,
+`Notification`, `Import`, `Webhook`, `Approval`, `Automation`.
 
 ---
 
@@ -274,7 +351,8 @@ Module wiring is in `config/modules/*.yaml`, with shared framework configuration
 - PHP 8.4+
 - Composer
 - Databases (PostgreSQL by default, configurable)
-- Docker and Docker Compose (for SonarQube only)
+- Docker and Docker Compose (recommended local dev environment — app, both
+  PostgreSQL databases, Redis, Mailpit; also used for SonarQube)
 - Make (recommended)
 
 ## Getting started

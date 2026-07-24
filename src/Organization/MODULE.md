@@ -14,7 +14,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 - Assign roles to members
 - Evaluate Organization permissions (`Organization.*`, `Organization.members.*`, `Organization.roles.*`)
 
-## API endpoints
+## API Endpoints
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -59,6 +59,13 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | PATCH | `/api/plans/{id}` | Update a subscription plan (`ROLE_ADMIN`) |
 | DELETE | `/api/plans/{id}` | Delete a subscription plan; the default plan cannot be deleted (`ROLE_ADMIN`) |
 
+## Architecture
+
+- Presentation: API resources, providers, processors, DTOs
+- Application: command/query use cases, ports, authorization service
+- Domain: Organization/member/role models and value objects
+- Infrastructure: Doctrine records, mappers, repositories
+
 ## Persistence
 
 Doctrine tables are mapped in the main database:
@@ -71,13 +78,6 @@ Doctrine tables are mapped in the main database:
 - `Organization_invitation_roles`
 - `teams`
 - `team_members`
-
-## Architecture
-
-- Presentation: API resources, providers, processors, DTOs
-- Application: command/query use cases, ports, authorization service
-- Domain: Organization/member/role models and value objects
-- Infrastructure: Doctrine records, mappers, repositories
 
 ## Notes
 

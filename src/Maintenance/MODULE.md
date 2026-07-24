@@ -32,47 +32,6 @@ Every operation requires `ROLE_USER` at the resource level; the finer-grained
 permission checks above are enforced in the application layer (mirrors the
 Intervention module's templates/labels).
 
-## Domain Model
-
-`MaintenanceScheduleRecord` (record-level entity — no domain aggregate, the
-same treatment `InterventionTemplateRecord`/`InterventionLabelRecord`
-receive; the recompute POLICY lives in the domain service below):
-
-- `id`, `organizationId`, `equipmentId`
-- `facilityId` (nullable, denormalized), `equipmentType` (denormalized)
-- `intervalOverride` (ISO-8601 duration string, nullable) — per-equipment
-  override of the organization's compliance periodicity
-- `lastInspectionClosedAt` (nullable)
-- `nextDueAt` (nullable) — null when the equipment type is untracked
-  (`unscheduled`), or when the equipment has never been inspected while a
-  periodicity applies (`overdue`, treated as immediately due)
-- `dueStatus` (`unscheduled` | `up_to_date` | `due_soon` | `overdue`)
-- `lastRemindedAt` (nullable, observability only)
-- `remindedFor` (nullable) — the `nextDueAt` value a reminder has already
-  been sent for; the anti-duplicate marker, reset whenever `nextDueAt`
-  changes
-- `createdAt`, `updatedAt`
-
-Value objects (`Domain/ValueObject`):
-
-- `MaintenanceDueStatus` — the four due status values, with `values()`.
-- `PeriodicityInterval` — validates an ISO-8601 duration within
-  `[P28D, P10Y]`, mirroring
-  `Organization\Domain\ValueObject\OrganizationComplianceSettings::assertPeriodicityInBounds()`.
-
-Domain service (`Domain/Service/MaintenanceScheduleRecomputePolicy`) — pure,
-I/O-free recompute rules:
-
-- **Effective interval**: per-schedule override wins over the organization's
-  compliance periodicity for the equipment type; neither set means
-  untracked.
-- **Due status**: `unscheduled` with no effective interval; `overdue` when an
-  interval applies but the equipment has never been inspected; otherwise
-  `overdue` once now is strictly after the due date, `due_soon` inside the
-  organization's reminder window, `up_to_date` otherwise.
-- **Reminder re-arming**: `remindedFor` must be reset whenever `nextDueAt`
-  changes so a schedule that moved can be reminded again.
-
 ## Flows
 
 ### Inspection closes (event-driven hot path)
@@ -209,6 +168,47 @@ Reused inbound ports from other modules: `Notification\Application\Port\Inbound\
 (reminders) and `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort`
 (campaign generation).
 
+## Domain Model
+
+`MaintenanceScheduleRecord` (record-level entity — no domain aggregate, the
+same treatment `InterventionTemplateRecord`/`InterventionLabelRecord`
+receive; the recompute POLICY lives in the domain service below):
+
+- `id`, `organizationId`, `equipmentId`
+- `facilityId` (nullable, denormalized), `equipmentType` (denormalized)
+- `intervalOverride` (ISO-8601 duration string, nullable) — per-equipment
+  override of the organization's compliance periodicity
+- `lastInspectionClosedAt` (nullable)
+- `nextDueAt` (nullable) — null when the equipment type is untracked
+  (`unscheduled`), or when the equipment has never been inspected while a
+  periodicity applies (`overdue`, treated as immediately due)
+- `dueStatus` (`unscheduled` | `up_to_date` | `due_soon` | `overdue`)
+- `lastRemindedAt` (nullable, observability only)
+- `remindedFor` (nullable) — the `nextDueAt` value a reminder has already
+  been sent for; the anti-duplicate marker, reset whenever `nextDueAt`
+  changes
+- `createdAt`, `updatedAt`
+
+Value objects (`Domain/ValueObject`):
+
+- `MaintenanceDueStatus` — the four due status values, with `values()`.
+- `PeriodicityInterval` — validates an ISO-8601 duration within
+  `[P28D, P10Y]`, mirroring
+  `Organization\Domain\ValueObject\OrganizationComplianceSettings::assertPeriodicityInBounds()`.
+
+Domain service (`Domain/Service/MaintenanceScheduleRecomputePolicy`) — pure,
+I/O-free recompute rules:
+
+- **Effective interval**: per-schedule override wins over the organization's
+  compliance periodicity for the equipment type; neither set means
+  untracked.
+- **Due status**: `unscheduled` with no effective interval; `overdue` when an
+  interval applies but the equipment has never been inspected; otherwise
+  `overdue` once now is strictly after the due date, `due_soon` inside the
+  organization's reminder window, `up_to_date` otherwise.
+- **Reminder re-arming**: `remindedFor` must be reset whenever `nextDueAt`
+  changes so a schedule that moved can be reminded again.
+
 ## Permissions
 
 `organization.maintenance.read` / `organization.maintenance.manage`
@@ -242,15 +242,6 @@ automatically — no backfill migration is needed.
 - Cross-module wiring (additive): `config/modules/equipment.yaml`,
   `config/modules/organization.yaml`, `config/modules/inspection.yaml`
 
-## Error Codes
-
-| Exception | HTTP |
-| --- | --- |
-| `MaintenanceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
-| `MaintenanceNotFoundException` | 404 Not Found |
-| `MaintenanceValidationException` | 422 Unprocessable Entity |
-| `InvalidArgumentException` | 400 Bad Request |
-
 ## Testing
 
 - Unit: `tests/Unit/Maintenance` — including (L2.2)
@@ -261,3 +252,12 @@ automatically — no backfill migration is needed.
   `MaintenanceScheduleRepositoryPort` fully covers it.
 - Integration (real DQL, real database): `tests/Integration/Maintenance/Infrastructure/Adapter/Equipment/EquipmentMaintenanceDueStatusAdapterTest.php`
 - Run module tests: `make test tests/Unit/Maintenance/`
+
+## Error Codes
+
+| Exception | HTTP |
+| --- | --- |
+| `MaintenanceAccessDeniedException` / `Organization\Domain\Exception\OrganizationAccessDeniedException` | 403 Forbidden |
+| `MaintenanceNotFoundException` | 404 Not Found |
+| `MaintenanceValidationException` | 422 Unprocessable Entity |
+| `InvalidArgumentException` | 400 Bad Request |

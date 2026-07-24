@@ -1,6 +1,6 @@
 # Deploiement VPS
 
-Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, FrankenPHP, PostgreSQL, Redis, Mercure et Traefik. GitHub Actions construit l'image Docker, la pousse sur GHCR, puis lance Ansible pour deployer sur le VPS, sauvegarder les bases, appliquer les migrations, synchroniser les permissions RBAC et verifier `/api/health`.
+Ce workflow deploie Fireguard API sur un VPS avec Docker Compose, FrankenPHP, PostgreSQL, Redis, Mercure et Traefik. `Deploy VPS` (`.github/workflows/deploy-vps.yml`) se declenche sur push `main` (ignore les changements limites a `**/*.md` et `docs/**`) ou manuellement. Il lance d'abord `ci.yml` en preflight (gate bloquant), puis construit l'image Docker et la pousse sur GHCR, puis execute Ansible pour deployer sur le VPS, sauvegarder les bases, appliquer les migrations, synchroniser les permissions RBAC et verifier `/api/health`.
 
 ## Fichiers ajoutes
 
@@ -125,6 +125,37 @@ Le reseau externe doit deja exister sur le VPS:
 
 ```bash
 docker network create traefik_proxy
+```
+
+## Workers Messenger (etat actuel — a verifier avant mise en production)
+
+`compose.prod.yaml` definit un service `assistant_worker` (consomme le transport
+`assistant`), mais **le playbook Ansible ne le demarre pas**: l'etape "Start
+application service" execute `docker compose -f compose.yaml up -d app`, qui ne
+cible que `app`. Aucune relation `depends_on` ne rattrape `assistant_worker`.
+
+Par ailleurs, `compose.prod.yaml` ne definit **aucun** consommateur pour les
+transports `async`, `webhook`, `scheduler_maintenance`, `scheduler_intervention`
+et `scheduler_approval` (le compose de developpement, `compose.yaml`, a un
+service `async_worker` supplementaire pour `async`+`webhook`, mais lui non plus
+ne couvre pas les trois transports `scheduler_*`).
+
+Consequence documentee dans `OPERATIONS.md` (section "Scheduled Tasks"): tant
+qu'aucun processus ne consomme ces transports en production, la publication
+d'intervention, la materialisation des recurrences, le recalcul de
+maintenance, les regles d'automatisation, les imports CSV, la livraison des
+webhooks, les reponses de l'assistant IA et l'expiration des demandes
+d'approbation ne s'executent jamais silencieusement (aucune erreur visible).
+
+Avant une mise en production, demarrer manuellement (ou via supervisor/systemd,
+ou en etendant le compose et le playbook) le worker documente dans
+`OPERATIONS.md`:
+
+```bash
+php bin/console messenger:consume \
+  async webhook assistant \
+  scheduler_maintenance scheduler_intervention scheduler_approval \
+  --time-limit=3600
 ```
 
 ## Commandes utiles sur le VPS
