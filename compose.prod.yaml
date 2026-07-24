@@ -20,6 +20,14 @@ services:
       SERVER_ROOT: public/
       REDIS_URL: redis://redis:6379
       MERCURE_URL: http://mercure/.well-known/mercure
+      # Public-facing URLs. Unlike the internal REDIS_URL/MERCURE_URL above, these
+      # are resolved ONLY on the HTTP request path (the router's default_uri and the
+      # Mercure hub's public_url), never by the migrate/cache/rbac deploy steps — so
+      # if they are absent from .env, every deploy step passes green while every
+      # request 500s with EnvNotFoundException. Pin them here (they match the Traefik
+      # Host() rules below) so the running container never depends on .env drift.
+      MERCURE_PUBLIC_URL: https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
+      DEFAULT_URI: https://api.fireguard.valentin-fortin.pro
     networks:
       - default
       - traefik_proxy
@@ -77,6 +85,10 @@ services:
       APP_DEBUG: "0"
       REDIS_URL: redis://redis:6379
       MERCURE_URL: http://mercure/.well-known/mercure
+      # The reply consumer publishes to Mercure and generates URLs in a non-HTTP
+      # (worker) context, so it needs the same public-facing values as `app`.
+      MERCURE_PUBLIC_URL: https://mercure.fireguard.valentin-fortin.pro/.well-known/mercure
+      DEFAULT_URI: https://api.fireguard.valentin-fortin.pro
     command:
       ["php", "bin/console", "messenger:consume", "assistant", "--time-limit=3600", "--memory-limit=256M"]
     volumes:
