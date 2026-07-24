@@ -1,5 +1,5 @@
 PHP ?= php
-PHP_MEMORY_LIMIT ?= 512M
+PHP_MEMORY_LIMIT ?= 1G
 PHPUNIT_BIN ?= vendor/bin/phpunit
 PHPSTAN_BIN ?= vendor/bin/phpstan
 PHPSTAN_CONFIG ?= $(if $(wildcard phpstan.neon),phpstan.neon,phpstan.dist.neon)
