@@ -234,12 +234,28 @@ jobs:
         uses: ./.github/actions/prepare-postgres-test-environment
         with:
           php-version: ${{ env.PHP_VERSION }}
+          coverage-driver: pcov
           postgres-service-id: ${{ job.services.postgres.id }}
           auth-database-url: ${{ env.AUTH_DATABASE_URL }}
           main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
-      - name: Run end-to-end flow tests
-        run: vendor/bin/phpunit --testsuite="E2E Tests" --no-coverage
+      - name: Run end-to-end flow tests with coverage
+        run: |
+          vendor/bin/phpunit \
+            --testsuite="E2E Tests" \
+            --coverage-clover=var/coverage/e2e.xml \
+            --coverage-text \
+            --only-summary-for-coverage-text
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: github.event_name != 'workflow_call'
+        with:
+          files: var/coverage/e2e.xml
+          flags: e2e
+          fail_ci_if_error: false
+          verbose: true
+        continue-on-error: true
 
   # ==========================================================================
   # Symfony Container Lint
