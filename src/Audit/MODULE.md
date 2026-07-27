@@ -242,12 +242,10 @@ PII sanitizer (masked value + hash).
 - Integration: `tests/Integration/Audit/Infrastructure/Persistence/Doctrine/Repository/AuditEventRepositoryTest`
   runs `AuditEventRepository::countMatching()`/`stream()` against a real
   entity manager (a mocked QueryBuilder never parses the DQL those methods
-  build) — combined filters + date-range filters, run on SQLite in CI;
-  behavior on PostgreSQL is not separately covered here since this query
-  path is plain, portable DQL (no `getDatabasePlatform()` branching, unlike
-  `AuditEventRepository::append()`'s chain-row upsert/lock, which already
-  dispatches on the platform name and is exercised on both databases only in
-  as much as `append()` itself is called by other tests).
+  build) — combined filters + date-range filters, run on PostgreSQL, the
+  same engine as production. `append()`'s chain-row upsert
+  (`ON CONFLICT … DO NOTHING`) and its `SELECT … FOR UPDATE` row lock are
+  likewise exercised on the real engine by every test that appends an event.
 - Functional: `tests/Functional/Api/AuditApiTest` (list/get/export endpoints
   exist and require authentication; the export test also asserts the full
   list-endpoint filter set is accepted on the export route).

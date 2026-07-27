@@ -34,7 +34,7 @@ use function array_map;
  * round-trip test leaves uncovered: the save() update path, remove(),
  * findPublishedById(), every list filter plus the trigram search predicate,
  * pagination and each resolveSortField() branch, and the grouping / period /
- * per-day aggregations (the SQLite fallback path of countByPerformedDay).
+ * per-day aggregations (countByPerformedDay's PostgreSQL bucketing).
  *
  * @category Repository Tests
  *

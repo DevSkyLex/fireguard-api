@@ -16,7 +16,6 @@ use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingConversationR
 
 use function array_map;
 use function count;
-use function in_array;
 use function max;
 use function min;
 use function sprintf;
@@ -233,26 +232,6 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     return new MessagePage(array_map($this->view(...), $records), $page, $itemsPerPage, $total);
   }
 
-  public function listMentionsForMember(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array
-  {
-    $limit = max(1, min(100, $limit));
-
-    // `mentions` is a native Postgres `json` column in production — DQL has
-    // no JSON containment function, so the fast path is raw SQL there.
-    // SQLite (the hermetic test/dev connection — see main.MODULE.md /
-    // Version20260717102427) has no equivalent JSON function usable the
-    // same way through DBAL, so it falls back to a portable, in-PHP filter
-    // (mirrors `NonConformityRepository::countByCreatedDayForOrganizationId()`'s
-    // platform-dispatch precedent). Only the Postgres path is a genuine
-    // single bounded query pushing the mention filter to SQL; the fallback
-    // is test/dev-only and never runs in production.
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->listMentionsForMemberPostgreSql($organizationId, $memberId, $before, $limit);
-    }
-
-    return $this->listMentionsForMemberPortable($organizationId, $memberId, $before, $limit);
-  }
-
   public function save(Message $message): MessageView
   {
     $id = (string) $message->id();
@@ -273,22 +252,6 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     $this->entityManager->flush();
 
     return $this->view($record);
-  }
-
-  public function countByConversationDay(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
-  {
-    // Postgres buckets natively (TO_CHAR/GROUP BY), mirroring
-    // `FacilityRepository::countByCreatedDayForOrganizationIdPostgreSql()`.
-    // SQLite (the hermetic test/dev connection) has no equivalent, so it
-    // falls back to a portable, in-PHP bucketing of a single bounded DQL
-    // fetch (mirrors `listMentionsForMemberPortable()` above) — never a
-    // whole-table load, since it is already scoped to the conversation and
-    // the `[from, to]` window.
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->countByConversationDayPostgreSql($conversationId, $from, $to);
-    }
-
-    return $this->countByConversationDayPortable($conversationId, $from, $to);
   }
 
   public function listLinkBackfillBatch(?string $afterMessageId, int $limit): array
@@ -330,14 +293,15 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
   }
 
   /**
-   * Method listMentionsForMemberPostgreSql.
+   * Method listMentionsForMember.
    *
-   * `json_array_elements_text` (not the jsonb `?`/`?|` operators, which
-   * DBAL's positional-parameter parser can misread) expands the `mentions`
-   * array so the EXISTS clause does an exact-value match, never a substring
-   * one. This is the ONE bounded query for candidates (organization scope,
-   * own-message exclusion, tombstone exclusion, cursor, limit all pushed
-   * down); the full entities are then hydrated in a single follow-up
+   * `mentions` is a native Postgres `json` column, so the filter is pushed
+   * down in raw SQL: `json_array_elements_text` (not the jsonb `?`/`?|`
+   * operators, which DBAL's positional-parameter parser can misread) expands
+   * the array so the EXISTS clause does an exact-value match, never a
+   * substring one. This is the ONE bounded query for candidates (organization
+   * scope, own-message exclusion, tombstone exclusion, cursor, limit all
+   * pushed down); the full entities are then hydrated in a single follow-up
    * `IN (:ids)` query that reuses the existing `view()` mapper — never a
    * per-row query.
    *
@@ -346,12 +310,13 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
    * @param string $organizationId the owning organization identifier
    * @param string $memberId the mentioned member's identifier
    * @param ?DateTimeImmutable $before the cursor
-   * @param int $limit the already-clamped maximum number of messages to return
+   * @param int $limit the maximum number of messages to return
    *
    * @return list<MessageView> the mentioning messages, newest first
    */
-  private function listMentionsForMemberPostgreSql(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array
+  public function listMentionsForMember(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array
   {
+    $limit = max(1, min(100, $limit));
     $sql = <<<'SQL'
         SELECT m.id
         FROM messaging_messages m
@@ -408,62 +373,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
   }
 
   /**
-   * Method listMentionsForMemberPortable.
-   *
-   * Test/dev-only fallback for platforms without the Postgres JSON
-   * functions `listMentionsForMemberPostgreSql()` relies on (SQLite, the
-   * hermetic test connection). Pushes every filter EXCEPT the mention
-   * containment itself down to DQL (organization scope, own-message
-   * exclusion, tombstone exclusion, cursor, a generous bound), then filters
-   * `mentions` in PHP and slices to `$limit`. Never used in production.
-   *
-   * @since 1.0.0
-   *
-   * @param string $organizationId the owning organization identifier
-   * @param string $memberId the mentioned member's identifier
-   * @param ?DateTimeImmutable $before the cursor
-   * @param int $limit the already-clamped maximum number of messages to return
-   *
-   * @return list<MessageView> the mentioning messages, newest first
-   */
-  private function listMentionsForMemberPortable(string $organizationId, string $memberId, ?DateTimeImmutable $before, int $limit): array
-  {
-    $qb = $this->entityManager->createQueryBuilder()
-      ->select('m')
-      ->from(MessagingMessageRecord::class, 'm')
-      ->where('m.organizationId = :organizationId')
-      ->andWhere('m.deletedAt IS NULL')
-      ->andWhere('m.authorMemberId <> :memberId')
-      ->setParameter('organizationId', $organizationId)
-      ->setParameter('memberId', $memberId)
-      ->orderBy('m.createdAt', 'DESC')
-      // A generous, arbitrary safety valve (never a whole-table load): this
-      // path only ever runs against the test/dev SQLite connection.
-      ->setMaxResults(max($limit * 20, 200));
-
-    if (null !== $before) {
-      $qb->andWhere('m.createdAt < :before')->setParameter('before', $before);
-    }
-
-    /** @var list<MessagingMessageRecord> $records */
-    $records = $qb->getQuery()->getResult();
-
-    $matching = [];
-    foreach ($records as $record) {
-      if (in_array($memberId, $record->mentions, true)) {
-        $matching[] = $record;
-      }
-
-      if (count($matching) >= $limit) {
-        break;
-      }
-    }
-
-    return array_map($this->view(...), $matching);
-  }
-
-  /**
-   * Method countByConversationDayPostgreSql.
+   * Method countByConversationDay.
    *
    * A single bounded `GROUP BY` query, scoped to the conversation and the
    * `[from, to]` window (both pushed down to SQL) — never a per-day query.
@@ -479,7 +389,7 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
    *
    * @return array<string, int> map of `Y-m-d` (UTC) => message count
    */
-  private function countByConversationDayPostgreSql(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
+  public function countByConversationDay(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
   {
     $sql = <<<'SQL'
         SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS bucket, COUNT(*) AS message_count
@@ -504,49 +414,6 @@ final readonly class MessagingMessageRepository implements MessagingMessageRepos
     $counts = [];
     foreach ($rows as $row) {
       $counts[(string) $row['bucket']] = (int) $row['message_count'];
-    }
-
-    return $counts;
-  }
-
-  /**
-   * Method countByConversationDayPortable.
-   *
-   * Test/dev-only fallback for platforms without `TO_CHAR`/native day
-   * bucketing (SQLite, the hermetic test connection — mirrors
-   * `listMentionsForMemberPortable()`'s precedent). The `[from, to]` window
-   * and the conversation scope are both still pushed down to DQL; only the
-   * per-day grouping happens in PHP. Never used in production.
-   *
-   * @since 1.3.0
-   *
-   * @param string $conversationId the owning conversation identifier
-   * @param DateTimeImmutable $from the inclusive period start (UTC)
-   * @param DateTimeImmutable $to the inclusive period end (UTC)
-   *
-   * @return array<string, int> map of `Y-m-d` (UTC) => message count
-   */
-  private function countByConversationDayPortable(string $conversationId, DateTimeImmutable $from, DateTimeImmutable $to): array
-  {
-    $conversation = $this->entityManager->getReference(MessagingConversationRecord::class, $conversationId);
-
-    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
-    $rows = $this->entityManager->createQueryBuilder()
-      ->select('m.createdAt AS createdAt')
-      ->from(MessagingMessageRecord::class, 'm')
-      ->where('m.conversation = :conversation')
-      ->andWhere('m.createdAt >= :from')
-      ->andWhere('m.createdAt <= :to')
-      ->setParameter('conversation', $conversation)
-      ->setParameter('from', $from)
-      ->setParameter('to', $to)
-      ->getQuery()
-      ->getArrayResult();
-
-    $counts = [];
-    foreach ($rows as $row) {
-      $bucket = $row['createdAt']->format('Y-m-d');
-      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
     }
 
     return $counts;

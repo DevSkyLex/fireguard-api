@@ -329,22 +329,6 @@ final class AuditEventRepository implements AuditEventRepositoryPort
    */
   private function ensureChainRow(Connection $connection, string $chainId, DateTimeImmutable $now): void
   {
-    $platform = $connection->getDatabasePlatform()->getName();
-
-    if ('sqlite' === $platform) {
-      $connection->executeStatement(
-        'INSERT OR IGNORE INTO audit_event_chains (chain_id, last_hash, last_sequence, updated_at) VALUES (:chain_id, :last_hash, :last_sequence, :updated_at)',
-        [
-          'chain_id' => $chainId,
-          'last_hash' => 'GENESIS',
-          'last_sequence' => 0,
-          'updated_at' => $now->format('Y-m-d H:i:s'),
-        ],
-      );
-
-      return;
-    }
-
     $connection->executeStatement(
       'INSERT INTO audit_event_chains (chain_id, last_hash, last_sequence, updated_at) VALUES (:chain_id, :last_hash, :last_sequence, :updated_at) ON CONFLICT (chain_id) DO NOTHING',
       [
@@ -370,12 +354,10 @@ final class AuditEventRepository implements AuditEventRepositoryPort
    */
   private function lockChainRow(Connection $connection, string $chainId): array
   {
-    $platform = $connection->getDatabasePlatform()->getName();
-    $sql = 'SELECT chain_id, last_hash, last_sequence FROM audit_event_chains WHERE chain_id = :chain_id';
-
-    if ('sqlite' !== $platform) {
-      $sql .= ' FOR UPDATE';
-    }
+    // FOR UPDATE serializes concurrent appends to the same chain: the hash
+    // link and sequence number are read here and written by the caller, so
+    // the row must stay locked for the whole append.
+    $sql = 'SELECT chain_id, last_hash, last_sequence FROM audit_event_chains WHERE chain_id = :chain_id FOR UPDATE';
 
     $row = $connection->fetchAssociative($sql, ['chain_id' => $chainId]);
 

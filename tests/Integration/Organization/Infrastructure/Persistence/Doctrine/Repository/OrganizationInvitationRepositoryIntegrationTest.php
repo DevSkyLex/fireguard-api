@@ -6,6 +6,8 @@ namespace Tests\Integration\Organization\Infrastructure\Persistence\Doctrine\Rep
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use InvalidArgumentException;
+use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationRoleId};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationRecord, OrganizationRoleRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationInvitationRepository;
@@ -207,6 +209,162 @@ final class OrganizationInvitationRepositoryIntegrationTest extends KernelTestCa
       'd4000000-0000-4000-8000-000000000401',
       'd4000000-0000-4000-8000-000000000403',
     ], $afterReplace);
+  }
+
+  #[Test]
+  public function testSaveInsertsANewInvitationAndFindByIdReadsItBack(): void
+  {
+    $organization = $this->createOrganization('d4000000-0000-4000-8000-000000000401', 'invite-save-insert');
+    $this->entityManager->persist($organization);
+    $this->entityManager->flush();
+
+    $invitationId = OrganizationInvitationId::fromString('d4000000-0000-4000-8000-000000000411');
+
+    $this->repository->save(OrganizationInvitation::create(
+      id: $invitationId,
+      organizationId: OrganizationId::fromString('d4000000-0000-4000-8000-000000000401'),
+      email: new Email('inserted@example.com'),
+      tokenHash: $this->tokenHash('insert'),
+      invitedByUserId: 'd4000000-0000-4000-8000-0000000000bb',
+      expiresAt: new DateTimeImmutable('2099-01-01T00:00:00+00:00'),
+    ));
+
+    $found = $this->repository->findById($invitationId);
+
+    self::assertNotNull($found);
+    self::assertSame('inserted@example.com', (string) $found->email());
+    self::assertSame($this->tokenHash('insert'), $found->tokenHash());
+    self::assertSame('pending', $found->status()->value);
+  }
+
+  #[Test]
+  public function testSaveUpdatesAnExistingInvitationInPlace(): void
+  {
+    $organization = $this->createOrganization('d4000000-0000-4000-8000-000000000402', 'invite-save-update');
+    $this->entityManager->persist($organization);
+    $this->entityManager->flush();
+
+    $invitationId = OrganizationInvitationId::fromString('d4000000-0000-4000-8000-000000000412');
+    $invitation = OrganizationInvitation::create(
+      id: $invitationId,
+      organizationId: OrganizationId::fromString('d4000000-0000-4000-8000-000000000402'),
+      email: new Email('updated@example.com'),
+      tokenHash: $this->tokenHash('update'),
+      invitedByUserId: 'd4000000-0000-4000-8000-0000000000bb',
+      expiresAt: new DateTimeImmutable('2099-01-01T00:00:00+00:00'),
+    );
+
+    $this->repository->save($invitation);
+
+    $invitation->revoke('d4000000-0000-4000-8000-0000000000cc');
+    $this->repository->save($invitation);
+
+    $reloaded = $this->repository->findById($invitationId);
+
+    self::assertNotNull($reloaded);
+    self::assertSame('revoked', $reloaded->status()->value);
+    self::assertSame('d4000000-0000-4000-8000-0000000000cc', $reloaded->revokedByUserId());
+
+    // The update path must mutate the existing row rather than insert a second.
+    self::assertCount(
+      1,
+      $this->entityManager->getRepository(OrganizationInvitationRecord::class)
+        ->findBy(['organization' => $organization]),
+    );
+  }
+
+  #[Test]
+  public function testFindByIdReturnsNullForAnUnknownInvitation(): void
+  {
+    self::assertNull($this->repository->findById(
+      OrganizationInvitationId::fromString('d4000000-0000-4000-8000-0000000004ff'),
+    ));
+  }
+
+  #[Test]
+  public function testReplaceRoleIdsIsIdempotentAndPrunesRemovedRoles(): void
+  {
+    $organization = $this->createOrganization('d4000000-0000-4000-8000-000000000403', 'invite-roles-prune');
+    $first = $this->createRole('d4000000-0000-4000-8000-000000000421', $organization, 'Reader');
+    $second = $this->createRole('d4000000-0000-4000-8000-000000000422', $organization, 'Writer');
+    $invitation = $this->createInvitation(
+      id: 'd4000000-0000-4000-8000-000000000413',
+      organization: $organization,
+      email: 'roles@example.com',
+      tokenHash: $this->tokenHash('roles'),
+    );
+
+    $this->entityManager->persist($organization);
+    $this->entityManager->persist($first);
+    $this->entityManager->persist($second);
+    $this->entityManager->persist($invitation);
+    $this->entityManager->flush();
+
+    $invitationId = OrganizationInvitationId::fromString('d4000000-0000-4000-8000-000000000413');
+
+    $this->repository->replaceRoleIds($invitationId, [
+      OrganizationRoleId::fromString('d4000000-0000-4000-8000-000000000421'),
+      OrganizationRoleId::fromString('d4000000-0000-4000-8000-000000000422'),
+    ]);
+
+    // Re-applying the same set must not duplicate the assignments.
+    $this->repository->replaceRoleIds($invitationId, [
+      OrganizationRoleId::fromString('d4000000-0000-4000-8000-000000000421'),
+      OrganizationRoleId::fromString('d4000000-0000-4000-8000-000000000422'),
+    ]);
+
+    $afterRepeat = $this->repository->findRoleIdsForInvitation($invitationId);
+    sort($afterRepeat);
+
+    self::assertSame(
+      ['d4000000-0000-4000-8000-000000000421', 'd4000000-0000-4000-8000-000000000422'],
+      $afterRepeat,
+    );
+
+    $this->repository->replaceRoleIds($invitationId, [
+      OrganizationRoleId::fromString('d4000000-0000-4000-8000-000000000422'),
+    ]);
+
+    self::assertSame(
+      ['d4000000-0000-4000-8000-000000000422'],
+      $this->repository->findRoleIdsForInvitation($invitationId),
+    );
+  }
+
+  #[Test]
+  public function testReplaceRoleIdsRejectsAnUnknownInvitation(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invitation not found for role assignment.');
+
+    $this->repository->replaceRoleIds(
+      OrganizationInvitationId::fromString('d4000000-0000-4000-8000-0000000004fe'),
+      [OrganizationRoleId::fromString('d4000000-0000-4000-8000-000000000421')],
+    );
+  }
+
+  #[Test]
+  public function testReplaceRoleIdsRejectsAnUnknownRole(): void
+  {
+    $organization = $this->createOrganization('d4000000-0000-4000-8000-000000000404', 'invite-roles-missing');
+    $invitation = $this->createInvitation(
+      id: 'd4000000-0000-4000-8000-000000000414',
+      organization: $organization,
+      email: 'missing-role@example.com',
+      tokenHash: $this->tokenHash('missing-role'),
+    );
+
+    $this->entityManager->persist($organization);
+    $this->entityManager->persist($invitation);
+    $this->entityManager->flush();
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Role not found for invitation role assignment.');
+
+    $this->repository->replaceRoleIds(
+      OrganizationInvitationId::fromString('d4000000-0000-4000-8000-000000000414'),
+      [OrganizationRoleId::fromString('d4000000-0000-4000-8000-0000000004fd')],
+    );
   }
 
   private function tokenHash(string $seed): string

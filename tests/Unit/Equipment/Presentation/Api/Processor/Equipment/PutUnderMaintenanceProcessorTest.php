@@ -11,16 +11,24 @@ use Equipment\Application\UseCase\Command\Equipment\PutUnderMaintenance\{PutUnde
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\PutUnderMaintenanceProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  ConflictHttpException,
+  NotFoundHttpException
+};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(PutUnderMaintenanceProcessor::class)]
 final class PutUnderMaintenanceProcessorTest extends TestCase
@@ -179,6 +187,148 @@ final class PutUnderMaintenanceProcessorTest extends TestCase
     self::assertInstanceOf(EquipmentOutput::class, $output);
     self::assertSame(self::EQUIP_ID, $output->id);
     self::assertSame('under_maintenance', $output->status);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenNoUserIsAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new PutUnderMaintenanceProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $this->maintenanceUriVariables());
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   */
+  #[Test]
+  #[DataProvider('incompleteUriVariablesProvider')]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreIncomplete(array $uriVariables): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new PutUnderMaintenanceProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $this->maintenanceSecurity(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $uriVariables);
+  }
+
+  #[Test]
+  public function testProcessMapsADirectNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->maintenanceProcessorThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->maintenanceUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectDecommissionedConflictToHttp409(): void
+  {
+    $this->expectException(ConflictHttpException::class);
+
+    $this->maintenanceProcessorThrowing(EquipmentAlreadyDecommissionedException::withId(self::EQUIP_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->maintenanceUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Equipment is already under maintenance.');
+
+    $this->maintenanceProcessorThrowing(new InvalidArgumentException('Equipment is already under maintenance.'))
+      ->process(data: null, operation: new Post(), uriVariables: $this->maintenanceUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->maintenanceProcessorThrowing(
+      $this->maintenanceWrapped(new InvalidArgumentException('Equipment is already under maintenance.')),
+    )->process(data: null, operation: new Post(), uriVariables: $this->maintenanceUriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->maintenanceProcessorThrowing($this->maintenanceWrapped(new RuntimeException('database is down')))
+      ->process(data: null, operation: new Post(), uriVariables: $this->maintenanceUriVariables());
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>}>
+   */
+  public static function incompleteUriVariablesProvider(): iterable
+  {
+    yield 'no variables' => [[]];
+    yield 'blank organizationId' => [['organizationId' => '', 'equipmentId' => self::EQUIP_ID]];
+    yield 'missing equipmentId' => [['organizationId' => self::ORG_ID]];
+    yield 'blank equipmentId' => [['organizationId' => self::ORG_ID, 'equipmentId' => '']];
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function maintenanceUriVariables(): array
+  {
+    return ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID];
+  }
+
+  private function maintenanceSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655453010'));
+
+    return $security;
+  }
+
+  private function maintenanceWrapped(Throwable $failure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new PutUnderMaintenanceCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+      )),
+      [$failure],
+    ));
+  }
+
+  private function maintenanceProcessorThrowing(Throwable $failure): PutUnderMaintenanceProcessor
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new PutUnderMaintenanceProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->maintenanceSecurity(),
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

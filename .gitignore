@@ -36,7 +36,14 @@ phpstan.neon
 ###< code coverage ###
 
 ###> IDE ###
-/.vscode/
+# Ignore the directory's contents, not the directory: Git never descends into an
+# excluded directory, so a `!` negation inside one has no effect.
+/.vscode/*
+# Shared, not personal: settings.json wires format-on-save to the project's own
+# php-cs-fixer, and it does nothing unless the recommended extension is
+# installed — so both have to reach every clone.
+!/.vscode/settings.json
+!/.vscode/extensions.json
 /.idea/
 ###< IDE ###
 

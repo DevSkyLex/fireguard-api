@@ -37,12 +37,11 @@ final class TrigramSearchExpression
    * The DQL escape character declared on every `LIKE` predicate this builder
    * emits, matching the backslash used by {@see self::likeValue()}.
    *
-   * Explicitly declaring `ESCAPE '\'` (rather than relying on the platform
-   * default) is required for portability: PostgreSQL defaults its `LIKE`
-   * escape character to backslash, but SQLite (used by the test suite) does
-   * NOT treat backslash as an escape character unless an `ESCAPE` clause is
-   * present, so omitting it would silently break wildcard-safe matching on
-   * SQLite while working by accident on PostgreSQL.
+   * The `ESCAPE '\'` clause is declared explicitly rather than left to the
+   * platform default. PostgreSQL already defaults to backslash, so this is
+   * belt-and-braces — but it keeps the escaping contract stated in the query
+   * itself instead of resting on a server-side default that a future
+   * `standard_conforming_strings`-style change could move.
    */
   private const string ESCAPE_CHARACTER = '\\';
 

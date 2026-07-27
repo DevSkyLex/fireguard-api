@@ -13,17 +13,25 @@ use Equipment\Application\UseCase\Command\Equipment\DecommissionEquipment\{Decom
 use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, EquipmentNotFoundException};
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\DecommissionEquipmentProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{JsonResponse, Response};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  ConflictHttpException,
+  NotFoundHttpException
+};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 use function json_decode;
 
@@ -241,12 +249,157 @@ final class DecommissionEquipmentProcessorTest extends TestCase
     self::assertSame('pending', $payload['approvalStatus']);
   }
 
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenNoUserIsAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new DecommissionEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      approvalGate: $this->applyNowGate(),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $this->decommissionUriVariables());
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   */
+  #[Test]
+  #[DataProvider('incompleteUriVariablesProvider')]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreIncomplete(array $uriVariables): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new DecommissionEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      approvalGate: $this->applyNowGate(),
+      security: $this->decommissionSecurity(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $uriVariables);
+  }
+
+  #[Test]
+  public function testProcessMapsADirectNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->decommissionProcessorThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->decommissionUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectDecommissionedConflictToHttp409(): void
+  {
+    $this->expectException(ConflictHttpException::class);
+
+    $this->decommissionProcessorThrowing(EquipmentAlreadyDecommissionedException::withId(self::EQUIP_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->decommissionUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Equipment still has open interventions.');
+
+    $this->decommissionProcessorThrowing(new InvalidArgumentException('Equipment still has open interventions.'))
+      ->process(data: null, operation: new Post(), uriVariables: $this->decommissionUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->decommissionProcessorThrowing(
+      $this->decommissionWrapped(new InvalidArgumentException('Equipment still has open interventions.')),
+    )->process(data: null, operation: new Post(), uriVariables: $this->decommissionUriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->decommissionProcessorThrowing($this->decommissionWrapped(new RuntimeException('database is down')))
+      ->process(data: null, operation: new Post(), uriVariables: $this->decommissionUriVariables());
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>}>
+   */
+  public static function incompleteUriVariablesProvider(): iterable
+  {
+    yield 'no variables' => [[]];
+    yield 'blank organizationId' => [['organizationId' => '', 'equipmentId' => self::EQUIP_ID]];
+    yield 'missing equipmentId' => [['organizationId' => self::ORG_ID]];
+    yield 'blank equipmentId' => [['organizationId' => self::ORG_ID, 'equipmentId' => '']];
+  }
+
   private function applyNowGate(): ApprovalGatePort
   {
     $approvalGate = $this->createStub(ApprovalGatePort::class);
     $approvalGate->method('evaluate')->willReturn(ApprovalGateDecision::applyNow());
 
     return $approvalGate;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function decommissionUriVariables(): array
+  {
+    return ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID];
+  }
+
+  private function decommissionSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655455010'));
+
+    return $security;
+  }
+
+  private function decommissionWrapped(Throwable $failure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new DecommissionEquipmentCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+      )),
+      [$failure],
+    ));
+  }
+
+  private function decommissionProcessorThrowing(Throwable $failure): DecommissionEquipmentProcessor
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new DecommissionEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      approvalGate: $this->applyNowGate(),
+      security: $this->decommissionSecurity(),
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

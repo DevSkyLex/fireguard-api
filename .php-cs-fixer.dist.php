@@ -106,6 +106,12 @@ return (new PhpCsFixer\Config())
 	])
 	->setIndent('  ')
 	->setLineEnding("\n")
+	// Spread the ~4500 files across cores: a cold run drops from 2m17s to ~15s.
+	// That is the run CI and every fresh clone hit. A warm run pays ~2s more
+	// than sequential in process spawning, which tuning filesPerProcess does not
+	// recover (50 and 150 both measured slower). The pre-commit hook passes
+	// --sequential because it only ever sees a handful of staged files.
+	->setParallelConfig(PhpCsFixer\Runner\Parallel\ParallelConfigFactory::detect())
 	->setUsingCache(true)
 	->setFinder($finder)
 	->setRiskyAllowed(true)

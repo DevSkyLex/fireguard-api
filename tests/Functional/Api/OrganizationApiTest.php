@@ -194,8 +194,7 @@ final class OrganizationApiTest extends WebTestCase
    * stored in the container, not the session) instead of mocking the query
    * bus, so the real Doctrine DQL behind
    * `NonConformityRepository::countBySeverityForOrganizationId()` executes
-   * against the (SQLite, in this suite) database — see ARCHITECTURE.md's
-   * "test on SQLite / production on PostgreSQL" note.
+   * against a real PostgreSQL database — the same engine as production.
    */
   #[Test]
   public function testGetOrganizationDashboardExposesNonConformitySeverityBreakdown(): void
@@ -363,7 +362,7 @@ final class OrganizationApiTest extends WebTestCase
    * exercising the real Doctrine queries behind
    * `InterventionStatisticsPort::countOverview()` and
    * `NonConformityStatisticsPort::countNonConformitiesByStatus()` against
-   * the (SQLite, in this suite) database.
+   * a real PostgreSQL database.
    */
   #[Test]
   public function testGetOrganizationNavigationCountersReturnsOpenCounts(): void

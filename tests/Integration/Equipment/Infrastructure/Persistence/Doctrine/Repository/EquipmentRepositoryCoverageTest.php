@@ -25,9 +25,9 @@ use function array_map;
  * Complements EquipmentRepositoryTest by exercising the branches that the
  * happy-path round-trip test leaves uncovered: the save() upsert-update arm,
  * the duplicate serial-number violation mapping, every list filter/search and
- * sort match arm, the type histogram, the created-day bucketing (SQLite DQL
- * path, with and without an explicit bucket time zone) and the overview counts
- * narrowed by type/status.
+ * sort match arm, the type histogram, the created-day bucketing (with and
+ * without an explicit bucket time zone) and the overview counts narrowed by
+ * type/status.
  *
  * @category Repository Tests
  *

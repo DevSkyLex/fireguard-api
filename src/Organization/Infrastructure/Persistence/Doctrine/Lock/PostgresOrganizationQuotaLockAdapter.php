@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Organization\Infrastructure\Persistence\Doctrine\Lock;
 
-use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Application\Port\Outbound\OrganizationQuotaLockPort;
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
@@ -60,13 +59,10 @@ final readonly class PostgresOrganizationQuotaLockAdapter implements Organizatio
   {
     $connection = $this->entityManager->getConnection();
 
-    // Advisory locks are Postgres-specific. On any other platform (e.g. the SQLite
-    // test database) skip silently: the create path still works, it is simply not
-    // lock-serialized there — production and dev both run Postgres.
-    if (!$connection->getDatabasePlatform() instanceof PostgreSQLPlatform) {
-      return;
-    }
-
+    // Advisory locks are Postgres-specific, and so is every environment this
+    // runs in — production, dev and the test suite. Acquiring unconditionally
+    // means a misconfigured connection fails loudly instead of silently
+    // dropping the serialization that guards the quota.
     $connection->executeQuery(
       'SELECT pg_advisory_xact_lock(hashtext(:organizationId), hashtext(:resource))',
       [

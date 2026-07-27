@@ -342,45 +342,43 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $status = null,
   ): array {
     $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $createdAtFrom);
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->countByCreatedDayForOrganizationIdPostgreSql(
-        organizationId: $organizationId,
-        createdAtFrom: $createdAtFrom,
-        createdAtTo: $createdAtTo,
-        bucketTimeZone: $bucketTimeZone,
-        severity: $severity,
-        status: $status,
-      );
-    }
-
-    $queryBuilder = $this->entityManager->createQueryBuilder()
-      ->select('r.createdAt AS createdAt')
-      ->from(NonConformityRecord::class, 'r')
-      ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
-      ->andWhere('r.createdAt >= :createdAtFrom')
-      ->andWhere('r.createdAt <= :createdAtTo')
-      ->setParameter('organizationId', (string) $organizationId)
-      ->setParameter('createdAtFrom', $this->normalizeTimestampToStorageDateTime($createdAtFrom), Types::DATETIME_IMMUTABLE)
-      ->setParameter('createdAtTo', $this->normalizeTimestampToStorageDateTime($createdAtTo), Types::DATETIME_IMMUTABLE)
-      ->orderBy('r.createdAt', 'ASC');
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((r.created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS non_conformity_count
+        FROM non_conformities r
+        INNER JOIN inspections i ON i.id = r.inspection_id
+        WHERE i.organization_id = :organizationId
+          AND r.created_at >= :createdAtFrom
+          AND r.created_at <= :createdAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
+      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
+    ];
 
     if (null !== $severity) {
-      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $sql .= "\n  AND r.severity = :severity";
+      $parameters['severity'] = $severity;
     }
 
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $sql .= "\n  AND r.status = :status";
+      $parameters['status'] = $status;
     }
 
-    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
-    $rows = $queryBuilder->getQuery()->getArrayResult();
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, non_conformity_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
 
     $counts = [];
     foreach ($rows as $row) {
-      $bucket = $this->reinterpretStorageDateTime($row['createdAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
-      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+      $counts[(string) $row['bucket']] = (int) $row['non_conformity_count'];
     }
 
     return $counts;
@@ -395,46 +393,44 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     ?string $status = null,
   ): array {
     $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $resolvedAtFrom);
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->countByResolvedDayForOrganizationIdPostgreSql(
-        organizationId: $organizationId,
-        resolvedAtFrom: $resolvedAtFrom,
-        resolvedAtTo: $resolvedAtTo,
-        bucketTimeZone: $bucketTimeZone,
-        severity: $severity,
-        status: $status,
-      );
-    }
-
-    $queryBuilder = $this->entityManager->createQueryBuilder()
-      ->select('r.resolvedAt AS resolvedAt')
-      ->from(NonConformityRecord::class, 'r')
-      ->innerJoin('r.inspection', 'i')
-      ->innerJoin('i.organization', 'o')
-      ->andWhere('o.id = :organizationId')
-      ->andWhere('r.resolvedAt IS NOT NULL')
-      ->andWhere('r.resolvedAt >= :resolvedAtFrom')
-      ->andWhere('r.resolvedAt <= :resolvedAtTo')
-      ->setParameter('organizationId', (string) $organizationId)
-      ->setParameter('resolvedAtFrom', $this->normalizeTimestampToStorageDateTime($resolvedAtFrom), Types::DATETIME_IMMUTABLE)
-      ->setParameter('resolvedAtTo', $this->normalizeTimestampToStorageDateTime($resolvedAtTo), Types::DATETIME_IMMUTABLE)
-      ->orderBy('r.resolvedAt', 'ASC');
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((r.resolved_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS non_conformity_count
+        FROM non_conformities r
+        INNER JOIN inspections i ON i.id = r.inspection_id
+        WHERE i.organization_id = :organizationId
+          AND r.resolved_at IS NOT NULL
+          AND r.resolved_at >= :resolvedAtFrom
+          AND r.resolved_at <= :resolvedAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'resolvedAtFrom' => $this->normalizeTimestampForStorageTimeZone($resolvedAtFrom, $storageTimeZone),
+      'resolvedAtTo' => $this->normalizeTimestampForStorageTimeZone($resolvedAtTo, $storageTimeZone),
+    ];
 
     if (null !== $severity) {
-      $queryBuilder->andWhere('r.severity = :severity')->setParameter('severity', $severity);
+      $sql .= "\n  AND r.severity = :severity";
+      $parameters['severity'] = $severity;
     }
 
     if (null !== $status) {
-      $queryBuilder->andWhere('r.status = :status')->setParameter('status', $status);
+      $sql .= "\n  AND r.status = :status";
+      $parameters['status'] = $status;
     }
 
-    /** @var list<array{resolvedAt: DateTimeImmutable}> $rows */
-    $rows = $queryBuilder->getQuery()->getArrayResult();
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, non_conformity_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
 
     $counts = [];
     foreach ($rows as $row) {
-      $bucket = $this->reinterpretStorageDateTime($row['resolvedAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
-      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+      $counts[(string) $row['bucket']] = (int) $row['non_conformity_count'];
     }
 
     return $counts;
@@ -620,113 +616,6 @@ final readonly class NonConformityRepository implements NonConformityRepositoryP
     $normalized->updatedAt = $this->reinterpretStorageDateTime($record->updatedAt);
 
     return $normalized;
-  }
-
-  /**
-   * @return array<string, int>
-   */
-  private function countByCreatedDayForOrganizationIdPostgreSql(
-    InspectionOrganizationId $organizationId,
-    string $createdAtFrom,
-    string $createdAtTo,
-    DateTimeZone $bucketTimeZone,
-    ?string $severity = null,
-    ?string $status = null,
-  ): array {
-    $storageTimeZone = $this->resolveStorageTimeZone();
-    $sql = <<<'SQL'
-        SELECT
-          TO_CHAR(((r.created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
-          COUNT(*) AS non_conformity_count
-        FROM non_conformities r
-        INNER JOIN inspections i ON i.id = r.inspection_id
-        WHERE i.organization_id = :organizationId
-          AND r.created_at >= :createdAtFrom
-          AND r.created_at <= :createdAtTo
-      SQL;
-    $parameters = [
-      'storageTimeZone' => $storageTimeZone->getName(),
-      'bucketTimeZone' => $bucketTimeZone->getName(),
-      'organizationId' => (string) $organizationId,
-      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
-      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
-    ];
-
-    if (null !== $severity) {
-      $sql .= "\n  AND r.severity = :severity";
-      $parameters['severity'] = $severity;
-    }
-
-    if (null !== $status) {
-      $sql .= "\n  AND r.status = :status";
-      $parameters['status'] = $status;
-    }
-
-    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
-
-    /** @var list<array{bucket: string, non_conformity_count: int|string}> $rows */
-    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
-
-    $counts = [];
-    foreach ($rows as $row) {
-      $counts[(string) $row['bucket']] = (int) $row['non_conformity_count'];
-    }
-
-    return $counts;
-  }
-
-  /**
-   * @return array<string, int>
-   */
-  private function countByResolvedDayForOrganizationIdPostgreSql(
-    InspectionOrganizationId $organizationId,
-    string $resolvedAtFrom,
-    string $resolvedAtTo,
-    DateTimeZone $bucketTimeZone,
-    ?string $severity = null,
-    ?string $status = null,
-  ): array {
-    $storageTimeZone = $this->resolveStorageTimeZone();
-    $sql = <<<'SQL'
-        SELECT
-          TO_CHAR(((r.resolved_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
-          COUNT(*) AS non_conformity_count
-        FROM non_conformities r
-        INNER JOIN inspections i ON i.id = r.inspection_id
-        WHERE i.organization_id = :organizationId
-          AND r.resolved_at IS NOT NULL
-          AND r.resolved_at >= :resolvedAtFrom
-          AND r.resolved_at <= :resolvedAtTo
-      SQL;
-    $parameters = [
-      'storageTimeZone' => $storageTimeZone->getName(),
-      'bucketTimeZone' => $bucketTimeZone->getName(),
-      'organizationId' => (string) $organizationId,
-      'resolvedAtFrom' => $this->normalizeTimestampForStorageTimeZone($resolvedAtFrom, $storageTimeZone),
-      'resolvedAtTo' => $this->normalizeTimestampForStorageTimeZone($resolvedAtTo, $storageTimeZone),
-    ];
-
-    if (null !== $severity) {
-      $sql .= "\n  AND r.severity = :severity";
-      $parameters['severity'] = $severity;
-    }
-
-    if (null !== $status) {
-      $sql .= "\n  AND r.status = :status";
-      $parameters['status'] = $status;
-    }
-
-    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
-
-    /** @var list<array{bucket: string, non_conformity_count: int|string}> $rows */
-    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
-
-    $counts = [];
-    foreach ($rows as $row) {
-      $counts[(string) $row['bucket']] = (int) $row['non_conformity_count'];
-    }
-
-    return $counts;
   }
 
   private function resolveBucketTimeZone(?string $timeZone, string $lowerBound): DateTimeZone

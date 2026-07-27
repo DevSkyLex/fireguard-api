@@ -203,9 +203,8 @@ Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`.
 
 `CalendarEventRepository::listBetween()` overlap query: an event overlaps
 `[from, to]` when `startsAt <= to AND COALESCE(endsAt, startsAt) >= from`.
-Plain comparisons + `COALESCE` — no platform-specific SQL, portable across
-SQLite (tests) and PostgreSQL (production) without a `getDatabasePlatform()`
-dispatch.
+Plain comparisons + `COALESCE` — the module needs no raw PostgreSQL SQL to
+express the overlap, unlike the day-bucketing repositories.
 
 ## Permissions
 
@@ -255,7 +254,7 @@ granted explicitly).
 - Functional: `tests/Functional/Api/CalendarApiTest.php` (endpoint existence +
   authentication-required, mirroring `WebhookSubscriptionApiTest`).
 
-**Uncovered by tests**: the module's DQL uses only plain comparisons and the
-portable `COALESCE` function — no `getDatabasePlatform()`-gated SQL exists in
-this module, so there is nothing SQLite-only/PostgreSQL-only left untested by
-the integration suite above.
+**Uncovered by tests**: nothing engine-specific. The module's DQL uses only
+plain comparisons and `COALESCE`, and the suite runs on PostgreSQL — the same
+engine as production — so the integration suite above exercises the real
+query plan.

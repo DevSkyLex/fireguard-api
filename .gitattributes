@@ -1,0 +1,23 @@
+# Normalize line endings so a checkout is identical on Windows, Linux and CI.
+#
+# Without this, `core.autocrlf` decides per developer: a Windows clone checks
+# out CRLF while php-cs-fixer writes LF, so the formatter keeps rewriting files
+# that Git then normalizes back — churn that is invisible in `git diff` and
+# confusing in a pre-commit hook.
+* text=auto eol=lf
+
+# Binary assets must never be touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.zip binary
+*.gz binary
+*.p12 binary
+*.key binary

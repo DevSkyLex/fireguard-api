@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Whole-project checks, run once per push rather than once per commit.
+#
+# PHPStan and deptrac cannot be scoped to the changed files — an edit in one
+# class surfaces errors in another — so they always analyse everything. That
+# costs ~7s warm and ~35s cold, which is tolerable per push but would train
+# everyone to reach for --no-verify if it ran on every commit.
+#
+# This is fast feedback, not a guarantee: CI runs the same checks on every PR.
+#
+# Enable with:  git config core.hooksPath .githooks
+# Bypass with:  git push --no-verify
+set -e
+
+[ -f vendor/bin/phpstan ] || exit 0
+
+config=phpstan.dist.neon
+[ -f phpstan.neon ] && config=phpstan.neon
+
+echo '> PHPStan'
+php -d memory_limit=2G vendor/bin/phpstan analyse -c "$config" --no-progress
+
+echo '> deptrac'
+php vendor/bin/deptrac analyse --config-file=deptrac.yaml --no-progress

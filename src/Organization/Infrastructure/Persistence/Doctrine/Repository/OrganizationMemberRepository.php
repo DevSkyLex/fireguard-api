@@ -6,7 +6,6 @@ namespace Organization\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Exception;
 use InvalidArgumentException;
@@ -445,8 +444,8 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
    *
    * Returns member join counts grouped by day for a period, honoring the
    * UTC-storage timestamp-without-timezone convention used by `joined_at`.
-   * Mirrors `FacilityRepository::countByCreatedDayForOrganizationId`: a
-   * PostgreSQL fast path plus a portable QueryBuilder fallback.
+   * Buckets are computed by PostgreSQL rather than in PHP, so the whole period
+   * costs one grouped query instead of hydrating every row.
    *
    * @since 1.0.0
    *
@@ -460,31 +459,32 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   public function countJoinedByDay(OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, ?string $timeZone = null): array
   {
     $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $from);
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->countJoinedByDayPostgreSql($organizationId, $from, $to, $bucketTimeZone);
-    }
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((joined_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS member_count
+        FROM organization_members
+        WHERE organization_id = :organizationId
+          AND joined_at >= :joinedAtFrom
+          AND joined_at <= :joinedAtTo
+        GROUP BY 1
+        ORDER BY 1 ASC
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'joinedAtFrom' => $this->normalizeTimestampForStorageTimeZone($from, $storageTimeZone),
+      'joinedAtTo' => $this->normalizeTimestampForStorageTimeZone($to, $storageTimeZone),
+    ];
 
-    /** @var OrganizationRecord $organization */
-    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
-
-    /** @var list<array{joinedAt: DateTimeImmutable}> $rows */
-    $rows = $this->memberRepository
-      ->createQueryBuilder('organizationMember')
-      ->select('organizationMember.joinedAt AS joinedAt')
-      ->where('organizationMember.organization = :organization')
-      ->andWhere('organizationMember.joinedAt >= :joinedAtFrom')
-      ->andWhere('organizationMember.joinedAt <= :joinedAtTo')
-      ->setParameter('organization', $organization)
-      ->setParameter('joinedAtFrom', $this->normalizeTimestampToStorageDateTime($from), Types::DATETIME_IMMUTABLE)
-      ->setParameter('joinedAtTo', $this->normalizeTimestampToStorageDateTime($to), Types::DATETIME_IMMUTABLE)
-      ->orderBy('organizationMember.joinedAt', 'ASC')
-      ->getQuery()
-      ->getArrayResult();
+    /** @var list<array{bucket: string, member_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
 
     $counts = [];
     foreach ($rows as $row) {
-      $bucket = $this->reinterpretStorageDateTime($row['joinedAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
-      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+      $counts[(string) $row['bucket']] = (int) $row['member_count'];
     }
 
     return $counts;
@@ -649,42 +649,6 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     $this->cacheInvalidator?->invalidateCurrentMemberProfile($organizationId, $userId);
   }
 
-  /**
-   * @return array<string, int>
-   */
-  private function countJoinedByDayPostgreSql(OrganizationId $organizationId, DateTimeImmutable $from, DateTimeImmutable $to, DateTimeZone $bucketTimeZone): array
-  {
-    $storageTimeZone = $this->resolveStorageTimeZone();
-    $sql = <<<'SQL'
-        SELECT
-          TO_CHAR(((joined_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
-          COUNT(*) AS member_count
-        FROM organization_members
-        WHERE organization_id = :organizationId
-          AND joined_at >= :joinedAtFrom
-          AND joined_at <= :joinedAtTo
-        GROUP BY 1
-        ORDER BY 1 ASC
-      SQL;
-    $parameters = [
-      'storageTimeZone' => $storageTimeZone->getName(),
-      'bucketTimeZone' => $bucketTimeZone->getName(),
-      'organizationId' => (string) $organizationId,
-      'joinedAtFrom' => $this->normalizeTimestampForStorageTimeZone($from, $storageTimeZone),
-      'joinedAtTo' => $this->normalizeTimestampForStorageTimeZone($to, $storageTimeZone),
-    ];
-
-    /** @var list<array{bucket: string, member_count: int|string}> $rows */
-    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
-
-    $counts = [];
-    foreach ($rows as $row) {
-      $counts[(string) $row['bucket']] = (int) $row['member_count'];
-    }
-
-    return $counts;
-  }
-
   private function resolveBucketTimeZone(?string $timeZone, DateTimeImmutable $lowerBound): DateTimeZone
   {
     if (null !== $timeZone && '' !== $timeZone) {
@@ -701,20 +665,6 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
     } catch (Exception $exception) {
       throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
-  }
-
-  private function normalizeTimestampToStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
-  {
-    return $value->setTimezone($this->resolveStorageTimeZone());
-  }
-
-  private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
-  {
-    return DateTimeImmutable::createFromFormat(
-      'Y-m-d H:i:s.u',
-      $value->format('Y-m-d H:i:s.u'),
-      $this->resolveStorageTimeZone(),
-    ) ?: $value->setTimezone($this->resolveStorageTimeZone());
   }
 
   private function normalizeTimestampForStorageTimeZone(DateTimeImmutable $value, DateTimeZone $storageTimeZone): string

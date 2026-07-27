@@ -1,3 +1,25 @@
 {
-    "php.version": "8.4"
+    "php.version": "8.4",
+
+    // Format PHP on save with the project's own php-cs-fixer and ruleset, so
+    // files are already conformant by the time they are staged. The pre-commit
+    // hook then only has to catch what an editor without this config missed.
+    "[php]": {
+        "editor.defaultFormatter": "junstyle.php-cs-fixer",
+        "editor.formatOnSave": true
+    },
+    "php-cs-fixer.executablePath": "${workspaceFolder}/vendor/bin/php-cs-fixer",
+    "php-cs-fixer.executablePathWindows": "${workspaceFolder}/vendor/bin/php-cs-fixer.bat",
+    "php-cs-fixer.config": ".php-cs-fixer.dist.php",
+    // The ruleset calls setRiskyAllowed(true); without this the extension
+    // silently drops those rules and its output drifts from `make cs-fix`.
+    "php-cs-fixer.allowRisky": true,
+    "php-cs-fixer.formatHtml": false,
+    "php-cs-fixer.documentFormattingProvider": true,
+    // Left off deliberately: editor.formatOnSave above already triggers the
+    // fixer, and enabling both runs it twice per save.
+    "php-cs-fixer.onsave": false,
+
+    "files.insertFinalNewline": true,
+    "files.trimTrailingWhitespace": true
 }

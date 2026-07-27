@@ -1,6 +1,8 @@
 PHP ?= php
 PHP_MEMORY_LIMIT ?= 1G
 PHPUNIT_BIN ?= vendor/bin/phpunit
+PARATEST_BIN ?= vendor/bin/paratest
+PARALLEL_WORKERS ?= 8
 PHPSTAN_BIN ?= vendor/bin/phpstan
 PHPSTAN_CONFIG ?= $(if $(wildcard phpstan.neon),phpstan.neon,phpstan.dist.neon)
 PHpat_BIN ?= vendor/bin/phpat
@@ -21,13 +23,24 @@ ENV_PREFIX = APP_CACHE_DIR="$(APP_CACHE_DIR)" APP_LOG_DIR="$(APP_LOG_DIR)"
 XDEBUG_PREFIX = XDEBUG_MODE=coverage
 endif
 
-.PHONY: phpunit phpunit-fast phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
+.PHONY: phpunit phpunit-fast phpunit-parallel phpat phpstan deptrac lint cache-clear migrate-auth migrate-main migrate-all test-db test-db-clean seed-fixtures test cs-fix cs-lint coverage coverage-html mutation docker-up docker-down docker-build docker-shell docker-logs
 
 phpunit:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN) --testdox
 
 phpunit-fast:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPUNIT_BIN)
+
+# Run the suite across parallel workers.
+#
+# Each worker clones the databases `make test-db` migrated into its own
+# `*_w<token>` copy, so workers never share rows. That clone costs a couple of
+# seconds per worker up front, which only pays off over the whole suite — for a
+# single testsuite or a --filter run, plain `make phpunit-fast` is faster.
+#
+# Override the worker count with `make phpunit-parallel PARALLEL_WORKERS=16`.
+phpunit-parallel:
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PARATEST_BIN) -p $(PARALLEL_WORKERS) --no-coverage
 
 phpstan:
 	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(PHPSTAN_BIN) analyse -c $(PHPSTAN_CONFIG)
@@ -65,11 +78,32 @@ migrate-main:
 # Apply all database migrations
 migrate-all: migrate-auth migrate-main
 
+# Create and migrate the PostgreSQL test databases.
+#
+# The suite runs on PostgreSQL because production does, so the schema comes
+# from the real migrations rather than SchemaTool. Run once after `docker-up`,
+# then again whenever a new migration lands.
+test-db:
+	docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_auth_test'" | grep -q 1 || docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -c "CREATE DATABASE fireguard_auth_test;"
+	docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='fireguard_main_test'" | grep -q 1 || docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -c "CREATE DATABASE fireguard_main_test;"
+	$(ENV_PREFIX) $(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
+	$(ENV_PREFIX) $(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
+
+# Drop the per-worker database clones left by `make phpunit-parallel`.
+#
+# Clones are rebuilt on every parallel run, so they never accumulate beyond the
+# largest worker count used — but a one-off `-p 32` leaves 64 databases behind.
+# The LIKE pattern matches only the `_w<token>` clones, never the migrated
+# templates or the dev databases.
+test-db-clean:
+	docker exec fireguard-sso-api-auth_database-1 psql -U admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname LIKE 'fireguard\_auth\_test\_w%'" | docker exec -i fireguard-sso-api-auth_database-1 psql -U admin -d postgres
+	docker exec fireguard-sso-api-main_database-1 psql -U main_admin -d postgres -tAc "SELECT 'DROP DATABASE IF EXISTS \"' || datname || '\" WITH (FORCE);' FROM pg_database WHERE datname LIKE 'fireguard\_main\_test\_w%'" | docker exec -i fireguard-sso-api-main_database-1 psql -U main_admin -d postgres
+
 # Load repository seed fixtures into auth and main databases safely
 seed-fixtures:
 	$(ENV_PREFIX) $(PHP) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
-test: cs-lint phpstan deptrac lint phpunit-fast
+test: cs-lint phpstan deptrac lint phpunit-parallel
 
 # Run tests with code coverage (requires PCOV or Xdebug)
 coverage:

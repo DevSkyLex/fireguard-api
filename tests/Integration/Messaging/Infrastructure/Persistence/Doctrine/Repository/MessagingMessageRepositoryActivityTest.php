@@ -25,11 +25,8 @@ use function sprintf;
  * Executes the REAL `countByConversationDay()` DQL/SQL against the test
  * database (the conversation activity heatmap, B1) — a mocked QueryBuilder
  * would never catch a broken conversation scope or day-bucketing. The test
- * suite's connection is SQLite, so this exercises
- * `countByConversationDayPortable()` (mirrors every other `*Portable()`
- * fallback test in this suite); the Postgres branch is exercised the same
- * way the module's other platform-dispatch queries are — hand-verified, see
- * `MODULE.md`.
+ * connection is PostgreSQL, so the `TO_CHAR`/`GROUP BY` bucketing that ships
+ * is the one asserted here — there is no second implementation to diverge.
  *
  * @category Repository Tests
  *
