@@ -10,13 +10,15 @@ use Auth\Presentation\Api\Dto\Input\Registration\ConfirmRegistrationInput;
 use Auth\Presentation\Api\Dto\Output\Auth\LoginOutput;
 use Auth\Presentation\Api\Processor\Registration\ConfirmRegistrationProcessor;
 use Auth\Presentation\Api\Service\RefreshTokenCookieService;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnauthorizedHttpException};
 
 #[CoversClass(ConfirmRegistrationProcessor::class)]
 final class ConfirmRegistrationProcessorTest extends TestCase
@@ -103,6 +105,56 @@ final class ConfirmRegistrationProcessorTest extends TestCase
     $input->code = '000000';
 
     $this->expectException(UnauthorizedHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessRejectsUnexpectedInputType(): void
+  {
+    $processor = new ConfirmRegistrationProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      requestStack: new RequestStack(),
+      cookieService: new RefreshTokenCookieService(environment: 'test'),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid input data');
+
+    $processor->process(new stdClass(), new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestForUnknownErrorCode(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/auth/register/verify',
+      method: 'POST',
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    ));
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn(ConfirmRegistrationResult::failed(
+        message: 'Registration could not be completed.',
+        errorCode: 'unknown_failure',
+      ));
+
+    $processor = new ConfirmRegistrationProcessor(
+      commandBus: $commandBus,
+      requestStack: $requestStack,
+      cookieService: new RefreshTokenCookieService(environment: 'test'),
+    );
+
+    $input = new ConfirmRegistrationInput();
+    $input->token = 'challenge-123';
+    $input->code = '123456';
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Registration could not be completed.');
 
     $processor->process($input, new Post());
   }

@@ -227,7 +227,78 @@ final class EditInspectionHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeParsesTheProvidedResultAndPerformedAt(): void
+  {
+    $inspection = $this->makeDraftInspection();
+
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($inspection);
+    $repository->expects(self::once())->method('save');
+
+    $handler = $this->makeHandler($repository);
+
+    $handler->__invoke(new EditInspectionCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      result: InspectionResult::FAIL->value,
+      performedAt: '2026-02-01T09:30:00+00:00',
+      hasResult: true,
+      hasPerformedAt: true,
+    ));
+
+    self::assertSame(InspectionResult::FAIL, $inspection->result());
+    self::assertSame('2026-02-01', $inspection->performedAt()->format('Y-m-d'));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAnUnknownResultValue(): void
+  {
+    $repository = $this->createStub(InspectionRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($this->makeDraftInspection());
+
+    $handler = $this->makeHandler($repository);
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new EditInspectionCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      result: 'not-a-result',
+      hasResult: true,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAMalformedPerformedAt(): void
+  {
+    $repository = $this->createStub(InspectionRepositoryPort::class);
+    $repository->method('findPublishedById')->willReturn($this->makeDraftInspection());
+
+    $handler = $this->makeHandler($repository);
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new EditInspectionCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      performedAt: 'not-a-date',
+      hasPerformedAt: true,
+    ));
+  }
+
   // #region Helpers
+  private function makeHandler(InspectionRepositoryPort $repository): EditInspectionHandler
+  {
+    return new EditInspectionHandler(
+      inspectionRepository: $repository,
+      equipmentValidation: $this->createStub(EquipmentValidationPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      checklistValidation: $this->createStub(ChecklistValidationPort::class),
+    );
+  }
+
   private function makeDraftInspection(): Inspection
   {
     return Inspection::create(

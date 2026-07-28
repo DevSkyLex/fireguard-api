@@ -13,6 +13,7 @@ use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlr
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\SubmitInspectionProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -212,6 +213,84 @@ final class SubmitInspectionProcessorTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnAnInvalidArgument(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(new InvalidArgumentException('Malformed inspection identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadyClosedFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionAlreadyClosedException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed inspection identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadySubmittedFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionAlreadySubmittedException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrelatedMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: null,

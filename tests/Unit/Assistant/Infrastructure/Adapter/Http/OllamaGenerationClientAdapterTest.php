@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Assistant\Infrastructure\Adapter\Http;
 
 use Assistant\Infrastructure\Adapter\Http\OllamaGenerationClientAdapter;
+use Generator;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -97,6 +99,47 @@ final class OllamaGenerationClientAdapterTest extends TestCase
 
     self::assertFalse($outcome->isSuccessful());
     self::assertSame('ollama_timeout', $outcome->errorCode);
+  }
+
+  #[Test]
+  public function testStreamChatSkipsBlankAndNonJsonLines(): void
+  {
+    $httpClient = new MockHttpClient(new MockResponse([
+      "\n",
+      "   \n",
+      "not-json-at-all\n",
+      // Valid JSON, but a scalar rather than an object: still not an array.
+      "\"just-a-string\"\n",
+      json_encode(['message' => ['content' => 'Bonjour'], 'done' => true, 'eval_count' => 3]) . "\n",
+    ], ['http_code' => 200]));
+    $adapter = new OllamaGenerationClientAdapter($httpClient, 'http://localhost:11434');
+
+    $outcome = $adapter->streamChat('llama3', [], 0.7, 10, static function (): void {
+    });
+
+    self::assertTrue($outcome->isSuccessful());
+    self::assertSame('Bonjour', $outcome->body);
+    self::assertSame(3, $outcome->tokenCount);
+  }
+
+  #[Test]
+  public function testStreamChatReportsAStreamErrorWhenTheTransportBreaksMidStream(): void
+  {
+    $chunks = static function (): Generator {
+      yield json_encode(['message' => ['content' => 'Par'], 'done' => false]) . "\n";
+
+      throw new TransportException('Connection reset by peer.');
+    };
+
+    $httpClient = new MockHttpClient(new MockResponse($chunks(), ['http_code' => 200]));
+    $adapter = new OllamaGenerationClientAdapter($httpClient, 'http://localhost:11434');
+
+    $outcome = $adapter->streamChat('llama3', [], 0.7, 10, static function (): void {
+    });
+
+    self::assertFalse($outcome->isSuccessful());
+    self::assertSame('ollama_stream_error', $outcome->errorCode);
+    self::assertSame('Par', $outcome->body);
   }
 
   #[Test]

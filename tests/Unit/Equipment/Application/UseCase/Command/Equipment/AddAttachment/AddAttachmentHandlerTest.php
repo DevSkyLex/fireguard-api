@@ -9,6 +9,7 @@ use Equipment\Application\UseCase\Command\Equipment\AddAttachment\{AddAttachment
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -238,6 +239,96 @@ final class AddAttachmentHandlerTest extends TestCase
       contents: 'content',
       mimeType: 'application/pdf',
       size: 7,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnInvalidEquipmentId(): void
+  {
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: 'not-a-uuid',
+      fileName: 'report.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 7,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeUsesTheProvidedAttachmentId(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 7,
+      attachmentId: self::ATTACHMENT_ID,
+    ));
+
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnInvalidProvidedAttachmentId(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    $handler = new AddAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new AddAttachmentCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      fileName: 'report.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 7,
+      attachmentId: 'not-a-uuid',
     ));
   }
   // #endregion

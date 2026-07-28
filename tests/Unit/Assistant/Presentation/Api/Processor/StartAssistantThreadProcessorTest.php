@@ -7,6 +7,7 @@ namespace Tests\Unit\Assistant\Presentation\Api\Processor;
 use ApiPlatform\Metadata\Post;
 use Assistant\Application\Contract\Thread\AssistantThreadView;
 use Assistant\Application\UseCase\Command\Thread\StartAssistantThread\{StartAssistantThreadCommand, StartAssistantThreadResult};
+use Assistant\Domain\Exception\AssistantValidationException;
 use Assistant\Presentation\Api\Dto\Input\StartAssistantThreadInput;
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadOutput;
 use Assistant\Presentation\Api\Factory\AssistantThreadOutputFactory;
@@ -17,7 +18,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test StartAssistantThreadProcessorTest.
@@ -111,5 +112,26 @@ final class StartAssistantThreadProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(new StartAssistantThreadInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function testProcessMapsADomainFailureToAnHttpException(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      AssistantValidationException::modelNotAllowed('gpt-4'),
+    );
+
+    $processor = new StartAssistantThreadProcessor($commandBus, $security, new AssistantThreadOutputFactory());
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('The model "gpt-4" is not permitted by the configured allowlist.');
+
+    $processor->process(new StartAssistantThreadInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }
 }

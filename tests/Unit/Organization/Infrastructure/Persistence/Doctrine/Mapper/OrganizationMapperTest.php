@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Infrastructure\Persistence\Doctrine\Mapper;
 
 use DateTimeImmutable;
+use Organization\Domain\ValueObject\OrganizationStatus;
 use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -13,6 +14,30 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(OrganizationMapper::class)]
 final class OrganizationMapperTest extends TestCase
 {
+  #[Test]
+  public function testToDomainFallsBackToTheActivationFlagForLegacyRowsWithoutAStatus(): void
+  {
+    $record = new OrganizationRecord();
+    $record->id = '550e8400-e29b-41d4-a716-446655441704';
+    $record->name = 'Fireguard Legacy';
+    $record->slug = 'fireguard-legacy';
+    $record->ownerUserId = '550e8400-e29b-41d4-a716-446655441701';
+    $record->createdByUserId = '550e8400-e29b-41d4-a716-446655441701';
+    $record->status = '';
+    $record->isActive = false;
+    $record->settings = [];
+    $record->createdAt = new DateTimeImmutable('2026-02-12T08:00:00+00:00');
+    $record->updatedAt = new DateTimeImmutable('2026-02-12T09:00:00+00:00');
+
+    $organization = OrganizationMapper::toDomain($record);
+
+    self::assertFalse($organization->isActive());
+    self::assertSame(
+      OrganizationStatus::fromIsActive(false),
+      $organization->status(),
+    );
+  }
+
   #[Test]
   public function testToDomainMapsLegalProfileFields(): void
   {

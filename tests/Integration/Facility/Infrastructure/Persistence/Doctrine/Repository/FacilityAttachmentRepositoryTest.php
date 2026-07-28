@@ -142,6 +142,50 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
     self::assertNull($this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID)));
   }
 
+  #[Test]
+  public function testSaveUpdatesTheExistingRecordInPlace(): void
+  {
+    $this->repository->save(FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'draft.pdf',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/draft.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+    ));
+    $this->entityManager->clear();
+
+    $this->repository->save(FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'final.png',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/final.png',
+      mimeType: 'image/png',
+      size: 8192,
+      label: 'Final revision',
+    ));
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(FacilityAttachmentId::fromString(self::ATTACHMENT_ID));
+
+    self::assertNotNull($found);
+    self::assertSame('final.png', $found->fileName());
+    self::assertSame('facility/' . self::FACILITY_ID . '/attachments/final.png', $found->storagePath());
+    self::assertSame('image/png', $found->mimeType());
+    self::assertSame(8192, $found->size());
+    self::assertSame('Final revision', $found->label());
+    self::assertCount(1, $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID)));
+  }
+
+  #[Test]
+  public function testDeleteIsANoOpWhenTheAttachmentIsMissing(): void
+  {
+    $this->repository->delete(FacilityAttachmentId::fromString('660e8400-e29b-41d4-a716-4466554600ff'));
+
+    self::assertTrue($this->entityManager->isOpen());
+    self::assertSame([], $this->repository->findByFacilityId(FacilityId::fromString(self::FACILITY_ID)));
+  }
+
   private function cleanup(): void
   {
     $connection = $this->entityManager->getConnection();

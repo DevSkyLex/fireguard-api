@@ -18,6 +18,7 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   Inspector
 };
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -122,6 +123,24 @@ final class DeleteInspectionAttachmentHandlerTest extends TestCase
     $handler->__invoke(new DeleteInspectionAttachmentCommand(
       organizationId: self::ORG_ID,
       inspectionId: self::INSPECTION_ID,
+      attachmentId: self::ATTACHMENT_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedIdentifier(): void
+  {
+    $handler = new DeleteInspectionAttachmentHandler(
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DeleteInspectionAttachmentCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: 'not-a-uuid',
       attachmentId: self::ATTACHMENT_ID,
     ));
   }

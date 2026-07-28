@@ -10,6 +10,7 @@ use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{FileStoragePort, UuidGeneratorPort};
 
@@ -130,6 +131,35 @@ final class CreateImportJobHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
 
     $handler->__invoke($this->command('unknown'));
+  }
+
+  #[Test]
+  public function itDeletesTheStoredFileAndRethrowsWhenPersistenceFails(): void
+  {
+    $repository = $this->createStub(ImportJobRepositoryPort::class);
+    $repository->method('save')->willThrowException(new RuntimeException('deadlock'));
+
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write');
+    $fileStorage->expects(self::once())
+      ->method('delete')
+      ->with(self::stringContains(self::GENERATED_ID));
+
+    $queue = $this->createMock(ImportJobQueuePort::class);
+    $queue->expects(self::never())->method('dispatch');
+
+    $handler = new CreateImportJobHandler(
+      repository: $repository,
+      fileStorage: $fileStorage,
+      queue: $queue,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      uuidFactory: $this->uuidFactory(),
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('deadlock');
+
+    $handler->__invoke($this->command('equipment'));
   }
 
   private function command(string $kind): CreateImportJobCommand

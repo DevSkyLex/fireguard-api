@@ -11,10 +11,12 @@ use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\{GetNonC
 use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityNotFoundException};
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Provider\NonConformity\GetNonConformityProvider;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -121,6 +123,78 @@ final class GetNonConformityProviderTest extends TestCase
     $provider = $this->makeProvider(MessengerRuntimeException::wrap(InspectionNotFoundException::withId(self::INSP_ID)));
 
     $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenPermissionDenied(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $provider = new GetNonConformityProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $this->makeSecurity(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsBadRequestOnAnInvalidArgument(): void
+  {
+    $provider = $this->makeProvider(new InvalidArgumentException('Malformed identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideUnwrapsNonConformityNotFoundFromMessengerException(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(NonConformityNotFoundException::withId(self::NC_ID)));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed identifier.')));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAnUnrelatedMessengerException(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')));
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $provider->provide(
       operation: new Get(),

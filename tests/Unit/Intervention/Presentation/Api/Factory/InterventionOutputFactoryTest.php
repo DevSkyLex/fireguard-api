@@ -49,6 +49,18 @@ final class InterventionOutputFactoryTest extends TestCase
     self::assertSame([], $output->labels);
   }
 
+  #[Test]
+  public function itOffersNoTransitionsWhenTheStoredStatusIsNotAKnownWorkflowStatus(): void
+  {
+    $data = $this->baseData([]);
+    $data['status'] = 'archived_by_hand';
+
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+      ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
+
+    self::assertSame([], $output->allowedTransitions);
+  }
+
   /**
    * @param list<array{id: string, name: string, color: string}> $labels
    *

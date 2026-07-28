@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend;
 
+use DateInterval;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\{EquipmentStatisticsPort, FacilityStatisticsPort, InspectionStatisticsPort, NonConformityStatisticsPort, OrganizationRepositoryPort};
@@ -14,8 +15,12 @@ use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Port\Outbound\CachePort;
 
+use function array_keys;
 use function count;
+use function hash;
 use function in_array;
 
 #[CoversClass(GetOrganizationDashboardTrendHandler::class)]
@@ -662,6 +667,313 @@ final class GetOrganizationDashboardTrendHandlerTest extends TestCase
       metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
       additionalMetrics: [GetOrganizationDashboardTrendHandler::METRIC_EQUIPMENT_CREATED],
     ));
+  }
+
+  #[Test]
+  public function testInvokeAppliesSeverityAndStatusFiltersToOpenedNonConformityTrend(): void
+  {
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($this->createOrganization());
+
+    $capturedArguments = [];
+
+    $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
+    $nonConformityStatistics->expects(self::once())
+      ->method('countNonConformitiesCreatedByDay')
+      ->willReturnCallback(static function (
+        string $organizationId,
+        string $from,
+        string $to,
+        ?string $timeZone = null,
+        ?string $severity = null,
+        ?string $status = null,
+      ) use (&$capturedArguments): array {
+        $capturedArguments = [$organizationId, $from, $to, $timeZone, $severity, $status];
+
+        return ['2026-03-01' => 4];
+      });
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesResolvedByDay');
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createMetricAuthorizationMock(),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $nonConformityStatistics,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_OPENED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+      nonConformityStatus: 'open',
+      nonConformitySeverity: 'critical',
+    ));
+
+    self::assertSame(4, $result->summary['total']);
+    self::assertSame(
+      [self::ORG_ID, '2026-03-01T00:00:00+00:00', '2026-03-02T23:59:59+00:00', 'UTC', 'critical', 'open'],
+      $capturedArguments,
+    );
+  }
+
+  #[Test]
+  public function testInvokeAppliesSeverityAndStatusFiltersToResolvedNonConformityTrend(): void
+  {
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($this->createOrganization());
+
+    $capturedArguments = [];
+
+    $nonConformityStatistics = $this->createMock(NonConformityStatisticsPort::class);
+    $nonConformityStatistics->expects(self::never())->method('countNonConformitiesCreatedByDay');
+    $nonConformityStatistics->expects(self::once())
+      ->method('countNonConformitiesResolvedByDay')
+      ->willReturnCallback(static function (
+        string $organizationId,
+        string $from,
+        string $to,
+        ?string $timeZone = null,
+        ?string $severity = null,
+        ?string $status = null,
+      ) use (&$capturedArguments): array {
+        $capturedArguments = [$organizationId, $from, $to, $timeZone, $severity, $status];
+
+        return ['2026-03-01' => 3];
+      });
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createMetricAuthorizationMock(),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $nonConformityStatistics,
+    );
+
+    $trend = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_NON_CONFORMITIES_RESOLVED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+      nonConformityStatus: 'resolved',
+      nonConformitySeverity: 'major',
+    ));
+
+    self::assertSame(3, $trend->summary['total']);
+    self::assertSame(
+      [self::ORG_ID, '2026-03-01T00:00:00+00:00', '2026-03-02T23:59:59+00:00', 'UTC', 'major', 'resolved'],
+      $capturedArguments,
+    );
+  }
+
+  #[Test]
+  public function testInvokeServesTheCachedTrendOnASubsequentIdenticalQuery(): void
+  {
+    $cache = new class () implements CachePort {
+      /**
+       * @var array<string, mixed>
+       */
+      public array $store = [];
+
+      public function get(string $key, mixed $default = null): mixed
+      {
+        return $this->store[$key] ?? $default;
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        $this->store[$key] = $value;
+      }
+
+      public function delete(string $key): void
+      {
+        unset($this->store[$key]);
+      }
+
+      public function clear(): void
+      {
+        $this->store = [];
+      }
+    };
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::exactly(2))->method('findById')->willReturn($this->createOrganization());
+
+    $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->expects(self::once())
+      ->method('countInspectionsPerformedByDay')
+      ->willReturn(['2026-03-01' => 5]);
+
+    $warmHandler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createMetricAuthorizationMock(),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $inspectionStatistics,
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+      cache: $cache,
+    );
+    $cachedHandler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createMetricAuthorizationMock(),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $this->createInspectionStatisticsMock(),
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+      cache: $cache,
+    );
+
+    $query = new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+    );
+
+    $fresh = $warmHandler->__invoke($query);
+    $cached = $cachedHandler->__invoke($query);
+
+    self::assertCount(1, $cache->store);
+    self::assertSame($fresh, $cached);
+  }
+
+  #[Test]
+  public function testInvokeRecomputesWhenCacheReadThrowsAndSurvivesCacheWriteFailure(): void
+  {
+    $cache = new class () implements CachePort {
+      public function get(string $key, mixed $default = null): mixed
+      {
+        throw new RuntimeException('Cache backend unreachable.');
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        throw new RuntimeException('Cache backend unreachable.');
+      }
+
+      public function delete(string $key): void
+      {
+      }
+
+      public function clear(): void
+      {
+      }
+    };
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($this->createOrganization());
+
+    $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->expects(self::once())
+      ->method('countInspectionsPerformedByDay')
+      ->willReturn(['2026-03-01' => 7]);
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createMetricAuthorizationMock(),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $inspectionStatistics,
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+    ));
+
+    self::assertSame(7, $result->summary['total']);
+  }
+
+  #[Test]
+  public function testInvokeFallsBackToAPlainCacheKeyWhenTheQueryIsNotJsonEncodable(): void
+  {
+    $cache = new class () implements CachePort {
+      /**
+       * @var array<string, mixed>
+       */
+      public array $store = [];
+
+      public function get(string $key, mixed $default = null): mixed
+      {
+        return $this->store[$key] ?? $default;
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        $this->store[$key] = $value;
+      }
+
+      public function delete(string $key): void
+      {
+        unset($this->store[$key]);
+      }
+
+      public function clear(): void
+      {
+        $this->store = [];
+      }
+    };
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($this->createOrganization());
+
+    $inspectionStatistics = $this->createMock(InspectionStatisticsPort::class);
+    $inspectionStatistics->expects(self::once())
+      ->method('countInspectionsPerformedByDay')
+      ->willReturn(['2026-03-01' => 3]);
+
+    $handler = new GetOrganizationDashboardTrendHandler(
+      authorization: $this->createMetricAuthorizationMock(),
+      organizationRepository: $organizationRepository,
+      equipmentStatistics: $this->createEquipmentStatisticsMock(),
+      facilityStatistics: $this->createFacilityStatisticsMock(),
+      inspectionStatistics: $inspectionStatistics,
+      nonConformityStatistics: $this->createNonConformityStatisticsMock(),
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardTrendQuery(
+      organizationId: self::ORG_ID,
+      userId: self::USER_ID,
+      metric: GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED,
+      periodFrom: '2026-03-01T00:00:00+00:00',
+      periodTo: '2026-03-02T23:59:59+00:00',
+      compareWithPreviousPeriod: false,
+      granularity: 'day',
+      timeZone: 'UTC',
+      // Invalid UTF-8 makes json_encode() throw, forcing the degraded cache key.
+      facilityType: "\xB1\x31",
+    ));
+
+    self::assertSame(3, $result->summary['total']);
+    self::assertCount(1, $cache->store);
+    self::assertSame(
+      ['organization.dashboard_trend.' . hash('sha256', self::ORG_ID . '|' . GetOrganizationDashboardTrendHandler::METRIC_INSPECTIONS_PERFORMED)],
+      array_keys($cache->store),
+    );
   }
 
   private function createOrganization(): Organization

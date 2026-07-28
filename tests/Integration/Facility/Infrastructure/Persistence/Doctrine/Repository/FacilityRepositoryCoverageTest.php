@@ -19,6 +19,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -493,6 +494,68 @@ final class FacilityRepositoryCoverageTest extends KernelTestCase
       includeArchived: true,
       search: 'no-such-facility',
     ));
+  }
+
+  #[Test]
+  public function testCountByCreatedDayFallsBackToTheLowerBoundOffsetWhenNoTimeZoneIsGiven(): void
+  {
+    $organizationId = FacilityOrganizationId::fromString(self::ORGANIZATION_ID);
+
+    // No explicit bucket time zone: the lower bound's own offset is used, so
+    // the +02:00 bound pushes the 12:00 UTC rows into the local calendar day.
+    $byDay = $this->repository->countByCreatedDayForOrganizationId(
+      $organizationId,
+      '2026-03-01T00:00:00+02:00',
+      '2026-03-31T23:59:59+02:00',
+    );
+
+    self::assertSame(1, $byDay['2026-03-10'] ?? null);
+    self::assertSame(1, $byDay['2026-03-15'] ?? null);
+    self::assertSame(1, $byDay['2026-03-20'] ?? null);
+  }
+
+  #[Test]
+  public function testCountByCreatedDayRejectsAnUnusableStorageTimeZone(): void
+  {
+    $repository = new FacilityRepository($this->entityManager, 'Nowhere/Nothing');
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
+
+    $repository->countByCreatedDayForOrganizationId(
+      FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
+      '2026-03-01T00:00:00+00:00',
+      '2026-03-31T23:59:59+00:00',
+      'UTC',
+    );
+  }
+
+  #[Test]
+  public function testCountChildrenByParentIdsShortCircuitsOnEmptyInputAndCountsPerParent(): void
+  {
+    $organizationId = FacilityOrganizationId::fromString(self::ORGANIZATION_ID);
+
+    self::assertSame([], $this->repository->countChildrenByParentIds($organizationId, []));
+
+    $alphaId = FacilityId::fromString(self::ALPHA_ID);
+
+    // Active-only by default: Gamma is archived, so only Beta counts.
+    self::assertSame(
+      [self::ALPHA_ID => 1],
+      $this->repository->countChildrenByParentIds($organizationId, [$alphaId]),
+    );
+
+    // Including archived children brings Gamma back in.
+    self::assertSame(
+      [self::ALPHA_ID => 2],
+      $this->repository->countChildrenByParentIds($organizationId, [$alphaId], true),
+    );
+
+    // A parent with no children at all is simply absent from the map.
+    self::assertSame(
+      [],
+      $this->repository->countChildrenByParentIds($organizationId, [FacilityId::fromString(self::BETA_ID)]),
+    );
   }
 
   /**

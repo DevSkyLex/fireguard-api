@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Team\GetTeam\GetTeamResult;
 use Organization\Application\UseCase\Query\Team\ListTeams\{ListTeamsQuery, ListTeamsResult};
+use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
 use Organization\Presentation\Api\Provider\Team\ListTeamsProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -17,7 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 
 #[CoversClass(ListTeamsProvider::class)]
 final class ListTeamsProviderTest extends TestCase
@@ -25,6 +26,46 @@ final class ListTeamsProviderTest extends TestCase
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655441800';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441810';
+
+  #[Test]
+  public function testProvideThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new ListTeamsProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideMapsAMissingOrganizationToNotFound(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->securityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(OrganizationNotFoundException::withId(self::ORGANIZATION_ID));
+
+    $provider = new ListTeamsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
 
   #[Test]
   public function testProvideReturnsEmptyArrayWhenOrganizationIdMissing(): void

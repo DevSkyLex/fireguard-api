@@ -177,6 +177,43 @@ final class RecomputeMaintenanceSchedulesHandlerTest extends TestCase
     $handler->__invoke(new RecomputeMaintenanceSchedulesCommand());
   }
 
+  #[Test]
+  public function testInvokeSkipsBootstrappingEquipmentThatAlreadyHasASchedule(): void
+  {
+    $equipment = new TrackableEquipment('equip-1', self::ORG_ID, 'facility-1', 'fire_extinguisher', 'operational');
+
+    $directory = $this->createMock(MaintenanceEquipmentDirectoryPort::class);
+    $directory->expects(self::once())
+      ->method('listEquipmentPage')
+      ->willReturn([$equipment]);
+
+    $schedules = $this->createMock(MaintenanceScheduleRepositoryPort::class);
+    $schedules->expects(self::once())
+      ->method('findByOrganizationAndEquipment')
+      ->with(self::ORG_ID, 'equip-1')
+      ->willReturn($this->makeSchedule('equip-1', null, 'overdue', null));
+    $schedules->expects(self::never())->method('save');
+    $schedules->expects(self::never())->method('removeByOrganizationAndEquipment');
+    $schedules->method('pageForSweep')->willReturn(new MaintenanceSchedulePage([], 0, 200, 0));
+
+    $compliancePolicy = $this->createMock(MaintenanceCompliancePolicyPort::class);
+    $compliancePolicy->expects(self::never())->method('compliancePolicy');
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    $handler = new RecomputeMaintenanceSchedulesHandler(
+      $schedules,
+      $directory,
+      $compliancePolicy,
+      new MaintenanceScheduleRecomputePolicy(),
+      $this->notifier($notifications),
+      $this->clock(),
+    );
+
+    self::assertInstanceOf(VoidResult::class, $handler->__invoke(new RecomputeMaintenanceSchedulesCommand()));
+  }
+
   private function makeSchedule(string $equipmentId, ?DateTimeImmutable $nextDueAt, string $dueStatus, ?DateTimeImmutable $remindedFor): MaintenanceScheduleView
   {
     return new MaintenanceScheduleView(

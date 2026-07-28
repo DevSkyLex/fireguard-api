@@ -436,6 +436,59 @@ final class CreateInspectionHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeHonoursAClientSuppliedResourceId(): void
+  {
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = $this->handler(
+      $this->createStub(InspectionRepositoryPort::class),
+      $this->createStub(EquipmentValidationPort::class),
+      $this->createStub(FacilityValidationPort::class),
+      $this->createStub(ChecklistValidationPort::class),
+      $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: '2026-01-15T10:00:00+00:00',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+      resourceId: self::INSP_ID,
+    ));
+
+    self::assertSame(self::INSP_ID, $result->inspectionId);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedPerformedAt(): void
+  {
+    $handler = $this->handler(
+      $this->createStub(InspectionRepositoryPort::class),
+      $this->createStub(EquipmentValidationPort::class),
+      $this->createStub(FacilityValidationPort::class),
+      $this->createStub(ChecklistValidationPort::class),
+      $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CreateInspectionCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      result: 'pass',
+      performedAt: 'not-a-date',
+      inspectorType: 'user',
+      inspectorName: 'John Doe',
+      inspectorUserId: 'user-abc',
+    ));
+  }
+
   /**
    * Builds the handler with a pass-through transaction manager (invokes the
    * operation inline) and a permissive quota port unless one is supplied.

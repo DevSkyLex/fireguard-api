@@ -10,6 +10,7 @@ use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
 use Authorization\Infrastructure\Persistence\Doctrine\Record\{RoleAssignmentRecord, RoleRecord};
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
+use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -63,8 +64,11 @@ final class UserFixturesIntegrationTest extends KernelTestCase
     $loader->addFixture(new AuthorizationFixtures());
     $loader->addFixture($fixtures);
 
-    $executor = new ORMExecutor($this->entityManager);
-    $executor->execute($loader->getFixtures(), true);
+    $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
+    // Purge before loading: the test databases carry the seeded baseline, so
+    // appending on top of it collides on primary keys and makes the counts
+    // below meaningless. DAMA rolls the purge back with the rest of the test.
+    $executor->execute($loader->getFixtures(), false);
 
     self::assertSame(6, $this->entityManager->getRepository(UserRecord::class)->count([]));
 

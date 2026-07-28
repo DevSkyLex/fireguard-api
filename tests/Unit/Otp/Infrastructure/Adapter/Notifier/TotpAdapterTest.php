@@ -10,7 +10,11 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
+use function in_array;
+use function str_pad;
 use function time;
+
+use const STR_PAD_LEFT;
 
 /**
  * Test TotpAdapterTest.
@@ -70,6 +74,48 @@ final class TotpAdapterTest extends TestCase
     self::assertIsString($code);
 
     self::assertTrue($adapter->verify($code, $secret));
+  }
+
+  #[Test]
+  public function testVerifyRejectsAWellFormedButWrongCode(): void
+  {
+    $adapter = new TotpAdapter();
+    $secret = new TotpSecret('JBSWY3DPEHPK3PXP');
+
+    $timestamp = time();
+    $secretBytes = $this->invokePrivate($adapter, 'base32Decode', [$secret->secret]);
+    self::assertIsString($secretBytes);
+
+    $accepted = [];
+    for ($offset = -2; $offset <= 2; ++$offset) {
+      $accepted[] = $this->invokePrivate($adapter, 'generateCode', [$secretBytes, $timestamp + ($offset * 30)]);
+    }
+
+    $wrongCode = null;
+    for ($candidate = 0; $candidate < 10; ++$candidate) {
+      $formatted = str_pad((string) $candidate, 6, '0', STR_PAD_LEFT);
+      if (!in_array($formatted, $accepted, true)) {
+        $wrongCode = $formatted;
+
+        break;
+      }
+    }
+
+    self::assertIsString($wrongCode);
+    self::assertFalse($adapter->verify($wrongCode, $secret));
+  }
+
+  #[Test]
+  public function testBase32DecodeSkipsCharactersOutsideTheAlphabet(): void
+  {
+    $adapter = new TotpAdapter();
+
+    $clean = $this->invokePrivate($adapter, 'base32Decode', ['JBSWY3DPEHPK3PXP']);
+    $noisy = $this->invokePrivate($adapter, 'base32Decode', ['JBSWY3DP1EHPK3PXP0===']);
+
+    self::assertIsString($clean);
+    self::assertIsString($noisy);
+    self::assertSame($clean, $noisy);
   }
 
   /**

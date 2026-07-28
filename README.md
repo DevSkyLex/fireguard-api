@@ -448,6 +448,13 @@ which only pays off across the whole suite — for a single testsuite or a
 `--filter` run, plain `make phpunit-fast` is faster. Override the worker count
 with `make phpunit-parallel PARALLEL_WORKERS=16`.
 
+> [!WARNING]
+> Do not run two parallel suites at once. Worker tokens start at 1 in every
+> run, so both would claim the same `*_w1`, `*_w2`… databases and drop each
+> other's mid-test. The symptom is a flood of unrelated errors that vanish when
+> either run is repeated alone. CI is unaffected: each job gets its own
+> PostgreSQL service.
+
 Run with code coverage:
 ```bash
 make coverage-html
@@ -464,11 +471,22 @@ make mutation
 > Use `.env.test` for test overrides. The suite runs on PostgreSQL, like production —
 > the repositories issue PostgreSQL-specific SQL (`TO_CHAR` day bucketing,
 > `json_array_elements_text`, `SELECT … FOR UPDATE`) with no portable fallback.
-> Create the two test databases once, then re-run whenever a new migration lands:
+> Create, migrate and seed the two test databases once, then re-run whenever a
+> new migration or seed fixture lands:
 >
 > ```bash
 > make docker-up && make test-db
 > ```
+>
+> **No test may assume it owns the database.** The fixture baseline is seeded
+> once, here — not reloaded inside every E2E test (~5s each) for DAMA to roll
+> straight back. A test needing other data creates it; a test needing a table
+> empty purges it; the rollback undoes either. Assert on deltas and membership,
+> never on absolute row counts.
+>
+> That is what makes the suite affordable: the whole of it, E2E included, runs
+> in **1m15 in parallel**, against roughly fifteen minutes for the E2E suite
+> alone before.
 
 ## Code Quality
 

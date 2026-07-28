@@ -17,7 +17,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
-use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyRequestsHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, TooManyRequestsHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
@@ -192,6 +192,90 @@ final class VerifyOtpProcessorTest extends TestCase
     $this->expectException(TooManyRequestsHttpException::class);
 
     $processor->process($input, new Post(), ['token' => 'token-9']);
+  }
+
+  #[Test]
+  public function testProcessRejectsACodeOfTheWrongShape(): void
+  {
+    $input = new VerifyOtpInput();
+    $input->code = '12ab';
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new VerifyOtpProcessor($commandBus);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid code format.');
+
+    $processor->process($input, new Post(), ['id' => 'otp-4']);
+  }
+
+  #[Test]
+  public function testProcessRethrowsAHandlerFailedExceptionThatCarriesNoOtpNotFound(): void
+  {
+    $input = new VerifyOtpInput();
+    $input->code = '123456';
+
+    $exception = new HandlerFailedException(
+      new Envelope(new stdClass()),
+      [new RuntimeException('persistence is down')],
+    );
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException($exception);
+
+    $processor = new VerifyOtpProcessor($commandBus);
+
+    $this->expectException(HandlerFailedException::class);
+
+    $processor->process($input, new Post(), ['id' => 'otp-5']);
+  }
+
+  #[Test]
+  public function testProcessWalksTheMessengerPreviousChainForTheOtpNotFound(): void
+  {
+    $input = new VerifyOtpInput();
+    $input->code = '123456';
+
+    // No HandlerFailedException in between: the OtpNotFoundException sits
+    // directly on the messenger exception's `previous` chain.
+    $exception = MessengerRuntimeException::wrap(OtpNotFoundException::forIdentifier('otp-6'));
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException($exception);
+
+    $processor = new VerifyOtpProcessor($commandBus);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($input, new Post(), ['id' => 'otp-6']);
+  }
+
+  #[Test]
+  public function testProcessProceedsWhenTheRateLimiterAcceptsTheAttempt(): void
+  {
+    $input = new VerifyOtpInput();
+    $input->code = '123456';
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willReturn(new VerifyOtpResult(true, 0, null));
+
+    $processor = new VerifyOtpProcessor(
+      commandBus: $commandBus,
+      rateLimiter: $this->createRateLimiterFactory(),
+    );
+
+    $output = $processor->process($input, new Post(), ['token' => 'token-accepted']);
+
+    self::assertInstanceOf(VerifyOtpOutput::class, $output);
+    self::assertTrue($output->success);
   }
 
   private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory

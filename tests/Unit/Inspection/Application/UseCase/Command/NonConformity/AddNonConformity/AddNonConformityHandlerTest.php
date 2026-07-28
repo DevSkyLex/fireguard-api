@@ -25,6 +25,7 @@ use Inspection\Domain\ValueObject\{
   Inspector,
   NonConformityId
 };
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -170,7 +171,88 @@ final class AddNonConformityHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAMalformedInspectionId(): void
+  {
+    $handler = new AddNonConformityHandler(
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new AddNonConformityCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: 'not-a-uuid',
+      description: 'Some issue',
+      severity: 'low',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAnUnknownSeverity(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+
+    $this->makeDraftHandler()->__invoke(new AddNonConformityCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      description: 'Some issue',
+      severity: 'not-a-severity',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAMalformedDueAt(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+
+    $this->makeDraftHandler()->__invoke(new AddNonConformityCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      description: 'Some issue',
+      severity: 'low',
+      dueAt: 'not-a-date',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRethrowsTheAggregatesOwnInvalidArgumentException(): void
+  {
+    $handler = $this->makeDraftHandler(NonConformityId::fromString(self::NC_ID));
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Non-conformity description must not be empty.');
+
+    $handler->__invoke(new AddNonConformityCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSP_ID,
+      description: '   ',
+      severity: 'low',
+    ));
+  }
+
   // #region Helpers
+  private function makeDraftHandler(?NonConformityId $nonConformityId = null): AddNonConformityHandler
+  {
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
+    $inspectionRepository->method('findById')->willReturn($this->makeDraftInspection());
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    if ($nonConformityId instanceof NonConformityId) {
+      $uuidFactory->method('create')->willReturn($nonConformityId);
+    }
+
+    return new AddNonConformityHandler(
+      inspectionRepository: $inspectionRepository,
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      uuidFactory: $uuidFactory,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+  }
+
   private function makeDraftInspection(): Inspection
   {
     return Inspection::create(

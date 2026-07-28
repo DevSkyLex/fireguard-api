@@ -7,6 +7,7 @@ namespace Tests\Unit\Messaging\Presentation\Api\Provider\Attachment;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use DateTimeImmutable;
 use Messaging\Application\Contract\Attachment\MessagingAttachmentPage;
 use Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\{
   ListConversationAttachmentsQuery,
@@ -15,6 +16,7 @@ use Messaging\Application\UseCase\Query\Attachment\ListConversationAttachments\{
 use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Attachment\MessagingAttachment;
 use Messaging\Domain\ValueObject\MessagingAttachmentId;
+use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingMessageRecord};
 use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
 use Messaging\Presentation\Api\Factory\MessageAttachmentOutputFactory;
 use Messaging\Presentation\Api\Provider\Attachment\MessagingMediaProvider;
@@ -46,6 +48,8 @@ final class MessagingMediaProviderTest extends TestCase
   private const string CONVERSATION_ID = '550e8400-e29b-41d4-a716-446655441400';
 
   private const string ATTACHMENT_ID = '66666666-6666-4666-8666-666666666666';
+
+  private const string MESSAGE_ID = '77777777-7777-4777-8777-777777777777';
 
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655441300';
   // #endregion
@@ -132,6 +136,59 @@ final class MessagingMediaProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $this->createProvider($queryBus)->provide(new GetCollection(), ['conversationId' => self::CONVERSATION_ID]);
+  }
+
+  #[Test]
+  public function testOutputBuildsTheAttachmentDtoFromTheRecord(): void
+  {
+    $record = $this->record();
+
+    $output = MessagingMediaProvider::output($record);
+
+    self::assertSame(self::ATTACHMENT_ID, $output->id);
+    self::assertSame('/api/messages/' . self::MESSAGE_ID, $output->message);
+    self::assertSame('/api/conversations/' . self::CONVERSATION_ID, $output->conversation);
+    self::assertSame('/api/organizations/org-1/members/member-1', $output->uploadedByMember);
+    self::assertSame('/api/messaging-attachments/' . self::ATTACHMENT_ID . '/content', $output->contentUrl);
+    self::assertSame('file.pdf', $output->fileName);
+    self::assertSame('application/pdf', $output->mimeType);
+    self::assertSame(100, $output->size);
+    self::assertSame('Plan', $output->label);
+    self::assertSame(3, $output->revision);
+    self::assertSame('2026-01-01T08:30:00+00:00', $output->uploadedAt);
+  }
+
+  #[Test]
+  public function testOutputThrowsWhenTheAttachmentHasNoMessage(): void
+  {
+    $record = $this->record();
+    $record->message = null;
+
+    $this->expectException(NotFoundHttpException::class);
+
+    MessagingMediaProvider::output($record);
+  }
+
+  private function record(): MessagingAttachmentRecord
+  {
+    $message = new MessagingMessageRecord();
+    $message->id = self::MESSAGE_ID;
+
+    $record = new MessagingAttachmentRecord();
+    $record->id = self::ATTACHMENT_ID;
+    $record->message = $message;
+    $record->conversationId = self::CONVERSATION_ID;
+    $record->organizationId = 'org-1';
+    $record->uploadedByMemberId = 'member-1';
+    $record->fileName = 'file.pdf';
+    $record->storagePath = 'org-1/conv-1/file.pdf';
+    $record->mimeType = 'application/pdf';
+    $record->size = 100;
+    $record->label = 'Plan';
+    $record->revision = 3;
+    $record->uploadedAt = new DateTimeImmutable('2026-01-01T08:30:00+00:00');
+
+    return $record;
   }
 
   /**

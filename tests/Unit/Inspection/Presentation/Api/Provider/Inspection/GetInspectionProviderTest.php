@@ -12,6 +12,7 @@ use Inspection\Domain\Exception\InspectionNotFoundException;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Provider\Inspection\GetInspectionProvider;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -187,6 +188,51 @@ final class GetInspectionProviderTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsBadRequestOnAnInvalidArgument(): void
+  {
+    $provider = $this->makeAuthorizedProvider(
+      queryException: new InvalidArgumentException('Malformed inspection identifier.'),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $provider = $this->makeAuthorizedProvider(
+      queryException: MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed inspection identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAnUnrelatedMessengerException(): void
+  {
+    $provider = $this->makeAuthorizedProvider(
+      queryException: MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $provider->provide(
       operation: new Get(),

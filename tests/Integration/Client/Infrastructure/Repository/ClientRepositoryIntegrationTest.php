@@ -15,6 +15,9 @@ use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function array_intersect;
+use function array_map;
+use function intdiv;
 use function password_hash;
 use function sprintf;
 
@@ -143,21 +146,36 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
       $this->repository->save($client);
     }
 
-    // Test pagination
-    $firstPage = $this->repository->findAll(0, 2);
-    self::assertCount(2, $firstPage);
+    // Asserted against the total rather than a fixed 5: the test databases
+    // carry a seeded baseline this test does not own.
+    $total = $this->repository->count();
 
+    $firstPage = $this->repository->findAll(0, 2);
     $secondPage = $this->repository->findAll(2, 2);
+
+    self::assertCount(2, $firstPage);
     self::assertCount(2, $secondPage);
 
-    $thirdPage = $this->repository->findAll(4, 2);
-    self::assertCount(1, $thirdPage);
+    // The clients above are all created within the same second, so this only
+    // holds because findAll() breaks ties on `id`. Without that tiebreaker the
+    // rows sort arbitrarily and LIMIT/OFFSET repeats some across pages.
+    $idOf = static fn (Client $client): string => $client->id()->value;
+    self::assertSame(
+      [],
+      array_intersect(array_map($idOf, $firstPage), array_map($idOf, $secondPage)),
+      'Consecutive pages must not return the same client twice.',
+    );
+
+    $lastOffset = intdiv($total - 1, 2) * 2;
+    self::assertCount($total - $lastOffset, $this->repository->findAll($lastOffset, 2));
+    self::assertCount(0, $this->repository->findAll($total, 2));
   }
 
   #[Test]
   public function testCount(): void
   {
-    self::assertSame(0, $this->repository->count());
+    // A delta, not an absolute: the seeded baseline already holds clients.
+    $before = $this->repository->count();
 
     for ($i = 1; $i <= 3; ++$i) {
       $client = $this->createTestClient(
@@ -167,7 +185,7 @@ final class ClientRepositoryIntegrationTest extends KernelTestCase
       $this->repository->save($client);
     }
 
-    self::assertSame(3, $this->repository->count());
+    self::assertSame($before + 3, $this->repository->count());
   }
 
   #[Test]

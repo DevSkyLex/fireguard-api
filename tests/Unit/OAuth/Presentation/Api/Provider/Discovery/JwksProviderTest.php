@@ -126,6 +126,22 @@ final class JwksProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideReturnsEmptyKeysWhenKeyDetailsCannotBeRead(): void
+  {
+    // openssl_pkey_get_details() returns false for a key it cannot inspect;
+    // the provider must yield an empty key set rather than dereference it.
+    $path = getcwd() . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'jwt' . DIRECTORY_SEPARATOR . 'public.key';
+    $provider = new JwksProvider(
+      publicKeyPath: $path,
+      keyDetailsResolver: static fn ($keyData): false => false,
+    );
+
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
+
+    self::assertSame([], $output->keys);
+  }
+
+  #[Test]
   public function testProvideReturnsKeysForValidPublicKey(): void
   {
     $path = getcwd() . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'jwt' . DIRECTORY_SEPARATOR . 'public.key';

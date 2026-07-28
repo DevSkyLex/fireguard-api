@@ -11,6 +11,7 @@ use DateTimeImmutable;
 use Intervention\Application\Contract\Recurrence\{InterventionRecurrencePage, InterventionRecurrenceView};
 use Intervention\Application\UseCase\Query\Recurrence\GetInterventionRecurrence\{GetInterventionRecurrenceQuery, GetInterventionRecurrenceResult};
 use Intervention\Application\UseCase\Query\Recurrence\ListInterventionRecurrences\{ListInterventionRecurrencesQuery, ListInterventionRecurrencesResult};
+use Intervention\Domain\Exception\InterventionAccessDeniedException;
 use Intervention\Presentation\Api\Dto\Output\InterventionRecurrenceOutput;
 use Intervention\Presentation\Api\Factory\InterventionRecurrenceOutputFactory;
 use Intervention\Presentation\Api\Provider\InterventionRecurrenceProvider;
@@ -20,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 /**
  * Test InterventionRecurrenceProviderTest.
@@ -96,6 +97,85 @@ final class InterventionRecurrenceProviderTest extends TestCase
     $result = $provider->provide(new GetCollection(), []);
 
     self::assertInstanceOf(TraversablePaginator::class, $result);
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnauthenticatedUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new InterventionRecurrenceProvider(
+      $this->createStub(QueryBusPort::class),
+      new InterventionRecurrenceOutputFactory(),
+      $security,
+      new RequestStack(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new Get(), ['id' => self::RECURRENCE_ID]);
+  }
+
+  #[Test]
+  public function testProvideMapsAWorkflowExceptionOnTheItemRoute(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      new InterventionAccessDeniedException('Missing organization.interventions.plan permission.'),
+    );
+
+    $provider = new InterventionRecurrenceProvider(
+      $queryBus,
+      new InterventionRecurrenceOutputFactory(),
+      $this->security(),
+      new RequestStack(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new Get(), ['id' => self::RECURRENCE_ID]);
+  }
+
+  #[Test]
+  public function testProvideMapsAWorkflowExceptionOnTheCollectionRoute(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/intervention-recurrences?organization=' . self::ORG_ID . '&isActive=true'));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      new InterventionAccessDeniedException('Missing organization.interventions.plan permission.'),
+    );
+
+    $provider = new InterventionRecurrenceProvider(
+      $queryBus,
+      new InterventionRecurrenceOutputFactory(),
+      $this->security(),
+      $requestStack,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideParsesATrueIsActiveFilter(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/intervention-recurrences?organization=' . self::ORG_ID . '&isActive=true'));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static fn (ListInterventionRecurrencesQuery $query): bool => true === $query->isActive))
+      ->willReturn(new ListInterventionRecurrencesResult(new InterventionRecurrencePage([$this->view()], 1, 30, 1)));
+
+    $provider = new InterventionRecurrenceProvider($queryBus, new InterventionRecurrenceOutputFactory(), $this->security(), $requestStack);
+
+    self::assertInstanceOf(TraversablePaginator::class, $provider->provide(new GetCollection(), []));
   }
 
   private function security(): Security

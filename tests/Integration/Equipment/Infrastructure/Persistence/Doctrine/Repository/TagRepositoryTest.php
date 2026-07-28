@@ -233,6 +233,90 @@ final class TagRepositoryTest extends KernelTestCase
     self::assertSame(1, $this->repository->countByOrganizationId($orgId, 'alph'));
   }
 
+  #[Test]
+  public function testSaveUpdatesTheExistingTagInPlace(): void
+  {
+    $id = TagId::fromString('660e8400-e29b-41d4-a716-4466554b0070');
+    $this->repository->save(Tag::reconstitute(
+      id: $id,
+      organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Before',
+      createdAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+    ));
+    $this->entityManager->clear();
+
+    $this->repository->save(Tag::reconstitute(
+      id: $id,
+      organizationId: EquipmentOrganizationId::fromString(self::OTHER_ORGANIZATION_ID),
+      name: 'After',
+      createdAt: new DateTimeImmutable('2026-04-02T10:00:00+00:00'),
+    ));
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById($id);
+
+    self::assertInstanceOf(Tag::class, $found);
+    self::assertSame('After', $found->name());
+    self::assertSame(self::OTHER_ORGANIZATION_ID, (string) $found->organizationId());
+    self::assertSame(0, $this->repository->countByOrganizationId(EquipmentOrganizationId::fromString(self::ORGANIZATION_ID)));
+    self::assertSame(1, $this->repository->countByOrganizationId(EquipmentOrganizationId::fromString(self::OTHER_ORGANIZATION_ID)));
+  }
+
+  #[Test]
+  public function testRemoveTagFromEquipmentIsANoOpWhenThePivotIsAbsent(): void
+  {
+    $tagId = TagId::fromString('660e8400-e29b-41d4-a716-4466554b0080');
+    $equipmentId = EquipmentId::fromString(self::EQUIPMENT_ID);
+    $this->repository->save(Tag::reconstitute(
+      id: $tagId,
+      organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Unlinked',
+      createdAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+    ));
+
+    $this->repository->removeTagFromEquipment($equipmentId, $tagId);
+
+    self::assertTrue($this->entityManager->isOpen());
+    self::assertFalse($this->repository->isTagLinkedToEquipment($equipmentId, $tagId));
+    self::assertInstanceOf(Tag::class, $this->repository->findById($tagId));
+  }
+
+  #[Test]
+  public function testSaveAndLinkToEquipmentUpdatesAnAlreadyPersistedTagAndKeepsASinglePivot(): void
+  {
+    $tagId = TagId::fromString('660e8400-e29b-41d4-a716-4466554b0090');
+    $equipmentId = EquipmentId::fromString(self::EQUIPMENT_ID);
+
+    $this->repository->saveAndLinkToEquipment(
+      Tag::reconstitute(
+        id: $tagId,
+        organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
+        name: 'First Pass',
+        createdAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      ),
+      $equipmentId,
+    );
+    $this->entityManager->clear();
+
+    $this->repository->saveAndLinkToEquipment(
+      Tag::reconstitute(
+        id: $tagId,
+        organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
+        name: 'Second Pass',
+        createdAt: new DateTimeImmutable('2026-05-04T08:00:00+00:00'),
+      ),
+      $equipmentId,
+    );
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById($tagId);
+
+    self::assertInstanceOf(Tag::class, $found);
+    self::assertSame('Second Pass', $found->name());
+    self::assertTrue($this->repository->isTagLinkedToEquipment($equipmentId, $tagId));
+    self::assertCount(1, $this->repository->findByEquipmentId($equipmentId));
+  }
+
   private function createOrganization(string $id, string $name, string $slug): void
   {
     $organization = new OrganizationRecord();

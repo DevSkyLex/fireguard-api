@@ -290,6 +290,80 @@ final class ListUserOrganizationsHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeReturnsEmptyRolesForAnOrganizationWithoutACallerMembership(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440900';
+    $memberOrganizationId = '550e8400-e29b-41d4-a716-446655440901';
+    $strayOrganizationId = '550e8400-e29b-41d4-a716-446655440902';
+
+    $membership = OrganizationMember::reconstitute(
+      id: new OrganizationMemberId('550e8400-e29b-41d4-a716-446655440910'),
+      organizationId: new OrganizationId($memberOrganizationId),
+      userId: $userId,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-3 days'),
+    );
+
+    $organizations = [
+      Organization::reconstitute(
+        id: new OrganizationId($memberOrganizationId),
+        name: new OrganizationName('Fireguard Rennes'),
+        createdByUserId: $userId,
+        isActive: true,
+        createdAt: new DateTimeImmutable('-30 days'),
+      ),
+      Organization::reconstitute(
+        id: new OrganizationId($strayOrganizationId),
+        name: new OrganizationName('Fireguard Brest'),
+        createdByUserId: '550e8400-e29b-41d4-a716-446655440999',
+        isActive: true,
+        createdAt: new DateTimeImmutable('-20 days'),
+        planId: new PlanId('22222222-2222-4222-8222-222222222222'),
+      ),
+    ];
+
+    $plan = Plan::create(
+      id: new PlanId('22222222-2222-4222-8222-222222222222'),
+      key: new PlanKey('pro'),
+      name: 'Pro',
+      limits: ['members' => 50],
+    );
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findByUserId')->willReturn([$membership]);
+    $memberRepository->expects(self::once())
+      ->method('findRoleIdsForMember')
+      ->willReturn([]);
+    $memberRepository->method('countByOrganizationIds')->willReturn([]);
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findByIds')->willReturn($organizations);
+    $organizationRepository->method('countByIds')->willReturn(2);
+
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findAll')->willReturn([$plan]);
+    $planRepository->method('findDefault')->willReturn(null);
+
+    $handler = new ListUserOrganizationsHandler(
+      memberRepository: $memberRepository,
+      organizationRepository: $organizationRepository,
+      planRepository: $planRepository,
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+    );
+
+    $result = $handler->__invoke(new ListUserOrganizationsQuery($userId));
+
+    self::assertCount(2, $result->items);
+    self::assertSame([], $result->items[0]->roles);
+    self::assertSame([], $result->items[1]->roles, 'An organization without a caller membership resolves to no roles.');
+    self::assertSame(0, $result->items[1]->memberCount);
+    self::assertNull($result->items[0]->planId, 'An organization without an assigned plan and no default resolves to none.');
+    self::assertSame('22222222-2222-4222-8222-222222222222', $result->items[1]->planId);
+    self::assertSame('Pro', $result->items[1]->planName);
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenStatusIsInvalid(): void
   {
     $handler = new ListUserOrganizationsHandler(

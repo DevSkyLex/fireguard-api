@@ -55,6 +55,16 @@ final class JwtParserAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testValidateReturnsFalseForAMalformedToken(): void
+  {
+    $adapter = new JwtParserAdapter(publicKeyPath: $this->publicKeyPath());
+
+    // The lcobucci parser throws on a structurally invalid JWT; validate()
+    // must swallow that and answer false rather than surface a 500.
+    self::assertFalse($adapter->validate('not-a-token'));
+  }
+
+  #[Test]
   public function testGetTokenIdAndUserId(): void
   {
     $token = $this->createToken();

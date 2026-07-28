@@ -19,7 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test SaveMessageProcessorTest.
@@ -88,6 +88,19 @@ final class SaveMessageProcessorTest extends TestCase
     $this->expectException(UnprocessableEntityHttpException::class);
 
     $processor->process(null, new Post(), ['id' => self::MESSAGE_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new SaveMessageProcessor($this->createStub(CommandBusPort::class), $this->outputFactory(), $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Post(), []);
   }
 
   private function outputFactory(bool $saved = false): MessageOutputFactory

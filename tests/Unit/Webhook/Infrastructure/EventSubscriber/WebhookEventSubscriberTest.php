@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Tests\Unit\Webhook\Infrastructure\EventSubscriber;
 
 use DateTimeImmutable;
-use Equipment\Domain\Event\Equipment\EquipmentCommissionedEvent;
-use Facility\Domain\Event\Facility\FacilityArchivedEvent;
-use Inspection\Domain\Event\NonConformity\NonConformityRecordedEvent;
+use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityRestoredEvent};
+use Inspection\Domain\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
+use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
+use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\{LoggerInterface, NullLogger};
@@ -22,6 +24,7 @@ use Webhook\Application\UseCase\Command\Delivery\DispatchWebhookEvent\DispatchWe
 use Webhook\Infrastructure\EventSubscriber\WebhookEventSubscriber;
 
 use function array_keys;
+use function array_map;
 
 /**
  * Test WebhookEventSubscriberTest.
@@ -174,6 +177,95 @@ final class WebhookEventSubscriberTest extends TestCase
       organizationId: self::ORGANIZATION_ID,
       facilityId: 'facility-1',
     ));
+  }
+
+  #[Test]
+  public function itDispatchesForEveryRemainingCuratedEvent(): void
+  {
+    /** @var list<DispatchWebhookEventCommand> $dispatched */
+    $dispatched = [];
+
+    $messageBus = $this->createStub(MessageBusInterface::class);
+    $messageBus->method('dispatch')->willReturnCallback(
+      static function (DispatchWebhookEventCommand $command) use (&$dispatched): Envelope {
+        $dispatched[] = $command;
+
+        return new Envelope($command);
+      },
+    );
+
+    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+
+    $subscriber->onEquipmentDecommissioned(new EquipmentDecommissionedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      equipmentId: 'equipment-1',
+      previousStatus: 'in_service',
+    ));
+    $subscriber->onEquipmentPutUnderMaintenance(new EquipmentPutUnderMaintenanceEvent(
+      organizationId: self::ORGANIZATION_ID,
+      equipmentId: 'equipment-1',
+      facilityId: 'facility-1',
+      previousStatus: 'in_service',
+    ));
+    $subscriber->onEquipmentReturnedToStock(new EquipmentReturnedToStockEvent(
+      organizationId: self::ORGANIZATION_ID,
+      equipmentId: 'equipment-1',
+      previousStatus: 'under_maintenance',
+    ));
+    $subscriber->onInspectionSubmitted(new InspectionSubmittedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      inspectionId: 'inspection-1',
+      equipmentId: 'equipment-1',
+      result: 'compliant',
+    ));
+    $subscriber->onInspectionClosed(new InspectionClosedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      inspectionId: 'inspection-1',
+      equipmentId: 'equipment-1',
+      result: 'non_compliant',
+    ));
+    $subscriber->onNonConformityStatusChanged(new NonConformityStatusChangedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      inspectionId: 'inspection-1',
+      nonConformityId: 'nc-1',
+      previousStatus: 'open',
+      status: 'resolved',
+    ));
+    $subscriber->onMaintenanceCampaignGenerated(new MaintenanceCampaignGeneratedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      interventionId: 'intervention-1',
+      workItemsCount: 7,
+    ));
+    $subscriber->onFacilityRestored(new FacilityRestoredEvent(
+      organizationId: self::ORGANIZATION_ID,
+      facilityId: 'facility-1',
+    ));
+
+    self::assertSame([
+      'equipment.decommissioned',
+      'equipment.under_maintenance',
+      'equipment.returned_to_stock',
+      'inspection.submitted',
+      'inspection.closed',
+      'inspection.non_conformity_status_changed',
+      'maintenance.campaign_generated',
+      'facility.restored',
+    ], array_map(static fn (DispatchWebhookEventCommand $command): string => $command->eventType, $dispatched));
+
+    self::assertSame(['equipmentId', 'previousStatus'], array_keys($dispatched[0]->data));
+    self::assertSame(['equipmentId', 'facilityId', 'previousStatus'], array_keys($dispatched[1]->data));
+    self::assertSame(['equipmentId', 'previousStatus'], array_keys($dispatched[2]->data));
+    self::assertSame('compliant', $dispatched[3]->data['result']);
+    self::assertSame('non_compliant', $dispatched[4]->data['result']);
+    self::assertSame('open', $dispatched[5]->data['previousStatus']);
+    self::assertSame('resolved', $dispatched[5]->data['status']);
+    self::assertSame(7, $dispatched[6]->data['workItemsCount']);
+    self::assertSame('facility-1', $dispatched[7]->data['facilityId']);
+
+    foreach ($dispatched as $command) {
+      self::assertSame(self::ORGANIZATION_ID, $command->organizationId);
+      self::assertNotSame('', $command->eventId);
+    }
   }
 
   /**

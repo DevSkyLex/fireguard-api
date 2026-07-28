@@ -166,6 +166,45 @@ final class MessagingAttachmentRepositoryTest extends KernelTestCase
     $repository->delete(MessagingAttachmentId::fromString($this->uuid()));
   }
 
+  #[Test]
+  public function testSaveUpdatesTheExistingRecordInPlace(): void
+  {
+    $messages = new MessagingMessageRepository($this->entityManager);
+    $repository = new MessagingAttachmentRepository($this->entityManager);
+
+    $message = $this->appendMessage($messages, 'Revised attachment');
+    $id = $this->uuid();
+
+    $repository->save($this->makeAttachment($id, (string) $message->id(), new DateTimeImmutable('2026-01-01T10:00:00+00:00'), 'draft.pdf'));
+    $this->entityManager->clear();
+
+    $repository->save(MessagingAttachment::reconstitute(
+      id: MessagingAttachmentId::fromString($id),
+      messageId: (string) $message->id(),
+      conversationId: self::CONVERSATION_ID,
+      organizationId: self::ORG_ID,
+      uploadedByMemberId: 'member-2',
+      fileName: 'final.png',
+      storagePath: 'messaging/' . $id . '-final',
+      mimeType: 'image/png',
+      size: 4096,
+      uploadedAt: new DateTimeImmutable('2026-01-02T11:00:00+00:00'),
+      label: 'Final revision',
+    ));
+    $this->entityManager->clear();
+
+    $found = $repository->findById(MessagingAttachmentId::fromString($id));
+
+    self::assertInstanceOf(MessagingAttachment::class, $found);
+    self::assertSame('final.png', $found->fileName());
+    self::assertSame('messaging/' . $id . '-final', $found->storagePath());
+    self::assertSame('image/png', $found->mimeType());
+    self::assertSame(4096, $found->size());
+    self::assertSame('Final revision', $found->label());
+    self::assertSame('member-2', $found->uploadedByMemberId());
+    self::assertCount(1, $repository->findByMessageIds([(string) $message->id()]));
+  }
+
   private function makeAttachment(string $id, string $messageId, DateTimeImmutable $uploadedAt, string $fileName): MessagingAttachment
   {
     return MessagingAttachment::reconstitute(

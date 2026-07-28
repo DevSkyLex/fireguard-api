@@ -60,6 +60,12 @@ final class MessagingLinkRepositoryTest extends KernelTestCase
     $this->links = new MessagingLinkRepository($this->entityManager, $uuidFactory);
     $this->messages = new MessagingMessageRepository($this->entityManager);
 
+    // listLinkBackfillBatch() walks every message in the database, with no
+    // organization scope, so this test has to own the table — otherwise the
+    // seeded baseline lands in its batches and shifts the cursor. The delete is
+    // rolled back with the rest of the test.
+    $this->entityManager->createQuery('DELETE FROM ' . MessagingMessageRecord::class . ' m')->execute();
+
     $this->removeOrganization(self::ORG_ID);
 
     $organization = $this->createOrganization(self::ORG_ID);

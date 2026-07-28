@@ -7,6 +7,7 @@ namespace Tests\Unit\Calendar\Presentation\Api\Processor\Event;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Calendar\Application\UseCase\Command\Event\CreateCalendarEvent\{CreateCalendarEventCommand, CreateCalendarEventResult};
+use Calendar\Domain\Exception\CalendarEventValidationException;
 use Calendar\Presentation\Api\Dto\Input\Event\CreateCalendarEventInput;
 use Calendar\Presentation\Api\Dto\Output\Event\CalendarEventOutput;
 use Calendar\Presentation\Api\Factory\CalendarEventOutputFactory;
@@ -16,7 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test CreateCalendarEventProcessorTest.
@@ -119,5 +120,30 @@ final class CreateCalendarEventProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(new CreateCalendarEventInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function testProcessMapsADomainFailureToAnHttpException(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $input = new CreateCalendarEventInput();
+    $input->title = 'Fire drill';
+    $input->startsAt = '2026-08-01T09:00:00+02:00';
+    $input->endsAt = '2026-08-01T08:00:00+02:00';
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      CalendarEventValidationException::endBeforeStart(),
+    );
+
+    $processor = new CreateCalendarEventProcessor($commandBus, $security, new CalendarEventOutputFactory());
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }
 }

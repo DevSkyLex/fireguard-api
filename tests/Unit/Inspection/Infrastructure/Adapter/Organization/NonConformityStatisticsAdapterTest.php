@@ -152,4 +152,87 @@ final class NonConformityStatisticsAdapterTest extends TestCase
       'Europe/Paris',
     ));
   }
+
+  #[Test]
+  public function testCountNonConformitiesDelegatesSeverityAndStatusFilters(): void
+  {
+    /** @var NonConformityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(NonConformityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        'critical',
+        'open',
+      )
+      ->willReturn(7);
+
+    self::assertSame(7, new NonConformityStatisticsAdapter($repository)->countNonConformities(self::ORG_ID, 'critical', 'open'));
+  }
+
+  #[Test]
+  public function testCountOverdueNonConformitiesDelegatesToRepository(): void
+  {
+    /** @var NonConformityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(NonConformityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countOverdueByOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        '2026-03-01T00:00:00+00:00',
+        'high',
+        'in_progress',
+      )
+      ->willReturn(3);
+
+    self::assertSame(3, new NonConformityStatisticsAdapter($repository)->countOverdueNonConformities(
+      self::ORG_ID,
+      '2026-03-01T00:00:00+00:00',
+      'high',
+      'in_progress',
+    ));
+  }
+
+  #[Test]
+  public function testCountNonConformitiesResolvedByDayDelegatesTimezoneToRepository(): void
+  {
+    /** @var NonConformityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(NonConformityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByResolvedDayForOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        '2026-03-29T00:00:00+01:00',
+        '2026-03-30T23:59:59+02:00',
+        'Europe/Paris',
+        'medium',
+        'done',
+      )
+      ->willReturn(['2026-03-30' => 5]);
+
+    self::assertSame(['2026-03-30' => 5], new NonConformityStatisticsAdapter($repository)->countNonConformitiesResolvedByDay(
+      self::ORG_ID,
+      '2026-03-29T00:00:00+01:00',
+      '2026-03-30T23:59:59+02:00',
+      'Europe/Paris',
+      'medium',
+      'done',
+    ));
+  }
+
+  #[Test]
+  public function testCountOpenCriticalNonConformitiesDelegatesToRepository(): void
+  {
+    /** @var NonConformityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(NonConformityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countOpenCriticalByOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        'open',
+      )
+      ->willReturn(2);
+
+    self::assertSame(2, new NonConformityStatisticsAdapter($repository)->countOpenCriticalNonConformities(self::ORG_ID, 'open'));
+  }
 }

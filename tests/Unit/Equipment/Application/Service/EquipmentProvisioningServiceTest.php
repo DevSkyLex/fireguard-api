@@ -110,6 +110,20 @@ final class EquipmentProvisioningServiceTest extends TestCase
     new EquipmentProvisioningService($commandBus)->provision($this->request());
   }
 
+  #[Test]
+  public function itReturnsInvalidForADuplicateSerialNumberWrappedByMessenger(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('SN-42')),
+    );
+
+    $result = new EquipmentProvisioningService($commandBus)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertStringContainsString('SN-42', (string) $result->message);
+  }
+
   private function request(): ProvisionEquipmentRequest
   {
     return new ProvisionEquipmentRequest(

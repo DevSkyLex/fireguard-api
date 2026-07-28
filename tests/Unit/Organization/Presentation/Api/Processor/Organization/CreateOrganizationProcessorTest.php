@@ -15,6 +15,7 @@ use Organization\Presentation\Api\Processor\Organization\CreateOrganizationProce
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -160,6 +161,63 @@ final class CreateOrganizationProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
 
     $processor->process(new CreateOrganizationInput(), new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsConflictWhenSlugAlreadyExistsIsReachedThroughThePreviousChain(): void
+  {
+    $input = new CreateOrganizationInput();
+    $input->name = 'Fireguard Nantes';
+    $input->slug = 'fireguard-nantes';
+
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441110');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(MessengerRuntimeException::wrap(
+      OrganizationSlugAlreadyExistsException::withSlug('fireguard-nantes'),
+    ));
+
+    $processor = new CreateOrganizationProcessor(
+      commandBus: $commandBus,
+      security: $security,
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $input = new CreateOrganizationInput();
+    $input->name = 'Fireguard Nantes';
+    $input->slug = 'fireguard-nantes';
+
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441110');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $failure = MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new CreateOrganizationCommand('Fireguard Nantes', $user->getId(), 'fireguard-nantes')),
+      [new RuntimeException('the organization store is offline')],
+    ));
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $processor = new CreateOrganizationProcessor(
+      commandBus: $commandBus,
+      security: $security,
+    );
+
+    $this->expectExceptionObject($failure);
+
+    $processor->process($input, new Post());
   }
 
   private function createSecurityUser(string $id): SecurityUser

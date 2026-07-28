@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\CreateFacility;
 
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler, CreateFacilityResult};
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Throwable;
 
 use function sprintf;
 
@@ -403,6 +404,116 @@ final class CreateFacilityHandlerTest extends TestCase
       type: 'site',
       name: 'Over Quota HQ',
     ));
+  }
+
+  #[Test]
+  public function testInvokeUsesTheSuppliedResourceIdInsteadOfGeneratingOne(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $result = $this->handler($repository, $uuidFactory)->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419b1',
+      type: 'site',
+      name: 'Client-Provided Id Site',
+      resourceId: '550e8400-e29b-41d4-a716-4466554419b0',
+    ));
+
+    self::assertInstanceOf(CreateFacilityResult::class, $result);
+    self::assertSame('550e8400-e29b-41d4-a716-4466554419b0', $result->facilityId);
+  }
+
+  #[Test]
+  public function testInvokeRethrowsUnrecognisedPersistenceFailure(): void
+  {
+    $handler = $this->handlerFailingWith(new RuntimeException('boom'));
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('boom');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419c1',
+      type: 'site',
+      name: 'Boom Site',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeMapsOrganizationConstraintViolationToInvalidArgument(): void
+  {
+    $handler = $this->handlerFailingWith(new ForeignKeyConstraintViolationException(
+      $this->driverException('SQLSTATE[23503]: insert on table "sites" violates foreign key constraint "fk_facility_organization"'),
+      null,
+    ));
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Organization not found.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419d1',
+      type: 'site',
+      name: 'Orphan Org Site',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeMapsParentConstraintViolationToFacilityNotFound(): void
+  {
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-4466554419e2');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-4466554419e1');
+
+    $parent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Parent FK Site'),
+    );
+
+    $handler = $this->handlerFailingWith(
+      new ForeignKeyConstraintViolationException(
+        $this->driverException('SQLSTATE[23503]: insert on table "sites" violates foreign key constraint "fk_facility_parent"'),
+        null,
+      ),
+      $parent,
+    );
+
+    $this->expectException(FacilityNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Facility with ID "%s" not found.', (string) $parentId));
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: (string) $organizationId,
+      type: 'building',
+      name: 'Orphan Parent Building',
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
+  private function handlerFailingWith(Throwable $failure, ?Facility $parent = null): CreateFacilityHandler
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->method('findById')->willReturn($parent);
+    $repository->expects(self::once())->method('save')->willThrowException($failure);
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419f0'));
+
+    return $this->handler($repository, $uuidFactory);
+  }
+
+  private function driverException(string $message): DoctrineDriverException
+  {
+    return new class ($message) extends RuntimeException implements DoctrineDriverException {
+      public function getSQLState(): string
+      {
+        return '23503';
+      }
+    };
   }
 
   /**

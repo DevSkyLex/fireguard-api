@@ -223,7 +223,11 @@ final class AuditEventRepository implements AuditEventRepositoryPort
     $countQb->select('COUNT(a.id)');
     $total = (int) $countQb->getQuery()->getSingleScalarResult();
 
+    // Unique tiebreaker: the sort field above is caller-chosen and rarely
+    // unique, so rows tied on it order arbitrarily and LIMIT/OFFSET then
+    // repeats some across pages while skipping others.
     $qb->orderBy('a.' . $this->resolveSortField($criteria->sorting->field), $criteria->sorting->direction->value)
+      ->addOrderBy('a.id', 'ASC')
       ->setFirstResult($pagination->offset)
       ->setMaxResults($pagination->limit);
 

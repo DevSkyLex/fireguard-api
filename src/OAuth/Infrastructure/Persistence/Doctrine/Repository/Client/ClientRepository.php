@@ -172,9 +172,13 @@ final class ClientRepository implements ClientRepositoryPort, OAuthClientReposit
    */
   public function findAll(int $offset = 0, int $limit = 20): array
   {
+    // `id` breaks ties on `createdAt`, which is only second-precision: clients
+    // registered within the same second sort arbitrarily otherwise, and an
+    // arbitrary order under LIMIT/OFFSET returns some rows twice across pages
+    // while skipping others entirely.
     $records = $this->repository->findBy(
       criteria: [],
-      orderBy: ['createdAt' => 'DESC'],
+      orderBy: ['createdAt' => 'DESC', 'id' => 'ASC'],
       limit: $limit,
       offset: $offset,
     );

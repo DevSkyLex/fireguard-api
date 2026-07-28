@@ -72,9 +72,13 @@ final class JwtParserAdapter implements JwtParserPort
 
       $parsedToken = $this->jwtConfig->parser()->parse($token);
 
+      // @codeCoverageIgnoreStart
+      // Unreachable: Token\Plain is lcobucci/jwt's only concrete Token and it
+      // implements UnencryptedToken; Parser::parse() returns one or throws.
       if (!$parsedToken instanceof UnencryptedToken) {
         return null;
       }
+      // @codeCoverageIgnoreEnd
 
       $claims = $parsedToken->claims();
 
@@ -111,9 +115,13 @@ final class JwtParserAdapter implements JwtParserPort
 
       $parsedToken = $this->jwtConfig->parser()->parse($token);
 
+      // @codeCoverageIgnoreStart
+      // Unreachable, same as the guard above: Token\Plain is lcobucci/jwt's only
+      // concrete Token and it implements UnencryptedToken.
       if (!$parsedToken instanceof UnencryptedToken) {
         return false;
       }
+      // @codeCoverageIgnoreEnd
 
       $claims = $parsedToken->claims();
       if (

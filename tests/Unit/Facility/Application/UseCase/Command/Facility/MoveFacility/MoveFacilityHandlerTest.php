@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\MoveFacility;
 
+use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\MoveFacility\{MoveFacilityCommand, MoveFacilityHandler, MoveFacilityResult};
 use Facility\Domain\Event\Facility\FacilityMovedEvent;
@@ -535,6 +537,311 @@ final class MoveFacilityHandlerTest extends TestCase
 
     $this->expectException(FacilityArchivedException::class);
     $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442152" is archived and cannot be used.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenParentFacilityDoesNotExist(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442200');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442201');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442202');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building Missing Parent'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn(null);
+    $repository->expects(self::never())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $this->expectException(FacilityNotFoundException::class);
+    $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442202" not found.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenAncestorBelongsToAnotherOrganization(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442210');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442211');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442212');
+    $ancestorId = new FacilityId('550e8400-e29b-41d4-a716-446655442213');
+    $otherOrganizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442214');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor Leaked Ancestor'),
+    );
+
+    $parent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building Leaked Ancestor'),
+      parentFacilityId: $ancestorId,
+    );
+
+    $ancestor = Facility::create(
+      id: $ancestorId,
+      organizationId: $otherOrganizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Foreign Ancestor'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::exactly(2))
+      ->method('findById')
+      ->willReturnCallback(static function (FacilityId $id) use ($parentId, $parent, $ancestor): Facility {
+        return $id->equals($parentId) ? $parent : $ancestor;
+      });
+    $repository->expects(self::never())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $this->expectException(FacilityHierarchyException::class);
+    $this->expectExceptionMessage('Parent facility must belong to the same organization.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeStopsAncestorWalkWhenAncestorIsMissing(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442220');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442221');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442222');
+    $ancestorId = new FacilityId('550e8400-e29b-41d4-a716-446655442223');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor Orphan Walk'),
+    );
+
+    $parent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building Orphan Walk'),
+      parentFacilityId: $ancestorId,
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::exactly(2))
+      ->method('findById')
+      ->willReturnCallback(static function (FacilityId $id) use ($parentId, $parent): ?Facility {
+        return $id->equals($parentId) ? $parent : null;
+      });
+    $repository->expects(self::once())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $result = $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
+
+    self::assertSame((string) $parentId, $result->parentFacilityId);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenAncestorWalkRevisitsAlreadySeenNode(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442230');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442231');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442232');
+    $ancestorId = new FacilityId('550e8400-e29b-41d4-a716-446655442233');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Floor Aliased Walk'),
+    );
+
+    $parent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Building Aliased Walk'),
+      parentFacilityId: $ancestorId,
+    );
+
+    // Aliased row: the ancestor lookup answers with a facility already visited,
+    // which only the visited-set guard at the top of the walk can catch.
+    $aliasedAncestor = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Aliased Ancestor'),
+      parentFacilityId: $ancestorId,
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::exactly(2))
+      ->method('findById')
+      ->willReturnCallback(static function (FacilityId $id) use ($parentId, $parent, $aliasedAncestor): Facility {
+        return $id->equals($parentId) ? $parent : $aliasedAncestor;
+      });
+    $repository->expects(self::never())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $this->expectException(FacilityHierarchyException::class);
+    $this->expectExceptionMessage('Cannot move facility: hierarchy cycle detected.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeMapsOrganizationConstraintViolationToInvalidArgument(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442240');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442241');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Org FK Site'),
+    );
+
+    $driverException = new class ('SQLSTATE[23503]: update on table "facilities" violates foreign key constraint "FK_FACILITY_ORGANIZATION"') extends RuntimeException implements DoctrineDriverException {
+      public function getSQLState(): string
+      {
+        return '23503';
+      }
+    };
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Organization not found.');
+
+    $handler->__invoke(new MoveFacilityCommand(
+      organizationId: (string) $organizationId,
+      facilityId: (string) $facilityId,
+      parentFacilityId: null,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeMapsParentConstraintViolationToFacilityNotFound(): void
+  {
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655442250');
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442251');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442252');
+
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: $organizationId,
+      type: FacilityType::FLOOR,
+      name: new FacilityName('Parent FK Floor'),
+    );
+
+    $parent = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::BUILDING,
+      name: new FacilityName('Parent FK Building'),
+    );
+
+    $driverException = new class ('SQLSTATE[23503]: insert on table "sites" violates foreign key constraint "fk_facility_parent"') extends RuntimeException implements DoctrineDriverException {
+      public function getSQLState(): string
+      {
+        return '23503';
+      }
+    };
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('findById')
+      ->willReturn($parent);
+    $repository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new ForeignKeyConstraintViolationException($driverException, null));
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new MoveFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $this->expectException(FacilityNotFoundException::class);
+    $this->expectExceptionMessage('Facility with ID "550e8400-e29b-41d4-a716-446655442252" not found.');
 
     $handler->__invoke(new MoveFacilityCommand(
       organizationId: (string) $organizationId,

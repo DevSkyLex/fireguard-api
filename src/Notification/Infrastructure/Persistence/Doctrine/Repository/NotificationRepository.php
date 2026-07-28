@@ -115,6 +115,9 @@ final readonly class NotificationRepository implements NotificationRepositoryPor
       before: $before,
     )
       ->orderBy('n.createdAt', 'DESC')
+      // Unique tiebreaker: without it rows tied on the sort above are ordered
+      // arbitrarily, and LIMIT/OFFSET then repeats some across pages.
+      ->addOrderBy('n.id', 'ASC')
       ->setMaxResults(min(100, max(1, $limit)))
       ->setFirstResult(max(0, $offset));
 

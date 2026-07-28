@@ -85,6 +85,45 @@ final class AttachmentRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testSaveUpdatesTheExistingRecordInPlace(): void
+  {
+    $id = AttachmentId::fromString('660e8400-e29b-41d4-a716-4466554a0011');
+    $this->repository->save(EquipmentAttachment::reconstitute(
+      id: $id,
+      equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
+      fileName: 'draft.pdf',
+      storagePath: 'org/equipment/draft-a0011.pdf',
+      mimeType: 'application/pdf',
+      size: 100,
+      uploadedAt: new DateTimeImmutable('2026-05-01T09:00:00+00:00'),
+      label: null,
+    ));
+    $this->entityManager->clear();
+
+    $this->repository->save(EquipmentAttachment::reconstitute(
+      id: $id,
+      equipmentId: EquipmentId::fromString(self::EQUIPMENT_ID),
+      fileName: 'final.png',
+      storagePath: 'org/equipment/final-a0011.png',
+      mimeType: 'image/png',
+      size: 4096,
+      uploadedAt: new DateTimeImmutable('2026-05-03T10:30:00+00:00'),
+      label: 'Final revision',
+    ));
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById($id);
+
+    self::assertInstanceOf(EquipmentAttachment::class, $found);
+    self::assertSame('final.png', $found->fileName());
+    self::assertSame('org/equipment/final-a0011.png', $found->storagePath());
+    self::assertSame('image/png', $found->mimeType());
+    self::assertSame(4096, $found->size());
+    self::assertSame('Final revision', $found->label());
+    self::assertCount(1, $this->repository->findByEquipmentId(EquipmentId::fromString(self::EQUIPMENT_ID)));
+  }
+
+  #[Test]
   public function testFindByIdReturnsNullWhenMissing(): void
   {
     self::assertNull(

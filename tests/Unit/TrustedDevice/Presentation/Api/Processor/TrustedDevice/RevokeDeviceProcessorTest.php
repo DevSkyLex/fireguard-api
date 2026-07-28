@@ -185,6 +185,41 @@ final class RevokeDeviceProcessorTest extends TestCase
     );
   }
 
+  /**
+   * Method testProcessRethrowsUnrelatedException.
+   *
+   * Test that process rethrows an exception chain without a not-found cause.
+   */
+  #[Test]
+  public function testProcessRethrowsUnrelatedException(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createUserMock('user-321'));
+
+    $processor = new RevokeDeviceProcessor(
+      commandBus: $commandBus,
+      security: $security,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('boom');
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['id' => 'device-321'],
+      context: [],
+    );
+  }
+
   private function createUserMock(string $userId): UserInterface
   {
     $user = $this->createMock(UserInterface::class);

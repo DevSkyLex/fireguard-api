@@ -19,7 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test GetOrCreateDirectConversationProcessorTest.
@@ -86,6 +86,19 @@ final class GetOrCreateDirectConversationProcessorTest extends TestCase
     $this->expectException(UnprocessableEntityHttpException::class);
 
     $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new GetOrCreateDirectConversationProcessor($this->createStub(CommandBusPort::class), new ConversationOutputFactory(), $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Post(), []);
   }
 
   private function securityWithUser(): Security

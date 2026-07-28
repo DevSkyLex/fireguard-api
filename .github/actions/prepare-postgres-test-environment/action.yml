@@ -80,3 +80,13 @@ runs:
       run: |
         php bin/console doctrine:schema:validate --env=test --em=auth
         php bin/console doctrine:schema:validate --env=test --em=main
+
+    # Seeded once here rather than inside every E2E test, where DAMA rolled it
+    # straight back at ~5s per test. Tests needing other data create it; tests
+    # needing a table empty purge it — the rollback undoes either.
+    - name: Seed fixture baseline
+      shell: bash
+      env:
+        AUTH_DATABASE_URL: ${{ inputs.auth-database-url }}
+        MAIN_DATABASE_URL: ${{ inputs.main-database-url }}
+      run: php bin/console app:fixtures:load --env=test --no-interaction

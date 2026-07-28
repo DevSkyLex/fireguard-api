@@ -57,5 +57,30 @@ final class AuditPiiSanitizerTest extends TestCase
       $sanitizer->ipHash(' 203.0.113.5 '),
     );
   }
+
+  #[Test]
+  public function testReturnsNullForAMissingValue(): void
+  {
+    $sanitizer = new AuditPiiSanitizer(includePii: true, piiSalt: 'pepper');
+
+    self::assertNull($sanitizer->email(null));
+    self::assertNull($sanitizer->emailHash(null));
+    self::assertNull($sanitizer->ip(null));
+    self::assertNull($sanitizer->ipHash(null));
+  }
+
+  #[Test]
+  public function testTreatsABlankValueAsMissing(): void
+  {
+    // Whitespace-only never becomes a hash: an empty-string digest would be a
+    // stable, correlatable token for "no value", which is exactly what the
+    // hashing is meant to prevent.
+    $sanitizer = new AuditPiiSanitizer(includePii: true, piiSalt: 'pepper');
+
+    self::assertNull($sanitizer->email('   '));
+    self::assertNull($sanitizer->emailHash('   '));
+    self::assertNull($sanitizer->ip("\t\n"));
+    self::assertNull($sanitizer->ipHash("\t\n"));
+  }
   // #endregion
 }

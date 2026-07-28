@@ -11,6 +11,7 @@ use Facility\Domain\Exception\{FacilityAttachmentNotFoundException, FacilityNotF
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -124,6 +125,32 @@ final class DeleteFacilityAttachmentHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       facilityId: self::FACILITY_ID,
       attachmentId: self::ATTACHMENT_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $facilityRepository */
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::never())->method('findById');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('delete');
+
+    $handler = new DeleteFacilityAttachmentHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+      fileStorage: $fileStorage,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DeleteFacilityAttachmentCommand(
+      organizationId: 'not-a-uuid',
+      facilityId: 'also-not-a-uuid',
+      attachmentId: 'still-not-a-uuid',
     ));
   }
 

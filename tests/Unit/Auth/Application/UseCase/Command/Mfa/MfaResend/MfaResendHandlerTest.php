@@ -66,4 +66,47 @@ final class MfaResendHandlerTest extends TestCase
     self::assertFalse($result->success);
     self::assertSame(MfaResendResult::ERROR_TOTP_NOT_RESENDABLE, $result->errorCode);
   }
+
+  #[Test]
+  public function testInvokeFallsBackToDefaultScopesWhenScopesClaimIsEmpty(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174031'),
+      userId: 'user-1',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::TOTP,
+      recipient: 'user-1',
+    );
+
+    /** @var JwtTokenServicePort&MockObject $jwtService */
+    $jwtService = $this->createMock(JwtTokenServicePort::class);
+    $jwtService->expects(self::once())
+      ->method('decodePreAuthToken')
+      ->willReturn([
+        'sub' => 'user-1',
+        'challenge_token' => $otp->challengeToken()->value,
+        'email' => 'user@example.com',
+        'scopes' => [],
+        'remember_me' => true,
+      ]);
+
+    /** @var OtpRepositoryPort&MockObject $otpRepository */
+    $otpRepository = $this->createMock(OtpRepositoryPort::class);
+    $otpRepository->expects(self::once())
+      ->method('findByChallengeToken')
+      ->willReturn($otp);
+
+    $otpChallenge = $this->createStub(OtpChallengePort::class);
+
+    $handler = new MfaResendHandler(
+      jwtService: $jwtService,
+      otpRepository: $otpRepository,
+      otpChallenge: $otpChallenge,
+    );
+
+    $result = $handler->__invoke(new MfaResendCommand(preAuthToken: 'pre-auth'));
+
+    self::assertFalse($result->success);
+    self::assertSame(MfaResendResult::ERROR_TOTP_NOT_RESENDABLE, $result->errorCode);
+  }
 }

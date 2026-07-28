@@ -37,4 +37,38 @@ final class MergePatchFieldsTest extends TestCase
 
     self::assertSame([], new MergePatchFields($stack)->all());
   }
+
+  #[Test]
+  public function itIgnoresABodyThatIsNotAJsonObject(): void
+  {
+    $stack = new RequestStack();
+    $stack->push(Request::create(
+      '/api/interventions/intervention-1',
+      'PATCH',
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
+      content: '"responsible"',
+    ));
+
+    self::assertSame([], new MergePatchFields($stack)->all());
+  }
+
+  #[Test]
+  public function itIgnoresABodyWithNonStringKeys(): void
+  {
+    $stack = new RequestStack();
+    $stack->push(Request::create(
+      '/api/interventions/intervention-1',
+      'PATCH',
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json'],
+      content: '{"0":"first","responsible":null}',
+    ));
+
+    self::assertSame([], new MergePatchFields($stack)->all());
+  }
+
+  #[Test]
+  public function itIgnoresRequestsWithoutACurrentRequest(): void
+  {
+    self::assertSame([], new MergePatchFields(new RequestStack())->all());
+  }
 }

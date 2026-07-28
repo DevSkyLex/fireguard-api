@@ -224,6 +224,53 @@ final class PlanProcessorsTest extends TestCase
   }
 
   #[Test]
+  public function testUpdateUnwrapsAnInvalidValueWrappedByTheMessengerBus(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
+      new InvalidValueException('Sort order must be positive.'),
+      new UpdatePlanCommand(planId: self::PLAN_ID),
+    ));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    new UpdatePlanProcessor($commandBus, $this->queryBus())
+      ->process(new UpdatePlanInput(), new Patch(), ['id' => self::PLAN_ID]);
+  }
+
+  #[Test]
+  public function testUpdateRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $failure = $this->wrapped(
+      new RuntimeException('the plan store is offline'),
+      new UpdatePlanCommand(planId: self::PLAN_ID),
+    );
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $this->expectExceptionObject($failure);
+
+    new UpdatePlanProcessor($commandBus, $this->queryBus())
+      ->process(new UpdatePlanInput(), new Patch(), ['id' => self::PLAN_ID]);
+  }
+
+  #[Test]
+  public function testUpdateMapsAMissingPlanOnTheReadBackToHttp404(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willReturn(new UpdatePlanResult(self::PLAN_ID));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(PlanNotFoundException::withId(self::PLAN_ID));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    new UpdatePlanProcessor($commandBus, $queryBus)
+      ->process(new UpdatePlanInput(), new Patch(), ['id' => self::PLAN_ID]);
+  }
+
+  #[Test]
   public function testDeleteDispatchesTheCommandAndReturnsNull(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */
@@ -276,6 +323,36 @@ final class PlanProcessorsTest extends TestCase
     ));
 
     $this->expectException(ConflictHttpException::class);
+
+    new DeletePlanProcessor($commandBus)->process(null, new Delete(), ['id' => self::PLAN_ID]);
+  }
+
+  #[Test]
+  public function testDeleteUnwrapsAMissingPlanWrappedByTheMessengerBus(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
+      PlanNotFoundException::withId(self::PLAN_ID),
+      new DeletePlanCommand(self::PLAN_ID),
+    ));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    new DeletePlanProcessor($commandBus)->process(null, new Delete(), ['id' => self::PLAN_ID]);
+  }
+
+  #[Test]
+  public function testDeleteRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $failure = $this->wrapped(
+      new RuntimeException('the plan store is offline'),
+      new DeletePlanCommand(self::PLAN_ID),
+    );
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $this->expectExceptionObject($failure);
 
     new DeletePlanProcessor($commandBus)->process(null, new Delete(), ['id' => self::PLAN_ID]);
   }

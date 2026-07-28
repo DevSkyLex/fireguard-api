@@ -9,6 +9,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
+use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
 use Organization\Presentation\Api\Provider\Organization\GetOrganizationProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -16,11 +17,55 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 
 #[CoversClass(GetOrganizationProvider::class)]
 final class GetOrganizationProviderTest extends TestCase
 {
+  #[Test]
+  public function testProvideThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn(null);
+
+    $provider = new GetOrganizationProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new Get(), ['id' => '550e8400-e29b-41d4-a716-446655441810']);
+  }
+
+  #[Test]
+  public function testProvideMapsAMissingOrganizationToNotFound(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441800'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441810'),
+    );
+
+    $provider = new GetOrganizationProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new Get(), ['id' => '550e8400-e29b-41d4-a716-446655441810']);
+  }
+
   #[Test]
   public function testProvideReturnsNullWhenIdIsMissing(): void
   {

@@ -51,6 +51,17 @@ final class InterventionMemberPolicyTest extends TestCase
   }
 
   #[Test]
+  public function itRejectsSubmissionWhenNoResponsibleMemberIsSet(): void
+  {
+    $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
+
+    $this->expectException(InterventionConflictException::class);
+    $this->expectExceptionMessage('A responsible member is required to submit the intervention.');
+
+    new InterventionMemberPolicy($repository)->assertResponsible(self::ORGANIZATION_ID, self::USER_ID, null);
+  }
+
+  #[Test]
   public function itRejectsSubmissionByAnotherMember(): void
   {
     $repository = $this->createStub(OrganizationMemberRepositoryPort::class);

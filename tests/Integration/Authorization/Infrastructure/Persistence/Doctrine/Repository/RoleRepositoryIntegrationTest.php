@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Domain\ValueObject\TenantId;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function array_map;
+
 /**
  * Test RoleRepositoryIntegrationTest.
  *
@@ -69,9 +71,12 @@ final class RoleRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testSaveFindAllAndDeleteRole(): void
   {
+    // A name of its own rather than a real one like `users.read`: the seeded
+    // baseline already owns every production permission name, and this test
+    // only needs *a* permission to attach.
     $permissionRecord = $this->createPermissionRecord(
       id: '323e4567-e89b-12d3-a456-426614174000',
-      name: 'users.read',
+      name: 'role_repository_test.read',
     );
     $this->entityManager->flush();
 
@@ -101,9 +106,14 @@ final class RoleRepositoryIntegrationTest extends KernelTestCase
     self::assertNotNull($foundByName);
     self::assertSame('admin_role', $foundById->name()->value);
     self::assertCount(1, $foundById->permissions());
-    self::assertSame('users.read', $foundById->permissions()[0]->name()->value);
+    self::assertSame('role_repository_test.read', $foundById->permissions()[0]->name()->value);
 
-    self::assertCount(1, $this->repository->findAll());
+    // Membership, not an absolute count: the unscoped listing also returns the
+    // roles the seeded baseline owns, and this test does not own them.
+    self::assertContains(
+      'admin_role',
+      array_map(static fn (Role $listed): string => $listed->name()->value, $this->repository->findAll()),
+    );
     self::assertCount(
       1,
       $this->repository->findAll(TenantId::fromString('423e4567-e89b-12d3-a456-426614174000')),

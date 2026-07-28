@@ -105,6 +105,69 @@ final class FavoriteConversationHandlerTest extends TestCase
     $handler->__invoke(new FavoriteConversationCommand('user-1', self::CONVERSATION_ID));
   }
 
+  #[Test]
+  public function testInvokeEnforcesChannelParticipationForAParticipantsConversation(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(true);
+
+    /** @var MessagingConversationFavoriteRepositoryPort&MockObject $favorites */
+    $favorites = $this->createMock(MessagingConversationFavoriteRepositoryPort::class);
+    $favorites->expects(self::once())->method('favorite');
+
+    $handler = new FavoriteConversationHandler(
+      $conversations,
+      $favorites,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+    );
+
+    $result = $handler->__invoke(new FavoriteConversationCommand('user-1', self::CONVERSATION_ID));
+
+    self::assertSame(self::CONVERSATION_ID, $result->conversation->id);
+  }
+
+  #[Test]
+  public function testInvokeRejectsANonParticipantOfAChannel(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(false);
+
+    /** @var MessagingConversationFavoriteRepositoryPort&MockObject $favorites */
+    $favorites = $this->createMock(MessagingConversationFavoriteRepositoryPort::class);
+    $favorites->expects(self::never())->method('favorite');
+
+    $handler = new FavoriteConversationHandler(
+      $conversations,
+      $favorites,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+    );
+
+    $this->expectException(MessagingAccessDeniedException::class);
+
+    $handler->__invoke(new FavoriteConversationCommand('user-1', self::CONVERSATION_ID));
+  }
+
+  private function channelView(): ConversationView
+  {
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'channel', null, 'participants', null, 1, false, $now, $now, 'general');
+  }
+
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);

@@ -10,7 +10,7 @@ use Intervention\Application\Contract\Resource\{InterventionResourceSummary, Int
 use Intervention\Application\Port\Outbound\{InterventionResourceGatewayPort, PublicationQueuePort, PublicationRepositoryPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\RequestPublication\{RequestPublicationCommand, RequestPublicationHandler};
-use Intervention\Domain\Exception\InterventionBlockedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -95,6 +95,72 @@ final class RequestPublicationHandlerTest extends TestCase
     $result = $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
 
     self::assertSame($pending, $result->publication);
+  }
+
+  #[Test]
+  public function testThrowsWhenTheInterventionIsUnknown(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('interventionContext')->willReturn(null);
+    $repository->expects(self::never())->method('findByInterventionRevision');
+
+    $queue = $this->queue();
+    $queue->expects(self::never())->method('dispatch');
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testThrowsWhenThePublishPermissionIsMissing(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('interventionContext')->willReturn($this->context());
+    $repository->expects(self::never())->method('findByInterventionRevision');
+
+    $queue = $this->queue();
+    $queue->expects(self::never())->method('dispatch');
+
+    $this->expectException(InterventionAccessDeniedException::class);
+
+    $this->handler($repository, $queue, $this->resources(1), false)->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testThrowsWhenTheInterventionIsNotSubmitted(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('interventionContext')->willReturn(
+      new InterventionPublicationContext('intervention-1', 'organization-1', 'draft', 42),
+    );
+    $repository->expects(self::once())->method('findByInterventionRevision')->willReturn(null);
+
+    $queue = $this->queue();
+    $queue->expects(self::never())->method('dispatch');
+
+    $this->expectException(InterventionConflictException::class);
+    $this->expectExceptionMessage('Only submitted interventions can be published.');
+
+    $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testThrowsWhenTheRevisionDoesNotMatch(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('interventionContext')->willReturn(
+      new InterventionPublicationContext('intervention-1', 'organization-1', 'submitted', 7),
+    );
+    $repository->expects(self::once())->method('findByInterventionRevision')->willReturn(null);
+
+    $queue = $this->queue();
+    $queue->expects(self::never())->method('dispatch');
+
+    $this->expectException(InterventionConflictException::class);
+    $this->expectExceptionMessage('Intervention revision does not match.');
+
+    $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
   }
 
   private function command(): RequestPublicationCommand

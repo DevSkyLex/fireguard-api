@@ -169,6 +169,98 @@ final class PinMessageHandlerTest extends TestCase
     self::assertSame(self::MESSAGE_ID, $result->message->id);
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheConversationIsNotFound(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn(null);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $handler = new PinMessageHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new PinMessageCommand('user-1', self::MESSAGE_ID));
+  }
+
+  #[Test]
+  public function testInvokeEnforcesChannelParticipationForAParticipantsConversation(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+    $messages->method('save')->willReturn($this->messageView());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(true);
+
+    $handler = new PinMessageHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $result = $handler->__invoke(new PinMessageCommand('user-1', self::MESSAGE_ID));
+
+    self::assertSame(self::MESSAGE_ID, $result->message->id);
+  }
+
+  #[Test]
+  public function testInvokeRejectsANonParticipantOfAChannel(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(false);
+
+    $handler = new PinMessageHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $this->expectException(MessagingAccessDeniedException::class);
+
+    $handler->__invoke(new PinMessageCommand('user-1', self::MESSAGE_ID));
+  }
+
+  private function channelView(): ConversationView
+  {
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'channel', null, 'participants', null, 1, false, $now, $now, 'general');
+  }
+
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);

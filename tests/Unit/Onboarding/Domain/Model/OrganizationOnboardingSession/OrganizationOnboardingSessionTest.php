@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Onboarding\Domain\Model\OrganizationOnboardingSession;
 
 use DateTimeImmutable;
-use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
+use Onboarding\Domain\Model\OrganizationOnboardingSession\{OrganizationOnboardingSession, StepHistoryEntry};
 use Onboarding\Domain\Model\OrganizationOnboardingSession\RollbackAction\DeleteOrganizationRollbackAction;
 use Onboarding\Domain\ValueObject\{OrganizationOnboardingState, OrganizationOnboardingStep};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -603,6 +603,60 @@ final class OrganizationOnboardingSessionTest extends TestCase
 
     self::assertTrue($session->isDismissed());
     self::assertSame($dismissedAt, $session->dismissedAt());
+  }
+
+  // #endregion
+
+  // #region addStepHistory
+
+  #[Test]
+  public function testAddStepHistoryAppendsTheEntryAndTouchesTheSession(): void
+  {
+    $session = OrganizationOnboardingSession::reconstitute(
+      id: '550e8400-e29b-41d4-a716-550000000020',
+      userId: '550e8400-e29b-41d4-a716-550000000021',
+      flow: 'organization',
+      state: OrganizationOnboardingState::IN_PROGRESS,
+      nextStep: OrganizationOnboardingStep::INVITE_MEMBERS,
+      blockedReason: null,
+      targetOrganizationId: 'org-123',
+      targetOrganizationName: 'My Org',
+      completedSteps: [OrganizationOnboardingStep::CREATE_ORGANIZATION],
+      skippedSteps: [],
+      rollbackStack: [],
+      stepHistory: [],
+      createdAt: new DateTimeImmutable('2026-06-23T08:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-06-23T09:00:00+00:00'),
+    );
+
+    $before = $session->updatedAt();
+
+    $entry = new StepHistoryEntry(
+      stepKey: OrganizationOnboardingStep::INVITE_MEMBERS,
+      occurredAt: '2026-06-23T10:00:00+00:00',
+      skipped: true,
+    );
+
+    $session->addStepHistory($entry);
+
+    self::assertCount(1, $session->stepHistory());
+    self::assertSame($entry, $session->stepHistory()[0]);
+    self::assertGreaterThanOrEqual($before, $session->updatedAt());
+  }
+
+  #[Test]
+  public function testClearStepHistoryIsANoOpWhenTheHistoryIsAlreadyEmpty(): void
+  {
+    $session = OrganizationOnboardingSession::start(
+      id: '550e8400-e29b-41d4-a716-550000000022',
+      userId: '550e8400-e29b-41d4-a716-550000000023',
+    );
+
+    $before = $session->updatedAt();
+    $session->clearStepHistory();
+
+    self::assertSame([], $session->stepHistory());
+    self::assertSame($before, $session->updatedAt());
   }
 
   // #endregion

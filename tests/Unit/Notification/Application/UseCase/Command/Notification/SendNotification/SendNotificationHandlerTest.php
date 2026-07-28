@@ -25,6 +25,8 @@ use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\LoggerPort;
 
+use function array_values;
+
 #[CoversClass(SendNotificationHandler::class)]
 final class SendNotificationHandlerTest extends TestCase
 {
@@ -552,5 +554,134 @@ final class SendNotificationHandlerTest extends TestCase
 
     self::assertInstanceOf(SendNotificationResult::class, $result, 'opting out of every channel is a legitimate outcome, not an error');
     self::assertSame(['mercure' => false, 'email' => false], $result->channelDelivery);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnEmptyChannelList(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('At least one notification channel is required.');
+
+    $this->stubbedHandler()->__invoke($this->command(channels: []));
+  }
+
+  #[Test]
+  public function testInvokeRejectsACommandWithNoRecipientTarget(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('At least one recipient target (userId or email) is required.');
+
+    $this->stubbedHandler()->__invoke($this->command(recipientUserId: '  ', recipientEmail: null));
+  }
+
+  #[Test]
+  public function testInvokeRejectsABlankType(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Notification type is required.');
+
+    $this->stubbedHandler()->__invoke($this->command(type: '   '));
+  }
+
+  #[Test]
+  public function testInvokeRejectsABlankSubject(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Notification subject is required.');
+
+    $this->stubbedHandler()->__invoke($this->command(subject: "\t"));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedRecipientEmail(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid email address provided for notification.');
+
+    $this->stubbedHandler()->__invoke($this->command(recipientEmail: 'not-an-email'));
+  }
+
+  #[Test]
+  public function testInvokeDropsNonStringKeysFromTheChannelDeliveryPayload(): void
+  {
+    $channelPayload = null;
+
+    /** @var EmailNotificationChannelPort&MockObject $emailChannel */
+    $emailChannel = $this->createMock(EmailNotificationChannelPort::class);
+    $emailChannel->expects(self::once())
+      ->method('send')
+      ->willReturnCallback(static function (Notification $notification, array $received) use (&$channelPayload): void {
+        $channelPayload = $received;
+      });
+
+    /** @var UuidFactory&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442940'));
+
+    $handler = new SendNotificationHandler(
+      notificationRepository: $this->createStub(NotificationRepositoryPort::class),
+      emailChannel: $emailChannel,
+      mercureChannel: $this->createStub(MercureNotificationChannelPort::class),
+      preferenceRepository: $this->createStub(NotificationPreferenceRepositoryPort::class),
+      recipientDirectory: $this->createStub(RecipientDirectoryPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $uuidFactory,
+    );
+
+    $handler->__invoke($this->command(deliveryPayload: [
+      'email' => ['body' => '<p>Kept.</p>', 7 => 'dropped'],
+    ]));
+
+    self::assertSame(['body' => '<p>Kept.</p>'], $channelPayload);
+  }
+
+  /**
+   * Method command.
+   *
+   * @param array<int, NotificationChannel> $channels the requested channels
+   * @param array<string, mixed> $deliveryPayload the per-channel delivery payload
+   *
+   * @return SendNotificationCommand a valid-by-default command, overridable field by field
+   */
+  private function command(
+    string $type = 'organization.invitation',
+    string $subject = 'Invitation',
+    ?array $channels = null,
+    ?string $recipientUserId = null,
+    ?string $recipientEmail = 'member@example.com',
+    array $deliveryPayload = [],
+  ): SendNotificationCommand {
+    return new SendNotificationCommand(
+      type: $type,
+      subject: $subject,
+      body: '<p>Body</p>',
+      channels: array_values($channels ?? [NotificationChannel::EMAIL]),
+      payload: [],
+      deliveryPayload: $deliveryPayload,
+      recipientUserId: $recipientUserId,
+      recipientEmail: $recipientEmail,
+    );
+  }
+
+  /**
+   * Method stubbedHandler.
+   *
+   * @return SendNotificationHandler a handler whose collaborators are all inert stubs
+   */
+  private function stubbedHandler(): SendNotificationHandler
+  {
+    /** @var UuidFactory&Stub $uuidFactory */
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new NotificationId('550e8400-e29b-41d4-a716-446655442950'));
+
+    return new SendNotificationHandler(
+      notificationRepository: $this->createStub(NotificationRepositoryPort::class),
+      emailChannel: $this->createStub(EmailNotificationChannelPort::class),
+      mercureChannel: $this->createStub(MercureNotificationChannelPort::class),
+      preferenceRepository: $this->createStub(NotificationPreferenceRepositoryPort::class),
+      recipientDirectory: $this->createStub(RecipientDirectoryPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $uuidFactory,
+    );
   }
 }

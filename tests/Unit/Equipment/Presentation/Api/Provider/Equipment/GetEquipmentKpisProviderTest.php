@@ -14,6 +14,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -163,6 +164,65 @@ final class GetEquipmentKpisProviderTest extends TestCase
     self::assertSame(30, $output->compliant);
     self::assertSame(5, $output->dueSoon);
     self::assertSame(3, $output->openNonConformities);
+  }
+
+  #[Test]
+  public function testProvideMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442050';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655442051');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new InvalidArgumentException('Invalid organizationId.'));
+
+    $provider = new GetEquipmentKpisProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid organizationId.');
+
+    $provider->provide(operation: new Get(), uriVariables: ['organizationId' => $organizationId]);
+  }
+
+  #[Test]
+  public function testProvideRethrowsAWrappedFailureThatIsNotAnInvalidArgument(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442060';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655442061');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      envelope: new Envelope(new GetEquipmentKpisQuery(organizationId: $organizationId)),
+      exceptions: [new RuntimeException('database is down')],
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new GetEquipmentKpisProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    // An infrastructure failure must surface as a 500, never be masked as a 400.
+    $this->expectException(MessengerRuntimeException::class);
+
+    $provider->provide(operation: new Get(), uriVariables: ['organizationId' => $organizationId]);
   }
 
   private function createSecurityUser(string $id): SecurityUser

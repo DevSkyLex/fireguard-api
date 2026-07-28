@@ -22,6 +22,7 @@ use Inspection\Infrastructure\Persistence\Doctrine\Record\InspectionRecord;
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\InspectionRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -441,6 +442,100 @@ final class InspectionRepositoryStatisticsTest extends KernelTestCase
     self::assertSame(1, $filtered['total']);
     self::assertSame(1, $filtered['closed']);
     self::assertSame(0, $filtered['pass']);
+  }
+
+  #[Test]
+  public function testCountPeriodMetricsNarrowsByResultAndInspectorType(): void
+  {
+    $this->seedStandardDataset();
+    $organizationId = InspectionOrganizationId::fromString(self::ORGANIZATION_ID);
+
+    $byResult = $this->repository->countPeriodMetricsByOrganizationId(
+      $organizationId,
+      '2026-01-01T00:00:00+00:00',
+      '2026-12-31T23:59:59+00:00',
+      result: 'fail',
+    );
+    self::assertSame(1, $byResult['total']);
+    self::assertSame(1, $byResult['fail']);
+    self::assertSame(0, $byResult['pass']);
+    self::assertSame(0, $byResult['partial']);
+
+    $byInspectorType = $this->repository->countPeriodMetricsByOrganizationId(
+      $organizationId,
+      '2026-01-01T00:00:00+00:00',
+      '2026-12-31T23:59:59+00:00',
+      inspectorType: 'external',
+    );
+    self::assertSame(1, $byInspectorType['total']);
+    self::assertSame(1, $byInspectorType['fail']);
+    self::assertSame(0, $byInspectorType['closed']);
+  }
+
+  #[Test]
+  public function testCountByPerformedDayFallsBackToTheLowerBoundOffsetWhenNoTimeZoneIsGiven(): void
+  {
+    $this->seedStandardDataset();
+
+    $counts = $this->repository->countByPerformedDayForOrganizationId(
+      InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
+      '2026-01-01T00:00:00+00:00',
+      '2026-12-31T23:59:59+00:00',
+    );
+
+    self::assertCount(3, $counts);
+    self::assertSame(1, $counts['2026-01-10']);
+    self::assertSame(1, $counts['2026-02-15']);
+    self::assertSame(1, $counts['2026-03-20']);
+  }
+
+  #[Test]
+  public function testCountByPerformedDayRejectsAnUnusableStorageTimeZone(): void
+  {
+    $repository = new InspectionRepository($this->entityManager, 'Nowhere/Nothing');
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
+
+    $repository->countByPerformedDayForOrganizationId(
+      InspectionOrganizationId::fromString(self::ORGANIZATION_ID),
+      '2026-01-01T00:00:00+00:00',
+      '2026-12-31T23:59:59+00:00',
+      'UTC',
+    );
+  }
+
+  #[Test]
+  public function testFindByIdRejectsAStoredTimestampItCannotReinterpret(): void
+  {
+    $this->saveInspection(
+      id: self::INSPECTION_A_ID,
+      equipmentId: self::EQUIPMENT_A_ID,
+      result: InspectionResult::PASS,
+      status: InspectionStatus::DRAFT,
+      inspector: Inspector::forUser(self::INSPECTOR_USER_ID, 'Alice Auditor'),
+      performedAt: new DateTimeImmutable('2026-01-10 00:00:00'),
+      createdAt: new DateTimeImmutable('2026-01-01 00:00:00'),
+    );
+    $this->entityManager->clear();
+
+    // A five-digit year still formats, but '!Y-m-d H:i:s.u' cannot parse it
+    // back — exactly the corrupt-storage case the guard exists for. Mutating
+    // the managed instance keeps the poison out of the database: find()
+    // resolves through the identity map.
+    $record = $this->entityManager->find(InspectionRecord::class, self::INSPECTION_A_ID);
+    self::assertInstanceOf(InspectionRecord::class, $record);
+    $record->performedAt = new DateTimeImmutable('9999-12-31 00:00:00')->modify('+2 days');
+
+    try {
+      $this->expectException(RuntimeException::class);
+      $this->expectExceptionMessage('Unable to reinterpret a stored inspection datetime.');
+
+      $this->repository->findById(InspectionId::fromString(self::INSPECTION_A_ID));
+    } finally {
+      // Drop the poisoned instance before anything can flush it.
+      $this->entityManager->clear();
+    }
   }
 
   private function seedStandardDataset(): void

@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
@@ -139,6 +140,32 @@ final class GetTenantProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(new Get(), ['id' => 'tenant-2']);
+  }
+
+  #[Test]
+  public function testProvideRethrowsUnrelatedException(): void
+  {
+    $user = $this->createStub(UserInterface::class);
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $provider = new GetTenantProvider(
+      queryBus: $queryBus,
+      security: $security,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('boom');
+
+    $provider->provide(new Get(), ['id' => 'tenant-3']);
   }
   // #endregion
 }

@@ -34,7 +34,6 @@ use function openssl_pkey_export;
 use function openssl_pkey_get_details;
 use function openssl_pkey_new;
 use function random_bytes;
-use function sleep;
 use function sys_get_temp_dir;
 use function time;
 use function unlink;
@@ -343,35 +342,20 @@ final class JwtTokenServiceTest extends TestCase
   #[Test]
   public function testDecodeRefreshTokenReturnsNullForExpiredToken(): void
   {
-    // Create a service with very short TTL (1 second)
-    /** @var non-empty-string $privateKeyPath */
-    $privateKeyPath = $this->privateKeyPath;
-    /** @var non-empty-string $publicKeyPath */
-    $publicKeyPath = $this->publicKeyPath;
+    // Crafted with a past `expires_at` rather than generated with a 1s TTL and
+    // slept through: the assertion is about the expiry branch, not about real
+    // elapsed time. Matches how the other decodeRefreshToken tests here build
+    // their payloads.
+    $encrypted = $this->encryptPayload([
+      'refresh_token_id' => 'refresh-expired',
+      'access_token_id' => 'access-expired',
+      'user_id' => 'user-expired',
+      'scopes' => ['READ'],
+      'expires_at' => time() - 1,
+      'remember_me' => true,
+    ]);
 
-    $shortTtlService = new JwtTokenAdapter(
-      privateKeyPath: $privateKeyPath,
-      publicKeyPath: $publicKeyPath,
-      encryptionKey: base64_encode(random_bytes(32)),
-      issuer: 'https://test.example.com',
-      accessTokenTtl: 1,
-      refreshTokenTtl: 1,
-      authorizationService: null,
-      refreshTokenTtlShort: null,
-      includeEmailClaim: false,
-      includeRbacClaims: false,
-    );
-
-    $tokens = $shortTtlService->generateTokens(
-      userId: 'user-expired',
-      email: 'expired@example.com',
-      scopes: ['READ'],
-    );
-
-    // Wait for token to expire
-    sleep(2);
-
-    $payload = $shortTtlService->decodeRefreshToken($tokens['refresh_token']);
+    $payload = $this->service->decodeRefreshToken($encrypted);
 
     $this->assertNull($payload, 'Expired token should return null');
   }

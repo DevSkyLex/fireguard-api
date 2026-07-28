@@ -17,6 +17,7 @@ use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvi
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\AddOrganizationMemberHandler;
 use Organization\Domain\Event\Invitation\OrganizationInvitationAcceptedEvent;
 use Organization\Domain\Event\Member\OrganizationMemberAddedEvent;
+use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -728,5 +729,157 @@ final class AcceptOrganizationInvitationHandlerTest extends TestCase
       userId: $inviteeUserId,
       userEmail: 'member@example.com',
     ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTokenIsBlank(): void
+  {
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::never())->method('findByTokenHash');
+
+    $handler = $this->createHandler($invitationRepository);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invitation token is required.');
+
+    $handler->__invoke(new AcceptOrganizationInvitationCommand(
+      token: '   ',
+      userId: '550e8400-e29b-41d4-a716-446655442150',
+      userEmail: 'member@example.com',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenInvitationIsNotFound(): void
+  {
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())
+      ->method('findByTokenHash')
+      ->with(hash('sha256', 'missing-token'))
+      ->willReturn(null);
+
+    $handler = $this->createHandler($invitationRepository);
+
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+
+    $handler->__invoke(new AcceptOrganizationInvitationCommand(
+      token: 'missing-token',
+      userId: '550e8400-e29b-41d4-a716-446655442160',
+      userEmail: 'member@example.com',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenInvitationIsNoLongerPending(): void
+  {
+    $token = 'plain-token-revoked';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655442171'),
+      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655442170'),
+      email: new Email('member@example.com'),
+      tokenHash: hash('sha256', $token),
+      invitedByUserId: '550e8400-e29b-41d4-a716-446655442172',
+      status: OrganizationInvitationStatus::REVOKED,
+      expiresAt: new DateTimeImmutable('+7 days'),
+      createdAt: new DateTimeImmutable('-1 day'),
+      updatedAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->expects(self::never())->method('save');
+
+    $handler = $this->createHandler($invitationRepository);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invitation is no longer pending.');
+
+    $handler->__invoke(new AcceptOrganizationInvitationCommand(
+      token: $token,
+      userId: '550e8400-e29b-41d4-a716-446655442173',
+      userEmail: 'member@example.com',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenInvitationEmailDoesNotMatchAuthenticatedUser(): void
+  {
+    $token = 'plain-token-mismatch';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655442181'),
+      organizationId: new OrganizationId('550e8400-e29b-41d4-a716-446655442180'),
+      email: new Email('invited@example.com'),
+      tokenHash: hash('sha256', $token),
+      invitedByUserId: '550e8400-e29b-41d4-a716-446655442182',
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('+7 days'),
+      createdAt: new DateTimeImmutable('-1 day'),
+      updatedAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->expects(self::never())->method('save');
+
+    $handler = $this->createHandler($invitationRepository);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invitation email does not match the authenticated user.');
+
+    $handler->__invoke(new AcceptOrganizationInvitationCommand(
+      token: $token,
+      userId: '550e8400-e29b-41d4-a716-446655442183',
+      userEmail: 'someone-else@example.com',
+    ));
+  }
+
+  /**
+   * Builds a handler whose collaborators all reject work, for the guard clauses
+   * that must abort before any membership provisioning happens.
+   */
+  private function createHandler(OrganizationInvitationRepositoryPort $invitationRepository): AcceptOrganizationInvitationHandler
+  {
+    $addOrganizationMemberHandler = new AddOrganizationMemberHandler(
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      userRepository: $this->createStub(UserRepositoryPort::class),
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $this->createStub(TransactionManagerPort::class),
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    return new AcceptOrganizationInvitationHandler(
+      invitationRepository: $invitationRepository,
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      addOrganizationMemberHandler: $addOrganizationMemberHandler,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      notificationPort: $notificationPort,
+      logger: $this->createStub(LoggerPort::class),
+      transactionManager: $transactionManager,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      eventDispatcher: $eventDispatcher,
+    );
   }
 }

@@ -56,6 +56,30 @@ final class OrganizationRegionalSettingsTest extends TestCase
   }
 
   #[Test]
+  public function testRejectsUnsupportedDateFormat(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new OrganizationRegionalSettings(dateFormat: 'the/other/way');
+  }
+
+  #[Test]
+  public function testRejectsUnsupportedFirstDayOfWeek(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new OrganizationRegionalSettings(firstDayOfWeek: 'caturday');
+  }
+
+  #[Test]
+  public function testRejectsUnsupportedMeasurementSystem(): void
+  {
+    $this->expectException(InvalidValueException::class);
+
+    new OrganizationRegionalSettings(measurementSystem: 'cubits');
+  }
+
+  #[Test]
   public function testFromArrayFallsBackToDefaults(): void
   {
     $settings = OrganizationRegionalSettings::fromArray(['locale' => 'fr-FR']);

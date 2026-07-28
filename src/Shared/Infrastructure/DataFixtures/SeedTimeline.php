@@ -78,6 +78,9 @@ final class SeedTimeline
    * Private to prevent instantiation: this helper only exposes statics.
    *
    * @since 1.0.0
+   *
+   * @codeCoverageIgnore Never executed: the constructor exists only to
+   * forbid instantiation of this static catalogue.
    */
   private function __construct()
   {

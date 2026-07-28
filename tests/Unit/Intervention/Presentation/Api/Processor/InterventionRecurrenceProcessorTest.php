@@ -23,7 +23,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Http\MergePatchFields;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
  * Test InterventionRecurrenceProcessorTest.
@@ -135,6 +135,39 @@ final class InterventionRecurrenceProcessorTest extends TestCase
     $output = $processor->process(null, new Delete(), ['id' => self::RECURRENCE_ID]);
 
     self::assertNull($output);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenIdIsMissingForDelete(): void
+  {
+    $processor = new InterventionRecurrenceProcessor(
+      $this->createStub(CommandBusPort::class),
+      new InterventionRecurrenceOutputFactory(),
+      $this->securityWithUser(),
+      $this->emptyMergePatchFields(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(null, new Delete(), []);
+  }
+
+  #[Test]
+  public function testProcessRequiresAnAuthenticatedUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new InterventionRecurrenceProcessor(
+      $this->createStub(CommandBusPort::class),
+      new InterventionRecurrenceOutputFactory(),
+      $security,
+      $this->emptyMergePatchFields(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::RECURRENCE_ID]);
   }
 
   private function securityWithUser(): Security

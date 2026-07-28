@@ -6,6 +6,7 @@ namespace Tests\Unit\Calendar\Application\UseCase\Command\Event\UpdateCalendarEv
 
 use Calendar\Application\Port\Outbound\Event\CalendarEventRepositoryPort;
 use Calendar\Application\UseCase\Command\Event\UpdateCalendarEvent\{UpdateCalendarEventCommand, UpdateCalendarEventHandler};
+use Calendar\Domain\Exception\CalendarEventNotFoundException;
 use Calendar\Domain\Model\Event\CalendarEvent;
 use Calendar\Domain\ValueObject\CalendarEventId;
 use DateTimeImmutable;
@@ -77,6 +78,57 @@ final class UpdateCalendarEventHandlerTest extends TestCase
     self::assertEquals(new DateTimeImmutable('2026-08-01T11:00:00+02:00'), $result->endsAt);
     self::assertTrue($result->allDay);
     self::assertSame('facility-1', $result->facilityId);
+  }
+
+  #[Test]
+  public function itThrowsWhenTheEventDoesNotExist(): void
+  {
+    $repository = $this->createMock(CalendarEventRepositoryPort::class);
+    $repository->method('findById')->willReturn(null);
+    $repository->expects(self::never())->method('save');
+
+    $handler = new UpdateCalendarEventHandler($repository, $this->authorization());
+
+    $this->expectException(CalendarEventNotFoundException::class);
+
+    $handler(new UpdateCalendarEventCommand(
+      organizationId: self::ORGANIZATION_ID,
+      actorUserId: 'user-1',
+      eventId: self::EVENT_ID,
+      title: null,
+      description: null,
+      startsAt: null,
+      endsAt: null,
+      allDay: null,
+      facilityId: null,
+    ));
+  }
+
+  #[Test]
+  public function itThrowsWhenTheEventBelongsToAnotherOrganization(): void
+  {
+    $repository = $this->createMock(CalendarEventRepositoryPort::class);
+    $repository->method('findById')->willReturn($this->event());
+    $repository->expects(self::never())->method('save');
+
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('assertGrantedPermissions');
+
+    $handler = new UpdateCalendarEventHandler($repository, $authorization);
+
+    $this->expectException(CalendarEventNotFoundException::class);
+
+    $handler(new UpdateCalendarEventCommand(
+      organizationId: '018f0b68-6758-7a12-8a1d-3f0d97f64a99',
+      actorUserId: 'user-1',
+      eventId: self::EVENT_ID,
+      title: null,
+      description: null,
+      startsAt: null,
+      endsAt: null,
+      allDay: null,
+      facilityId: null,
+    ));
   }
 
   private function event(): CalendarEvent

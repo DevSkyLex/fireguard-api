@@ -7,9 +7,10 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationQuotaExceededException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException, OrganizationQuotaExceededException};
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Presentation\Api\Dto\Input\Organization\InviteOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationOutput;
@@ -17,12 +18,14 @@ use Organization\Presentation\Api\Processor\Organization\InviteOrganizationMembe
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(InviteOrganizationMemberProcessor::class)]
 final class InviteOrganizationMemberProcessorTest extends TestCase
@@ -184,6 +187,103 @@ final class InviteOrganizationMemberProcessorTest extends TestCase
     $this->expectException(ConflictHttpException::class);
 
     $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new InviteOrganizationMemberProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenOrganizationIdMissing(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441930'));
+
+    $processor = new InviteOrganizationMemberProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function testProcessMapsAMissingOrganizationToHttp404(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(
+      OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441931'),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessMapsAnInvalidArgumentToHttp400(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(new InvalidArgumentException('The email is malformed.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $failure = MessengerRuntimeException::wrap(new RuntimeException('the invitation store is offline'));
+    $processor = $this->processorWithFailingCommandBus($failure);
+
+    $this->expectExceptionObject($failure);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $failure): InviteOrganizationMemberProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441930'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    return new InviteOrganizationMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+  }
+
+  private function createInput(): InviteOrganizationMemberInput
+  {
+    $input = new InviteOrganizationMemberInput();
+    $input->email = 'member@example.com';
+    $input->roleIds = ['550e8400-e29b-41d4-a716-446655441932'];
+
+    return $input;
   }
 
   private function createSecurityUser(string $id): SecurityUser

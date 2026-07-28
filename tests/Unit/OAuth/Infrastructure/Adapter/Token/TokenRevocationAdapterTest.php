@@ -7,6 +7,7 @@ namespace Tests\Unit\OAuth\Infrastructure\Adapter\Token;
 use DateTimeImmutable;
 use Defuse\Crypto\Crypto;
 use OAuth\Application\Port\Outbound\Token\{AccessTokenRepositoryPort, RefreshTokenRepositoryPort, TokenCachePort};
+use OAuth\Domain\Event\Token\TokenRevokedEvent;
 use OAuth\Domain\Model\Token\{AccessToken, RefreshToken};
 use OAuth\Domain\ValueObject\Client\OAuthClientIdentifier;
 use OAuth\Domain\ValueObject\Scope\Scopes;
@@ -14,6 +15,7 @@ use OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Session\Application\Port\Inbound\Tracking\SessionTrackingPort;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
@@ -289,6 +291,87 @@ final class TokenRevocationAdapterTest extends TestCase
     );
 
     $adapter->revokeAllUserTokens('user-1');
+  }
+
+  #[Test]
+  public function testRevokeAccessTokenReturnsFalseOnEmptyToken(): void
+  {
+    $adapter = $this->createAdapter();
+
+    self::assertFalse($adapter->revokeAccessToken(''));
+  }
+
+  #[Test]
+  public function testRevokeRefreshTokenPropagatesUserIdFromPayload(): void
+  {
+    $refreshToken = $this->createRefreshToken('refresh-id', 'access-id');
+    $encrypted = $this->encryptPayload([
+      'refresh_token_id' => 'refresh-id',
+      'access_token_id' => 'access-id',
+      'user_id' => 'user-42',
+    ]);
+
+    $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);
+    $refreshTokenRepository->expects(self::once())
+      ->method('find')
+      ->with('refresh-id')
+      ->willReturn($refreshToken);
+    $refreshTokenRepository->expects(self::once())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (TokenRevokedEvent $event): bool => 'user-42' === $event->userId
+          && 'refresh_token' === $event->tokenType
+          && 'refresh-id' === $event->tokenId,
+      ));
+
+    $adapter = new TokenRevocationAdapter(
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $refreshTokenRepository,
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $eventDispatcher,
+      logger: $this->createStub(LoggerInterface::class),
+      encryptionKey: $this->encryptionKey(),
+    );
+
+    self::assertTrue($adapter->revokeRefreshToken($encrypted));
+  }
+
+  #[Test]
+  public function testRevokeRefreshTokenSwallowsSessionTrackingFailures(): void
+  {
+    $refreshToken = $this->createRefreshToken('refresh-id', 'access-id');
+    $encrypted = $this->encryptPayload([
+      'refresh_token_id' => 'refresh-id',
+      'access_token_id' => 'access-id',
+    ]);
+
+    $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);
+    $refreshTokenRepository->expects(self::once())
+      ->method('find')
+      ->with('refresh-id')
+      ->willReturn($refreshToken);
+    $refreshTokenRepository->expects(self::once())->method('save');
+
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::once())
+      ->method('revokeSessionByToken')
+      ->willThrowException(new RuntimeException('session store unavailable'));
+
+    $adapter = new TokenRevocationAdapter(
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $refreshTokenRepository,
+      tokenCache: $this->createStub(TokenCachePort::class),
+      sessionTracking: $sessionTracking,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      logger: $this->createStub(LoggerInterface::class),
+      encryptionKey: $this->encryptionKey(),
+    );
+
+    self::assertTrue($adapter->revokeRefreshToken($encrypted));
   }
 
   private function createAdapter(): TokenRevocationAdapter

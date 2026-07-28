@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationMemberRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 #[CoversClass(className: OrganizationMemberRepository::class)]
@@ -478,6 +479,22 @@ final class OrganizationMemberRepositoryIntegrationTest extends KernelTestCase
     );
 
     self::assertSame(2, $buckets['2026-04-10'] ?? 0);
+  }
+
+  #[Test]
+  public function testCountJoinedByDayRejectsAnUnusableStorageTimeZone(): void
+  {
+    $repository = new OrganizationMemberRepository($this->entityManager, null, 'Nowhere/Nothing');
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
+
+    $repository->countJoinedByDay(
+      OrganizationId::fromString('6f8b8ff1-6d8d-4c9b-90f3-7e1f0cdd0410'),
+      new DateTimeImmutable('2026-04-01T00:00:00+00:00'),
+      new DateTimeImmutable('2026-04-30T23:59:59+00:00'),
+      'UTC',
+    );
   }
 
   private function createRole(string $id, OrganizationRecord $organization, string $name): OrganizationRoleRecord

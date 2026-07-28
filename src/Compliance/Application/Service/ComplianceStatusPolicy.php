@@ -98,7 +98,12 @@ final class ComplianceStatusPolicy
       }
     }
 
+    // @codeCoverageIgnoreStart
+    // Unreachable: $worstRank is max() over the ranks of the very cases being
+    // iterated here, and every ComplianceStatus has a distinct severityRank(),
+    // so the loop always returns. Kept so the method is total for the analyser.
     return ComplianceStatus::NOT_APPLICABLE;
+    // @codeCoverageIgnoreEnd
   }
   // #endregion
 }

@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use LogicException;
+use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Domain\Model\OrganizationOnboardingSession\OrganizationOnboardingSession;
@@ -18,6 +19,7 @@ use Onboarding\Presentation\Api\Processor\Onboarding\RollbackOrganizationOnboard
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Factory\UuidFactory;
@@ -189,6 +191,31 @@ final class RollbackOrganizationOnboardingProcessorTest extends TestCase
       ),
       security: $security,
     );
+
+    $processor->process(null, new Post());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAMessengerRuntimeExceptionThatWrapsNoLogicException(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440304';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser($userId));
+
+    $flowService = $this->createStub(OrganizationOnboardingServicePort::class);
+    $flowService->method('rollbackLastStep')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Downstream transport is unavailable.')),
+    );
+
+    $processor = new RollbackOrganizationOnboardingProcessor(
+      flowService: $flowService,
+      security: $security,
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(null, new Post());
   }

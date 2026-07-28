@@ -35,10 +35,15 @@ use function file_put_contents;
 use function imagecreatetruecolor;
 use function imagepng;
 use function is_string;
+use function restore_error_handler;
+use function set_error_handler;
 use function str_contains;
+use function str_repeat;
 use function sys_get_temp_dir;
 use function tempnam;
 use function unlink;
+
+use const UPLOAD_ERR_PARTIAL;
 
 /**
  * Test UploadOrganizationLogoProcessorTest.
@@ -156,6 +161,45 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessRejectsAnUploadThatFailedTransport(): void
+  {
+    $request = new Request();
+    $request->files->set('logo', new UploadedFile(
+      $this->temporaryFile('partial'),
+      'logo.png',
+      'image/png',
+      UPLOAD_ERR_PARTIAL,
+      test: true,
+    ));
+
+    $processor = $this->createProcessor(request: $request);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Invalid upload:');
+
+    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessRejectsAFileLargerThanTheMaximumSize(): void
+  {
+    $request = new Request();
+    $request->files->set('logo', new UploadedFile(
+      $this->temporaryFile(str_repeat('a', 5 * 1024 * 1024 + 1)),
+      'logo.png',
+      'image/png',
+      test: true,
+    ));
+
+    $processor = $this->createProcessor(request: $request);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('File size exceeds the 5 MB limit.');
+
+    $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
   public function testProcessRejectsADisallowedMimeType(): void
   {
     $path = $this->temporaryFile('not-an-image');
@@ -183,6 +227,42 @@ final class UploadOrganizationLogoProcessorTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenTheUploadedBytesCannotBeRead(): void
+  {
+    // The upload passes every earlier gate but its bytes are gone by the time
+    // the processor reads them — a real race when a tmp file is reaped early.
+    $uploadedFile = new class ($this->pngFile(), 'logo.png', 'image/png', test: true) extends UploadedFile {
+      public function getPathname(): string
+      {
+        return sys_get_temp_dir() . '/fireguard-logo-vanished-source.png';
+      }
+
+      public function getMimeType(): string
+      {
+        return 'image/png';
+      }
+    };
+
+    $request = new Request();
+    $request->files->set('logo', $uploadedFile);
+
+    $processor = $this->createProcessor(request: $request);
+
+    // file_get_contents() emits an E_WARNING for the missing path; swallow it
+    // locally so the suite's failOnWarning gate still guards everything else.
+    set_error_handler(static fn (): bool => true);
+
+    try {
+      $processor->process(null, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+      self::fail('Expected an UnprocessableEntityHttpException.');
+    } catch (UnprocessableEntityHttpException $exception) {
+      self::assertSame('Failed to read the uploaded file.', $exception->getMessage());
+    } finally {
+      restore_error_handler();
+    }
   }
 
   private function createProcessor(

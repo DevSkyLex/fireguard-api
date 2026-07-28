@@ -9,18 +9,30 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Application\UseCase\Query\Facility\GetFacilityDescendants\{GetFacilityDescendantsQuery, GetFacilityDescendantsResult};
+use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Provider\Facility\ListFacilityDescendantsProvider;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(ListFacilityDescendantsProvider::class)]
 final class ListFacilityDescendantsProviderTest extends TestCase
 {
+  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441300';
+
+  private const string FACILITY_ID = '550e8400-e29b-41d4-a716-446655441301';
+
   #[Test]
   public function testProvideMapsResults(): void
   {
@@ -90,6 +102,162 @@ final class ListFacilityDescendantsProviderTest extends TestCase
     self::assertSame(48.8566, $outputs[0]->latitude);
     self::assertSame(2.3522, $outputs[0]->longitude);
     self::assertNull($outputs[1]->latitude);
+  }
+
+  #[Test]
+  public function testProvideRequiresAnAuthenticatedSecurityUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new ListFacilityDescendantsProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+      requestStack: $this->makeRequestStack(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideRejectsMissingUriVariables(): void
+  {
+    $provider = $this->makeProvider();
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('OrganizationId and facilityId URI parameters are required.');
+
+    $provider->provide(operation: new GetCollection(), uriVariables: ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideRejectsCallerWithoutReadPermission(): void
+  {
+    $provider = $this->makeProvider(hasPermission: false);
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Missing organization.facilities.read permission.');
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideMapsDirectNotFoundToHttp404(): void
+  {
+    $provider = $this->makeProvider(FacilityNotFoundException::withId(self::FACILITY_ID));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideMapsDirectInvalidArgumentToHttp400(): void
+  {
+    $provider = $this->makeProvider(new InvalidArgumentException('Malformed identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Malformed identifier.');
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsDirectlyWrappedNotFound(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(FacilityNotFoundException::withId(self::FACILITY_ID)));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsHandlerWrappedNotFound(): void
+  {
+    $provider = $this->makeProvider($this->handlerFailure(FacilityNotFoundException::withId(self::FACILITY_ID)));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsDirectlyWrappedInvalidArgument(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new InvalidArgumentException('Wrapped invalid argument.')));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Wrapped invalid argument.');
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsHandlerWrappedInvalidArgument(): void
+  {
+    $provider = $this->makeProvider($this->handlerFailure(new InvalidArgumentException('Handler invalid argument.')));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Handler invalid argument.');
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideRethrowsUnrecognisedMessengerFailure(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new RuntimeException('infrastructure down')));
+
+    $this->expectException(MessengerRuntimeException::class);
+    $this->expectExceptionMessage('infrastructure down');
+
+    $this->ask($provider);
+  }
+
+  private function ask(ListFacilityDescendantsProvider $provider): void
+  {
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORGANIZATION_ID, 'facilityId' => self::FACILITY_ID],
+    );
+  }
+
+  private function makeProvider(?Throwable $exception = null, bool $hasPermission = true): ListFacilityDescendantsProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441305'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn($hasPermission);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+
+    if (null !== $exception) {
+      $queryBus->method('ask')->willThrowException($exception);
+    }
+
+    return new ListFacilityDescendantsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->makeRequestStack(),
+    );
+  }
+
+  private function handlerFailure(Throwable $exception): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      envelope: new Envelope(new GetFacilityDescendantsQuery(
+        organizationId: self::ORGANIZATION_ID,
+        facilityId: self::FACILITY_ID,
+      )),
+      exceptions: [$exception],
+    ));
   }
 
   private function makeRequestStack(): RequestStack

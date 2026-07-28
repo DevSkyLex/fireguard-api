@@ -9,11 +9,12 @@ use Approval\Domain\Exception\DeferredActionNoLongerApplicableException;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\NonConformity\UpdateNonConformityStatus\UpdateNonConformityStatusCommand;
 use Inspection\Application\UseCase\Query\NonConformity\GetNonConformity\GetNonConformityResult;
-use Inspection\Domain\Exception\{NonConformityAlreadyResolvedException, NonConformityNotFoundException};
+use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityAlreadyResolvedException, NonConformityNotFoundException};
 use Inspection\Infrastructure\Adapter\Approval\NonConformityWaiverExecutorAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 
@@ -122,6 +123,54 @@ final class NonConformityWaiverExecutorAdapterTest extends TestCase
     $this->expectException(DeferredActionNoLongerApplicableException::class);
 
     $adapter->execute(new DeferredActionContext(self::ORG_ID, 'nc_waiver', self::NC_ID, []));
+  }
+
+  #[Test]
+  public function testExecuteThrowsNoLongerApplicableWhenTheInspectionNoLongerExists(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(InspectionNotFoundException::withId(self::INSP_ID)),
+    );
+
+    $adapter = new NonConformityWaiverExecutorAdapter($commandBus, $this->createStub(QueryBusPort::class));
+
+    $this->expectException(DeferredActionNoLongerApplicableException::class);
+
+    $adapter->execute(self::context());
+  }
+
+  #[Test]
+  public function testExecuteRethrowsAnUnrelatedDispatchFailure(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $adapter = new NonConformityWaiverExecutorAdapter($commandBus, $this->createStub(QueryBusPort::class));
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $adapter->execute(self::context());
+  }
+
+  #[Test]
+  public function testExecuteTreatsAnUnreadableNonConformityAsNotAlreadyWaived(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(NonConformityAlreadyResolvedException::withId(self::NC_ID)),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('Read model unavailable.'));
+
+    $adapter = new NonConformityWaiverExecutorAdapter($commandBus, $queryBus);
+
+    $this->expectException(DeferredActionNoLongerApplicableException::class);
+
+    $adapter->execute(self::context());
   }
 
   private static function context(): DeferredActionContext

@@ -23,12 +23,16 @@ use function assert;
 use function base64_decode;
 use function file_put_contents;
 use function is_string;
+use function restore_error_handler;
+use function set_error_handler;
 use function str_contains;
+use function str_repeat;
 use function sys_get_temp_dir;
 use function tempnam;
 use function unlink;
 
 use const UPLOAD_ERR_OK;
+use const UPLOAD_ERR_PARTIAL;
 
 /**
  * Test UploadUserAvatarProcessorTest.
@@ -223,6 +227,123 @@ final class UploadUserAvatarProcessorTest extends TestCase
     }
 
     self::assertNull($output);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenTheUploadItselfFailed(): void
+  {
+    $tmpFile = $this->createTempFile($this->minimalPngBinary(), 'image/png');
+
+    $uploadedFile = new UploadedFile(
+      path: $tmpFile,
+      originalName: 'avatar.png',
+      mimeType: 'image/png',
+      error: UPLOAD_ERR_PARTIAL,
+      test: true,
+    );
+
+    $request = new Request();
+    $request->files->set('avatar', $uploadedFile);
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $processor = new UploadUserAvatarProcessor(
+      requestStack: $requestStack,
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Invalid upload:');
+
+    try {
+      $processor->process(null, new Post(), ['id' => 'user-1']);
+    } finally {
+      @unlink($tmpFile);
+    }
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenTheFileExceedsTheSizeLimit(): void
+  {
+    // 5 MiB + 1 byte: one byte past the cap, so the boundary itself is proven.
+    $tmpFile = $this->createTempFile(str_repeat('a', 5 * 1024 * 1024 + 1), 'image/png');
+
+    $uploadedFile = new UploadedFile(
+      path: $tmpFile,
+      originalName: 'avatar.png',
+      mimeType: 'image/png',
+      error: UPLOAD_ERR_OK,
+      test: true,
+    );
+
+    $request = new Request();
+    $request->files->set('avatar', $uploadedFile);
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $processor = new UploadUserAvatarProcessor(
+      requestStack: $requestStack,
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('File size exceeds the 5 MB limit.');
+
+    try {
+      $processor->process(null, new Post(), ['id' => 'user-1']);
+    } finally {
+      @unlink($tmpFile);
+    }
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenTheUploadedFileCannotBeRead(): void
+  {
+    // The upload passes every earlier gate but its bytes are gone by the time
+    // the processor reads them — a real race when a tmp file is reaped early.
+    $tmpFile = $this->createTempFile($this->minimalPngBinary(), 'image/png');
+
+    $uploadedFile = new class ($tmpFile, 'avatar.png', 'image/png', UPLOAD_ERR_OK, true) extends UploadedFile {
+      public function getPathname(): string
+      {
+        return sys_get_temp_dir() . '/fireguard-avatar-vanished-source.png';
+      }
+
+      public function getMimeType(): string
+      {
+        return 'image/png';
+      }
+    };
+
+    $request = new Request();
+    $request->files->set('avatar', $uploadedFile);
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $processor = new UploadUserAvatarProcessor(
+      requestStack: $requestStack,
+      avatarResizer: $this->createStub(AvatarResizer::class),
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+    );
+
+    // file_get_contents() emits an E_WARNING for the missing path; swallow it
+    // locally so the suite's failOnWarning gate still guards everything else.
+    set_error_handler(static fn (): bool => true);
+
+    try {
+      $processor->process(null, new Post(), ['id' => 'user-1']);
+      self::fail('Expected an UnprocessableEntityHttpException.');
+    } catch (UnprocessableEntityHttpException $exception) {
+      self::assertSame('Failed to read the uploaded file.', $exception->getMessage());
+    } finally {
+      restore_error_handler();
+      @unlink($tmpFile);
+    }
   }
 
   // #region Helpers

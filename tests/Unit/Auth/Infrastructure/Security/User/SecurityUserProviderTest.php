@@ -352,6 +352,87 @@ final class SecurityUserProviderTest extends TestCase
     self::assertContains('ROLE_ADMIN', $user->getRoles());
   }
 
+  #[Test]
+  public function testLoadUserByIdFallsBackToQueryBusWhenCacheReadThrows(): void
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+
+    $authorization = $this->createStub(AuthorizationPort::class);
+    $authorization->method('getUserRoleNames')->willReturn([]);
+
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willThrowException(new RuntimeException('cache down'));
+    $cache->expects(self::once())->method('set');
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+      cache: $cache,
+    );
+
+    self::assertSame('user-123', $provider->loadUserById('user-123')->getId());
+  }
+
+  #[Test]
+  public function testLoadUserByIdIgnoresMalformedCachePayload(): void
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+
+    $authorization = $this->createStub(AuthorizationPort::class);
+    $authorization->method('getUserRoleNames')->willReturn([]);
+
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willReturn([
+        'id' => 'user-123',
+        'email' => 'user@example.com',
+        'roles' => ['ROLE_USER'],
+        'isActive' => 'yes-please',
+      ]);
+    $cache->expects(self::once())->method('set');
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+      cache: $cache,
+    );
+
+    self::assertSame('user-123', $provider->loadUserById('user-123')->getId());
+  }
+
+  #[Test]
+  public function testLoadUserByIdSwallowsCacheWriteFailures(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+
+    $authorization = $this->createStub(AuthorizationPort::class);
+    $authorization->method('getUserRoleNames')->willReturn([]);
+
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())->method('get')->willReturn(null);
+    $cache->expects(self::once())
+      ->method('set')
+      ->willThrowException(new RuntimeException('cache write failed'));
+
+    $provider = new SecurityUserProvider(
+      queryBus: $queryBus,
+      authorizationService: $authorization,
+      cache: $cache,
+    );
+
+    self::assertSame('user-123', $provider->loadUserById('user-123')->getId());
+  }
+
   private function createUserView(bool $canLogin): UserView
   {
     return new UserView(

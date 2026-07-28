@@ -211,6 +211,50 @@ final class CheckConsentProviderTest extends TestCase
     $provider->provide(operation: $this->createStub(Operation::class));
   }
 
+  #[Test]
+  public function testProvideProceedsWhenTheRateLimitAcceptsTheRequest(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser());
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/oauth2/consent',
+      method: 'GET',
+      parameters: [
+        'client_id' => 'client-123',
+        'scope' => 'openid profile',
+      ],
+    ));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::isInstanceOf(CheckConsentQuery::class))
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid', 'profile'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $provider = new CheckConsentProvider(
+      security: $security,
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      rateLimiter: $this->createRateLimiterFactory(limit: 10),
+    );
+
+    $output = $provider->provide(operation: $this->createStub(Operation::class));
+
+    self::assertInstanceOf(CheckConsentOutput::class, $output);
+    self::assertTrue($output->hasConsent);
+    self::assertFalse($output->requiresConsentScreen);
+  }
+
   private function createSecurityUser(): SecurityUser
   {
     return new SecurityUser(

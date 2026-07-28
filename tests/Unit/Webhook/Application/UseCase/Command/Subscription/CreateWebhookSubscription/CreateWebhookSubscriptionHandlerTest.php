@@ -194,6 +194,33 @@ final class CreateWebhookSubscriptionHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function itRejectsAnEmptyEventTypeAllowlist(): void
+  {
+    $repository = $this->createMock(WebhookSubscriptionRepositoryPort::class);
+    $repository->method('countActiveByOrganization')->willReturn(0);
+    $repository->expects(self::never())->method('save');
+
+    $handler = new CreateWebhookSubscriptionHandler(
+      $repository,
+      $this->createStub(WebhookSecretCipherPort::class),
+      new WebhookUrlPolicy(allowInsecureUrls: false),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->uuidFactory(),
+      $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(WebhookValidationException::class);
+    $this->expectExceptionMessage('At least one event type is required.');
+
+    $handler->__invoke(new CreateWebhookSubscriptionCommand(
+      organizationId: self::ORGANIZATION_ID,
+      actorUserId: self::USER_ID,
+      url: 'https://example.com/webhooks/fireguard',
+      eventTypes: [],
+    ));
+  }
+
   /**
    * Method uuidFactory.
    *

@@ -212,9 +212,13 @@ final readonly class TeamRepository implements TeamRepositoryPort
       ->getQuery()
       ->getResult();
 
+    // @codeCoverageIgnoreStart
+    // Unreachable: AbstractQuery::getResult() is typed mixed for the analyser but
+    // always yields an array under HYDRATE_OBJECT, which EntityManager hardcodes.
     if (!is_array($records)) {
       return [];
     }
+    // @codeCoverageIgnoreEnd
 
     $memberIds = [];
     foreach ($records as $record) {

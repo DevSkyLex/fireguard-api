@@ -185,6 +185,37 @@ final class SyncPermissionsCommandTest extends TestCase
     self::assertStringContainsString('Role permissions added', $tester->getDisplay());
   }
 
+  #[Test]
+  public function testUpdateRolesWarnsAndSkipsWhenAPermissionIsMissing(): void
+  {
+    // In dry-run nothing is persisted, so no permission is ever resolvable and
+    // every role permission falls into the "missing, skipping" branch.
+    $permissionRepo = $this->createStub(EntityRepository::class);
+    $permissionRepo->method('findOneBy')->willReturn(null);
+
+    $roleRepo = $this->createStub(EntityRepository::class);
+    $roleRepo->method('findOneBy')->willReturn(null);
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('getRepository')
+      ->willReturnMap([
+        [PermissionRecord::class, $permissionRepo],
+        [RoleRecord::class, $roleRepo],
+      ]);
+    $entityManager->expects(self::never())
+      ->method('persist');
+    $entityManager->expects(self::never())
+      ->method('flush');
+
+    $command = new SyncPermissionsCommand(entityManager: $entityManager);
+    $tester = new CommandTester($command);
+
+    $tester->execute(['--update-roles' => true, '--dry-run' => true]);
+
+    self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+    self::assertStringContainsString('missing, skipping', $tester->getDisplay());
+  }
+
   private function createRole(string $name): RoleRecord
   {
     $role = new RoleRecord();

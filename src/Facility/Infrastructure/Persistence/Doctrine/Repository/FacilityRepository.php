@@ -253,9 +253,14 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
 
     $counts = [];
     foreach ($rows as $row) {
+      // @codeCoverageIgnoreStart
+      // Unreachable: the query filters on IDENTITY(f.parentFacility) IN (:parentIds)
+      // and groups by that column. In SQL, NULL IN (...) is never true, so a root
+      // facility cannot appear in these rows.
       if (null === $row['parentId']) {
         continue;
       }
+      // @codeCoverageIgnoreEnd
 
       $counts[(string) $row['parentId']] = (int) $row['childCount'];
     }

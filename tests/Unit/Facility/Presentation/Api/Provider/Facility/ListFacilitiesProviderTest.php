@@ -12,22 +12,30 @@ use Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityResult;
 use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQuery;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\ListFacilitiesProvider;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\SortDirection;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 use function iterator_to_array;
 
 #[CoversClass(ListFacilitiesProvider::class)]
 final class ListFacilitiesProviderTest extends TestCase
 {
+  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441260';
+
   #[Test]
   public function testProvideUsesIncludeArchivedFalseByDefault(): void
   {
@@ -357,6 +365,75 @@ final class ListFacilitiesProviderTest extends TestCase
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(1.0, $output->getTotalItems());
+  }
+
+  #[Test]
+  public function testProvideMapsDirectInvalidArgumentToHttp400(): void
+  {
+    $provider = $this->makeProvider(new InvalidArgumentException('Unsupported facility type.'));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Unsupported facility type.');
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsDirectlyWrappedInvalidArgument(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new InvalidArgumentException('Wrapped invalid argument.')));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Wrapped invalid argument.');
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsHandlerWrappedInvalidArgument(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new HandlerFailedException(
+      envelope: new Envelope(new ListFacilitiesQuery(organizationId: self::ORGANIZATION_ID)),
+      exceptions: [new InvalidArgumentException('Handler invalid argument.')],
+    )));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Handler invalid argument.');
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideRethrowsUnrecognisedMessengerFailure(): void
+  {
+    $provider = $this->makeProvider(MessengerRuntimeException::wrap(new RuntimeException('infrastructure down')));
+
+    $this->expectException(MessengerRuntimeException::class);
+    $this->expectExceptionMessage('infrastructure down');
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  private function makeProvider(Throwable $exception): ListFacilitiesProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441261'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($exception);
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    return new ListFacilitiesProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

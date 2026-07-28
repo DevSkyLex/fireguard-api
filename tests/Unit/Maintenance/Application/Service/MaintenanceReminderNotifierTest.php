@@ -126,6 +126,22 @@ final class MaintenanceReminderNotifierTest extends TestCase
     self::addToAssertionCount(1);
   }
 
+  #[Test]
+  public function testRemindNeverThrowsWhenTheNotificationPolicyIsUnreadable(): void
+  {
+    $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
+    $policy->method('notificationPolicy')->willThrowException(new RuntimeException('policy store down'));
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    $notifier = new MaintenanceReminderNotifier($notifications, $policy, $this->recipients(['user-1']));
+
+    $notifier->remind(self::ORG_ID, self::EQUIP_ID, null, new DateTimeImmutable(), true);
+
+    self::addToAssertionCount(1);
+  }
+
   /**
    * Builds a real resolver (the concrete class is final and cannot be
    * doubled) backed by stubbed ports, so it deterministically resolves to

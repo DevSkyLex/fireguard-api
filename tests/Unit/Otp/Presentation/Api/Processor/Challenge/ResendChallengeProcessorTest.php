@@ -452,5 +452,93 @@ final class ResendChallengeProcessorTest extends TestCase
 
     $processor->process(null, new Post(), ['token' => 'token-10']);
   }
+
+  #[Test]
+  public function testProcessMapsOtpNotFoundWrappedInAMessengerHandlerFailure(): void
+  {
+    $user = new class () implements UserInterface {
+      public function getUserIdentifier(): string
+      {
+        return 'user-10';
+      }
+
+      public function getRoles(): array
+      {
+        return [];
+      }
+
+      public function eraseCredentials(): void
+      {
+      }
+    };
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    $handlerFailed = new HandlerFailedException(
+      new Envelope(new stdClass()),
+      ['handler' => OtpNotFoundException::forIdentifier('token-11')],
+    );
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException(MessengerRuntimeException::wrap($handlerFailed));
+
+    $processor = new ResendChallengeProcessor(
+      commandBus: $commandBus,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(null, new Post(), ['token' => 'token-11']);
+  }
+
+  #[Test]
+  public function testProcessRethrowsAHandlerFailureCarryingNeitherMappedException(): void
+  {
+    $user = new class () implements UserInterface {
+      public function getUserIdentifier(): string
+      {
+        return 'user-11';
+      }
+
+      public function getRoles(): array
+      {
+        return [];
+      }
+
+      public function eraseCredentials(): void
+      {
+      }
+    };
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    $handlerFailed = new HandlerFailedException(
+      new Envelope(new stdClass()),
+      ['handler' => new RuntimeException('boom')],
+    );
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException($handlerFailed);
+
+    $processor = new ResendChallengeProcessor(
+      commandBus: $commandBus,
+      security: $security,
+    );
+
+    $this->expectException(HandlerFailedException::class);
+
+    $processor->process(null, new Post(), ['token' => 'token-12']);
+  }
   // #endregion
 }

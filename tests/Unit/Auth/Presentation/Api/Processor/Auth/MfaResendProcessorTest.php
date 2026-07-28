@@ -10,6 +10,7 @@ use Auth\Application\UseCase\Command\Mfa\MfaResend\MfaResendHandler;
 use Auth\Presentation\Api\Dto\Input\Auth\MfaResendInput;
 use Auth\Presentation\Api\Processor\Auth\MfaResendProcessor;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel};
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
@@ -23,6 +24,7 @@ use Otp\Domain\ValueObject\{
 };
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{
   BadRequestHttpException,
@@ -153,6 +155,20 @@ final class MfaResendProcessorTest extends TestCase
     $this->expectException(TooManyRequestsHttpException::class);
 
     $processor->process($this->input(), new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenInputIsNotAnMfaResendInput(): void
+  {
+    $processor = $this->createProcessor($this->createStub(OtpRepositoryPort::class));
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid input data');
+
+    // Deliberately the wrong type: this asserts the processor's own guard, so
+    // the signature violation is the subject of the test, not a mistake.
+    /** @phpstan-ignore argument.type */
+    $processor->process(new stdClass(), new Post());
   }
 
   private function input(): MfaResendInput

@@ -11,6 +11,7 @@ use Calendar\Application\UseCase\Query\Feed\GetCalendarFeed\{GetCalendarFeedQuer
 use Calendar\Presentation\Api\Dto\Output\Feed\CalendarFeedOutput;
 use Calendar\Presentation\Api\Provider\Feed\GetCalendarFeedProvider;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -113,5 +114,46 @@ final class GetCalendarFeedProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], ['filters' => []]);
+  }
+
+  #[Test]
+  public function testProvideRequiresAnOrganizationIdUriVariable(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $provider = new GetCalendarFeedProvider($this->createStub(QueryBusPort::class), $security);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('OrganizationId URI parameter is required.');
+
+    $provider->provide(new Get(), [], [
+      'filters' => ['from' => '2026-08-01T00:00:00+00:00', 'to' => '2026-08-31T23:59:59+00:00'],
+    ]);
+  }
+
+  #[Test]
+  public function testProvideMapsADomainFailureToAnHttpException(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      new InvalidArgumentException('The "from" filter is not a valid date.'),
+    );
+
+    $provider = new GetCalendarFeedProvider($queryBus, $security);
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('The "from" filter is not a valid date.');
+
+    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID], [
+      'filters' => ['from' => 'not-a-date', 'to' => '2026-08-31T23:59:59+00:00'],
+    ]);
   }
 }

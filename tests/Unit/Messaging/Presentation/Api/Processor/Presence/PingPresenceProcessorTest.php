@@ -90,6 +90,29 @@ final class PingPresenceProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessLetsAPingThroughWhileTheRateLimiterStillAcceptsIt(): void
+  {
+    $lastSeenAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willReturn(new PingPresenceResult(self::MEMBER_ID, $lastSeenAt));
+
+    $processor = new PingPresenceProcessor(
+      $commandBus,
+      $this->securityWithUser(),
+      $this->createRateLimiterFactory(limit: 5),
+    );
+
+    $input = new PingPresenceInput();
+    $input->organization = '/api/organizations/' . self::ORG_ID;
+
+    $output = $processor->process($input, new Post());
+
+    self::assertInstanceOf(PingPresenceOutput::class, $output);
+    self::assertSame(self::MEMBER_ID, $output->memberId);
+  }
+
+  #[Test]
   public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
   {
     $rateLimiter = $this->createRateLimiterFactory(limit: 1);
@@ -103,6 +126,19 @@ final class PingPresenceProcessorTest extends TestCase
     $this->expectException(TooManyRequestsHttpException::class);
 
     $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new PingPresenceProcessor($this->createStub(CommandBusPort::class), $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Post(), []);
   }
 
   private function createRateLimiterFactory(int $limit): RateLimiterFactory

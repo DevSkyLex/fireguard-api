@@ -9,6 +9,7 @@ use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
 use Maintenance\Application\Contract\Schedule\MaintenanceScheduleSnapshot;
 use Maintenance\Domain\Exception\MaintenanceNotFoundException;
+use Maintenance\Infrastructure\Persistence\Doctrine\Record\MaintenanceScheduleRecord;
 use Maintenance\Infrastructure\Persistence\Doctrine\Repository\MaintenanceScheduleRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -38,6 +39,10 @@ final class MaintenanceScheduleRepositoryTest extends KernelTestCase
   private const string EQUIPMENT_ID_C = '990e8400-e29b-41d4-a716-446655490012';
 
   private const string EQUIPMENT_ID_OTHER_ORG = '990e8400-e29b-41d4-a716-446655490013';
+
+  private const string FACILITY_ID_A = '990e8400-e29b-41d4-a716-446655490020';
+
+  private const string FACILITY_ID_B = '990e8400-e29b-41d4-a716-446655490021';
 
   private EntityManagerInterface $entityManager;
 
@@ -243,19 +248,80 @@ final class MaintenanceScheduleRepositoryTest extends KernelTestCase
     self::assertContains(self::EQUIPMENT_ID_A, $equipmentIds);
   }
 
+  #[Test]
+  public function testListNarrowsByFacilityEquipmentTypeAndDueBefore(): void
+  {
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_A, 'overdue', new DateTimeImmutable('2026-08-01T00:00:00+00:00'), self::FACILITY_ID_A));
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_B, 'due_soon', new DateTimeImmutable('2026-09-01T00:00:00+00:00'), self::FACILITY_ID_B, 'smoke_detector'));
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_C, 'unscheduled', null, self::FACILITY_ID_B));
+    $this->entityManager->clear();
+
+    $byFacility = $this->repository->list(self::ORGANIZATION_ID, self::FACILITY_ID_A, null, null, null, 1, 100);
+    self::assertSame(1, $byFacility->total);
+    self::assertSame(self::EQUIPMENT_ID_A, $byFacility->items[0]->equipmentId);
+
+    $byType = $this->repository->list(self::ORGANIZATION_ID, null, 'smoke_detector', null, null, 1, 100);
+    self::assertSame(1, $byType->total);
+    self::assertSame(self::EQUIPMENT_ID_B, $byType->items[0]->equipmentId);
+
+    // The null-due row is excluded by the dueBefore arm, which requires a date.
+    $byDueBefore = $this->repository->list(self::ORGANIZATION_ID, null, null, null, new DateTimeImmutable('2026-08-15T00:00:00+00:00'), 1, 100);
+    self::assertSame(1, $byDueBefore->total);
+    self::assertSame(self::EQUIPMENT_ID_A, $byDueBefore->items[0]->equipmentId);
+  }
+
+  #[Test]
+  public function testListDueForCampaignNarrowsByFacilityAndEquipmentType(): void
+  {
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_A, 'due_soon', new DateTimeImmutable('2026-08-01T00:00:00+00:00'), self::FACILITY_ID_A));
+    $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_B, 'overdue', new DateTimeImmutable('2026-07-15T00:00:00+00:00'), self::FACILITY_ID_B, 'smoke_detector'));
+    $this->entityManager->clear();
+
+    $cutoff = new DateTimeImmutable('2026-09-01T00:00:00+00:00');
+
+    $byFacility = $this->repository->listDueForCampaign(self::ORGANIZATION_ID, self::FACILITY_ID_A, null, $cutoff);
+    self::assertCount(1, $byFacility);
+    self::assertSame(self::EQUIPMENT_ID_A, $byFacility[0]->equipmentId);
+
+    $byType = $this->repository->listDueForCampaign(self::ORGANIZATION_ID, null, 'smoke_detector', $cutoff);
+    self::assertCount(1, $byType);
+    self::assertSame(self::EQUIPMENT_ID_B, $byType[0]->equipmentId);
+
+    self::assertSame([], $this->repository->listDueForCampaign(self::ORGANIZATION_ID, self::FACILITY_ID_A, 'smoke_detector', $cutoff));
+  }
+
+  #[Test]
+  public function testViewRejectsAScheduleThatLostItsOrganizationAssociation(): void
+  {
+    $created = $this->repository->save($this->snapshot(null, self::ORGANIZATION_ID, self::EQUIPMENT_ID_A, 'overdue', null));
+    $this->entityManager->clear();
+
+    // Detach the association on the managed instance only: findById() resolves
+    // through the identity map, so the repository sees the orphaned record.
+    $record = $this->entityManager->find(MaintenanceScheduleRecord::class, $created->id);
+    self::assertInstanceOf(MaintenanceScheduleRecord::class, $record);
+    $record->organization = null;
+
+    $this->expectException(MaintenanceNotFoundException::class);
+
+    $this->repository->findById($created->id);
+  }
+
   private function snapshot(
     ?string $id,
     string $organizationId,
     string $equipmentId,
     string $dueStatus,
     ?DateTimeImmutable $nextDueAt,
+    ?string $facilityId = null,
+    string $equipmentType = 'fire_extinguisher',
   ): MaintenanceScheduleSnapshot {
     return new MaintenanceScheduleSnapshot(
       $id,
       $organizationId,
       $equipmentId,
-      null,
-      'fire_extinguisher',
+      $facilityId,
+      $equipmentType,
       null,
       null,
       $nextDueAt,

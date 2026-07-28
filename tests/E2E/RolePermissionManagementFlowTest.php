@@ -4,15 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
-use Authorization\Infrastructure\DataFixtures\AuthorizationFixtures;
-use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
-use Doctrine\ORM\EntityManagerInterface;
-use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
-use User\Infrastructure\DataFixtures\UserFixtures;
 
 use function in_array;
 use function is_array;
@@ -20,7 +14,6 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 use function str_replace;
-use function ucfirst;
 use function uniqid;
 
 /**
@@ -201,21 +194,19 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
     $listResponse = $client->getResponse();
 
-    if (Response::HTTP_OK !== $listResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list permissions - may require higher permissions');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $listResponse->getStatusCode(),
+      'Listing permissions must succeed for this token.',
+    );
 
     $data = $this->decodeJsonResponse($listResponse->getContent() ?: '{}');
     $permissions = $this->getCollectionMembers($data);
 
-    if (empty($permissions)) {
-      $this->markTestSkipped('No permissions found in fixtures');
-    }
+    $this->assertNotEmpty($permissions, 'Fixtures must provide at least one permission.');
 
     $permissionId = $this->getStringValue($permissions[0], 'id');
-    if (null === $permissionId) {
-      $this->markTestSkipped(ucfirst('permission') . ' ID not found');
-    }
+    $this->assertNotNull($permissionId, 'The first permission in the collection must expose an id.');
 
     // Now get the specific permission
     $client->request(
@@ -390,21 +381,19 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
     $listResponse = $client->getResponse();
 
-    if (Response::HTTP_OK !== $listResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list roles - may require higher permissions');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $listResponse->getStatusCode(),
+      'Listing permissions must succeed for this token.',
+    );
 
     $data = $this->decodeJsonResponse($listResponse->getContent() ?: '{}');
     $roles = $this->getCollectionMembers($data);
 
-    if (empty($roles)) {
-      $this->markTestSkipped('No roles found in fixtures');
-    }
+    $this->assertNotEmpty($roles, 'Fixtures must provide at least one role.');
 
     $roleId = $this->getStringValue($roles[0], 'id');
-    if (null === $roleId) {
-      $this->markTestSkipped(ucfirst('role') . ' ID not found');
-    }
+    $this->assertNotNull($roleId, 'The first role in the collection must expose an id.');
 
     // Now get the specific role
     $client->request(
@@ -452,21 +441,19 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
     $listResponse = $client->getResponse();
 
-    if (Response::HTTP_OK !== $listResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list roles');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $listResponse->getStatusCode(),
+      'Listing roles must succeed for this token.',
+    );
 
     $data = $this->decodeJsonResponse($listResponse->getContent() ?: '{}');
     $roles = $this->getCollectionMembers($data);
 
-    if (empty($roles)) {
-      $this->markTestSkipped('No roles found');
-    }
+    $this->assertNotEmpty($roles, 'Fixtures must provide at least one role.');
 
     $roleId = $this->getStringValue($roles[0], 'id');
-    if (null === $roleId) {
-      $this->markTestSkipped(ucfirst('role') . ' ID not found');
-    }
+    $this->assertNotNull($roleId, 'The first role in the collection must expose an id.');
 
     $client->request(
       method: 'PATCH',
@@ -515,19 +502,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     $rolesResponse = $client->getResponse();
-    if (Response::HTTP_OK !== $rolesResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list roles');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $rolesResponse->getStatusCode(),
+      'Listing roles must succeed for this token.',
+    );
 
     $rolesData = $this->decodeJsonResponse($rolesResponse->getContent() ?: '{}');
     $roles = $this->getCollectionMembers($rolesData);
-    if (empty($roles)) {
-      $this->markTestSkipped('No roles found');
-    }
+    $this->assertNotEmpty($roles, 'Fixtures must provide at least one role.');
     $roleId = $this->getStringValue($roles[0], 'id');
-    if (null === $roleId) {
-      $this->markTestSkipped('Role ID not found');
-    }
+    $this->assertNotNull($roleId, 'The first role in the collection must expose an id.');
 
     // Get a permission ID
     $client->request(
@@ -540,19 +525,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     $permissionsResponse = $client->getResponse();
-    if (Response::HTTP_OK !== $permissionsResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list permissions');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $permissionsResponse->getStatusCode(),
+      'Listing permissions must succeed for this token.',
+    );
 
     $permissionsData = $this->decodeJsonResponse($permissionsResponse->getContent() ?: '{}');
     $permissions = $this->getCollectionMembers($permissionsData);
-    if (empty($permissions)) {
-      $this->markTestSkipped('No permissions found');
-    }
+    $this->assertNotEmpty($permissions, 'Fixtures must provide at least one permission.');
     $permissionId = $this->getStringValue($permissions[0], 'id');
-    if (null === $permissionId) {
-      $this->markTestSkipped('Permission ID not found');
-    }
+    $this->assertNotNull($permissionId, 'The first permission in the collection must expose an id.');
 
     // Add permission to role
     $client->request(
@@ -601,19 +584,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     $rolesResponse = $client->getResponse();
-    if (Response::HTTP_OK !== $rolesResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list roles');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $rolesResponse->getStatusCode(),
+      'Listing roles must succeed for this token.',
+    );
 
     $rolesData = $this->decodeJsonResponse($rolesResponse->getContent() ?: '{}');
     $roles = $this->getCollectionMembers($rolesData);
-    if (empty($roles)) {
-      $this->markTestSkipped('No roles found');
-    }
+    $this->assertNotEmpty($roles, 'Fixtures must provide at least one role.');
     $roleId = $this->getStringValue($roles[0], 'id');
-    if (null === $roleId) {
-      $this->markTestSkipped('Role ID not found');
-    }
+    $this->assertNotNull($roleId, 'The first role in the collection must expose an id.');
 
     // Get a permission ID
     $client->request(
@@ -626,19 +607,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
     );
 
     $permissionsResponse = $client->getResponse();
-    if (Response::HTTP_OK !== $permissionsResponse->getStatusCode()) {
-      $this->markTestSkipped('Cannot list permissions');
-    }
+    $this->assertSame(
+      Response::HTTP_OK,
+      $permissionsResponse->getStatusCode(),
+      'Listing permissions must succeed for this token.',
+    );
 
     $permissionsData = $this->decodeJsonResponse($permissionsResponse->getContent() ?: '{}');
     $permissions = $this->getCollectionMembers($permissionsData);
-    if (empty($permissions)) {
-      $this->markTestSkipped('No permissions found');
-    }
+    $this->assertNotEmpty($permissions, 'Fixtures must provide at least one permission.');
     $permissionId = $this->getStringValue($permissions[0], 'id');
-    if (null === $permissionId) {
-      $this->markTestSkipped('Permission ID not found');
-    }
+    $this->assertNotNull($permissionId, 'The first permission in the collection must expose an id.');
 
     // First, add the permission to the role to ensure we have something to remove
     $client->request(
@@ -737,46 +716,17 @@ class RolePermissionManagementFlowTest extends WebTestCase
 
   // #region Setup
   /**
-   * Create client and ensure fixtures are loaded.
+   * Create a client against the seeded E2E databases.
+   *
+   * The roles and permissions these tests read come from the baseline seeded
+   * once by `make test-db`. See {@see OAuth2WebTestCase::createClientWithFixtures()}.
    */
   protected static function createClientWithFixtures(): KernelBrowser
   {
     $client = static::createClient();
-    static::loadTestFixtures($client);
     $client->enableReboot();
 
     return $client;
-  }
-
-  /**
-   * Load fixtures for testing.
-   */
-  protected static function loadTestFixtures(KernelBrowser $client): void
-  {
-    $container = $client->getContainer();
-
-    /** @var EntityManagerInterface $entityManager */
-    $entityManager = $container->get('doctrine.orm.auth_entity_manager');
-
-    // Load fixtures
-    $loader = new Loader();
-
-    /** @var ClientFixtures $clientFixtures */
-    $clientFixtures = $container->get(ClientFixtures::class);
-    /** @var UserFixtures $userFixtures */
-    $userFixtures = $container->get(UserFixtures::class);
-    /** @var AuthorizationFixtures $authFixtures */
-    $authFixtures = $container->get(AuthorizationFixtures::class);
-
-    $loader->addFixture($clientFixtures);
-    $loader->addFixture($userFixtures);
-    $loader->addFixture($authFixtures);
-
-    $executor = new ORMExecutor($entityManager);
-    // Append mode avoids purge; each test is isolated by transaction rollback.
-    $executor->execute($loader->getFixtures(), true);
-
-    $entityManager->clear();
   }
 
   /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\SentNotification;
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -306,5 +307,136 @@ final class RevokeOrganizationInvitationHandlerTest extends TestCase
       invitationId: $invitationId,
       revokedByUserId: '550e8400-e29b-41d4-a716-446655442225',
     ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenInvitationIsNotFound(): void
+  {
+    $invitationId = '550e8400-e29b-41d4-a716-446655442231';
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())->method('findById')->willReturn(null);
+    $invitationRepository->expects(self::never())->method('save');
+
+    $handler = $this->buildGuardHandler($invitationRepository);
+
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Organization invitation with ID "%s" not found.', $invitationId));
+
+    $handler->__invoke(new RevokeOrganizationInvitationCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655442232',
+      invitationId: $invitationId,
+      revokedByUserId: '550e8400-e29b-41d4-a716-446655442233',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeExpiresAndThrowsWhenPendingInvitationIsAlreadyPastExpiry(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442240';
+    $invitationId = '550e8400-e29b-41d4-a716-446655442241';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId($invitationId),
+      organizationId: new OrganizationId($organizationId),
+      email: new Email('member@example.com'),
+      tokenHash: 'hashed-token',
+      invitedByUserId: '550e8400-e29b-41d4-a716-446655442242',
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('-1 hour'),
+      createdAt: new DateTimeImmutable('-8 days'),
+      updatedAt: new DateTimeImmutable('-8 days'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
+    $invitationRepository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(static fn (OrganizationInvitation $updated): bool => 'expired' === $updated->status()->value));
+    $invitationRepository->expects(self::never())->method('findRoleIdsForInvitation');
+
+    $handler = $this->buildGuardHandler($invitationRepository);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invitation has already expired.');
+
+    $handler->__invoke(new RevokeOrganizationInvitationCommand(
+      organizationId: $organizationId,
+      invitationId: $invitationId,
+      revokedByUserId: '550e8400-e29b-41d4-a716-446655442243',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenInvitationIsNoLongerPending(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442250';
+    $invitationId = '550e8400-e29b-41d4-a716-446655442251';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId($invitationId),
+      organizationId: new OrganizationId($organizationId),
+      email: new Email('member@example.com'),
+      tokenHash: 'hashed-token',
+      invitedByUserId: '550e8400-e29b-41d4-a716-446655442252',
+      status: OrganizationInvitationStatus::ACCEPTED,
+      expiresAt: new DateTimeImmutable('+7 days'),
+      createdAt: new DateTimeImmutable('-1 day'),
+      updatedAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())->method('findById')->willReturn($invitation);
+    $invitationRepository->expects(self::never())->method('save');
+
+    $handler = $this->buildGuardHandler($invitationRepository);
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Only pending invitations can be revoked.');
+
+    $handler->__invoke(new RevokeOrganizationInvitationCommand(
+      organizationId: $organizationId,
+      invitationId: $invitationId,
+      revokedByUserId: '550e8400-e29b-41d4-a716-446655442253',
+    ));
+  }
+
+  /**
+   * Builds a handler whose downstream collaborators must never run, for the
+   * guard clauses that abort before the revoke transaction.
+   */
+  private function buildGuardHandler(OrganizationInvitationRepositoryPort $invitationRepository): RevokeOrganizationInvitationHandler
+  {
+    /** @var UserRepositoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserRepositoryPort::class);
+    $userRepository->expects(self::never())->method('findByEmail');
+
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::never())->method('warning');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    return new RevokeOrganizationInvitationHandler(
+      invitationRepository: $invitationRepository,
+      userRepository: $userRepository,
+      notificationPort: $notificationPort,
+      logger: $logger,
+      transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
+    );
   }
 }

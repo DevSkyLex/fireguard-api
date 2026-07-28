@@ -88,6 +88,20 @@ final class InterventionNotificationServiceTest extends TestCase
   }
 
   #[Test]
+  public function itDoesNotFailTheCommentWhenMentionDeliveryFails(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createStub(NotificationPort::class);
+    $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
+
+    new InterventionNotificationService($notifications, $members, $this->policy())
+      ->mentioned('intervention-1', self::ORGANIZATION_ID, self::MEMBER_ID);
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
   public function itDeliversAMentionInAppAndByEmail(): void
   {
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);

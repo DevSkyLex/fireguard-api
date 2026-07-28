@@ -138,6 +138,24 @@ final class InterventionChangeProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testAPatchForwardsTheReviewedPatchWhenTheMergePatchBodyCarriesIt(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (MutateInterventionWorkflowCommand $command): bool => 'update' === $command->action
+        && ['patch' => ['name' => 'Corrected']] === $command->payload))
+      ->willReturn(new MutateInterventionWorkflowResult($this->view()));
+
+    $input = new UpdateInterventionChangeInput();
+    $input->patch = ['name' => 'Corrected'];
+
+    $this->createProcessor($commandBus, 'PATCH', body: '{"patch":{"name":"Corrected"}}', ifMatch: '"revision-1"')
+      ->process($input, new Patch(), ['id' => self::CHANGE_ID]);
+  }
+
+  #[Test]
   public function testAPatchForwardsTheExpectedRevisionFromTheIfMatchHeader(): void
   {
     /** @var CommandBusPort&MockObject $commandBus */

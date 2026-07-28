@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\State\Pagination\TraversablePaginator;
 use Assistant\Application\Contract\Thread\AssistantThreadView;
 use Assistant\Application\UseCase\Query\Thread\ListAssistantThreads\{ListAssistantThreadsQuery, ListAssistantThreadsResult};
+use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Presentation\Api\Factory\AssistantThreadOutputFactory;
 use Assistant\Presentation\Api\Provider\ListAssistantThreadsProvider;
 use Auth\Infrastructure\Security\User\SecurityUser;
@@ -17,7 +18,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
  * Test ListAssistantThreadsProviderTest.
@@ -94,6 +95,52 @@ final class ListAssistantThreadsProviderTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideRequiresAnOrganizationIdUriVariable(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $provider = new ListAssistantThreadsProvider(
+      $this->createStub(QueryBusPort::class),
+      $security,
+      new RequestStack(),
+      new AssistantThreadOutputFactory(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('OrganizationId URI parameter is required.');
+
+    $provider->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideMapsADomainFailureToAnHttpException(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      AssistantThreadNotFoundException::withId('thread-1'),
+    );
+
+    $provider = new ListAssistantThreadsProvider(
+      $queryBus,
+      $security,
+      new RequestStack(),
+      new AssistantThreadOutputFactory(),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(new GetCollection(), ['organizationId' => self::ORGANIZATION_ID]);
   }

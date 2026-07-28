@@ -7,8 +7,9 @@ namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListEquipment
 use Equipment\Application\Port\Outbound\{AttachmentRepositoryPort, EquipmentRepositoryPort};
 use Equipment\Application\UseCase\Query\Equipment\ListEquipmentAttachments\{ListEquipmentAttachmentsHandler, ListEquipmentAttachmentsQuery, ListEquipmentAttachmentsResult};
 use Equipment\Domain\Exception\EquipmentNotFoundException;
+use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\Model\Equipment\Equipment;
-use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -20,6 +21,8 @@ final class ListEquipmentAttachmentsHandlerTest extends TestCase
   private const string ORG_ID = '550e8400-e29b-41d4-a716-446655449001';
 
   private const string EQUIP_ID = '550e8400-e29b-41d4-a716-446655449002';
+
+  private const string ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655449003';
 
   #[Test]
   public function testInvokeThrowsInvalidArgumentOnInvalidEquipmentId(): void
@@ -120,5 +123,49 @@ final class ListEquipmentAttachmentsHandlerTest extends TestCase
 
     self::assertInstanceOf(ListEquipmentAttachmentsResult::class, $result);
     self::assertSame([], $result->attachments);
+  }
+
+  #[Test]
+  public function testInvokeMapsEachAttachmentToItsArrayShape(): void
+  {
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+
+    $attachment = EquipmentAttachment::create(
+      id: new AttachmentId(self::ATTACHMENT_ID),
+      equipmentId: EquipmentId::fromString(self::EQUIP_ID),
+      fileName: 'report.pdf',
+      storagePath: 'equipment/x/attachments/report.pdf',
+      mimeType: 'application/pdf',
+      size: 12345,
+      label: 'Inspection report',
+    );
+
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($equipment);
+
+    $attachmentRepository = $this->createStub(AttachmentRepositoryPort::class);
+    $attachmentRepository->method('findByEquipmentId')->willReturn([$attachment]);
+
+    $handler = new ListEquipmentAttachmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $attachmentRepository,
+    );
+
+    $result = $handler->__invoke(new ListEquipmentAttachmentsQuery(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+    ));
+
+    self::assertCount(1, $result->attachments);
+    self::assertSame(self::ATTACHMENT_ID, $result->attachments[0]['id']);
+    self::assertSame('report.pdf', $result->attachments[0]['fileName']);
+    self::assertSame('application/pdf', $result->attachments[0]['mimeType']);
+    self::assertSame(12345, $result->attachments[0]['size']);
+    self::assertSame('Inspection report', $result->attachments[0]['label']);
+    self::assertSame($attachment->uploadedAt()->format('c'), $result->attachments[0]['uploadedAt']);
   }
 }

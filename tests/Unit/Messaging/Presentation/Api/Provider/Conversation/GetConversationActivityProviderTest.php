@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
  * Test GetConversationActivityProviderTest.
@@ -126,6 +126,19 @@ final class GetConversationActivityProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(new GetCollection(), ['conversationId' => self::CONVERSATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new GetConversationActivityProvider($this->createStub(QueryBusPort::class), $security, new RequestStack());
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), []);
   }
 
   private function securityWithUser(): Security

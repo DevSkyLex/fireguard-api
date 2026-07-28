@@ -126,7 +126,7 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
     try {
       $delimiter = $this->detectDelimiter($stream);
 
-      $header = fgetcsv($stream, 0, $delimiter);
+      $header = fgetcsv($stream, 0, $delimiter, escape: '\\');
       if (false === $header || [null] === $header) {
         throw new InvalidArgumentException('The CSV file has no header row.');
       }
@@ -135,7 +135,7 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
       $header = array_map(static fn (?string $column): string => trim($column ?? ''), $header);
 
       $rowNumber = 0;
-      while (false !== ($row = fgetcsv($stream, 0, $delimiter))) {
+      while (false !== ($row = fgetcsv($stream, 0, $delimiter, escape: '\\'))) {
         if ([null] === $row) {
           // A fully blank line: fgetcsv() reports it as [null].
           continue;
@@ -199,7 +199,7 @@ final readonly class CsvRowStreamer implements CsvRowStreamerPort
    */
   private function detectDelimiter($stream): string
   {
-    $firstLine = fgetcsv($stream, 0, ',');
+    $firstLine = fgetcsv($stream, 0, ',', escape: '\\');
     rewind($stream);
 
     if (false === $firstLine) {

@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Session\Application\UseCase\Query\Session\GetSession\{GetSessionQuery, GetSessionResult};
 use Session\Domain\Exception\SessionNotFoundException;
 use Session\Presentation\Api\Dto\Output\Session\SessionOutput;
@@ -136,6 +137,33 @@ final class GetSessionProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(new Get(), ['id' => 'session-2']);
+  }
+
+  #[Test]
+  public function testProvideRethrowsUnrelatedException(): void
+  {
+    $user = $this->createStub(UserInterface::class);
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willThrowException(new RuntimeException('boom'));
+
+    $provider = new GetSessionProvider(
+      queryBus: $queryBus,
+      security: $security,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('boom');
+
+    $provider->provide(new Get(), ['id' => 'session-3']);
   }
   // #endregion
 }

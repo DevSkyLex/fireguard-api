@@ -6,6 +6,7 @@ namespace Tests\Integration\Inspection\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
+use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
@@ -55,8 +56,11 @@ final class InspectionFixturesIntegrationTest extends KernelTestCase
     $loader->addFixture($equipmentFixtures);
     $loader->addFixture($inspectionFixtures);
 
-    $executor = new ORMExecutor($this->entityManager);
-    $executor->execute($loader->getFixtures(), true);
+    $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
+    // Purge before loading: the test databases carry the seeded baseline, so
+    // appending on top of it collides on primary keys and makes the counts
+    // below meaningless. DAMA rolls the purge back with the rest of the test.
+    $executor->execute($loader->getFixtures(), false);
 
     self::assertSame(2, $this->entityManager->getRepository(ChecklistRecord::class)->count([]));
     self::assertSame(8, $this->entityManager->getRepository(ChecklistItemRecord::class)->count([]));

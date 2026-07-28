@@ -14,6 +14,7 @@ use Inspection\Presentation\Api\Dto\Input\Inspection\EditInspectionInput;
 use Inspection\Presentation\Api\Dto\Output\Inspection\InspectionOutput;
 use Inspection\Presentation\Api\Factory\InspectionOutputFactory;
 use Inspection\Presentation\Api\Processor\Inspection\EditInspectionProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -23,7 +24,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
 
 use function json_encode;
@@ -151,6 +152,175 @@ final class EditInspectionProcessorTest extends TestCase
     );
 
     $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new EditInspectionProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+      requestStack: $this->makeRequestStack(['notes' => 'Updated note']),
+      outputMapper: $this->createOutputMapper(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreMissing(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->makeProcessor()->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => ''],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenWritePermissionIsMissing(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $processor = new EditInspectionProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $this->makeSecurity(),
+      requestStack: $this->makeRequestStack(['notes' => 'Updated note']),
+      outputMapper: $this->createOutputMapper(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestWhenNoRequestIsAvailable(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->makeProcessor(requestStack: new RequestStack())->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnAMalformedJsonPayload(): void
+  {
+    $request = new Request(content: '{not-json');
+    $request->headers->set('CONTENT_TYPE', 'application/json');
+    $stack = new RequestStack();
+    $stack->push($request);
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->makeProcessor(requestStack: $stack)->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnInvalidArgument(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: new InvalidArgumentException('Malformed inspection identifier.'),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsNotFoundFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(InspectionNotFoundException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadySubmittedFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(InspectionAlreadySubmittedException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed inspection identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(new RuntimeException('Transport is unavailable.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: $this->makeInput(),

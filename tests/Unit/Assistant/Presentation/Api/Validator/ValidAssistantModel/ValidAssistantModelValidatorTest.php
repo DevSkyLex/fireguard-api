@@ -7,6 +7,8 @@ namespace Tests\Unit\Assistant\Presentation\Api\Validator\ValidAssistantModel;
 use Assistant\Domain\Service\AssistantModelPolicy;
 use Assistant\Presentation\Api\Validator\ValidAssistantModel\{ValidAssistantModel, ValidAssistantModelValidator};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Exception\UnexpectedTypeException;
 use Symfony\Component\Validator\Test\ConstraintValidatorTestCase;
 
 /**
@@ -58,6 +60,22 @@ final class ValidAssistantModelValidatorTest extends ConstraintValidatorTestCase
     $this->buildViolation($constraint->message)
       ->setParameter('{{ value }}', 'gpt-4')
       ->assertRaised();
+  }
+
+  #[Test]
+  public function testANonStringValueIsIgnored(): void
+  {
+    $this->validator->validate(123, new ValidAssistantModel());
+
+    $this->assertNoViolation();
+  }
+
+  #[Test]
+  public function testAnUnexpectedConstraintTypeIsRejected(): void
+  {
+    $this->expectException(UnexpectedTypeException::class);
+
+    $this->validator->validate('llama3', new NotBlank());
   }
 
   protected function createValidator(): ValidAssistantModelValidator

@@ -25,6 +25,7 @@ use Inspection\Domain\ValueObject\{
   InspectionResult,
   Inspector
 };
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -221,6 +222,22 @@ final class CancelInspectionHandlerTest extends TestCase
   }
 
   // #region Helpers
+  #[Test]
+  public function testInvokeRejectsAMalformedIdentifier(): void
+  {
+    $handler = new CancelInspectionHandler(
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CancelInspectionCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: 'not-a-uuid',
+    ));
+  }
+
   private function makeDraftInspection(): Inspection
   {
     return Inspection::create(

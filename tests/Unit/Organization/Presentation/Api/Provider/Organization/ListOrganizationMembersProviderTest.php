@@ -16,15 +16,17 @@ use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{
   ListOrganizationRolesQuery,
   ListOrganizationRolesResult
 };
+use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Provider\Organization\ListOrganizationMembersProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
@@ -245,6 +247,178 @@ final class ListOrganizationMembersProviderTest extends TestCase
 
     self::assertInstanceOf(TraversablePaginator::class, $output);
     self::assertSame(1.0, $output->getTotalItems());
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsUnknown(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441740';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441741'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willThrowException(OrganizationNotFoundException::withId($organizationId));
+
+    $provider = new ListOrganizationMembersProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Organization with ID "' . $organizationId . '" not found.');
+
+    $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
+  }
+
+  #[Test]
+  public function testProvideFallsBackToUsernameThenUserIdForDisplayName(): void
+  {
+    $joinedAt = new DateTimeImmutable('2026-02-01T10:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655441750';
+    $namedUserId = '550e8400-e29b-41d4-a716-446655441751';
+    $anonymousUserId = '550e8400-e29b-41d4-a716-446655441752';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441753'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&Stub $queryBus */
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturnCallback(
+      static fn (object $query): object => match (true) {
+        $query instanceof ListOrganizationMembersQuery => new PaginatedResult(
+          items: [
+            new GetOrganizationMemberResult(
+              id: '550e8400-e29b-41d4-a716-446655441754',
+              organizationId: $organizationId,
+              userId: $namedUserId,
+              isActive: true,
+              joinedAt: $joinedAt,
+              roleIds: [],
+            ),
+            new GetOrganizationMemberResult(
+              id: '550e8400-e29b-41d4-a716-446655441755',
+              organizationId: $organizationId,
+              userId: $anonymousUserId,
+              isActive: true,
+              joinedAt: $joinedAt->modify('+1 hour'),
+              roleIds: [],
+            ),
+          ],
+          total: 2,
+          limit: 2,
+          offset: 0,
+        ),
+        $query instanceof ListOrganizationRolesQuery => new ListOrganizationRolesResult([]),
+        $query instanceof GetUserQuery => new GetUserResult(new UserView(
+          id: $query->id,
+          username: $query->id === $namedUserId ? 'anon.handle' : '',
+          email: 'blank@example.com',
+          firstName: '',
+          lastName: '',
+          avatarUrl: null,
+          status: 'active',
+          emailVerified: true,
+          tenantId: null,
+          createdAt: $joinedAt,
+          lastLoginAt: null,
+          canLogin: true,
+        )),
+        default => throw new LogicException('Unexpected query.'),
+      },
+    );
+
+    $provider = new ListOrganizationMembersProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
+
+    $items = iterator_to_array($output);
+    self::assertCount(2, $items);
+    self::assertInstanceOf(OrganizationMemberOutput::class, $items[0]);
+    self::assertInstanceOf(OrganizationMemberOutput::class, $items[1]);
+    self::assertSame('anon.handle', $items[0]->displayName);
+    self::assertSame($anonymousUserId, $items[1]->displayName);
+  }
+
+  #[Test]
+  public function testProvideKeepsListingWhenTheUserLookupFails(): void
+  {
+    $joinedAt = new DateTimeImmutable('2026-02-01T10:00:00+00:00');
+    $organizationId = '550e8400-e29b-41d4-a716-446655441760';
+    $userId = '550e8400-e29b-41d4-a716-446655441761';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441762'));
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->willReturn(true);
+
+    /** @var QueryBusPort&Stub $queryBus */
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturnCallback(
+      static fn (object $query): object => match (true) {
+        $query instanceof ListOrganizationMembersQuery => new PaginatedResult(
+          items: [
+            new GetOrganizationMemberResult(
+              id: '550e8400-e29b-41d4-a716-446655441763',
+              organizationId: $organizationId,
+              userId: $userId,
+              isActive: true,
+              joinedAt: $joinedAt,
+              roleIds: [],
+            ),
+          ],
+          total: 1,
+          limit: 1,
+          offset: 0,
+        ),
+        $query instanceof ListOrganizationRolesQuery => new ListOrganizationRolesResult([]),
+        default => throw new RuntimeException('User directory unavailable.'),
+      },
+    );
+
+    $provider = new ListOrganizationMembersProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $output = $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
+
+    $items = iterator_to_array($output);
+    self::assertCount(1, $items);
+    self::assertInstanceOf(OrganizationMemberOutput::class, $items[0]);
+    self::assertSame($userId, $items[0]->displayName);
+    self::assertNull($items[0]->email);
   }
 
   private function createSecurityUser(string $id): SecurityUser

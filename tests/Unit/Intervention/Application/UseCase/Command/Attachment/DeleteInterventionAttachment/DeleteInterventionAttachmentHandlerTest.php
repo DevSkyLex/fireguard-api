@@ -12,6 +12,7 @@ use Intervention\Application\UseCase\Command\Attachment\DeleteInterventionAttach
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionAttachmentNotFoundException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -165,6 +166,32 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
       userId: self::USER_ID,
       interventionId: self::INTERVENTION_ID,
       attachmentId: self::ATTACHMENT_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedAttachmentId(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('findById');
+
+    $handler = new DeleteInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $this->createStub(FileStoragePort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DeleteInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      attachmentId: 'not-a-uuid',
     ));
   }
 

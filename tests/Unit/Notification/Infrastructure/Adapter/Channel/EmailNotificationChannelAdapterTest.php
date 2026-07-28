@@ -105,6 +105,74 @@ final class EmailNotificationChannelAdapterTest extends TestCase
     $adapter->send($this->createNotification(null));
   }
 
+  #[Test]
+  public function testSendPrefersTheChannelBodyOverrideAndSkipsNonStringContextKeys(): void
+  {
+    $twig = new Environment(new ArrayLoader([
+      'notification/email/default.html.twig' => '<h1>{{ subject }}</h1><div>{{ body|raw }}</div><span>{{ cta|default("none") }}</span>',
+    ]));
+
+    /** @var MailerPort&MockObject $mailer */
+    $mailer = $this->createMock(MailerPort::class);
+    $mailer->expects(self::once())
+      ->method('send')
+      ->with(
+        ['member@example.com'],
+        'Invitation to join Fireguard HQ',
+        '<h1>Invitation to join Fireguard HQ</h1><div><p>Channel-specific body.</p></div><span>Accept</span>',
+        [],
+        [],
+        [],
+      );
+
+    $adapter = new EmailNotificationChannelAdapter(
+      mailer: $mailer,
+      twig: $twig,
+    );
+
+    $adapter->send(
+      notification: $this->createNotification(),
+      channelPayload: [
+        'body' => '<p>Channel-specific body.</p>',
+        'context' => [
+          0 => 'dropped-numeric-key',
+          'cta' => 'Accept',
+        ],
+      ],
+    );
+  }
+
+  #[Test]
+  public function testSendKeepsTheAggregateBodyWhenTheChannelBodyIsBlank(): void
+  {
+    $twig = new Environment(new ArrayLoader([
+      'notification/email/default.html.twig' => '<h1>{{ subject }}</h1><div>{{ body|raw }}</div>',
+    ]));
+
+    /** @var MailerPort&MockObject $mailer */
+    $mailer = $this->createMock(MailerPort::class);
+    $mailer->expects(self::once())
+      ->method('send')
+      ->with(
+        ['member@example.com'],
+        'Invitation to join Fireguard HQ',
+        '<h1>Invitation to join Fireguard HQ</h1><div><p>Open invitation details.</p></div>',
+        [],
+        [],
+        [],
+      );
+
+    $adapter = new EmailNotificationChannelAdapter(
+      mailer: $mailer,
+      twig: $twig,
+    );
+
+    $adapter->send(
+      notification: $this->createNotification(),
+      channelPayload: ['body' => '   ', 'context' => 'not-an-array'],
+    );
+  }
+
   private function createNotification(?string $recipientEmail = 'member@example.com'): Notification
   {
     return Notification::create(

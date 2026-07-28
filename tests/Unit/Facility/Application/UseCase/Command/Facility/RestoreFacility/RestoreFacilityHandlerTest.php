@@ -404,4 +404,45 @@ final class RestoreFacilityHandlerTest extends TestCase
       facilityId: 'also-not-a-uuid',
     ));
   }
+
+  #[Test]
+  public function testInvokeRethrowsASaveFailureUnrelatedToTheOrganizationConstraint(): void
+  {
+    $facility = Facility::create(
+      id: new FacilityId('550e8400-e29b-41d4-a716-446655443100'),
+      organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655443101'),
+      type: FacilityType::SITE,
+      name: new FacilityName('HQ'),
+    );
+    $facility->archive();
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('findPublishedById')
+      ->willReturn($facility);
+
+    // Not a foreign-key violation: the whole cause chain is walked and nothing
+    // matches, so the original failure must bubble up untranslated.
+    $repository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new RuntimeException('deadlock detected', 0, new RuntimeException('root cause')));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new RestoreFacilityHandler(
+      facilityRepository: $repository,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('deadlock detected');
+
+    $handler->__invoke(new RestoreFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655443101',
+      facilityId: '550e8400-e29b-41d4-a716-446655443100',
+    ));
+  }
 }

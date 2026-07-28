@@ -37,6 +37,27 @@ final class GetSubscriptionProviderTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441610';
 
   #[Test]
+  public function itThrowsWhenTheUserIsNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetSubscriptionProvider(
+      queryBus: $queryBus,
+      access: $this->createStub(OrganizationAccessPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
   public function itReturnsNullWhenTheOrganizationIdIsMissing(): void
   {
     $security = $this->securityWithUser();

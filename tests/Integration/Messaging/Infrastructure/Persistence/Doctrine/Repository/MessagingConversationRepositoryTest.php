@@ -6,6 +6,7 @@ namespace Tests\Integration\Messaging\Infrastructure\Persistence\Doctrine\Reposi
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\Service\DirectConversationKey;
 use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingSubjectType};
@@ -14,6 +15,7 @@ use Messaging\Infrastructure\Persistence\Doctrine\Repository\MessagingConversati
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
@@ -208,6 +210,67 @@ final class MessagingConversationRepositoryTest extends KernelTestCase
     self::assertSame($parentId, $parentChannelIdsById[$childId]);
     self::assertArrayHasKey($parentId, $parentChannelIdsById);
     self::assertNull($parentChannelIdsById[$parentId]);
+  }
+
+  #[Test]
+  public function testGetOrCreateThrowsWhenTheInsertIsSwallowedAndTheTripleStillResolvesToNothing(): void
+  {
+    // A conversation already owns this identifier under a different triple, so
+    // the ON CONFLICT DO NOTHING insert is a silent no-op and the follow-up
+    // lookup by (organization, subjectType, subjectId) still finds nothing.
+    $takenId = '550e8400-e29b-41d4-a716-446655447301';
+    $organization = $this->entityManager->find(OrganizationRecord::class, self::ORG_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $this->createConversation($takenId, $organization, MessagingSubjectType::FACILITY->value, '550e8400-e29b-41d4-a716-446655447302', ConversationVisibility::SUBJECT->value);
+    $this->entityManager->flush();
+
+    $generator = self::createStub(UuidGeneratorPort::class);
+    $generator->method('generate')->willReturn($takenId);
+    $repository = new MessagingConversationRepository($this->entityManager, new UuidFactory($generator));
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $repository->getOrCreate(
+      self::ORG_ID,
+      MessagingSubjectType::FACILITY,
+      '550e8400-e29b-41d4-a716-446655447303',
+      ConversationVisibility::SUBJECT,
+    );
+  }
+
+  #[Test]
+  public function testListChannelsForMemberShortCircuitsParticipantCountsWhenTheMemberOwnsNoChannel(): void
+  {
+    $page = $this->repository->listChannelsForMember(
+      self::ORG_ID,
+      '550e8400-e29b-41d4-a716-446655447404',
+      null,
+      1,
+      20,
+    );
+
+    self::assertSame(0, $page->total);
+    self::assertSame([], $page->items);
+  }
+
+  #[Test]
+  public function testFindByIdRejectsAConversationThatLostItsOrganizationAssociation(): void
+  {
+    $conversationId = '550e8400-e29b-41d4-a716-446655447501';
+    $organization = $this->entityManager->find(OrganizationRecord::class, self::ORG_ID);
+    self::assertInstanceOf(OrganizationRecord::class, $organization);
+    $this->createConversation($conversationId, $organization, MessagingSubjectType::FACILITY->value, '550e8400-e29b-41d4-a716-446655447502', ConversationVisibility::SUBJECT->value);
+    $this->entityManager->flush();
+
+    // Detach the association on the managed instance only: findById() resolves
+    // through the identity map, so the repository sees the orphaned record.
+    $record = $this->entityManager->find(MessagingConversationRecord::class, $conversationId);
+    self::assertInstanceOf(MessagingConversationRecord::class, $record);
+    $record->organization = null;
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $this->repository->findById($conversationId);
   }
 
   private function addParticipant(string $conversationId, OrganizationRecord $organization, string $memberId): void

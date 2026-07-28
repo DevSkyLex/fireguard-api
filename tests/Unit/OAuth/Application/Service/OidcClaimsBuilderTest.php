@@ -30,6 +30,31 @@ final class OidcClaimsBuilderTest extends TestCase
    * @return void no return value
    */
   #[Test]
+  public function testBlankNamePartsYieldNoNameClaim(): void
+  {
+    // Whitespace-only names normalize to null, and with neither part left there
+    // is no `name` claim to emit — an empty string would be worse than absence.
+    $builder = new OidcClaimsBuilder();
+    $user = new OidcUser(
+      subject: 'user-id',
+      preferredUsername: 'jdoe',
+      email: 'jdoe@example.com',
+      emailVerified: true,
+      givenName: '   ',
+      familyName: null,
+      pictureUrl: null,
+      authTime: new DateTimeImmutable('@1700000000'),
+    );
+
+    $claims = $builder->buildUserInfoClaims($user, ['openid', 'profile']);
+
+    self::assertSame('user-id', $claims['sub']);
+    self::assertArrayNotHasKey('name', $claims);
+    self::assertArrayNotHasKey('given_name', $claims);
+    self::assertArrayNotHasKey('family_name', $claims);
+  }
+
+  #[Test]
   public function testBuildUserInfoClaimsWithProfileAndEmailScopes(): void
   {
     $builder = new OidcClaimsBuilder();

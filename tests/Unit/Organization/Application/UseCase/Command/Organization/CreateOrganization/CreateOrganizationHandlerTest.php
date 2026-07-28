@@ -199,6 +199,56 @@ final class CreateOrganizationHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeRethrowsATransactionFailureThatIsNotASlugConflict(): void
+  {
+    $ownerUserId = '550e8400-e29b-41d4-a716-446655440001';
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findById')->willReturn(UserTestFactory::createActive($ownerUserId));
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::exactly(4))
+      ->method('create')
+      ->willReturnOnConsecutiveCalls(
+        new OrganizationId('550e8400-e29b-41d4-a716-446655440010'),
+        new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440011'),
+        new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440012'),
+        new OrganizationMemberId('550e8400-e29b-41d4-a716-446655440013'),
+      );
+
+    $failure = new RuntimeException('the organization store is offline');
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willThrowException($failure);
+
+    $planRepository = $this->createStub(PlanRepositoryPort::class);
+    $planRepository->method('findDefault')->willReturn(null);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CreateOrganizationHandler(
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      userRepository: $userRepository,
+      planRepository: $planRepository,
+      uuidFactory: $uuidFactory,
+      transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectExceptionObject($failure);
+
+    $handler->__invoke(new CreateOrganizationCommand(
+      name: 'Fireguard Paris',
+      ownerUserId: $ownerUserId,
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenSlugAlreadyExists(): void
   {
     $ownerUserId = '550e8400-e29b-41d4-a716-446655440001';

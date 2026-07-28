@@ -178,4 +178,80 @@ final class InspectionStatisticsAdapterTest extends TestCase
       'Europe/Paris',
     ));
   }
+
+  #[Test]
+  public function testCountInspectionsDelegatesStatusResultAndInspectorTypeFilters(): void
+  {
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        null,
+        null,
+        'pass',
+        'closed',
+        null,
+        null,
+        null,
+        'user',
+      )
+      ->willReturn(5);
+
+    self::assertSame(5, new InspectionStatisticsAdapter($repository)->countInspections(self::ORG_ID, 'closed', 'pass', 'user'));
+  }
+
+  #[Test]
+  public function testCountInspectionsPerformedSinceDelegatesTheLowerBound(): void
+  {
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        null,
+        null,
+        null,
+        null,
+        '2026-03-01T00:00:00+00:00',
+      )
+      ->willReturn(4);
+
+    self::assertSame(4, new InspectionStatisticsAdapter($repository)->countInspectionsPerformedSince(
+      self::ORG_ID,
+      '2026-03-01T00:00:00+00:00',
+    ));
+  }
+
+  #[Test]
+  public function testCountInspectionsBetweenDelegatesBothPerformedBounds(): void
+  {
+    /** @var InspectionRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(InspectionRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->with(
+        self::callback(static fn (InspectionOrganizationId $organizationId): bool => self::ORG_ID === (string) $organizationId),
+        null,
+        null,
+        'fail',
+        'submitted',
+        '2026-03-01T00:00:00+00:00',
+        '2026-03-31T23:59:59+00:00',
+        null,
+        'external',
+      )
+      ->willReturn(2);
+
+    self::assertSame(2, new InspectionStatisticsAdapter($repository)->countInspectionsBetween(
+      self::ORG_ID,
+      '2026-03-01T00:00:00+00:00',
+      '2026-03-31T23:59:59+00:00',
+      'submitted',
+      'fail',
+      'external',
+    ));
+  }
 }

@@ -18,8 +18,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test GenerateInspectionCampaignProcessorTest.
@@ -92,6 +93,36 @@ final class GenerateInspectionCampaignProcessorTest extends TestCase
     $input->dueBefore = '2026-02-01T00:00:00+00:00';
 
     $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestForAnUnexpectedBody(): void
+  {
+    $processor = new GenerateInspectionCampaignProcessor($this->createStub(CommandBusPort::class), $this->security());
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid request body.');
+
+    $processor->process(new stdClass(), new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new GenerateInspectionCampaignProcessor($this->createStub(CommandBusPort::class), $security);
+
+    $input = new GenerateInspectionCampaignInput();
+    $input->organization = '/api/organizations/' . self::ORG_ID;
+    $input->name = 'Q1 Campaign';
+    $input->dueBefore = '2026-02-01T00:00:00+00:00';
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
 
     $processor->process($input, new Post());
   }

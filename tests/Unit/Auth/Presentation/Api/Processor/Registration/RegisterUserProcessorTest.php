@@ -10,10 +10,12 @@ use Auth\Presentation\Api\Dto\Input\Registration\RegisterInput;
 use Auth\Presentation\Api\Dto\Output\Registration\RegisterOutput;
 use Auth\Presentation\Api\Processor\Registration\RegisterUserProcessor;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
@@ -105,5 +107,19 @@ final class RegisterUserProcessorTest extends TestCase
     $this->expectException(ConflictHttpException::class);
 
     $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenInputIsNotARegisterInput(): void
+  {
+    $processor = new RegisterUserProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      requestStack: new RequestStack(),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid input data');
+
+    $processor->process(new stdClass(), new Post());
   }
 }

@@ -16,7 +16,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
  * Test UnfavoriteConversationProcessorTest.
@@ -71,6 +71,19 @@ final class UnfavoriteConversationProcessorTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $processor->process(null, new Delete(), ['id' => self::CONVERSATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new UnfavoriteConversationProcessor($this->createStub(CommandBusPort::class), $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Delete(), []);
   }
 
   private function securityWithUser(): Security

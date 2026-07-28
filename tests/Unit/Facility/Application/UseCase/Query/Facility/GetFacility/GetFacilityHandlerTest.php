@@ -9,6 +9,7 @@ use Facility\Application\UseCase\Query\Facility\GetFacility\{GetFacilityHandler,
 use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -160,5 +161,25 @@ final class GetFacilityHandlerTest extends TestCase
 
     self::assertSame((string) $parentId, $result->parentFacilityId);
     self::assertFalse($result->hasChildren);
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('findById');
+
+    $handler = new GetFacilityHandler(
+      facilityRepository: $repository,
+      equipmentDependency: $this->createStub(FacilityEquipmentDependencyPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new GetFacilityQuery(
+      organizationId: 'not-a-uuid',
+      facilityId: 'also-not-a-uuid',
+    ));
   }
 }

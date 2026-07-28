@@ -15,6 +15,7 @@ use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\Service\ChallengeResendPolicy;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Application\UseCase\Command\User\CreateUser\{CreateUserCommand, CreateUserResult};
@@ -206,5 +207,63 @@ final class RegisterUserHandlerTest extends TestCase
 
     self::assertTrue($result->success);
     self::assertMatchesRegularExpression('/^user-\d{9}$/', (string) $capturedUsername);
+  }
+
+  #[Test]
+  public function itPadsAShortEmailLocalPartUpToTheMinimumUsernameLength(): void
+  {
+    $challenge = new ChallengeInfo(
+      'chal-token',
+      'a***@example.com',
+      new DateTimeImmutable('2026-07-24T12:00:00+00:00'),
+      5,
+    );
+
+    $users = $this->createStub(UserRepositoryPort::class);
+    $users->method('existsByEmail')->willReturn(false);
+    $users->method('existsByUsername')->willReturn(false);
+
+    $capturedUsername = null;
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturnCallback(
+        function (CreateUserCommand $command) use (&$capturedUsername): CreateUserResult {
+          $capturedUsername = $command->username;
+
+          return new CreateUserResult(self::USER_ID);
+        },
+      );
+
+    $otpChallenge = $this->createMock(OtpChallengePort::class);
+    $otpChallenge->expects(self::once())->method('generate')->willReturn($challenge);
+
+    $handler = new RegisterUserHandler($commandBus, $users, $otpChallenge);
+
+    $result = $handler(new RegisterUserCommand(
+      email: 'ab@example.com',
+      password: 'S3cur3-Passw0rd!',
+      firstName: 'A',
+      lastName: 'B',
+    ));
+
+    self::assertTrue($result->success);
+    self::assertSame('ab0', $capturedUsername);
+  }
+
+  #[Test]
+  public function itFallsBackToTheWholeStringWhenTheEmailHasNoDomainSeparator(): void
+  {
+    $handler = new RegisterUserHandler(
+      $this->createStub(CommandBusPort::class),
+      $this->createStub(UserRepositoryPort::class),
+      $this->createStub(OtpChallengePort::class),
+    );
+
+    // The Email value object guarantees an "@", so this defensive branch is
+    // only reachable directly.
+    $normalize = new ReflectionMethod($handler, 'normalizeUsernameBase');
+
+    self::assertSame('nodomain', $normalize->invoke($handler, 'nodomain'));
   }
 }

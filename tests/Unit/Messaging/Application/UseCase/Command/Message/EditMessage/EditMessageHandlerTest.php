@@ -10,7 +10,7 @@ use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingLinkRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\EditMessage\{EditMessageCommand, EditMessageHandler};
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingValidationException};
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
@@ -21,6 +21,7 @@ use Organization\Domain\ValueObject\OrganizationNotificationSettings;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\LoggerPort;
 
 /**
@@ -40,6 +41,8 @@ final class EditMessageHandlerTest extends TestCase
   private const string MESSAGE_ID = '550e8400-e29b-41d4-a716-446655440002';
 
   private const string AUTHOR_MEMBER_ID = '550e8400-e29b-41d4-a716-446655440003';
+
+  private const string MENTIONED_MEMBER_ID = '550e8400-e29b-41d4-a716-446655440004';
 
   #[Test]
   public function testInvokeEditsTheMessageWhenActorIsTheAuthor(): void
@@ -178,16 +181,193 @@ final class EditMessageHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheMessageDoesNotExist(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn(null);
+
+    $handler = $this->handler(
+      $this->createStub(MessagingConversationRepositoryPort::class),
+      $messages,
+      $this->createStub(MessagingMemberDirectoryPort::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, 'Updated body'));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTheOwningConversationIsGone(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn(null);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $handler = $this->handler($conversations, $messages, $members);
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, 'Updated body'));
+  }
+
+  #[Test]
+  public function testInvokeGatesAChannelConversationOnParticipantWrite(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+    $messages->method('save')->willReturn($this->messageView('Updated body'));
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation(ConversationVisibility::PARTICIPANTS));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    /** @var MessagingParticipantRepositoryPort&MockObject $participants */
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->expects(self::once())
+      ->method('isParticipant')
+      ->with(self::CONVERSATION_ID, self::AUTHOR_MEMBER_ID)
+      ->willReturn(true);
+
+    $handler = $this->handler($conversations, $messages, $members, participants: $participants);
+
+    $result = $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, 'Updated body'));
+
+    self::assertSame('Updated body', $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeDeniesAChannelEditForANonParticipant(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation(ConversationVisibility::PARTICIPANTS));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(false);
+
+    $handler = $this->handler($conversations, $messages, $members, participants: $participants);
+
+    $this->expectException(MessagingAccessDeniedException::class);
+
+    $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, 'Updated body'));
+  }
+
+  #[Test]
+  public function testInvokeFallsBackToTheMessagingWritePermissionWhenTheThreadHasNoSubjectId(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+    $messages->method('save')->willReturn($this->messageView('Updated body'));
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation(subjectId: null));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('assertGrantedPermissions')
+      ->with('user-1', self::ORG_ID, ['organization.messaging.write', 'organization.messaging.write']);
+
+    $handler = $this->handler($conversations, $messages, $members, authorization: $authorization);
+
+    $result = $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, 'Updated body'));
+
+    self::assertSame('Updated body', $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeLogsAndSwallowsARealtimePublishFailure(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+    $messages->method('save')->willReturn($this->messageView('Updated body'));
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $realtime = $this->createStub(MessagingRealtimePublisherPort::class);
+    $realtime->method('publishMessage')->willThrowException(new RuntimeException('hub down'));
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())
+      ->method('warning')
+      ->with('Messaging realtime publish failed.');
+
+    $handler = $this->handler($conversations, $messages, $members, realtime: $realtime, logger: $logger);
+
+    // Must not throw — realtime delivery is best effort.
+    $result = $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, 'Updated body'));
+
+    self::assertSame('Updated body', $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeNotifiesEveryNewlyMentionedMemberExceptTheAuthor(): void
+  {
+    $body = 'Ping @{' . self::AUTHOR_MEMBER_ID . '} and @{' . self::MENTIONED_MEMBER_ID . '}';
+
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+    $messages->method('save')->willReturn($this->messageView($body));
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    /** @var MessagingMemberDirectoryPort&MockObject $members */
+    $members = $this->createMock(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+    // Exactly once: the author's own self-mention is skipped by `continue`.
+    $members->expects(self::once())
+      ->method('memberIsActive')
+      ->with(self::ORG_ID, self::MENTIONED_MEMBER_ID)
+      ->willReturn(false);
+
+    $handler = $this->handler($conversations, $messages, $members);
+
+    $result = $handler->__invoke(new EditMessageCommand('user-1', self::MESSAGE_ID, $body));
+
+    self::assertSame($body, $result->message->body);
+  }
+
   private function handler(
     MessagingConversationRepositoryPort $conversations,
     MessagingMessageRepositoryPort $messages,
     MessagingMemberDirectoryPort $members,
     ?MessagingLinkRepositoryPort $links = null,
     ?MessagingSubjectResolverRegistry $registry = null,
+    ?MessagingParticipantRepositoryPort $participants = null,
+    ?OrganizationAuthorizationPort $authorization = null,
+    ?MessagingRealtimePublisherPort $realtime = null,
+    ?LoggerPort $logger = null,
   ): EditMessageHandler {
     $registry ??= new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
     $links ??= $this->createStub(MessagingLinkRepositoryPort::class);
-    $accessPolicy = new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class));
+    $participants ??= $this->createStub(MessagingParticipantRepositoryPort::class);
+    $authorization ??= $this->createStub(OrganizationAuthorizationPort::class);
+    $realtime ??= $this->createStub(MessagingRealtimePublisherPort::class);
+    $logger ??= $this->createStub(LoggerPort::class);
+    $accessPolicy = new MessagingAccessPolicy($authorization, $members, $participants);
 
     $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
     $policy->method('notificationPolicy')->willReturn(new OrganizationNotificationSettings());
@@ -200,10 +380,10 @@ final class EditMessageHandlerTest extends TestCase
       $registry,
       $accessPolicy,
       $notifications,
-      $this->createStub(MessagingRealtimePublisherPort::class),
+      $realtime,
       new MentionExtractor(),
       new UrlExtractor(),
-      $this->createStub(LoggerPort::class),
+      $logger,
     );
   }
 
@@ -225,16 +405,18 @@ final class EditMessageHandlerTest extends TestCase
     return $resolver;
   }
 
-  private function conversation(): Conversation
-  {
+  private function conversation(
+    ConversationVisibility $visibility = ConversationVisibility::SUBJECT,
+    ?string $subjectId = 'facility-1',
+  ): Conversation {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
     return Conversation::reconstitute(
       ConversationId::fromString(self::CONVERSATION_ID),
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
-      'facility-1',
-      ConversationVisibility::SUBJECT,
+      $subjectId,
+      $visibility,
       null,
       1,
       false,

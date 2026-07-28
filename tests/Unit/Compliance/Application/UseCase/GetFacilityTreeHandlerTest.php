@@ -14,6 +14,8 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Port\Outbound\CachePort;
 
 /**
  * Test GetFacilityTreeHandlerTest.
@@ -148,6 +150,68 @@ final class GetFacilityTreeHandlerTest extends TestCase
 
     self::assertCount(1, $result->tree);
     self::assertSame(self::SITE_ID, $result->tree[0]->id);
+  }
+
+  #[Test]
+  public function testInvokeReturnsTheCachedTreeWithoutReAggregating(): void
+  {
+    $cached = new GetFacilityTreeResult(generatedAt: '2026-06-01T08:00:00+00:00', tree: []);
+
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willReturn($cached);
+
+    $facilityDirectory = $this->createMock(ComplianceFacilityDirectoryPort::class);
+    $facilityDirectory->expects(self::never())->method('listFacilities');
+
+    $handler = new GetFacilityTreeHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      new ComplianceRegisterAggregator(
+        $facilityDirectory,
+        $this->createStub(MaintenanceComplianceStatisticsPort::class),
+        $this->createStub(InspectionComplianceStatisticsPort::class),
+        $this->createStub(EquipmentComplianceStatisticsPort::class),
+      ),
+      $cache,
+      60,
+    );
+
+    self::assertSame($cached, $handler->__invoke(new GetFacilityTreeQuery(self::ORG_ID, self::USER_ID)));
+  }
+
+  #[Test]
+  public function testInvokeFallsBackToAFreshReadWhenTheCacheMisbehaves(): void
+  {
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willThrowException(new RuntimeException('cache backend unreachable'));
+    $cache->method('set')->willThrowException(new RuntimeException('cache backend unreachable'));
+
+    $handler = new GetFacilityTreeHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->makeAggregator([]),
+      $cache,
+      60,
+    );
+
+    $result = $handler->__invoke(new GetFacilityTreeQuery(self::ORG_ID, self::USER_ID));
+
+    self::assertInstanceOf(GetFacilityTreeResult::class, $result);
+    self::assertSame([], $result->tree);
+  }
+
+  #[Test]
+  public function testInvokeIgnoresANonMatchingCacheEntry(): void
+  {
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willReturn('not-a-tree');
+
+    $handler = new GetFacilityTreeHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->makeAggregator([]),
+      $cache,
+      60,
+    );
+
+    self::assertSame([], $handler->__invoke(new GetFacilityTreeQuery(self::ORG_ID, self::USER_ID))->tree);
   }
 
   /**

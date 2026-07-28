@@ -7,9 +7,10 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\{AssignOrganizationRoleToMemberCommand, AssignOrganizationRoleToMemberResult};
-use Organization\Domain\Exception\OrganizationAccessDeniedException;
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationMemberNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AssignOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
 use Organization\Presentation\Api\Processor\Organization\AssignOrganizationRoleToMemberProcessor;
@@ -18,7 +19,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
 
 #[CoversClass(AssignOrganizationRoleToMemberProcessor::class)]
 final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
@@ -166,6 +168,82 @@ final class AssignOrganizationRoleToMemberProcessorTest extends TestCase
       'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
       'memberId' => '550e8400-e29b-41d4-a716-446655441412',
     ]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new AssignOrganizationRoleToMemberProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(new AssignOrganizationRoleInput(), new Post(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+    ]);
+  }
+
+  #[Test]
+  public function testProcessMapsAMissingMemberToHttp404(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(
+      OrganizationMemberNotFoundException::withId('550e8400-e29b-41d4-a716-446655441412'),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+    ]);
+  }
+
+  #[Test]
+  public function testProcessMapsAnInvalidArgumentToHttp400(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(new InvalidArgumentException('The role is already assigned.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'memberId' => '550e8400-e29b-41d4-a716-446655441412',
+    ]);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $failure): AssignOrganizationRoleToMemberProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    return new AssignOrganizationRoleToMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+  }
+
+  private function createInput(): AssignOrganizationRoleInput
+  {
+    $input = new AssignOrganizationRoleInput();
+    $input->roleId = '550e8400-e29b-41d4-a716-446655441411';
+
+    return $input;
   }
 
   private function createSecurityUser(string $id): SecurityUser

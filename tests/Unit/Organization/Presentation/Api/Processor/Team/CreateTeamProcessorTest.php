@@ -7,9 +7,10 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Team;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Team\CreateTeam\{CreateTeamCommand, CreateTeamResult};
-use Organization\Domain\Exception\TeamNameAlreadyExistsException;
+use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException};
 use Organization\Presentation\Api\Dto\Input\Team\CreateTeamInput;
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
 use Organization\Presentation\Api\Processor\Team\CreateTeamProcessor;
@@ -18,7 +19,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Throwable;
 
 #[CoversClass(CreateTeamProcessor::class)]
 final class CreateTeamProcessorTest extends TestCase
@@ -145,6 +147,71 @@ final class CreateTeamProcessorTest extends TestCase
     $this->expectException(ConflictHttpException::class);
 
     $processor->process($input, new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new CreateTeamProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(new CreateTeamInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessMapsAMissingOrganizationToHttp404(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(
+      OrganizationNotFoundException::withId(self::ORGANIZATION_ID),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessMapsAnInvalidArgumentToHttp400(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(new InvalidArgumentException('The team name is malformed.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $failure): CreateTeamProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->securityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    return new CreateTeamProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+  }
+
+  private function createInput(): CreateTeamInput
+  {
+    $input = new CreateTeamInput();
+    $input->name = 'Field crew A';
+
+    return $input;
   }
 
   private function securityUser(): SecurityUser

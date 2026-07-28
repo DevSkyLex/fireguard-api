@@ -9,16 +9,21 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\ListFacilityAttachmentsResult;
+use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Facility\Presentation\Api\Dto\Output\Attachment\FacilityAttachmentOutput;
 use Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
 
 #[CoversClass(FacilityMediaProvider::class)]
 final class FacilityMediaProviderTest extends TestCase
@@ -139,5 +144,173 @@ final class FacilityMediaProviderTest extends TestCase
 
     new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
       ->provide(new Get(), ['id' => 'missing-id']);
+  }
+
+  #[Test]
+  public function testOutputThrowsWhenAttachmentHasNoFacility(): void
+  {
+    $attachment = new FacilityAttachmentRecord();
+    $attachment->id = 'orphan-attachment';
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Attachment facility not found.');
+
+    FacilityMediaProvider::output($attachment);
+  }
+
+  #[Test]
+  public function testProvideListRejectsBlankFacilityId(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('The facilityId URI parameter is required.');
+
+    $this->provider()->provide(new GetCollection(), ['facilityId' => '']);
+  }
+
+  #[Test]
+  public function testProvideListRequiresAnAuthenticatedSecurityUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new FacilityMediaProvider(
+      $this->createStub(EntityManagerInterface::class),
+      $this->createStub(QueryBusPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $provider->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListThrowsNotFoundWhenFacilityIsMissing(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
+
+    $this->provider(found: null)->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListMapsDirectNotFoundToHttp404(): void
+  {
+    $provider = $this->provider(exception: FacilityNotFoundException::withId(self::FACILITY_ID));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListMapsDirectInvalidArgumentToHttp400(): void
+  {
+    $provider = $this->provider(exception: new InvalidArgumentException('Malformed identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Malformed identifier.');
+
+    $provider->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListUnwrapsWrappedNotFound(): void
+  {
+    $provider = $this->provider(exception: MessengerRuntimeException::wrap(
+      FacilityNotFoundException::withId(self::FACILITY_ID),
+    ));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListUnwrapsWrappedInvalidArgument(): void
+  {
+    $provider = $this->provider(exception: MessengerRuntimeException::wrap(
+      new InvalidArgumentException('Wrapped invalid argument.'),
+    ));
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Wrapped invalid argument.');
+
+    $provider->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListRethrowsUnrecognisedMessengerFailure(): void
+  {
+    $provider = $this->provider(exception: MessengerRuntimeException::wrap(new RuntimeException('infrastructure down')));
+
+    $this->expectException(MessengerRuntimeException::class);
+    $this->expectExceptionMessage('infrastructure down');
+
+    $provider->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideGetOneThrowsNotFoundWhenIdentifierIsNotAString(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Attachment not found.');
+
+    $this->provider()->provide(new Get(), ['id' => 42]);
+  }
+
+  #[Test]
+  public function testProvideGetOneThrowsAccessDeniedWithoutPermission(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $facility = new FacilityRecord();
+    $facility->id = self::FACILITY_ID;
+    $facility->organization = $organization;
+    $attachment = new FacilityAttachmentRecord();
+    $attachment->id = 'attachment-id';
+    $attachment->facility = $facility;
+
+    $provider = $this->provider(found: $attachment, hasPermission: false);
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Missing organization.facilities.read permission.');
+
+    $provider->provide(new Get(), ['id' => 'attachment-id']);
+  }
+
+  private function provider(
+    ?Throwable $exception = null,
+    bool $hasPermission = true,
+    object|false|null $found = false,
+  ): FacilityMediaProvider {
+    if (false === $found) {
+      $organization = new OrganizationRecord();
+      $organization->id = self::ORGANIZATION_ID;
+      $found = new FacilityRecord();
+      $found->id = self::FACILITY_ID;
+      $found->organization = $organization;
+    }
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($found);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn($hasPermission);
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+
+    if (null !== $exception) {
+      $queryBus->method('ask')->willThrowException($exception);
+    }
+
+    return new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security);
   }
 }

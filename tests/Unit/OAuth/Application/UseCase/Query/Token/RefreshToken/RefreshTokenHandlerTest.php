@@ -275,6 +275,55 @@ final class RefreshTokenHandlerTest extends TestCase
     self::assertTrue($result->rememberMe);
   }
 
+  #[Test]
+  public function testTokenIdentifiersAreNullWhenTheServiceOmitsOrBlanksThem(): void
+  {
+    // The token service is not contractually required to return the optional
+    // identifier keys; the handler must degrade to null rather than assume.
+    /** @var JwtTokenServicePort&MockObject $tokenService */
+    $tokenService = $this->createMock(JwtTokenServicePort::class);
+    $tokenService->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->willReturn([
+        'user_id' => 'user-123',
+        'scopes' => ['openid'],
+        'remember_me' => false,
+      ]);
+    $tokenService->expects(self::once())
+      ->method('generateTokens')
+      ->willReturn([
+        'access_token' => 'access-token',
+        'refresh_token' => 'new-refresh-token',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600,
+        // access_token_id absent entirely, refresh_token_id present but empty.
+        'refresh_token_id' => '',
+        'remember_me' => false,
+      ]);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new GetUserResult(user: $this->createUserView(canLogin: true)));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $handler = new RefreshTokenHandler(
+      tokenService: $tokenService,
+      queryBus: $queryBus,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new RefreshTokenQuery(refreshToken: 'refresh-token', ipAddress: '127.0.0.1'));
+
+    self::assertTrue($result->success);
+    self::assertNull($result->accessTokenId);
+    self::assertNull($result->refreshTokenId);
+  }
+
   private function createUserView(bool $canLogin): UserView
   {
     return new UserView(

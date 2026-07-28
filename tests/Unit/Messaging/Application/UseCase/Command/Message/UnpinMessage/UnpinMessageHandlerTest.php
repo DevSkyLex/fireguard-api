@@ -17,6 +17,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 
 /**
@@ -175,6 +176,39 @@ final class UnpinMessageHandlerTest extends TestCase
     $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new UnpinMessageCommand('user-1', self::MESSAGE_ID));
+  }
+
+  #[Test]
+  public function testInvokeNeverFailsWhenRealtimePublishThrows(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->pinnedMessage());
+    $messages->method('save')->willReturn($this->messageView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::PINNER_MEMBER_ID);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $realtime = $this->createStub(MessagingRealtimePublisherPort::class);
+    $realtime->method('publishMessage')->willThrowException(new RuntimeException('Mercure unavailable'));
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->with('Messaging realtime publish failed.');
+
+    $handler = new UnpinMessageHandler(
+      $messages,
+      new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+      $realtime,
+      $this->createStub(EventDispatcherPort::class),
+      $logger,
+    );
+
+    $result = $handler->__invoke(new UnpinMessageCommand('user-1', self::MESSAGE_ID));
+
+    self::assertSame(self::MESSAGE_ID, $result->message->id);
   }
 
   private function pinnedMessage(): Message

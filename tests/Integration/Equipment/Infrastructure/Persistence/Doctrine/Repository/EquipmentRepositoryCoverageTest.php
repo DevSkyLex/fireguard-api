@@ -14,8 +14,10 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Infrastructure\Persistence\Doctrine\Repository\EquipmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use RuntimeException;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Tests\Support\Doctrine\FlushFailingEntityManager;
 
 use function array_map;
 
@@ -280,6 +282,40 @@ final class EquipmentRepositoryCoverageTest extends KernelTestCase
     self::assertSame(2, $byStatus['total']);
     self::assertSame(2, $byStatus['operational']);
     self::assertSame(0, $byStatus['in_stock']);
+  }
+
+  #[Test]
+  public function testSaveRethrowsAFlushFailureThatIsNotASerialNumberViolation(): void
+  {
+    $failure = new RuntimeException('connection lost mid-flush');
+    $repository = new EquipmentRepository(new FlushFailingEntityManager($this->entityManager, $failure));
+
+    $this->expectExceptionObject($failure);
+
+    $repository->save(Equipment::reconstitute(
+      id: EquipmentId::fromString('770e8400-e29b-41d4-a716-4466554e0080'),
+      organizationId: EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+      status: EquipmentStatus::IN_STOCK,
+      createdAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      updatedAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      serialNumber: 'SN-RETHROW',
+    ));
+  }
+
+  #[Test]
+  public function testCountByCreatedDayRejectsAnUnusableStorageTimeZone(): void
+  {
+    $repository = new EquipmentRepository($this->entityManager, 'Nowhere/Nothing');
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Invalid DATABASE_STORAGE_TIMEZONE configuration.');
+
+    $repository->countByCreatedDayForOrganizationId(
+      EquipmentOrganizationId::fromString(self::ORGANIZATION_ID),
+      '2026-03-01T00:00:00+00:00',
+      '2026-03-03T00:00:00+00:00',
+    );
   }
 
   /**

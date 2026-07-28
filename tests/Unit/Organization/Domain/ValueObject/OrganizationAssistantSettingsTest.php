@@ -119,4 +119,39 @@ final class OrganizationAssistantSettingsTest extends TestCase
 
     self::assertSame(1.0, $merged->temperature);
   }
+
+  #[Test]
+  public function testMergedWithAppliesTheEnabledAndBusinessContextToggles(): void
+  {
+    $settings = new OrganizationAssistantSettings(
+      enabled: false,
+      model: 'mistral:7b',
+      temperature: 0.7,
+      includeBusinessContext: false,
+    );
+
+    $merged = $settings->mergedWith([
+      'enabled' => true,
+      'include_business_context' => true,
+    ]);
+
+    self::assertTrue($merged->enabled);
+    self::assertTrue($merged->includeBusinessContext);
+    self::assertSame('mistral:7b', $merged->model);
+    self::assertSame(0.7, $merged->temperature);
+  }
+
+  #[Test]
+  public function testMergedWithIgnoresNonBooleanToggles(): void
+  {
+    $settings = new OrganizationAssistantSettings(enabled: true, includeBusinessContext: true);
+
+    $merged = $settings->mergedWith([
+      'enabled' => 'yes',
+      'include_business_context' => 1,
+    ]);
+
+    self::assertTrue($merged->enabled);
+    self::assertTrue($merged->includeBusinessContext);
+  }
 }

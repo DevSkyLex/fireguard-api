@@ -12,13 +12,14 @@ use Import\Presentation\Api\Dto\Output\ImportJobOutput;
 use Import\Presentation\Api\Factory\ImportJobOutputFactory;
 use Import\Presentation\Api\Processor\CreateImportJobProcessor;
 use Import\Presentation\Api\Service\CsvUploadGuard;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function file_put_contents;
 use function sys_get_temp_dir;
@@ -124,5 +125,94 @@ final class CreateImportJobProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
 
     $processor->process(null, new Post());
+  }
+
+  #[Test]
+  public function testProcessRequiresACurrentRequest(): void
+  {
+    $processor = new CreateImportJobProcessor(
+      $this->createStub(CommandBusPort::class),
+      $this->authenticatedSecurity(),
+      new RequestStack(),
+      new CsvUploadGuard(),
+      new ImportJobOutputFactory(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Request payload is required.');
+
+    $processor->process(null, new Post());
+  }
+
+  #[Test]
+  public function testProcessRequiresTheOrganizationMultipartField(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/imports', 'POST', ['kind' => 'equipment']));
+
+    $processor = new CreateImportJobProcessor(
+      $this->createStub(CommandBusPort::class),
+      $this->authenticatedSecurity(),
+      $requestStack,
+      new CsvUploadGuard(),
+      new ImportJobOutputFactory(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Multipart field "organization" is required.');
+
+    $processor->process(null, new Post());
+  }
+
+  #[Test]
+  public function testProcessMapsADispatchFailureToAnHttpException(): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'import-');
+    self::assertIsString($path);
+    file_put_contents($path, "type\nfire_extinguisher\n");
+
+    try {
+      $requestStack = new RequestStack();
+      $requestStack->push(Request::create(
+        '/api/imports',
+        'POST',
+        ['organization' => '/api/organizations/' . self::ORGANIZATION_ID, 'kind' => 'equipment'],
+        [],
+        ['file' => new UploadedFile($path, 'equipment.csv', 'text/csv', null, true)],
+      ));
+
+      $commandBus = $this->createStub(CommandBusPort::class);
+      $commandBus->method('dispatch')->willThrowException(new InvalidArgumentException('Unsupported import kind.'));
+
+      $processor = new CreateImportJobProcessor(
+        $commandBus,
+        $this->authenticatedSecurity(),
+        $requestStack,
+        new CsvUploadGuard(),
+        new ImportJobOutputFactory(),
+      );
+
+      $this->expectException(BadRequestHttpException::class);
+      $this->expectExceptionMessage('Unsupported import kind.');
+
+      $processor->process(null, new Post());
+    } finally {
+      unlink($path);
+    }
+  }
+
+  /**
+   * Method authenticatedSecurity.
+   *
+   * @return Security a security stub returning an authenticated user
+   */
+  private function authenticatedSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    return $security;
   }
 }

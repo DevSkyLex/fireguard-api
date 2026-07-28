@@ -9,6 +9,7 @@ use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityStatus, FacilityType};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use LogicException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -207,5 +208,23 @@ final class FacilityMapperTest extends TestCase
     self::assertSame($record->metadata, $roundTripped->metadata);
     self::assertEquals($record->createdAt, $roundTripped->createdAt);
     self::assertEquals($record->updatedAt, $roundTripped->updatedAt);
+  }
+
+  #[Test]
+  public function testToDomainRefusesARecordWithoutAnOrganization(): void
+  {
+    $record = new FacilityRecord();
+    $record->id = '550e8400-e29b-41d4-a716-446655441620';
+    $record->organization = null;
+    $record->type = 'building';
+    $record->name = 'Orphan';
+    $record->status = 'active';
+    $record->createdAt = new DateTimeImmutable('2026-02-12T08:00:00+00:00');
+    $record->updatedAt = new DateTimeImmutable('2026-02-12T09:00:00+00:00');
+
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Facility record must reference an organization.');
+
+    FacilityMapper::toDomain($record);
   }
 }

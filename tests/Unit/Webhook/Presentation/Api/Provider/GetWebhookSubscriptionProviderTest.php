@@ -11,8 +11,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Webhook\Application\UseCase\Query\Subscription\GetWebhookSubscription\{GetWebhookSubscriptionQuery, GetWebhookSubscriptionResult};
+use Webhook\Domain\Exception\WebhookSubscriptionNotFoundException;
 use Webhook\Presentation\Api\Dto\Output\WebhookSubscriptionOutput;
 use Webhook\Presentation\Api\Factory\WebhookSubscriptionOutputFactory;
 use Webhook\Presentation\Api\Provider\GetWebhookSubscriptionProvider;
@@ -108,5 +109,23 @@ final class GetWebhookSubscriptionProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $provider->provide(new Get(), []);
+  }
+
+  #[Test]
+  public function testProvideMapsAMissingSubscriptionToNotFound(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(WebhookSubscriptionNotFoundException::withId(self::WEBHOOK_ID));
+
+    $provider = new GetWebhookSubscriptionProvider($queryBus, $security, new WebhookSubscriptionOutputFactory());
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID, 'webhookId' => self::WEBHOOK_ID]);
   }
 }

@@ -220,9 +220,16 @@ final readonly class DoctrinePublicationAdapter implements PublicationRepository
         return [$publication->intervention->id, $publication->intervention->name, [], false];
       }
       $intervention = $this->entityManager->find(InterventionRecord::class, $publication->intervention->id, LockMode::PESSIMISTIC_WRITE);
+      // @codeCoverageIgnoreStart
+      // Unreachable: line 220 already dereferences $publication->intervention,
+      // which registers the association proxy in the identity map, so the find()
+      // above always returns it. Verified empirically by dropping the FK and
+      // NOT NULL constraints: Doctrine raises EntityNotFoundException from proxy
+      // initialisation instead, never reaching this throw.
       if (!$intervention instanceof InterventionRecord) {
         throw InterventionNotFoundException::withId($publication->intervention->id);
       }
+      // @codeCoverageIgnoreEnd
       if ('submitted' !== $intervention->status || $intervention->revision !== $publication->interventionRevision) {
         throw new InterventionConflictException('Intervention changed before publication execution.');
       }

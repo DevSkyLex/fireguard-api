@@ -16,6 +16,7 @@ use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutp
 use Onboarding\Presentation\Api\Processor\Onboarding\SkipOrganizationOnboardingStepProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Factory\UuidFactory;
@@ -194,6 +195,32 @@ final class SkipOrganizationOnboardingStepProcessorTest extends TestCase
 
     self::assertInstanceOf(OrganizationOnboardingOutput::class, $output);
     self::assertSame('organization', $output->flow);
+  }
+
+  #[Test]
+  public function testProcessRethrowsAMessengerRuntimeExceptionThatWrapsNoLogicException(): void
+  {
+    $userId = '550e8400-e29b-41d4-a716-446655440706';
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser($userId));
+
+    $flowService = $this->createStub(OrganizationOnboardingServicePort::class);
+    $flowService->method('skipStep')
+      ->willThrowException(
+        MessengerRuntimeException::wrap(new RuntimeException('Downstream transport is unavailable.')),
+      );
+
+    $processor = new SkipOrganizationOnboardingStepProcessor(
+      flowService: $flowService,
+      security: $security,
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process(null, new Post(), ['stepKey' => OrganizationOnboardingStep::INVITE_MEMBERS]);
   }
 
   private function buildFlowService(

@@ -167,6 +167,68 @@ final class UpdateOrganizationSettingsHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeAppliesLogoComplianceAutomationApprovalAndAssistantSections(): void
+  {
+    $organization = Organization::create(
+      id: OrganizationId::fromString(self::ORGANIZATION_ID),
+      name: new OrganizationName('Fireguard Lyon'),
+      ownerUserId: self::OWNER_USER_ID,
+      slug: new OrganizationSlug('fireguard-lyon'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($organization);
+    $organizationRepository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(static function (Organization $saved): bool {
+        $settings = $saved->settings();
+
+        return 'https://cdn.example.test/logo.png' === $saved->logoUrl()
+          && 21 === $settings->compliance->reminderWindowDays
+          && true === $settings->automation->autoCreateInterventionOnCriticalNc
+          && true === $settings->approval->allowSelfApproval
+          && true === $settings->assistant->enabled
+          && 'claude-sonnet' === $settings->assistant->model;
+      }));
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::once())
+      ->method('transactional')
+      ->with(self::isCallable())
+      ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        return $event instanceof OrganizationSettingsUpdatedEvent
+          && ['logo', 'compliance', 'automation', 'approval', 'assistant'] === $event->changedFields;
+      }));
+
+    $handler = new UpdateOrganizationSettingsHandler(
+      organizationRepository: $organizationRepository,
+      transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new UpdateOrganizationSettingsCommand(
+      organizationId: self::ORGANIZATION_ID,
+      logoUrl: 'https://cdn.example.test/logo.png',
+      compliance: ['reminder_window_days' => 21],
+      automation: ['auto_create_intervention_on_critical_nc' => true],
+      approval: ['allow_self_approval' => true],
+      assistant: ['enabled' => true, 'model' => 'claude-sonnet'],
+    ));
+
+    self::assertInstanceOf(UpdateOrganizationSettingsResult::class, $result);
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenOrganizationNotFound(): void
   {
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */

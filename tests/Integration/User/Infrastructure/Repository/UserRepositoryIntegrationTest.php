@@ -6,6 +6,7 @@ namespace Tests\Integration\User\Infrastructure\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Domain\ValueObject\{Email, TenantId};
 use Shared\Infrastructure\Service\UuidEventIdProvider;
 use Shared\Infrastructure\Symfony\Adapter\Outbound\UuidGeneratorAdapter;
@@ -15,6 +16,8 @@ use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Infrastructure\Persistence\Doctrine\Mapper\UserMapper;
 use User\Infrastructure\Persistence\Doctrine\Repository\UserRepository;
 
+use function array_map;
+use function count;
 use function password_hash;
 use function sprintf;
 
@@ -188,6 +191,9 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
   #[Test]
   public function testFindAll(): void
   {
+    // A delta, not an absolute: the seeded baseline already holds users.
+    $before = count($this->repository->findAll());
+
     // Create multiple users
     for ($i = 1; $i <= 3; ++$i) {
       $user = $this->createTestUser(
@@ -200,7 +206,7 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
 
     $allUsers = $this->repository->findAll();
 
-    self::assertCount(3, $allUsers);
+    self::assertCount($before + 3, $allUsers);
   }
 
   #[Test]
@@ -224,6 +230,71 @@ final class UserRepositoryIntegrationTest extends KernelTestCase
     self::assertNotNull($foundUser);
     self::assertSame('John', $foundUser->profile()->firstName);
     self::assertSame('Doe', $foundUser->profile()->lastName);
+  }
+
+  #[Test]
+  public function testFindFilteredAndCountFilteredApplyTheSearchFilter(): void
+  {
+    $this->repository->save($this->createTestUser('550e8400-e29b-41d4-a716-4466554400a1', 'zzsearchable-alpha', 'zzsearchable-alpha@example.com'));
+    $this->repository->save($this->createTestUser('550e8400-e29b-41d4-a716-4466554400a2', 'zzsearchable-bravo', 'zzsearchable-bravo@example.com'));
+    $this->repository->save($this->createTestUser('550e8400-e29b-41d4-a716-4466554400a3', 'zzunrelated-charlie', 'zzunrelated-charlie@example.com'));
+
+    $matches = $this->repository->findFiltered(
+      'zzsearchable',
+      new Sorting('username', SortDirection::ASC),
+      20,
+      0,
+    );
+
+    self::assertSame(
+      ['zzsearchable-alpha', 'zzsearchable-bravo'],
+      array_map(static fn (User $user): string => $user->username()->value, $matches),
+    );
+    self::assertSame(2, $this->repository->countFiltered('zzsearchable'));
+
+    // The wildcard characters in the needle are escaped, so they match
+    // literally instead of widening the result set.
+    self::assertSame(0, $this->repository->countFiltered('%zzsearchable%'));
+    self::assertSame(0, $this->repository->countFiltered('zzsearchable_alpha'));
+  }
+
+  #[Test]
+  public function testFindFilteredSupportsEverySortableField(): void
+  {
+    $this->repository->save($this->createTestUser('550e8400-e29b-41d4-a716-4466554400b1', 'zzsortable-alpha', 'zzsortable-alpha@example.com'));
+    $this->repository->save($this->createTestUser('550e8400-e29b-41d4-a716-4466554400b2', 'zzsortable-bravo', 'zzsortable-bravo@example.com'));
+
+    // Every branch of the sort-field whitelist, plus the createdAt default.
+    foreach (['username', 'email', 'firstName', 'lastName', 'status', 'createdAt', 'unmapped-field'] as $field) {
+      self::assertCount(
+        2,
+        $this->repository->findFiltered('zzsortable', new Sorting($field, SortDirection::DESC), 20, 0),
+        'Sorting by "' . $field . '" must stay a valid query.',
+      );
+    }
+
+    $descending = array_map(
+      static fn (User $user): string => $user->username()->value,
+      $this->repository->findFiltered('zzsortable', new Sorting('username', SortDirection::DESC), 20, 0),
+    );
+
+    self::assertSame(['zzsortable-bravo', 'zzsortable-alpha'], $descending);
+
+    $secondPage = $this->repository->findFiltered('zzsortable', new Sorting('username', SortDirection::ASC), 1, 1);
+
+    self::assertCount(1, $secondPage);
+    self::assertSame('zzsortable-bravo', $secondPage[0]->username()->value);
+  }
+
+  #[Test]
+  public function testFindFilteredScopesToTheRequestedTenant(): void
+  {
+    $tenantId = '00000000-0000-4000-8000-000000000001';
+    $this->repository->save($this->createTestUser('550e8400-e29b-41d4-a716-4466554400c1', 'zztenanted-alpha', 'zztenanted-alpha@example.com'));
+
+    self::assertSame(1, $this->repository->countFiltered('zztenanted', $tenantId));
+    self::assertCount(1, $this->repository->findFiltered('zztenanted', new Sorting('createdAt'), 20, 0, $tenantId));
+    self::assertSame(0, $this->repository->countFiltered('zztenanted', '00000000-0000-4000-8000-0000000000ff'));
   }
   // #endregion
 

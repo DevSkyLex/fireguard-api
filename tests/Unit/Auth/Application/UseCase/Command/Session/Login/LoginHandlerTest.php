@@ -430,5 +430,136 @@ final class LoginHandlerTest extends TestCase
     $this->assertTrue($result->authenticated);
     $this->assertSame('access', $result->accessToken);
   }
+
+  #[Test]
+  public function testInvokeSkipsMfaForATrustedDevice(): void
+  {
+    $command = new LoginCommand(
+      email: 'user@example.com',
+      password: 'secret',
+      trustedDeviceToken: 'trusted-device-token',
+    );
+
+    /** @var RateLimiterPort&MockObject $rateLimiter */
+    $rateLimiter = $this->createMock(RateLimiterPort::class);
+    $rateLimiter->expects(self::once())
+      ->method('consume')
+      ->willReturn(RateLimitResult::accepted());
+
+    /** @var UserAuthenticationPort&MockObject $auth */
+    $auth = $this->createMock(UserAuthenticationPort::class);
+    $auth->expects(self::once())
+      ->method('authenticate')
+      ->willReturn(UserAuthenticationResult::success('user-123', 'user@example.com'));
+
+    /** @var TrustedDeviceCheckPort&MockObject $trustedDeviceCheck */
+    $trustedDeviceCheck = $this->createMock(TrustedDeviceCheckPort::class);
+    $trustedDeviceCheck->expects(self::once())
+      ->method('isTrusted')
+      ->with('user-123', 'trusted-device-token')
+      ->willReturn(true);
+
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::never())->method('generatePreAuthToken');
+    $jwt->expects(self::once())
+      ->method('generateTokens')
+      ->willReturn([
+        'access_token' => 'access',
+        'refresh_token' => 'refresh',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600,
+        'access_token_id' => 'access-id',
+        'refresh_token_id' => 'refresh-id',
+      ]);
+
+    $handler = new LoginHandler(
+      userAuthentication: $auth,
+      tokenService: $jwt,
+      challengeGenerator: $this->createStub(ChallengeGeneratorPort::class),
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $trustedDeviceCheck,
+      totpEnrollmentCheck: $this->createStub(TotpEnrollmentCheckPort::class),
+      mfaEnabled: true,
+    );
+
+    $result = $handler->__invoke($command);
+
+    $this->assertTrue($result->authenticated);
+    $this->assertNotTrue($result->mfaRequired);
+    $this->assertSame('access', $result->accessToken);
+  }
+
+  #[Test]
+  public function testInvokeRequiresMfaWhenTrustedDeviceAndTotpChecksFail(): void
+  {
+    $command = new LoginCommand(
+      email: 'user@example.com',
+      password: 'secret',
+      trustedDeviceToken: 'trusted-device-token',
+    );
+
+    /** @var RateLimiterPort&MockObject $rateLimiter */
+    $rateLimiter = $this->createMock(RateLimiterPort::class);
+    $rateLimiter->expects(self::once())
+      ->method('consume')
+      ->willReturn(RateLimitResult::accepted());
+
+    /** @var UserAuthenticationPort&MockObject $auth */
+    $auth = $this->createMock(UserAuthenticationPort::class);
+    $auth->expects(self::once())
+      ->method('authenticate')
+      ->willReturn(UserAuthenticationResult::success('user-123', 'user@example.com'));
+
+    /** @var TrustedDeviceCheckPort&MockObject $trustedDeviceCheck */
+    $trustedDeviceCheck = $this->createMock(TrustedDeviceCheckPort::class);
+    $trustedDeviceCheck->expects(self::once())
+      ->method('isTrusted')
+      ->willThrowException(new RuntimeException('trusted device store unavailable'));
+
+    /** @var TotpEnrollmentCheckPort&MockObject $totpEnrollmentCheck */
+    $totpEnrollmentCheck = $this->createMock(TotpEnrollmentCheckPort::class);
+    $totpEnrollmentCheck->expects(self::once())
+      ->method('isEnrolled')
+      ->willThrowException(new RuntimeException('totp store unavailable'));
+
+    /** @var ChallengeGeneratorPort&MockObject $generator */
+    $generator = $this->createMock(ChallengeGeneratorPort::class);
+    $generator->expects(self::once())
+      ->method('generate')
+      ->with(self::callback(static fn (MfaChallengeCommand $cmd): bool => 'email' === $cmd->channel))
+      ->willReturn(new MfaChallengeResult(
+        challengeToken: 'challenge-123',
+        maskedRecipient: 'u***@example.com',
+        expiresAt: new DateTimeImmutable('+5 minutes'),
+        maxAttempts: 3,
+      ));
+
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())
+      ->method('generatePreAuthToken')
+      ->willReturn('pre-auth');
+    $jwt->expects(self::never())->method('generateTokens');
+
+    $handler = new LoginHandler(
+      userAuthentication: $auth,
+      tokenService: $jwt,
+      challengeGenerator: $generator,
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      rateLimiter: $rateLimiter,
+      trustedDeviceCheck: $trustedDeviceCheck,
+      totpEnrollmentCheck: $totpEnrollmentCheck,
+      mfaEnabled: true,
+    );
+
+    $result = $handler->__invoke($command);
+
+    $this->assertTrue($result->mfaRequired);
+    $this->assertSame('email', $result->mfaMethod);
+  }
   // #endregion
 }

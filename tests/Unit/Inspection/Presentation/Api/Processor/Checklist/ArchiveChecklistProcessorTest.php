@@ -12,10 +12,12 @@ use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{ChecklistItemRe
 use Inspection\Domain\Exception\{ChecklistArchivedException, ChecklistNotFoundException};
 use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Processor\Checklist\ArchiveChecklistProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -183,6 +185,93 @@ final class ArchiveChecklistProcessorTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenPermissionDenied(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $processor = new ArchiveChecklistProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnAnInvalidArgument(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(new InvalidArgumentException('Malformed checklist identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed checklist identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsChecklistArchivedFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(ChecklistArchivedException::withId(self::CL_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrelatedMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: null,

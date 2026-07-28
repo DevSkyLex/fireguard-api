@@ -274,6 +274,86 @@ final class UpdateChecklistHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAMalformedChecklistId(): void
+  {
+    $handler = new UpdateChecklistHandler(
+      checklistRepository: $this->createStub(ChecklistRepositoryPort::class),
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      uuidFactory: $this->makeUuidFactory(),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new UpdateChecklistCommand(
+      organizationId: self::ORG_ID,
+      checklistId: 'not-a-uuid',
+      name: 'Renamed',
+      hasName: true,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRethrowsPersistenceFailuresThatAreNotAReferenceCodeConflict(): void
+  {
+    $checklist = $this->makeChecklist();
+
+    /** @var ChecklistRepositoryPort&MockObject $checklistRepository */
+    $checklistRepository = $this->createMock(ChecklistRepositoryPort::class);
+    $checklistRepository->method('findById')->willReturn($checklist);
+    $checklistRepository->expects(self::once())->method('save')->willThrowException(new RuntimeException('Connection lost.'));
+
+    $handler = new UpdateChecklistHandler(
+      checklistRepository: $checklistRepository,
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      uuidFactory: $this->makeUuidFactory(),
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Connection lost.');
+
+    $handler->__invoke(new UpdateChecklistCommand(
+      organizationId: self::ORG_ID,
+      checklistId: self::CL_ID,
+      name: 'Renamed',
+      hasName: true,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRethrowsAUniqueViolationRaisedByAnotherConstraint(): void
+  {
+    $checklist = $this->makeChecklist();
+
+    $driverException = new class ('SQLSTATE[23505]: Unique violation: duplicate key value violates unique constraint "uniq_checklist_something_else"') extends RuntimeException implements DoctrineDriverException {
+      public function getSQLState(): string
+      {
+        return '23505';
+      }
+    };
+    $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
+
+    /** @var ChecklistRepositoryPort&MockObject $checklistRepository */
+    $checklistRepository = $this->createMock(ChecklistRepositoryPort::class);
+    $checklistRepository->method('findById')->willReturn($checklist);
+    $checklistRepository->expects(self::once())->method('save')->willThrowException($uniqueViolation);
+
+    $handler = new UpdateChecklistHandler(
+      checklistRepository: $checklistRepository,
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      uuidFactory: $this->makeUuidFactory(),
+    );
+
+    $this->expectException(UniqueConstraintViolationException::class);
+
+    $handler->__invoke(new UpdateChecklistCommand(
+      organizationId: self::ORG_ID,
+      checklistId: self::CL_ID,
+      referenceCode: 'CHK-OTHER',
+      hasReferenceCode: true,
+    ));
+  }
+
   // #region Helpers
   private function makeChecklist(): Checklist
   {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Query\Attachment\DownloadMessageAttachment;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
@@ -15,6 +16,7 @@ use Messaging\Domain\Model\Attachment\MessagingAttachment;
 use Messaging\Domain\ValueObject\{MessagingAttachmentId, MessagingSubjectType};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\FileStoragePort;
 
@@ -133,6 +135,57 @@ final class DownloadMessageAttachmentHandlerTest extends TestCase
     $handler->__invoke(new DownloadMessageAttachmentQuery('user-1', self::ATTACHMENT_ID));
   }
 
+  #[Test]
+  public function testInvokeThrowsOnAMalformedAttachmentId(): void
+  {
+    $handler = new DownloadMessageAttachmentHandler(
+      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      $this->createStub(MessagingConversationRepositoryPort::class),
+      new MessagingSubjectResolverRegistry([]),
+      $this->accessPolicy($this->createStub(OrganizationAuthorizationPort::class)),
+      $this->createStub(FileStoragePort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DownloadMessageAttachmentQuery('user-1', 'not-a-uuid'));
+  }
+
+  #[Test]
+  public function testInvokeGatesAChannelDownloadOnChannelParticipation(): void
+  {
+    $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('findById')->willReturn($this->attachment());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->view(visibility: 'participants'));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn('member-1');
+
+    /** @var MessagingParticipantRepositoryPort&MockObject $participants */
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->expects(self::once())
+      ->method('isParticipant')
+      ->with(self::CONVERSATION_ID, 'member-1')
+      ->willReturn(true);
+
+    $fileStorage = $this->createStub(FileStoragePort::class);
+    $fileStorage->method('read')->willReturn('PDF-BYTES');
+
+    $handler = new DownloadMessageAttachmentHandler(
+      $attachments,
+      $conversations,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+      $fileStorage,
+    );
+
+    $result = $handler->__invoke(new DownloadMessageAttachmentQuery('user-1', self::ATTACHMENT_ID));
+
+    self::assertSame('PDF-BYTES', $result->contents);
+  }
+
   private function accessPolicy(OrganizationAuthorizationPort $authorization): MessagingAccessPolicy
   {
     return new MessagingAccessPolicy(
@@ -167,10 +220,10 @@ final class DownloadMessageAttachmentHandlerTest extends TestCase
     );
   }
 
-  private function view(): ConversationView
+  private function view(string $visibility = 'subject'): ConversationView
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
-    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'facility', 'facility-1', 'subject', null, 0, false, $now, $now);
+    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'facility', 'facility-1', $visibility, null, 0, false, $now, $now);
   }
 }

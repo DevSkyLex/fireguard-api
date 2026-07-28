@@ -210,6 +210,24 @@ final class MessagingInboxSourceProviderAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testFetchExcludesAConversationWhoseSubjectTypeHasNoKnownReadPermission(): void
+  {
+    $message = $this->message(id: 'message-1', conversationId: 'conversation-1');
+
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('listMentionsForMember')->willReturn([$message]);
+
+    // A subject type this module does not map to a read permission — a
+    // foreign or newly introduced one. Fail closed, never assume access.
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findSubjectTypesByIds')->willReturn(['conversation-1' => 'unmapped_subject']);
+
+    $adapter = $this->buildAdapter(messages: $messages, conversations: $conversations);
+
+    self::assertSame([], $adapter->fetch('user-1', 'org-1', null, 20));
+  }
+
+  #[Test]
   public function testFetchExcludesAConversationWithAnUnrecognizedSubjectType(): void
   {
     $message = $this->message(id: 'message-1', conversationId: 'conversation-1');

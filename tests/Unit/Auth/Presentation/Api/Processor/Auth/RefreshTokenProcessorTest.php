@@ -172,6 +172,62 @@ final class RefreshTokenProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessReadsRememberMeFromRefreshTokenPayloadWhenResultOmitsIt(): void
+  {
+    $request = new Request();
+    $request->cookies->set('refresh_token', 'refresh-token');
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $result = new RefreshTokenResult(
+      success: true,
+      accessToken: 'access',
+      refreshToken: 'refresh-new',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      scopes: ['READ'],
+      rememberMe: null,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn($result);
+
+    /** @var JwtTokenServicePort&MockObject $jwtService */
+    $jwtService = $this->createMock(JwtTokenServicePort::class);
+    $jwtService->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->with('refresh-new')
+      ->willReturn(['remember_me' => true]);
+
+    $cookieService = new RefreshTokenCookieService(
+      environment: 'test',
+      cookieBaseName: 'refresh_token',
+      lifetimeShort: 3600,
+      lifetimeLong: 7200,
+    );
+
+    $processor = new RefreshTokenProcessor(
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      cookieService: $cookieService,
+      jwtService: $jwtService,
+    );
+
+    $output = $processor->process(null, new Post());
+
+    $this->assertInstanceOf(LoginOutput::class, $output);
+
+    $cookie = $request->attributes->get('_refresh_token_cookie');
+    $this->assertInstanceOf(\Symfony\Component\HttpFoundation\Cookie::class, $cookie);
+    $this->assertSame('refresh-new', $cookie->getValue());
+    $this->assertGreaterThan(0, $cookie->getExpiresTime());
+  }
+
+  #[Test]
   public function testProcessThrowsTooManyRequestsWhenRateLimited(): void
   {
     $request = new Request();
@@ -209,6 +265,60 @@ final class RefreshTokenProcessorTest extends TestCase
     $this->expectException(TooManyRequestsHttpException::class);
 
     $processor->process(null, new Post());
+  }
+
+  #[Test]
+  public function testProcessPassesRateLimitAndKeysOnTheTokenWhenThePayloadIsUnreadable(): void
+  {
+    $request = new Request();
+    $request->cookies->set('refresh_token', 'refresh-token');
+    $request->server->set('REMOTE_ADDR', '127.0.0.1');
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $result = new RefreshTokenResult(
+      success: true,
+      accessToken: 'access',
+      refreshToken: null,
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      scopes: ['READ'],
+      rememberMe: true,
+    );
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn($result);
+
+    /** @var JwtTokenServicePort&MockObject $jwtService */
+    $jwtService = $this->createMock(JwtTokenServicePort::class);
+    $jwtService->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->with('refresh-token')
+      ->willReturn(null);
+
+    $cookieService = new RefreshTokenCookieService(
+      environment: 'test',
+      cookieBaseName: 'refresh_token',
+      lifetimeShort: 3600,
+      lifetimeLong: 7200,
+    );
+
+    $processor = new RefreshTokenProcessor(
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      cookieService: $cookieService,
+      jwtService: $jwtService,
+      rateLimiter: $this->createRateLimiterFactory(),
+    );
+
+    $output = $processor->process(null, new Post());
+
+    $this->assertInstanceOf(LoginOutput::class, $output);
+    $this->assertNull($request->attributes->get('_refresh_token_cookie'));
   }
 
   private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory

@@ -20,9 +20,11 @@ use Maintenance\Presentation\Api\Processor\MaintenanceScheduleProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
  * Test MaintenanceScheduleProcessorTest.
@@ -86,6 +88,53 @@ final class MaintenanceScheduleProcessorTest extends TestCase
     $processor = new MaintenanceScheduleProcessor($commandBus, new MaintenanceScheduleOutputFactory(), $this->securityWithUser());
 
     $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]);
+  }
+
+  #[Test]
+  public function testProcessLeavesAnUnrecognisedFailureUnmapped(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(new RuntimeException('database is down'));
+
+    $processor = new MaintenanceScheduleProcessor($commandBus, new MaintenanceScheduleOutputFactory(), $this->securityWithUser());
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('database is down');
+
+    $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestForAnUnexpectedBody(): void
+  {
+    $processor = new MaintenanceScheduleProcessor(
+      $this->createStub(CommandBusPort::class),
+      new MaintenanceScheduleOutputFactory(),
+      $this->securityWithUser(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid request body.');
+
+    $processor->process(new stdClass(), new Patch(), ['id' => self::SCHEDULE_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new MaintenanceScheduleProcessor(
+      $this->createStub(CommandBusPort::class),
+      new MaintenanceScheduleOutputFactory(),
+      $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
 
     $processor->process(new UpdateMaintenanceScheduleInput(), new Patch(), ['id' => self::SCHEDULE_ID]);
   }

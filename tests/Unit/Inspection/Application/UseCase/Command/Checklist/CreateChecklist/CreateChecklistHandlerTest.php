@@ -119,6 +119,58 @@ final class CreateChecklistHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function itRethrowsPersistenceFailuresThatAreNotAReferenceCodeConflict(): void
+  {
+    /** @var ChecklistRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(ChecklistRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->willThrowException(new RuntimeException('Connection lost.'));
+
+    $handler = new CreateChecklistHandler(
+      checklistRepository: $repository,
+      uuidFactory: $this->makeUuidFactory(),
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Connection lost.');
+
+    $handler->__invoke(new CreateChecklistCommand(
+      organizationId: self::ORG_ID,
+      name: 'Checklist',
+      version: 'v1.0',
+    ));
+  }
+
+  #[Test]
+  public function itRethrowsAUniqueViolationRaisedByAnotherConstraint(): void
+  {
+    $driverException = new class ('duplicate key value violates unique constraint "uniq_checklist_something_else"') extends RuntimeException implements DoctrineDriverException {
+      public function getSQLState(): string
+      {
+        return '23505';
+      }
+    };
+    $uniqueViolation = new UniqueConstraintViolationException($driverException, null);
+
+    /** @var ChecklistRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(ChecklistRepositoryPort::class);
+    $repository->expects(self::once())->method('save')->willThrowException($uniqueViolation);
+
+    $handler = new CreateChecklistHandler(
+      checklistRepository: $repository,
+      uuidFactory: $this->makeUuidFactory(),
+    );
+
+    $this->expectException(UniqueConstraintViolationException::class);
+
+    $handler->__invoke(new CreateChecklistCommand(
+      organizationId: self::ORG_ID,
+      name: 'Checklist',
+      version: 'v1.0',
+      referenceCode: 'CHK-OTHER',
+    ));
+  }
+
   private function makeUuidFactory(): UuidFactory
   {
     $generator = $this->createStub(UuidGeneratorPort::class);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\AddOrganizationMember;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Notification\Domain\ValueObject\NotificationType;
@@ -483,6 +484,108 @@ final class AddOrganizationMemberHandlerTest extends TestCase
     $handler->__invoke(new AddOrganizationMemberCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440100',
       userId: '550e8400-e29b-41d4-a716-446655440102',
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTheUserDoesNotExist(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440100';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Test'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($organization);
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findById')->willReturn(null);
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
+    $handler = new AddOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      userRepository: $userRepository,
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('User not found.');
+
+    $handler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: $organizationId,
+      userId: '550e8400-e29b-41d4-a716-446655440102',
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTheDefaultMemberRoleIsMissing(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440100';
+    $userId = '550e8400-e29b-41d4-a716-446655440102';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Test'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($organization);
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findById')->willReturn(UserTestFactory::createActive($userId));
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByOrganizationAndName')
+      ->with(
+        self::isInstanceOf(OrganizationId::class),
+        self::callback(static fn (OrganizationRoleName $name): bool => 'member' === (string) $name),
+      )
+      ->willReturn(null);
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
+    $handler = new AddOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $this->createStub(OrganizationMemberRepositoryPort::class),
+      roleRepository: $roleRepository,
+      userRepository: $userRepository,
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(OrganizationRoleNotFoundException::class);
+
+    $handler->__invoke(new AddOrganizationMemberCommand(
+      organizationId: $organizationId,
+      userId: $userId,
       roleIds: [],
     ));
   }
