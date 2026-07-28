@@ -11,6 +11,7 @@ use DateTimeImmutable;
 use Messaging\Application\Contract\Message\{MessagePage, MessageView};
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
 use Messaging\Application\UseCase\Query\Message\ListSavedMessages\{ListSavedMessagesQuery, ListSavedMessagesResult};
+use Messaging\Domain\Exception\MessagingAccessDeniedException;
 use Messaging\Presentation\Api\Dto\Output\MessageOutput;
 use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
 use Messaging\Presentation\Api\Provider\Message\ListSavedMessagesProvider;
@@ -20,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function iterator_to_array;
 
@@ -83,6 +84,40 @@ final class ListSavedMessagesProviderTest extends TestCase
     );
 
     $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideMapsMessagingExceptionsRaisedByTheQueryBus(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new MessagingAccessDeniedException('Not a member.'));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request(['organization' => '/api/organizations/' . self::ORG_ID]));
+
+    $provider = new ListSavedMessagesProvider($queryBus, $this->outputFactory(), $this->securityWithUser(), $requestStack);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenTheUserIsNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new ListSavedMessagesProvider(
+      $this->createStub(QueryBusPort::class),
+      $this->outputFactory(),
+      $security,
+      new RequestStack(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
 
     $provider->provide(new GetCollection());
   }

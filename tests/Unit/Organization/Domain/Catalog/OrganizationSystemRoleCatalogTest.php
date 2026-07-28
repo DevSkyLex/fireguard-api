@@ -12,6 +12,40 @@ use PHPUnit\Framework\TestCase;
 final class OrganizationSystemRoleCatalogTest extends TestCase
 {
   #[Test]
+  public function testPermissionsForAdminIsTheWildcard(): void
+  {
+    self::assertSame(['organization.*'], OrganizationSystemRoleCatalog::permissionsFor(
+      OrganizationSystemRoleCatalog::ADMIN,
+    ));
+  }
+
+  #[Test]
+  public function testPermissionsForAnUnknownRoleIsEmpty(): void
+  {
+    self::assertSame([], OrganizationSystemRoleCatalog::permissionsFor('inspector'));
+  }
+
+  #[Test]
+  public function testMergePermissionsLeavesACustomRoleUntouched(): void
+  {
+    self::assertSame(['organization.read'], OrganizationSystemRoleCatalog::mergePermissions(
+      roleName: OrganizationSystemRoleCatalog::MEMBER,
+      permissions: ['organization.read'],
+      isSystem: false,
+    ));
+  }
+
+  #[Test]
+  public function testMergePermissionsLeavesAnUncatalogedSystemRoleUntouched(): void
+  {
+    self::assertSame(['organization.read'], OrganizationSystemRoleCatalog::mergePermissions(
+      roleName: 'inspector',
+      permissions: ['organization.read'],
+      isSystem: true,
+    ));
+  }
+
+  #[Test]
   public function testPermissionsForMemberIncludesDashboardReadPermissions(): void
   {
     self::assertSame([

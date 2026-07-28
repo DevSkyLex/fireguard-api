@@ -7,8 +7,9 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvitation\{AcceptOrganizationInvitationCommand, AcceptOrganizationInvitationResult};
-use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationQuotaExceededException};
+use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationQuotaExceededException};
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Presentation\Api\Dto\Input\Organization\AcceptOrganizationInvitationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -16,10 +17,11 @@ use Organization\Presentation\Api\Processor\Organization\AcceptOrganizationInvit
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -82,6 +84,84 @@ final class AcceptOrganizationInvitationProcessorTest extends TestCase
     self::assertInstanceOf(OrganizationMemberOutput::class, $output);
     self::assertSame('550e8400-e29b-41d4-a716-4466554460a1', $output->id);
     self::assertTrue($output->isActive);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($this->input(), new Post());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectNotFoundToHttp404(): void
+  {
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $this->directlyThrowingCommandBus(
+        OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-4466554460a2'),
+      ),
+      security: $this->securityWithUser(),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->input(), new Post());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $this->directlyThrowingCommandBus(new InvalidArgumentException('The invitation is expired.')),
+      security: $this->securityWithUser(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->input(), new Post());
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $this->throwingCommandBus(new InvalidArgumentException('The invitation is expired.')),
+      security: $this->securityWithUser(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->input(), new Post());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $processor = new AcceptOrganizationInvitationProcessor(
+      commandBus: $this->throwingCommandBus(new RuntimeException('the invitation store is offline')),
+      security: $this->securityWithUser(),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process($this->input(), new Post());
+  }
+
+  private function directlyThrowingCommandBus(Throwable $domainException): CommandBusPort
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($domainException);
+
+    return $commandBus;
   }
 
   private function input(): AcceptOrganizationInvitationInput

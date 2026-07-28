@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\GetCollection;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Messaging\Application\Contract\Presence\MemberPresenceView;
 use Messaging\Application\UseCase\Query\Presence\GetPresence\{GetPresenceQuery, GetPresenceResult};
+use Messaging\Domain\Exception\MessagingAccessDeniedException;
 use Messaging\Presentation\Api\Dto\Output\PresenceOutput;
 use Messaging\Presentation\Api\Provider\Presence\GetPresenceProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -16,7 +17,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 use function implode;
 
@@ -137,6 +138,38 @@ final class GetPresenceProviderTest extends TestCase
     $provider = new GetPresenceProvider($this->createStub(QueryBusPort::class), $this->securityWithUser(), $requestStack);
 
     $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideMapsMessagingExceptionsRaisedByTheQueryBus(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new MessagingAccessDeniedException('Not a member.'));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request([
+      'organization' => '/api/organizations/' . self::ORG_ID,
+      'memberIds' => self::MEMBER_A,
+    ]));
+
+    $provider = new GetPresenceProvider($queryBus, $this->securityWithUser(), $requestStack);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenTheUserIsNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new GetPresenceProvider($this->createStub(QueryBusPort::class), $security, new RequestStack());
+
+    $this->expectException(AccessDeniedHttpException::class);
 
     $provider->provide(new GetCollection());
   }

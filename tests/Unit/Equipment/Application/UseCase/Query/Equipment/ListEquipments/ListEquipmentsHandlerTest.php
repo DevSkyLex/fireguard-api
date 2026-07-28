@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Equipment\Application\UseCase\Query\Equipment\ListEquipments;
 
+use DateTimeImmutable;
 use Equipment\Application\Port\Outbound\{EquipmentRepositoryPort, MaintenanceDueStatusPort, TagRepositoryPort};
 use Equipment\Application\Port\Outbound\FacilityNamingPort;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\{ListEquipmentsHandler, ListEquipmentsQuery};
 use Equipment\Domain\Model\Equipment\Equipment;
+use Equipment\Domain\ValueObject\EquipmentFacilityId;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -414,5 +416,63 @@ final class ListEquipmentsHandlerTest extends TestCase
     self::assertCount(1, $result->items);
     self::assertSame(self::EQUIP_ID_1, $result->items[0]->equipmentId);
     self::assertSame('overdue', $result->items[0]->maintenanceDueStatus);
+  }
+
+  #[Test]
+  public function testInvokeResolvesFacilityNamesForTheDueStatusFilteredPage(): void
+  {
+    $facilityId = '550e8400-e29b-41d4-a716-446655448010';
+
+    $equipment = Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID_1),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+    $equipment->assignToFacility(
+      EquipmentFacilityId::fromString($facilityId),
+      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
+
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::once())
+      ->method('findByOrganizationId')
+      ->willReturn([$equipment]);
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::once())->method('findTagsByEquipmentIds')->willReturn([]);
+
+    /** @var MaintenanceDueStatusPort&MockObject $maintenanceDueStatusPort */
+    $maintenanceDueStatusPort = $this->createMock(MaintenanceDueStatusPort::class);
+    $maintenanceDueStatusPort->expects(self::once())
+      ->method('dueStatusesForEquipment')
+      ->willReturn([self::EQUIP_ID_1 => 'overdue']);
+
+    // The de-duplicated facility id set of the in-memory page is what gets
+    // resolved — one naming lookup for the whole page, never one per row.
+    /** @var FacilityNamingPort&MockObject $facilityNaming */
+    $facilityNaming = $this->createMock(FacilityNamingPort::class);
+    $facilityNaming->expects(self::once())
+      ->method('findNamesByIds')
+      ->with([$facilityId])
+      ->willReturn([$facilityId => 'Building A']);
+
+    $handler = new ListEquipmentsHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+      maintenanceDueStatusPort: $maintenanceDueStatusPort,
+      facilityNaming: $facilityNaming,
+    );
+
+    $result = $handler->__invoke(new ListEquipmentsQuery(
+      organizationId: self::ORG_ID,
+      pagination: new Pagination(limit: 10, offset: 0),
+      maintenanceDueStatus: 'overdue',
+    ));
+
+    self::assertCount(1, $result->items);
+    self::assertSame($facilityId, $result->items[0]->facilityId);
+    self::assertSame('Building A', $result->items[0]->facilityName);
   }
 }

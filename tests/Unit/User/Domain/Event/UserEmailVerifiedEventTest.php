@@ -37,5 +37,22 @@ final class UserEmailVerifiedEventTest extends TestCase
     $payload = $event->payload();
     self::assertSame('user@example.com', $payload['email']);
   }
+
+  #[Test]
+  public function testItExposesItsLedgerIdentityAndOccurrenceTimestamp(): void
+  {
+    $eventId = new Uuid('00000000-0000-4000-a000-000000000003');
+    $occurredAt = new DateTimeImmutable('2024-01-03T10:15:00+00:00');
+
+    $event = new UserEmailVerifiedEvent(
+      eventId: $eventId,
+      userId: 'user-3',
+      email: 'verified@example.com',
+      occurredAt: $occurredAt,
+    );
+
+    self::assertSame($eventId, $event->eventId());
+    self::assertSame($occurredAt, $event->occurredAt());
+  }
   // #endregion
 }

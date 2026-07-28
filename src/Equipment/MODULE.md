@@ -124,8 +124,7 @@ Status transitions:
   expression indexes (`idx_equipment_<col>_trgm`) planned for a later,
   index-only migration (R10-index) so `equipment` search stays index-backed
   at scale on PostgreSQL; no such index exists yet, and the predicate is
-  fully correct without it (just a sequential scan) on both PostgreSQL and
-  the SQLite test database.
+  fully correct without it (just a sequential scan).
 
 ## Architecture
 

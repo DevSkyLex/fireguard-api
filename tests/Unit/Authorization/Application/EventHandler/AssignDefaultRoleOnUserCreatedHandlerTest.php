@@ -12,6 +12,7 @@ use Authorization\Domain\ValueObject\{RoleAssignmentId, RoleId, RoleName};
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{LoggerPort, UuidGeneratorPort};
 use Shared\Domain\ValueObject\Uuid;
@@ -102,6 +103,40 @@ final class AssignDefaultRoleOnUserCreatedHandlerTest extends TestCase
 
     $logger = $this->createMock(LoggerPort::class);
     $logger->expects(self::once())->method('warning');
+
+    $handler = new AssignDefaultRoleOnUserCreatedHandler(
+      roleRepository: $roleRepository,
+      roleAssignmentRepository: $assignmentRepository,
+      uuidFactory: $this->uuidFactory(),
+      logger: $logger,
+    );
+
+    $handler($this->event());
+  }
+
+  #[Test]
+  public function testLogsErrorWhenAssignmentPersistenceFails(): void
+  {
+    $roleRepository = $this->createStub(RoleRepositoryPort::class);
+    $roleRepository->method('findByName')->willReturn($this->userRole());
+
+    $assignmentRepository = $this->createMock(RoleAssignmentRepositoryPort::class);
+    $assignmentRepository->method('findBySubject')->willReturn([]);
+    $assignmentRepository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new RuntimeException('database unavailable'));
+
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::never())->method('info');
+    $logger->expects(self::once())
+      ->method('error')
+      ->with(
+        'Failed to assign default user role.',
+        self::callback(
+          static fn (array $context): bool => 'database unavailable' === $context['error']
+            && self::USER_ID === $context['user_id'],
+        ),
+      );
 
     $handler = new AssignDefaultRoleOnUserCreatedHandler(
       roleRepository: $roleRepository,

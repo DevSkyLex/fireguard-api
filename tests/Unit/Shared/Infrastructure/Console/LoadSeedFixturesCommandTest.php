@@ -166,6 +166,33 @@ final class LoadSeedFixturesCommandTest extends TestCase
     self::assertStringContainsString('This command is only available in dev/test environments.', $tester->getDisplay());
   }
 
+  #[Test]
+  public function testExecuteFailsWhenAFixtureSetIsMissing(): void
+  {
+    $fixtureExecutor = $this->createMock(OrmFixtureExecutor::class);
+    $fixtureExecutor->expects(self::never())->method('execute');
+
+    $authEntityManager = $this->createMock(EntityManagerInterface::class);
+    $authEntityManager->expects(self::never())->method('getConnection');
+    $mainEntityManager = $this->createMock(EntityManagerInterface::class);
+    $mainEntityManager->expects(self::never())->method('getConnection');
+
+    $command = new LoadSeedFixturesCommand(
+      fixtureExecutor: $fixtureExecutor,
+      kernelEnvironment: 'test',
+      authEntityManager: $authEntityManager,
+      mainEntityManager: $mainEntityManager,
+      authFixtures: [new AuthFixtureStub()],
+      mainFixtures: [],
+    );
+
+    $tester = new CommandTester($command);
+    $tester->execute([]);
+
+    self::assertSame(Command::FAILURE, $tester->getStatusCode());
+    self::assertStringContainsString('Seed fixtures are not configured correctly.', $tester->getDisplay());
+  }
+
   /**
    * @return array{0: EntityManagerInterface&Stub, 1: Connection&MockObject}
    */

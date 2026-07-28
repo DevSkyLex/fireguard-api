@@ -6,6 +6,7 @@ namespace Tests\Integration\Organization\Infrastructure\DataFixtures;
 
 use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
 use Doctrine\Common\DataFixtures\Loader;
+use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
@@ -40,8 +41,11 @@ final class OrganizationFixturesIntegrationTest extends KernelTestCase
     $loader = new Loader();
     $loader->addFixture($organizationFixtures);
 
-    $executor = new ORMExecutor($this->entityManager);
-    $executor->execute($loader->getFixtures(), true);
+    $executor = new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager));
+    // Purge before loading: the test databases carry the seeded baseline, so
+    // appending on top of it collides on primary keys and makes the counts
+    // below meaningless. DAMA rolls the purge back with the rest of the test.
+    $executor->execute($loader->getFixtures(), false);
 
     self::assertSame(1, $this->entityManager->getRepository(OrganizationRecord::class)->count([]));
     self::assertSame(3, $this->entityManager->getRepository(OrganizationRoleRecord::class)->count([]));

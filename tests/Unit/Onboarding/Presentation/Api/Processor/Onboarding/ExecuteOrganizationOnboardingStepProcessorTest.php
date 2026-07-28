@@ -7,6 +7,9 @@ namespace Tests\Unit\Onboarding\Presentation\Api\Processor\Onboarding;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use InvalidArgumentException;
+use LogicException;
+use Onboarding\Application\Port\Inbound\OrganizationOnboardingServicePort;
 use Onboarding\Application\Port\Outbound\OrganizationOnboardingSessionRepositoryPort;
 use Onboarding\Application\Service\OrganizationOnboardingFlowService;
 use Onboarding\Domain\ValueObject\OrganizationOnboardingStep;
@@ -14,19 +17,26 @@ use Onboarding\Presentation\Api\Dto\Input\Onboarding\ExecuteOrganizationOnboardi
 use Onboarding\Presentation\Api\Dto\Output\Onboarding\OrganizationOnboardingOutput;
 use Onboarding\Presentation\Api\Processor\Onboarding\ExecuteOrganizationOnboardingStepProcessor;
 use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
+use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationSlugAlreadyExistsException};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
   AccessDeniedHttpException,
   BadRequestHttpException,
-  ConflictHttpException
+  ConflictHttpException,
+  NotFoundHttpException
 };
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Throwable;
+use ValueError;
 
 #[CoversClass(ExecuteOrganizationOnboardingStepProcessor::class)]
 final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
@@ -218,6 +228,135 @@ final class ExecuteOrganizationOnboardingStepProcessorTest extends TestCase
 
     $processor->process(
       data: $input,
+      operation: new Post(),
+      uriVariables: ['stepKey' => OrganizationOnboardingStep::CREATE_ORGANIZATION],
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsASlugConflictToHttp409(): void
+  {
+    $this->expectException(ConflictHttpException::class);
+    $this->expectExceptionMessage('already exists');
+
+    $this->processWithFlowFailure(OrganizationSlugAlreadyExistsException::withSlug('fireguard-sas'));
+  }
+
+  #[Test]
+  public function testProcessMapsAMissingOrganizationToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('not found');
+
+    $this->processWithFlowFailure(OrganizationNotFoundException::withId('org-1'));
+  }
+
+  #[Test]
+  public function testProcessMapsAnInvalidValueToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('slug is malformed');
+
+    $this->processWithFlowFailure(InvalidValueException::because('slug is malformed'));
+  }
+
+  #[Test]
+  public function testProcessMapsAValueErrorToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('unknown step');
+
+    $this->processWithFlowFailure(new ValueError('unknown step'));
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedSlugConflictToHttp409(): void
+  {
+    $this->expectException(ConflictHttpException::class);
+    $this->expectExceptionMessage('already exists');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(
+      OrganizationSlugAlreadyExistsException::withSlug('fireguard-sas'),
+    ));
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedMissingOrganizationToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('not found');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(
+      OrganizationNotFoundException::withId('org-1'),
+    ));
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('stepKey is unknown');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(
+      new InvalidArgumentException('stepKey is unknown'),
+    ));
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidValueToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('slug is malformed');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(
+      InvalidValueException::because('slug is malformed'),
+    ));
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedValueErrorToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('unknown step');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(new ValueError('unknown step')));
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedLogicExceptionToHttp409(): void
+  {
+    $this->expectException(ConflictHttpException::class);
+    $this->expectExceptionMessage('step is not available');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(
+      new LogicException('step is not available'),
+    ));
+  }
+
+  #[Test]
+  public function testProcessRethrowsAMessengerFailureWithNoRecognisedCause(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+    $this->expectExceptionMessage('transport down');
+
+    $this->processWithFlowFailure(MessengerRuntimeException::wrap(new RuntimeException('transport down')));
+  }
+
+  private function processWithFlowFailure(Throwable $failure): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655440405'));
+
+    $flowService = $this->createStub(OrganizationOnboardingServicePort::class);
+    $flowService->method('executeStep')->willThrowException($failure);
+
+    $processor = new ExecuteOrganizationOnboardingStepProcessor(
+      flowService: $flowService,
+      security: $security,
+    );
+
+    $processor->process(
+      data: new ExecuteOrganizationOnboardingStepInput(),
       operation: new Post(),
       uriVariables: ['stepKey' => OrganizationOnboardingStep::CREATE_ORGANIZATION],
     );

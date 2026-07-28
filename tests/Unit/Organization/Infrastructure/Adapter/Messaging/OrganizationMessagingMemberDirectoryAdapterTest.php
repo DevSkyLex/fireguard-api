@@ -11,6 +11,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use Organization\Infrastructure\Adapter\Messaging\OrganizationMessagingMemberDirectoryAdapter;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use User\Application\Contract\User\UserView;
 use User\Application\UseCase\Query\User\GetUser\GetUserResult;
@@ -75,6 +76,16 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testResolveActiveMemberIdRejectsAMalformedOrganizationIdWithoutThrowing(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+
+    self::assertNull($adapter->resolveActiveMemberId('not-a-uuid', self::USER_ID));
+  }
+
+  #[Test]
   public function testResolveUserIdForMemberReturnsTheUserId(): void
   {
     $members = $this->createStub(OrganizationMemberRepositoryPort::class);
@@ -83,6 +94,27 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
 
     self::assertSame(self::USER_ID, $adapter->resolveUserIdForMember(self::ORG_ID, self::MEMBER_ID));
+  }
+
+  #[Test]
+  public function testResolveUserIdForMemberRejectsAMalformedMemberIdWithoutThrowing(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+
+    self::assertNull($adapter->resolveUserIdForMember(self::ORG_ID, 'not-a-uuid'));
+  }
+
+  #[Test]
+  public function testResolveUserIdForMemberRejectsAMemberFromAnotherOrganization(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member(true));
+
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+
+    self::assertNull($adapter->resolveUserIdForMember('550e8400-e29b-41d4-a716-446655440099', self::MEMBER_ID));
   }
 
   #[Test]
@@ -118,6 +150,27 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
   }
 
   #[Test]
+  public function testDisplayNamesForIgnoresMembersOutsideTheRequestedIds(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findByOrganizationId')->willReturn([$this->member(true)]);
+
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+
+    self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, ['550e8400-e29b-41d4-a716-446655440098']));
+  }
+
+  #[Test]
+  public function testDisplayNamesForRejectsAMalformedOrganizationIdWithoutThrowing(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
+
+    self::assertSame([], $adapter->displayNamesFor('not-a-uuid', [self::MEMBER_ID]));
+  }
+
+  #[Test]
   public function testDisplayNamesForShortCircuitsOnAnEmptyRequest(): void
   {
     $members = $this->createMock(OrganizationMemberRepositoryPort::class);
@@ -126,6 +179,21 @@ final class OrganizationMessagingMemberDirectoryAdapterTest extends TestCase
     $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $this->createStub(QueryBusPort::class));
 
     self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, []));
+  }
+
+  #[Test]
+  public function testDisplayNamesForOmitsAMemberWhoseUserLookupThrows(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findByOrganizationId')->willReturn([$this->member(true)]);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new RuntimeException('User read model is unavailable.'));
+
+    $adapter = new OrganizationMessagingMemberDirectoryAdapter($members, $queryBus);
+
+    // A failing directory lookup degrades to "no name", never to an exception.
+    self::assertSame([], $adapter->displayNamesFor(self::ORG_ID, [self::MEMBER_ID]));
   }
 
   private function member(bool $isActive): OrganizationMember

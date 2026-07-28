@@ -24,6 +24,7 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, Organ
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
 
 use function count;
@@ -315,5 +316,135 @@ final class GetCurrentOrganizationMemberProfileHandlerTest extends TestCase
 
     self::assertCount(1, $result->roles);
     self::assertSame(['organization.*'], $result->permissions);
+  }
+
+  #[Test]
+  public function testInvokeReturnsPopulatedCachedProfileWithoutHittingRepositories(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442241';
+    $memberId = '550e8400-e29b-41d4-a716-446655442242';
+    $userId = '550e8400-e29b-41d4-a716-446655442243';
+
+    $cachedResult = new GetCurrentOrganizationMemberProfileResult(
+      id: $memberId,
+      organizationId: $organizationId,
+      userId: $userId,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-2 days'),
+      roles: [],
+      permissions: ['organization.read'],
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($this->createOrganizationFixture($organizationId));
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findByOrganizationAndUser');
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('getUserPermissions');
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())->method('get')->willReturn($cachedResult);
+    $cache->expects(self::never())->method('set');
+
+    $handler = new GetCurrentOrganizationMemberProfileHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $this->createStub(OrganizationRoleRepositoryPort::class),
+      authorization: $authorization,
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));
+
+    self::assertSame($cachedResult, $result);
+  }
+
+  #[Test]
+  public function testInvokeRecomputesWhenCacheReadThrowsAndSurvivesCacheWriteFailure(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442251';
+    $memberId = '550e8400-e29b-41d4-a716-446655442252';
+    $userId = '550e8400-e29b-41d4-a716-446655442253';
+    $roleId = '550e8400-e29b-41d4-a716-446655442254';
+
+    $member = OrganizationMember::reconstitute(
+      id: new OrganizationMemberId($memberId),
+      organizationId: new OrganizationId($organizationId),
+      userId: $userId,
+      isActive: true,
+      joinedAt: new DateTimeImmutable('-2 days'),
+    );
+
+    $role = OrganizationRole::reconstitute(
+      id: new OrganizationRoleId($roleId),
+      organizationId: new OrganizationId($organizationId),
+      name: new OrganizationRoleName('viewer'),
+      permissions: ['organization.read'],
+      isSystem: false,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())
+      ->method('findById')
+      ->willReturn($this->createOrganizationFixture($organizationId));
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())->method('findByOrganizationAndUser')->willReturn($member);
+    $memberRepository->expects(self::once())->method('findRoleIdsForMember')->willReturn([$roleId]);
+    $memberRepository->expects(self::once())->method('countActiveMembersGroupedByRoleId')->willReturn([]);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())->method('findByIdsInOrganization')->willReturn([$role]);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('getUserPermissions')->willReturn(['organization.read']);
+
+    /** @var CachePort&MockObject $cache */
+    $cache = $this->createMock(CachePort::class);
+    $cache->expects(self::once())
+      ->method('get')
+      ->willThrowException(new RuntimeException('Cache backend unreachable.'));
+    $cache->expects(self::once())
+      ->method('set')
+      ->willThrowException(new RuntimeException('Cache backend unreachable.'));
+
+    $handler = new GetCurrentOrganizationMemberProfileHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      authorization: $authorization,
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetCurrentOrganizationMemberProfileQuery($organizationId, $userId));
+
+    self::assertSame($memberId, $result->id);
+    self::assertCount(1, $result->roles);
+    self::assertSame(0, $result->roles[0]->memberCount);
+    self::assertSame(['organization.read'], $result->permissions);
+  }
+
+  private function createOrganizationFixture(string $organizationId): Organization
+  {
+    return Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Rennes'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-4 days'),
+    );
   }
 }

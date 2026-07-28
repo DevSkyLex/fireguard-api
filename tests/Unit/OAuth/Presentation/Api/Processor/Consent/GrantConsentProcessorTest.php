@@ -740,6 +740,37 @@ final class GrantConsentProcessorTest extends TestCase
     );
   }
 
+  #[Test]
+  public function testProcessProceedsWhenTheRateLimitAcceptsTheRequest(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser());
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willThrowException(OAuthServerException::invalidRequest('client_id'));
+
+    $processor = new GrantConsentProcessor(
+      authorizationServer: $authorizationServer,
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $security,
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      rateLimiter: $this->createRateLimiterFactory(limit: 10),
+    );
+
+    // A configured-but-unexhausted limiter must let the request through: the
+    // 400 proves enforceRateLimit() returned early instead of raising a 429.
+    $response = $processor->process(
+      data: $this->createInput(approved: false),
+      operation: $this->createStub(Operation::class),
+    );
+
+    self::assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+  }
+
   private function createSecurityUser(): SecurityUser
   {
     return new SecurityUser(

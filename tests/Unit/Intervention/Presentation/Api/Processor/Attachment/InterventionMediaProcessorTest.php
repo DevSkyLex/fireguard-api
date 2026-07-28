@@ -22,7 +22,7 @@ use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException, PreconditionRequiredHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, PreconditionRequiredHttpException};
 
 use function base64_decode;
 use function file_put_contents;
@@ -232,6 +232,175 @@ final class InterventionMediaProcessorTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    new InterventionMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $this->userSecurity(),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Delete(), ['id' => $attachment->id]);
+  }
+
+  #[Test]
+  public function testUploadRejectsAMissingInterventionIdUriVariable(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(BadRequestHttpException::class);
+
+    new InterventionMediaProcessor(
+      $this->wrappingEntityManager(),
+      $commandBus,
+      $this->userSecurity(),
+      new RequestStack(),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), []);
+  }
+
+  #[Test]
+  public function testUploadRejectsAnUnauthenticatedUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    new InterventionMediaProcessor(
+      $this->wrappingEntityManager(),
+      $commandBus,
+      $security,
+      new RequestStack(),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadRejectsAMissingRequest(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(BadRequestHttpException::class);
+
+    new InterventionMediaProcessor(
+      $this->wrappingEntityManager(),
+      $commandBus,
+      $this->userSecurity(),
+      new RequestStack(),
+      new MultipartAttachmentGuard(),
+      new RevisionGuard(new RequestStack()),
+    )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadThrowsWhenTheStoredAttachmentCannotBeReloaded(): void
+  {
+    $path = $this->tempImage();
+
+    try {
+      $entityManager = $this->wrappingEntityManager();
+      $entityManager->method('find')->willReturn(null);
+
+      $commandBus = $this->createStub(CommandBusPort::class);
+      $commandBus->method('dispatch')->willReturn(new AddInterventionAttachmentResult(
+        'attachment-id',
+        self::INTERVENTION_ID,
+        'photo.gif',
+        'image/gif',
+        5,
+        null,
+        new DateTimeImmutable(),
+      ));
+
+      $this->expectException(NotFoundHttpException::class);
+      $this->expectExceptionMessage('Uploaded attachment not found.');
+
+      new InterventionMediaProcessor(
+        $entityManager,
+        $commandBus,
+        $this->userSecurity(),
+        $this->requestStackWithUpload($path),
+        new MultipartAttachmentGuard(),
+        new RevisionGuard(new RequestStack()),
+      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  #[Test]
+  public function testDeleteRejectsANonStringAttachmentId(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/intervention-attachments/x', 'DELETE'));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(NotFoundHttpException::class);
+
+    new InterventionMediaProcessor(
+      $this->wrappingEntityManager(),
+      $commandBus,
+      $this->userSecurity(),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Delete(), []);
+  }
+
+  #[Test]
+  public function testDeleteThrowsWhenTheAttachmentRecordIsMissing(): void
+  {
+    $entityManager = $this->wrappingEntityManager();
+    $entityManager->method('find')->willReturn(null);
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/intervention-attachments/attachment-id', 'DELETE'));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(NotFoundHttpException::class);
+
+    new InterventionMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $this->userSecurity(),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Delete(), ['id' => 'attachment-id']);
+  }
+
+  #[Test]
+  public function testDeleteMapsANonNotFoundWorkflowExceptionToItsHttpStatus(): void
+  {
+    $attachment = $this->attachmentRecord();
+    $attachment->revision = 1;
+
+    $entityManager = $this->wrappingEntityManager();
+    $entityManager->method('find')->willReturn($attachment);
+
+    $requestStack = new RequestStack();
+    $request = Request::create('/api/intervention-attachments/' . $attachment->id, 'DELETE');
+    $request->headers->set('If-Match', '"revision-1"');
+    $requestStack->push($request);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      new InterventionAccessDeniedException('Missing organization.interventions.execute permission.'),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
 
     new InterventionMediaProcessor(
       $entityManager,

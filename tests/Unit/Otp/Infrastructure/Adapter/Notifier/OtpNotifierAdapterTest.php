@@ -168,6 +168,35 @@ final class OtpNotifierAdapterTest extends TestCase
     self::assertStringContainsString('expires in', $mailer->htmlBodies[0]);
   }
 
+  #[Test]
+  public function testSendEmailClampsAnAlreadyElapsedTtlToOneMinute(): void
+  {
+    $otp = Otp::generate(
+      id: new OtpId('123e4567-e89b-12d3-a456-426614174000'),
+      userId: 'user-123',
+      purpose: OtpPurpose::LOGIN,
+      channel: OtpChannel::EMAIL,
+      recipient: 'user@example.com',
+      ttlSeconds: 0,
+    );
+    $mailer = new FakeMailer();
+
+    $notifier = $this->createMock(NotifierInterface::class);
+    $notifier->expects(self::never())->method('send');
+
+    $adapter = new OtpNotifierAdapter(
+      notifier: $notifier,
+      mailer: $mailer,
+      twig: $this->createTwigEnvironment(),
+      senderEmail: 'noreply@example.com',
+    );
+
+    $adapter->send($otp);
+
+    self::assertCount(1, $mailer->htmlBodies);
+    self::assertStringContainsString('expires in 1', $mailer->htmlBodies[0]);
+  }
+
   private function createTwigEnvironment(): Environment
   {
     return new Environment(new ArrayLoader([

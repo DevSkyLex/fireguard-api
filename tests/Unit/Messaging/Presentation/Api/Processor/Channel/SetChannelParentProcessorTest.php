@@ -19,7 +19,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test SetChannelParentProcessorTest.
@@ -134,6 +134,19 @@ final class SetChannelParentProcessorTest extends TestCase
     $this->expectException(UnprocessableEntityHttpException::class);
 
     $processor->process(new SetChannelParentInput(), new Patch(), ['id' => self::CHANNEL_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new SetChannelParentProcessor($this->createStub(CommandBusPort::class), new ChannelOutputFactory(), $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Patch(), []);
   }
 
   private function securityWithUser(): Security

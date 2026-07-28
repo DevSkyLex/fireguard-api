@@ -133,9 +133,13 @@ final class TokenRevocationAdapter implements OAuthTokenRevocationPort, AuthToke
       $parser = new Parser(new JoseEncoder());
       $parsedToken = $parser->parse($jwtToken);
 
+      // @codeCoverageIgnoreStart
+      // Unreachable: Plain is lcobucci/jwt's only concrete Token, and the parser
+      // is constructed right above, so nothing else can be returned here.
       if (!$parsedToken instanceof Plain) {
         return false;
       }
+      // @codeCoverageIgnoreEnd
 
       $claims = $parsedToken->claims();
       if (!$claims->has('jti')) {

@@ -7,7 +7,8 @@ namespace Tests\Unit\Webhook\Application\UseCase\Command\Delivery\DeliverWebhook
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
+use Psr\Log\{LoggerInterface, NullLogger};
+use Shared\Application\Message\VoidResult;
 use Webhook\Application\Contract\Http\WebhookHttpResponse;
 use Webhook\Application\Port\Outbound\{WebhookDeliveryRepositoryPort, WebhookHttpClientPort, WebhookSecretCipherPort, WebhookSubscriptionRepositoryPort};
 use Webhook\Application\UseCase\Command\Delivery\DeliverWebhook\{DeliverWebhookCommand, DeliverWebhookHandler};
@@ -202,6 +203,38 @@ final class DeliverWebhookHandlerTest extends TestCase
     $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID));
 
     self::assertSame(WebhookDeliveryStatus::FAILED, $delivery->status());
+  }
+
+  #[Test]
+  public function itLogsAndNoOpsWhenTheDeliveryNoLongerExists(): void
+  {
+    $deliveryRepository = $this->createMock(WebhookDeliveryRepositoryPort::class);
+    $deliveryRepository->method('findById')->willReturn(null);
+    $deliveryRepository->expects(self::never())->method('save');
+
+    $subscriptionRepository = $this->createMock(WebhookSubscriptionRepositoryPort::class);
+    $subscriptionRepository->expects(self::never())->method('findById');
+
+    $httpClient = $this->createMock(WebhookHttpClientPort::class);
+    $httpClient->expects(self::never())->method('post');
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::once())
+      ->method('error')
+      ->with(
+        'Webhook delivery not found for delivery attempt.',
+        ['delivery_id' => self::DELIVERY_ID],
+      );
+
+    $handler = new DeliverWebhookHandler(
+      $deliveryRepository,
+      $subscriptionRepository,
+      $this->createStub(WebhookSecretCipherPort::class),
+      $httpClient,
+      $logger,
+    );
+
+    self::assertInstanceOf(VoidResult::class, $handler->__invoke(new DeliverWebhookCommand(self::DELIVERY_ID)));
   }
 
   /**

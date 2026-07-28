@@ -10,7 +10,7 @@ use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Query\Conversation\GetConversation\{GetConversationHandler, GetConversationQuery};
-use Messaging\Domain\Exception\MessagingNotFoundException;
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
 use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -76,6 +76,71 @@ final class GetConversationHandlerTest extends TestCase
     $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new GetConversationQuery('user-1', self::CONVERSATION_ID));
+  }
+
+  #[Test]
+  public function testInvokeEnforcesChannelParticipationForAParticipantsConversation(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $readMarkers = $this->createStub(MessagingReadMarkerRepositoryPort::class);
+    $readMarkers->method('unreadCounts')->willReturn([]);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
+
+    $favorites = $this->createStub(MessagingConversationFavoriteRepositoryPort::class);
+    $favorites->method('findFavoritedConversationIds')->willReturn([]);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(true);
+
+    $handler = new GetConversationHandler(
+      $conversations,
+      $readMarkers,
+      $favorites,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+    );
+
+    $result = $handler->__invoke(new GetConversationQuery('user-1', self::CONVERSATION_ID));
+
+    self::assertNull($result->subjectLabel);
+    self::assertSame(0, $result->unreadCount);
+    self::assertFalse($result->isFavorite);
+  }
+
+  #[Test]
+  public function testInvokeRejectsANonParticipantOfAChannel(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(false);
+
+    $handler = new GetConversationHandler(
+      $conversations,
+      $this->createStub(MessagingReadMarkerRepositoryPort::class),
+      $this->createStub(MessagingConversationFavoriteRepositoryPort::class),
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+    );
+
+    $this->expectException(MessagingAccessDeniedException::class);
+
+    $handler->__invoke(new GetConversationQuery('user-1', self::CONVERSATION_ID));
+  }
+
+  private function channelView(): ConversationView
+  {
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'channel', null, 'participants', null, 0, false, $now, $now, 'general');
   }
 
   private function facilityResolver(): MessagingSubjectResolverPort

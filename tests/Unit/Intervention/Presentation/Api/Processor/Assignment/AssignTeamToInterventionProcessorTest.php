@@ -58,6 +58,23 @@ final class AssignTeamToInterventionProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessThrowsBadRequestWhenThePayloadIsNotATeamAssignment(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->securityUser());
+
+    $processor = new AssignTeamToInterventionProcessor(
+      $this->createStub(CommandBusPort::class),
+      new InterventionOutputFactory(new InterventionTransitionPolicy()),
+      $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(null, new Post(), ['id' => self::INTERVENTION_ID]);
+  }
+
+  #[Test]
   public function testProcessThrowsBadRequestWhenInterventionIdMissing(): void
   {
     $security = $this->createStub(Security::class);

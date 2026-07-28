@@ -106,4 +106,78 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
 
     $handler->__invoke(new GetOrganizationInvitationPreviewQuery('unknown-token'));
   }
+
+  #[Test]
+  public function testInvokeThrowsWhenTokenIsBlank(): void
+  {
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::never())->method('findByTokenHash');
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::never())->method('findById');
+
+    /** @var UserRepositoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserRepositoryPort::class);
+    $userRepository->expects(self::never())->method('findById');
+
+    $handler = new GetOrganizationInvitationPreviewHandler(
+      invitationRepository: $invitationRepository,
+      organizationRepository: $organizationRepository,
+      userRepository: $userRepository,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+    );
+
+    $this->expectException(OrganizationInvitationNotFoundException::class);
+
+    $handler->__invoke(new GetOrganizationInvitationPreviewQuery("  \t "));
+  }
+
+  #[Test]
+  public function testInvokeReportsExpiredStatusForStillPendingInvitationPastExpiry(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655444410';
+    $inviterUserId = '550e8400-e29b-41d4-a716-446655444411';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444412'),
+      organizationId: new OrganizationId($organizationId),
+      email: new Email('ab@example.com'),
+      tokenHash: 'hashed-token',
+      invitedByUserId: $inviterUserId,
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('-1 hour'),
+      createdAt: new DateTimeImmutable('-8 days'),
+      updatedAt: new DateTimeImmutable('-8 days'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())->method('findByTokenHash')->willReturn($invitation);
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn(null);
+
+    /** @var UserRepositoryPort&MockObject $userRepository */
+    $userRepository = $this->createMock(UserRepositoryPort::class);
+    $userRepository->expects(self::once())->method('findById')->willReturn(null);
+
+    $handler = new GetOrganizationInvitationPreviewHandler(
+      invitationRepository: $invitationRepository,
+      organizationRepository: $organizationRepository,
+      userRepository: $userRepository,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+    );
+
+    $result = $handler->__invoke(new GetOrganizationInvitationPreviewQuery('raw-token'));
+
+    self::assertSame(OrganizationInvitationStatus::EXPIRED->value, $result->status);
+    self::assertSame('', $result->organizationName);
+    self::assertNull($result->organizationLogoUrl);
+    self::assertSame('', $result->inviterDisplayName);
+    // Local parts of two characters or fewer are masked wholesale.
+    self::assertSame('a***@example.com', $result->invitedEmail);
+  }
 }

@@ -116,7 +116,11 @@ final readonly class ChecklistRepository implements ChecklistRepositoryPort
     int $offset = 0,
   ): array {
     $qb = $this->createListQueryBuilder($organizationId, $status, $search);
+    // Unique tiebreaker: the sort field above is caller-chosen and rarely
+    // unique, so rows tied on it order arbitrarily and LIMIT/OFFSET then
+    // repeats some across pages while skipping others.
     $qb->orderBy('c.' . $this->resolveSortField($sorting->field), $sorting->direction->value)
+      ->addOrderBy('c.id', 'ASC')
       ->setFirstResult($offset)
       ->setMaxResults($limit);
 

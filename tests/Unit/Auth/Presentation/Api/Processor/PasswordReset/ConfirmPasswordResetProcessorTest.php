@@ -9,12 +9,14 @@ use Auth\Application\UseCase\Command\PasswordReset\ConfirmPasswordReset\{Confirm
 use Auth\Presentation\Api\Dto\Input\PasswordReset\ConfirmPasswordResetInput;
 use Auth\Presentation\Api\Dto\Output\PasswordReset\ConfirmPasswordResetOutput;
 use Auth\Presentation\Api\Processor\PasswordReset\ConfirmPasswordResetProcessor;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{TooManyRequestsHttpException, UnauthorizedHttpException};
+use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, TooManyRequestsHttpException, UnauthorizedHttpException};
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 
@@ -124,6 +126,55 @@ final class ConfirmPasswordResetProcessorTest extends TestCase
     $input->newPassword = 'Secret123!';
 
     $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessRejectsUnexpectedInputType(): void
+  {
+    $processor = new ConfirmPasswordResetProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      requestStack: new RequestStack(),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid input data');
+
+    $processor->process(new stdClass(), new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestForUnknownErrorCode(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/auth/password/reset/confirm',
+      method: 'POST',
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    ));
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn(ConfirmPasswordResetResult::failed(
+        message: 'Password does not meet policy.',
+        errorCode: 'weak_password',
+      ));
+
+    $processor = new ConfirmPasswordResetProcessor(
+      commandBus: $commandBus,
+      requestStack: $requestStack,
+    );
+
+    $input = new ConfirmPasswordResetInput();
+    $input->token = 'challenge-123';
+    $input->code = '123456';
+    $input->newPassword = 'weak';
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Password does not meet policy.');
 
     $processor->process($input, new Post());
   }

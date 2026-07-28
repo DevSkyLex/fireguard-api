@@ -472,5 +472,35 @@ final class PutUnderMaintenanceHandlerTest extends TestCase
     self::assertInstanceOf(PutUnderMaintenanceResult::class, $result);
     self::assertSame('under_maintenance', $result->status);
   }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findPublishedById');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new PutUnderMaintenanceHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new PutUnderMaintenanceCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+    ));
+  }
   // #endregion
 }

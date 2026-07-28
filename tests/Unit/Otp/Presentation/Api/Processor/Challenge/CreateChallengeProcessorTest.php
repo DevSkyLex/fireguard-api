@@ -263,6 +263,62 @@ final class CreateChallengeProcessorTest extends TestCase
     $processor->process($input, new Post());
   }
 
+  #[Test]
+  public function testProcessProceedsWhenTheRateLimiterStillHasRoom(): void
+  {
+    $user = new class () implements UserInterface {
+      public function getUserIdentifier(): string
+      {
+        return 'user-10';
+      }
+
+      public function getRoles(): array
+      {
+        return [];
+      }
+
+      public function eraseCredentials(): void
+      {
+      }
+
+      public function getEmail(): string
+      {
+        return 'jane.doe@example.com';
+      }
+    };
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn(new GenerateOtpResult(
+        otpId: 'otp-10',
+        token: 'token-10',
+        maskedRecipient: 'ja******@example.com',
+        expiresAt: new DateTimeImmutable('+5 minutes'),
+        maxAttempts: 5,
+      ));
+
+    $processor = new CreateChallengeProcessor(
+      commandBus: $commandBus,
+      security: $security,
+      rateLimiter: $this->createRateLimiterFactory(limit: 5),
+    );
+
+    $input = new CreateChallengeInput();
+    $input->purpose = 'login';
+    $input->channel = 'email';
+
+    $output = $processor->process($input, new Post());
+
+    self::assertInstanceOf(ChallengeOutput::class, $output);
+    self::assertSame('token-10', $output->token);
+  }
+
   private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory
   {
     return new RateLimiterFactory(

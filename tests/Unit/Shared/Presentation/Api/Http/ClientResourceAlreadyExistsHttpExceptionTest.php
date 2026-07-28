@@ -21,4 +21,15 @@ final class ClientResourceAlreadyExistsHttpExceptionTest extends TestCase
     self::assertSame(412, $exception->getStatus());
     self::assertSame('A resource with this client identifier already exists.', $exception->getDetail());
   }
+
+  #[Test]
+  public function testExposesNoOccurrenceUri(): void
+  {
+    $exception = new ClientResourceAlreadyExistsHttpException(409);
+
+    // getInstance() is the RFC 7807 "instance" member; this exception never
+    // points at a specific occurrence, so it must stay absent.
+    /** @phpstan-ignore staticMethod.alreadyNarrowedType */
+    self::assertNull($exception->getInstance());
+  }
 }

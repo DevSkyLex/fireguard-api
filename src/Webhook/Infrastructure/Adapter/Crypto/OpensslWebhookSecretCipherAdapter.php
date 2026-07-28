@@ -79,9 +79,16 @@ final readonly class OpensslWebhookSecretCipherAdapter implements WebhookSecretC
       tag_length: self::TAG_LENGTH,
     );
 
+    // @codeCoverageIgnoreStart
+    // Unreachable in practice: the cipher, tag length and OPENSSL_RAW_DATA are
+    // fixed constants and the only caller-controlled input is the plaintext.
+    // openssl_encrypt() pads or truncates any key length rather than failing —
+    // verified against aes-256-gcm with 0/1/16/31/33/64-byte keys. Kept because
+    // the function's signature allows false.
     if (false === $ciphertext) {
       throw new RuntimeException('Failed to encrypt the webhook signing secret.');
     }
+    // @codeCoverageIgnoreEnd
 
     return base64_encode($nonce . $tag . $ciphertext);
   }

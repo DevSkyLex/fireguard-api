@@ -222,6 +222,42 @@ final class ListNotificationsProviderTest extends TestCase
     self::assertSame(10.0, $output->getItemsPerPage());
   }
 
+  #[Test]
+  public function testProvideTreatsANonStringUnreadOnlyFilterAsFalse(): void
+  {
+    $captured = null;
+    $provider = new ListNotificationsProvider(
+      queryBus: $this->queryBusCapturing($captured),
+      security: $this->securityForUser('550e8400-e29b-41d4-a716-446655442210'),
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      context: ['filters' => ['unreadOnly' => 1]],
+    );
+
+    self::assertInstanceOf(ListUserNotificationsQuery::class, $captured);
+    self::assertFalse($captured->onlyUnread);
+  }
+
+  #[Test]
+  public function testProvideHonoursAStringUnreadOnlyFilter(): void
+  {
+    $captured = null;
+    $provider = new ListNotificationsProvider(
+      queryBus: $this->queryBusCapturing($captured),
+      security: $this->securityForUser('550e8400-e29b-41d4-a716-446655442211'),
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      context: ['filters' => ['unreadOnly' => 'TRUE']],
+    );
+
+    self::assertInstanceOf(ListUserNotificationsQuery::class, $captured);
+    self::assertTrue($captured->onlyUnread);
+  }
+
   /**
    * Method securityForUser.
    *

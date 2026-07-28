@@ -124,4 +124,30 @@ final class CsvUploadGuardTest extends TestCase
       unlink($path);
     }
   }
+
+  #[Test]
+  public function itRejectsAFileWhoseSniffedMimeTypeIsNotACsv(): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'import-');
+    self::assertIsString($path);
+    file_put_contents($path, "type\nsite\n");
+
+    try {
+      $file = new class ($path, 'facilities.csv', 'text/csv', null, true) extends UploadedFile {
+        public function getMimeType(): string
+        {
+          return 'image/png';
+        }
+      };
+
+      $request = Request::create('/api/imports', 'POST', ['kind' => 'facility'], [], ['file' => $file]);
+
+      $this->expectException(UnprocessableEntityHttpException::class);
+      $this->expectExceptionMessage('MIME type "image/png" is not accepted for a CSV import.');
+
+      new CsvUploadGuard()->fromRequest($request);
+    } finally {
+      unlink($path);
+    }
+  }
 }

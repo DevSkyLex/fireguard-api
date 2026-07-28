@@ -8,17 +8,20 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
-use Organization\Domain\Exception\OrganizationLastAdminException;
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\RemoveOrganizationMembersInput;
 use Organization\Presentation\Api\Dto\Output\Organization\RemoveOrganizationMembersOutput;
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationMembersProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Message\ResultMessage;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Throwable;
 
 #[CoversClass(RemoveOrganizationMembersProcessor::class)]
 final class RemoveOrganizationMembersProcessorTest extends TestCase
@@ -201,6 +204,52 @@ final class RemoveOrganizationMembersProcessorTest extends TestCase
     $this->expectException(ConflictHttpException::class);
 
     $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+  }
+
+  #[Test]
+  public function testProcessCollectsMembersWhoseRemovalFailedWithADomainNotFound(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(MessengerRuntimeException::wrap(
+      OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441610'),
+    ));
+
+    $output = $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+
+    self::assertSame([], $output->removedIds);
+    self::assertSame(
+      ['550e8400-e29b-41d4-a716-446655441611', '550e8400-e29b-41d4-a716-446655441612'],
+      $output->failedIds,
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $failure = MessengerRuntimeException::wrap(new RuntimeException('the member store is offline'));
+    $processor = $this->processorWithFailingCommandBus($failure);
+
+    $this->expectExceptionObject($failure);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $failure): RemoveOrganizationMembersProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441600'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    return new RemoveOrganizationMembersProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
+      security: $security,
+    );
   }
 
   private function createInput(): RemoveOrganizationMembersInput

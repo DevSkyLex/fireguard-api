@@ -9,16 +9,23 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment\RemoveTagFromEquipmentCommand;
 use Equipment\Domain\Exception\{EquipmentNotFoundException, TagNotFoundException};
 use Equipment\Presentation\Api\Processor\Equipment\RemoveTagFromEquipmentProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  NotFoundHttpException
+};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(RemoveTagFromEquipmentProcessor::class)]
 final class RemoveTagFromEquipmentProcessorTest extends TestCase
@@ -168,6 +175,153 @@ final class RemoveTagFromEquipmentProcessorTest extends TestCase
     );
 
     self::assertNull($output);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenNoUserIsAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new RemoveTagFromEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $this->removeTagUriVariables());
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   */
+  #[Test]
+  #[DataProvider('incompleteUriVariablesProvider')]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreIncomplete(array $uriVariables): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new RemoveTagFromEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $this->removeTagSecurity(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $uriVariables);
+  }
+
+  #[Test]
+  public function testProcessMapsADirectEquipmentNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->removeTagProcessorThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->removeTagUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectTagNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->removeTagProcessorThrowing(TagNotFoundException::withId(self::TAG_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->removeTagUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Tag is not attached to this equipment.');
+
+    $this->removeTagProcessorThrowing(new InvalidArgumentException('Tag is not attached to this equipment.'))
+      ->process(data: null, operation: new Post(), uriVariables: $this->removeTagUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->removeTagProcessorThrowing(
+      $this->removeTagWrapped(new InvalidArgumentException('Tag is not attached to this equipment.')),
+    )->process(data: null, operation: new Post(), uriVariables: $this->removeTagUriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->removeTagProcessorThrowing($this->removeTagWrapped(new RuntimeException('database is down')))
+      ->process(data: null, operation: new Post(), uriVariables: $this->removeTagUriVariables());
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>}>
+   */
+  public static function incompleteUriVariablesProvider(): iterable
+  {
+    yield 'no variables' => [[]];
+    yield 'missing tagId' => [['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID]];
+    yield 'blank tagId' => [['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID, 'tagId' => '']];
+    yield 'blank equipmentId' => [['organizationId' => self::ORG_ID, 'equipmentId' => '', 'tagId' => self::TAG_ID]];
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function removeTagUriVariables(): array
+  {
+    return [
+      'organizationId' => self::ORG_ID,
+      'equipmentId' => self::EQUIP_ID,
+      'tagId' => self::TAG_ID,
+    ];
+  }
+
+  private function removeTagSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655452010'));
+
+    return $security;
+  }
+
+  private function removeTagWrapped(Throwable $failure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new RemoveTagFromEquipmentCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        tagId: self::TAG_ID,
+      )),
+      [$failure],
+    ));
+  }
+
+  private function removeTagProcessorThrowing(Throwable $failure): RemoveTagFromEquipmentProcessor
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new RemoveTagFromEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->removeTagSecurity(),
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

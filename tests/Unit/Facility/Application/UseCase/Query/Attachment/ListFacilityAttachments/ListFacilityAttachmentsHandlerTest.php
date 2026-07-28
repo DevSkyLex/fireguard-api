@@ -11,7 +11,9 @@ use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\Model\Attachment\FacilityAttachment;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityAttachmentId, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ListFacilityAttachmentsHandler::class)]
@@ -84,6 +86,26 @@ final class ListFacilityAttachmentsHandlerTest extends TestCase
     $handler->__invoke(new ListFacilityAttachmentsQuery(
       organizationId: self::ORG_ID,
       facilityId: self::FACILITY_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $facilityRepository */
+    $facilityRepository = $this->createMock(FacilityRepositoryPort::class);
+    $facilityRepository->expects(self::never())->method('findById');
+
+    $handler = new ListFacilityAttachmentsHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $this->createStub(FacilityAttachmentRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListFacilityAttachmentsQuery(
+      organizationId: 'not-a-uuid',
+      facilityId: 'also-not-a-uuid',
     ));
   }
 }

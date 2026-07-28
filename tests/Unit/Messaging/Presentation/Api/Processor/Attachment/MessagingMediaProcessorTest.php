@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment\{AddMessageAttachmentCommand, AddMessageAttachmentResult};
 use Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment\DeleteMessageAttachmentCommand;
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
 use Messaging\Infrastructure\Persistence\Doctrine\Record\{MessagingAttachmentRecord, MessagingMessageRecord};
 use Messaging\Presentation\Api\Dto\Output\MessageAttachmentOutput;
 use Messaging\Presentation\Api\Processor\Attachment\MessagingMediaProcessor;
@@ -21,7 +22,7 @@ use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException, PreconditionFailedHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, PreconditionFailedHttpException};
 
 use function base64_decode;
 use function file_put_contents;
@@ -222,6 +223,171 @@ final class MessagingMediaProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testUploadMapsMessagingExceptionsRaisedByTheCommandBus(): void
+  {
+    $path = $this->uploadedFilePath();
+
+    try {
+      $entityManager = $this->createStub(EntityManagerInterface::class);
+
+      $requestStack = new RequestStack();
+      $requestStack->push($this->uploadRequest($path));
+
+      $commandBus = $this->createStub(CommandBusPort::class);
+      $commandBus->method('dispatch')->willThrowException(MessagingNotFoundException::message(self::MESSAGE_ID));
+
+      $this->expectException(NotFoundHttpException::class);
+
+      new MessagingMediaProcessor(
+        $entityManager,
+        $commandBus,
+        $this->securityWithUser(),
+        $requestStack,
+        new MultipartAttachmentGuard(),
+        new RevisionGuard($requestStack),
+      )->process(null, new Post(), ['messageId' => self::MESSAGE_ID]);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  #[Test]
+  public function testUploadThrowsNotFoundWhenTheStoredAttachmentCannotBeReadBack(): void
+  {
+    $path = $this->uploadedFilePath();
+
+    try {
+      $entityManager = $this->createStub(EntityManagerInterface::class);
+      $entityManager->method('find')->willReturn(null);
+
+      $requestStack = new RequestStack();
+      $requestStack->push($this->uploadRequest($path));
+
+      $commandBus = $this->createStub(CommandBusPort::class);
+      $commandBus->method('dispatch')->willReturn(new AddMessageAttachmentResult(
+        self::ATTACHMENT_ID,
+        self::MESSAGE_ID,
+        'conversation-1',
+        'org-1',
+        'member-1',
+        'photo.gif',
+        'image/gif',
+        5,
+        null,
+        new DateTimeImmutable(),
+      ));
+
+      $this->expectException(NotFoundHttpException::class);
+
+      new MessagingMediaProcessor(
+        $entityManager,
+        $commandBus,
+        $this->securityWithUser(),
+        $requestStack,
+        new MultipartAttachmentGuard(),
+        new RevisionGuard($requestStack),
+      )->process(null, new Post(), ['messageId' => self::MESSAGE_ID]);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  #[Test]
+  public function testUploadThrowsWhenTheUserIsNotAuthenticated(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/messages/' . self::MESSAGE_ID . '/attachments', 'POST'));
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    new MessagingMediaProcessor(
+      $this->createStub(EntityManagerInterface::class),
+      $commandBus,
+      $security,
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Post(), ['messageId' => self::MESSAGE_ID]);
+  }
+
+  #[Test]
+  public function testUploadThrowsWhenThereIsNoCurrentRequest(): void
+  {
+    $requestStack = new RequestStack();
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(BadRequestHttpException::class);
+
+    new MessagingMediaProcessor(
+      $this->createStub(EntityManagerInterface::class),
+      $commandBus,
+      $this->securityWithUser(),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Post(), ['messageId' => self::MESSAGE_ID]);
+  }
+
+  #[Test]
+  public function testDeleteThrowsNotFoundWhenTheIdUriVariableIsMissing(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/messaging-attachments/', 'DELETE'));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(NotFoundHttpException::class);
+
+    new MessagingMediaProcessor(
+      $this->createStub(EntityManagerInterface::class),
+      $commandBus,
+      $this->createStub(Security::class),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Delete(), []);
+  }
+
+  #[Test]
+  public function testDeleteMapsMessagingExceptionsRaisedByTheCommandBus(): void
+  {
+    $attachment = new MessagingAttachmentRecord();
+    $attachment->id = self::ATTACHMENT_ID;
+    $attachment->revision = 1;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($attachment);
+
+    $requestStack = new RequestStack();
+    $request = Request::create('/api/messaging-attachments/' . $attachment->id, 'DELETE');
+    $request->headers->set('If-Match', '"revision-1"');
+    $requestStack->push($request);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(new MessagingAccessDeniedException('Not the uploader.'));
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    new MessagingMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $this->securityWithUser(),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Delete(), ['id' => $attachment->id]);
+  }
+
+  #[Test]
   public function testDeleteThrowsNotFoundWhenAttachmentIsMissing(): void
   {
     $entityManager = $this->createStub(EntityManagerInterface::class);
@@ -245,5 +411,35 @@ final class MessagingMediaProcessorTest extends TestCase
       new MultipartAttachmentGuard(),
       new RevisionGuard($requestStack),
     )->process(null, new Delete(), ['id' => 'missing']);
+  }
+
+  private function uploadedFilePath(): string
+  {
+    $path = tempnam(sys_get_temp_dir(), 'messaging-attachment-');
+    self::assertIsString($path);
+    file_put_contents($path, (string) base64_decode(self::MINIMAL_GIF_BASE64, true));
+
+    return $path;
+  }
+
+  private function uploadRequest(string $path): Request
+  {
+    return Request::create(
+      '/api/messages/' . self::MESSAGE_ID . '/attachments',
+      'POST',
+      [],
+      [],
+      ['file' => new UploadedFile($path, 'photo.gif', 'image/gif', null, true)],
+    );
+  }
+
+  private function securityWithUser(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    return $security;
   }
 }

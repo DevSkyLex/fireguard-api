@@ -132,6 +132,89 @@ final class HandleStripeWebhookHandlerTest extends TestCase
     $handler(new HandleStripeWebhookCommand('{}', 'sig'));
   }
 
+  #[Test]
+  public function anEventWithoutMetadataResolvesTheOrganizationThroughTheStripeCustomer(): void
+  {
+    $stripe = $this->createStub(StripeGatewayPort::class);
+    $stripe->method('parseEvent')->willReturn(new StripeEvent(
+      type: 'customer.subscription.updated',
+      organizationId: null,
+      customerId: 'cus_1',
+      // No subscription id: the projection cannot be synchronized, so the
+      // handler must stop after the lookup rather than persist a half event.
+      subscriptionId: null,
+      status: 'active',
+      priceId: 'price_pro_m',
+    ));
+
+    $existing = Subscription::start(SubscriptionId::fromString(self::SUBSCRIPTION_ID), 'org-2', 'cus_1');
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->expects(self::once())
+      ->method('findByStripeCustomerId')
+      ->with('cus_1')
+      ->willReturn($existing);
+    $subscriptions->expects(self::never())->method('save');
+
+    $planAssignment = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $planAssignment->expects(self::never())->method('assignPlanByKey');
+
+    $this->createHandler($stripe, $subscriptions, $planAssignment)(new HandleStripeWebhookCommand('{}', 'sig'));
+  }
+
+  #[Test]
+  public function anEventForAnUnknownPriceIsIgnored(): void
+  {
+    $stripe = $this->createStub(StripeGatewayPort::class);
+    $stripe->method('parseEvent')->willReturn(new StripeEvent(
+      type: 'customer.subscription.created',
+      organizationId: 'org-1',
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+      status: 'active',
+      priceId: 'price_not_in_catalog',
+    ));
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->expects(self::never())->method('save');
+
+    $planAssignment = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $planAssignment->expects(self::never())->method('assignPlanByKey');
+
+    $this->createHandler($stripe, $subscriptions, $planAssignment)(new HandleStripeWebhookCommand('{}', 'sig'));
+  }
+
+  #[Test]
+  public function aDeletedSubscriptionEventWithNoResolvableOrganizationIsIgnored(): void
+  {
+    $stripe = $this->createStub(StripeGatewayPort::class);
+    $stripe->method('parseEvent')->willReturn(new StripeEvent(type: 'customer.subscription.deleted'));
+
+    $subscriptions = $this->createMock(SubscriptionRepositoryPort::class);
+    $subscriptions->expects(self::never())->method('findByOrganizationId');
+    $subscriptions->expects(self::never())->method('save');
+
+    $planAssignment = $this->createMock(OrganizationPlanAssignmentPort::class);
+    $planAssignment->expects(self::never())->method('assignPlanByKey');
+
+    $this->createHandler($stripe, $subscriptions, $planAssignment)(new HandleStripeWebhookCommand('{}', 'sig'));
+  }
+
+  private function createHandler(
+    StripeGatewayPort $stripe,
+    SubscriptionRepositoryPort $subscriptions,
+    OrganizationPlanAssignmentPort $planAssignment,
+  ): HandleStripeWebhookHandler {
+    return new HandleStripeWebhookHandler(
+      $stripe,
+      $subscriptions,
+      new BillingPriceCatalog($this->prices(), 'eur'),
+      $planAssignment,
+      $this->uuidFactory(),
+      $this->transactionManager(),
+    );
+  }
+
   /**
    * @return array<string, mixed>
    */

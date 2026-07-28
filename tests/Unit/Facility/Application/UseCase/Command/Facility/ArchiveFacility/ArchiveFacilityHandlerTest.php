@@ -515,4 +515,67 @@ final class ArchiveFacilityHandlerTest extends TestCase
       facilityId: '550e8400-e29b-41d4-a716-446655442030',
     ));
   }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedFacilityId(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('findPublishedById');
+
+    $handler = new ArchiveFacilityHandler(
+      facilityRepository: $repository,
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ArchiveFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655442041',
+      facilityId: 'not-a-uuid',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRethrowsAPersistenceFailureThatIsNotAnOrganizationConstraint(): void
+  {
+    $facility = Facility::create(
+      id: new FacilityId('550e8400-e29b-41d4-a716-446655442050'),
+      organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442051'),
+      type: FacilityType::SITE,
+      name: new FacilityName('HQ'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findPublishedById')->willReturn($facility);
+    $repository->expects(self::once())
+      ->method('save')
+      ->willThrowException(new RuntimeException('Deadlock detected.', 0, new RuntimeException('inner')));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new ArchiveFacilityHandler(
+      facilityRepository: $repository,
+      organizationRepository: $this->createStub(OrganizationRepositoryPort::class),
+      notificationPort: $this->createStub(NotificationPort::class),
+      logger: $this->createStub(LoggerPort::class),
+      archivalGuard: $this->createStub(FacilityArchivalGuardPort::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Deadlock detected.');
+
+    $handler->__invoke(new ArchiveFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655442051',
+      facilityId: '550e8400-e29b-41d4-a716-446655442050',
+    ));
+  }
 }

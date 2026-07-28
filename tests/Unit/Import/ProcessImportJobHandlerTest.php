@@ -18,7 +18,7 @@ use Import\Domain\Model\ImportJob\ImportJob;
 use Import\Domain\ValueObject\{ImportJobId, ImportKind, ImportStatus};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
+use Psr\Log\{LoggerInterface, NullLogger};
 use RuntimeException;
 use Shared\Application\Message\VoidResult;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, FileStoragePort};
@@ -261,6 +261,178 @@ final class ProcessImportJobHandlerTest extends TestCase
     self::assertSame(1, $reloaded->successfulRows());
   }
 
+  #[Test]
+  public function itLogsAndStopsWhenTheClaimedJobCannotBeReloaded(): void
+  {
+    // claim() succeeded but the row vanished — should not happen, but the
+    // handler must degrade to a logged no-op rather than dereference null.
+    $repository = $this->createStub(ImportJobRepositoryPort::class);
+    $repository->method('claim')->willReturn(true);
+    $repository->method('findById')->willReturn(null);
+
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('read');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::once())
+      ->method('error')
+      ->with('Import job claimed but not found.', ['import_job_id' => self::JOB_ID]);
+
+    $handler = $this->handler(
+      $repository,
+      $this->createStub(CsvRowStreamerPort::class),
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $eventDispatcher,
+      $fileStorage,
+      $logger,
+    );
+
+    self::assertInstanceOf(VoidResult::class, $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID)));
+  }
+
+  #[Test]
+  public function itFailsTheJobWhenTheCsvCannotBeParsed(): void
+  {
+    $job = $this->pendingEquipmentJob();
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $csvStreamer->method('countDataRows')->willThrowException(new RuntimeException('malformed header'));
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (ImportJobFailedEvent $event): bool {
+        self::assertStringContainsString('malformed header', $event->jobError);
+
+        return true;
+      }));
+
+    $logger = $this->createMock(LoggerInterface::class);
+    $logger->expects(self::once())->method('error')->with('Import job processing failed.', self::anything());
+
+    $handler = $this->handler(
+      $repository,
+      $csvStreamer,
+      $this->neverCalledEquipmentPort(),
+      $this->neverCalledFacilityPort(),
+      $eventDispatcher,
+      null,
+      $logger,
+    );
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::FAILED, $reloaded->status());
+    self::assertStringContainsString('Unable to process the CSV file', (string) $reloaded->jobError());
+  }
+
+  #[Test]
+  public function itRecordsAnInvalidEquipmentRowWithTheDefaultMessage(): void
+  {
+    $job = $this->pendingEquipmentJob();
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $csvStreamer->method('countDataRows')->willReturn(1);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom([1 => ['type' => 'fire_extinguisher']]));
+
+    $equipmentProvisioning = $this->createStub(EquipmentProvisioningPort::class);
+    // No message: the handler must fall back to its own wording.
+    $equipmentProvisioning->method('provision')
+      ->willReturn(new ProvisionEquipmentResult(EquipmentProvisionOutcome::INVALID));
+
+    $handler = $this->handler($repository, $csvStreamer, $equipmentProvisioning, $this->neverCalledFacilityPort(), $this->createStub(EventDispatcherPort::class));
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(0, $reloaded->successfulRows());
+    $errors = $reloaded->errorReport();
+    self::assertCount(1, $errors);
+    self::assertSame('invalid', $errors[0]->code);
+    self::assertSame('Invalid equipment row.', $errors[0]->message);
+  }
+
+  #[Test]
+  public function itRecordsQuotaExceededAndInvalidFacilityRowsWithTheDefaultMessages(): void
+  {
+    $job = ImportJob::create(
+      id: ImportJobId::fromString(self::JOB_ID),
+      organizationId: self::ORGANIZATION_ID,
+      kind: ImportKind::FACILITY,
+      storagePath: 'imports/' . self::ORGANIZATION_ID . '/' . self::JOB_ID . '.csv',
+      originalFilename: 'facilities.csv',
+      createdBy: self::CREATED_BY,
+    );
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $rows = [
+      1 => ['type' => 'site', 'name' => 'Main site'],
+      2 => ['type' => 'site', 'name' => 'Annex'],
+    ];
+    $csvStreamer->method('countDataRows')->willReturn(2);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $facilityProvisioning = $this->createStub(FacilityProvisioningPort::class);
+    $facilityProvisioning->method('provision')->willReturnOnConsecutiveCalls(
+      new ProvisionFacilityResult(FacilityProvisionOutcome::QUOTA_EXCEEDED),
+      new ProvisionFacilityResult(FacilityProvisionOutcome::INVALID),
+    );
+
+    $handler = $this->handler($repository, $csvStreamer, $this->neverCalledEquipmentPort(), $facilityProvisioning, $this->createStub(EventDispatcherPort::class));
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(2, $reloaded->failedRows());
+    $errors = $reloaded->errorReport();
+    self::assertCount(2, $errors);
+    self::assertSame('quota_exceeded', $errors[0]->code);
+    self::assertSame('The plan quota for facilities has been reached.', $errors[0]->message);
+    self::assertSame('invalid', $errors[1]->code);
+    self::assertSame('Invalid facility row.', $errors[1]->message);
+  }
+
+  #[Test]
+  public function itFlushesProgressEveryFiftyProcessedRows(): void
+  {
+    $job = $this->pendingEquipmentJob();
+    $repository = new InMemoryImportJobRepositoryFake($job);
+
+    $rows = [];
+    for ($rowNumber = 1; $rowNumber <= 50; ++$rowNumber) {
+      $rows[$rowNumber] = ['type' => 'fire_extinguisher'];
+    }
+
+    $csvStreamer = $this->createStub(CsvRowStreamerPort::class);
+    $csvStreamer->method('countDataRows')->willReturn(50);
+    $csvStreamer->method('rows')->willReturn($this->generatorFrom($rows));
+
+    $equipmentProvisioning = $this->createStub(EquipmentProvisioningPort::class);
+    $equipmentProvisioning->method('provision')
+      ->willReturn(new ProvisionEquipmentResult(EquipmentProvisionOutcome::CREATED, resourceId: 'equipment-1'));
+
+    $handler = $this->handler($repository, $csvStreamer, $equipmentProvisioning, $this->neverCalledFacilityPort(), $this->createStub(EventDispatcherPort::class));
+
+    $handler->__invoke(new ProcessImportJobCommand(self::JOB_ID));
+
+    $reloaded = $repository->findById(ImportJobId::fromString(self::JOB_ID));
+    self::assertInstanceOf(ImportJob::class, $reloaded);
+    self::assertSame(ImportStatus::COMPLETED, $reloaded->status());
+    self::assertSame(50, $reloaded->successfulRows());
+  }
+
   /**
    * @param array<int, array<string, string>> $rows
    *
@@ -308,6 +480,7 @@ final class ProcessImportJobHandlerTest extends TestCase
     FacilityProvisioningPort $facilityProvisioning,
     EventDispatcherPort $eventDispatcher,
     ?FileStoragePort $fileStorage = null,
+    ?LoggerInterface $logger = null,
   ): ProcessImportJobHandler {
     if (null === $fileStorage) {
       $fileStorage = $this->createStub(FileStoragePort::class);
@@ -329,7 +502,7 @@ final class ProcessImportJobHandlerTest extends TestCase
       facilityProvisioning: $facilityProvisioning,
       eventDispatcher: $eventDispatcher,
       clock: $clock,
-      logger: new NullLogger(),
+      logger: $logger ?? new NullLogger(),
     );
   }
 }

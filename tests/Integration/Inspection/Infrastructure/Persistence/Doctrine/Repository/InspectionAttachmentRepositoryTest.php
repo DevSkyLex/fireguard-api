@@ -189,6 +189,55 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
     self::assertNull($this->repository->findById(InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID)));
   }
 
+  #[Test]
+  public function testDeleteIsANoOpForAnUnknownAttachment(): void
+  {
+    // Deleting something already gone must not raise: the caller has no way to
+    // distinguish "never existed" from "removed by a concurrent request".
+    $this->repository->delete(InspectionAttachmentId::fromString('99999999-9999-4999-8999-999999999999'));
+
+    self::assertNull($this->repository->findById(
+      InspectionAttachmentId::fromString('99999999-9999-4999-8999-999999999999'),
+    ));
+  }
+
+  #[Test]
+  public function testSaveUpdatesTheExistingRecordInPlaceAndCanPromoteItToANonConformityPhoto(): void
+  {
+    $this->repository->save(InspectionAttachment::create(
+      id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
+      inspectionId: InspectionId::fromString(self::INSPECTION_ID),
+      fileName: 'draft.pdf',
+      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/draft.pdf',
+      mimeType: 'application/pdf',
+      size: 128,
+    ));
+    $this->entityManager->clear();
+
+    $this->repository->save(InspectionAttachment::create(
+      id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
+      inspectionId: InspectionId::fromString(self::INSPECTION_ID),
+      fileName: 'proof.jpg',
+      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/proof.jpg',
+      mimeType: 'image/jpeg',
+      size: 6144,
+      label: 'Field proof',
+      nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
+    ));
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID));
+
+    self::assertNotNull($found);
+    self::assertSame('proof.jpg', $found->fileName());
+    self::assertSame('inspection/' . self::INSPECTION_ID . '/attachments/proof.jpg', $found->storagePath());
+    self::assertSame('image/jpeg', $found->mimeType());
+    self::assertSame(6144, $found->size());
+    self::assertSame('Field proof', $found->label());
+    self::assertSame(self::NON_CONFORMITY_ID, (string) $found->nonConformityId());
+    self::assertCount(1, $this->repository->findByNonConformityId(NonConformityId::fromString(self::NON_CONFORMITY_ID)));
+  }
+
   private function cleanup(): void
   {
     $connection = $this->entityManager->getConnection();

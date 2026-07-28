@@ -142,6 +142,9 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
     /** @var list<MessagingAttachmentRecord> $records */
     $records = $qb
       ->orderBy('a.uploadedAt', 'DESC')
+      // Unique tiebreaker: without it rows tied on the sort above are ordered
+      // arbitrarily, and LIMIT/OFFSET then repeats some across pages.
+      ->addOrderBy('a.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()

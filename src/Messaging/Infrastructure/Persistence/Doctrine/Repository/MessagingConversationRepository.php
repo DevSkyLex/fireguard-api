@@ -161,6 +161,10 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     $records = $qb
       ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
       ->addOrderBy('c.lastMessageAt', 'DESC')
+      // Unique tiebreaker: conversations sharing a lastMessageAt (or all
+      // sharing NULL) order arbitrarily otherwise, and LIMIT/OFFSET then
+      // repeats some across pages while skipping others.
+      ->addOrderBy('c.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()
@@ -267,6 +271,10 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     $records = $qb
       ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
       ->addOrderBy('c.lastMessageAt', 'DESC')
+      // Unique tiebreaker: conversations sharing a lastMessageAt (or all
+      // sharing NULL) order arbitrarily otherwise, and LIMIT/OFFSET then
+      // repeats some across pages while skipping others.
+      ->addOrderBy('c.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()
@@ -312,6 +320,10 @@ final readonly class MessagingConversationRepository implements MessagingConvers
     $records = $qb
       ->orderBy('CASE WHEN c.lastMessageAt IS NULL THEN 1 ELSE 0 END', 'ASC')
       ->addOrderBy('c.lastMessageAt', 'DESC')
+      // Unique tiebreaker: conversations sharing a lastMessageAt (or all
+      // sharing NULL) order arbitrarily otherwise, and LIMIT/OFFSET then
+      // repeats some across pages while skipping others.
+      ->addOrderBy('c.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()

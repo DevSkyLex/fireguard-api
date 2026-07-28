@@ -6,13 +6,17 @@ namespace Tests\Integration\Organization\Infrastructure\Persistence\Doctrine\Rep
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationStatus};
+use Organization\Infrastructure\Persistence\Doctrine\Mapper\OrganizationMapper;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Organization\Infrastructure\Persistence\Doctrine\Repository\OrganizationRepository;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 use function array_map;
+use function count;
 
 /**
  * Test OrganizationRepository.
@@ -168,6 +172,119 @@ final class OrganizationRepositoryIntegrationTest extends KernelTestCase
     $this->repository->delete($id);
 
     self::assertNull($this->repository->findById($id));
+  }
+
+  #[Test]
+  public function testSavePersistsNewAggregateThenUpdatesTheExistingRecord(): void
+  {
+    $id = OrganizationId::fromString('b2000000-0000-4000-8000-000000000051');
+
+    $this->repository->save(OrganizationMapper::toDomain($this->createOrganization(
+      id: 'b2000000-0000-4000-8000-000000000051',
+      name: 'Saved Org',
+      slug: 'saved-org',
+    )));
+
+    $persisted = $this->repository->findById($id);
+    self::assertNotNull($persisted);
+    self::assertSame('Saved Org', (string) $persisted->name());
+    self::assertSame(OrganizationStatus::ACTIVE, $persisted->status());
+
+    // A second save on the same identifier must take the "existing record"
+    // branch and mutate the managed row rather than persisting a duplicate.
+    $this->repository->save(OrganizationMapper::toDomain($this->createOrganization(
+      id: 'b2000000-0000-4000-8000-000000000051',
+      name: 'Renamed Org',
+      slug: 'renamed-org',
+      status: OrganizationStatus::ARCHIVED->value,
+    )));
+
+    $updated = $this->repository->findById($id);
+    self::assertNotNull($updated);
+    self::assertSame('Renamed Org', (string) $updated->name());
+    self::assertSame('renamed-org', (string) $updated->slug());
+    self::assertSame(OrganizationStatus::ARCHIVED, $updated->status());
+    self::assertFalse($updated->isActive());
+  }
+
+  #[Test]
+  public function testEmptyIdentifierListShortCircuitsBeforeQuerying(): void
+  {
+    self::assertSame([], $this->repository->findByIds([]));
+    self::assertSame(0, $this->repository->countByIds([]));
+  }
+
+  #[Test]
+  public function testFindAllReturnsEveryPersistedOrganization(): void
+  {
+    // A delta, not an absolute: the seeded baseline already holds rows.
+    $before = count($this->repository->findAll());
+
+    $this->entityManager->persist($this->createOrganization(
+      id: 'b2000000-0000-4000-8000-000000000061',
+      name: 'All Listed Org',
+      slug: 'all-listed-org',
+    ));
+    $this->entityManager->flush();
+
+    $all = $this->repository->findAll();
+    $slugs = array_map(static fn (Organization $organization): string => (string) $organization->slug(), $all);
+
+    self::assertCount($before + 1, $all);
+    self::assertContains('all-listed-org', $slugs);
+  }
+
+  #[Test]
+  public function testFindByIdsSupportsEverySortableFieldAndPagination(): void
+  {
+    $this->entityManager->persist($this->createOrganization(
+      id: 'b2000000-0000-4000-8000-000000000071',
+      name: 'Sortable Alpha',
+      slug: 'sortable-alpha',
+    ));
+    $this->entityManager->persist($this->createOrganization(
+      id: 'b2000000-0000-4000-8000-000000000072',
+      name: 'Sortable Bravo',
+      slug: 'sortable-bravo',
+    ));
+    $this->entityManager->persist($this->createOrganization(
+      id: 'b2000000-0000-4000-8000-000000000073',
+      name: 'Sortable Charlie',
+      slug: 'sortable-charlie',
+    ));
+    $this->entityManager->flush();
+
+    $ids = [
+      OrganizationId::fromString('b2000000-0000-4000-8000-000000000071'),
+      OrganizationId::fromString('b2000000-0000-4000-8000-000000000072'),
+      OrganizationId::fromString('b2000000-0000-4000-8000-000000000073'),
+    ];
+
+    // Every branch of the sort-field whitelist, plus the unknown-field default.
+    foreach (['slug', 'status', 'createdAt', 'name', 'unmapped-field'] as $field) {
+      self::assertCount(
+        3,
+        $this->repository->findByIds($ids, sorting: new Sorting($field, SortDirection::DESC)),
+        'Sorting by "' . $field . '" must stay a valid query.',
+      );
+    }
+
+    $descendingBySlug = array_map(
+      static fn (Organization $organization): string => (string) $organization->slug(),
+      $this->repository->findByIds($ids, sorting: new Sorting('slug', SortDirection::DESC)),
+    );
+
+    self::assertSame(['sortable-charlie', 'sortable-bravo', 'sortable-alpha'], $descendingBySlug);
+
+    $secondPage = $this->repository->findByIds(
+      $ids,
+      sorting: new Sorting('slug', SortDirection::ASC),
+      limit: 1,
+      offset: 1,
+    );
+
+    self::assertCount(1, $secondPage);
+    self::assertSame('sortable-bravo', (string) $secondPage[0]->slug());
   }
 
   private function createOrganization(

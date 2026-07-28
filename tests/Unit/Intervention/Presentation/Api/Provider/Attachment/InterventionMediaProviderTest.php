@@ -19,7 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 /**
  * Test InterventionMediaProviderTest.
@@ -177,5 +177,58 @@ final class InterventionMediaProviderTest extends TestCase
       $this->createStub(OrganizationAuthorizationPort::class),
       $this->createStub(Security::class),
     )->provide(new Get(), ['id' => 'missing-id']);
+  }
+
+  #[Test]
+  public function testProvideGetOneThrowsNotFoundWhenTheIdUriVariableIsAbsent(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    new InterventionMediaProvider(
+      $this->createStub(EntityManagerInterface::class),
+      $this->createStub(QueryBusPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(Security::class),
+    )->provide(new Get(), []);
+  }
+
+  #[Test]
+  public function testProvideListRejectsAnEmptyInterventionIdUriVariable(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    new InterventionMediaProvider(
+      $this->createStub(EntityManagerInterface::class),
+      $this->createStub(QueryBusPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->createStub(Security::class),
+    )->provide(new GetCollection(), ['interventionId' => '']);
+  }
+
+  #[Test]
+  public function testProvideListRejectsAnUnauthenticatedUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    new InterventionMediaProvider(
+      $this->createStub(EntityManagerInterface::class),
+      $this->createStub(QueryBusPort::class),
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $security,
+    )->provide(new GetCollection(), ['interventionId' => self::INTERVENTION_ID]);
+  }
+
+  #[Test]
+  public function testOutputThrowsNotFoundWhenTheRecordHasNoIntervention(): void
+  {
+    $attachment = new InterventionAttachmentRecord();
+    $attachment->id = 'attachment-id';
+
+    $this->expectException(NotFoundHttpException::class);
+
+    InterventionMediaProvider::output($attachment);
   }
 }

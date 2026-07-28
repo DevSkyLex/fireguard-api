@@ -154,4 +154,25 @@ final class UpdateEquipmentHandlerTest extends TestCase
       type: 'invalid_type_xyz',
     ));
   }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::never())->method('findById');
+
+    $handler = new UpdateEquipmentHandler(
+      equipmentRepository: $repository,
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new UpdateEquipmentCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+      type: 'fire_extinguisher',
+    ));
+  }
 }

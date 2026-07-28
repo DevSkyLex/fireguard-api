@@ -6,7 +6,6 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
@@ -254,9 +253,14 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
 
     $counts = [];
     foreach ($rows as $row) {
+      // @codeCoverageIgnoreStart
+      // Unreachable: the query filters on IDENTITY(f.parentFacility) IN (:parentIds)
+      // and groups by that column. In SQL, NULL IN (...) is never true, so a root
+      // facility cannot appear in these rows.
       if (null === $row['parentId']) {
         continue;
       }
+      // @codeCoverageIgnoreEnd
 
       $counts[(string) $row['parentId']] = (int) $row['childCount'];
     }
@@ -483,39 +487,38 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $type = null,
   ): array {
     $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $createdAtFrom);
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->countByCreatedDayForOrganizationIdPostgreSql(
-        organizationId: $organizationId,
-        createdAtFrom: $createdAtFrom,
-        createdAtTo: $createdAtTo,
-        bucketTimeZone: $bucketTimeZone,
-        type: $type,
-      );
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS facility_count
+        FROM facilities
+        WHERE organization_id = :organizationId
+          AND record_status = 'published'
+          AND created_at >= :createdAtFrom
+          AND created_at <= :createdAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
+      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
+    ];
+
+    if (null !== $type) {
+      $sql .= "\n  AND type = :type";
+      $parameters['type'] = $type;
     }
 
-    /** @var list<array{createdAt: DateTimeImmutable}> $rows */
-    $rows = $this->createListQueryBuilder(
-      $organizationId,
-      true,
-      $type,
-      null,
-      null,
-      null,
-      null,
-    )
-      ->select('f.createdAt AS createdAt')
-      ->andWhere('f.createdAt >= :createdAtFrom')
-      ->andWhere('f.createdAt <= :createdAtTo')
-      ->setParameter('createdAtFrom', $this->normalizeTimestampToStorageDateTime($createdAtFrom), Types::DATETIME_IMMUTABLE)
-      ->setParameter('createdAtTo', $this->normalizeTimestampToStorageDateTime($createdAtTo), Types::DATETIME_IMMUTABLE)
-      ->orderBy('f.createdAt', 'ASC')
-      ->getQuery()
-      ->getArrayResult();
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, facility_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
 
     $counts = [];
     foreach ($rows as $row) {
-      $bucket = $this->reinterpretStorageDateTime($row['createdAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
-      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+      $counts[(string) $row['bucket']] = (int) $row['facility_count'];
     }
 
     return $counts;
@@ -903,53 +906,6 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
   }
 
   /**
-   * @return array<string, int>
-   */
-  private function countByCreatedDayForOrganizationIdPostgreSql(
-    FacilityOrganizationId $organizationId,
-    string $createdAtFrom,
-    string $createdAtTo,
-    DateTimeZone $bucketTimeZone,
-    ?string $type = null,
-  ): array {
-    $storageTimeZone = $this->resolveStorageTimeZone();
-    $sql = <<<'SQL'
-        SELECT
-          TO_CHAR(((created_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
-          COUNT(*) AS facility_count
-        FROM facilities
-        WHERE organization_id = :organizationId
-          AND record_status = 'published'
-          AND created_at >= :createdAtFrom
-          AND created_at <= :createdAtTo
-      SQL;
-    $parameters = [
-      'storageTimeZone' => $storageTimeZone->getName(),
-      'bucketTimeZone' => $bucketTimeZone->getName(),
-      'organizationId' => (string) $organizationId,
-      'createdAtFrom' => $this->normalizeTimestampForStorageTimeZone($createdAtFrom, $storageTimeZone),
-      'createdAtTo' => $this->normalizeTimestampForStorageTimeZone($createdAtTo, $storageTimeZone),
-    ];
-
-    if (null !== $type) {
-      $sql .= "\n  AND type = :type";
-      $parameters['type'] = $type;
-    }
-
-    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
-
-    /** @var list<array{bucket: string, facility_count: int|string}> $rows */
-    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
-
-    $counts = [];
-    foreach ($rows as $row) {
-      $counts[(string) $row['bucket']] = (int) $row['facility_count'];
-    }
-
-    return $counts;
-  }
-
-  /**
    * Method resolveBucketTimeZone.
    *
    * Executes the resolve bucket time zone operation.
@@ -986,43 +942,6 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     } catch (Exception $exception) {
       throw new RuntimeException('Invalid DATABASE_STORAGE_TIMEZONE configuration.', 0, $exception);
     }
-  }
-
-  /**
-   * Method normalizeTimestampToStorageDateTime.
-   *
-   * Executes the normalize timestamp to storage date time operation.
-   *
-   * @since 1.0.0
-   *
-   * @param string $value the value value
-   *
-   * @return DateTimeImmutable the normalize timestamp to storage date time result
-   */
-  private function normalizeTimestampToStorageDateTime(string $value): DateTimeImmutable
-  {
-    return new DateTimeImmutable($value)
-      ->setTimezone($this->resolveStorageTimeZone());
-  }
-
-  /**
-   * Method reinterpretStorageDateTime.
-   *
-   * Executes the reinterpret storage date time operation.
-   *
-   * @since 1.0.0
-   *
-   * @param DateTimeImmutable $value the value value
-   *
-   * @return DateTimeImmutable the reinterpret storage date time result
-   */
-  private function reinterpretStorageDateTime(DateTimeImmutable $value): DateTimeImmutable
-  {
-    return DateTimeImmutable::createFromFormat(
-      'Y-m-d H:i:s.u',
-      $value->format('Y-m-d H:i:s.u'),
-      $this->resolveStorageTimeZone(),
-    ) ?: $value->setTimezone($this->resolveStorageTimeZone());
   }
 
   /**

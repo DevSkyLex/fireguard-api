@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\Checklist\CreateChecklist\{CreateChecklistCommand, CreateChecklistResult};
+use Inspection\Domain\Exception\ChecklistReferenceCodeAlreadyExistsException;
 use Inspection\Presentation\Api\Dto\Input\Checklist\{ChecklistItemInput, CreateChecklistInput};
 use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Processor\Checklist\CreateChecklistProcessor;
@@ -16,10 +17,11 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
 use Throwable;
 
 use function count;
@@ -187,6 +189,54 @@ final class CreateChecklistProcessorTest extends TestCase
     );
 
     $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsConflictOnADuplicateReferenceCode(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      ChecklistReferenceCodeAlreadyExistsException::withReferenceCode('CHK-DUP'),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsDuplicateReferenceCodeFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(ChecklistReferenceCodeAlreadyExistsException::withReferenceCode('CHK-DUP')),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrelatedMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: $this->makeInput(),

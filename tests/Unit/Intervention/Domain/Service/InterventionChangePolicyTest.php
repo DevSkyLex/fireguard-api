@@ -43,4 +43,26 @@ final class InterventionChangePolicyTest extends TestCase
     $this->expectException(InterventionConflictException::class);
     $this->policy->assertCanCreate(InterventionStatus::SUBMITTED);
   }
+
+  #[Test]
+  public function itAllowsDeletingAChangeWhileFieldWorkIsActive(): void
+  {
+    $this->policy->assertCanDelete(InterventionStatus::IN_PROGRESS);
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function itRejectsDeletingAChangeOnceTheInterventionLeavesFieldWork(): void
+  {
+    $this->expectException(InterventionConflictException::class);
+    $this->policy->assertCanDelete(InterventionStatus::SUBMITTED);
+  }
+
+  #[Test]
+  public function itRejectsANonRejectionStatusChangeOnASubmittedIntervention(): void
+  {
+    $this->expectException(InterventionConflictException::class);
+    $this->policy->assertCanChangeStatus(InterventionStatus::SUBMITTED, 'accepted');
+  }
 }

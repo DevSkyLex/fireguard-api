@@ -406,6 +406,9 @@ Other Docker commands:
 | `make test` | Run CS checks, static analysis, architecture rules, linting, and tests |
 | `make phpunit` | Run the test suite with testdox output |
 | `make phpunit-fast` | Run the test suite without testdox output |
+| `make phpunit-parallel` | Run the test suite across parallel workers (paratest) |
+| `make test-db` | Create and migrate the PostgreSQL test databases |
+| `make test-db-clean` | Drop the per-worker database clones left by parallel runs |
 | `make phpstan` | Run static analysis |
 | `make deptrac` | Run architecture dependency rules |
 | `make lint` | Validate Symfony container and YAML files |
@@ -434,6 +437,24 @@ Run the full suite:
 make phpunit
 ```
 
+Run it across parallel workers (paratest):
+```bash
+make phpunit-parallel
+```
+
+Each worker clones the migrated test databases into its own `*_w<token>` copy,
+so workers never share rows. That clone costs a couple of seconds per worker,
+which only pays off across the whole suite — for a single testsuite or a
+`--filter` run, plain `make phpunit-fast` is faster. Override the worker count
+with `make phpunit-parallel PARALLEL_WORKERS=16`.
+
+> [!WARNING]
+> Do not run two parallel suites at once. Worker tokens start at 1 in every
+> run, so both would claim the same `*_w1`, `*_w2`… databases and drop each
+> other's mid-test. The symptom is a flood of unrelated errors that vanish when
+> either run is repeated alone. CI is unaffected: each job gets its own
+> PostgreSQL service.
+
 Run with code coverage:
 ```bash
 make coverage-html
@@ -447,9 +468,65 @@ make mutation
 ```
 
 > [!NOTE]
-> Use `.env.test` for test overrides. The default test auth and main databases are SQLite.
+> Use `.env.test` for test overrides. The suite runs on PostgreSQL, like production —
+> the repositories issue PostgreSQL-specific SQL (`TO_CHAR` day bucketing,
+> `json_array_elements_text`, `SELECT … FOR UPDATE`) with no portable fallback.
+> Create, migrate and seed the two test databases once, then re-run whenever a
+> new migration or seed fixture lands:
+>
+> ```bash
+> make docker-up && make test-db
+> ```
+>
+> **No test may assume it owns the database.** The fixture baseline is seeded
+> once, here — not reloaded inside every E2E test (~5s each) for DAMA to roll
+> straight back. A test needing other data creates it; a test needing a table
+> empty purges it; the rollback undoes either. Assert on deltas and membership,
+> never on absolute row counts.
+>
+> That is what makes the suite affordable: the whole of it, E2E included, runs
+> in **1m15 in parallel**, against roughly fifteen minutes for the E2E suite
+> alone before.
 
 ## Code Quality
+
+### Quality feedback: editor, hooks, CI
+
+Three layers, fastest first. Each one is a net for what the previous one missed.
+
+**1. Editor.** `.vscode/` configures format-on-save with the project's own
+php-cs-fixer and ruleset, so files are conformant before they are ever staged.
+VS Code prompts to install the recommended extensions on first open; the
+`junstyle.php-cs-fixer` one is what makes this work. Using PhpStorm instead?
+Point *Settings → PHP → Quality Tools → PHP CS Fixer* at
+`vendor/bin/php-cs-fixer` with `.php-cs-fixer.dist.php`.
+
+**2. Git hooks**, in `.githooks/`. `composer install` activates them; to do it
+by hand, run `composer run-script install-git-hooks`.
+
+| Hook | Runs | Cost |
+| --- | --- | --- |
+| `pre-commit` | `php-cs-fixer` on the **staged** PHP files, then re-stages them | ~3s |
+| `pre-push` | `phpstan` + `deptrac` over the whole project | ~7s warm, ~35s cold |
+
+Formatting runs per commit because it can be scoped to what you staged. PHPStan
+and deptrac cannot — an edit in one class surfaces errors in another, so they
+always analyse everything — which is why they run once per push instead.
+
+**3. CI.** The only non-bypassable gate: it runs the same checks on every pull
+request. The layers above are for speed, not correctness — both hooks yield to
+`--no-verify`.
+
+php-cs-fixer runs its parallel runner (configured in `.php-cs-fixer.dist.php`),
+which takes a cold full-tree run from **2m17s to ~15s** — the run CI and every
+fresh clone hit. A warm run costs ~2s more than sequential in process spawning,
+so the `pre-commit` hook passes `--sequential`: on a handful of staged files the
+spawning outweighs the work.
+
+One caveat worth knowing: the `pre-commit` hook **rewrites what you are
+committing**. If you stage part of a file with `git add -p`, the fixer
+reformats the whole file and the remainder gets staged too. With format-on-save
+active there is usually nothing left for it to change.
 
 ### SonarQube
 

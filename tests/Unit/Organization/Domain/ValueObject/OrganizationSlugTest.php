@@ -9,6 +9,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Domain\Exception\InvalidValueException;
 
+use function mb_strlen;
+use function str_repeat;
+
 /**
  * Test OrganizationSlug.
  *
@@ -57,6 +60,16 @@ final class OrganizationSlugTest extends TestCase
     $slug = OrganizationSlug::fromName('!!!');
 
     self::assertSame('organization', (string) $slug);
+  }
+
+  #[Test]
+  public function testFromNameTruncatesAnOverlongName(): void
+  {
+    $slug = OrganizationSlug::fromName(str_repeat('fireguard ', 40));
+
+    self::assertLessThanOrEqual(120, mb_strlen((string) $slug));
+    self::assertStringStartsWith('fireguard-fireguard', (string) $slug);
+    self::assertStringEndsNotWith('-', (string) $slug);
   }
 
   #[Test]

@@ -11,6 +11,7 @@ use DateTimeImmutable;
 use Maintenance\Application\Contract\Schedule\{MaintenanceSchedulePage, MaintenanceScheduleView};
 use Maintenance\Application\UseCase\Query\Schedule\GetMaintenanceSchedule\{GetMaintenanceScheduleQuery, GetMaintenanceScheduleResult};
 use Maintenance\Application\UseCase\Query\Schedule\ListMaintenanceSchedules\{ListMaintenanceSchedulesQuery, ListMaintenanceSchedulesResult};
+use Maintenance\Domain\Exception\{MaintenanceNotFoundException, MaintenanceValidationException};
 use Maintenance\Presentation\Api\Dto\Output\MaintenanceScheduleOutput;
 use Maintenance\Presentation\Api\Factory\MaintenanceScheduleOutputFactory;
 use Maintenance\Presentation\Api\Provider\MaintenanceScheduleProvider;
@@ -20,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test MaintenanceScheduleProviderTest.
@@ -95,6 +96,94 @@ final class MaintenanceScheduleProviderTest extends TestCase
     $result = $provider->provide(new GetCollection(), []);
 
     self::assertInstanceOf(TraversablePaginator::class, $result);
+  }
+
+  #[Test]
+  public function testProvideMapsAnItemQueryFailure(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new MaintenanceNotFoundException('Schedule not found.'));
+
+    $provider = new MaintenanceScheduleProvider($queryBus, new MaintenanceScheduleOutputFactory(), $this->security(), new RequestStack());
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Schedule not found.');
+
+    $provider->provide(new Get(), ['id' => self::SCHEDULE_ID]);
+  }
+
+  #[Test]
+  public function testProvideAcceptsADueBeforeFilter(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/maintenance/schedules?organization=' . self::ORG_ID . '&dueBefore=2026-04-01T00:00:00%2B00:00'));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static fn (ListMaintenanceSchedulesQuery $query): bool => $query->dueBefore instanceof DateTimeImmutable
+        && '2026-04-01' === $query->dueBefore->format('Y-m-d')))
+      ->willReturn(new ListMaintenanceSchedulesResult(new MaintenanceSchedulePage([], 1, 30, 0)));
+
+    $provider = new MaintenanceScheduleProvider($queryBus, new MaintenanceScheduleOutputFactory(), $this->security(), $requestStack);
+
+    self::assertInstanceOf(TraversablePaginator::class, $provider->provide(new GetCollection(), []));
+  }
+
+  #[Test]
+  public function testProvideRejectsAnUnparsableDueBeforeFilter(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/maintenance/schedules?organization=' . self::ORG_ID . '&dueBefore=not-a-date'));
+
+    $provider = new MaintenanceScheduleProvider(
+      $this->createStub(QueryBusPort::class),
+      new MaintenanceScheduleOutputFactory(),
+      $this->security(),
+      $requestStack,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid "dueBefore" filter.');
+
+    $provider->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideMapsACollectionQueryFailure(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/maintenance/schedules?organization=' . self::ORG_ID));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new MaintenanceValidationException('Unknown due status.'));
+
+    $provider = new MaintenanceScheduleProvider($queryBus, new MaintenanceScheduleOutputFactory(), $this->security(), $requestStack);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Unknown due status.');
+
+    $provider->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideRequiresAnAuthenticatedUser(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new MaintenanceScheduleProvider(
+      $this->createStub(QueryBusPort::class),
+      new MaintenanceScheduleOutputFactory(),
+      $security,
+      new RequestStack(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $provider->provide(new GetCollection(), []);
   }
 
   private function security(): Security

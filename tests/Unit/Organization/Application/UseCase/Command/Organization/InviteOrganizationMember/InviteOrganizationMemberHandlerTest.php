@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\InviteOrganizationMember;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
@@ -12,19 +13,36 @@ use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort
 use Organization\Application\Service\{OrganizationInvitationNotifier, OrganizationInvitationTokenHasher};
 use Organization\Application\UseCase\Command\Organization\InviteOrganizationMember\{InviteOrganizationMemberCommand, InviteOrganizationMemberHandler, InviteOrganizationMemberResult};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
-use Organization\Domain\Exception\OrganizationQuotaExceededException;
+use Organization\Domain\Exception\{
+  OrganizationNotFoundException,
+  OrganizationQuotaExceededException,
+  OrganizationRoleNotFoundException
+};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationName, OrganizationQuotaResource, OrganizationRoleId, OrganizationRoleName};
+use Organization\Domain\ValueObject\{
+  OrganizationId,
+  OrganizationInvitationId,
+  OrganizationMemberId,
+  OrganizationName,
+  OrganizationQuotaResource,
+  OrganizationRoleId,
+  OrganizationRoleName
+};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
+use Shared\Domain\ValueObject\Email;
+use Tests\Helper\TestEventIdProvider;
 use Tests\Support\Factory\EmailTranslatorTestFactory;
 use User\Application\Port\Outbound\UserRepositoryPort;
+use User\Domain\Model\User\User;
+use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
 use function array_key_exists;
 use function is_array;
@@ -34,6 +52,16 @@ use function str_contains;
 #[CoversClass(InviteOrganizationMemberHandler::class)]
 final class InviteOrganizationMemberHandlerTest extends TestCase
 {
+  private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441940';
+
+  private const string INVITATION_ID = '550e8400-e29b-41d4-a716-446655441941';
+
+  private const string INVITER_USER_ID = '550e8400-e29b-41d4-a716-446655441943';
+
+  private const string EXISTING_USER_ID = '550e8400-e29b-41d4-a716-446655441944';
+
+  private const string MEMBER_ID = '550e8400-e29b-41d4-a716-446655441945';
+
   #[Test]
   public function testInvokeCreatesInvitationAndSendsNotification(): void
   {
@@ -634,5 +662,251 @@ final class InviteOrganizationMemberHandlerTest extends TestCase
       invitedByUserId: $inviterUserId,
       roleIds: [],
     ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenOrganizationDoesNotExist(): void
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn(null);
+
+    $handler = $this->makeHandler(organizationRepository: $organizationRepository);
+
+    $this->expectException(OrganizationNotFoundException::class);
+
+    $handler->__invoke(new InviteOrganizationMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      email: 'member@example.com',
+      invitedByUserId: self::INVITER_USER_ID,
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenEmailIsMalformed(): void
+  {
+    $handler = $this->makeHandler(organizationRepository: $this->organizationRepositoryStub());
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid email address.');
+
+    $handler->__invoke(new InviteOrganizationMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      email: 'not-an-email',
+      invitedByUserId: self::INVITER_USER_ID,
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenALivePendingInvitationAlreadyExists(): void
+  {
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())
+      ->method('findPendingByOrganizationAndEmail')
+      ->willReturn($this->pendingInvitation(new DateTimeImmutable('+3 days')));
+    $invitationRepository->expects(self::never())->method('save');
+
+    $handler = $this->makeHandler(
+      organizationRepository: $this->organizationRepositoryStub(),
+      invitationRepository: $invitationRepository,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('A pending invitation already exists for this email.');
+
+    $handler->__invoke(new InviteOrganizationMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      email: 'member@example.com',
+      invitedByUserId: self::INVITER_USER_ID,
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeExpiresAStalePendingInvitationBeforeContinuing(): void
+  {
+    $stale = $this->pendingInvitation(new DateTimeImmutable('-1 day'));
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->expects(self::once())
+      ->method('findPendingByOrganizationAndEmail')
+      ->willReturn($stale);
+    $invitationRepository->expects(self::once())
+      ->method('save')
+      ->with(self::callback(static fn (OrganizationInvitation $invitation): bool => 'expired' === $invitation->status()->value));
+
+    // No default "member" role exists, so the use case stops right after the
+    // stale invitation has been expired and persisted.
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByOrganizationAndName')
+      ->willReturn(null);
+
+    $handler = $this->makeHandler(
+      organizationRepository: $this->organizationRepositoryStub(),
+      roleRepository: $roleRepository,
+      invitationRepository: $invitationRepository,
+    );
+
+    $this->expectException(OrganizationRoleNotFoundException::class);
+
+    $handler->__invoke(new InviteOrganizationMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      email: 'member@example.com',
+      invitedByUserId: self::INVITER_USER_ID,
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTheInviteeIsAlreadyAnActiveMember(): void
+  {
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findByEmail')->willReturn($this->existingUser());
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('findByOrganizationAndUser')
+      ->willReturn(OrganizationMember::reconstitute(
+        id: new OrganizationMemberId(self::MEMBER_ID),
+        organizationId: new OrganizationId(self::ORGANIZATION_ID),
+        userId: self::EXISTING_USER_ID,
+        isActive: true,
+        joinedAt: new DateTimeImmutable('-1 day'),
+      ));
+
+    $handler = $this->makeHandler(
+      organizationRepository: $this->organizationRepositoryStub(),
+      memberRepository: $memberRepository,
+      userRepository: $userRepository,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('User is already an active member of this organization.');
+
+    $handler->__invoke(new InviteOrganizationMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      email: 'member@example.com',
+      invitedByUserId: self::INVITER_USER_ID,
+      roleIds: [],
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenARequestedRoleDoesNotBelongToTheOrganization(): void
+  {
+    $roleId = '550e8400-e29b-41d4-a716-446655441942';
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findByEmail')->willReturn($this->existingUser());
+
+    // A deactivated membership must not block a fresh invitation.
+    $memberRepository = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findByOrganizationAndUser')->willReturn(OrganizationMember::reconstitute(
+      id: new OrganizationMemberId(self::MEMBER_ID),
+      organizationId: new OrganizationId(self::ORGANIZATION_ID),
+      userId: self::EXISTING_USER_ID,
+      isActive: false,
+      joinedAt: new DateTimeImmutable('-1 day'),
+    ));
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findByOrganizationAndName');
+    $roleRepository->expects(self::once())
+      ->method('findByIdsInOrganization')
+      ->willReturn([]);
+
+    $handler = $this->makeHandler(
+      organizationRepository: $this->organizationRepositoryStub(),
+      roleRepository: $roleRepository,
+      memberRepository: $memberRepository,
+      userRepository: $userRepository,
+    );
+
+    $this->expectException(OrganizationRoleNotFoundException::class);
+
+    $handler->__invoke(new InviteOrganizationMemberCommand(
+      organizationId: self::ORGANIZATION_ID,
+      email: 'member@example.com',
+      invitedByUserId: self::INVITER_USER_ID,
+      roleIds: [$roleId, $roleId],
+    ));
+  }
+
+  private function organizationRepositoryStub(): OrganizationRepositoryPort
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn(Organization::reconstitute(
+      id: new OrganizationId(self::ORGANIZATION_ID),
+      name: new OrganizationName('Fireguard HQ'),
+      createdByUserId: self::INVITER_USER_ID,
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    ));
+
+    return $organizationRepository;
+  }
+
+  private function pendingInvitation(DateTimeImmutable $expiresAt): OrganizationInvitation
+  {
+    return OrganizationInvitation::create(
+      id: new OrganizationInvitationId(self::INVITATION_ID),
+      organizationId: new OrganizationId(self::ORGANIZATION_ID),
+      email: new Email('member@example.com'),
+      tokenHash: 'token-hash',
+      invitedByUserId: self::INVITER_USER_ID,
+      expiresAt: $expiresAt,
+    );
+  }
+
+  private function existingUser(): User
+  {
+    return User::register(
+      id: new UserId(self::EXISTING_USER_ID),
+      username: new Username('jdoe'),
+      email: new Email('member@example.com'),
+      password: HashedPassword::fromPlain('Str0ng!Passw0rd'),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+  }
+
+  private function makeHandler(
+    ?OrganizationRepositoryPort $organizationRepository = null,
+    ?OrganizationRoleRepositoryPort $roleRepository = null,
+    ?OrganizationMemberRepositoryPort $memberRepository = null,
+    ?OrganizationInvitationRepositoryPort $invitationRepository = null,
+    ?UserRepositoryPort $userRepository = null,
+  ): InviteOrganizationMemberHandler {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')
+      ->willReturnCallback(static fn (callable $operation): mixed => $operation());
+
+    $invitationNotifier = new OrganizationInvitationNotifier(
+      $this->createStub(NotificationPort::class),
+      'http://localhost:4200',
+      new OrganizationInvitationTokenHasher(),
+      EmailTranslatorTestFactory::create(),
+    );
+
+    return new InviteOrganizationMemberHandler(
+      organizationRepository: $organizationRepository ?? $this->createStub(OrganizationRepositoryPort::class),
+      roleRepository: $roleRepository ?? $this->createStub(OrganizationRoleRepositoryPort::class),
+      memberRepository: $memberRepository ?? $this->createStub(OrganizationMemberRepositoryPort::class),
+      invitationRepository: $invitationRepository ?? $this->createStub(OrganizationInvitationRepositoryPort::class),
+      userRepository: $userRepository ?? $this->createStub(UserRepositoryPort::class),
+      invitationNotifier: $invitationNotifier,
+      logger: $this->createStub(LoggerPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+      transactionManager: $transactionManager,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
   }
 }

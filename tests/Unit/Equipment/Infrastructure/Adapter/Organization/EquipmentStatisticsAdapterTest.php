@@ -17,6 +17,49 @@ final class EquipmentStatisticsAdapterTest extends TestCase
   private const string ORG_ID = '550e8400-e29b-41d4-a716-446655440001';
 
   #[Test]
+  public function testCountEquipmentDelegatesToTheRepository(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByOrganizationId')
+      ->willReturnCallback(static function (
+        EquipmentOrganizationId $organizationId,
+        ?string $facilityId = null,
+        ?string $type = null,
+        ?string $status = null,
+      ): int {
+        self::assertSame(self::ORG_ID, (string) $organizationId);
+        self::assertNull($facilityId);
+        self::assertSame('fire_extinguisher', $type);
+        self::assertSame('operational', $status);
+
+        return 7;
+      });
+
+    $adapter = new EquipmentStatisticsAdapter($repository);
+
+    self::assertSame(7, $adapter->countEquipment(self::ORG_ID, 'fire_extinguisher', 'operational'));
+  }
+
+  #[Test]
+  public function testCountEquipmentCreatedByDayDelegatesToTheRepository(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('countByCreatedDayForOrganizationId')
+      ->willReturn(['2026-01-01' => 3]);
+
+    $adapter = new EquipmentStatisticsAdapter($repository);
+
+    self::assertSame(
+      ['2026-01-01' => 3],
+      $adapter->countEquipmentCreatedByDay(self::ORG_ID, '2026-01-01', '2026-01-31', 'UTC', 'fire_extinguisher', 'operational'),
+    );
+  }
+
+  #[Test]
   public function testCountActiveEquipmentExcludesDecommissioned(): void
   {
     /** @var EquipmentRepositoryPort&MockObject $repository */

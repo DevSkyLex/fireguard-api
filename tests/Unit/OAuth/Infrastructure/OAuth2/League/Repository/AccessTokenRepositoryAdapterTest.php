@@ -107,6 +107,50 @@ final class AccessTokenRepositoryAdapterTest extends TestCase
 
     self::assertFalse($adapter->isAccessTokenRevoked('token-123'));
   }
+
+  #[Test]
+  public function testRevokeAccessTokenRevokesAndSavesAnExistingToken(): void
+  {
+    $token = new DomainAccessToken(
+      identifier: 'token-123',
+      clientIdentifier: new OAuthClientIdentifier('client-123'),
+      expiry: new DateTimeImmutable('+1 hour'),
+      scopes: Scopes::fromArray(['OPENID']),
+      userIdentifier: null,
+      isRevoked: false,
+    );
+
+    $repository = $this->createMock(AccessTokenRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('find')
+      ->with('token-123')
+      ->willReturn($token);
+    $repository->expects(self::once())
+      ->method('save')
+      ->with($token);
+
+    $adapter = new AccessTokenRepositoryAdapter(accessTokenRepository: $repository);
+
+    $adapter->revokeAccessToken('token-123');
+
+    self::assertTrue($token->isRevoked());
+  }
+
+  #[Test]
+  public function testIsAccessTokenRevokedTreatsAnUnknownTokenAsRevoked(): void
+  {
+    $repository = $this->createMock(AccessTokenRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('find')
+      ->with('missing-token')
+      ->willReturn(null);
+
+    $adapter = new AccessTokenRepositoryAdapter(accessTokenRepository: $repository);
+
+    // An unknown identifier must fail closed — treating it as *not* revoked
+    // would let a deleted token keep authorizing requests.
+    self::assertTrue($adapter->isAccessTokenRevoked('missing-token'));
+  }
   // #endregion
 }
 

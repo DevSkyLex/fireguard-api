@@ -95,6 +95,9 @@ final readonly class MessagingLinkRepository implements MessagingLinkRepositoryP
     /** @var list<MessagingMessageLinkRecord> $records */
     $records = $qb
       ->orderBy('l.createdAt', 'DESC')
+      // Unique tiebreaker: without it rows tied on the sort above are ordered
+      // arbitrarily, and LIMIT/OFFSET then repeats some across pages.
+      ->addOrderBy('l.id', 'ASC')
       ->setFirstResult(($page - 1) * $itemsPerPage)
       ->setMaxResults($itemsPerPage)
       ->getQuery()

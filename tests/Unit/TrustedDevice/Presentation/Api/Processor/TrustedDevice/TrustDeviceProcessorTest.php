@@ -14,6 +14,7 @@ use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Security\Core\User\UserInterface;
 use TrustedDevice\Application\UseCase\Command\TrustedDevice\TrustDevice\{TrustDeviceCommand, TrustDeviceResult};
 use TrustedDevice\Presentation\Api\Dto\Output\TrustedDevice\TrustDeviceOutput;
 use TrustedDevice\Presentation\Api\EventSubscriber\TrustedDeviceCookieListener;
@@ -173,6 +174,41 @@ final class TrustDeviceProcessorTest extends TestCase
     );
 
     $this->expectException(BadRequestHttpException::class);
+    $processor->process(
+      data: null,
+      operation: new Post(),
+      uriVariables: [],
+      context: [],
+    );
+  }
+
+  /**
+   * Method testProcessThrowsBadRequestWhenUserTypeIsUnsupported.
+   *
+   * Test that process rejects an authenticated principal that is not a
+   * SecurityUser (e.g. a client-credentials token holder).
+   */
+  #[Test]
+  public function testProcessThrowsBadRequestWhenUserTypeIsUnsupported(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createStub(UserInterface::class));
+
+    $processor = new TrustDeviceProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      security: $security,
+      requestStack: $requestStack,
+      cookieService: $this->createStub(TrustedDeviceCookieService::class),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Authenticated user type is not supported.');
+
     $processor->process(
       data: null,
       operation: new Post(),

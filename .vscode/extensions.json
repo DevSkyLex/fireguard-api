@@ -1,0 +1,8 @@
+{
+    // Prompted on first open. `php-cs-fixer` is the one that matters: without
+    // it the format-on-save settings in settings.json do nothing.
+    "recommendations": [
+        "junstyle.php-cs-fixer",
+        "editorconfig.editorconfig"
+    ]
+}

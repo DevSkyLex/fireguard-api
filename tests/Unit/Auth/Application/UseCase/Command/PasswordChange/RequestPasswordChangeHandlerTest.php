@@ -122,6 +122,42 @@ final class RequestPasswordChangeHandlerTest extends TestCase
     self::assertSame($expiresAt, $result->expiresAt);
     self::assertSame(5, $result->maxAttempts);
   }
+
+  #[Test]
+  public function testFailsWhenAccountCannotLogin(): void
+  {
+    $user = User::register(
+      id: new UserId(self::USER_ID),
+      username: new Username('jdoe'),
+      email: new Email('jdoe@example.com'),
+      password: HashedPassword::fromPlain(self::CURRENT_PASSWORD),
+      profile: new UserProfile('John', 'Doe'),
+      eventIdProvider: new TestEventIdProvider(),
+    );
+
+    /** @var UserRepositoryPort&MockObject $repo */
+    $repo = $this->createMock(UserRepositoryPort::class);
+    $repo->method('findById')->willReturn($user);
+    $repo->expects(self::never())->method('save');
+
+    /** @var OtpChallengePort&MockObject $otp */
+    $otp = $this->createMock(OtpChallengePort::class);
+    $otp->expects(self::never())->method('generate');
+
+    $handler = new RequestPasswordChangeHandler(
+      userRepository: $repo,
+      otpChallenge: $otp,
+    );
+
+    $result = $handler(new RequestPasswordChangeCommand(
+      userId: self::USER_ID,
+      currentPassword: self::CURRENT_PASSWORD,
+    ));
+
+    self::assertFalse($result->success);
+    self::assertSame(RequestPasswordChangeResult::ERROR_USER_NOT_FOUND, $result->errorCode);
+    self::assertSame('This account cannot change its password in its current state.', $result->message);
+  }
   // #endregion
 
   // #region Helpers

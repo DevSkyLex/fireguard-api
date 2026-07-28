@@ -8,11 +8,17 @@ use Approval\Application\Contract\Policy\ApprovalPolicy;
 use Approval\Application\Port\Outbound\{ApprovalMemberDirectoryPort, ApprovalPolicyPort, ApprovalRequestRepositoryPort};
 use Approval\Application\UseCase\Command\Decision\RejectApprovalRequest\{RejectApprovalRequestCommand, RejectApprovalRequestHandler};
 use Approval\Domain\Event\Request\ApprovalRejectedEvent;
-use Approval\Domain\Exception\{ApprovalRequestNotFoundException, SelfApprovalNotAllowedException};
+use Approval\Domain\Exception\{
+  ApprovalRequestNotFoundException,
+  ApprovalRequestNotPendingException,
+  ApproverNotAuthorizedException,
+  SelfApprovalNotAllowedException
+};
 use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -68,6 +74,65 @@ final class RejectApprovalRequestHandlerTest extends TestCase
 
     $this->handler($requests, $memberDirectory, $policy)(
       new RejectApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::REQUESTER_MEMBER_ID),
+    );
+  }
+
+  #[Test]
+  public function testInvokeThrowsAccessDeniedWhenActorIsNotAnOrganizationMember(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(null);
+
+    $this->expectException(OrganizationAccessDeniedException::class);
+
+    $this->handler($requests, $memberDirectory)(
+      new RejectApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::APPROVER_MEMBER_ID),
+    );
+  }
+
+  #[Test]
+  public function testInvokeThrowsApproverNotAuthorizedWhenBelowMinimumRole(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(self::APPROVER_MEMBER_ID);
+    $memberDirectory->method('memberSatisfiesRole')->willReturn(false);
+
+    $policy = $this->createStub(ApprovalPolicyPort::class);
+    $policy->method('policyFor')->willReturn(self::policy());
+
+    $this->expectException(ApproverNotAuthorizedException::class);
+
+    $this->handler($requests, $memberDirectory, $policy)(
+      new RejectApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::APPROVER_MEMBER_ID),
+    );
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotPendingOnSecondRejection(): void
+  {
+    $request = $this->pendingRequest();
+    $request->reject(self::APPROVER_MEMBER_ID, 'approver-user', null, new DateTimeImmutable());
+
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($request);
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(self::APPROVER_MEMBER_ID);
+    $memberDirectory->method('memberSatisfiesRole')->willReturn(true);
+
+    $policy = $this->createStub(ApprovalPolicyPort::class);
+    $policy->method('policyFor')->willReturn(self::policy());
+
+    $this->expectException(ApprovalRequestNotPendingException::class);
+
+    $this->handler($requests, $memberDirectory, $policy)(
+      new RejectApprovalRequestCommand(self::ORG_ID, self::REQUEST_ID, self::APPROVER_MEMBER_ID),
     );
   }
 

@@ -106,6 +106,9 @@ final readonly class MaintenanceLogRepository implements MaintenanceLogRepositor
       ->setParameter('equipment', $equipment)
       ->setParameter('organizationId', (string) $organizationId)
       ->orderBy('m.startedAt', 'DESC')
+      // Unique tiebreaker: without it rows tied on the sort above are ordered
+      // arbitrarily, and LIMIT/OFFSET then repeats some across pages.
+      ->addOrderBy('m.id', 'ASC')
       ->setFirstResult($offset)
       ->setMaxResults($limit);
 

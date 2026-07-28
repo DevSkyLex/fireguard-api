@@ -87,3 +87,15 @@ services:
 
   Billing\Application\UseCase\Query\GetOrganizationPaymentMethod\GetOrganizationPaymentMethodHandler:
     tags: ['messenger.message_handler']
+
+# The hermetic test suite never sets STRIPE_SECRET_KEY (see .env.test), and
+# the real StripeClient rejects an empty key at construction time — so any
+# Billing handler autowiring StripeGatewayPort would 500 before its own logic
+# ever runs. Swap in the in-memory adapter for `test` only; every other
+# environment keeps the real Stripe integration.
+when@test:
+  services:
+    Billing\Infrastructure\Adapter\Stripe\FakeStripeGatewayAdapter: ~
+
+    Billing\Application\Port\Outbound\StripeGatewayPort:
+      alias: Billing\Infrastructure\Adapter\Stripe\FakeStripeGatewayAdapter

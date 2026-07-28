@@ -73,6 +73,19 @@ final class UnsaveMessageProcessorTest extends TestCase
     $processor->process(null, new Delete(), ['id' => self::MESSAGE_ID]);
   }
 
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new UnsaveMessageProcessor($this->createStub(CommandBusPort::class), $security);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Delete(), []);
+  }
+
   private function securityWithUser(): Security
   {
     $security = $this->createStub(Security::class);

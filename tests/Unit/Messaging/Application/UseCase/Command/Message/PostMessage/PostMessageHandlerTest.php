@@ -10,8 +10,9 @@ use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingLinkRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\PostMessage\{PostMessageCommand, PostMessageHandler};
-use Messaging\Domain\Exception\MessagingValidationException;
+use Messaging\Domain\Exception\{MessagingClientMessageAlreadyExistsException, MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Conversation\Conversation;
+use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\{MentionExtractor, UrlExtractor};
 use Messaging\Domain\ValueObject\{ConversationId, ConversationVisibility, MessageId, MessagingSubjectType};
 use Notification\Application\Port\Inbound\NotificationPort;
@@ -265,6 +266,145 @@ final class PostMessageHandlerTest extends TestCase
     $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello', references: $references));
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheConversationIsNotFound(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn(null);
+
+    $handler = $this->handler(
+      $conversations,
+      $this->createStub(MessagingMessageRepositoryPort::class),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $this->createStub(MessagingMemberDirectoryPort::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello'));
+  }
+
+  #[Test]
+  public function testInvokeGatesAChannelPostOnParticipationAndFansOutTheChannelNotification(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation(visibility: ConversationVisibility::PARTICIPANTS));
+
+    $view = $this->messageView('Hello channel', []);
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('append')->willReturn($view);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+    $members->method('memberIsActive')->willReturn(true);
+    $members->method('resolveUserIdForMember')->willReturn('other-user-1');
+
+    /** @var MessagingParticipantRepositoryPort&MockObject $participants */
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(true);
+    $participants->expects(self::once())
+      ->method('listMemberIds')
+      ->with(self::CONVERSATION_ID)
+      ->willReturn([self::AUTHOR_MEMBER_ID, self::MENTIONED_MEMBER_ID]);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+      participants: $participants,
+    );
+
+    $result = $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello channel'));
+
+    self::assertSame('Hello channel', $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeRefusesAMalformedClientMessageId(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $handler = $this->handler(
+      $conversations,
+      $this->createStub(MessagingMessageRepositoryPort::class),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+    );
+
+    $this->expectException(MessagingValidationException::class);
+    $this->expectExceptionMessage('The client message identifier must be a valid UUID.');
+
+    $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello', clientId: 'not-a-uuid'));
+  }
+
+  #[Test]
+  public function testInvokeMintsTheMessageWithAFreshClientMessageId(): void
+  {
+    $clientId = '550e8400-e29b-41d4-a716-446655440077';
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $view = $this->messageView('Hello team', []);
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn(null);
+    $messages->expects(self::once())
+      ->method('append')
+      ->with(self::callback(static fn (Message $message): bool => $clientId === (string) $message->id()))
+      ->willReturn($view);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+    );
+
+    $result = $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello team', clientId: $clientId));
+
+    self::assertSame('Hello team', $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeRefusesAReplayedClientMessageId(): void
+  {
+    $clientId = '550e8400-e29b-41d4-a716-446655440077';
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $messages = $this->createMock(MessagingMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($this->messageView('Already posted', []));
+    $messages->expects(self::never())->method('append');
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+    );
+
+    $this->expectException(MessagingClientMessageAlreadyExistsException::class);
+
+    $handler->__invoke(new PostMessageCommand(self::USER_ID, self::CONVERSATION_ID, 'Hello', clientId: $clientId));
+  }
+
   private function handler(
     MessagingConversationRepositoryPort $conversations,
     MessagingMessageRepositoryPort $messages,
@@ -324,7 +464,7 @@ final class PostMessageHandlerTest extends TestCase
     return $resolver;
   }
 
-  private function conversation(bool $archived = false): Conversation
+  private function conversation(bool $archived = false, ConversationVisibility $visibility = ConversationVisibility::SUBJECT): Conversation
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
@@ -333,7 +473,7 @@ final class PostMessageHandlerTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       'facility-1',
-      ConversationVisibility::SUBJECT,
+      $visibility,
       null,
       0,
       $archived,

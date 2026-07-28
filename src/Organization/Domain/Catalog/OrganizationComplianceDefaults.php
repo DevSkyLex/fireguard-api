@@ -72,6 +72,9 @@ final class OrganizationComplianceDefaults
    * Private to prevent instantiation: this catalog only exposes constants.
    *
    * @since 1.0.0
+   *
+   * @codeCoverageIgnore Never executed: the constructor exists only to
+   * forbid instantiation of this static catalogue.
    */
   private function __construct()
   {

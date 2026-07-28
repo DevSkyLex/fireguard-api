@@ -110,6 +110,75 @@ final class UpdateInterventionTemplateHandlerTest extends TestCase
     self::assertSame($updated, $result->template);
   }
 
+  #[Test]
+  public function itValidatesEveryPatchedFieldAndLeavesAbsentOnesNull(): void
+  {
+    $updated = self::view();
+    $templates = $this->createMock(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn(self::view());
+    $templates->expects(self::once())
+      ->method('update')
+      ->willReturnCallback(static function (
+        string $id,
+        ?string $name = null,
+        ?string $description = null,
+        ?string $type = null,
+        ?string $priority = null,
+        ?string $defaultSiteId = null,
+        ?string $defaultResponsibleId = null,
+        ?string $duration = null,
+        ?array $labelIds = null,
+        ?array $items = null,
+      ) use ($updated): InterventionTemplateView {
+        self::assertSame(self::TEMPLATE_ID, $id);
+        self::assertNull($name);
+        self::assertSame('inspection_campaign', $type);
+        self::assertSame('high', $priority);
+        self::assertSame('PT2H', $duration);
+        self::assertSame([[
+          'action' => 'Check extinguisher',
+          'target' => null,
+          'resultResource' => null,
+          'required' => true,
+          'defaultAssigneeId' => null,
+        ]], $items);
+
+        return $updated;
+      });
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $result = new UpdateInterventionTemplateHandler($templates, $authorization)(
+      new UpdateInterventionTemplateCommand(
+        userId: self::USER_ID,
+        templateId: self::TEMPLATE_ID,
+        name: null,
+        description: null,
+        type: 'inspection_campaign',
+        priority: 'high',
+        defaultSiteId: null,
+        defaultResponsibleId: null,
+        duration: 'PT2H',
+        labelIds: null,
+        items: [[
+          'action' => '  Check extinguisher  ',
+          'target' => null,
+          'resultResource' => null,
+          'required' => true,
+          'defaultAssigneeId' => null,
+        ]],
+        hasName: false,
+        hasType: true,
+        hasPriority: true,
+        hasDuration: true,
+        hasItems: true,
+      ),
+    );
+
+    self::assertSame($updated, $result->template);
+  }
+
   private static function command(): UpdateInterventionTemplateCommand
   {
     return new UpdateInterventionTemplateCommand(

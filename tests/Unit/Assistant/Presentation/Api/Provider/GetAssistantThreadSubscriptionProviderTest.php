@@ -7,6 +7,7 @@ namespace Tests\Unit\Assistant\Presentation\Api\Provider;
 use ApiPlatform\Metadata\Get;
 use Assistant\Application\Contract\Thread\AssistantThreadView;
 use Assistant\Application\UseCase\Query\Thread\GetAssistantThread\{GetAssistantThreadQuery, GetAssistantThreadResult};
+use Assistant\Domain\Exception\AssistantThreadNotFoundException;
 use Assistant\Presentation\Api\Dto\Output\AssistantThreadSubscriptionOutput;
 use Assistant\Presentation\Api\Provider\GetAssistantThreadSubscriptionProvider;
 use Auth\Infrastructure\Security\User\SecurityUser;
@@ -15,7 +16,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 
 /**
@@ -68,6 +69,33 @@ final class GetAssistantThreadSubscriptionProviderTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $provider->provide(new Get(), []);
+  }
+
+  #[Test]
+  public function testProvideMapsADomainFailureToAnHttpException(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      AssistantThreadNotFoundException::withId(self::THREAD_ID),
+    );
+
+    $provider = new GetAssistantThreadSubscriptionProvider(
+      $queryBus,
+      $security,
+      $this->createStub(TokenFactoryInterface::class),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new Get(), [
+      'organizationId' => self::ORGANIZATION_ID,
+      'threadId' => self::THREAD_ID,
+    ]);
   }
 
   #[Test]

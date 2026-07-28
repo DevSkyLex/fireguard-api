@@ -9,6 +9,7 @@ use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, MaintenanceLogId, MaintenanceLogSource};
 use Equipment\Infrastructure\Persistence\Doctrine\Mapper\MaintenanceLogMapper;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\{EquipmentMaintenanceLogRecord, EquipmentRecord};
+use LogicException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -130,5 +131,18 @@ final class MaintenanceLogMapperTest extends TestCase
     self::assertSame($record->workItemAction, $roundTripped->workItemAction);
     self::assertSame($record->actorId, $roundTripped->actorId);
     self::assertSame($record->summary, $roundTripped->summary);
+  }
+
+  #[Test]
+  public function testToDomainRefusesARecordWithoutAnEquipment(): void
+  {
+    $record = new EquipmentMaintenanceLogRecord();
+    $record->id = self::LOG_ID;
+    $record->equipment = null;
+
+    $this->expectException(LogicException::class);
+    $this->expectExceptionMessage('Maintenance log record must reference an equipment.');
+
+    MaintenanceLogMapper::toDomain($record);
   }
 }

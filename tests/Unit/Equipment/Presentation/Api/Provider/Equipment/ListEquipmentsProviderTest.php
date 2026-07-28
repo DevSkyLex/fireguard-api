@@ -11,22 +11,30 @@ use DateTimeImmutable;
 use Equipment\Application\UseCase\Query\Equipment\GetEquipment\GetEquipmentResult;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipments\ListEquipmentsQuery;
 use Equipment\Presentation\Api\Provider\Equipment\ListEquipmentsProvider;
+use InvalidArgumentException;
+use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\SortDirection;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 use function iterator_to_array;
 
 #[CoversClass(ListEquipmentsProvider::class)]
 final class ListEquipmentsProviderTest extends TestCase
 {
+  private const string ORG_ID = '550e8400-e29b-41d4-a716-446655441600';
+
   #[Test]
   public function testProvideReturnsEmptyListWhenNoEquipments(): void
   {
@@ -497,6 +505,70 @@ final class ListEquipmentsProviderTest extends TestCase
     $provider->provide(
       operation: new GetCollection(),
       uriVariables: ['organizationId' => $organizationId, 'facilityId' => $facilityId],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(new InvalidArgumentException('Invalid sort field.'))->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(
+      MessengerRuntimeException::wrap($this->handlerFailure(new InvalidArgumentException('Invalid sort field.'))),
+    )->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAMessengerFailureItCannotClassify(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->providerThrowing(
+      MessengerRuntimeException::wrap($this->handlerFailure(new LogicException('Unexpected handler failure.'))),
+    )->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  private function handlerFailure(Throwable $wrapped): HandlerFailedException
+  {
+    return new HandlerFailedException(
+      new Envelope(new ListEquipmentsQuery(organizationId: self::ORG_ID)),
+      [$wrapped],
+    );
+  }
+
+  private function providerThrowing(Throwable $exception): ListEquipmentsProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441601'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($exception);
+
+    return new ListEquipmentsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->buildRequestStack(),
     );
   }
 

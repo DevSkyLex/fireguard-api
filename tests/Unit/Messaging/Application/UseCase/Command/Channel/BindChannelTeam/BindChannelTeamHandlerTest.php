@@ -136,6 +136,29 @@ final class BindChannelTeamHandlerTest extends TestCase
     $handler->__invoke(new BindChannelTeamCommand(self::USER_ID, self::CHANNEL_ID, self::TEAM_ID));
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheSavedChannelCannotBeReadBack(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->channel());
+    $conversations->method('save')->willReturn($this->conversationView());
+    $conversations->method('findChannelById')->willReturn(null);
+    $conversations->method('findChannelIdsBoundToTeam')->willReturn([self::CHANNEL_ID]);
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('listMemberIds')->willReturn([]);
+
+    $teamDirectory = $this->createStub(TeamDirectoryPort::class);
+    $teamDirectory->method('resolveTeam')->willReturn(new TeamMembershipSnapshot(self::TEAM_ID, 'Field crew', ['member-1']));
+    $teamDirectory->method('listActiveMemberIds')->willReturn(['member-1']);
+
+    $handler = $this->handler($conversations, $participants, $teamDirectory, $this->createStub(EventDispatcherPort::class));
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new BindChannelTeamCommand(self::USER_ID, self::CHANNEL_ID, self::TEAM_ID));
+  }
+
   private function handler(
     MessagingConversationRepositoryPort $conversations,
     MessagingParticipantRepositoryPort $participants,

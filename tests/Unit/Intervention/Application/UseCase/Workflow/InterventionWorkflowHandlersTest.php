@@ -24,10 +24,10 @@ use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{
   ListInterventionWorkflowHandler,
   ListInterventionWorkflowQuery
 };
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
-use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 
 final class InterventionWorkflowHandlersTest extends TestCase
@@ -162,6 +162,250 @@ final class InterventionWorkflowHandlersTest extends TestCase
     );
 
     self::assertSame($page, $result->page);
+  }
+
+  #[Test]
+  public function itReportsAMissingWorkflowResourceAsNotFound(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('get')->with('change', 'change-1')->willReturn(null);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('hasPermission');
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    (new GetInterventionWorkflowHandler($repository, $authorization))(
+      new GetInterventionWorkflowQuery('user-1', 'change', 'change-1'),
+    );
+  }
+
+  #[Test]
+  public function itRefusesToReadAWorkflowViewWithoutTheReadPermission(): void
+  {
+    $view = new InterventionWorkflowView('intervention', 'organization-1', ['id' => 'intervention-1']);
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('get')->willReturn($view);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('hasPermission')->willReturn(false);
+
+    $this->expectException(InterventionAccessDeniedException::class);
+
+    (new GetInterventionWorkflowHandler($repository, $authorization))(
+      new GetInterventionWorkflowQuery('user-1', 'intervention', 'intervention-1'),
+    );
+  }
+
+  #[Test]
+  public function itReportsAMissingParentInterventionAsNotFoundWhenListingAChildCollection(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('interventionContext')->with('intervention-1')->willReturn(null);
+    $repository->expects(self::never())->method('list');
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    (new ListInterventionWorkflowHandler($repository, $this->createStub(OrganizationAuthorizationPort::class)))(
+      new ListInterventionWorkflowQuery('user-1', 'work_item', 'intervention-1', [], 1, 30),
+    );
+  }
+
+  #[Test]
+  public function itRefusesToListAWorkflowCollectionWithoutTheReadPermission(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::never())->method('interventionContext');
+    $repository->expects(self::never())->method('list');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('hasPermission')->willReturn(false);
+
+    $this->expectException(InterventionAccessDeniedException::class);
+
+    (new ListInterventionWorkflowHandler($repository, $authorization))(
+      new ListInterventionWorkflowQuery('user-1', 'intervention', 'organization-1', [], 1, 30),
+    );
+  }
+
+  #[Test]
+  public function itRejectsInterventionCreationWithoutAnOrganizationIdInThePayload(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::never())->method('hasPermission');
+
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+
+    $this->expectException(InterventionNotFoundException::class);
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: 'intervention',
+      action: 'create',
+      userId: 'user-1',
+      id: null,
+      payload: ['organizationId' => ''],
+    ));
+  }
+
+  #[Test]
+  public function itResolvesTheParentInterventionContextWhenCreatingAChildResource(): void
+  {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', 'draft', 'member-1');
+    $view = new InterventionWorkflowView('work_item', 'organization-1', ['id' => 'work-item-1']);
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('interventionContext')->with('intervention-1')->willReturn($context);
+    $repository->expects(self::never())->method('resourceContext');
+    $repository->expects(self::once())->method('mutate')->willReturn($view);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with('user-1', 'organization-1', 'organization.interventions.plan')
+      ->willReturn(true);
+
+    $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+      new MutateInterventionWorkflowCommand(
+        resource: 'work_item',
+        action: 'create',
+        userId: 'user-1',
+        id: null,
+        payload: ['interventionId' => 'intervention-1'],
+      ),
+    );
+
+    self::assertSame($view, $result->view);
+  }
+
+  #[Test]
+  public function itReportsAMissingParentInterventionIdAsNotFoundWhenCreatingAChildResource(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::never())->method('interventionContext');
+    $repository->expects(self::never())->method('mutate');
+
+    $handler = new MutateInterventionWorkflowHandler(
+      $repository,
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->memberPolicy(),
+    );
+
+    $this->expectException(InterventionNotFoundException::class);
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: 'work_item',
+      action: 'create',
+      userId: 'user-1',
+      id: null,
+      payload: [],
+    ));
+  }
+
+  #[Test]
+  public function itReportsAMissingResourceContextAsNotFoundWhenTheCommandCarriesNoIdentifier(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::never())->method('resourceContext');
+    $repository->expects(self::never())->method('mutate');
+
+    $handler = new MutateInterventionWorkflowHandler(
+      $repository,
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->memberPolicy(),
+    );
+
+    $this->expectException(InterventionNotFoundException::class);
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: 'change',
+      action: 'update',
+      userId: 'user-1',
+      id: null,
+      payload: [],
+    ));
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>, string, string}>
+   */
+  public static function interventionPermissionProvider(): iterable
+  {
+    yield 'planning a draft' => [['status' => 'planned'], 'draft', 'organization.interventions.plan'];
+    yield 'submitting for review' => [['status' => 'submitted'], 'planned', 'organization.interventions.execute'];
+    yield 'requesting changes' => [['status' => 'changes_requested'], 'submitted', 'organization.interventions.review'];
+    yield 'an unknown target status' => [['status' => 'archived'], 'planned', 'organization.interventions.plan'];
+    yield 'abandoning a draft' => [['status' => 'abandoned'], 'draft', 'organization.interventions.plan'];
+    yield 'abandoning a change request' => [['status' => 'abandoned'], 'changes_requested', 'organization.interventions.review'];
+    yield 'abandoning an in-progress intervention' => [['status' => 'abandoned'], 'in_progress', 'organization.interventions.execute'];
+    yield 'a non-status edit on a draft' => [['name' => 'Renamed'], 'draft', 'organization.interventions.plan'];
+    yield 'a non-status edit on a planned intervention' => [['name' => 'Renamed'], 'planned', 'organization.interventions.execute'];
+    yield 'a non-string status falls back to the lifecycle default' => [['status' => 42], 'planned', 'organization.interventions.execute'];
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   */
+  #[Test]
+  #[DataProvider('interventionPermissionProvider')]
+  public function itMapsAnInterventionMutationToThePermissionItsTargetStatusRequires(
+    array $payload,
+    string $currentStatus,
+    string $expectedPermission,
+  ): void {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', $currentStatus, 'member-1');
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->method('resourceContext')->willReturn($context);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with('user-1', 'organization-1', $expectedPermission)
+      ->willReturn(false);
+
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+
+    $this->expectException(InterventionAccessDeniedException::class);
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: 'intervention',
+      action: 'update',
+      userId: 'user-1',
+      id: 'intervention-1',
+      payload: $payload,
+    ));
+  }
+
+  /**
+   * @return iterable<string, array{string, string, string}>
+   */
+  public static function childResourcePermissionProvider(): iterable
+  {
+    yield 'a work item on a draft' => ['work_item', 'draft', 'organization.interventions.plan'];
+    yield 'a work item on a planned intervention' => ['work_item', 'planned', 'organization.interventions.execute'];
+    yield 'a change on a submitted intervention' => ['change', 'submitted', 'organization.interventions.review'];
+    yield 'a change on an in-progress intervention' => ['change', 'in_progress', 'organization.interventions.execute'];
+  }
+
+  #[Test]
+  #[DataProvider('childResourcePermissionProvider')]
+  public function itMapsAChildResourceMutationToThePermissionTheParentStatusRequires(
+    string $resource,
+    string $currentStatus,
+    string $expectedPermission,
+  ): void {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', $currentStatus, 'member-1');
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->method('resourceContext')->willReturn($context);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with('user-1', 'organization-1', $expectedPermission)
+      ->willReturn(false);
+
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+
+    $this->expectException(InterventionAccessDeniedException::class);
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: $resource,
+      action: 'update',
+      userId: 'user-1',
+      id: 'resource-1',
+      payload: [],
+    ));
   }
 
   private function memberPolicy(): InterventionMemberPolicy

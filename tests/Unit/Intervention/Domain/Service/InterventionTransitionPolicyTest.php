@@ -33,6 +33,14 @@ final class InterventionTransitionPolicyTest extends TestCase
   }
 
   #[Test]
+  public function itTreatsATransitionToTheSameStatusAsANoOp(): void
+  {
+    new InterventionTransitionPolicy()->assertAllowed(InterventionStatus::PUBLISHED, InterventionStatus::PUBLISHED);
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
   public function itKeepsPublishedInterventionsImmutable(): void
   {
     $this->expectException(InterventionConflictException::class);

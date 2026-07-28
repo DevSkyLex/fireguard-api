@@ -17,7 +17,11 @@ use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan
   ChangeOrganizationPlanResult
 };
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
-use Organization\Domain\Exception\{OrganizationPlanUsageExceededException, PlanNotFoundException};
+use Organization\Domain\Exception\{
+  OrganizationNotFoundException,
+  OrganizationPlanUsageExceededException,
+  PlanNotFoundException
+};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\Plan\Plan;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationQuotaResource, PlanId, PlanKey};
@@ -121,6 +125,36 @@ final class ChangeOrganizationPlanHandlerTest extends TestCase
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher,
     );
+
+    $handler->__invoke(new ChangeOrganizationPlanCommand(
+      organizationId: self::ORGANIZATION_ID,
+      planId: self::PLAN_ID,
+    ));
+  }
+
+  #[Test]
+  public function testThrowsWhenTheOrganizationDoesNotExist(): void
+  {
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn(null);
+    $organizationRepository->expects(self::never())->method('save');
+
+    /** @var PlanRepositoryPort&MockObject $planRepository */
+    $planRepository = $this->createMock(PlanRepositoryPort::class);
+    $planRepository->expects(self::never())->method('findById');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = $this->handler(
+      organizationRepository: $organizationRepository,
+      planRepository: $planRepository,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(OrganizationNotFoundException::class);
 
     $handler->__invoke(new ChangeOrganizationPlanCommand(
       organizationId: self::ORGANIZATION_ID,

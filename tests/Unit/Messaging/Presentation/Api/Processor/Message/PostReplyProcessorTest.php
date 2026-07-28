@@ -19,9 +19,10 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 
 /**
  * Test PostReplyProcessorTest.
@@ -119,6 +120,34 @@ final class PostReplyProcessorTest extends TestCase
     $this->expectException(UnprocessableEntityHttpException::class);
 
     $processor->process($input, new Post(), ['id' => self::PARENT_MESSAGE_ID]);
+  }
+
+  #[Test]
+  public function testProcessRejectsAnUnexpectedBody(): void
+  {
+    $processor = new PostReplyProcessor(
+      $this->createStub(CommandBusPort::class),
+      $this->outputFactory(),
+      $this->securityWithUser(),
+      $this->createStub(HtmlSanitizerInterface::class),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(new stdClass(), new Post(), ['id' => self::PARENT_MESSAGE_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new PostReplyProcessor($this->createStub(CommandBusPort::class), $this->outputFactory(), $security, $this->createStub(HtmlSanitizerInterface::class));
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(null, new Post(), []);
   }
 
   private function outputFactory(): MessageOutputFactory

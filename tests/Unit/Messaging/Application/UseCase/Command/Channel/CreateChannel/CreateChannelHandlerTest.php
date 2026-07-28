@@ -10,7 +10,7 @@ use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Channel\CreateChannel\{CreateChannelCommand, CreateChannelHandler};
-use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingValidationException};
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\ValueObject\ConversationId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
@@ -114,6 +114,25 @@ final class CreateChannelHandlerTest extends TestCase
     );
 
     $this->expectException(MessagingAccessDeniedException::class);
+
+    $handler->__invoke(new CreateChannelCommand(self::USER_ID, self::ORG_ID, 'General'));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTheCreatedChannelCannotBeReadBack(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('createChannel')->willReturn($this->conversationView());
+    $conversations->method('findChannelById')->willReturn(null);
+
+    $handler = $this->handler(
+      $conversations,
+      $this->createStub(MessagingParticipantRepositoryPort::class),
+      $this->createStub(MessagingReadMarkerRepositoryPort::class),
+      $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
 
     $handler->__invoke(new CreateChannelCommand(self::USER_ID, self::ORG_ID, 'General'));
   }

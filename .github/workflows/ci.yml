@@ -198,13 +198,20 @@ jobs:
   # ==========================================================================
   # End-to-End Flow Tests
   # ==========================================================================
-  # Manual opt-in only (workflow_dispatch + run_e2e) — too slow to gate every
-  # pull request on. Also skipped in the release/deploy preflight
-  # (workflow_call) to keep those fast.
+  # Gates every pull request. These 327 tests are the only ones that exercise
+  # the real HTTP flows end to end, and they were previously manual-opt-in only
+  # — so the suite that mattered most never ran on a PR.
+  #
+  # They are also the expensive ones: ~900s of cumulative test time, 84% of the
+  # whole suite, averaging 2.8s each. That is affordable as a gate only in
+  # parallel, hence paratest below rather than phpunit.
+  #
+  # Still skipped in the release/deploy preflight (workflow_call) to keep
+  # deploys fast — the code being deployed already passed this gate on its PR.
   tests-end-to-end:
     name: End-to-End Flow Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.run_e2e == true
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_e2e == true)
     env:
       APP_ENV: test
       APP_DEBUG: 0
@@ -237,10 +244,34 @@ jobs:
           auth-database-url: ${{ env.AUTH_DATABASE_URL }}
           main-database-url: ${{ env.MAIN_DATABASE_URL }}
 
-      - name: Run end-to-end flow tests with coverage
+      # This suite runs against its own seeded databases — see phpunit.e2e.xml.
+      # The other suites need those same tables empty, which is why the two
+      # halves cannot share a config.
+      - name: Create and seed the end-to-end databases
+        env:
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_e2e?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_e2e?serverVersion=16
         run: |
-          vendor/bin/phpunit \
-            --testsuite="E2E Tests" \
+          docker exec "${{ job.services.postgres.id }}" psql -U test -d postgres -c "CREATE DATABASE fireguard_auth_e2e;"
+          docker exec "${{ job.services.postgres.id }}" psql -U test -d postgres -c "CREATE DATABASE fireguard_main_e2e;"
+          php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/auth.yaml --no-interaction
+          php bin/console doctrine:migrations:migrate --env=test --configuration=config/migrations/main.yaml --no-interaction
+          php bin/console app:fixtures:load --env=test --no-interaction
+
+      # paratest, not phpunit: serially these took ~15 minutes, which is why they
+      # were opt-in. Each worker clones the seeded databases into its own copy
+      # (see tests/bootstrap.php), which the postgres service user is allowed to
+      # do because POSTGRES_USER is a superuser.
+      - name: Run end-to-end flow tests with coverage
+        env:
+          # Overrides the workflow-level URLs and phpunit.e2e.xml's local
+          # defaults: a real environment variable wins over both.
+          AUTH_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_auth_e2e?serverVersion=16
+          MAIN_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/fireguard_main_e2e?serverVersion=16
+        run: |
+          vendor/bin/paratest \
+            -c phpunit.e2e.xml \
+            --processes="$(nproc)" \
             --coverage-clover=var/coverage/e2e.xml \
             --coverage-text \
             --only-summary-for-coverage-text

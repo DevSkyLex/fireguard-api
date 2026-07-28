@@ -10,13 +10,14 @@ use Messaging\Application\Port\Outbound\{MessagingMemberDirectoryPort, Messaging
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Message\DeleteMessage\{DeleteMessageCommand, DeleteMessageHandler};
 use Messaging\Domain\Event\Message\MessagingMessageModeratedEvent;
-use Messaging\Domain\Exception\MessagingAccessDeniedException;
+use Messaging\Domain\Exception\{MessagingAccessDeniedException, MessagingNotFoundException};
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\ValueObject\MessageId;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
 
 /**
@@ -120,6 +121,62 @@ final class DeleteMessageHandlerTest extends TestCase
     $this->expectException(MessagingAccessDeniedException::class);
 
     $handler->__invoke(new DeleteMessageCommand('other-user-1', self::MESSAGE_ID));
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenTheMessageIsNotFound(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn(null);
+
+    $handler = new DeleteMessageHandler(
+      $messages,
+      new MessagingAccessPolicy(
+        $this->createStub(OrganizationAuthorizationPort::class),
+        $this->createStub(MessagingMemberDirectoryPort::class),
+        $this->createStub(MessagingParticipantRepositoryPort::class),
+      ),
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(EventDispatcherPort::class),
+      $this->createStub(LoggerPort::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new DeleteMessageCommand('user-1', self::MESSAGE_ID));
+  }
+
+  #[Test]
+  public function testInvokeNeverFailsWhenRealtimePublishThrows(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+    $messages->method('save')->willReturn($this->messageView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $realtime = $this->createStub(MessagingRealtimePublisherPort::class);
+    $realtime->method('publishMessage')->willThrowException(new RuntimeException('Mercure unavailable'));
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())->method('warning')->with('Messaging realtime publish failed.');
+
+    $handler = new DeleteMessageHandler(
+      $messages,
+      new MessagingAccessPolicy($authorization, $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+      $realtime,
+      $this->createStub(EventDispatcherPort::class),
+      $logger,
+    );
+
+    $result = $handler->__invoke(new DeleteMessageCommand('user-1', self::MESSAGE_ID));
+
+    self::assertSame(self::MESSAGE_ID, $result->message->id);
   }
 
   private function message(): Message

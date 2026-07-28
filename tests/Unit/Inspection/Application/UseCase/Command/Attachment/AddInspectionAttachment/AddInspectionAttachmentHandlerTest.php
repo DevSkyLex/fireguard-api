@@ -21,6 +21,7 @@ use Inspection\Domain\ValueObject\{
   NonConformityInspectionId,
   NonConformitySeverity
 };
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -256,6 +257,78 @@ final class AddInspectionAttachmentHandlerTest extends TestCase
       mimeType: 'application/pdf',
       size: 100,
     ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentOnAMalformedInspectionId(): void
+  {
+    $handler = new AddInspectionAttachmentHandler(
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new AddInspectionAttachmentCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: 'not-a-uuid',
+      fileName: 'report.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 100,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeHonoursAClientSuppliedAttachmentId(): void
+  {
+    $clientAttachmentId = '550e8400-e29b-41d4-a716-446655446099';
+
+    $result = $this->authorizedHandler()->__invoke(new AddInspectionAttachmentCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSPECTION_ID,
+      fileName: 'report.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 100,
+      attachmentId: $clientAttachmentId,
+    ));
+
+    self::assertInstanceOf(AddInspectionAttachmentResult::class, $result);
+    self::assertSame($clientAttachmentId, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeRefusesAMalformedClientSuppliedAttachmentId(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+
+    $this->authorizedHandler()->__invoke(new AddInspectionAttachmentCommand(
+      organizationId: self::ORG_ID,
+      inspectionId: self::INSPECTION_ID,
+      fileName: 'report.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 100,
+      attachmentId: 'not-a-uuid',
+    ));
+  }
+
+  private function authorizedHandler(): AddInspectionAttachmentHandler
+  {
+    $inspectionRepository = $this->createStub(InspectionRepositoryPort::class);
+    $inspectionRepository->method('findById')->willReturn($this->inspection());
+
+    return new AddInspectionAttachmentHandler(
+      inspectionRepository: $inspectionRepository,
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
   }
 
   private function inspection(): Inspection

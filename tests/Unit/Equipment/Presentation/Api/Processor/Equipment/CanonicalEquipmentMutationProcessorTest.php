@@ -14,6 +14,7 @@ use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Equipment\Presentation\Api\Dto\Input\Equipment\PatchCanonicalEquipmentInput;
 use Equipment\Presentation\Api\Processor\Equipment\CanonicalEquipmentMutationProcessor;
 use Equipment\Presentation\Api\Provider\Equipment\CanonicalEquipmentProvider;
+use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
@@ -25,9 +26,10 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 #[CoversClass(CanonicalEquipmentMutationProcessor::class)]
 final class CanonicalEquipmentMutationProcessorTest extends TestCase
@@ -538,6 +540,203 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
       $entityManager,
       eventDispatcher: $eventDispatcher,
     )->process($this->patchStatus('under_maintenance'), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testReportsANonStringIdentifierAsNotFound(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Equipment not found.');
+
+    $this->processor($record, $this->request('PATCH', '{}'))
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => 42]);
+  }
+
+  #[Test]
+  public function testReportsAnUnknownEquipmentAsNotFound(): void
+  {
+    $record = $this->record();
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturn(null);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($record, $this->request('PATCH', '{}'), $entityManager)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testRejectsAnUnexpectedInputType(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Canonical equipment mutation input expected.');
+
+    $this->processor($record, $this->request('PATCH', '{}'))
+      ->process(new stdClass(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testRejectsANullStatus(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Equipment status cannot be null.');
+
+    $this->processor($record, $this->request('PATCH', '{"status":null}'))
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testRejectsAFacilityFromAnotherOrganization(): void
+  {
+    $record = $this->record();
+    $foreignFacility = new FacilityRecord();
+    $foreignFacility->id = self::FACILITY_ID;
+
+    $input = new PatchCanonicalEquipmentInput();
+    $input->facility = '/api/facilities/' . self::FACILITY_ID;
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Facility must belong to the same organization.');
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"facility":"/api/facilities/' . self::FACILITY_ID . '"}'),
+      $this->entityManagerFor($record, $foreignFacility),
+    )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testReassignsTheEquipmentToAFacilityOfTheSameOrganization(): void
+  {
+    $record = $this->record();
+    $record->facilityId = null;
+    $record->status = 'in_stock';
+
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $facility = new FacilityRecord();
+    $facility->id = self::FACILITY_ID;
+    $facility->organization = $organization;
+
+    $input = new PatchCanonicalEquipmentInput();
+    $input->facility = '/api/facilities/' . self::FACILITY_ID;
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"facility":"/api/facilities/' . self::FACILITY_ID . '"}'),
+      $this->entityManagerFor($record, $facility),
+    )->process($input, new Patch(), ['id' => self::EQUIPMENT_ID]);
+
+    self::assertSame(self::FACILITY_ID, $record->facilityId);
+  }
+
+  #[Test]
+  public function testRequiresAnAuthenticatedSecurityUser(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), authenticated: false)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testRejectsACallerWithoutTheRequiredPermission(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Missing organization.equipment.write permission.');
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), hasPermission: false)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testDraftRecordReportsAnUnknownInterventionAsNotFound(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('interventionMutationContext')->willReturn(null);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), gateway: $gateway)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testDraftRecordReportsAnImmutableInterventionAsConflict(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'submitted'),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), gateway: $gateway)
+      ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  private function entityManagerFor(EquipmentRecord $record, FacilityRecord $facility): EntityManagerInterface
+  {
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $class): object => EquipmentRecord::class === $class ? $record : $facility,
+    );
+
+    return $entityManager;
+  }
+
+  private function customProcessor(
+    EquipmentRecord $record,
+    RequestStack $requestStack,
+    bool $hasPermission = true,
+    bool $authenticated = true,
+    ?InterventionResourceGatewayPort $gateway = null,
+  ): CanonicalEquipmentMutationProcessor {
+    $entityManager = $this->entityManager($record);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($authenticated ? $this->user() : null);
+    $manager = new InterventionResourceManager($gateway ?? $this->createStub(InterventionResourceGatewayPort::class));
+
+    return new CanonicalEquipmentMutationProcessor(
+      $entityManager,
+      $authorization,
+      $security,
+      $requestStack,
+      new CanonicalEquipmentProvider($entityManager, $authorization, $security, $requestStack, $manager),
+      $manager,
+      new RevisionGuard($requestStack),
+      new MergePatchFields($requestStack),
+      $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class),
+      $this->createStub(EventDispatcherPort::class),
+    );
   }
 
   private function processor(

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Attachment\AddMessageAttachment;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Messaging\Application\Contract\Conversation\ConversationView;
 use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingSubjectResolverPort};
@@ -264,6 +265,129 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheConversationIsNotFound(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn(null);
+
+    $handler = new AddMessageAttachmentHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy(
+        $this->createStub(OrganizationAuthorizationPort::class),
+        $this->createStub(MessagingMemberDirectoryPort::class),
+        $this->createStub(MessagingParticipantRepositoryPort::class),
+      ),
+      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      $this->createStub(FileStoragePort::class),
+      $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testInvokeGatesAChannelUploadOnChannelParticipation(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->conversation(visibility: 'participants'));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    /** @var MessagingParticipantRepositoryPort&MockObject $participants */
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->expects(self::once())
+      ->method('isParticipant')
+      ->with(self::CONVERSATION_ID, self::AUTHOR_MEMBER_ID)
+      ->willReturn(true);
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new MessagingAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddMessageAttachmentHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      $this->createStub(FileStoragePort::class),
+      $uuidFactory,
+    );
+
+    $result = $handler->__invoke($this->command());
+
+    self::assertInstanceOf(AddMessageAttachmentResult::class, $result);
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeHonoursAClientSuppliedAttachmentId(): void
+  {
+    $clientAttachmentId = '550e8400-e29b-41d4-a716-446655440077';
+
+    $handler = $this->authorizedHandler();
+
+    $result = $handler->__invoke($this->command(attachmentId: $clientAttachmentId));
+
+    self::assertSame($clientAttachmentId, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeRefusesAMalformedClientSuppliedAttachmentId(): void
+  {
+    $handler = $this->authorizedHandler();
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke($this->command(attachmentId: 'not-a-uuid'));
+  }
+
+  private function authorizedHandler(): AddMessageAttachmentHandler
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->conversation());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    return new AddMessageAttachmentHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      $this->createStub(FileStoragePort::class),
+      $this->createStub(UuidFactory::class),
+    );
+  }
+
+  private function command(?string $attachmentId = null): AddMessageAttachmentCommand
+  {
+    return new AddMessageAttachmentCommand(
+      userId: 'user-1',
+      messageId: self::MESSAGE_ID,
+      fileName: 'floor-plan.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 100,
+      attachmentId: $attachmentId,
+    );
+  }
+
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);
@@ -311,10 +435,10 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     );
   }
 
-  private function conversation(): ConversationView
+  private function conversation(string $visibility = 'subject'): ConversationView
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
-    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'facility', 'facility-1', 'subject', null, 1, false, $now, $now);
+    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'facility', 'facility-1', $visibility, null, 1, false, $now, $now);
   }
 }

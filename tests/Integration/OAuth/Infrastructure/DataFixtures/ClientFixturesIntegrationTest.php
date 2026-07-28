@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Integration\OAuth\Infrastructure\DataFixtures;
 
-use Doctrine\Common\DataFixtures\ReferenceRepository;
+use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
+use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use OAuth\Infrastructure\DataFixtures\ClientFixtures;
 use OAuth\Infrastructure\Persistence\Doctrine\Mapper\Client\ClientMapper;
@@ -52,9 +53,12 @@ final class ClientFixturesIntegrationTest extends KernelTestCase
   public function testLoadPersistsClientsAndReferences(): void
   {
     $fixtures = new ClientFixtures(new ClientMapper());
-    $fixtures->setReferenceRepository(new ReferenceRepository($this->entityManager));
 
-    $fixtures->load($this->entityManager);
+    // Purge before loading: the test databases carry the seeded baseline, so
+    // loading on top of it would collide on primary keys and make the count
+    // below meaningless. The purge is undone with the rest of the test by
+    // DAMA's transaction rollback.
+    new ORMExecutor($this->entityManager, new ORMPurger($this->entityManager))->execute([$fixtures], false);
 
     $count = $this->entityManager->getRepository(ClientRecord::class)->count([]);
     self::assertSame(4, $count);

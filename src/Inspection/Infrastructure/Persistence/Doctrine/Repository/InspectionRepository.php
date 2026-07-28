@@ -519,41 +519,47 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     ?string $inspectorType = null,
   ): array {
     $bucketTimeZone = $this->resolveBucketTimeZone($timeZone, $performedAtFrom);
-    if ('postgresql' === $this->entityManager->getConnection()->getDatabasePlatform()->getName()) {
-      return $this->countByPerformedDayForOrganizationIdPostgreSql(
-        organizationId: $organizationId,
-        performedAtFrom: $performedAtFrom,
-        performedAtTo: $performedAtTo,
-        bucketTimeZone: $bucketTimeZone,
-        status: $status,
-        result: $result,
-        inspectorType: $inspectorType,
-      );
+    $storageTimeZone = $this->resolveStorageTimeZone();
+    $sql = <<<'SQL'
+        SELECT
+          TO_CHAR(((performed_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
+          COUNT(*) AS inspection_count
+        FROM inspections
+        WHERE organization_id = :organizationId
+          AND performed_at >= :performedAtFrom
+          AND performed_at <= :performedAtTo
+      SQL;
+    $parameters = [
+      'storageTimeZone' => $storageTimeZone->getName(),
+      'bucketTimeZone' => $bucketTimeZone->getName(),
+      'organizationId' => (string) $organizationId,
+      'performedAtFrom' => $this->normalizeTimestampForStorageTimeZone($performedAtFrom, $storageTimeZone),
+      'performedAtTo' => $this->normalizeTimestampForStorageTimeZone($performedAtTo, $storageTimeZone),
+    ];
+
+    if (null !== $status) {
+      $sql .= "\n  AND status = :status";
+      $parameters['status'] = $status;
     }
 
-    /** @var list<array{performedAt: DateTimeImmutable}> $rows */
-    $rows = $this->createListQueryBuilder(
-      $organizationId,
-      null,
-      null,
-      $result,
-      $status,
-      $performedAtFrom,
-      $performedAtTo,
-      null,
-      $inspectorType,
-      null,
-      null,
-    )
-      ->select('i.performedAt AS performedAt')
-      ->orderBy('i.performedAt', 'ASC')
-      ->getQuery()
-      ->getArrayResult();
+    if (null !== $result) {
+      $sql .= "\n  AND result = :result";
+      $parameters['result'] = $result;
+    }
+
+    if (null !== $inspectorType) {
+      $sql .= "\n  AND inspector_type = :inspectorType";
+      $parameters['inspectorType'] = $inspectorType;
+    }
+
+    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
+
+    /** @var list<array{bucket: string, inspection_count: int|string}> $rows */
+    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
 
     $counts = [];
     foreach ($rows as $row) {
-      $bucket = $this->reinterpretStorageDateTime($row['performedAt'])->setTimezone($bucketTimeZone)->format('Y-m-d');
-      $counts[$bucket] = ($counts[$bucket] ?? 0) + 1;
+      $counts[(string) $row['bucket']] = (int) $row['inspection_count'];
     }
 
     return $counts;
@@ -802,64 +808,6 @@ final readonly class InspectionRepository implements InspectionRepositoryPort
     $normalized->updatedAt = $this->reinterpretStorageDateTime($record->updatedAt);
 
     return $normalized;
-  }
-
-  /**
-   * @return array<string, int>
-   */
-  private function countByPerformedDayForOrganizationIdPostgreSql(
-    InspectionOrganizationId $organizationId,
-    string $performedAtFrom,
-    string $performedAtTo,
-    DateTimeZone $bucketTimeZone,
-    ?string $status = null,
-    ?string $result = null,
-    ?string $inspectorType = null,
-  ): array {
-    $storageTimeZone = $this->resolveStorageTimeZone();
-    $sql = <<<'SQL'
-        SELECT
-          TO_CHAR(((performed_at AT TIME ZONE :storageTimeZone) AT TIME ZONE :bucketTimeZone), 'YYYY-MM-DD') AS bucket,
-          COUNT(*) AS inspection_count
-        FROM inspections
-        WHERE organization_id = :organizationId
-          AND performed_at >= :performedAtFrom
-          AND performed_at <= :performedAtTo
-      SQL;
-    $parameters = [
-      'storageTimeZone' => $storageTimeZone->getName(),
-      'bucketTimeZone' => $bucketTimeZone->getName(),
-      'organizationId' => (string) $organizationId,
-      'performedAtFrom' => $this->normalizeTimestampForStorageTimeZone($performedAtFrom, $storageTimeZone),
-      'performedAtTo' => $this->normalizeTimestampForStorageTimeZone($performedAtTo, $storageTimeZone),
-    ];
-
-    if (null !== $status) {
-      $sql .= "\n  AND status = :status";
-      $parameters['status'] = $status;
-    }
-
-    if (null !== $result) {
-      $sql .= "\n  AND result = :result";
-      $parameters['result'] = $result;
-    }
-
-    if (null !== $inspectorType) {
-      $sql .= "\n  AND inspector_type = :inspectorType";
-      $parameters['inspectorType'] = $inspectorType;
-    }
-
-    $sql .= "\nGROUP BY 1\nORDER BY 1 ASC";
-
-    /** @var list<array{bucket: string, inspection_count: int|string}> $rows */
-    $rows = $this->entityManager->getConnection()->executeQuery($sql, $parameters)->fetchAllAssociative();
-
-    $counts = [];
-    foreach ($rows as $row) {
-      $counts[(string) $row['bucket']] = (int) $row['inspection_count'];
-    }
-
-    return $counts;
   }
 
   /**

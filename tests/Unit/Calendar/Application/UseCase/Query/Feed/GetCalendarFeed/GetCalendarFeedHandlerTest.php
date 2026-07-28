@@ -119,6 +119,46 @@ final class GetCalendarFeedHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function itAcceptsAFractionalSecondsOffset(): void
+  {
+    $handler = new GetCalendarFeedHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->emptyAggregator(),
+    );
+
+    $result = $handler->__invoke(new GetCalendarFeedQuery(
+      userId: self::USER_ID,
+      organizationId: self::ORGANIZATION_ID,
+      from: '2026-08-01T00:00:00.5+00:00',
+      to: '2026-08-31T23:59:59.123456Z',
+    ));
+
+    self::assertSame('2026-08-01T00:00:00.500000+00:00', $result->from->format('Y-m-d\\TH:i:s.uP'));
+    self::assertSame('2026-08-31T23:59:59.123456+00:00', $result->to->format('Y-m-d\\TH:i:s.uP'));
+  }
+
+  #[Test]
+  public function itRejectsAShapeValidDatetimeThatIsNotARealCalendarDate(): void
+  {
+    $handler = new GetCalendarFeedHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->emptyAggregator(),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid "from" datetime filter.');
+
+    // Matches the shape regex, but 30 February is not a date: the handler
+    // has to catch it through DateTimeImmutable's warning list.
+    $handler->__invoke(new GetCalendarFeedQuery(
+      userId: self::USER_ID,
+      organizationId: self::ORGANIZATION_ID,
+      from: '2026-02-30T00:00:00+00:00',
+      to: '2026-03-31T23:59:59+00:00',
+    ));
+  }
+
   private function emptyAggregator(): CalendarFeedAggregator
   {
     $events = $this->createStub(CalendarEventRepositoryPort::class);

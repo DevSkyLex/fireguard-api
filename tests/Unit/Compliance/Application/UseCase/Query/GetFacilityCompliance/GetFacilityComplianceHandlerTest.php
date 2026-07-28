@@ -13,6 +13,7 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
 
 /**
@@ -108,6 +109,24 @@ final class GetFacilityComplianceHandlerTest extends TestCase
     $result = $handler->__invoke(new GetFacilityComplianceQuery(self::ORG_ID, self::SITE_ID, self::USER_ID));
 
     self::assertSame($cachedResult, $result);
+  }
+
+  #[Test]
+  public function testInvokeStillServesAFreshReadWhenTheCacheIsUnavailable(): void
+  {
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willThrowException(new RuntimeException('cache read failed'));
+    $cache->method('set')->willThrowException(new RuntimeException('cache write failed'));
+
+    $handler = new GetFacilityComplianceHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->makeAggregator(),
+      $cache,
+    );
+
+    $result = $handler->__invoke(new GetFacilityComplianceQuery(self::ORG_ID, self::SITE_ID, self::USER_ID));
+
+    self::assertSame(self::SITE_ID, $result->facility->facilityId);
   }
 
   private function makeAggregator(): ComplianceRegisterAggregator

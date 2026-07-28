@@ -12,7 +12,10 @@ use Inspection\Domain\ValueObject\{ChecklistId, ChecklistOrganizationId};
 use Inspection\Infrastructure\Persistence\Doctrine\Repository\ChecklistRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function array_map;
 
 /**
  * Test ChecklistRepositoryIntegrationTest.
@@ -160,6 +163,160 @@ final class ChecklistRepositoryIntegrationTest extends KernelTestCase
     // single one — item counting goes exclusively through
     // countItemsGroupedByChecklistId().
     self::assertSame([], $checklists[0]->items());
+  }
+
+  #[Test]
+  public function testSaveUpsertsItemsUpdatingAddingAndRemovingThem(): void
+  {
+    $checklist = Checklist::create(
+      id: ChecklistId::fromString(self::CHECKLIST_WITH_ITEMS_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Annual Extinguisher Checklist',
+      version: 'v1.0',
+      items: [
+        ChecklistItem::create(id: 'item-1', label: 'Check pressure gauge', position: 0),
+        ChecklistItem::create(id: 'item-2', label: 'Check hose integrity', position: 1),
+      ],
+    );
+    $this->repository->save($checklist);
+
+    // item-1 is kept but relabelled, item-2 disappears, item-3 is brand new.
+    $checklist->update(
+      name: 'Revised Extinguisher Checklist',
+      hasName: true,
+      items: [
+        ChecklistItem::create(id: 'item-1', label: 'Check pressure gauge (revised)', position: 0, required: false, description: 'Look at the needle'),
+        ChecklistItem::create(id: 'item-3', label: 'Check pin seal', position: 1),
+      ],
+      hasItems: true,
+    );
+    $this->repository->save($checklist);
+    $this->entityManager->clear();
+
+    $reloaded = $this->repository->findById(ChecklistId::fromString(self::CHECKLIST_WITH_ITEMS_ID));
+
+    self::assertInstanceOf(Checklist::class, $reloaded);
+    self::assertSame('Revised Extinguisher Checklist', $reloaded->name());
+    self::assertSame(
+      ['item-1', 'item-3'],
+      array_map(static fn (ChecklistItem $item): string => $item->id(), $reloaded->items()),
+    );
+    self::assertSame('Check pressure gauge (revised)', $reloaded->items()[0]->label());
+    self::assertFalse($reloaded->items()[0]->required());
+    self::assertSame('Look at the needle', $reloaded->items()[0]->description());
+  }
+
+  #[Test]
+  public function testFindByIdReturnsNullForAnUnknownChecklist(): void
+  {
+    self::assertNull($this->repository->findById(ChecklistId::fromString(self::CHECKLIST_WITHOUT_ITEMS_ID)));
+  }
+
+  #[Test]
+  public function testFindNamesByIdsResolvesNamesAndShortCircuitsOnAnEmptyList(): void
+  {
+    $this->repository->save(Checklist::create(
+      id: ChecklistId::fromString(self::CHECKLIST_WITH_ITEMS_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Annual Extinguisher Checklist',
+      version: 'v1.0',
+    ));
+
+    self::assertSame([], $this->repository->findNamesByIds([]));
+    self::assertSame(
+      [self::CHECKLIST_WITH_ITEMS_ID => 'Annual Extinguisher Checklist'],
+      $this->repository->findNamesByIds([self::CHECKLIST_WITH_ITEMS_ID, self::CHECKLIST_WITHOUT_ITEMS_ID]),
+    );
+  }
+
+  #[Test]
+  public function testFindAndCountByOrganizationIdApplyStatusAndSearchFilters(): void
+  {
+    $active = Checklist::create(
+      id: ChecklistId::fromString(self::CHECKLIST_WITH_ITEMS_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Sprinkler 100% survey_A',
+      version: 'v1.0',
+    );
+    $this->repository->save($active);
+
+    $archived = Checklist::create(
+      id: ChecklistId::fromString(self::CHECKLIST_WITHOUT_ITEMS_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Retired Checklist',
+      version: 'v0.9',
+    );
+    $archived->archive();
+    $this->repository->save($archived);
+    $this->entityManager->clear();
+
+    $organizationId = ChecklistOrganizationId::fromString(self::ORGANIZATION_ID);
+
+    $archivedOnly = $this->repository->findByOrganizationId($organizationId, status: 'archived');
+    self::assertSame(
+      [self::CHECKLIST_WITHOUT_ITEMS_ID],
+      array_map(static fn (Checklist $item): string => (string) $item->id(), $archivedOnly),
+    );
+    self::assertSame(1, $this->repository->countByOrganizationId($organizationId, status: 'archived'));
+
+    // The search term carries LIKE metacharacters (`%` and `_`) that must be
+    // escaped rather than behaving as wildcards.
+    $searched = $this->repository->findByOrganizationId($organizationId, search: '100% survey_A');
+    self::assertSame(
+      [self::CHECKLIST_WITH_ITEMS_ID],
+      array_map(static fn (Checklist $item): string => (string) $item->id(), $searched),
+    );
+    self::assertSame(1, $this->repository->countByOrganizationId($organizationId, search: '100% survey_A'));
+    self::assertSame(0, $this->repository->countByOrganizationId($organizationId, search: '100_ survey%A'));
+  }
+
+  #[Test]
+  public function testFindByOrganizationIdHonoursEveryWhitelistedSortFieldAndPaginates(): void
+  {
+    $this->repository->save(Checklist::create(
+      id: ChecklistId::fromString(self::CHECKLIST_WITH_ITEMS_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Bravo checklist',
+      version: 'v2.0',
+    ));
+    $this->repository->save(Checklist::create(
+      id: ChecklistId::fromString(self::CHECKLIST_WITHOUT_ITEMS_ID),
+      organizationId: ChecklistOrganizationId::fromString(self::ORGANIZATION_ID),
+      name: 'Alpha checklist',
+      version: 'v1.0',
+    ));
+    $this->entityManager->clear();
+
+    $organizationId = ChecklistOrganizationId::fromString(self::ORGANIZATION_ID);
+
+    foreach (['name', 'version', 'status', 'createdAt', 'unknownField'] as $field) {
+      $ascending = $this->repository->findByOrganizationId(
+        $organizationId,
+        sorting: new Sorting($field, SortDirection::ASC),
+      );
+
+      self::assertCount(2, $ascending, 'Sorting by ' . $field . ' must not change the result set.');
+    }
+
+    $byName = $this->repository->findByOrganizationId(
+      $organizationId,
+      sorting: new Sorting('name', SortDirection::ASC),
+    );
+    self::assertSame(
+      ['Alpha checklist', 'Bravo checklist'],
+      array_map(static fn (Checklist $item): string => $item->name(), $byName),
+    );
+
+    $secondPage = $this->repository->findByOrganizationId(
+      $organizationId,
+      sorting: new Sorting('name', SortDirection::ASC),
+      limit: 1,
+      offset: 1,
+    );
+    self::assertSame(
+      ['Bravo checklist'],
+      array_map(static fn (Checklist $item): string => $item->name(), $secondPage),
+    );
   }
 
   private function createOrganization(string $id, string $name, string $slug): OrganizationRecord

@@ -12,20 +12,33 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Input\Equipment\AssignToFacilityInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\AssignToFacilityProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  NotFoundHttpException
+};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(AssignToFacilityProcessor::class)]
 final class AssignToFacilityProcessorTest extends TestCase
 {
+  private const string ASSIGN_ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441220';
+
+  private const string ASSIGN_EQUIPMENT_ID = '550e8400-e29b-41d4-a716-446655441221';
+
+  private const string ASSIGN_FACILITY_ID = '550e8400-e29b-41d4-a716-446655441222';
+
   #[Test]
   public function testProcessMapsWrappedEquipmentNotFoundToHttp404(): void
   {
@@ -186,6 +199,168 @@ final class AssignToFacilityProcessorTest extends TestCase
         'organizationId' => $organizationId,
         'equipmentId' => $equipmentId,
       ],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenNoUserIsAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new AssignToFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $processor->process(
+      data: $this->assignInput(),
+      operation: new Post(),
+      uriVariables: $this->assignUriVariables(),
+    );
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   */
+  #[Test]
+  #[DataProvider('incompleteUriVariablesProvider')]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreIncomplete(array $uriVariables): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new AssignToFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $this->assignSecurity(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: $this->assignInput(), operation: new Post(), uriVariables: $uriVariables);
+  }
+
+  #[Test]
+  public function testProcessMapsADirectNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->assignProcessorThrowing(EquipmentNotFoundException::withId(self::ASSIGN_EQUIPMENT_ID))->process(
+      data: $this->assignInput(),
+      operation: new Post(),
+      uriVariables: $this->assignUriVariables(),
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Facility is in another organization.');
+
+    $this->assignProcessorThrowing(new InvalidArgumentException('Facility is in another organization.'))->process(
+      data: $this->assignInput(),
+      operation: new Post(),
+      uriVariables: $this->assignUriVariables(),
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->assignProcessorThrowing(
+      $this->assignWrapped(new InvalidArgumentException('Facility is in another organization.')),
+    )->process(
+      data: $this->assignInput(),
+      operation: new Post(),
+      uriVariables: $this->assignUriVariables(),
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->assignProcessorThrowing($this->assignWrapped(new RuntimeException('database is down')))->process(
+      data: $this->assignInput(),
+      operation: new Post(),
+      uriVariables: $this->assignUriVariables(),
+    );
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>}>
+   */
+  public static function incompleteUriVariablesProvider(): iterable
+  {
+    yield 'no variables' => [[]];
+    yield 'blank organizationId' => [['organizationId' => '', 'equipmentId' => self::ASSIGN_EQUIPMENT_ID]];
+    yield 'missing equipmentId' => [['organizationId' => self::ASSIGN_ORGANIZATION_ID]];
+    yield 'blank equipmentId' => [['organizationId' => self::ASSIGN_ORGANIZATION_ID, 'equipmentId' => '']];
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function assignUriVariables(): array
+  {
+    return [
+      'organizationId' => self::ASSIGN_ORGANIZATION_ID,
+      'equipmentId' => self::ASSIGN_EQUIPMENT_ID,
+    ];
+  }
+
+  private function assignInput(): AssignToFacilityInput
+  {
+    $input = new AssignToFacilityInput();
+    $input->facilityId = self::ASSIGN_FACILITY_ID;
+
+    return $input;
+  }
+
+  private function assignSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441210'));
+
+    return $security;
+  }
+
+  private function assignWrapped(Throwable $failure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      envelope: new Envelope(new AssignToFacilityCommand(
+        organizationId: self::ASSIGN_ORGANIZATION_ID,
+        equipmentId: self::ASSIGN_EQUIPMENT_ID,
+        facilityId: self::ASSIGN_FACILITY_ID,
+      )),
+      exceptions: [$failure],
+    ));
+  }
+
+  private function assignProcessorThrowing(Throwable $failure): AssignToFacilityProcessor
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new AssignToFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->assignSecurity(),
     );
   }
 

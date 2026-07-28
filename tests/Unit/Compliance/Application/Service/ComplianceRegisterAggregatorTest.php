@@ -10,6 +10,8 @@ use Compliance\Domain\ValueObject\ComplianceStatus;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
+use function explode;
+
 /**
  * Test ComplianceRegisterAggregatorTest.
  *
@@ -149,6 +151,37 @@ final class ComplianceRegisterAggregatorTest extends TestCase
 
     self::assertCount(1, $views);
     self::assertSame(self::SITE_ID, $views[0]->facilityId);
+  }
+
+  #[Test]
+  public function testBuildFacilityViewsStopsClimbingTheParentChainAtTheDepthGuard(): void
+  {
+    $facilities = [];
+    for ($index = 0; $index < 40; ++$index) {
+      $facilities[] = [
+        'id' => 'facility-' . $index,
+        'name' => 'Level ' . $index,
+        'type' => 'building',
+        'status' => 'active',
+        'parentFacilityId' => 0 === $index ? null : 'facility-' . ($index - 1),
+      ];
+    }
+
+    $aggregator = new ComplianceRegisterAggregator(
+      $this->facilityDirectory($facilities),
+      $this->maintenanceStatistics([], []),
+      $this->inspectionStatistics([]),
+      $this->equipmentStatistics([]),
+    );
+
+    $views = $aggregator->buildFacilityViews('org-1');
+
+    self::assertCount(40, $views);
+    // 32 ancestors are walked before the guard trips, so the breadcrumb is
+    // truncated to 33 segments instead of the full 40-deep chain.
+    self::assertCount(33, explode(' / ', $views[39]->path));
+    self::assertStringStartsWith('Level 7 / Level 8 / ', $views[39]->path);
+    self::assertStringEndsWith(' / Level 39', $views[39]->path);
   }
 
   /**

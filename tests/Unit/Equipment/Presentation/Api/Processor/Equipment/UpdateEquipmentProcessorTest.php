@@ -12,16 +12,24 @@ use Equipment\Domain\Exception\{EquipmentNotFoundException, EquipmentSerialNumbe
 use Equipment\Presentation\Api\Dto\Input\Equipment\UpdateEquipmentInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\UpdateEquipmentProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  ConflictHttpException,
+  NotFoundHttpException
+};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(UpdateEquipmentProcessor::class)]
 final class UpdateEquipmentProcessorTest extends TestCase
@@ -184,6 +192,168 @@ final class UpdateEquipmentProcessorTest extends TestCase
     self::assertSame(self::EQUIP_ID, $output->id);
     self::assertSame('fire_extinguisher', $output->type);
     self::assertSame('Sicli', $output->brand);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenNoUserIsAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new UpdateEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $processor->process(
+      data: new UpdateEquipmentInput(),
+      operation: new Patch(),
+      uriVariables: $this->updateUriVariables(),
+    );
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   */
+  #[Test]
+  #[DataProvider('incompleteUriVariablesProvider')]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreIncomplete(array $uriVariables): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new UpdateEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $this->updateSecurity(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: new UpdateEquipmentInput(), operation: new Patch(), uriVariables: $uriVariables);
+  }
+
+  #[Test]
+  public function testProcessMapsADirectNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->updateProcessorThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))->process(
+      data: new UpdateEquipmentInput(),
+      operation: new Patch(),
+      uriVariables: $this->updateUriVariables(),
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsADirectDuplicateSerialNumberToHttp409(): void
+  {
+    $this->expectException(ConflictHttpException::class);
+
+    $this->updateProcessorThrowing(EquipmentSerialNumberAlreadyExistsException::withSerialNumber('SN-1'))->process(
+      data: new UpdateEquipmentInput(),
+      operation: new Patch(),
+      uriVariables: $this->updateUriVariables(),
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Unknown equipment type.');
+
+    $this->updateProcessorThrowing(new InvalidArgumentException('Unknown equipment type.'))->process(
+      data: new UpdateEquipmentInput(),
+      operation: new Patch(),
+      uriVariables: $this->updateUriVariables(),
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->updateProcessorThrowing($this->updateWrapped(new InvalidArgumentException('Unknown equipment type.')))
+      ->process(
+        data: new UpdateEquipmentInput(),
+        operation: new Patch(),
+        uriVariables: $this->updateUriVariables(),
+      );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->updateProcessorThrowing($this->updateWrapped(new RuntimeException('database is down')))->process(
+      data: new UpdateEquipmentInput(),
+      operation: new Patch(),
+      uriVariables: $this->updateUriVariables(),
+    );
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>}>
+   */
+  public static function incompleteUriVariablesProvider(): iterable
+  {
+    yield 'no variables' => [[]];
+    yield 'blank organizationId' => [['organizationId' => '', 'equipmentId' => self::EQUIP_ID]];
+    yield 'missing equipmentId' => [['organizationId' => self::ORG_ID]];
+    yield 'blank equipmentId' => [['organizationId' => self::ORG_ID, 'equipmentId' => '']];
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function updateUriVariables(): array
+  {
+    return ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID];
+  }
+
+  private function updateSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655450010'));
+
+    return $security;
+  }
+
+  private function updateWrapped(Throwable $failure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new UpdateEquipmentCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        type: 'extinguisher',
+      )),
+      [$failure],
+    ));
+  }
+
+  private function updateProcessorThrowing(Throwable $failure): UpdateEquipmentProcessor
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new UpdateEquipmentProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->updateSecurity(),
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

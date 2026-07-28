@@ -112,6 +112,28 @@ final class ListRolesProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvideAcceptsNativeBooleanIsSystemFilter(): void
+  {
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(
+        fn (ListRolesQuery $query) => false === $query->isSystem,
+      ))
+      ->willReturn(new ListRolesResult(roles: []));
+
+    $provider = new ListRolesProvider($queryBus);
+
+    $result = $provider->provide(
+      operation: new GetCollection(),
+      context: ['filters' => ['isSystem' => false]],
+    );
+
+    self::assertCount(0, $result);
+  }
+
+  #[Test]
   public function testProvideThrowsBadRequestWhenIsSystemFilterIsInvalid(): void
   {
     /** @var QueryBusPort&MockObject $queryBus */

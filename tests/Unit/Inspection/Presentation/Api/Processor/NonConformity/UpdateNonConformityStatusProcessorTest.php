@@ -15,10 +15,12 @@ use Inspection\Domain\Exception\{InspectionNotFoundException, NonConformityAlrea
 use Inspection\Presentation\Api\Dto\Input\NonConformity\UpdateNonConformityStatusInput;
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Processor\NonConformity\UpdateNonConformityStatusProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -338,6 +340,207 @@ final class UpdateNonConformityStatusProcessorTest extends TestCase
     $payload = json_decode((string) $response->getContent(), true);
     self::assertSame('pending_approval', $payload['status']);
     self::assertSame('request-1', $payload['approvalRequestId']);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenWritePermissionIsMissing(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new UpdateNonConformityStatusProcessor(
+      commandBus: $commandBus,
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      approvalGate: $this->createStub(ApprovalGatePort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnInvalidArgument(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(new InvalidArgumentException('Malformed non-conformity identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInspectionNotFoundFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionNotFoundException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadyResolvedFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(NonConformityAlreadyResolvedException::withId(self::NC_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed non-conformity identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Transport is unavailable.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testWaiverGateReportsAMissingInspectionAsNotFound(): void
+  {
+    $processor = $this->makeWaiverProcessor(InspectionNotFoundException::withId(self::INSP_ID));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeWaiverInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testWaiverGateReportsAMissingNonConformityAsNotFound(): void
+  {
+    $processor = $this->makeWaiverProcessor(NonConformityNotFoundException::withId(self::NC_ID));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeWaiverInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testWaiverGateUnwrapsNotFoundFromMessengerException(): void
+  {
+    $processor = $this->makeWaiverProcessor(
+      MessengerRuntimeException::wrap(NonConformityNotFoundException::withId(self::NC_ID)),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeWaiverInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  #[Test]
+  public function testWaiverGateRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $processor = $this->makeWaiverProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Transport is unavailable.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process(
+      data: $this->makeWaiverInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID, 'nonConformityId' => self::NC_ID],
+    );
+  }
+
+  private function makeWaiverProcessor(Throwable $queryException): UpdateNonConformityStatusProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($queryException);
+
+    $approvalGate = $this->createMock(ApprovalGatePort::class);
+    $approvalGate->expects(self::never())->method('evaluate');
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    return new UpdateNonConformityStatusProcessor(
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+      authorization: $authorization,
+      approvalGate: $approvalGate,
+      security: $security,
+    );
+  }
+
+  private function makeWaiverInput(): UpdateNonConformityStatusInput
+  {
+    $input = new UpdateNonConformityStatusInput();
+    $input->status = 'waived';
+
+    return $input;
   }
 
   private function makeAuthorizedProcessor(Throwable $commandException): UpdateNonConformityStatusProcessor

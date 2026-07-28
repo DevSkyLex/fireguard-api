@@ -7,16 +7,18 @@ namespace Tests\Unit\Inspection\Presentation\Api\Processor\Inspection;
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Inspection\Application\UseCase\Command\Inspection\CancelInspection\CancelInspectionCommand;
-use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
+use Inspection\Domain\Exception\{InspectionAlreadyCancelledException, InspectionAlreadyClosedException, InspectionAlreadySubmittedException, InspectionNotFoundException};
 use Inspection\Presentation\Api\Processor\Inspection\CancelInspectionProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Throwable;
 
 #[CoversClass(CancelInspectionProcessor::class)]
@@ -115,6 +117,145 @@ final class CancelInspectionProcessorTest extends TestCase
     );
 
     $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreMissing(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $processor = new CancelInspectionProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: null, operation: new Delete(), uriVariables: ['organizationId' => self::ORG_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenWritePermissionIsMissing(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new CancelInspectionProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnInvalidArgument(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(new InvalidArgumentException('Malformed inspection identifier.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsNotFoundFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionNotFoundException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadyCancelledFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionAlreadyCancelledException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadySubmittedFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionAlreadySubmittedException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed inspection identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: null,
+      operation: new Delete(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Transport is unavailable.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: null,

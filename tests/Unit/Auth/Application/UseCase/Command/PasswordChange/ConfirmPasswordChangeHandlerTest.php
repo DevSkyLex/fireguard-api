@@ -10,9 +10,10 @@ use Auth\Application\UseCase\Command\PasswordChange\ConfirmPasswordChange\{
   ConfirmPasswordChangeHandler,
   ConfirmPasswordChangeResult
 };
+use DateTimeImmutable;
 use Otp\Application\Port\Outbound\Challenge\OtpRepositoryPort;
 use Otp\Domain\Model\Otp;
-use Otp\Domain\ValueObject\{OtpChannel, OtpId, OtpPurpose};
+use Otp\Domain\ValueObject\{ChallengeToken, OtpChannel, OtpCode, OtpId, OtpPurpose};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -99,6 +100,77 @@ final class ConfirmPasswordChangeHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testFailsWhenOtpHasExpired(): void
+  {
+    $otp = $this->makeExpiredOtp();
+
+    /** @var OtpRepositoryPort&MockObject $otpRepo */
+    $otpRepo = $this->createMock(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+    // The aggregate throws before mutating, so nothing is persisted.
+    $otpRepo->expects(self::never())->method('save');
+
+    $result = $this->makeHandler(otpRepository: $otpRepo)(
+      $this->makeCommand(code: '123456')
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_EXPIRED, $result->errorCode);
+  }
+
+  #[Test]
+  public function testFailsWhenOtpMaxAttemptsAreExhausted(): void
+  {
+    $otp = $this->makeExhaustedOtp();
+
+    /** @var OtpRepositoryPort&MockObject $otpRepo */
+    $otpRepo = $this->createMock(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+    $otpRepo->expects(self::never())->method('save');
+
+    $result = $this->makeHandler(otpRepository: $otpRepo)(
+      $this->makeCommand(code: '123456')
+    );
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_MAX_ATTEMPTS, $result->errorCode);
+  }
+
+  #[Test]
+  public function testFailsWhenTheUserBehindAValidOtpNoLongerExists(): void
+  {
+    $otp = $this->makeOtp(userId: self::USER_ID, purpose: OtpPurpose::SENSITIVE_OPERATION);
+
+    $otpRepo = $this->createStub(OtpRepositoryPort::class);
+    $otpRepo->method('findByChallengeToken')->willReturn($otp);
+
+    /** @var UserRepositoryPort&MockObject $userRepo */
+    $userRepo = $this->createMock(UserRepositoryPort::class);
+    $userRepo->method('findById')->willReturn(null);
+    $userRepo->expects(self::never())->method('save');
+
+    /** @var SessionRepositoryPort&MockObject $sessionRepo */
+    $sessionRepo = $this->createMock(SessionRepositoryPort::class);
+    $sessionRepo->expects(self::never())->method('revokeAllForUser');
+
+    /** @var TokenRevocationPort&MockObject $tokenRevocation */
+    $tokenRevocation = $this->createMock(TokenRevocationPort::class);
+    $tokenRevocation->expects(self::never())->method('revokeAllUserTokens');
+
+    $handler = $this->makeHandler(
+      otpRepository: $otpRepo,
+      userRepository: $userRepo,
+      sessionRepository: $sessionRepo,
+      tokenRevocation: $tokenRevocation,
+    );
+
+    $result = $handler($this->makeCommand(code: $otp->code()->plain()));
+
+    self::assertFalse($result->success);
+    self::assertSame(ConfirmPasswordChangeResult::ERROR_INVALID_TOKEN, $result->errorCode);
+  }
+
+  #[Test]
   public function testChangesPasswordAndRevokesSessionsOnSuccess(): void
   {
     $otp = $this->makeOtp(userId: self::USER_ID, purpose: OtpPurpose::SENSITIVE_OPERATION);
@@ -170,6 +242,42 @@ final class ConfirmPasswordChangeHandlerTest extends TestCase
       purpose: $purpose,
       channel: OtpChannel::EMAIL,
       recipient: 'jdoe@example.com',
+    );
+  }
+
+  private function makeExpiredOtp(): Otp
+  {
+    return Otp::reconstitute(
+      id: new OtpId(self::OTP_ID),
+      challengeToken: ChallengeToken::fromString('a-valid-challenge-token-string'),
+      userId: self::USER_ID,
+      purpose: OtpPurpose::SENSITIVE_OPERATION,
+      channel: OtpChannel::EMAIL,
+      codeHash: OtpCode::generate()->hash(),
+      recipient: 'jdoe@example.com',
+      expiresAt: new DateTimeImmutable('-1 minute'),
+      maxAttempts: 3,
+      attempts: 0,
+      verifiedAt: null,
+      createdAt: new DateTimeImmutable('-10 minutes'),
+    );
+  }
+
+  private function makeExhaustedOtp(): Otp
+  {
+    return Otp::reconstitute(
+      id: new OtpId(self::OTP_ID),
+      challengeToken: ChallengeToken::fromString('a-valid-challenge-token-string'),
+      userId: self::USER_ID,
+      purpose: OtpPurpose::SENSITIVE_OPERATION,
+      channel: OtpChannel::EMAIL,
+      codeHash: OtpCode::generate()->hash(),
+      recipient: 'jdoe@example.com',
+      expiresAt: new DateTimeImmutable('+5 minutes'),
+      maxAttempts: 3,
+      attempts: 3,
+      verifiedAt: null,
+      createdAt: new DateTimeImmutable('-1 minute'),
     );
   }
 

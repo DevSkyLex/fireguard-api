@@ -10,10 +10,12 @@ use Auth\Presentation\Api\Dto\Input\PasswordReset\RequestPasswordResetInput;
 use Auth\Presentation\Api\Dto\Output\PasswordReset\RequestPasswordResetOutput;
 use Auth\Presentation\Api\Processor\PasswordReset\RequestPasswordResetProcessor;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
@@ -97,6 +99,57 @@ final class RequestPasswordResetProcessorTest extends TestCase
     $this->expectException(TooManyRequestsHttpException::class);
 
     $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessProceedsWhenTheRateLimiterAcceptsTheRequest(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/auth/password/reset/request',
+      method: 'POST',
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    ));
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willReturn(RequestPasswordResetResult::success(
+        challengeToken: 'challenge-123',
+        maskedRecipient: 'u***@example.com',
+        expiresAt: new DateTimeImmutable('+15 minutes'),
+        maxAttempts: 5,
+        canResendIn: 60,
+      ));
+
+    $processor = new RequestPasswordResetProcessor(
+      commandBus: $commandBus,
+      requestStack: $requestStack,
+      rateLimiter: $this->createRateLimiterFactory(),
+    );
+
+    $input = new RequestPasswordResetInput();
+    $input->email = 'user@example.com';
+
+    $output = $processor->process($input, new Post());
+
+    self::assertInstanceOf(RequestPasswordResetOutput::class, $output);
+    self::assertTrue($output->success);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenInputIsNotARequestPasswordResetInput(): void
+  {
+    $processor = new RequestPasswordResetProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      requestStack: new RequestStack(),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid input data');
+
+    $processor->process(new stdClass(), new Post());
   }
 
   private function createRateLimiterFactory(int $limit = 10): RateLimiterFactory

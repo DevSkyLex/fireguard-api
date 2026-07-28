@@ -22,6 +22,7 @@ use Inspection\Domain\ValueObject\{
   NonConformityInspectionId,
   NonConformitySeverity
 };
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
@@ -171,6 +172,23 @@ final class ListInspectionAttachmentsHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       inspectionId: self::INSPECTION_ID,
       nonConformityId: self::NON_CONFORMITY_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedIdentifier(): void
+  {
+    $handler = new ListInspectionAttachmentsHandler(
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      attachmentRepository: $this->createStub(InspectionAttachmentRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListInspectionAttachmentsQuery(
+      organizationId: self::ORG_ID,
+      inspectionId: 'not-a-uuid',
     ));
   }
 

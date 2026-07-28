@@ -10,6 +10,7 @@ use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentHandler, AddInterventionAttachmentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -274,6 +275,62 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       mimeType: 'application/pdf',
       size: 7,
     ));
+  }
+
+  #[Test]
+  public function testInvokeHonoursAClientSuppliedAttachmentIdInsteadOfMintingOne(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $this->createStub(InterventionAttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke($this->command(self::ATTACHMENT_ID));
+
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedClientSuppliedAttachmentId(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $this->createStub(InterventionAttachmentRepositoryPort::class),
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke($this->command('not-a-uuid'));
+  }
+
+  private function command(?string $attachmentId): AddInterventionAttachmentCommand
+  {
+    return new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      contents: 'jpg-content',
+      mimeType: 'image/jpeg',
+      size: 512,
+      label: 'Execution evidence',
+      attachmentId: $attachmentId,
+    );
   }
 
   private function resourceManager(string $status): InterventionResourceManager

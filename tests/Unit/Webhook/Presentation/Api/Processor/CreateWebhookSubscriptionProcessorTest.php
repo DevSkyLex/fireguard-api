@@ -11,8 +11,9 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, UnprocessableEntityHttpException};
 use Webhook\Application\UseCase\Command\Subscription\CreateWebhookSubscription\{CreateWebhookSubscriptionCommand, CreateWebhookSubscriptionResult};
+use Webhook\Domain\Exception\WebhookValidationException;
 use Webhook\Presentation\Api\Dto\Input\CreateWebhookSubscriptionInput;
 use Webhook\Presentation\Api\Dto\Output\WebhookSecretOutput;
 use Webhook\Presentation\Api\Factory\WebhookSubscriptionOutputFactory;
@@ -114,5 +115,30 @@ final class CreateWebhookSubscriptionProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(new CreateWebhookSubscriptionInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function testProcessMapsDomainExceptionsToHttpExceptions(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser(self::USER_ID, 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      new WebhookValidationException('At least one event type is required.'),
+    );
+
+    $processor = new CreateWebhookSubscriptionProcessor(
+      $commandBus,
+      $security,
+      new WebhookSubscriptionOutputFactory(),
+    );
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('At least one event type is required.');
+
+    $processor->process(new CreateWebhookSubscriptionInput(), new Post(), ['organizationId' => self::ORGANIZATION_ID]);
   }
 }

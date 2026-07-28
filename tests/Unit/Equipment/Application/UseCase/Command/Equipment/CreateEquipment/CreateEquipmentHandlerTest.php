@@ -133,6 +133,29 @@ final class CreateEquipmentHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeHonoursAClientSuppliedResourceIdInsteadOfMintingOne(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(EquipmentRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = $this->handler($repository, $uuidFactory);
+
+    $result = $handler->__invoke(new CreateEquipmentCommand(
+      organizationId: '550e8400-e29b-41d4-a716-446655440985',
+      type: 'fire_extinguisher',
+      resourceId: '550e8400-e29b-41d4-a716-446655440905',
+    ));
+
+    self::assertInstanceOf(CreateEquipmentResult::class, $result);
+    self::assertSame('550e8400-e29b-41d4-a716-446655440905', $result->equipmentId);
+  }
+
   /**
    * Builds the handler with a pass-through transaction manager (invokes the
    * operation inline) and a permissive quota port unless one is supplied.

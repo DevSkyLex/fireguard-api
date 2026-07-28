@@ -15,6 +15,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Processor\Facility\CanonicalFacilityMutationProcessor;
 use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
+use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -25,9 +26,10 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 #[CoversClass(CanonicalFacilityMutationProcessor::class)]
 final class CanonicalFacilityMutationProcessorTest extends TestCase
@@ -39,6 +41,8 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655440013';
 
   private const string PARENT_ID = '550e8400-e29b-41d4-a716-446655440014';
+
+  private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655440015';
 
   #[Test]
   public function testDeletingPublishedFacilityArchivesIt(): void
@@ -548,6 +552,296 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       $entityManager,
       eventDispatcher: $eventDispatcher,
     )->process(new PatchCanonicalFacilityInput(), new Delete(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testReportsANonStringIdentifierAsNotFound(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
+
+    $this->processor($record, $this->request('PATCH', '{}'))
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => 42]);
+  }
+
+  #[Test]
+  public function testReportsAnUnknownFacilityAsNotFound(): void
+  {
+    $record = $this->record();
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturn(null);
+    $entityManager->expects(self::never())->method('flush');
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($record, $this->request('PATCH', '{}'), $entityManager)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testRejectsAnUnexpectedInputType(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Canonical facility mutation input expected.');
+
+    $this->processor($record, $this->request('PATCH', '{}'))
+      ->process(new stdClass(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testRejectsANullType(): void
+  {
+    $this->expectUnprocessable('Facility type cannot be null.', '{"type":null}', new PatchCanonicalFacilityInput());
+  }
+
+  #[Test]
+  public function testRejectsANullName(): void
+  {
+    $this->expectUnprocessable('Facility name cannot be null.', '{"name":null}', new PatchCanonicalFacilityInput());
+  }
+
+  #[Test]
+  public function testRejectsANullStatus(): void
+  {
+    $this->expectUnprocessable('Facility status cannot be null.', '{"status":null}', new PatchCanonicalFacilityInput());
+  }
+
+  #[Test]
+  public function testRejectsHalfProvidedCoordinates(): void
+  {
+    $input = new PatchCanonicalFacilityInput();
+    $input->latitude = 48.8566;
+
+    $this->expectUnprocessable(
+      'Facility latitude and longitude must be provided together.',
+      '{"latitude":48.8566,"longitude":null}',
+      $input,
+    );
+  }
+
+  #[Test]
+  public function testAppliesEveryScalarPatchField(): void
+  {
+    $record = $this->record();
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->type = 'building';
+    $input->name = '  Tower  ';
+    $input->code = '  BLD-1  ';
+    $input->address = '  10 rue  ';
+    $input->metadata = ['k' => 'v'];
+    $input->status = 'active';
+
+    $this->processor($record, $this->request(
+      'PATCH',
+      '{"type":"building","name":"  Tower  ","code":"  BLD-1  ","address":"  10 rue  ","metadata":{"k":"v"},"status":"active"}',
+    ))->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    self::assertSame('building', $record->type);
+    self::assertSame('Tower', $record->name);
+    self::assertSame('BLD-1', $record->code);
+    self::assertSame('10 rue', $record->address);
+    self::assertSame(['k' => 'v'], $record->metadata);
+  }
+
+  #[Test]
+  public function testDetachesTheParentOnAnExplicitNull(): void
+  {
+    $record = $this->record();
+    $parent = $this->record();
+    $parent->id = self::PARENT_ID;
+    $record->parentFacility = $parent;
+
+    $input = new PatchCanonicalFacilityInput();
+
+    $this->processor($record, $this->request('PATCH', '{"parent":null}'))
+      ->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    self::assertNull($record->parentFacility);
+  }
+
+  #[Test]
+  public function testRejectsAParentFromAnotherOrganization(): void
+  {
+    $record = $this->record();
+    $foreignParent = new FacilityRecord();
+    $foreignParent->id = self::PARENT_ID;
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $class, mixed $id): FacilityRecord => self::FACILITY_ID === $id ? $record : $foreignParent,
+    );
+    $entityManager->expects(self::never())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->parent = '/api/facilities/' . self::PARENT_ID;
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Parent facility is invalid.');
+
+    $this->processor($record, $this->request('PATCH', '{"parent":"/api/facilities/' . self::PARENT_ID . '"}'), $entityManager)
+      ->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testRejectsAnArchivedParentForAPublishedFacility(): void
+  {
+    $record = $this->record();
+    $parent = $this->record();
+    $parent->id = self::PARENT_ID;
+    $parent->status = 'archived';
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $class, mixed $id): FacilityRecord => self::FACILITY_ID === $id ? $record : $parent,
+    );
+    $entityManager->expects(self::never())->method('flush');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->parent = '/api/facilities/' . self::PARENT_ID;
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Parent facility is archived.');
+
+    $this->processor($record, $this->request('PATCH', '{"parent":"/api/facilities/' . self::PARENT_ID . '"}'), $entityManager)
+      ->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testRequiresAnAuthenticatedSecurityUser(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), authenticated: false)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testRejectsACallerWithoutTheRequiredPermission(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Missing organization.facilities.write permission.');
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), hasPermission: false)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testDraftRecordResolvesItsPermissionFromTheIntervention(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft'),
+    );
+
+    $this->customProcessor($record, $this->request('PATCH', '{"code":"DRAFT-1"}'), gateway: $gateway)
+      ->process($this->patchCode('DRAFT-1'), new Patch(), ['id' => self::FACILITY_ID]);
+
+    self::assertSame('DRAFT-1', $record->code);
+  }
+
+  #[Test]
+  public function testDraftRecordReportsAnUnknownInterventionAsNotFound(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('interventionMutationContext')->willReturn(null);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), gateway: $gateway)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testDraftRecordReportsAnImmutableInterventionAsConflict(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'submitted'),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), gateway: $gateway)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  private function patchCode(string $code): PatchCanonicalFacilityInput
+  {
+    $input = new PatchCanonicalFacilityInput();
+    $input->code = $code;
+
+    return $input;
+  }
+
+  private function expectUnprocessable(string $message, string $content, PatchCanonicalFacilityInput $input): void
+  {
+    $record = $this->record();
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage($message);
+
+    $this->processor($record, $this->request('PATCH', $content))
+      ->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  private function customProcessor(
+    FacilityRecord $record,
+    RequestStack $requestStack,
+    bool $hasPermission = true,
+    bool $authenticated = true,
+    ?InterventionResourceGatewayPort $gateway = null,
+  ): CanonicalFacilityMutationProcessor {
+    $entityManager = $this->entityManager($record);
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($authenticated ? $this->user() : null);
+    $manager = new InterventionResourceManager($gateway ?? $this->createStub(InterventionResourceGatewayPort::class));
+
+    return new CanonicalFacilityMutationProcessor(
+      $entityManager,
+      $authorization,
+      $security,
+      $requestStack,
+      new CanonicalFacilityProvider($entityManager, $authorization, $security, $requestStack, $manager),
+      $manager,
+      new RevisionGuard($requestStack),
+      new MergePatchFields($requestStack),
+      $this->createStub(FacilityArchivalGuardPort::class),
+      $this->createStub(EventDispatcherPort::class),
+    );
   }
 
   private function processor(

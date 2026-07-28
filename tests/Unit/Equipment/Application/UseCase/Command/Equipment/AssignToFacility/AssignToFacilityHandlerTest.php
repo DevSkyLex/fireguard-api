@@ -211,5 +211,81 @@ final class AssignToFacilityHandlerTest extends TestCase
       facilityId: self::FACILITY_ID,
     ));
   }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedEquipmentId(): void
+  {
+    $handler = new AssignToFacilityHandler(
+      equipmentRepository: $this->createStub(EquipmentRepositoryPort::class),
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new AssignToFacilityCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: 'not-a-uuid',
+      facilityId: self::FACILITY_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeUsesTheProvidedInstalledAtDate(): void
+  {
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($this->equipment());
+
+    $tagRepository = $this->createStub(TagRepositoryPort::class);
+    $tagRepository->method('findByEquipmentId')->willReturn([]);
+
+    $handler = new AssignToFacilityHandler(
+      equipmentRepository: $equipmentRepository,
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      tagRepository: $tagRepository,
+    );
+
+    $result = $handler->__invoke(new AssignToFacilityCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      facilityId: self::FACILITY_ID,
+      installedAt: '2026-03-04T10:00:00+00:00',
+    ));
+
+    self::assertInstanceOf(AssignToFacilityResult::class, $result);
+    self::assertSame('2026-03-04T10:00:00+00:00', $result->installedAt);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedInstalledAtDate(): void
+  {
+    $equipmentRepository = $this->createStub(EquipmentRepositoryPort::class);
+    $equipmentRepository->method('findById')->willReturn($this->equipment());
+
+    $handler = new AssignToFacilityHandler(
+      equipmentRepository: $equipmentRepository,
+      facilityValidation: $this->createStub(FacilityValidationPort::class),
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid date format for installedAt: "yesterday-ish".');
+
+    $handler->__invoke(new AssignToFacilityCommand(
+      organizationId: self::ORG_ID,
+      equipmentId: self::EQUIP_ID,
+      facilityId: self::FACILITY_ID,
+      installedAt: 'yesterday-ish',
+    ));
+  }
+
+  private function equipment(): Equipment
+  {
+    return Equipment::create(
+      id: EquipmentId::fromString(self::EQUIP_ID),
+      organizationId: EquipmentOrganizationId::fromString(self::ORG_ID),
+      type: EquipmentType::FIRE_EXTINGUISHER,
+    );
+  }
   // #endregion
 }

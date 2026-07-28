@@ -12,6 +12,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 use function array_values;
 
@@ -105,6 +106,27 @@ final class ComplianceAssistantContextProviderAdapterTest extends TestCase
     self::assertStringContainsString('1 critical', $fragment->text);
     self::assertStringContainsString('1 low', $fragment->text);
     self::assertStringContainsString('1 overdue', $fragment->text);
+  }
+
+  #[Test]
+  public function testProvideReturnsAnEmptyFragmentWhenTheRegisterCannotBeBuilt(): void
+  {
+    $facilityDirectory = $this->createStub(ComplianceFacilityDirectoryPort::class);
+    $facilityDirectory->method('listFacilities')->willThrowException(new RuntimeException('directory unavailable'));
+
+    $aggregator = new ComplianceRegisterAggregator(
+      $facilityDirectory,
+      $this->createStub(MaintenanceComplianceStatisticsPort::class),
+      $this->createStub(InspectionComplianceStatisticsPort::class),
+      $this->createStub(EquipmentComplianceStatisticsPort::class),
+    );
+
+    $adapter = new ComplianceAssistantContextProviderAdapter($this->createStub(OrganizationAuthorizationPort::class), $aggregator);
+
+    $fragment = $adapter->provide(self::ORG_ID, new AssistantContextScope(self::USER_ID, 'thread-1'), new AssistantContextBudget(4000));
+
+    self::assertTrue($fragment->isEmpty());
+    self::assertSame('compliance.summary', $fragment->sourceKey);
   }
 
   /**

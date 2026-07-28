@@ -17,6 +17,7 @@ use Assistant\Domain\ValueObject\{AssistantMessageId, AssistantMessageRole, Assi
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort, LoggerPort};
 
 /**
@@ -305,6 +306,196 @@ final class GenerateAssistantReplyHandlerTest extends TestCase
 
     self::assertNotNull($capturedPromptMessages);
     self::assertCount(1, $capturedPromptMessages, 'The fake provider is registered but must never be reached when the flag is off.');
+  }
+
+  #[Test]
+  public function testInvokeReplaysOnlyCompletedTurnsAndNeverTheReplyBeingGenerated(): void
+  {
+    $message = $this->pendingMessage();
+
+    $messages = $this->createStub(AssistantMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($message);
+    $messages->method('countByThread')->willReturn(3);
+    $messages->method('listByThread')->willReturn([
+      $this->transcriptMessage('018f0b68-6758-7a12-8a1d-3f0d97f64d05', AssistantMessageRole::USER, 'How many extinguishers?', AssistantMessageStatus::COMPLETE),
+      $this->transcriptMessage('018f0b68-6758-7a12-8a1d-3f0d97f64d06', AssistantMessageRole::ASSISTANT, 'Twelve.', AssistantMessageStatus::COMPLETE),
+      // A previous attempt that never settled: must never be replayed.
+      $this->transcriptMessage('018f0b68-6758-7a12-8a1d-3f0d97f64d07', AssistantMessageRole::ASSISTANT, 'half-written', AssistantMessageStatus::STREAMING),
+      // The reply currently being generated: excluded by id even though the
+      // fake row reports itself complete.
+      $this->transcriptMessage(self::ASSISTANT_MESSAGE_ID, AssistantMessageRole::ASSISTANT, 'should be excluded', AssistantMessageStatus::COMPLETE),
+    ]);
+
+    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
+    $threads->method('findById')->willReturn($this->thread());
+
+    $capturedPromptMessages = null;
+    $client = $this->createStub(AssistantGenerationClientPort::class);
+    $client->method('streamChat')->willReturnCallback(
+      static function (string $model, array $promptMessages, float $temperature, int $timeout, callable $onFragment) use (&$capturedPromptMessages): AssistantGenerationOutcome {
+        $capturedPromptMessages = $promptMessages;
+        $onFragment('Hello');
+
+        return new AssistantGenerationOutcome('Hello', 1);
+      },
+    );
+
+    $this->handler(messages: $messages, threads: $threads, client: $client)(self::command());
+
+    self::assertIsArray($capturedPromptMessages);
+    // system prompt + exactly the two completed turns.
+    self::assertCount(3, $capturedPromptMessages);
+    self::assertSame(['role' => 'user', 'content' => 'How many extinguishers?'], $capturedPromptMessages[1]);
+    self::assertSame(['role' => 'assistant', 'content' => 'Twelve.'], $capturedPromptMessages[2]);
+  }
+
+  #[Test]
+  public function testInvokeStillSettlesTheReplyWhenTheRealtimeHubRejectsThePublish(): void
+  {
+    $message = $this->pendingMessage();
+
+    $messages = $this->createStub(AssistantMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($message);
+    $messages->method('listByThread')->willReturn([]);
+    $messages->method('countByThread')->willReturn(0);
+
+    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
+    $threads->method('findById')->willReturn($this->thread());
+
+    $client = $this->createStub(AssistantGenerationClientPort::class);
+    $client->method('streamChat')->willReturnCallback(
+      static function (string $model, array $promptMessages, float $temperature, int $timeout, callable $onFragment): AssistantGenerationOutcome {
+        $onFragment('Hel');
+
+        return new AssistantGenerationOutcome('Hello', 5);
+      },
+    );
+
+    $realtime = $this->createStub(AssistantRealtimePublisherPort::class);
+    $realtime->method('publishGenerationEvent')->willThrowException(new RuntimeException('hub down'));
+
+    // Both the streaming fragment and the terminal publish are absorbed and
+    // logged: an unguarded throw would strand the reply at `streaming`.
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::exactly(2))->method('warning')->with('Assistant realtime publish failed.', self::anything());
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $this->handler(
+      messages: $messages,
+      threads: $threads,
+      client: $client,
+      realtime: $realtime,
+      eventDispatcher: $eventDispatcher,
+      logger: $logger,
+    )(self::command());
+
+    self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
+    self::assertSame('Hello', $message->body());
+  }
+
+  #[Test]
+  public function testInvokeDegradesToNoBusinessContextWhenTheSettingsLookupThrows(): void
+  {
+    $message = $this->pendingMessage();
+
+    $messages = $this->createStub(AssistantMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($message);
+    $messages->method('listByThread')->willReturn([]);
+    $messages->method('countByThread')->willReturn(0);
+
+    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
+    $threads->method('findById')->willReturn($this->thread());
+
+    $organizationSettings = $this->createStub(AssistantOrganizationSettingsPort::class);
+    $organizationSettings->method('includeBusinessContextFor')->willThrowException(new RuntimeException('settings unreachable'));
+
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::once())
+      ->method('error')
+      ->with(
+        'Failed to resolve the assistant business-context setting; degrading to no business context.',
+        self::anything(),
+      );
+
+    $capturedPromptMessages = null;
+    $client = $this->createStub(AssistantGenerationClientPort::class);
+    $client->method('streamChat')->willReturnCallback(
+      static function (string $model, array $promptMessages, float $temperature, int $timeout, callable $onFragment) use (&$capturedPromptMessages): AssistantGenerationOutcome {
+        $capturedPromptMessages = $promptMessages;
+        $onFragment('Hello');
+
+        return new AssistantGenerationOutcome('Hello', 1);
+      },
+    );
+
+    $this->handler(
+      messages: $messages,
+      threads: $threads,
+      client: $client,
+      logger: $logger,
+      organizationSettings: $organizationSettings,
+    )(self::command());
+
+    self::assertIsArray($capturedPromptMessages);
+    // Fail-closed: the system prompt alone, no business-context block.
+    self::assertCount(1, $capturedPromptMessages);
+    self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
+  }
+
+  #[Test]
+  public function testInvokeNeverOverwritesAReplyThatSettledWhileTheStreamWasRunning(): void
+  {
+    $message = $this->pendingMessage();
+
+    $messages = $this->createStub(AssistantMessageRepositoryPort::class);
+    $messages->method('findById')->willReturn($message);
+    $messages->method('listByThread')->willReturn([]);
+    $messages->method('countByThread')->willReturn(0);
+
+    $threads = $this->createStub(AssistantThreadRepositoryPort::class);
+    $threads->method('findById')->willReturn($this->thread());
+
+    $client = $this->createStub(AssistantGenerationClientPort::class);
+    $client->method('streamChat')->willReturnCallback(
+      static function (string $model, array $promptMessages, float $temperature, int $timeout, callable $onFragment) use ($message): AssistantGenerationOutcome {
+        $onFragment('Hel');
+        // Simulates the documented race: the row settled elsewhere while this
+        // attempt was still mid-stream.
+        $message->markComplete('Settled by another worker.', 9, new DateTimeImmutable('2026-01-20T00:00:00+00:00'));
+
+        return new AssistantGenerationOutcome('', null, 'ollama_unreachable', 'Connection refused');
+      },
+    );
+
+    $this->handler(messages: $messages, threads: $threads, client: $client)(self::command());
+
+    // failMessage() is a no-op on an already-terminal row: the settled
+    // completion survives instead of being clobbered by a stale failure.
+    self::assertSame(AssistantMessageStatus::COMPLETE, $message->status());
+    self::assertSame('Settled by another worker.', $message->body());
+    self::assertNull($message->errorCode());
+  }
+
+  private function transcriptMessage(
+    string $id,
+    AssistantMessageRole $role,
+    string $body,
+    AssistantMessageStatus $status,
+  ): AssistantMessage {
+    return AssistantMessage::reconstitute(
+      id: AssistantMessageId::fromString($id),
+      threadId: self::THREAD_ID,
+      organizationId: self::ORG_ID,
+      role: $role,
+      body: $body,
+      status: $status,
+      errorCode: null,
+      tokenCount: null,
+      createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+      completedAt: null,
+    );
   }
 
   private static function command(): GenerateAssistantReplyCommand

@@ -13,6 +13,8 @@ use Organization\Presentation\Api\Processor\Organization\DeleteOrganizationProce
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
@@ -22,6 +24,9 @@ use Symfony\Component\HttpKernel\Exception\{
   NotFoundHttpException,
   UnprocessableEntityHttpException
 };
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(DeleteOrganizationProcessor::class)]
 final class DeleteOrganizationProcessorTest extends TestCase
@@ -200,6 +205,81 @@ final class DeleteOrganizationProcessorTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsNotFoundWhenOrganizationMissingIsWrappedInMessengerRuntimeException(): void
+  {
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new DeleteOrganizationCommand(organizationId: self::ORGANIZATION_ID, slugConfirmation: 'fireguard-nice')),
+      [OrganizationNotFoundException::withId(self::ORGANIZATION_ID)],
+    );
+
+    $processor = $this->createProcessorRejectingWith(MessengerRuntimeException::wrap($handlerFailure));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsUnprocessableEntityWhenMismatchIsWrappedInMessengerRuntimeException(): void
+  {
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new DeleteOrganizationCommand(organizationId: self::ORGANIZATION_ID, slugConfirmation: 'wrong-slug')),
+      [OrganizationDeletionConfirmationMismatchException::mismatched()],
+    );
+
+    $processor = $this->createProcessorRejectingWith(MessengerRuntimeException::wrap($handlerFailure));
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessUnwrapsDomainFailureNestedInThePreviousChain(): void
+  {
+    $runtimeFailure = MessengerRuntimeException::wrap(
+      new RuntimeException('Bus failed.', 0, OrganizationDeletionConfirmationMismatchException::missing()),
+    );
+
+    $processor = $this->createProcessorRejectingWith($runtimeFailure);
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $processor = $this->createProcessorRejectingWith(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $processor->process(null, new Delete(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  private function createProcessorRejectingWith(Throwable $exception): DeleteOrganizationProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($exception);
+
+    return new DeleteOrganizationProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->requestStackWithSlug('fireguard-nice'),
+    );
   }
 
   private function createSecurityUser(): SecurityUser

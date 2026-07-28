@@ -11,20 +11,29 @@ use Equipment\Application\UseCase\Query\Equipment\GetEquipment\{GetEquipmentQuer
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
 use Equipment\Presentation\Api\Provider\Equipment\GetEquipmentProvider;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(GetEquipmentProvider::class)]
 final class GetEquipmentProviderTest extends TestCase
 {
+  private const string ORG_ID = '550e8400-e29b-41d4-a716-446655441400';
+
+  private const string EQUIP_ID = '550e8400-e29b-41d4-a716-446655441401';
+
+  private const string USER_ID = '550e8400-e29b-41d4-a716-446655441402';
+
   #[Test]
   public function testProvideMapsWrappedNotFoundToHttp404(): void
   {
@@ -144,6 +153,140 @@ final class GetEquipmentProviderTest extends TestCase
     self::assertSame('urgent', $output->tags[0]->name);
     self::assertSame($organizationId, $output->tags[0]->organizationId);
     self::assertSame('due_soon', $output->maintenanceDueStatus);
+  }
+
+  #[Test]
+  public function testProvideThrowsAccessDeniedWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new GetEquipmentProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsBadRequestWhenUriVariablesAreMissing(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
+
+    $provider = new GetEquipmentProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(operation: new Get(), uriVariables: ['organizationId' => self::ORG_ID]);
+  }
+
+  #[Test]
+  public function testProvideThrowsAccessDeniedWithoutTheReadPermission(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $provider = new GetEquipmentProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsADirectEquipmentNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->providerThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(new InvalidArgumentException('Invalid equipment identifier.'))->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetEquipmentQuery(organizationId: self::ORG_ID, equipmentId: self::EQUIP_ID)),
+      [new InvalidArgumentException('Invalid equipment identifier.')],
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(MessengerRuntimeException::wrap($handlerFailure))->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAMessengerFailureItCannotTranslate(): void
+  {
+    // A handler failure whose cause is neither a not-found nor an invalid
+    // argument must surface as-is rather than be masked behind a 4xx.
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new GetEquipmentQuery(organizationId: self::ORG_ID, equipmentId: self::EQUIP_ID)),
+      [new RuntimeException('Equipment read model is unavailable.')],
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->providerThrowing(MessengerRuntimeException::wrap($handlerFailure))->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  private function providerThrowing(Throwable $exception): GetEquipmentProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($exception);
+
+    return new GetEquipmentProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

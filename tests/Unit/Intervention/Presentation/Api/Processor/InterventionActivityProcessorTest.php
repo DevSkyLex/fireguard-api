@@ -8,15 +8,17 @@ use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\Contract\Workflow\InterventionWorkflowView;
 use Intervention\Application\UseCase\Command\Activity\AddInterventionComment\{AddInterventionCommentCommand, AddInterventionCommentResult};
+use Intervention\Domain\Exception\InterventionAccessDeniedException;
 use Intervention\Presentation\Api\Dto\Input\CreateInterventionCommentInput;
 use Intervention\Presentation\Api\Factory\InterventionActivityOutputFactory;
 use Intervention\Presentation\Api\Processor\InterventionActivityProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerInterface;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
 
 /**
  * Test InterventionActivityProcessorTest.
@@ -89,5 +91,71 @@ final class InterventionActivityProcessorTest extends TestCase
     $this->expectException(BadRequestHttpException::class);
 
     $processor->process(new CreateInterventionCommentInput(), new Post(), []);
+  }
+
+  #[Test]
+  public function itRejectsAPayloadThatIsNotACommentInput(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new InterventionActivityProcessor(
+      $commandBus,
+      new InterventionActivityOutputFactory(),
+      $this->createStub(Security::class),
+      $this->createStub(HtmlSanitizerInterface::class),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid comment payload.');
+
+    $processor->process(new stdClass(), new Post(), ['interventionId' => 'intervention-1']);
+  }
+
+  #[Test]
+  public function itRejectsAnUnauthenticatedUser(): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new InterventionActivityProcessor(
+      $commandBus,
+      new InterventionActivityOutputFactory(),
+      $security,
+      $this->createStub(HtmlSanitizerInterface::class),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(new CreateInterventionCommentInput(), new Post(), ['interventionId' => 'intervention-1']);
+  }
+
+  #[Test]
+  public function itMapsAWorkflowExceptionFromTheCommandBus(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      new InterventionAccessDeniedException('Missing organization.interventions.comment permission.'),
+    );
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-1', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $sanitizer = $this->createStub(HtmlSanitizerInterface::class);
+    $sanitizer->method('sanitize')->willReturnArgument(0);
+
+    $input = new CreateInterventionCommentInput();
+    $input->body = 'A comment';
+
+    $processor = new InterventionActivityProcessor($commandBus, new InterventionActivityOutputFactory(), $security, $sanitizer);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($input, new Post(), ['interventionId' => 'intervention-1']);
   }
 }

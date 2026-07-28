@@ -13,9 +13,13 @@ use Organization\Presentation\Api\Provider\Organization\GetOrganizationNavigatio
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 /**
  * Test GetOrganizationNavigationCountersProviderTest.
@@ -118,6 +122,65 @@ final class GetOrganizationNavigationCountersProviderTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655443406']);
+  }
+
+  #[Test]
+  public function testProvideUnwrapsAMissingMembershipWrappedByTheMessengerBus(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655443405'));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap(
+      new HandlerFailedException(
+        new Envelope(new GetNavigationCountersQuery(
+          '550e8400-e29b-41d4-a716-446655443406',
+          '550e8400-e29b-41d4-a716-446655443405',
+        )),
+        [OrganizationMemberNotFoundException::forUserInOrganization(
+          '550e8400-e29b-41d4-a716-446655443405',
+          '550e8400-e29b-41d4-a716-446655443406',
+        )],
+      ),
+    ));
+
+    $provider = new GetOrganizationNavigationCountersProvider(
+      queryBus: $queryBus,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655443406']);
+  }
+
+  #[Test]
+  public function testProvideRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655443405'));
+
+    $failure = MessengerRuntimeException::wrap(
+      new HandlerFailedException(
+        new Envelope(new GetNavigationCountersQuery(
+          '550e8400-e29b-41d4-a716-446655443406',
+          '550e8400-e29b-41d4-a716-446655443405',
+        )),
+        [new RuntimeException('the read model is offline')],
+      ),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($failure);
+
+    $provider = new GetOrganizationNavigationCountersProvider(
+      queryBus: $queryBus,
+      security: $security,
+    );
+
+    $this->expectExceptionObject($failure);
 
     $provider->provide(new Get(), ['organizationId' => '550e8400-e29b-41d4-a716-446655443406']);
   }

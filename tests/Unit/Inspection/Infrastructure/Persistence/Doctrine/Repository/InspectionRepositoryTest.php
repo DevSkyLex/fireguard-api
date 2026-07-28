@@ -6,7 +6,6 @@ namespace Tests\Unit\Inspection\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use Doctrine\DBAL\{Connection, Result};
-use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, Query, QueryBuilder};
 use Inspection\Domain\Model\Inspection\Inspection;
@@ -160,70 +159,15 @@ final class InspectionRepositoryTest extends TestCase
   }
 
   #[Test]
-  public function testCountByPerformedDayForOrganizationIdReinterpretsHydratedDatetimesUsingConfiguredStorageTimezone(): void
-  {
-    $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440031');
-    $doctrineRepository = $this->createStub(EntityRepository::class);
-
-    $platform = $this->createMock(AbstractPlatform::class);
-    $platform->expects(self::once())->method('getName')->willReturn('sqlite');
-
-    $connection = $this->createMock(Connection::class);
-    $connection->expects(self::once())->method('getDatabasePlatform')->willReturn($platform);
-
-    $query = $this->createMock(Query::class);
-    $query->expects(self::once())->method('getArrayResult')->willReturn([
-      ['performedAt' => new DateTimeImmutable('2026-03-30T00:30:00+02:00')],
-    ]);
-
-    $queryBuilder = $this->createMock(QueryBuilder::class);
-    $queryBuilder->method('select')->willReturnSelf();
-    $queryBuilder->method('from')->willReturnSelf();
-    $queryBuilder->method('where')->willReturnSelf();
-    $queryBuilder->method('andWhere')->willReturnSelf();
-    $queryBuilder->method('setParameter')->willReturnSelf();
-    $queryBuilder->method('orderBy')->willReturnSelf();
-    $queryBuilder->expects(self::once())->method('getQuery')->willReturn($query);
-
-    $organization = new OrganizationRecord();
-    $organization->id = (string) $organizationId;
-
-    $entityManager = $this->createMock(EntityManagerInterface::class);
-    $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::once())->method('getConnection')->willReturn($connection);
-    $entityManager->expects(self::once())->method('getReference')->with(OrganizationRecord::class, (string) $organizationId)->willReturn($organization);
-    $entityManager->expects(self::once())->method('createQueryBuilder')->willReturn($queryBuilder);
-
-    $repository = new InspectionRepository(
-      entityManager: $entityManager,
-      storageTimeZone: 'UTC',
-    );
-
-    self::assertSame(
-      ['2026-03-30' => 1],
-      $repository->countByPerformedDayForOrganizationId(
-        organizationId: $organizationId,
-        performedAtFrom: '2026-03-30T00:00:00+00:00',
-        performedAtTo: '2026-03-30T23:59:59+00:00',
-        timeZone: 'UTC',
-      ),
-    );
-  }
-
-  #[Test]
   public function testCountByPerformedDayForOrganizationIdPreservesMicrosecondsOnPostgreSqlBounds(): void
   {
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440032');
     $doctrineRepository = $this->createStub(EntityRepository::class);
 
-    $platform = $this->createMock(AbstractPlatform::class);
-    $platform->expects(self::once())->method('getName')->willReturn('postgresql');
-
     $result = $this->createMock(Result::class);
     $result->expects(self::once())->method('fetchAllAssociative')->willReturn([]);
 
     $connection = $this->createMock(Connection::class);
-    $connection->expects(self::once())->method('getDatabasePlatform')->willReturn($platform);
     $connection->expects(self::once())
       ->method('executeQuery')
       ->with(
@@ -239,7 +183,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::exactly(2))->method('getConnection')->willReturn($connection);
+    $entityManager->expects(self::once())->method('getConnection')->willReturn($connection);
 
     $repository = new InspectionRepository(
       entityManager: $entityManager,
@@ -263,14 +207,10 @@ final class InspectionRepositoryTest extends TestCase
     $organizationId = InspectionOrganizationId::fromString('550e8400-e29b-41d4-a716-446655440033');
     $doctrineRepository = $this->createStub(EntityRepository::class);
 
-    $platform = $this->createMock(AbstractPlatform::class);
-    $platform->expects(self::once())->method('getName')->willReturn('postgresql');
-
     $result = $this->createMock(Result::class);
     $result->expects(self::once())->method('fetchAllAssociative')->willReturn([]);
 
     $connection = $this->createMock(Connection::class);
-    $connection->expects(self::once())->method('getDatabasePlatform')->willReturn($platform);
     $connection->expects(self::once())
       ->method('executeQuery')
       ->with(
@@ -293,7 +233,7 @@ final class InspectionRepositoryTest extends TestCase
 
     $entityManager = $this->createMock(EntityManagerInterface::class);
     $entityManager->expects(self::once())->method('getRepository')->with(InspectionRecord::class)->willReturn($doctrineRepository);
-    $entityManager->expects(self::exactly(2))->method('getConnection')->willReturn($connection);
+    $entityManager->expects(self::once())->method('getConnection')->willReturn($connection);
 
     $repository = new InspectionRepository(
       entityManager: $entityManager,

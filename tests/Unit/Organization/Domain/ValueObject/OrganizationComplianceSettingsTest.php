@@ -142,6 +142,33 @@ final class OrganizationComplianceSettingsTest extends TestCase
   }
 
   #[Test]
+  public function testRejectsAnEmptyEquipmentTypeKey(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment type keys must be non-empty strings.');
+
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['' => 'P1Y']);
+  }
+
+  #[Test]
+  public function testRejectsANonStringEquipmentTypeKey(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Equipment type keys must be non-empty strings.');
+
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: [7 => 'P1Y']);
+  }
+
+  #[Test]
+  public function testRejectsANonStringPeriodicity(): void
+  {
+    $this->expectException(InvalidValueException::class);
+    $this->expectExceptionMessage('Inspection periodicity for "fire_extinguisher" must be an ISO-8601 duration string.');
+
+    new OrganizationComplianceSettings(inspectionPeriodicityDefaults: ['fire_extinguisher' => 12]);
+  }
+
+  #[Test]
   public function testRejectsReminderWindowOutOfBounds(): void
   {
     $this->expectException(InvalidValueException::class);

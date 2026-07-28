@@ -130,6 +130,24 @@ final class SetChannelParentHandlerTest extends TestCase
     $handler->__invoke(new SetChannelParentCommand(self::USER_ID, self::CHILD_ID, self::CHILD_ID));
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheSavedChannelCannotBeReadBack(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturnMap([
+      [self::CHILD_ID, $this->channel(self::CHILD_ID)],
+      [self::PARENT_ID, $this->channel(self::PARENT_ID)],
+    ]);
+    $conversations->method('save')->willReturn($this->conversationView());
+    $conversations->method('findChannelById')->willReturn(null);
+
+    $handler = $this->handler($conversations, $this->createStub(EventDispatcherPort::class));
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new SetChannelParentCommand(self::USER_ID, self::CHILD_ID, self::PARENT_ID));
+  }
+
   private function handler(MessagingConversationRepositoryPort $conversations, EventDispatcherPort $eventDispatcher): SetChannelParentHandler
   {
     $participants = $this->createStub(MessagingParticipantRepositoryPort::class);

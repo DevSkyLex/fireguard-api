@@ -18,6 +18,7 @@ use Billing\Presentation\Api\Provider\GetPaymentMethodProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -38,6 +39,27 @@ final class GetPaymentMethodProviderTest extends TestCase
   private const string USER_ID = '550e8400-e29b-41d4-a716-446655441600';
 
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655441610';
+
+  #[Test]
+  public function itThrowsWhenTheUserIsNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $provider = new GetPaymentMethodProvider(
+      queryBus: $queryBus,
+      access: $this->createStub(OrganizationAccessPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
 
   #[Test]
   public function itReturnsNullWhenTheOrganizationIdIsMissing(): void
@@ -167,6 +189,30 @@ final class GetPaymentMethodProviderTest extends TestCase
     );
 
     $this->expectException(ServiceUnavailableHttpException::class);
+
+    $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function itRethrowsAMessengerFailureThatIsNotAGatewayOutage(): void
+  {
+    $security = $this->securityWithUser();
+
+    $access = $this->createStub(OrganizationAccessPort::class);
+    $access->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Database down.')),
+    );
+
+    $provider = new GetPaymentMethodProvider(
+      queryBus: $queryBus,
+      access: $access,
+      security: $security,
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $provider->provide(new Get(), ['organizationId' => self::ORGANIZATION_ID]);
   }

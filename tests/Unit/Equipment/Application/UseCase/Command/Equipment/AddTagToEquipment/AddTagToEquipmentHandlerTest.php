@@ -10,6 +10,7 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\Tag\Tag;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType, TagId};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -127,6 +128,28 @@ final class AddTagToEquipmentHandlerTest extends TestCase
     $handler->__invoke(new AddTagToEquipmentCommand(
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIP_ID,
+      tagName: 'urgent',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findById');
+
+    $handler = new AddTagToEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new AddTagToEquipmentCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
       tagName: 'urgent',
     ));
   }

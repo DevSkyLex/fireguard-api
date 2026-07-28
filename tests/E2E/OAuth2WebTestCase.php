@@ -4,21 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
-use Doctrine\Common\DataFixtures\Executor\ORMExecutor;
-use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\ORM\EntityManagerInterface;
-use Equipment\Infrastructure\DataFixtures\EquipmentFixtures;
-use Facility\Infrastructure\DataFixtures\FacilityFixtures;
-use Inspection\Infrastructure\DataFixtures\InspectionFixtures;
-use OAuth\Infrastructure\DataFixtures\ClientFixtures;
-use Onboarding\Infrastructure\DataFixtures\OnboardingFixtures;
-use Organization\Infrastructure\DataFixtures\{OrganizationFixtures, PlanFixtures};
 use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
-use User\Infrastructure\DataFixtures\UserFixtures;
 
 use function is_array;
 use function is_string;
@@ -50,71 +41,23 @@ abstract class OAuth2WebTestCase extends WebTestCase
   protected ?string $accessToken = null;
 
   /**
-   * Create client and ensure fixtures are loaded.
+   * Create a client against the seeded E2E databases.
+   *
+   * The fixture baseline lives in `fireguard_*_e2e`, seeded once by
+   * `make test-db`. This suite therefore runs under phpunit.e2e.xml, not
+   * phpunit.dist.xml — the other suites need those tables empty.
+   *
+   * Loading the baseline here instead cost ~5s per test and bought nothing:
+   * DAMA wraps every test in a transaction it rolls back, so the seeded data is
+   * already pristine at the start of each one, and the test's own writes still
+   * disappear at the end.
    */
   protected static function createClientWithFixtures(): KernelBrowser
   {
     $client = static::createClient();
-    static::loadTestFixtures($client);
     $client->enableReboot();
 
     return $client;
-  }
-
-  /**
-   * Load fixtures for testing using proper executor.
-   */
-  protected static function loadTestFixtures(KernelBrowser $client): void
-  {
-    $container = $client->getContainer();
-
-    /** @var EntityManagerInterface $authEntityManager */
-    $authEntityManager = $container->get('doctrine.orm.auth_entity_manager');
-
-    $authLoader = new Loader();
-
-    /** @var ClientFixtures $clientFixtures */
-    $clientFixtures = $container->get(ClientFixtures::class);
-    /** @var UserFixtures $userFixtures */
-    $userFixtures = $container->get(UserFixtures::class);
-
-    $authLoader->addFixture($clientFixtures);
-    $authLoader->addFixture($userFixtures);
-
-    $authExecutor = new ORMExecutor($authEntityManager);
-    // Append mode avoids purge; each test is isolated by transaction rollback.
-    $authExecutor->execute($authLoader->getFixtures(), true);
-    $authEntityManager->clear();
-
-    /** @var EntityManagerInterface $mainEntityManager */
-    $mainEntityManager = $container->get('doctrine.orm.main_entity_manager');
-
-    $mainLoader = new Loader();
-    /** @var PlanFixtures $planFixtures */
-    $planFixtures = $container->get(PlanFixtures::class);
-    /** @var OrganizationFixtures $organizationFixtures */
-    $organizationFixtures = $container->get(OrganizationFixtures::class);
-    /** @var FacilityFixtures $facilityFixtures */
-    $facilityFixtures = $container->get(FacilityFixtures::class);
-    /** @var EquipmentFixtures $equipmentFixtures */
-    $equipmentFixtures = $container->get(EquipmentFixtures::class);
-    /** @var InspectionFixtures $inspectionFixtures */
-    $inspectionFixtures = $container->get(InspectionFixtures::class);
-    /** @var OnboardingFixtures $onboardingFixtures */
-    $onboardingFixtures = $container->get(OnboardingFixtures::class);
-
-    $mainLoader->addFixture($planFixtures);
-    $mainLoader->addFixture($organizationFixtures);
-    $mainLoader->addFixture($onboardingFixtures);
-    $mainLoader->addFixture($facilityFixtures);
-    $mainLoader->addFixture($equipmentFixtures);
-    $mainLoader->addFixture($inspectionFixtures);
-
-    $executor = new ORMExecutor($mainEntityManager);
-    // Append mode avoids purge; each test is isolated by transaction rollback.
-    $executor->execute($mainLoader->getFixtures(), true);
-
-    $mainEntityManager->clear();
   }
 
   /**

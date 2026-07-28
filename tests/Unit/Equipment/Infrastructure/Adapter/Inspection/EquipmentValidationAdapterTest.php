@@ -118,6 +118,43 @@ final class EquipmentValidationAdapterTest extends TestCase
     $adapter->assertEquipmentIsInspectable(self::EQUIP_ID, self::ORG_ID, self::FACILITY_ID);
   }
 
+  #[Test]
+  public function testAssertEquipmentExistsPassesForEquipmentInTheSameOrganization(): void
+  {
+    $adapter = new EquipmentValidationAdapter($this->repositoryReturning(
+      $this->equipment(EquipmentStatus::DECOMMISSIONED, null),
+    ));
+
+    // Existence alone is asserted here: a decommissioned item still exists.
+    $adapter->assertEquipmentExists(self::EQUIP_ID, self::ORG_ID);
+
+    $this->expectNotToPerformAssertions();
+  }
+
+  #[Test]
+  public function testAssertEquipmentExistsThrowsWhenEquipmentIsMissing(): void
+  {
+    $adapter = new EquipmentValidationAdapter($this->repositoryReturning(null));
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('not found');
+
+    $adapter->assertEquipmentExists(self::EQUIP_ID, self::ORG_ID);
+  }
+
+  #[Test]
+  public function testAssertEquipmentExistsThrowsWhenEquipmentBelongsToAnotherOrganization(): void
+  {
+    $adapter = new EquipmentValidationAdapter($this->repositoryReturning(
+      $this->equipment(EquipmentStatus::OPERATIONAL, null),
+    ));
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('not found');
+
+    $adapter->assertEquipmentExists(self::EQUIP_ID, '550e8400-e29b-41d4-a716-446655440099');
+  }
+
   /**
    * Builds an equipment aggregate in a specific lifecycle state.
    */

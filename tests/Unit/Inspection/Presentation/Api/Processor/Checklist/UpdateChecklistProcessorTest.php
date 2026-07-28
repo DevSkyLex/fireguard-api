@@ -10,13 +10,15 @@ use DateTimeImmutable;
 use Inspection\Application\UseCase\Command\Checklist\UpdateChecklist\UpdateChecklistCommand;
 use Inspection\Application\UseCase\Query\Checklist\GetChecklist\{ChecklistItemResult, GetChecklistQuery, GetChecklistResult};
 use Inspection\Domain\Exception\{ChecklistArchivedException, ChecklistInUseException, ChecklistNotFoundException, ChecklistReferenceCodeAlreadyExistsException};
-use Inspection\Presentation\Api\Dto\Input\Checklist\UpdateChecklistInput;
+use Inspection\Presentation\Api\Dto\Input\Checklist\{ChecklistItemInput, UpdateChecklistInput};
 use Inspection\Presentation\Api\Dto\Output\Checklist\ChecklistOutput;
 use Inspection\Presentation\Api\Processor\Checklist\UpdateChecklistProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
@@ -206,6 +208,218 @@ final class UpdateChecklistProcessorTest extends TestCase
     );
 
     $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreMissing(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->makeProcessor()->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => ''],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenWritePermissionIsMissing(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $processor = new UpdateChecklistProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $this->makeSecurity(),
+      requestStack: $this->makeRequestStack(['name' => 'Renamed']),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestWhenNoRequestIsAvailable(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->makeProcessor(requestStack: new RequestStack())->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnAMalformedJsonPayload(): void
+  {
+    $request = new Request(content: '{not-json');
+    $request->headers->set('CONTENT_TYPE', 'application/json');
+    $stack = new RequestStack();
+    $stack->push($request);
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->makeProcessor(requestStack: $stack)->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsSubmittedItemsIntoTheCommand(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (UpdateChecklistCommand $command): bool {
+        return true === $command->hasItems
+          && [[
+            'label' => 'Check hose integrity',
+            'description' => 'Look for cracks',
+            'required' => false,
+            'position' => 3,
+          ]] === $command->items;
+      }));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willReturn($this->makeGetChecklistResult());
+
+    $item = new ChecklistItemInput();
+    $item->label = 'Check hose integrity';
+    $item->description = 'Look for cracks';
+    $item->required = false;
+    $item->position = 3;
+
+    $input = new UpdateChecklistInput();
+    $input->items = [$item];
+
+    $processor = new UpdateChecklistProcessor(
+      commandBus: $commandBus,
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $this->makeSecurity(),
+      requestStack: $this->makeRequestStack(['items' => [['label' => 'Check hose integrity']]]),
+    );
+
+    $output = $processor->process(
+      data: $input,
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+
+    self::assertInstanceOf(ChecklistOutput::class, $output);
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnInvalidArgument(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: new InvalidArgumentException('Malformed checklist identifier.'),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsNotFoundFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(ChecklistNotFoundException::withId(self::CL_ID)),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsArchivedFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(ChecklistArchivedException::withId(self::CL_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsDuplicateReferenceCodeFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(
+        ChecklistReferenceCodeAlreadyExistsException::withReferenceCode('CHK-DUP'),
+      ),
+      requestStack: $this->makeRequestStack(['referenceCode' => 'CHK-DUP']),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(new InvalidArgumentException('Malformed checklist identifier.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Patch(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'checklistId' => self::CL_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $processor = $this->makeProcessor(
+      commandException: MessengerRuntimeException::wrap(new RuntimeException('Transport is unavailable.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: $this->makeInput(),

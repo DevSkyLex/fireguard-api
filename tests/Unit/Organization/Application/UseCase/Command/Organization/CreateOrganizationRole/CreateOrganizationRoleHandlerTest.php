@@ -131,6 +131,48 @@ final class CreateOrganizationRoleHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsWhenNoPermissionIsRequested(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440400';
+
+    $organization = Organization::reconstitute(
+      id: new OrganizationId($organizationId),
+      name: new OrganizationName('Fireguard Nice'),
+      createdByUserId: '550e8400-e29b-41d4-a716-446655440001',
+      isActive: true,
+      createdAt: new DateTimeImmutable('-2 days'),
+    );
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($organization);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findByOrganizationAndName')->willReturn(null);
+    $roleRepository->expects(self::never())->method('save');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CreateOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      uuidFactory: $this->createStub(UuidFactory::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('At least one permission is required.');
+
+    $handler->__invoke(new CreateOrganizationRoleCommand(
+      organizationId: $organizationId,
+      name: 'inspector',
+      permissions: [],
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsWhenRoleNameAlreadyExists(): void
   {
     $organizationId = '550e8400-e29b-41d4-a716-446655440400';

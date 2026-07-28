@@ -14,6 +14,8 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Port\Outbound\CachePort;
 
 #[CoversClass(GetComplianceOverviewHandler::class)]
 final class GetComplianceOverviewHandlerTest extends TestCase
@@ -198,5 +200,110 @@ final class GetComplianceOverviewHandlerTest extends TestCase
 
     self::assertSame(0, $result->totals['trackedEquipmentCount']);
     self::assertNull($result->totals['complianceRate']);
+  }
+
+  #[Test]
+  public function testInvokeReturnsTheCachedRegisterWithoutReAggregating(): void
+  {
+    $cached = new GetComplianceOverviewResult(
+      generatedAt: '2026-06-01T08:00:00+00:00',
+      organizationStatus: ComplianceStatus::COMPLIANT,
+      totals: [
+        'totalEquipmentCount' => 12,
+        'activeEquipmentCount' => 12,
+        'upToDateEquipmentCount' => 12,
+        'dueSoonEquipmentCount' => 0,
+        'overdueEquipmentCount' => 0,
+        'unscheduledEquipmentCount' => 0,
+        'trackedEquipmentCount' => 12,
+        'complianceRate' => 100.0,
+        'openLowNonConformityCount' => 0,
+        'openMediumNonConformityCount' => 0,
+        'openHighNonConformityCount' => 0,
+        'openCriticalNonConformityCount' => 0,
+      ],
+      facilities: [],
+    );
+
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willReturn($cached);
+
+    $facilityDirectory = $this->createMock(ComplianceFacilityDirectoryPort::class);
+    $facilityDirectory->expects(self::never())->method('listFacilities');
+
+    $handler = new GetComplianceOverviewHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      new ComplianceRegisterAggregator(
+        $facilityDirectory,
+        $this->createStub(MaintenanceComplianceStatisticsPort::class),
+        $this->createStub(InspectionComplianceStatisticsPort::class),
+        $this->createStub(EquipmentComplianceStatisticsPort::class),
+      ),
+      $cache,
+      60,
+    );
+
+    self::assertSame($cached, $handler->__invoke(new GetComplianceOverviewQuery(self::ORG_ID, self::USER_ID)));
+  }
+
+  #[Test]
+  public function testInvokeFallsBackToAFreshReadWhenTheCacheMisbehaves(): void
+  {
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willThrowException(new RuntimeException('cache backend unreachable'));
+    $cache->method('set')->willThrowException(new RuntimeException('cache backend unreachable'));
+
+    $handler = new GetComplianceOverviewHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->emptyAggregator(),
+      $cache,
+      60,
+    );
+
+    $result = $handler->__invoke(new GetComplianceOverviewQuery(self::ORG_ID, self::USER_ID));
+
+    self::assertInstanceOf(GetComplianceOverviewResult::class, $result);
+    self::assertSame([], $result->facilities);
+  }
+
+  #[Test]
+  public function testInvokeIgnoresANonMatchingCacheEntry(): void
+  {
+    $cache = $this->createStub(CachePort::class);
+    $cache->method('get')->willReturn('not-a-register');
+
+    $handler = new GetComplianceOverviewHandler(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $this->emptyAggregator(),
+      $cache,
+      60,
+    );
+
+    $result = $handler->__invoke(new GetComplianceOverviewQuery(self::ORG_ID, self::USER_ID));
+
+    self::assertSame(ComplianceStatus::NOT_APPLICABLE, $result->organizationStatus);
+  }
+
+  /**
+   * Method emptyAggregator.
+   *
+   * @return ComplianceRegisterAggregator an aggregator over an organization with no facility
+   */
+  private function emptyAggregator(): ComplianceRegisterAggregator
+  {
+    $facilityDirectory = $this->createStub(ComplianceFacilityDirectoryPort::class);
+    $facilityDirectory->method('listFacilities')->willReturn([]);
+
+    $maintenanceStatistics = $this->createStub(MaintenanceComplianceStatisticsPort::class);
+    $maintenanceStatistics->method('dueStatusCountsByFacility')->willReturn([]);
+    $maintenanceStatistics->method('lastInspectionClosedAtByFacility')->willReturn([]);
+
+    $inspectionStatistics = $this->createStub(InspectionComplianceStatisticsPort::class);
+    $inspectionStatistics->method('openNonConformitiesBySeverityByFacility')->willReturn([]);
+
+    $equipmentStatistics = $this->createStub(EquipmentComplianceStatisticsPort::class);
+    $equipmentStatistics->method('equipmentInventoryByFacility')->willReturn([]);
+
+    return new ComplianceRegisterAggregator($facilityDirectory, $maintenanceStatistics, $inspectionStatistics, $equipmentStatistics);
   }
 }

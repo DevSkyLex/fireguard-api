@@ -11,16 +11,23 @@ use Equipment\Application\UseCase\Command\Equipment\UnassignFromFacility\{Unassi
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentOutput;
 use Equipment\Presentation\Api\Processor\Equipment\UnassignFromFacilityProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
-use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{
+  AccessDeniedHttpException,
+  BadRequestHttpException,
+  NotFoundHttpException
+};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(UnassignFromFacilityProcessor::class)]
 final class UnassignFromFacilityProcessorTest extends TestCase
@@ -144,6 +151,139 @@ final class UnassignFromFacilityProcessorTest extends TestCase
     self::assertInstanceOf(EquipmentOutput::class, $output);
     self::assertSame(self::EQUIP_ID, $output->id);
     self::assertNull($output->facilityId);
+  }
+
+  #[Test]
+  public function testProcessThrowsAccessDeniedWhenNoUserIsAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new UnassignFromFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+    $this->expectExceptionMessage('Authentication required.');
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $this->unassignUriVariables());
+  }
+
+  /**
+   * @param array<string, mixed> $uriVariables
+   */
+  #[Test]
+  #[DataProvider('incompleteUriVariablesProvider')]
+  public function testProcessThrowsBadRequestWhenUriVariablesAreIncomplete(array $uriVariables): void
+  {
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new UnassignFromFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $this->unassignSecurity(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(data: null, operation: new Post(), uriVariables: $uriVariables);
+  }
+
+  #[Test]
+  public function testProcessMapsADirectNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->unassignProcessorThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))
+      ->process(data: null, operation: new Post(), uriVariables: $this->unassignUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Equipment is not assigned to a facility.');
+
+    $this->unassignProcessorThrowing(new InvalidArgumentException('Equipment is not assigned to a facility.'))
+      ->process(data: null, operation: new Post(), uriVariables: $this->unassignUriVariables());
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->unassignProcessorThrowing(
+      $this->unassignWrapped(new InvalidArgumentException('Equipment is not assigned to a facility.')),
+    )->process(data: null, operation: new Post(), uriVariables: $this->unassignUriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->unassignProcessorThrowing($this->unassignWrapped(new RuntimeException('database is down')))
+      ->process(data: null, operation: new Post(), uriVariables: $this->unassignUriVariables());
+  }
+
+  /**
+   * @return iterable<string, array{array<string, mixed>}>
+   */
+  public static function incompleteUriVariablesProvider(): iterable
+  {
+    yield 'no variables' => [[]];
+    yield 'blank organizationId' => [['organizationId' => '', 'equipmentId' => self::EQUIP_ID]];
+    yield 'missing equipmentId' => [['organizationId' => self::ORG_ID]];
+    yield 'blank equipmentId' => [['organizationId' => self::ORG_ID, 'equipmentId' => '']];
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function unassignUriVariables(): array
+  {
+    return ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID];
+  }
+
+  private function unassignSecurity(): Security
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655451010'));
+
+    return $security;
+  }
+
+  private function unassignWrapped(Throwable $failure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new UnassignFromFacilityCommand(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+      )),
+      [$failure],
+    ));
+  }
+
+  private function unassignProcessorThrowing(Throwable $failure): UnassignFromFacilityProcessor
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    return new UnassignFromFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $this->unassignSecurity(),
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

@@ -8,9 +8,11 @@ use Auth\Application\Port\Outbound\{JwtTokenServicePort, SessionTrackingPort};
 use Auth\Application\Port\Outbound\Mfa\ChallengeVerifierPort;
 use Auth\Application\UseCase\Command\Mfa\MfaVerify\{MfaVerifyCommand, MfaVerifyHandler, MfaVerifyResult};
 use Auth\Domain\Exception\Session\AuthorizationException;
+use Auth\Domain\ValueObject\Scope\DefaultScopes;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Test MfaVerifyHandlerTest.
@@ -179,6 +181,156 @@ final class MfaVerifyHandlerTest extends TestCase
     $this->assertSame('access', $result->accessToken);
     $this->assertSame('refresh', $result->refreshToken);
     $this->assertSame(['READ', 'WRITE'], $result->scopes);
+  }
+
+  #[Test]
+  public function testInvokeFallsBackToDefaultScopesWhenClaimHasNoStrings(): void
+  {
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())
+      ->method('decodePreAuthToken')
+      ->willReturn([
+        'challenge_token' => 'challenge',
+        'sub' => 'user-123',
+        'email' => 123,
+        'scopes' => [1, 2, 3],
+        'remember_me' => 'yes',
+      ]);
+    $jwt->expects(self::once())
+      ->method('generateTokens')
+      ->with('user-123', '', DefaultScopes::USER_SCOPES, false)
+      ->willReturn([
+        'access_token' => 'access',
+        'refresh_token' => 'refresh',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600,
+        'access_token_id' => 'access-id',
+        'refresh_token_id' => 'refresh-id',
+      ]);
+
+    /** @var ChallengeVerifierPort&MockObject $verifier */
+    $verifier = $this->createMock(ChallengeVerifierPort::class);
+    $verifier->expects(self::once())
+      ->method('verify')
+      ->willReturn(new MfaVerifyResult(success: true, attemptsRemaining: 1));
+
+    $handler = new MfaVerifyHandler(
+      jwtService: $jwt,
+      challengeVerifier: $verifier,
+      sessionTracking: $this->createStub(SessionTrackingPort::class),
+    );
+
+    $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
+
+    $this->assertTrue($result->success);
+    $this->assertSame(DefaultScopes::USER_SCOPES, $result->scopes);
+    $this->assertFalse($result->rememberMe);
+  }
+
+  #[Test]
+  public function testInvokeDecodesRefreshTokenWhenTokenIdsAreMissing(): void
+  {
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())
+      ->method('decodePreAuthToken')
+      ->willReturn([
+        'challenge_token' => 'challenge',
+        'sub' => 'user-123',
+        'email' => 'user@example.com',
+      ]);
+    $jwt->expects(self::once())
+      ->method('generateTokens')
+      ->willReturn([
+        'access_token' => 'access',
+        'refresh_token' => 'refresh',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600,
+      ]);
+    $jwt->expects(self::once())
+      ->method('decodeRefreshToken')
+      ->with('refresh')
+      ->willReturn([
+        'access_token_id' => 'decoded-access-id',
+        'refresh_token_id' => 'decoded-refresh-id',
+      ]);
+
+    /** @var ChallengeVerifierPort&MockObject $verifier */
+    $verifier = $this->createMock(ChallengeVerifierPort::class);
+    $verifier->expects(self::once())
+      ->method('verify')
+      ->willReturn(new MfaVerifyResult(success: true, attemptsRemaining: 1));
+
+    /** @var SessionTrackingPort&MockObject $sessionTracking */
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::once())
+      ->method('recordSession')
+      ->with(
+        'user-123',
+        '127.0.0.1',
+        'unknown',
+        'decoded-access-id',
+        'decoded-refresh-id',
+        false,
+      );
+
+    $handler = new MfaVerifyHandler(
+      jwtService: $jwt,
+      challengeVerifier: $verifier,
+      sessionTracking: $sessionTracking,
+    );
+
+    $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
+
+    $this->assertTrue($result->success);
+  }
+
+  #[Test]
+  public function testInvokeSucceedsWhenSessionTrackingFails(): void
+  {
+    /** @var JwtTokenServicePort&MockObject $jwt */
+    $jwt = $this->createMock(JwtTokenServicePort::class);
+    $jwt->expects(self::once())
+      ->method('decodePreAuthToken')
+      ->willReturn([
+        'challenge_token' => 'challenge',
+        'sub' => 'user-123',
+        'email' => 'user@example.com',
+      ]);
+    $jwt->expects(self::once())
+      ->method('generateTokens')
+      ->willReturn([
+        'access_token' => 'access',
+        'refresh_token' => 'refresh',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600,
+        'access_token_id' => 'access-id',
+        'refresh_token_id' => 'refresh-id',
+      ]);
+
+    /** @var ChallengeVerifierPort&MockObject $verifier */
+    $verifier = $this->createMock(ChallengeVerifierPort::class);
+    $verifier->expects(self::once())
+      ->method('verify')
+      ->willReturn(new MfaVerifyResult(success: true, attemptsRemaining: 1));
+
+    /** @var SessionTrackingPort&MockObject $sessionTracking */
+    $sessionTracking = $this->createMock(SessionTrackingPort::class);
+    $sessionTracking->expects(self::once())
+      ->method('recordSession')
+      ->willThrowException(new RuntimeException('session store unavailable'));
+
+    $handler = new MfaVerifyHandler(
+      jwtService: $jwt,
+      challengeVerifier: $verifier,
+      sessionTracking: $sessionTracking,
+    );
+
+    $result = $handler->__invoke(new MfaVerifyCommand(preAuthToken: 'pre-auth', code: '123456'));
+
+    $this->assertTrue($result->success);
+    $this->assertSame('access', $result->accessToken);
   }
   // #endregion
 }

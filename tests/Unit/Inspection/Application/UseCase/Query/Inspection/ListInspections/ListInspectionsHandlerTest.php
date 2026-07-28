@@ -173,4 +173,23 @@ final class ListInspectionsHandlerTest extends TestCase
       performedAtTo: '2026-01-01T00:00:00+00:00',
     ));
   }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedEquipmentFilter(): void
+  {
+    $handler = new ListInspectionsHandler(
+      inspectionRepository: $this->createStub(InspectionRepositoryPort::class),
+      nonConformityRepository: $this->createStub(NonConformityRepositoryPort::class),
+      equipmentNaming: $this->createStub(EquipmentNamingPort::class),
+      facilityNaming: $this->createStub(FacilityNamingPort::class),
+      checklistRepository: $this->createStub(ChecklistRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new ListInspectionsQuery(
+      organizationId: self::ORG_ID,
+      equipmentId: 'not-a-uuid',
+    ));
+  }
 }

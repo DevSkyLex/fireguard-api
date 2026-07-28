@@ -67,6 +67,15 @@ final class DomainExceptionNormalizerTest extends TestCase
     self::assertFalse($normalizer->supportsNormalization(new RuntimeException('boom')));
   }
 
+  #[Test]
+  public function testNormalizeIgnoresNonThrowableInput(): void
+  {
+    $normalizer = new DomainExceptionNormalizer();
+
+    self::assertSame([], $normalizer->normalize(FlattenException::createFromThrowable(new RuntimeException('boom'))));
+    self::assertSame([], $normalizer->normalize('not-an-exception'));
+  }
+
   private function expectedType(string $className): string
   {
     $shortName = substr($className, strrpos($className, '\\') + 1);

@@ -7,15 +7,17 @@ namespace Tests\Integration\Intervention\Infrastructure\Adapter\Template;
 use DateTimeImmutable;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Domain\Exception\InterventionConflictException;
+use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Adapter\Template\DoctrineInterventionTemplateAdapter;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\UuidGeneratorPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Throwable;
 
 use function array_map;
+use function str_repeat;
 
 /**
  * Test DoctrineInterventionTemplateAdapter.
@@ -240,6 +242,200 @@ final class DoctrineInterventionTemplateAdapterTest extends KernelTestCase
   public function testFindReturnsNullWhenUnknown(): void
   {
     self::assertNull($this->adapter->find('aa0e8400-e29b-41d4-a716-4466554400ff'));
+  }
+
+  #[Test]
+  public function testCreateRejectsAnUnknownOrganization(): void
+  {
+    $this->expectException(InterventionNotFoundException::class);
+
+    $this->adapter->create(
+      'aa0e8400-e29b-41d4-a716-4466554400ee',
+      'Orphan template',
+      null,
+      'site_setup',
+      'normal',
+      null,
+      null,
+      null,
+      [],
+      [],
+    );
+  }
+
+  #[Test]
+  public function testUpdateRejectsAnUnknownTemplate(): void
+  {
+    $this->expectException(InterventionNotFoundException::class);
+
+    $this->adapter->update(
+      'aa0e8400-e29b-41d4-a716-4466554400ff',
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      hasName: false,
+      hasDescription: false,
+      hasType: false,
+      hasPriority: false,
+      hasDefaultSiteId: false,
+      hasDefaultResponsibleId: false,
+      hasDuration: false,
+      hasLabelIds: false,
+      hasItems: false,
+    );
+  }
+
+  #[Test]
+  public function testDeleteRejectsAnUnknownTemplate(): void
+  {
+    $this->expectException(InterventionNotFoundException::class);
+
+    $this->adapter->delete('aa0e8400-e29b-41d4-a716-4466554400ff');
+  }
+
+  #[Test]
+  public function testUpdateAppliesEveryOptionalFieldAndReplacesItems(): void
+  {
+    $created = $this->adapter->create(
+      self::ORGANIZATION_ID,
+      'Full template',
+      'Original description',
+      'site_setup',
+      'normal',
+      'aa0e8400-e29b-41d4-a716-4466554401aa',
+      'aa0e8400-e29b-41d4-a716-4466554401bb',
+      'P1D',
+      ['aa0e8400-e29b-41d4-a716-4466554401cc'],
+      [
+        ['action' => 'Old step', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
+      ],
+    );
+    $this->entityManager->clear();
+
+    $updated = $this->adapter->update(
+      $created->id,
+      null,
+      null,
+      'inspection_campaign',
+      null,
+      null,
+      null,
+      'P30D',
+      ['aa0e8400-e29b-41d4-a716-4466554401dd', 'aa0e8400-e29b-41d4-a716-4466554401ee'],
+      [
+        ['action' => 'New step B', 'target' => 'equipment', 'resultResource' => 'inspection', 'required' => false, 'defaultAssigneeId' => 'aa0e8400-e29b-41d4-a716-4466554401ff'],
+        ['action' => 'New step A', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
+      ],
+      hasName: false,
+      hasDescription: true,
+      hasType: true,
+      hasPriority: false,
+      hasDefaultSiteId: true,
+      hasDefaultResponsibleId: true,
+      hasDuration: true,
+      hasLabelIds: true,
+      hasItems: true,
+    );
+    $this->entityManager->clear();
+
+    // Name and priority were not part of the patch, so they survive untouched.
+    self::assertSame('Full template', $updated->name);
+    self::assertSame('normal', $updated->priority);
+    // Every flagged field is applied, including the nulls that clear a value.
+    self::assertNull($updated->description);
+    self::assertSame('inspection_campaign', $updated->type);
+    self::assertNull($updated->defaultSiteId);
+    self::assertNull($updated->defaultResponsibleId);
+    self::assertSame('P30D', $updated->duration);
+    self::assertSame(
+      ['aa0e8400-e29b-41d4-a716-4466554401dd', 'aa0e8400-e29b-41d4-a716-4466554401ee'],
+      $updated->labelIds,
+    );
+
+    $found = $this->adapter->find($created->id);
+    self::assertNotNull($found);
+    self::assertSame(
+      ['New step B', 'New step A'],
+      array_map(static fn ($item): string => $item->action, $found->items),
+    );
+    self::assertSame('equipment', $found->items[0]->target);
+    self::assertSame('inspection', $found->items[0]->resultResource);
+    self::assertFalse($found->items[0]->required);
+    self::assertSame('aa0e8400-e29b-41d4-a716-4466554401ff', $found->items[0]->defaultAssigneeId);
+  }
+
+  #[Test]
+  public function testUpdateWithNullLabelIdsClearsThemAndDropsAllItems(): void
+  {
+    $created = $this->adapter->create(
+      self::ORGANIZATION_ID,
+      'Clearable template',
+      null,
+      'site_setup',
+      'normal',
+      null,
+      null,
+      null,
+      ['aa0e8400-e29b-41d4-a716-4466554402aa'],
+      [
+        ['action' => 'Doomed step', 'target' => null, 'resultResource' => null, 'required' => true, 'defaultAssigneeId' => null],
+      ],
+    );
+    $this->entityManager->clear();
+
+    $updated = $this->adapter->update(
+      $created->id,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      hasName: false,
+      hasDescription: false,
+      hasType: false,
+      hasPriority: false,
+      hasDefaultSiteId: false,
+      hasDefaultResponsibleId: false,
+      hasDuration: false,
+      hasLabelIds: true,
+      hasItems: true,
+    );
+
+    self::assertSame([], $updated->labelIds);
+    self::assertSame([], $updated->items);
+  }
+
+  #[Test]
+  public function testFlushRethrowsAFailureThatIsNotTheDuplicateNameConstraint(): void
+  {
+    // `duration` is a varchar(32); overflowing it fails the flush with a
+    // driver error that is not the (organization, name) uniqueness violation,
+    // so it must surface unchanged rather than as a domain conflict.
+    $this->expectException(Throwable::class);
+    $this->expectExceptionMessageMatches('/^(?!A template named).*/');
+
+    $this->adapter->create(
+      self::ORGANIZATION_ID,
+      'Overflowing duration',
+      null,
+      'site_setup',
+      'normal',
+      null,
+      null,
+      str_repeat('P1D', 40),
+      [],
+      [],
+    );
   }
 
   private function createTemplate(string $name, string $organizationId = self::ORGANIZATION_ID): void

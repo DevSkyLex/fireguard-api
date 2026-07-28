@@ -11,6 +11,7 @@ use Intervention\Application\Port\Outbound\{InterventionResourceGatewayPort, Pub
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\ExecutePublication\{ExecutePublicationCommand, ExecutePublicationHandler};
 use Intervention\Domain\Event\Publication\{InterventionPublicationFailedEvent, InterventionPublishedEvent};
+use Intervention\Domain\Exception\PublicationNotFoundException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -173,6 +174,59 @@ final class ExecutePublicationHandlerTest extends TestCase
     self::assertSame(['publish', 'dispatch'], $sequence);
   }
 
+  #[Test]
+  public function testAnUnknownPublicationIsReportedAsNotFound(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('find')->with('publication-1')->willReturn(null);
+    $repository->expects(self::never())->method('markFailed');
+
+    $this->expectException(PublicationNotFoundException::class);
+
+    $this->handler($repository)->__invoke(new ExecutePublicationCommand('publication-1'));
+  }
+
+  #[Test]
+  public function testAVanishedInterventionMarksThePublicationFailedWithoutLedgeringIt(): void
+  {
+    // The context is what scopes a failure to an organization; without it the
+    // failure stays on the publication record and no ledger row is written.
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('find')->willReturn($this->publication());
+    $repository->expects(self::once())->method('interventionContext')->willReturn(null);
+    $repository->expects(self::never())->method('publish');
+    $repository->expects(self::once())->method('markFailed')->willReturn(true);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->handler($repository, $eventDispatcher)->__invoke(new ExecutePublicationCommand('publication-1'));
+  }
+
+  #[Test]
+  public function testBlockingValidationIssuesMarkThePublicationFailedWithoutPublishing(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('find')->willReturn($this->publication());
+    $repository->expects(self::once())->method('interventionContext')->willReturn($this->context(42));
+    $repository->expects(self::never())->method('publish');
+    $repository->expects(self::once())
+      ->method('markFailed')
+      ->with('publication-1', 'Intervention contains blocking validation issues.')
+      ->willReturn(true);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof InterventionPublicationFailedEvent
+        && 'Intervention contains blocking validation issues.' === $event->reason,
+    ));
+
+    $this->handler($repository, $eventDispatcher, facilities: 0)
+      ->__invoke(new ExecutePublicationCommand('publication-1'));
+  }
+
   private function publication(): PublicationView
   {
     return new PublicationView('publication-1', 'intervention-1', 42, 'pending', null, new DateTimeImmutable(), null);
@@ -191,10 +245,13 @@ final class ExecutePublicationHandlerTest extends TestCase
     return $this->createMock(PublicationRepositoryPort::class);
   }
 
-  private function handler(PublicationRepositoryPort $repository, ?EventDispatcherPort $eventDispatcher = null): ExecutePublicationHandler
-  {
+  private function handler(
+    PublicationRepositoryPort $repository,
+    ?EventDispatcherPort $eventDispatcher = null,
+    int $facilities = 1,
+  ): ExecutePublicationHandler {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
-    $resources->method('summary')->willReturn(new InterventionResourceSummary(1, 0, 0));
+    $resources->method('summary')->willReturn(new InterventionResourceSummary($facilities, 0, 0));
     $resources->method('equipmentDrafts')->willReturn([]);
     $resources->method('workItemSummary')->willReturn(new InterventionWorkItemSummary(0, 0, 0, 0));
 

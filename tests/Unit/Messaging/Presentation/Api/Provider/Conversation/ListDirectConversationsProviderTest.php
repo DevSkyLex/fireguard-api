@@ -10,6 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Messaging\Application\Contract\Conversation\{ConversationPage, ConversationView};
 use Messaging\Application\UseCase\Query\Conversation\ListDirectConversations\{ListDirectConversationsQuery, ListDirectConversationsResult};
+use Messaging\Domain\Exception\MessagingNotFoundException;
 use Messaging\Presentation\Api\Dto\Output\ConversationOutput;
 use Messaging\Presentation\Api\Factory\ConversationOutputFactory;
 use Messaging\Presentation\Api\Provider\Conversation\ListDirectConversationsProvider;
@@ -19,7 +20,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function iterator_to_array;
 
@@ -94,6 +95,40 @@ final class ListDirectConversationsProviderTest extends TestCase
     );
 
     $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideMapsMessagingExceptionsRaisedByTheQueryBus(): void
+  {
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(MessagingNotFoundException::conversation(self::CONVERSATION_ID));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request(['organization' => '/api/organizations/' . self::ORG_ID]));
+
+    $provider = new ListDirectConversationsProvider($queryBus, new ConversationOutputFactory(), $this->securityWithUser(), $requestStack);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $provider->provide(new GetCollection());
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenTheUserIsNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new ListDirectConversationsProvider(
+      $this->createStub(QueryBusPort::class),
+      new ConversationOutputFactory(),
+      $security,
+      new RequestStack(),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
 
     $provider->provide(new GetCollection());
   }

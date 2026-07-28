@@ -22,7 +22,7 @@ use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function base64_decode;
 use function file_put_contents;
@@ -307,5 +307,243 @@ final class InspectionMediaProcessorTest extends TestCase
     )->process(null, new Delete(), ['id' => $attachment->id]);
 
     self::assertNull($result);
+  }
+
+  #[Test]
+  public function testUploadForInspectionRejectsAMissingInspectionUriVariable(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->processor($this->transactionalEntityManager(null), new RequestStack())
+      ->process(null, new Post(), []);
+  }
+
+  #[Test]
+  public function testUploadForInspectionReportsAnUnknownInspectionAsNotFound(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($this->transactionalEntityManager(null), new RequestStack())
+      ->process(null, new Post(), ['inspectionId' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadForNonConformityRejectsABlankNonConformityUriVariable(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->processor($this->transactionalEntityManager(null), new RequestStack())
+      ->process(null, new Post(), ['nonConformityId' => '']);
+  }
+
+  #[Test]
+  public function testUploadForNonConformityReportsAnUnknownNonConformityAsNotFound(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($this->transactionalEntityManager(null), new RequestStack())
+      ->process(null, new Post(), ['nonConformityId' => self::NON_CONFORMITY_ID]);
+  }
+
+  #[Test]
+  public function testUploadForNonConformityReportsAnOrphanedInspectionAsNotFound(): void
+  {
+    $inspection = new InspectionRecord();
+    $inspection->id = self::INSPECTION_ID;
+    $nonConformity = new NonConformityRecord();
+    $nonConformity->id = self::NON_CONFORMITY_ID;
+    $nonConformity->inspection = $inspection;
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($this->transactionalEntityManager($nonConformity), new RequestStack())
+      ->process(null, new Post(), ['nonConformityId' => self::NON_CONFORMITY_ID]);
+  }
+
+  #[Test]
+  public function testUploadForNonConformityRejectsAMissingWritePermission(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $inspection = new InspectionRecord();
+    $inspection->id = self::INSPECTION_ID;
+    $inspection->organization = $organization;
+    $nonConformity = new NonConformityRecord();
+    $nonConformity->id = self::NON_CONFORMITY_ID;
+    $nonConformity->inspection = $inspection;
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $this->processor($this->transactionalEntityManager($nonConformity), new RequestStack(), permitted: false)
+      ->process(null, new Post(), ['nonConformityId' => self::NON_CONFORMITY_ID]);
+  }
+
+  #[Test]
+  public function testDeleteRejectsANonStringIdentifier(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/inspection-attachments/1', 'DELETE'));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($this->transactionalEntityManager(null), $requestStack)
+      ->process(null, new Delete(), ['id' => 42]);
+  }
+
+  #[Test]
+  public function testDeleteReportsAnUnknownAttachmentAsNotFound(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/inspection-attachments/attachment-id', 'DELETE'));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($this->transactionalEntityManager(null), $requestStack)
+      ->process(null, new Delete(), ['id' => 'attachment-id']);
+  }
+
+  #[Test]
+  public function testDeleteRejectsAMissingWritePermission(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $inspection = new InspectionRecord();
+    $inspection->id = self::INSPECTION_ID;
+    $inspection->organization = $organization;
+    $attachment = new InspectionAttachmentRecord();
+    $attachment->id = 'attachment-id';
+    $attachment->inspection = $inspection;
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/inspection-attachments/attachment-id', 'DELETE'));
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $this->processor($this->transactionalEntityManager($attachment), $requestStack, permitted: false)
+      ->process(null, new Delete(), ['id' => 'attachment-id']);
+  }
+
+  #[Test]
+  public function testUploadRequiresAnAuthenticatedSecurityUser(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $inspection = new InspectionRecord();
+    $inspection->id = self::INSPECTION_ID;
+    $inspection->organization = $organization;
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $this->processor($this->transactionalEntityManager($inspection), new RequestStack(), security: $security)
+      ->process(null, new Post(), ['inspectionId' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadRequiresACurrentRequest(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $inspection = new InspectionRecord();
+    $inspection->id = self::INSPECTION_ID;
+    $inspection->organization = $organization;
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->processor($this->transactionalEntityManager($inspection), new RequestStack())
+      ->process(null, new Post(), ['inspectionId' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testUploadReportsAVanishedStoredAttachmentAsNotFound(): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'inspection-attachment-');
+    self::assertIsString($path);
+    file_put_contents($path, (string) base64_decode(self::MINIMAL_GIF_BASE64, true));
+
+    try {
+      $organization = new OrganizationRecord();
+      $organization->id = self::ORGANIZATION_ID;
+      $inspection = new InspectionRecord();
+      $inspection->id = self::INSPECTION_ID;
+      $inspection->organization = $organization;
+
+      $entityManager = $this->createStub(EntityManagerInterface::class);
+      $entityManager->method('wrapInTransaction')->willReturnCallback(
+        static fn (callable $callback): mixed => $callback(),
+      );
+      $entityManager->method('find')->willReturnCallback(
+        static fn (string $class): ?InspectionRecord => InspectionRecord::class === $class ? $inspection : null,
+      );
+
+      $requestStack = new RequestStack();
+      $requestStack->push(Request::create(
+        '/api/inspections/' . self::INSPECTION_ID . '/attachments',
+        'POST',
+        [],
+        [],
+        ['file' => new UploadedFile($path, 'photo.gif', 'image/gif', null, true)],
+      ));
+
+      $commandBus = $this->createStub(CommandBusPort::class);
+      $commandBus->method('dispatch')->willReturn(new AddInspectionAttachmentResult(
+        'attachment-id',
+        self::INSPECTION_ID,
+        'photo.gif',
+        'image/gif',
+        5,
+        null,
+        null,
+        new DateTimeImmutable(),
+      ));
+
+      $this->expectException(NotFoundHttpException::class);
+
+      $this->processor($entityManager, $requestStack, commandBus: $commandBus)
+        ->process(null, new Post(), ['inspectionId' => self::INSPECTION_ID]);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  private function transactionalEntityManager(?object $found): EntityManagerInterface
+  {
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturn($found);
+
+    return $entityManager;
+  }
+
+  private function processor(
+    EntityManagerInterface $entityManager,
+    RequestStack $requestStack,
+    bool $permitted = true,
+    ?Security $security = null,
+    ?CommandBusPort $commandBus = null,
+  ): InspectionMediaProcessor {
+    if (!$security instanceof Security) {
+      $security = $this->createStub(Security::class);
+      $security->method('getUser')->willReturn(
+        new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+      );
+    }
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn($permitted);
+
+    return new InspectionMediaProcessor(
+      $entityManager,
+      $commandBus ?? $this->createStub(CommandBusPort::class),
+      $authorization,
+      $security,
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    );
   }
 }

@@ -11,6 +11,7 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -169,6 +170,27 @@ final class UnassignFromFacilityHandlerTest extends TestCase
 
     self::assertNull($result->facilityId);
     self::assertSame('in_stock', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findById');
+
+    $handler = new UnassignFromFacilityHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new UnassignFromFacilityCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+    ));
   }
   // #endregion
 }

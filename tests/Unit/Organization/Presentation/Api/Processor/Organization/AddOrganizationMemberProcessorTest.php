@@ -7,9 +7,10 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Post;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\{AddOrganizationMemberCommand, AddOrganizationMemberResult};
-use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationQuotaExceededException};
+use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
@@ -17,12 +18,14 @@ use Organization\Presentation\Api\Processor\Organization\AddOrganizationMemberPr
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(AddOrganizationMemberProcessor::class)]
 final class AddOrganizationMemberProcessorTest extends TestCase
@@ -197,6 +200,85 @@ final class AddOrganizationMemberProcessorTest extends TestCase
     $this->expectException(ConflictHttpException::class);
 
     $processor->process($input, new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenUnauthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $processor = new AddOrganizationMemberProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(new AddOrganizationMemberInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessMapsAMissingRoleToHttp404(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(
+      OrganizationRoleNotFoundException::withId('550e8400-e29b-41d4-a716-446655441211'),
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessMapsAnInvalidArgumentToHttp400(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(new InvalidArgumentException('Member is already registered.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
+  {
+    $failure = MessengerRuntimeException::wrap(new RuntimeException('the member store is offline'));
+    $processor = $this->processorWithFailingCommandBus($failure);
+
+    $this->expectExceptionObject($failure);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441210']);
+  }
+
+  private function processorWithFailingCommandBus(Throwable $failure): AddOrganizationMemberProcessor
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441200'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException($failure);
+
+    return new AddOrganizationMemberProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      security: $security,
+    );
+  }
+
+  private function createInput(): AddOrganizationMemberInput
+  {
+    $input = new AddOrganizationMemberInput();
+    $input->userId = '550e8400-e29b-41d4-a716-446655441201';
+    $input->roleIds = ['550e8400-e29b-41d4-a716-446655441211'];
+
+    return $input;
   }
 
   private function createSecurityUser(string $id): SecurityUser

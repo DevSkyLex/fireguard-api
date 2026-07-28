@@ -121,6 +121,39 @@ final class GetInboxProviderTest extends TestCase
     $provider->provide(new Get());
   }
 
+  #[Test]
+  public function testProvideFallsBackWhenTheCursorIsAbsentAndTheLimitIsNotNumeric(): void
+  {
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655442802'));
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListInboxItemsQuery $query): bool {
+        return null === $query->before
+          && null === $query->organizationId
+          && 20 === $query->limit;
+      }))
+      ->willReturn(new ListInboxItemsResult(items: [], nextCursor: null, hasMore: false));
+
+    $request = new Request();
+    $request->query->set('limit', 'not-a-number');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $provider = new GetInboxProvider(queryBus: $queryBus, security: $security, requestStack: $requestStack);
+
+    $output = $provider->provide(new Get());
+
+    self::assertSame([], $output->items);
+    self::assertNull($output->nextCursor);
+    self::assertFalse($output->hasMore);
+  }
+
   private function createSecurityUser(string $id): SecurityUser
   {
     return new SecurityUser(

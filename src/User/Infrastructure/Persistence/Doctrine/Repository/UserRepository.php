@@ -131,7 +131,11 @@ final readonly class UserRepository implements UserRepositoryPort
   public function findFiltered(?string $search, Sorting $sorting, int $limit, int $offset, ?string $tenantId = null): array
   {
     $qb = $this->createListQueryBuilder($search, $tenantId);
+    // Unique tiebreaker: the sort field above is caller-chosen and rarely
+    // unique, so rows tied on it order arbitrarily and LIMIT/OFFSET then
+    // repeats some across pages while skipping others.
     $qb->orderBy('u.' . $this->resolveSortField($sorting->field), $sorting->direction->value)
+      ->addOrderBy('u.id', 'ASC')
       ->setFirstResult($offset)
       ->setMaxResults($limit);
 

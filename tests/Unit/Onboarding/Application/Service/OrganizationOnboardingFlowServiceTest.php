@@ -501,6 +501,19 @@ final class OrganizationOnboardingFlowServiceTest extends TestCase
   }
 
   #[Test]
+  public function testSkipStepThrowsInvalidArgumentForUnknownStep(): void
+  {
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Unsupported onboarding step "teleport_to_mars".');
+
+    $service = $this->buildService();
+    $service->skipStep(
+      userId: '550e8400-e29b-41d4-a716-446655440112',
+      stepKey: 'teleport_to_mars',
+    );
+  }
+
+  #[Test]
   public function testSkipStepThrowsForRequiredCreateOrganizationStep(): void
   {
     $this->expectException(LogicException::class);

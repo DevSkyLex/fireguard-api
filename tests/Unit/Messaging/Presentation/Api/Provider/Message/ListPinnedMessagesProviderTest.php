@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{BadRequestHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function iterator_to_array;
 
@@ -102,6 +102,19 @@ final class ListPinnedMessagesProviderTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(new GetCollection(), ['conversationId' => self::CONVERSATION_ID]);
+  }
+
+  #[Test]
+  public function testProvideThrowsWhenNotAuthenticated(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $provider = new ListPinnedMessagesProvider($this->createStub(QueryBusPort::class), $this->outputFactory(), $security, new RequestStack());
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), []);
   }
 
   private function outputFactory(): MessageOutputFactory

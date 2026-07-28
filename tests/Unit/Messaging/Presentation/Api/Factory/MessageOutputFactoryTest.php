@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use Messaging\Application\Contract\Message\MessageView;
 use Messaging\Application\Contract\Reaction\MessageReactionView;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingReactionRepositoryPort, MessagingSavedMessageRepositoryPort};
+use Messaging\Domain\Model\Attachment\MessagingAttachment;
+use Messaging\Domain\ValueObject\MessagingAttachmentId;
 use Messaging\Presentation\Api\Factory\{MessageAttachmentOutputFactory, MessageOutputFactory};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -280,6 +282,60 @@ final class MessageOutputFactoryTest extends TestCase
     self::assertSame('Amélie Rousseau', $output->authorDisplayName);
   }
 
+  #[Test]
+  public function testFromViewsReturnsAnEmptyListForAnEmptyPage(): void
+  {
+    $factory = $this->factory([]);
+
+    self::assertSame([], $factory->fromViews([], self::CURRENT_MEMBER_ID));
+  }
+
+  #[Test]
+  public function testFromViewExposesThePinningMemberAsAnIriAndResolvesItsDisplayName(): void
+  {
+    $factory = $this->factory([], names: ['author-1' => 'Amélie Rousseau', self::OTHER_MEMBER_ID => 'Daniel Anderson']);
+
+    $output = $factory->fromView($this->view(pinnedByMemberId: self::OTHER_MEMBER_ID), self::CURRENT_MEMBER_ID);
+
+    self::assertSame('/api/organizations/org-1/members/' . self::OTHER_MEMBER_ID, $output->pinnedBy);
+    self::assertSame('2026-01-01T00:00:00+00:00', $output->pinnedAt);
+  }
+
+  #[Test]
+  public function testFromViewsGroupsAttachmentsByTheirOwningMessage(): void
+  {
+    $attachments = $this->createStub(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('findByMessageIds')->willReturn([$this->attachment()]);
+
+    $reactions = $this->createStub(MessagingReactionRepositoryPort::class);
+    $reactions->method('findByMessageIds')->willReturn([]);
+
+    $savedMessages = $this->createStub(MessagingSavedMessageRepositoryPort::class);
+    $savedMessages->method('findSavedMessageIds')->willReturn([]);
+
+    $factory = new MessageOutputFactory($attachments, new MessageAttachmentOutputFactory(), $reactions, $savedMessages, $this->createStub(MessagingMemberDirectoryPort::class));
+
+    $outputs = $factory->fromViews([$this->view(), $this->view(id: '550e8400-e29b-41d4-a716-446655440099')], self::CURRENT_MEMBER_ID);
+
+    self::assertCount(1, $outputs[0]->attachments);
+    self::assertSame([], $outputs[1]->attachments);
+  }
+
+  private function attachment(): MessagingAttachment
+  {
+    return MessagingAttachment::create(
+      id: MessagingAttachmentId::fromString('550e8400-e29b-41d4-a716-4466554400aa'),
+      messageId: self::MESSAGE_ID,
+      conversationId: 'conversation-1',
+      organizationId: 'org-1',
+      uploadedByMemberId: 'author-1',
+      fileName: 'report.pdf',
+      storagePath: 'messaging/conversation-1/report.pdf',
+      mimeType: 'application/pdf',
+      size: 1024,
+    );
+  }
+
   /**
    * @param list<MessageReactionView> $reactions
    * @param list<string> $savedMessageIds
@@ -306,7 +362,7 @@ final class MessageOutputFactoryTest extends TestCase
    * @param list<array{type: string, id: string, label: ?string, code: ?string}> $references
    * @param list<string> $mentions
    */
-  private function view(bool $deleted = false, ?string $id = null, int $replyCount = 0, array $references = [], array $mentions = []): MessageView
+  private function view(bool $deleted = false, ?string $id = null, int $replyCount = 0, array $references = [], array $mentions = [], ?string $pinnedByMemberId = null): MessageView
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
@@ -322,8 +378,8 @@ final class MessageOutputFactoryTest extends TestCase
       $deleted ? 'author-1' : null,
       $now,
       $now,
-      null,
-      null,
+      null === $pinnedByMemberId ? null : $now,
+      $pinnedByMemberId,
       null,
       $replyCount,
       $references,

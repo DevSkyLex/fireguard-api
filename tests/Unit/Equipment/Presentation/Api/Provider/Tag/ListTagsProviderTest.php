@@ -15,6 +15,8 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -121,7 +123,7 @@ final class ListTagsProviderTest extends TestCase
     $authorization->method('hasPermission')->willReturn(true);
 
     $handlerFailure = new HandlerFailedException(
-      new Envelope(new ListTagsQuery(organizationId: 'bad-id', search: null, pagination: new \Shared\Application\Contract\Pagination\Pagination(offset: 0, limit: 30))),
+      new Envelope(new ListTagsQuery(organizationId: 'bad-id', search: null, pagination: new Pagination(offset: 0, limit: 30))),
       [new InvalidArgumentException('Invalid organization id.')],
     );
 
@@ -257,6 +259,71 @@ final class ListTagsProviderTest extends TestCase
       security: $security,
       requestStack: $this->buildRequestStack(),
     );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsADirectInvalidArgumentToBadRequest(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460020');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(new InvalidArgumentException('Invalid organization id.'));
+
+    $provider = new ListTagsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->buildRequestStack(),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+    $this->expectExceptionMessage('Invalid organization id.');
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAWrappedFailureThatIsNotAnInvalidArgument(): void
+  {
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655460021');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($user);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $handlerFailure = new HandlerFailedException(
+      new Envelope(new ListTagsQuery(organizationId: self::ORG_ID, search: null, pagination: new Pagination(offset: 0, limit: 30))),
+      [new RuntimeException('database is down')],
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap($handlerFailure));
+
+    $provider = new ListTagsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $this->buildRequestStack(),
+    );
+
+    // An infrastructure failure must surface as a 500, never be masked as a 400.
+    $this->expectException(MessengerRuntimeException::class);
 
     $provider->provide(
       operation: new GetCollection(),

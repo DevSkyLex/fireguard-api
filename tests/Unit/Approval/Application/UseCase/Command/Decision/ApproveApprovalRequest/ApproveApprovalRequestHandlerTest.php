@@ -21,6 +21,7 @@ use Approval\Domain\Model\ApprovalRequest\ApprovalRequest;
 use Approval\Domain\ValueObject\ApprovalRequestId;
 use DateTimeImmutable;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
+use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
@@ -54,6 +55,20 @@ final class ApproveApprovalRequestHandlerTest extends TestCase
     $this->expectException(ApprovalRequestNotFoundException::class);
 
     $this->handler(requests: $requests)(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsAccessDeniedWhenActorIsNotAnOrganizationMember(): void
+  {
+    $requests = $this->createStub(ApprovalRequestRepositoryPort::class);
+    $requests->method('findById')->willReturn($this->pendingRequest());
+
+    $memberDirectory = $this->createStub(ApprovalMemberDirectoryPort::class);
+    $memberDirectory->method('resolveMemberId')->willReturn(null);
+
+    $this->expectException(OrganizationAccessDeniedException::class);
+
+    $this->handler(requests: $requests, memberDirectory: $memberDirectory)(self::command());
   }
 
   #[Test]

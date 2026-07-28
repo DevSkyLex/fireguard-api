@@ -18,6 +18,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -388,6 +389,39 @@ final class ListInspectionsProviderTest extends TestCase
     );
 
     $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAnUnrelatedMessengerFailure(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('database is down')),
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    $provider = new ListInspectionsProvider(
+      queryBus: $queryBus,
+      outputMapper: $this->createOutputMapper(),
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $provider->provide(
       operation: new GetCollection(),

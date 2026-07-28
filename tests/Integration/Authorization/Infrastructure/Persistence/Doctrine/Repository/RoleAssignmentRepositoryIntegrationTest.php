@@ -62,7 +62,7 @@ final class RoleAssignmentRepositoryIntegrationTest extends KernelTestCase
   {
     $permission = $this->createPermissionRecord(
       id: '323e4567-e89b-12d3-a456-426614174000',
-      name: 'users.read',
+      name: 'assignment_repository_test.read',
     );
     $activeRole = $this->createRoleRecord(
       id: '223e4567-e89b-12d3-a456-426614174000',
@@ -102,7 +102,7 @@ final class RoleAssignmentRepositoryIntegrationTest extends KernelTestCase
   {
     $permission = $this->createPermissionRecord(
       id: '323e4567-e89b-12d3-a456-426614174010',
-      name: 'users.read',
+      name: 'assignment_repository_test.read',
     );
     $role = $this->createRoleRecord(
       id: '223e4567-e89b-12d3-a456-426614174010',
@@ -123,7 +123,7 @@ final class RoleAssignmentRepositoryIntegrationTest extends KernelTestCase
     self::assertCount(1, $roles);
     self::assertSame($role->id, $roles[0]->id()->value);
     self::assertCount(1, $roles[0]->permissions());
-    self::assertSame('users.read', $roles[0]->permissions()[0]->name()->value);
+    self::assertSame('assignment_repository_test.read', $roles[0]->permissions()[0]->name()->value);
   }
 
   #[Test]
@@ -131,7 +131,7 @@ final class RoleAssignmentRepositoryIntegrationTest extends KernelTestCase
   {
     $permission = $this->createPermissionRecord(
       id: '323e4567-e89b-12d3-a456-426614174020',
-      name: 'roles.read',
+      name: 'assignment_repository_test.list',
     );
     $role = $this->createRoleRecord(
       id: '223e4567-e89b-12d3-a456-426614174020',
@@ -158,7 +158,7 @@ final class RoleAssignmentRepositoryIntegrationTest extends KernelTestCase
   {
     $permission = $this->createPermissionRecord(
       id: '323e4567-e89b-12d3-a456-426614174030',
-      name: 'roles.assign',
+      name: 'assignment_repository_test.assign',
     );
     $role = $this->createRoleRecord(
       id: '223e4567-e89b-12d3-a456-426614174030',
@@ -185,7 +185,7 @@ final class RoleAssignmentRepositoryIntegrationTest extends KernelTestCase
   {
     $permission = $this->createPermissionRecord(
       id: '323e4567-e89b-12d3-a456-426614174040',
-      name: 'roles.manage',
+      name: 'assignment_repository_test.manage',
     );
     $role = $this->createRoleRecord(
       id: '223e4567-e89b-12d3-a456-426614174040',

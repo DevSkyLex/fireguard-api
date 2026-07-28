@@ -9,6 +9,7 @@ use Equipment\Application\UseCase\Command\Equipment\RemoveTagFromEquipment\{Remo
 use Equipment\Domain\Exception\{EquipmentNotFoundException, TagNotFoundException};
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentId, EquipmentOrganizationId, EquipmentType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -108,6 +109,31 @@ final class RemoveTagFromEquipmentHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIP_ID,
       tagId: self::TAG_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findById');
+
+    /** @var TagRepositoryPort&MockObject $tagRepository */
+    $tagRepository = $this->createMock(TagRepositoryPort::class);
+    $tagRepository->expects(self::never())->method('removeTagFromEquipment');
+
+    $handler = new RemoveTagFromEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $tagRepository,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new RemoveTagFromEquipmentCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+      tagId: 'still-not-a-uuid',
     ));
   }
   // #endregion

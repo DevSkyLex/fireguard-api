@@ -549,26 +549,20 @@ and merge its results into `fetch()` — no rewrite of the mention path.
    bounded candidate query: organization scope, own-message exclusion
    (a member is never notified of mentioning themselves), tombstone
    exclusion, the `before` cursor, and `limit` are all pushed down to SQL.
-   On Postgres this is a single `EXISTS (SELECT 1 FROM
+   It is a single `EXISTS (SELECT 1 FROM
    json_array_elements_text(m.mentions) ...)` query against the candidate
    ids, then one `IN (:ids)` hydration query — never a query per message.
-   The test/dev SQLite connection has no equivalent JSON function reachable
-   through DBAL, so it falls back to a portable, bounded DQL query filtered
-   in PHP (`listMentionsForMemberPortable()`, test/dev only, mirrors
-   `NonConformityRepository`'s Postgres/portable platform-dispatch
-   precedent) — production always takes the Postgres path.
+   `json_array_elements_text` is used rather than the jsonb `?`/`?|`
+   operators, which DBAL's positional-parameter parser can misread, and it
+   matches exact values rather than substrings.
 
-   > ⚠️ **The production branch of this query is NOT covered by the test
-   > suite.** `.env.test` points both connections at SQLite while dev and
-   > production run PostgreSQL, so every test exercises
-   > `listMentionsForMemberPortable()` and none ever executes the
-   > `json_array_elements_text` path that actually ships. It was verified by
-   > hand against the dev Postgres database (syntax, types, and the
-   > containment semantics: present → true, absent → false, empty array →
-   > false). **Any change to the Postgres branch must be re-verified the same
-   > way** — a green suite says nothing about it. This is a repo-wide gap, not
-   > specific to this seam: the pg_trgm GIN indexes and the partial indexes on
-   > `approval_requests` / `messaging_messages` are equally uncovered.
+   > The suite runs on PostgreSQL, so this query — the one that ships — is
+   > the one the tests execute. There is no portable fallback and no
+   > platform dispatch: a green suite now means the containment semantics
+   > (present → true, absent → false, empty array → false) actually hold.
+   > Still uncovered by assertions, because they change plans rather than
+   > results: the pg_trgm GIN indexes and the partial indexes on
+   > `approval_requests` / `messaging_messages`.
 4. **A mention alone never grants access.** The candidate conversations are
    batch-resolved in two more bounded queries —
    `MessagingConversationRepositoryPort::findSubjectTypesByIds()` and
@@ -1724,12 +1718,8 @@ TTL:    90 seconds
   own-message exclusion, organization scoping, `before` cursor + newest-first
   ordering, and `limit` — plus `findSubjectTypesByIds()` and
   `lastReadAtByConversations()`, the seam's two other batch-lookups. The test
-  suite's connection is SQLite, so these assertions exercise
-  `listMentionsForMemberPortable()` (the in-PHP fallback) rather than the
-  Postgres path itself — `getDatabasePlatform()->getName()` selects between
-  them at runtime (mirrors `NonConformityRepository`'s day-bucketing
-  platform dispatch), and both paths share the exact same public contract
-  these tests assert against.
+  connection is PostgreSQL, so these assertions run the shipping SQL itself
+  — there is no fallback implementation left to diverge from it.
   `MessagingConversationRepositoryTest` (L2.4) executes the REAL
   `getOrCreate()`/`list()` DBAL/DQL: `getOrCreate()` persists the CALLER-
   supplied `visibility` instead of a hardcoded `SUBJECT` (a direct

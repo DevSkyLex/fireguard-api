@@ -58,6 +58,9 @@ final class DashboardSeriesBuilder
    * Private to prevent instantiation: this support class is stateless.
    *
    * @since 1.0.0
+   *
+   * @codeCoverageIgnore Never executed: the constructor exists only to
+   * forbid instantiation of this static catalogue.
    */
   private function __construct()
   {

@@ -11,16 +11,20 @@ use Equipment\Application\UseCase\Query\Equipment\ListMaintenanceLogs\{ListMaint
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\MaintenanceLogOutput;
 use Equipment\Presentation\Api\Provider\Equipment\ListMaintenanceLogsProvider;
+use InvalidArgumentException;
+use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Shared\Application\Contract\Pagination\Pagination;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 use function iterator_to_array;
 
@@ -122,7 +126,7 @@ final class ListMaintenanceLogsProviderTest extends TestCase
       new Envelope(new ListMaintenanceLogsQuery(
         organizationId: self::ORG_ID,
         equipmentId: self::EQUIP_ID,
-        pagination: new \Shared\Application\Contract\Pagination\Pagination(offset: 0, limit: 20),
+        pagination: new Pagination(offset: 0, limit: 20),
       )),
       [EquipmentNotFoundException::withId(self::EQUIP_ID)],
     );
@@ -244,6 +248,84 @@ final class ListMaintenanceLogsProviderTest extends TestCase
     self::assertSame('status_change', $items[0]->workItemAction);
     self::assertSame('550e8400-e29b-41d4-a716-446655470101', $items[0]->actorId);
     self::assertSame('Replaced detector', $items[0]->summary);
+  }
+
+  #[Test]
+  public function testProvideMapsADirectEquipmentNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->providerThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(new InvalidArgumentException('Invalid equipment identifier.'))->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(
+      MessengerRuntimeException::wrap($this->handlerFailure(new InvalidArgumentException('Invalid equipment identifier.'))),
+    )->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAMessengerFailureItCannotClassify(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->providerThrowing(
+      MessengerRuntimeException::wrap($this->handlerFailure(new LogicException('Unexpected handler failure.'))),
+    )->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  private function handlerFailure(Throwable $wrapped): HandlerFailedException
+  {
+    return new HandlerFailedException(
+      new Envelope(new ListMaintenanceLogsQuery(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+        pagination: new Pagination(offset: 0, limit: 20),
+      )),
+      [$wrapped],
+    );
+  }
+
+  private function providerThrowing(Throwable $exception): ListMaintenanceLogsProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655470012'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($exception);
+
+    return new ListMaintenanceLogsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

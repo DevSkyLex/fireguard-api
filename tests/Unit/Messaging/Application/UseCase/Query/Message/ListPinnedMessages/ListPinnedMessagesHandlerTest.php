@@ -100,6 +100,65 @@ final class ListPinnedMessagesHandlerTest extends TestCase
     $handler->__invoke(new ListPinnedMessagesQuery('user-1', self::CONVERSATION_ID));
   }
 
+  #[Test]
+  public function testInvokeEnforcesChannelParticipationForAParticipantsConversation(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('listPinnedByConversation')->willReturn(new MessagePage([], 1, 30, 0));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn('member-1');
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(true);
+
+    $handler = new ListPinnedMessagesHandler(
+      $conversations,
+      $messages,
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+    );
+
+    $result = $handler->__invoke(new ListPinnedMessagesQuery('user-1', self::CONVERSATION_ID));
+
+    self::assertSame(0, $result->page->total);
+    self::assertSame('member-1', $result->currentMemberId);
+  }
+
+  #[Test]
+  public function testInvokeRejectsANonParticipantOfAChannel(): void
+  {
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->channelView());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn('member-1');
+
+    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants->method('isParticipant')->willReturn(false);
+
+    $handler = new ListPinnedMessagesHandler(
+      $conversations,
+      $this->createStub(MessagingMessageRepositoryPort::class),
+      new MessagingSubjectResolverRegistry([]),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $participants),
+    );
+
+    $this->expectException(MessagingAccessDeniedException::class);
+
+    $handler->__invoke(new ListPinnedMessagesQuery('user-1', self::CONVERSATION_ID));
+  }
+
+  private function channelView(): ConversationView
+  {
+    $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+
+    return new ConversationView(self::CONVERSATION_ID, self::ORG_ID, 'channel', null, 'participants', null, 0, false, $now, $now, 'general');
+  }
+
   private function facilityResolver(): MessagingSubjectResolverPort
   {
     $resolver = $this->createStub(MessagingSubjectResolverPort::class);

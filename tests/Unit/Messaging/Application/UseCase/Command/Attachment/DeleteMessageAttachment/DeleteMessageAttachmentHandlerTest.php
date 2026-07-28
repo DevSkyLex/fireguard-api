@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Messaging\Application\Port\Outbound\{MessagingAttachmentRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Command\Attachment\DeleteMessageAttachment\{DeleteMessageAttachmentCommand, DeleteMessageAttachmentHandler, DeleteMessageAttachmentResult};
@@ -136,6 +137,24 @@ final class DeleteMessageAttachmentHandlerTest extends TestCase
     $this->expectException(MessagingAttachmentNotFoundException::class);
 
     $handler->__invoke(new DeleteMessageAttachmentCommand('user-1', self::ATTACHMENT_ID));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAMalformedAttachmentIdentifier(): void
+  {
+    $handler = new DeleteMessageAttachmentHandler(
+      $this->createStub(MessagingAttachmentRepositoryPort::class),
+      new MessagingAccessPolicy(
+        $this->createStub(OrganizationAuthorizationPort::class),
+        $this->createStub(MessagingMemberDirectoryPort::class),
+        $this->createStub(MessagingParticipantRepositoryPort::class),
+      ),
+      $this->createStub(FileStoragePort::class),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DeleteMessageAttachmentCommand('user-1', 'not-a-uuid'));
   }
 
   private function attachment(): MessagingAttachment

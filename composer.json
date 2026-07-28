@@ -120,11 +120,14 @@
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
         },
         "post-install-cmd": [
-            "@auto-scripts"
+            "@auto-scripts",
+            "@install-git-hooks"
         ],
         "post-update-cmd": [
-            "@auto-scripts"
-        ]
+            "@auto-scripts",
+            "@install-git-hooks"
+        ],
+        "install-git-hooks": "@php bin/install-git-hooks.php"
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -136,6 +139,7 @@
         }
     },
     "require-dev": {
+        "brianium/paratest": "^7.20",
         "dama/doctrine-test-bundle": "^8.6",
         "deptrac/deptrac": "^4.3",
         "doctrine/doctrine-fixtures-bundle": "*",

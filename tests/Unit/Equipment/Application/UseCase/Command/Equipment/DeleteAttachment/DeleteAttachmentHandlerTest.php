@@ -10,6 +10,7 @@ use Equipment\Domain\Exception\{AttachmentNotFoundException, EquipmentNotFoundEx
 use Equipment\Domain\Model\Attachment\EquipmentAttachment;
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{AttachmentId, EquipmentId, EquipmentOrganizationId, EquipmentType};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -172,6 +173,32 @@ final class DeleteAttachmentHandlerTest extends TestCase
       organizationId: self::ORG_ID,
       equipmentId: self::EQUIP_ID,
       attachmentId: self::ATTACHMENT_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findById');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('delete');
+
+    $handler = new DeleteAttachmentHandler(
+      equipmentRepository: $equipmentRepository,
+      attachmentRepository: $this->createStub(AttachmentRepositoryPort::class),
+      fileStorage: $fileStorage,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DeleteAttachmentCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+      attachmentId: 'still-not-a-uuid',
     ));
   }
 

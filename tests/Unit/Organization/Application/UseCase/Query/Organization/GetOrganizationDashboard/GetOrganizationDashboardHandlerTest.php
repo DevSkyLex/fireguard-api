@@ -18,10 +18,13 @@ use Organization\Domain\ValueObject\{OrganizationId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\{MockObject, Stub};
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Port\Outbound\CachePort;
 
 use function array_column;
+use function array_keys;
 use function get_object_vars;
+use function hash;
 use function in_array;
 
 #[CoversClass(GetOrganizationDashboardHandler::class)]
@@ -1004,6 +1007,142 @@ final class GetOrganizationDashboardHandlerTest extends TestCase
     $handlerWithInterventions->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false));
 
     self::assertCount(2, $cache->store);
+  }
+
+  #[Test]
+  public function testInvokeServesTheCachedDashboardOnASubsequentIdenticalQuery(): void
+  {
+    $cache = new class () implements CachePort {
+      /**
+       * @var array<string, mixed>
+       */
+      public array $store = [];
+
+      public function get(string $key, mixed $default = null): mixed
+      {
+        return $this->store[$key] ?? $default;
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        $this->store[$key] = $value;
+      }
+
+      public function delete(string $key): void
+      {
+        unset($this->store[$key]);
+      }
+
+      public function clear(): void
+      {
+        $this->store = [];
+      }
+    };
+
+    $warmHandler = $this->createHandler(
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      cache: $cache,
+    );
+    $cachedHandler = $this->createHandler(
+      inspectionStatistics: $this->createZeroInspectionStatistics(0),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(0),
+      cache: $cache,
+    );
+
+    $query = new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false);
+
+    $fresh = $warmHandler->__invoke($query);
+    $cached = $cachedHandler->__invoke($query);
+
+    self::assertCount(1, $cache->store);
+    self::assertSame($fresh, $cached);
+  }
+
+  #[Test]
+  public function testInvokeRecomputesWhenCacheReadThrowsAndSurvivesCacheWriteFailure(): void
+  {
+    $cache = new class () implements CachePort {
+      public function get(string $key, mixed $default = null): mixed
+      {
+        throw new RuntimeException('Cache backend unreachable.');
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        throw new RuntimeException('Cache backend unreachable.');
+      }
+
+      public function delete(string $key): void
+      {
+      }
+
+      public function clear(): void
+      {
+      }
+    };
+
+    $handler = $this->createHandler(
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(self::ORG_ID, self::USER_ID, compareWithPreviousPeriod: false));
+
+    self::assertInstanceOf(GetOrganizationDashboardResult::class, $result);
+    self::assertSame(['total' => 0, 'active' => 0, 'inactive' => 0], $result->overview['members']);
+  }
+
+  #[Test]
+  public function testInvokeFallsBackToAPlainCacheKeyWhenTheQueryIsNotJsonEncodable(): void
+  {
+    $cache = new class () implements CachePort {
+      /**
+       * @var array<string, mixed>
+       */
+      public array $store = [];
+
+      public function get(string $key, mixed $default = null): mixed
+      {
+        return $this->store[$key] ?? $default;
+      }
+
+      public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): void
+      {
+        $this->store[$key] = $value;
+      }
+
+      public function delete(string $key): void
+      {
+        unset($this->store[$key]);
+      }
+
+      public function clear(): void
+      {
+        $this->store = [];
+      }
+    };
+
+    $handler = $this->createHandler(
+      inspectionStatistics: $this->createZeroInspectionStatistics(1),
+      nonConformityStatistics: $this->createZeroNonConformityStatistics(1),
+      cache: $cache,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationDashboardQuery(
+      self::ORG_ID,
+      self::USER_ID,
+      compareWithPreviousPeriod: false,
+      // Invalid UTF-8 makes json_encode() throw, forcing the degraded cache key.
+      facilityType: "\xB1\x31",
+    ));
+
+    self::assertInstanceOf(GetOrganizationDashboardResult::class, $result);
+    self::assertSame(
+      ['organization.dashboard.' . hash('sha256', self::ORG_ID)],
+      array_keys($cache->store),
+    );
   }
 
   /**

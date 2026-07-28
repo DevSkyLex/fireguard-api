@@ -12,6 +12,7 @@ use Equipment\Domain\Exception\{EquipmentAlreadyDecommissionedException, Equipme
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\Model\MaintenanceLog\EquipmentMaintenanceLog;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType, MaintenanceLogId};
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -275,6 +276,32 @@ final class DecommissionEquipmentHandlerTest extends TestCase
     ));
 
     self::assertSame('decommissioned', $result->status);
+  }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findPublishedById');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new DecommissionEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new DecommissionEquipmentCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+    ));
   }
   // #endregion
 }

@@ -10,7 +10,7 @@ use Messaging\Application\Contract\Subject\MessagingSubjectResolution;
 use Messaging\Application\Port\Outbound\{MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingMessageRepositoryPort, MessagingParticipantRepositoryPort, MessagingRealtimePublisherPort, MessagingSubjectResolverPort};
 use Messaging\Application\Service\{MessagingAccessPolicy, MessagingNotificationService, MessagingSubjectResolverRegistry};
 use Messaging\Application\UseCase\Command\Message\PostReply\{PostReplyCommand, PostReplyHandler};
-use Messaging\Domain\Exception\MessagingValidationException;
+use Messaging\Domain\Exception\{MessagingNotFoundException, MessagingValidationException};
 use Messaging\Domain\Model\Conversation\Conversation;
 use Messaging\Domain\Model\Message\Message;
 use Messaging\Domain\Service\MentionExtractor;
@@ -198,16 +198,104 @@ final class PostReplyHandlerTest extends TestCase
     self::assertSame('A reply', $result->message->body);
   }
 
+  #[Test]
+  public function testInvokeThrowsWhenTheParentConversationIsNotFound(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->rootMessage());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn(null);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $this->createStub(MessagingMemberDirectoryPort::class),
+    );
+
+    $this->expectException(MessagingNotFoundException::class);
+
+    $handler->__invoke(new PostReplyCommand(self::USER_ID, self::PARENT_MESSAGE_ID, 'A reply'));
+  }
+
+  #[Test]
+  public function testInvokeGatesAChannelReplyOnChannelParticipation(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->rootMessage());
+    $messages->method('append')->willReturn($this->messageView('A channel reply', []));
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation(visibility: ConversationVisibility::PARTICIPANTS));
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $participants = $this->createMock(MessagingParticipantRepositoryPort::class);
+    $participants->expects(self::once())
+      ->method('isParticipant')
+      ->with(self::CONVERSATION_ID, self::AUTHOR_MEMBER_ID)
+      ->willReturn(true);
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $this->createStub(NotificationPort::class),
+      $members,
+      $participants,
+    );
+
+    $result = $handler->__invoke(new PostReplyCommand(self::USER_ID, self::PARENT_MESSAGE_ID, 'A channel reply'));
+
+    self::assertSame('A channel reply', $result->message->body);
+  }
+
+  #[Test]
+  public function testInvokeNeverNotifiesTheReplyAuthorForTheirOwnSelfMention(): void
+  {
+    $body = sprintf('Note to self @{%s}', self::AUTHOR_MEMBER_ID);
+
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->rootMessage());
+    $messages->method('append')->willReturn($this->messageView($body, [self::AUTHOR_MEMBER_ID]));
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturn($this->conversation());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+    $members->method('memberIsActive')->willReturn(true);
+
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    $handler = $this->handler(
+      $conversations,
+      $messages,
+      $this->createStub(MessagingRealtimePublisherPort::class),
+      $notificationPort,
+      $members,
+    );
+
+    $result = $handler->__invoke(new PostReplyCommand(self::USER_ID, self::PARENT_MESSAGE_ID, $body));
+
+    self::assertSame($body, $result->message->body);
+  }
+
   private function handler(
     MessagingConversationRepositoryPort $conversations,
     MessagingMessageRepositoryPort $messages,
     MessagingRealtimePublisherPort $realtime,
     NotificationPort $notificationPort,
     MessagingMemberDirectoryPort $members,
+    ?MessagingParticipantRepositoryPort $participants = null,
   ): PostReplyHandler {
     $registry = new MessagingSubjectResolverRegistry([$this->facilityResolver()]);
 
-    $participants = $this->createStub(MessagingParticipantRepositoryPort::class);
+    $participants ??= $this->createStub(MessagingParticipantRepositoryPort::class);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $accessPolicy = new MessagingAccessPolicy($authorization, $members, $participants);
@@ -241,7 +329,7 @@ final class PostReplyHandlerTest extends TestCase
     return $resolver;
   }
 
-  private function conversation(bool $archived = false): Conversation
+  private function conversation(bool $archived = false, ConversationVisibility $visibility = ConversationVisibility::SUBJECT): Conversation
   {
     $now = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
 
@@ -250,7 +338,7 @@ final class PostReplyHandlerTest extends TestCase
       self::ORG_ID,
       MessagingSubjectType::FACILITY,
       'facility-1',
-      ConversationVisibility::SUBJECT,
+      $visibility,
       null,
       0,
       $archived,

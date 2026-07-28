@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\OAuth\Domain\Model\Consent;
 
+use DateTimeImmutable;
 use OAuth\Domain\Model\Consent\Consent;
 use OAuth\Domain\ValueObject\Consent\ConsentId;
 use OAuth\Domain\ValueObject\Scope\{Scope, Scopes};
@@ -116,6 +117,20 @@ final class ConsentTest extends TestCase
 
     self::assertTrue($consent->hasScope(scope: 'EMAIL'));
     self::assertFalse($consent->hasScope(scope: 'PROFILE'));
+  }
+
+  #[Test]
+  public function testScopesAndGrantedAtExposeWhatWasGranted(): void
+  {
+    $consent = $this->createTestConsent();
+
+    self::assertSame(['OPENID', 'PROFILE'], $consent->scopes()->toArray());
+    self::assertEqualsWithDelta(
+      new DateTimeImmutable()->getTimestamp(),
+      $consent->grantedAt()->getTimestamp(),
+      5,
+      'grantedAt is stamped when consent is granted.',
+    );
   }
 
   /**

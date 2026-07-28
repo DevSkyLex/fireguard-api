@@ -10,6 +10,7 @@ use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, 
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 use function str_repeat;
 
@@ -330,6 +331,18 @@ final class FacilityTest extends TestCase
     );
 
     self::assertNull($facility->address());
+  }
+
+  #[Test]
+  public function testNormalizeMetadataFallsBackToAnEmptyArrayForANonArrayValue(): void
+  {
+    // Defensive branch: every public entry point declares `array $metadata`, so
+    // the non-array fallback is only reachable directly. It guards decoded
+    // JSONB payloads that are not objects/maps.
+    $normalize = new ReflectionMethod(Facility::class, 'normalizeMetadata');
+
+    self::assertSame([], $normalize->invoke(null, 'not-an-array'));
+    self::assertSame([], $normalize->invoke(null, null));
   }
 
   private function makeActiveFacility(): Facility

@@ -9,6 +9,8 @@ use Messaging\Application\Contract\Conversation\{ConversationPage, ConversationV
 use Messaging\Application\Port\Outbound\{MessagingConversationFavoriteRepositoryPort, MessagingConversationRepositoryPort, MessagingMemberDirectoryPort, MessagingParticipantRepositoryPort, MessagingReadMarkerRepositoryPort};
 use Messaging\Application\Service\MessagingAccessPolicy;
 use Messaging\Application\UseCase\Query\Conversation\ListConversations\{ListConversationsHandler, ListConversationsQuery};
+use Messaging\Domain\Exception\MessagingValidationException;
+use Messaging\Domain\ValueObject\MessagingSubjectType;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -56,6 +58,50 @@ final class ListConversationsHandlerTest extends TestCase
     self::assertSame(1, $result->page->total);
     self::assertSame(2, $result->unreadCounts['conversation-1']);
     self::assertSame(['conversation-1'], $result->favoriteConversationIds);
+  }
+
+  #[Test]
+  public function testInvokeParsesTheSubjectTypeFilter(): void
+  {
+    $page = new ConversationPage([], 1, 30, 0);
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('list')->willReturn($page);
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::MEMBER_ID);
+
+    $handler = new ListConversationsHandler(
+      $conversations,
+      $this->createStub(MessagingReadMarkerRepositoryPort::class),
+      $this->createStub(MessagingConversationFavoriteRepositoryPort::class),
+      new MessagingAccessPolicy($this->createStub(OrganizationAuthorizationPort::class), $members, $this->createStub(MessagingParticipantRepositoryPort::class)),
+    );
+
+    $result = $handler->__invoke(new ListConversationsQuery('user-1', self::ORG_ID, subjectType: MessagingSubjectType::FACILITY->value));
+
+    self::assertSame(0, $result->page->total);
+    self::assertSame([], $result->unreadCounts);
+    self::assertSame([], $result->favoriteConversationIds);
+  }
+
+  #[Test]
+  public function testInvokeThrowsOnAnUnsupportedSubjectTypeFilter(): void
+  {
+    $handler = new ListConversationsHandler(
+      $this->createStub(MessagingConversationRepositoryPort::class),
+      $this->createStub(MessagingReadMarkerRepositoryPort::class),
+      $this->createStub(MessagingConversationFavoriteRepositoryPort::class),
+      new MessagingAccessPolicy(
+        $this->createStub(OrganizationAuthorizationPort::class),
+        $this->createStub(MessagingMemberDirectoryPort::class),
+        $this->createStub(MessagingParticipantRepositoryPort::class),
+      ),
+    );
+
+    $this->expectException(MessagingValidationException::class);
+
+    $handler->__invoke(new ListConversationsQuery('user-1', self::ORG_ID, subjectType: 'not-a-subject-type'));
   }
 
   #[Test]

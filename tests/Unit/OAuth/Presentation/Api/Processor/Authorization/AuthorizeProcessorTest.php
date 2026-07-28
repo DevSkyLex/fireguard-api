@@ -1552,6 +1552,100 @@ final class AuthorizeProcessorTest extends TestCase
     $processor->provide(operation: $this->createStub(Operation::class));
   }
 
+  #[Test]
+  public function testProvidePassesThroughWhenRateLimitAccepts(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'client_id' => 'client-123',
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+      ],
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($this->createAuthorizationRequest());
+    $authorizationServer->expects(self::never())->method('completeAuthorizationRequest');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock(null),
+      queryBus: $this->createStub(QueryBusPort::class),
+      requestStack: $requestStack,
+      authCodeRepository: $this->createStub(AuthCodeRepositoryPort::class),
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
+      rateLimiter: $this->createRateLimiterFactory(),
+    );
+
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
+
+    self::assertSame(Response::HTTP_UNAUTHORIZED, $response->getStatusCode());
+  }
+
+  #[Test]
+  public function testProvideIgnoresBlankParametersAndBodyWithoutCode(): void
+  {
+    $request = Request::create(
+      uri: '/api/oauth2/authorize',
+      method: 'GET',
+      parameters: [
+        'response_type' => 'code',
+        'code_challenge' => 'challenge',
+        'nonce' => 'nonce-value',
+        'prompt' => '   ',
+      ],
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $authorizationServer = $this->createMock(AuthorizationServer::class);
+    $authorizationServer->expects(self::once())
+      ->method('validateAuthorizationRequest')
+      ->willReturn($this->createAuthorizationRequest());
+    $authorizationServer->expects(self::once())
+      ->method('completeAuthorizationRequest')
+      ->willReturn(new Psr7Response(
+        200,
+        ['Content-Type' => 'text/html'],
+        '<html><body>No authorization code here.</body></html>',
+      ));
+
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturn(new CheckConsentResult(
+        hasConsent: true,
+        grantedScopes: ['openid'],
+        missingScopes: [],
+        requiresConsentScreen: false,
+      ));
+
+    $authCodeRepository = $this->createMock(AuthCodeRepositoryPort::class);
+    $authCodeRepository->expects(self::never())->method('updateNonce');
+
+    $processor = new AuthorizeProcessor(
+      authorizationServer: $authorizationServer,
+      security: $this->createSecurityMock($this->createSecurityUser()),
+      queryBus: $queryBus,
+      requestStack: $requestStack,
+      authCodeRepository: $authCodeRepository,
+      oidcUserProvider: $this->createStub(OidcUserProviderPort::class),
+    );
+
+    $response = $processor->provide(operation: $this->createStub(Operation::class));
+
+    self::assertInstanceOf(expected: Response::class, actual: $response);
+  }
+
   /**
    * @return AuthorizationServer&\PHPUnit\Framework\MockObject\MockObject
    */

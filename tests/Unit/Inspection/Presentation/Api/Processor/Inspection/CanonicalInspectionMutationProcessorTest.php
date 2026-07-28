@@ -27,7 +27,7 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, UnprocessableEntityHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
 #[CoversClass(CanonicalInspectionMutationProcessor::class)]
 final class CanonicalInspectionMutationProcessorTest extends TestCase
@@ -394,6 +394,191 @@ final class CanonicalInspectionMutationProcessorTest extends TestCase
       $entityManager,
       eventDispatcher: $eventDispatcher,
     )->process($this->patchStatus('closed'), new Patch(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testRejectsANonStringIdentifier(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($record, $this->request('DELETE'))
+      ->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => 42]);
+  }
+
+  #[Test]
+  public function testReportsAnUnknownInspectionAsNotFound(): void
+  {
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturn(null);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($this->record(), $this->request('DELETE'), $entityManager)
+      ->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testRejectsAPatchWithoutTheCanonicalInput(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->processor($record, $this->request('PATCH', '{"status":"closed"}'))
+      ->process(null, new Patch(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testRejectsANullStatusInTheMergePatch(): void
+  {
+    $record = $this->record();
+
+    $entityManager = $this->entityManager($record);
+    $entityManager->expects(self::never())->method('flush');
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+
+    $this->processor($record, $this->request('PATCH', '{"status":null}'), $entityManager)
+      ->process(new PatchCanonicalInspectionInput(), new Patch(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testAppliesNullableNotesAndSignatureFromTheMergePatch(): void
+  {
+    $record = $this->record();
+    $record->notes = 'Previous notes';
+    $record->signature = 'Previous signature';
+
+    $input = new PatchCanonicalInspectionInput();
+    $input->notes = 'Updated notes';
+
+    $result = $this->processor($record, $this->request('PATCH', '{"notes":"Updated notes","signature":null}'))
+      ->process($input, new Patch(), ['id' => self::INSPECTION_ID]);
+
+    self::assertSame('Updated notes', $record->notes);
+    self::assertNull($record->signature);
+    self::assertSame(4, $result?->revision);
+  }
+
+  #[Test]
+  public function testCancellingAPublishedInspectionThroughPatchDispatchesCancelledEvent(): void
+  {
+    $record = $this->record();
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof InspectionCancelledEvent
+        && 'submitted' === $event->previousStatus,
+    ));
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"cancelled"}'),
+      eventDispatcher: $eventDispatcher,
+    )->process($this->patchStatus('cancelled'), new Patch(), ['id' => self::INSPECTION_ID]);
+
+    self::assertSame('cancelled', $record->status);
+  }
+
+  #[Test]
+  public function testRequiresAnAuthenticatedSecurityUser(): void
+  {
+    $record = $this->record();
+    $entityManager = $this->entityManager($record);
+    $requestStack = $this->request('DELETE');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(null);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+    $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));
+
+    $processor = new CanonicalInspectionMutationProcessor(
+      $entityManager,
+      $authorization,
+      $security,
+      $requestStack,
+      new CanonicalInspectionProvider($entityManager, $authorization, $security, $requestStack, $manager),
+      $manager,
+      new RevisionGuard($requestStack),
+      new MergePatchFields($requestStack),
+      $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testRejectsAMissingPermission(): void
+  {
+    $record = $this->record();
+    $entityManager = $this->entityManager($record);
+    $requestStack = $this->request('DELETE');
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->user());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+    $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));
+
+    $processor = new CanonicalInspectionMutationProcessor(
+      $entityManager,
+      $authorization,
+      $security,
+      $requestStack,
+      new CanonicalInspectionProvider($entityManager, $authorization, $security, $requestStack, $manager),
+      $manager,
+      new RevisionGuard($requestStack),
+      new MergePatchFields($requestStack),
+      $this->createStub(EventDispatcherPort::class),
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testReportsAMissingParentInterventionAsNotFound(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(null);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->processor($record, $this->request('DELETE'), resources: $resources)
+      ->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
+  }
+
+  #[Test]
+  public function testReportsAnImmutableParentInterventionAsConflict(): void
+  {
+    $record = $this->record();
+    $record->recordStatus = 'draft';
+    $record->interventionId = self::INTERVENTION_ID;
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionMutationContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'published'),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $this->processor($record, $this->request('DELETE'), resources: $resources)
+      ->process(new PatchCanonicalInspectionInput(), new Delete(), ['id' => self::INSPECTION_ID]);
   }
 
   private function processor(

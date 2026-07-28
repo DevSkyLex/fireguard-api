@@ -418,5 +418,31 @@ final class CommissionEquipmentHandlerTest extends TestCase
 
     self::assertSame('operational', $result->status);
   }
+
+  #[Test]
+  public function testInvokeThrowsInvalidArgumentForMalformedIdentifiers(): void
+  {
+    /** @var EquipmentRepositoryPort&MockObject $equipmentRepository */
+    $equipmentRepository = $this->createMock(EquipmentRepositoryPort::class);
+    $equipmentRepository->expects(self::never())->method('findPublishedById');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new CommissionEquipmentHandler(
+      equipmentRepository: $equipmentRepository,
+      tagRepository: $this->createStub(TagRepositoryPort::class),
+      maintenanceLogRepository: $this->createStub(MaintenanceLogRepositoryPort::class),
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+
+    $handler->__invoke(new CommissionEquipmentCommand(
+      organizationId: 'not-a-uuid',
+      equipmentId: 'also-not-a-uuid',
+    ));
+  }
   // #endregion
 }

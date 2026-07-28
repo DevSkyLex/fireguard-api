@@ -167,6 +167,27 @@ final class InterventionRecurrenceNotifierTest extends TestCase
     self::addToAssertionCount(1);
   }
 
+  #[Test]
+  public function testNeverThrowsWhenTheNotificationPolicyItselfFails(): void
+  {
+    $policy = $this->createStub(OrganizationNotificationPolicyPort::class);
+    $policy->method('notificationPolicy')->willThrowException(new RuntimeException('settings unavailable'));
+
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    $notifier = new InterventionRecurrenceNotifier(
+      $notifications,
+      $policy,
+      $this->createStub(OrganizationMemberRepositoryPort::class),
+      $this->recipients(['user-admin']),
+    );
+
+    $notifier->notifyMaterializationFailed(self::ORG_ID, 'recurrence-9', 'template-7', null, 'boom');
+
+    self::addToAssertionCount(1);
+  }
+
   /**
    * Builds a real recipient resolver (the concrete class is final and cannot
    * be doubled) backed by stubbed ports, so it deterministically resolves to

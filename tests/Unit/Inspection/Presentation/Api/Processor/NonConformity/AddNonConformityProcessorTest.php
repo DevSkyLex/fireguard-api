@@ -12,10 +12,12 @@ use Inspection\Domain\Exception\{InspectionAlreadyClosedException, InspectionNot
 use Inspection\Presentation\Api\Dto\Input\NonConformity\AddNonConformityInput;
 use Inspection\Presentation\Api\Dto\Output\NonConformity\NonConformityOutput;
 use Inspection\Presentation\Api\Processor\NonConformity\AddNonConformityProcessor;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -173,6 +175,92 @@ final class AddNonConformityProcessorTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenPermissionDenied(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(false);
+
+    $processor = new AddNonConformityProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessThrowsBadRequestOnAnInvalidArgument(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(new InvalidArgumentException('Unknown severity.'));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new InvalidArgumentException('Unknown severity.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessUnwrapsAlreadyClosedFromMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(InspectionAlreadyClosedException::withId(self::INSP_ID)),
+    );
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process(
+      data: $this->makeInput(),
+      operation: new Post(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProcessRethrowsAnUnrelatedMessengerException(): void
+  {
+    $processor = $this->makeAuthorizedProcessor(
+      MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(
       data: $this->makeInput(),

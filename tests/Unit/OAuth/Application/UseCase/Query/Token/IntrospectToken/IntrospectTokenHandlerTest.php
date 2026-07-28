@@ -134,6 +134,59 @@ final class IntrospectTokenHandlerTest extends TestCase
    * @return void no return value
    */
   #[Test]
+  public function testIntrospectAccessTokenTreatsAnExpiredCacheEntryAsInactive(): void
+  {
+    // A cached entry outlives the token it describes: the handler must re-check
+    // `exp` rather than trust that a cache hit means the token is still live.
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())->method('validate')->willReturn(true);
+    $jwtParser->expects(self::once())->method('parse')->willReturn(['jti' => 'token-id']);
+
+    $tokenCache = $this->createMock(TokenCachePort::class);
+    $tokenCache->expects(self::once())
+      ->method('get')
+      ->with('token-id')
+      ->willReturn([
+        'active' => true,
+        'scope' => 'openid',
+        'exp' => time() - 60,
+      ]);
+
+    $handler = new IntrospectTokenHandler(
+      jwtParser: $jwtParser,
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $tokenCache,
+      issuer: 'https://issuer.example',
+    );
+
+    $result = $handler->__invoke(new IntrospectTokenQuery(token: 'access-token'));
+
+    self::assertFalse($result->active);
+  }
+
+  #[Test]
+  public function testIntrospectAccessTokenReturnsInactiveWhenTokenIdIsMissing(): void
+  {
+    // Without a `jti` there is nothing to look up, cached or otherwise.
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())->method('validate')->willReturn(true);
+    $jwtParser->expects(self::once())->method('parse')->willReturn(['aud' => ['client-1']]);
+
+    $handler = new IntrospectTokenHandler(
+      jwtParser: $jwtParser,
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $this->createStub(TokenCachePort::class),
+      issuer: 'https://issuer.example',
+    );
+
+    $result = $handler->__invoke(new IntrospectTokenQuery(token: 'access-token'));
+
+    self::assertFalse($result->active);
+  }
+
+  #[Test]
   public function testIntrospectAccessTokenUsesCache(): void
   {
     $jwtParser = $this->createMock(JwtParserPort::class);
@@ -353,6 +406,147 @@ final class IntrospectTokenHandlerTest extends TestCase
       accessTokenIdentifier: 'access-id',
       clientIdentifier: new OAuthClientIdentifier('client-123'),
       isRevoked: true,
+    );
+
+    $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);
+    $refreshTokenRepository->expects(self::once())
+      ->method('findByEncryptedToken')
+      ->with('refresh-token')
+      ->willReturn($refreshToken);
+    $refreshTokenRepository->expects(self::never())->method('find');
+
+    $handler = new IntrospectTokenHandler(
+      jwtParser: $this->createStub(JwtParserPort::class),
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $refreshTokenRepository,
+      tokenCache: $this->createStub(TokenCachePort::class),
+      issuer: 'https://issuer.example',
+    );
+
+    $result = $handler->__invoke(new IntrospectTokenQuery(
+      token: 'refresh-token',
+      tokenTypeHint: 'refresh_token',
+    ));
+
+    self::assertFalse($result->active);
+  }
+
+  /**
+   * Method testIntrospectAccessTokenReturnsInactiveWhenTheJtiClaimIsNotAString.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testIntrospectAccessTokenReturnsInactiveWhenTheJtiClaimIsNotAString(): void
+  {
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())
+      ->method('validate')
+      ->with('access-token')
+      ->willReturn(true);
+    $jwtParser->expects(self::once())
+      ->method('parse')
+      ->with('access-token')
+      ->willReturn(['jti' => 42, 'sub' => 'user-123']);
+
+    $tokenCache = $this->createMock(TokenCachePort::class);
+    $tokenCache->expects(self::never())->method('get');
+
+    $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
+    $accessTokenRepository->expects(self::never())->method('find');
+
+    $handler = new IntrospectTokenHandler(
+      jwtParser: $jwtParser,
+      accessTokenRepository: $accessTokenRepository,
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $tokenCache,
+      issuer: 'https://issuer.example',
+    );
+
+    $result = $handler->__invoke(new IntrospectTokenQuery(token: 'access-token'));
+
+    self::assertFalse($result->active);
+  }
+
+  /**
+   * Method testIntrospectAccessTokenReturnsInactiveWhenTheJtiClaimIsAbsent.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testIntrospectAccessTokenReturnsInactiveWhenTheJtiClaimIsAbsent(): void
+  {
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())->method('validate')->willReturn(true);
+    $jwtParser->expects(self::once())->method('parse')->willReturn(['sub' => 'user-123']);
+
+    $tokenCache = $this->createMock(TokenCachePort::class);
+    $tokenCache->expects(self::never())->method('get');
+
+    $handler = new IntrospectTokenHandler(
+      jwtParser: $jwtParser,
+      accessTokenRepository: $this->createStub(AccessTokenRepositoryPort::class),
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $tokenCache,
+      issuer: 'https://issuer.example',
+    );
+
+    self::assertFalse($handler->__invoke(new IntrospectTokenQuery(token: 'access-token'))->active);
+  }
+
+  /**
+   * Method testIntrospectAccessTokenReturnsInactiveWhenTheStoredTokenIsGone.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testIntrospectAccessTokenReturnsInactiveWhenTheStoredTokenIsGone(): void
+  {
+    $jwtParser = $this->createMock(JwtParserPort::class);
+    $jwtParser->expects(self::once())->method('validate')->willReturn(true);
+    $jwtParser->expects(self::once())->method('parse')->willReturn([
+      'jti' => 'token-123',
+      'sub' => 'user-123',
+      'aud' => 'client-123',
+    ]);
+
+    $tokenCache = $this->createMock(TokenCachePort::class);
+    $tokenCache->expects(self::once())
+      ->method('get')
+      ->with('token-123')
+      ->willReturn(null);
+
+    $accessTokenRepository = $this->createMock(AccessTokenRepositoryPort::class);
+    $accessTokenRepository->expects(self::once())
+      ->method('find')
+      ->with('token-123')
+      ->willReturn(null);
+
+    $handler = new IntrospectTokenHandler(
+      jwtParser: $jwtParser,
+      accessTokenRepository: $accessTokenRepository,
+      refreshTokenRepository: $this->createStub(RefreshTokenRepositoryPort::class),
+      tokenCache: $tokenCache,
+      issuer: 'https://issuer.example',
+    );
+
+    // A signature-valid JWT whose row was deleted must fail closed.
+    self::assertFalse($handler->__invoke(new IntrospectTokenQuery(token: 'access-token'))->active);
+  }
+
+  /**
+   * Method testIntrospectRefreshTokenReturnsInactiveWhenExpired.
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testIntrospectRefreshTokenReturnsInactiveWhenExpired(): void
+  {
+    $refreshToken = new RefreshToken(
+      identifier: 'refresh-id',
+      expiryDateTime: new DateTimeImmutable('-1 hour'),
+      accessTokenIdentifier: 'access-id',
+      clientIdentifier: new OAuthClientIdentifier('client-123'),
     );
 
     $refreshTokenRepository = $this->createMock(RefreshTokenRepositoryPort::class);

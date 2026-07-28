@@ -34,6 +34,8 @@ final class MessagingChannelHierarchyGuardTest extends TestCase
 
   private const string GREATGRANDPARENT_ID = '550e8400-e29b-41d4-a716-446655440004';
 
+  private const string ROOT_ID = '550e8400-e29b-41d4-a716-446655440005';
+
   #[Test]
   public function testAssertValidParentRejectsAChannelAsItsOwnParent(): void
   {
@@ -179,6 +181,57 @@ final class MessagingChannelHierarchyGuardTest extends TestCase
     $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
     $conversations->method('findAggregateById')->willReturnMap([
       [self::PARENT_ID, $parent],
+    ]);
+
+    $guard = new MessagingChannelHierarchyGuard($conversations);
+
+    $this->expectException(MessagingConflictException::class);
+
+    $guard->assertValidParent($child, self::PARENT_ID);
+  }
+
+  #[Test]
+  public function testAssertValidParentStopsWalkingOnADanglingAncestorReference(): void
+  {
+    $child = $this->channel(self::CHILD_ID, self::ORG_ID);
+
+    $parent = $this->channel(self::PARENT_ID, self::ORG_ID);
+    $parent->setParent(self::GRANDPARENT_ID);
+
+    // The grandparent row is gone: the walk must stop rather than loop.
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturnMap([
+      [self::PARENT_ID, $parent],
+      [self::GRANDPARENT_ID, null],
+    ]);
+
+    $guard = new MessagingChannelHierarchyGuard($conversations);
+
+    self::assertSame($parent, $guard->assertValidParent($child, self::PARENT_ID));
+  }
+
+  #[Test]
+  public function testAssertValidParentRejectsAnAncestorChainDeeperThanTheMaximum(): void
+  {
+    $child = $this->channel(self::CHILD_ID, self::ORG_ID);
+
+    $parent = $this->channel(self::PARENT_ID, self::ORG_ID);
+    $parent->setParent(self::GRANDPARENT_ID);
+
+    $grandparent = $this->channel(self::GRANDPARENT_ID, self::ORG_ID);
+    $grandparent->setParent(self::GREATGRANDPARENT_ID);
+
+    $greatGrandparent = $this->channel(self::GREATGRANDPARENT_ID, self::ORG_ID);
+    $greatGrandparent->setParent(self::ROOT_ID);
+
+    $root = $this->channel(self::ROOT_ID, self::ORG_ID);
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findAggregateById')->willReturnMap([
+      [self::PARENT_ID, $parent],
+      [self::GRANDPARENT_ID, $grandparent],
+      [self::GREATGRANDPARENT_ID, $greatGrandparent],
+      [self::ROOT_ID, $root],
     ]);
 
     $guard = new MessagingChannelHierarchyGuard($conversations);

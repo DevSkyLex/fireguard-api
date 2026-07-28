@@ -9,10 +9,12 @@ use Auth\Application\UseCase\Command\Registration\ResendRegistration\{ResendRegi
 use Auth\Presentation\Api\Dto\Input\Registration\ResendRegistrationInput;
 use Auth\Presentation\Api\Dto\Output\Registration\RegisterOutput;
 use Auth\Presentation\Api\Processor\Registration\ResendRegistrationProcessor;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use stdClass;
 use Symfony\Component\HttpKernel\Exception\{NotFoundHttpException, TooManyRequestsHttpException};
 
 #[CoversClass(ResendRegistrationProcessor::class)]
@@ -89,5 +91,16 @@ final class ResendRegistrationProcessorTest extends TestCase
     $this->expectException(NotFoundHttpException::class);
 
     $processor->process($input, new Post());
+  }
+
+  #[Test]
+  public function testProcessThrowsWhenInputIsNotAResendRegistrationInput(): void
+  {
+    $processor = new ResendRegistrationProcessor(commandBus: $this->createStub(CommandBusPort::class));
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Invalid input data');
+
+    $processor->process(new stdClass(), new Post());
   }
 }

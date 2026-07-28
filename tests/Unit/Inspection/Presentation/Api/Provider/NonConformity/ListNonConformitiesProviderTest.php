@@ -17,6 +17,7 @@ use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Shared\Application\Contract\Pagination\PaginatedResult;
 use Shared\Application\Contract\Sorting\SortDirection;
 use Shared\Application\Exception\MessengerRuntimeException;
@@ -24,6 +25,7 @@ use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
+use Throwable;
 
 use function iterator_to_array;
 
@@ -344,6 +346,58 @@ final class ListNonConformitiesProviderTest extends TestCase
     );
 
     self::assertSame(0.0, $result->getTotalItems());
+  }
+
+  #[Test]
+  public function testProvideUnwrapsInvalidArgumentFromMessengerException(): void
+  {
+    $provider = $this->makeAuthorizedProvider(
+      MessengerRuntimeException::wrap(new InvalidArgumentException('Invalid severity.')),
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAnUnrelatedMessengerException(): void
+  {
+    $provider = $this->makeAuthorizedProvider(
+      MessengerRuntimeException::wrap(new RuntimeException('Connection lost.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'inspectionId' => self::INSP_ID],
+    );
+  }
+
+  private function makeAuthorizedProvider(Throwable $queryException): ListNonConformitiesProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($queryException);
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    return new ListNonConformitiesProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
   }
 
   private function createSecurityUser(): SecurityUser

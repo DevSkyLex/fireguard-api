@@ -10,6 +10,8 @@ use Equipment\Application\UseCase\Query\Equipment\ListEquipmentAttachments\{List
 use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\AttachmentOutput;
 use Equipment\Presentation\Api\Provider\Equipment\ListEquipmentAttachmentsProvider;
+use InvalidArgumentException;
+use LogicException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,9 +19,10 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(ListEquipmentAttachmentsProvider::class)]
 final class ListEquipmentAttachmentsProviderTest extends TestCase
@@ -198,6 +201,100 @@ final class ListEquipmentAttachmentsProviderTest extends TestCase
     self::assertSame('application/pdf', $output[0]->mimeType);
     self::assertSame(12345, $output[0]->size);
     self::assertSame('Inspection report', $output[0]->label);
+  }
+
+  #[Test]
+  public function testProvideThrowsBadRequestWhenUriVariablesAreMissing(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655459012'));
+
+    $provider = new ListEquipmentAttachmentsProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $this->createStub(OrganizationAuthorizationPort::class),
+      security: $security,
+    );
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $provider->provide(operation: new GetCollection(), uriVariables: ['organizationId' => self::ORG_ID]);
+  }
+
+  #[Test]
+  public function testProvideMapsADirectEquipmentNotFoundToHttp404(): void
+  {
+    $this->expectException(NotFoundHttpException::class);
+
+    $this->providerThrowing(EquipmentNotFoundException::withId(self::EQUIP_ID))->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsADirectInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(new InvalidArgumentException('Invalid equipment identifier.'))->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $this->expectException(BadRequestHttpException::class);
+
+    $this->providerThrowing(
+      MessengerRuntimeException::wrap($this->handlerFailure(new InvalidArgumentException('Invalid equipment identifier.'))),
+    )->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideRethrowsAMessengerFailureItCannotClassify(): void
+  {
+    $this->expectException(MessengerRuntimeException::class);
+
+    $this->providerThrowing(
+      MessengerRuntimeException::wrap($this->handlerFailure(new LogicException('Unexpected handler failure.'))),
+    )->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  private function handlerFailure(Throwable $wrapped): HandlerFailedException
+  {
+    return new HandlerFailedException(
+      new Envelope(new ListEquipmentAttachmentsQuery(
+        organizationId: self::ORG_ID,
+        equipmentId: self::EQUIP_ID,
+      )),
+      [$wrapped],
+    );
+  }
+
+  private function providerThrowing(Throwable $exception): ListEquipmentAttachmentsProvider
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655459012'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException($exception);
+
+    return new ListEquipmentAttachmentsProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+    );
   }
 
   private function createSecurityUser(string $id): SecurityUser

@@ -173,6 +173,65 @@ final class InterventionWorkItemOutputFactoryTest extends TestCase
     self::assertNull($output->targetSummary);
   }
 
+  #[Test]
+  public function testFreeTextAssigneeYieldsNoProfile(): void
+  {
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::never())->method('ask');
+
+    $output = new InterventionWorkItemOutputFactory($queryBus)->fromView($this->view('Someone on site'));
+
+    self::assertSame('Someone on site', $output->assignee);
+    self::assertNull($output->assigneeProfile);
+  }
+
+  #[Test]
+  public function testFallsBackToTheUsernameWhenTheUserHasNoName(): void
+  {
+    $factory = new InterventionWorkItemOutputFactory($this->queryBus(
+      member: $this->memberResult('member-1', 'user-1'),
+      user: $this->userResult('user-1', '', '', null),
+    ));
+
+    $output = $factory->fromView($this->view(self::ASSIGNEE_IRI));
+
+    self::assertSame('jdoe', $output->assigneeProfile?->displayName);
+  }
+
+  #[Test]
+  public function testFallsBackToTheMemberUserIdWhenTheUserQueryFails(): void
+  {
+    $factory = new InterventionWorkItemOutputFactory($this->queryBus(
+      member: $this->memberResult('member-1', 'user-1'),
+    ));
+
+    $output = $factory->fromView($this->view(self::ASSIGNEE_IRI));
+
+    self::assertNotNull($output->assigneeProfile);
+    self::assertSame('user-1', $output->assigneeProfile->displayName);
+    self::assertNull($output->assigneeProfile->avatarUrl);
+  }
+
+  #[Test]
+  public function testResolvesTheSameTargetOnlyOnce(): void
+  {
+    $target = '/api/facilities/fac-1';
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->willReturnCallback(fn (QueryMessage $query): ResultMessage => $query instanceof GetFacilityQuery
+        ? $this->facilityResult('fac-1', 'Boiler Room')
+        : throw new RuntimeException('unexpected query'));
+
+    $factory = new InterventionWorkItemOutputFactory($queryBus);
+
+    $first = $factory->fromView($this->view(null, ['target' => $target]));
+    $second = $factory->fromView($this->view(null, ['target' => $target]));
+
+    self::assertSame('Boiler Room', $first->targetSummary?->label);
+    self::assertSame('Boiler Room', $second->targetSummary?->label);
+  }
+
   // #region Helpers
   /**
    * @param array<string, mixed> $extra
