@@ -21,6 +21,8 @@ use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 use User\Infrastructure\Console\DeleteUserConsoleCommand;
 
+use function preg_replace;
+
 /**
  * Test DeleteUserConsoleCommandTest.
  *
@@ -60,7 +62,11 @@ final class DeleteUserConsoleCommandTest extends TestCase
     $tester->execute(['identifier' => self::USER_ID, '--force' => true]);
 
     self::assertSame(Command::SUCCESS, $tester->getStatusCode());
-    self::assertStringContainsString('deleted successfully', $tester->getDisplay());
+    // assertStringContainsString on the raw display is fragile: SymfonyStyle
+    // wraps the success block to the terminal width, which can split
+    // "deleted successfully" across two lines depending on the runner.
+    $display = preg_replace('/\s+/', ' ', $tester->getDisplay());
+    self::assertStringContainsString('deleted successfully', (string) $display);
   }
 
   #[Test]
