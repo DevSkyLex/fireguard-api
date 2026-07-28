@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Dto\Output\Plan;
 
 use DateTimeImmutable;
 use Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanResult;
-use Organization\Presentation\Api\Dto\Output\Plan\{PlanOutput};
+use Organization\Presentation\Api\Dto\Output\Plan\PlanOutput;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 
