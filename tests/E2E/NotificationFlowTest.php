@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Domain\Model\Notification\Notification;
-use Notification\Domain\ValueObject\{NotificationId, NotificationType};
+use Notification\Domain\ValueObject\NotificationId;
 use Notification\Infrastructure\Persistence\Doctrine\Repository\NotificationRepository;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Uid\Uuid;

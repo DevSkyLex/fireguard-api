@@ -6,9 +6,11 @@ namespace Facility\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository, QueryBuilder};
 use Exception;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Exception\FacilityOrganizationNotFoundException;
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId, FacilityStatus};
 use Facility\Infrastructure\Persistence\Doctrine\Mapper\FacilityMapper;
@@ -100,7 +102,15 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $this->entityManager->persist($record);
     }
 
-    $this->entityManager->flush();
+    try {
+      $this->entityManager->flush();
+    } catch (ForeignKeyConstraintViolationException $exception) {
+      if ($this->isOrganizationConstraintViolation($exception)) {
+        throw FacilityOrganizationNotFoundException::create();
+      }
+
+      throw $exception;
+    }
   }
 
   /**
@@ -655,6 +665,27 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ])->fetchOne();
 
     return false !== $match;
+  }
+
+  /**
+   * Method isOrganizationConstraintViolation.
+   *
+   * Recognises the organization foreign key by name. Driver messages are a
+   * persistence concern and must not reach the Application layer, so the
+   * translation lives here rather than in a handler.
+   *
+   * @since 1.0.0
+   *
+   * @param ForeignKeyConstraintViolationException $exception the driver failure
+   *
+   * @return bool true when the organization foreign key caused the failure
+   */
+  private function isOrganizationConstraintViolation(ForeignKeyConstraintViolationException $exception): bool
+  {
+    $message = mb_strtolower($exception->getMessage());
+
+    return str_contains($message, 'fk_facility_organization')
+      || (str_contains($message, 'facilities') && str_contains($message, 'organization'));
   }
 
   /**

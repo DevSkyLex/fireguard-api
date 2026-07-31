@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Command\Facility\ArchiveFacility;
 
-use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\FacilityArchivedEvent;
@@ -12,8 +11,8 @@ use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationRepositoryPort;
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
@@ -22,8 +21,6 @@ use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function sprintf;
-use function str_contains;
-use function strtolower;
 
 /**
  * UseCase ArchiveFacilityHandler.
@@ -86,15 +83,10 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
 
     $facility->archive();
 
-    try {
-      $this->facilityRepository->save($facility);
-    } catch (Throwable $exception) {
-      if ($this->isOrganizationConstraintViolation($exception)) {
-        throw new InvalidArgumentException('Organization not found.');
-      }
-
-      throw $exception;
-    }
+    // The repository translates a missing-organization foreign key into
+    // FacilityOrganizationNotFoundException; Presentation maps it like any
+    // other InvalidArgumentException.
+    $this->facilityRepository->save($facility);
 
     if (!$wasAlreadyArchived) {
       // Emitted after the durable save so a failed persistence leaves no
@@ -151,32 +143,5 @@ final readonly class ArchiveFacilityHandler implements CommandHandler
     );
   }
 
-  /**
-   * Method isOrganizationConstraintViolation.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the transactional exception
-   *
-   * @return bool true when the failure is caused by organization FK
-   */
-  private function isOrganizationConstraintViolation(Throwable $exception): bool
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      if ($current instanceof ForeignKeyConstraintViolationException) {
-        $message = strtolower($current->getMessage());
-
-        if (str_contains($message, 'fk_facility_organization') || (str_contains($message, 'facilities') && str_contains($message, 'organization'))) {
-          return true;
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-
-    return false;
-  }
   // #endregion
 }

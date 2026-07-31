@@ -6,8 +6,8 @@ namespace Organization\Application\UseCase\Command\Organization\ChangeOrganizati
 
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;

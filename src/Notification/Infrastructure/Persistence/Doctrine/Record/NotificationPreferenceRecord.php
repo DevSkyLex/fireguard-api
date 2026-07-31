@@ -21,7 +21,7 @@ use Doctrine\ORM\Mapping as ORM;
  * column.
  *
  * `category` is stored as a free string rather than an enum, matching
- * {@see \Notification\Domain\ValueObject\NotificationType}'s deliberate
+ * {@see \Notification\Application\Contract\Notification\NotificationType}'s deliberate
  * tolerance of unknown types: a new category must not require a deployment to
  * become preference-able.
  *

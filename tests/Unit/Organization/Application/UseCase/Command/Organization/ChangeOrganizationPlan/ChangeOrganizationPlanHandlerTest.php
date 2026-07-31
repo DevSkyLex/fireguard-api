@@ -7,8 +7,8 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Chang
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, PlanRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan\{

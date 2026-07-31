@@ -6,7 +6,7 @@ namespace Notification\Presentation\Api\Provider\NotificationType;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
-use Notification\Domain\ValueObject\NotificationType;
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Presentation\Api\Dto\Output\NotificationType\NotificationTypeOutput;
 
 use function array_map;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Notification\Application\UseCase\Command\Notification\SendNotification;
 
 use InvalidArgumentException;
-use Notification\Application\Contract\Notification\NotificationChannel;
+use Notification\Application\Contract\Notification\{NotificationChannel, NotificationType};
 use Notification\Application\Port\Outbound\{
   EmailNotificationChannelPort,
   MercureNotificationChannelPort,
@@ -15,7 +15,7 @@ use Notification\Application\Port\Outbound\{
 };
 use Notification\Domain\Model\Notification\Notification;
 use Notification\Domain\Model\NotificationPreference\NotificationPreference;
-use Notification\Domain\ValueObject\{NotificationId, NotificationType};
+use Notification\Domain\ValueObject\NotificationId;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\LoggerPort;

@@ -47,14 +47,38 @@ Non-negotiables:
 - **constructor injects ports only** — `…Port` interfaces from `Application/Port/Outbound` (or `Inbound`). Never a Doctrine repository, never an adapter, never an `EntityManager`. A hook blocks the import and `make deptrac` fails on it,
 - returns a **Result object**, never a raw array,
 - raises **domain** exceptions (`FacilityNotFoundException`) for domain failures and `InvalidArgumentException` for malformed input; the Presentation layer maps them to HTTP,
-- dispatches domain events through `EventDispatcherPort` **after** the durable save — a failed persistence must leave no event behind. Look at `ArchiveFacilityHandler` for the ordering and the idempotence guard around it,
+- dispatches domain events through `EventDispatcherPort` **after** the durable save — a failed persistence must leave no event behind. Look at `ArchiveFacilityHandler` for the ordering and the idempotence guard around it (`$wasAlreadyArchived`), and for the best-effort notification in a `try/catch` that logs rather than failing a committed use case,
+- **catches only domain and application exceptions.** A `Doctrine\DBAL\…` type in a handler is an Infrastructure detail that crossed a layer: the adapter behind the port translates it, the handler never sees it. Same for inspecting an exception's message for a constraint name — that is persistence knowledge, and it belongs in the repository,
 - writes go through `CommandBusPort`, reads through `QueryBusPort`, when one use case must call another.
 
 ## Cross-module dependencies
 
-*"If another module is required, depend on its port and contract types, not its adapter or domain."* Concretely: `Notification\Application\Port\Inbound\NotificationPort` and `Notification\Application\Contract\Notification\SendNotificationRequest` are fair game; `Notification\Domain\…` and `Notification\Infrastructure\…` are not.
+*"If another module is required, depend on its port and contract types, not its adapter or domain."* Concretely: `Notification\Application\Port\Inbound\NotificationPort` and `Notification\Application\Contract\Notification\{SendNotificationRequest, NotificationChannel, NotificationType}` are fair game; `Notification\Domain\…` and `Notification\Infrastructure\…` are not.
 
 If the contract type you need does not exist, add it under the **owning** module's `Application/Contract/` — do not reach into its Domain.
+
+### Nothing enforces this. You are the enforcement.
+
+`make deptrac` **does not catch a cross-module `Domain\` import**, and believing it does is
+how the rule rotted. Its collectors are module-agnostic wildcards (`src/.*/Domain/.*`), so
+every module's Domain collapses into one `Domain` layer — and `Application: [Domain, …]` is
+an allowed edge. `Facility\Application` reaching into `Notification\Domain` is, to deptrac,
+the same as reaching into its own.
+
+What deptrac *does* catch is the **layer** direction: Application → `Infrastructure\`
+(anyone's) is a violation, which is why the port/adapter rule above holds up. Only the
+cross-*module* Domain edge is invisible.
+
+The check that sees it is the boundary grep — run it on the module you touched, and note
+the count before and after your change:
+
+```bash
+grep -rnE '^use (SiblingA|SiblingB)[\](Domain|Infrastructure|Presentation)[\]' src/<Module> --include=*.php
+```
+
+**Expect it to be non-empty.** The repository currently carries 143 such imports across 79
+files, 52 of them in Application — the rule is the target state, not the current one. Your
+obligation is not to fix them; it is to **not add the 144th**.
 
 ## House style — match it exactly
 
@@ -98,7 +122,8 @@ The HTTP surface (Resource, Operation, DTOs, Processor/Provider, security) → *
 - Business logic in a processor or provider instead of the handler.
 - Injecting a concrete repository, adapter, or `EntityManager` instead of a port.
 - Returning an array instead of a Result.
-- Importing another module's `Domain\` or `Infrastructure\` namespace.
+- Importing another module's `Domain\` or `Infrastructure\` namespace — and assuming `make deptrac` would have caught you. It does not.
+- Catching a `Doctrine\DBAL\…` exception, or string-matching a constraint name, inside a handler.
 - Dispatching a domain event before the save succeeds.
 - Forgetting the explicit `$entityManager` argument on a new repository — the silent wrong-database bug.
 - Four-space indentation, or a missing `declare(strict_types=1);`.
@@ -113,9 +138,13 @@ make phpstan
 make deptrac
 make lint
 php vendor/bin/phpunit --filter <UseCase>HandlerTest
+grep -rnE '^use (SiblingA|SiblingB)[\](Domain|Infrastructure|Presentation)[\]' src/<Module> --include=*.php
 ```
 
-`make deptrac` is the one that proves the layer direction held. Run it before declaring the work done.
+`make deptrac` proves the **layer** direction held — Application never reached into
+Infrastructure or Presentation. It says nothing about the **module** boundary; the grep on
+the last line is the only check for that, and you read it as a delta against the count you
+noted before the change.
 
 ## Output
 

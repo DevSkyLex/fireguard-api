@@ -6,8 +6,8 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Remov
 
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\{RemoveOrganizationMemberCommand, RemoveOrganizationMemberHandler, RemoveOrganizationMemberResult};
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;

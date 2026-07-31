@@ -10,8 +10,8 @@ use Notification\Application\Contract\Notification\{
   SendNotificationRequest,
   SentNotification
 };
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Notification\Infrastructure\Console\SendNotificationConsoleCommand;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;

@@ -2,21 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Notification\Domain\ValueObject;
+namespace Notification\Application\Contract\Notification;
 
 use function explode;
 use function in_array;
 
 /**
- * ValueObject NotificationType.
+ * Contract NotificationType.
  *
  * Defines all known notification type constants organized by category.
+ * Lives in Application/Contract because sibling modules name these types when
+ * they publish a notification: a Domain type must not cross a module boundary.
  *
  * Type format: `{category}.{action}` — e.g. `organization.invitation`.
  * The category is the prefix before the first dot and drives
  * how the notification is rendered and grouped on the client side.
  *
- * @category ValueObject
+ * @category Contract
  *
  * @version 1.0.0
  *

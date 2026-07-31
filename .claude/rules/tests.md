@@ -37,3 +37,18 @@ A suite that only covers 200 proves the endpoint exists and nothing about who ma
 - A test that locks in an anti-pattern (logic asserted inside a processor, a raw-array Result) encodes the wrong contract. Flag it instead of extending it.
 
 Setup: `make test-db` once, then `make seed-fixtures` (it knows about both databases). The suite runs on **PostgreSQL because production does** — never substitute SQLite.
+
+## `phpunit` takes no `-d memory_limit` — `bin/console` does
+
+The rule that every backend command needs `-d memory_limit=1G` is about **`bin/console`**, which builds the container and dies at the 128 MB default. It does **not** extend to phpunit, and adding it there is a small regression: `permissions.allow` lists `Bash(php vendor/bin/phpunit:*)`, and the `php -d …` form does not match that prefix, so every test run starts asking for approval.
+
+```bash
+php vendor/bin/phpunit --filter <Name>Test        # correct — no flag
+php -d memory_limit=1G bin/console debug:router   # correct — flag mandatory
+```
+
+`phpunit.dist.xml` sets `<ini name="memory_limit" value="2G" />` at bootstrap, which is why a bare run works (measured: 210 MB used, well past the php.ini ceiling). The Makefile passes the flag on its phpunit targets belt-and-braces; that is not a reason to copy it into an ad-hoc command.
+
+## The formatter strips an import you have not used *yet*
+
+`php-cs-fixer` runs as a PostToolUse hook on **every** edit, and it removes unused imports. Add an import in one edit and its first usage in a later edit, and the import is gone before the second edit lands — phpstan then reports `class.notFound` on a name that looks right in your diff. **Put the import and its first usage in the same edit.**

@@ -7,9 +7,8 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Revok
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
-use Notification\Application\Contract\Notification\SentNotification;
+use Notification\Application\Contract\Notification\{NotificationType, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Application\UseCase\Command\Organization\RevokeOrganizationInvitation\{RevokeOrganizationInvitationCommand, RevokeOrganizationInvitationHandler, RevokeOrganizationInvitationResult};
 use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;

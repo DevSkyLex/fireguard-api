@@ -7,8 +7,8 @@ namespace Organization\Application\UseCase\Command\Organization\RevokeOrganizati
 use DateTimeImmutable;
 use InvalidArgumentException;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Organization\Application\Port\Outbound\OrganizationInvitationRepositoryPort;
 use Organization\Domain\Event\Invitation\OrganizationInvitationRevokedEvent;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;

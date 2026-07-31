@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Notification\Application\UseCase\Query\Notification\ListUserNotifications;
 
 use DateTimeImmutable;
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Outbound\NotificationRepositoryPort;
 use Notification\Application\UseCase\Query\Notification\GetUserNotification\GetUserNotificationResult;
 use Notification\Domain\Model\Notification\Notification;
-use Notification\Domain\ValueObject\NotificationType;
 use Shared\Application\Message\QueryHandler;
 
 use function array_map;

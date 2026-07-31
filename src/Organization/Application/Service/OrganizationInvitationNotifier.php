@@ -6,8 +6,8 @@ namespace Organization\Application\Service;
 
 use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
-use Notification\Domain\ValueObject\NotificationType;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 use function htmlspecialchars;

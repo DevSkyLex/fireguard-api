@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Notification\Domain\ValueObject;
+namespace Tests\Unit\Notification\Application\Contract\Notification;
 
-use Notification\Domain\ValueObject\NotificationType;
+use Notification\Application\Contract\Notification\NotificationType;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\TestCase;
 

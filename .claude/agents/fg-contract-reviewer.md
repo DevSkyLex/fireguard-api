@@ -45,4 +45,12 @@ Layer direction and business-logic placement → **fg-architecture-reviewer** ·
 
 Findings ranked **breaking → should-fix → nit**, each with the file and line, what a consumer sees change, and the fix. Call out breaking changes in their own section at the top, with the consumer impact spelled out — a frontend that renders a blank status pill is a more useful description than "enum literal changed".
 
+Rank by **what happens to a consumer already in production**, not by how much code the fix touches:
+
+- **breaking** — a deployed client stops working correctly against the new response, with no code change on its side. Renamed or removed field, changed enum literal, narrowed type, moved status code, newly required input, changed default. A silent runtime failure counts double: it ships green and surfaces as a blank pill or a dropped row.
+- **should-fix** — the contract still works, but it says something untrue or leaks something it should not: an undocumented field in a group, an Output DTO exposing a Domain type, a status code that is defensible but not the project's convention, an OpenAPI description that no longer matches behaviour.
+- **nit** — naming, ordering, a missing example, a description that could be clearer. Nothing a consumer can observe.
+
+If everything is additive, say **additive only** rather than padding the list with nits to look thorough.
+
 End with a verdict: **contract stable**, **additive only**, or **breaking**. If you could not export the OpenAPI or resolve the router, say so rather than reviewing from the attributes alone and implying you saw the output.

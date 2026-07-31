@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Notification\Presentation\Api\Provider\NotificationType;
 
 use ApiPlatform\Metadata\GetCollection;
-use Notification\Domain\ValueObject\NotificationType;
+use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Presentation\Api\Provider\NotificationType\ListNotificationTypesProvider;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
