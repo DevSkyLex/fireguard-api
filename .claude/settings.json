@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledMcpjsonServers": ["context7"],
+  "permissions": {
+    "allow": [
+      "Bash(make phpstan)",
+      "Bash(make deptrac)",
+      "Bash(make lint)",
+      "Bash(make cs-lint)",
+      "Bash(make cs-fix)",
+      "Bash(make phpunit:*)",
+      "Bash(make phpunit-fast)",
+      "Bash(make phpunit-parallel)",
+      "Bash(make test)",
+      "Bash(make coverage:*)",
+      "Bash(make cache-clear)",
+      "Bash(make test-db:*)",
+      "Bash(make seed-fixtures)",
+      "Bash(php vendor/bin/phpunit:*)",
+      "Bash(php vendor/bin/phpstan:*)",
+      "Bash(php vendor/bin/php-cs-fixer:*)",
+      "Bash(php vendor/bin/deptrac:*)",
+      "Bash(php bin/console lint:*)",
+      "Bash(php bin/console debug:*)",
+      "Bash(php bin/console doctrine:migrations:status:*)",
+      "Bash(composer audit)",
+      "Bash(composer validate:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(./config/jwt/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{ "type": "command", "command": "node .claude/hooks/guard.mjs" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [{ "type": "command", "command": "node .claude/hooks/format.mjs" }]
+      }
+    ]
+  }
+}

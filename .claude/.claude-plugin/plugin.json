@@ -1,0 +1,8 @@
+{
+  "name": "fireguard-api",
+  "description": "FireGuard API (Symfony 7.4, hexagonal modulith) tooling — 6 unit builders, 6 specialists, 13 commands, 7 skills, and the layer-direction and migration guard hooks. Loadable from the monorepo root with --plugin-dir.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Valentin FORTIN"
+  }
+}
