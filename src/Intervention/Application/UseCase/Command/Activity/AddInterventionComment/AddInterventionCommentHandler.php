@@ -94,6 +94,7 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
       'comment',
       $body,
       null,
+      $command->clientId,
     );
 
     foreach (self::extractMentions($body) as $mentionedMemberId) {
@@ -123,7 +124,7 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
    */
   private static function extractMentions(string $body): array
   {
-    if (1 > preg_match_all('/@\{([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\}/', $body, $matches)) {
+    if (1 > preg_match_all('/(?:@|&#64;)\{([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\}/', $body, $matches)) {
       return [];
     }
 

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
+use Facility\Infrastructure\DataFixtures\FacilityFixtures;
+use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Shared\Infrastructure\DataFixtures\SeedTimeline;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -14,6 +17,8 @@ use function is_array;
 use function is_int;
 use function is_string;
 use function json_encode;
+use function round;
+use function sprintf;
 
 final class SeededFixturesFlowTest extends OAuth2WebTestCase
 {
@@ -28,6 +33,11 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
   private const string TREND_FROM = '2026-03-01T00:00:00Z';
 
   private const string TREND_TO = '2026-04-02T23:59:59Z';
+
+  /**
+   * Memoized result of {@see self::seedShiftDays()}.
+   */
+  private ?int $seedShiftDays = null;
 
   #[\PHPUnit\Framework\Attributes\Test]
   public function testSeededAdminCanReadDashboardTrendAndSeededTotals(): void
@@ -282,19 +292,65 @@ final class SeededFixturesFlowTest extends OAuth2WebTestCase
     // the same amount so the period always covers the same relative slice of
     // the seeded data, making the assertions deterministic regardless of the
     // run date.
-    $from = SeedTimeline::at(self::TREND_FROM)->format('Y-m-d\TH:i:s\Z');
-    $to = SeedTimeline::at(self::TREND_TO)->format('Y-m-d\TH:i:s\Z');
+    $from = $this->seededAt(self::TREND_FROM)->format('Y-m-d\TH:i:s\Z');
+    $to = $this->seededAt(self::TREND_TO)->format('Y-m-d\TH:i:s\Z');
 
     return '?from=' . $from . '&to=' . $to . '&compare=' . ($compare ? 'true' : 'false') . '&granularity=day&timezone=UTC';
   }
 
   /**
-   * Formats a seed-anchored literal date (YYYY-MM-DD) as it lands on the live
-   * timeline, for asserting specific trend buckets deterministically.
+   * Formats a seed-anchored literal date (YYYY-MM-DD) as it lands on the
+   * seeded timeline, for asserting specific trend buckets deterministically.
    */
   private function shiftedBucket(string $literalDate): string
   {
-    return SeedTimeline::at($literalDate . 'T00:00:00+00:00')->format('Y-m-d');
+    return $this->seededAt($literalDate . 'T00:00:00+00:00')->format('Y-m-d');
+  }
+
+  /**
+   * Shifts a seed-anchored literal onto the timeline this database carries.
+   */
+  private function seededAt(string $literal): DateTimeImmutable
+  {
+    return new DateTimeImmutable($literal)->modify(sprintf('%+d days', $this->seedShiftDays()));
+  }
+
+  /**
+   * The whole-day offset SeedTimeline applied when this database was seeded.
+   *
+   * SeedTimeline resolves that offset against the clock *at fixture-load
+   * time*, and the baseline is seeded once (`make test-db`) and then reused.
+   * Calling SeedTimeline::at() from the test process therefore answers for
+   * today rather than for the day the rows were written: the two diverge by a
+   * day for every day that passes — and again mid-day, since the anchor sits
+   * at 10:00 UTC. Every exact count below would then be measured over a window
+   * sitting a day off the data it is meant to cover.
+   *
+   * So read the offset back off the data instead of recomputing it, from the
+   * one seeded facility whose authored literal the fixture publishes.
+   */
+  private function seedShiftDays(): int
+  {
+    if (null !== $this->seedShiftDays) {
+      return $this->seedShiftDays;
+    }
+
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+
+    $site = $entityManager->find(FacilityRecord::class, FacilityFixtures::SITE_ID);
+    self::assertInstanceOf(
+      FacilityRecord::class,
+      $site,
+      'Seeded facility ' . FacilityFixtures::SITE_ID . ' is missing. Run `make test-db` to seed the baseline.',
+    );
+
+    // Rounded rather than floored: a shift that crosses a DST boundary lands a
+    // whole number of days apart in wall-clock terms but an hour off in
+    // absolute ones, and the stored value need not be hydrated as UTC.
+    $authoredAt = new DateTimeImmutable(FacilityFixtures::SITE_CREATED_AT);
+
+    return $this->seedShiftDays = (int) round(($site->createdAt->getTimestamp() - $authoredAt->getTimestamp()) / 86400);
   }
 
   /**

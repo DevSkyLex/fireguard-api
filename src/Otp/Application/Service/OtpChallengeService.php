@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Otp\Application\Service;
 
+use DateTimeImmutable;
 use Otp\Application\Contract\Challenge\{ChallengeInfo, OtpChannel, OtpPurpose, VerificationInfo};
 use Otp\Application\Exception\OtpNotFoundException;
 use Otp\Application\Port\Inbound\Challenge\OtpChallengePort;
 use Otp\Application\UseCase\Command\Challenge\GenerateOtp\{GenerateOtpCommand, GenerateOtpHandler};
 use Otp\Application\UseCase\Command\Challenge\VerifyOtp\{VerifyOtpCommand, VerifyOtpHandler};
+use Otp\Domain\ValueObject\{OtpChannel as DomainOtpChannel, OtpPurpose as DomainOtpPurpose};
+
+use function bin2hex;
+use function random_bytes;
+use function sprintf;
 
 /**
  * Service OtpChallengeService.
@@ -60,6 +66,25 @@ final readonly class OtpChallengeService implements OtpChallengePort
       maskedRecipient: $result->maskedRecipient,
       expiresAt: $result->expiresAt,
       maxAttempts: $result->maxAttempts,
+    );
+  }
+
+  public function generateDecoy(
+    OtpPurpose $purpose,
+    OtpChannel $channel,
+    string $recipient,
+  ): ChallengeInfo {
+    $domainPurpose = DomainOtpPurpose::from(value: $purpose->value);
+
+    return new ChallengeInfo(
+      // Same shape and entropy as a real `ChallengeToken`, so the two are not
+      // distinguishable by length or alphabet either.
+      challengeToken: bin2hex(random_bytes(32)),
+      maskedRecipient: DomainOtpChannel::from(value: $channel->value)->mask(recipient: $recipient),
+      expiresAt: new DateTimeImmutable(
+        datetime: sprintf('+%d seconds', $domainPurpose->getDefaultTtlSeconds()),
+      ),
+      maxAttempts: $domainPurpose->getDefaultMaxAttempts(),
     );
   }
 

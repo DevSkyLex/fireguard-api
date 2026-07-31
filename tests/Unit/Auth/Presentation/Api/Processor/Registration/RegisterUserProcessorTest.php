@@ -17,7 +17,13 @@ use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use stdClass;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\{ConflictHttpException, TooManyRequestsHttpException};
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
+
+use function hash;
+use function sprintf;
+use function substr;
 
 #[CoversClass(RegisterUserProcessor::class)]
 final class RegisterUserProcessorTest extends TestCase
@@ -55,6 +61,7 @@ final class RegisterUserProcessorTest extends TestCase
     $processor = new RegisterUserProcessor(
       commandBus: $commandBus,
       requestStack: $requestStack,
+      rateLimiter: $this->createRateLimiterFactory(),
     );
 
     $input = new RegisterInput();
@@ -96,6 +103,7 @@ final class RegisterUserProcessorTest extends TestCase
     $processor = new RegisterUserProcessor(
       commandBus: $commandBus,
       requestStack: $requestStack,
+      rateLimiter: $this->createRateLimiterFactory(),
     );
 
     $input = new RegisterInput();
@@ -115,11 +123,61 @@ final class RegisterUserProcessorTest extends TestCase
     $processor = new RegisterUserProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       requestStack: new RequestStack(),
+      rateLimiter: $this->createRateLimiterFactory(),
     );
 
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Invalid input data');
 
     $processor->process(new stdClass(), new Post());
+  }
+
+  #[Test]
+  public function testProcessRejectsOnceTheRateLimitIsExhausted(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create(
+      uri: '/auth/register',
+      method: 'POST',
+      server: ['REMOTE_ADDR' => '127.0.0.1'],
+    ));
+
+    // Sign-up answers 409 for a taken address and 201 otherwise — a deliberate
+    // product choice — so the endpoint can confirm whether an account exists.
+    // Unmetered, that is a directory dump at request speed; the limiter is what
+    // keeps the signal from being harvestable in bulk.
+    $rateLimiter = $this->createRateLimiterFactory(limit: 1);
+
+    $processor = new RegisterUserProcessor(
+      commandBus: $this->createStub(CommandBusPort::class),
+      requestStack: $requestStack,
+      rateLimiter: $rateLimiter,
+    );
+
+    $rateLimiter->create(sprintf('registration_%s', substr(hash('sha256', '127.0.0.1'), 0, 16)))
+      ->consume();
+
+    $input = new RegisterInput();
+    $input->firstName = 'Jane';
+    $input->lastName = 'Doe';
+    $input->email = 'jane@example.com';
+    $input->password = 'Secret123!';
+
+    $this->expectException(TooManyRequestsHttpException::class);
+
+    $processor->process($input, new Post());
+  }
+
+  private function createRateLimiterFactory(int $limit = 100): RateLimiterFactory
+  {
+    return new RateLimiterFactory(
+      config: [
+        'id' => 'registration',
+        'policy' => 'fixed_window',
+        'limit' => $limit,
+        'interval' => '1 hour',
+      ],
+      storage: new InMemoryStorage(),
+    );
   }
 }

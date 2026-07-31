@@ -24,13 +24,7 @@ use Otp\Domain\ValueObject\{
 use Shared\Domain\Event\DomainEvent;
 
 use function count;
-use function explode;
-use function is_string;
 use function max;
-use function preg_replace;
-use function str_repeat;
-use function strlen;
-use function substr;
 
 /**
  * Model Otp.
@@ -531,11 +525,7 @@ final class Otp
    */
   public function maskedRecipient(): string
   {
-    return match ($this->channel) {
-      OtpChannel::EMAIL => $this->maskEmail($this->recipient),
-      OtpChannel::SMS => $this->maskPhone($this->recipient),
-      OtpChannel::TOTP => 'Authenticator App',
-    };
+    return $this->channel->mask(recipient: $this->recipient);
   }
 
   /**
@@ -607,52 +597,6 @@ final class Otp
     );
   }
 
-  /**
-   * Method maskEmail.
-   *
-   * Masks an email address.
-   *
-   * @since 1.0.0
-   *
-   * @param string $email the email address to mask
-   *
-   * @return string the masked email address
-   */
-  private function maskEmail(string $email): string
-  {
-    $parts = explode('@', $email);
-    if (2 !== count($parts)) {
-      return '***@***';
-    }
-    $local = $parts[0];
-    $domain = $parts[1];
-    $maskedLocal = strlen($local) <= 2
-      ? str_repeat('*', strlen($local))
-      : substr($local, 0, 2) . str_repeat('*', strlen($local) - 2);
 
-    return $maskedLocal . '@' . $domain;
-  }
-
-  /**
-   * Method maskPhone.
-   *
-   * Masks a phone number.
-   *
-   * @since 1.0.0
-   *
-   * @param string $phone the phone number to mask
-   *
-   * @return string the masked phone number
-   */
-  private function maskPhone(string $phone): string
-  {
-    $digits = preg_replace('/[^0-9]/', '', $phone);
-    $digits = is_string($digits) ? $digits : '';
-    if (strlen($digits) < 4) {
-      return '****';
-    }
-
-    return str_repeat('*', strlen($digits) - 4) . substr($digits, -4);
-  }
   // #endregion
 }

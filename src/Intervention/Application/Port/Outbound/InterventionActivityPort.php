@@ -49,6 +49,7 @@ interface InterventionActivityPort
     string $event,
     ?string $body,
     ?array $payload,
+    ?string $clientId = null,
   ): InterventionWorkflowView;
 
   /**

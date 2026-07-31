@@ -231,6 +231,39 @@ final class AuthApiTest extends WebTestCase
     self::assertNotNull($setCookie);
     self::assertStringContainsString('refresh_token', $setCookie);
   }
+
+  /**
+   * The MFA resend endpoint carries its own pre-auth token in the body, so it must
+   * stay reachable without an Authorization header — the caller has no access token
+   * yet at that point in the login flow.
+   *
+   * Sending a blank `preAuthToken` separates the two failure modes: a firewall
+   * rejection answers 401 before deserialization, whereas a request that actually
+   * reaches API Platform fails validation with 422. Anything but 422 here means the
+   * route fell back to the `^/api` catch-all again.
+   */
+  public function testMfaResendEndpointIsReachableWithoutAuthentication(): void
+  {
+    $this->client?->request(
+      method: 'POST',
+      uri: '/api/auth/mfa/resend',
+      server: [
+        'CONTENT_TYPE' => 'application/ld+json',
+        'HTTP_ACCEPT' => 'application/ld+json',
+      ],
+      content: json_encode(['preAuthToken' => '']) ?: '',
+    );
+
+    $response = $this->client?->getResponse();
+    self::assertNotNull($response);
+    self::assertNotSame(
+      Response::HTTP_UNAUTHORIZED,
+      $response->getStatusCode(),
+      'POST /api/auth/mfa/resend must not be blocked by the firewall: it is part of the '
+        . 'pre-authentication MFA flow and is declared PUBLIC_ACCESS in security.yaml.',
+    );
+    self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $response->getStatusCode());
+  }
   // #endregion
 
   // #region Helpers

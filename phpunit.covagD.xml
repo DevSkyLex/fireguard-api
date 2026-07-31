@@ -1,19 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!-- https://phpunit.readthedocs.io/en/latest/configuration.html -->
-<!--
-    E2E-only config, split out from phpunit.dist.xml.
-
-    Runs against the seeded `fireguard_*_e2e` databases (created once by the
-    CI workflow) rather than the `fireguard_*_test` ones `make test-db` builds
-    locally, so CI can keep an E2E-only baseline separate from the databases
-    the other suites share. Both baselines are seeded the same way; the E2E
-    suite also runs under phpunit.dist.xml against `fireguard_*_test`.
-
-    tests/bootstrap.php clones whichever pair is configured into a private
-    copy per run, keyed by TEST_TOKEN, so the exact-count assertions in
-    tests/E2E cannot be moved by anything outside the run.
--->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          colors="true"
@@ -39,20 +26,23 @@
         <env name="SYMFONY_DEPRECATIONS_HELPER" value="disabled" />
         <env name="MFA_ENABLED" value="false" />
         <env name="KERNEL_CLASS" value="App\Kernel" />
-
-        <!--
-            Local defaults for a bare `paratest -c phpunit.e2e.xml` outside CI.
-            A real environment variable (CI, or an exported shell one) wins over
-            both these and the `.env.test` values, since Dotenv never overwrites
-            an already-set variable.
-        -->
-        <env name="AUTH_DATABASE_URL" value="postgresql://admin:!ChangeMe!@127.0.0.1:5433/fireguard_auth_e2e?serverVersion=16&amp;charset=utf8" />
-        <env name="MAIN_DATABASE_URL" value="postgresql://main_admin:!ChangeMeMain!@127.0.0.1:5434/fireguard_main_e2e?serverVersion=16&amp;charset=utf8" />
     </php>
 
     <testsuites>
+        <testsuite name="Architecture Unit Tests">
+            <directory>tests/Architecture/Unit</directory>
+        </testsuite>
+        <testsuite name="General Integration Tests">
+            <directory>tests/Integration</directory>
+        </testsuite>
+        <testsuite name="General Functional Tests">
+            <directory>tests/Functional</directory>
+        </testsuite>
         <testsuite name="E2E Tests">
             <directory>tests/E2E</directory>
+        </testsuite>
+        <testsuite name="General Unit Tests">
+            <directory>tests/Unit</directory>
         </testsuite>
     </testsuites>
 
@@ -77,8 +67,8 @@
 
     <coverage>
         <report>
-            <clover outputFile="var/coverage/e2e.xml"/>
-            <text outputFile="var/coverage/e2e.txt" showOnlySummary="true"/>
+            <clover outputFile="var/covtmp-agD/clover.xml"/>
+            <text outputFile="var/covtmp-agD/coverage.txt" showOnlySummary="true"/>
         </report>
     </coverage>
 

@@ -410,7 +410,14 @@ updates (re-tested when v2 introduces `visibility: participants`).
   input/output DTOs, `MessagingExceptionMapperTrait`.
   Message bodies are sanitized with `@html_sanitizer.sanitizer.messaging.message`
   (identical allowlist to `intervention.comment`) before reaching the
-  command. `MessagingMediaProcessor`/`MessagingMediaProvider` mirror
+  command. **Sanitization rewrites `@` to `&#64;`** — Symfony's
+  `StringSanitizer::REPLACEMENTS` does it in every text node — so by the time a
+  body reaches `MentionExtractor` the marker reads `&#64;{memberUuid}`, never
+  `@{memberUuid}`. The extractor accepts both spellings for that reason; a
+  pattern matching the bare `@` alone silently extracted nothing, and the only
+  mentions that ever resolved were the ones written straight to the database by
+  fixtures. Anything reading mention markers out of a **stored** body must
+  expect the escaped form. `MessagingMediaProcessor`/`MessagingMediaProvider` mirror
   `Inspection\...\InspectionMediaProcessor`/`InspectionMediaProvider`
   (multipart upload via `Shared\Presentation\Api\Attachment\{UploadedAttachment,
   MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on

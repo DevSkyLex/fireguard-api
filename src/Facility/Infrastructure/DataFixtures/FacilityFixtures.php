@@ -16,6 +16,19 @@ use Shared\Infrastructure\DataFixtures\SeedTimeline;
 
 final class FacilityFixtures extends Fixture implements DependentFixtureInterface, FixtureGroupInterface
 {
+  /**
+   * The root site's identifier, paired with the literal its creation date is
+   * authored on.
+   *
+   * Published together so a test reading an already-seeded database can
+   * recover the whole-day shift {@see SeedTimeline} applied when the rows were
+   * written, instead of recomputing it from the clock of a later run — see
+   * `App\Tests\E2E\SeededFixturesFlowTest::seedShiftDays()`.
+   */
+  public const string SITE_ID = '22222222-2222-4222-8222-222222222221';
+
+  public const string SITE_CREATED_AT = '2026-03-03T08:00:00+00:00';
+
   public const string SITE_REFERENCE = 'facility-seed-site';
 
   public const string BUILDING_REFERENCE = 'facility-seed-building';
@@ -120,13 +133,13 @@ final class FacilityFixtures extends Fixture implements DependentFixtureInterfac
     $organization = $this->getReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class);
 
     $site = $this->createFacility(
-      id: '22222222-2222-4222-8222-222222222221',
+      id: self::SITE_ID,
       organization: $organization,
       parentFacility: null,
       type: FacilityType::SITE->value,
       name: 'Paris Headquarters',
       code: 'SITE-PAR',
-      createdAt: SeedTimeline::at('2026-03-03T08:00:00+00:00'),
+      createdAt: SeedTimeline::at(self::SITE_CREATED_AT),
       address: '12 Rue des Pompiers, Paris',
       metadata: ['city' => 'Paris', 'country' => 'FR'],
       latitude: 48.8566,

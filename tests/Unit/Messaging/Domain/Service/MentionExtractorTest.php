@@ -52,4 +52,27 @@ final class MentionExtractorTest extends TestCase
   {
     self::assertSame([], new MentionExtractor()->extract('Nothing to see here.'));
   }
+
+  /**
+   * The form every real caller actually produces.
+   *
+   * Both call sites sanitize before dispatching, and Symfony's
+   * `StringSanitizer` rewrites every `@` in a text node to `&#64;` — so this,
+   * not the bare `@`, is what the extractor is handed in production.
+   */
+  #[Test]
+  public function testExtractReadsTheSanitizedTokenForm(): void
+  {
+    $body = sprintf('<p>Hey &#64;{%s}, can you check this?</p>', self::MEMBER_A);
+
+    self::assertSame([self::MEMBER_A], new MentionExtractor()->extract($body));
+  }
+
+  #[Test]
+  public function testExtractDeduplicatesAcrossBothSpellings(): void
+  {
+    $body = sprintf('@{%s} then &#64;{%s}', self::MEMBER_A, self::MEMBER_A);
+
+    self::assertSame([self::MEMBER_A], new MentionExtractor()->extract($body));
+  }
 }

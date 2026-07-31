@@ -21,6 +21,8 @@ use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\Model\User\User;
 use User\Domain\ValueObject\{HashedPassword, UserId, UserProfile, Username};
 
+use function str_repeat;
+
 /**
  * Test RequestPasswordResetHandlerTest.
  *
@@ -49,6 +51,12 @@ final class RequestPasswordResetHandlerTest extends TestCase
     /** @var OtpChallengePort&MockObject $otp */
     $otp = $this->createMock(OtpChallengePort::class);
     $otp->expects(self::never())->method('generate');
+    $otp->expects(self::once())->method('generateDecoy')->willReturn(new ChallengeInfo(
+      challengeToken: str_repeat('a', 64),
+      maskedRecipient: 'un*****@example.com',
+      expiresAt: new DateTimeImmutable('+15 minutes'),
+      maxAttempts: 5,
+    ));
 
     $handler = new RequestPasswordResetHandler(
       userRepository: $repo,
@@ -58,10 +66,12 @@ final class RequestPasswordResetHandlerTest extends TestCase
     $result = $handler(new RequestPasswordResetCommand(email: 'unknown@example.com'));
 
     self::assertTrue($result->success);
-    self::assertNull($result->challengeToken);
-    self::assertNull($result->maskedRecipient);
-    self::assertNull($result->expiresAt);
-    self::assertNull($result->maxAttempts);
+    // A decoy, not a bare success: an unknown address must produce the *same*
+    // payload as a real one, or the difference enumerates the user base.
+    self::assertNotNull($result->challengeToken);
+    self::assertNotNull($result->maskedRecipient);
+    self::assertNotNull($result->expiresAt);
+    self::assertNotNull($result->maxAttempts);
     self::assertSame(ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS, $result->canResendIn);
   }
 
@@ -76,6 +86,12 @@ final class RequestPasswordResetHandlerTest extends TestCase
     /** @var OtpChallengePort&MockObject $otp */
     $otp = $this->createMock(OtpChallengePort::class);
     $otp->expects(self::never())->method('generate');
+    $otp->expects(self::once())->method('generateDecoy')->willReturn(new ChallengeInfo(
+      challengeToken: str_repeat('a', 64),
+      maskedRecipient: 'un*****@example.com',
+      expiresAt: new DateTimeImmutable('+15 minutes'),
+      maxAttempts: 5,
+    ));
 
     $handler = new RequestPasswordResetHandler(
       userRepository: $repo,
@@ -85,10 +101,12 @@ final class RequestPasswordResetHandlerTest extends TestCase
     $result = $handler(new RequestPasswordResetCommand(email: self::USER_EMAIL));
 
     self::assertTrue($result->success);
-    self::assertNull($result->challengeToken);
-    self::assertNull($result->maskedRecipient);
-    self::assertNull($result->expiresAt);
-    self::assertNull($result->maxAttempts);
+    // A decoy, not a bare success: an unknown address must produce the *same*
+    // payload as a real one, or the difference enumerates the user base.
+    self::assertNotNull($result->challengeToken);
+    self::assertNotNull($result->maskedRecipient);
+    self::assertNotNull($result->expiresAt);
+    self::assertNotNull($result->maxAttempts);
     self::assertSame(ChallengeResendPolicy::RESEND_COOLDOWN_SECONDS, $result->canResendIn);
   }
 
@@ -147,6 +165,12 @@ final class RequestPasswordResetHandlerTest extends TestCase
     /** @var OtpChallengePort&MockObject $otp */
     $otp = $this->createMock(OtpChallengePort::class);
     $otp->expects(self::never())->method('generate');
+    $otp->expects(self::once())->method('generateDecoy')->willReturn(new ChallengeInfo(
+      challengeToken: str_repeat('a', 64),
+      maskedRecipient: 'un*****@example.com',
+      expiresAt: new DateTimeImmutable('+15 minutes'),
+      maxAttempts: 5,
+    ));
 
     $handler = new RequestPasswordResetHandler(
       userRepository: $repo,

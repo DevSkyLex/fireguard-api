@@ -41,16 +41,19 @@ abstract class OAuth2WebTestCase extends WebTestCase
   protected ?string $accessToken = null;
 
   /**
-   * Create a client against the seeded E2E databases.
+   * Create a client against the seeded databases.
    *
-   * The fixture baseline lives in `fireguard_*_e2e`, seeded once by
-   * `make test-db`. This suite therefore runs under phpunit.e2e.xml, not
-   * phpunit.dist.xml — the other suites need those tables empty.
+   * The fixture baseline is seeded once, into `fireguard_*_test` by
+   * `make test-db` (phpunit.dist.xml, which runs this suite alongside the
+   * others) or into `fireguard_*_e2e` by CI (phpunit.e2e.xml). Loading it per
+   * test instead cost ~5s each and bought nothing: DAMA wraps every test in a
+   * transaction it rolls back, so the seeded data is already pristine at the
+   * start of each one, and the test's own writes still disappear at the end.
    *
-   * Loading the baseline here instead cost ~5s per test and bought nothing:
-   * DAMA wraps every test in a transaction it rolls back, so the seeded data is
-   * already pristine at the start of each one, and the test's own writes still
-   * disappear at the end.
+   * That rollback only isolates tests from each other *inside one process*.
+   * Isolation from everything outside it — a concurrent run, a reseed, a psql
+   * session — comes from tests/bootstrap.php, which clones both databases per
+   * run so nothing else can reach the rows these exact-count assertions read.
    */
   protected static function createClientWithFixtures(): KernelBrowser
   {

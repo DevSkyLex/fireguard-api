@@ -61,7 +61,9 @@ final readonly class ResendPasswordResetHandler implements CommandHandler
 
     if (null === $otp || OtpPurpose::PASSWORD_RESET->value !== $otp->purpose()->value || 'pending' !== $otp->status()) {
       return ResendPasswordResetResult::failed(
-        message: 'Invalid or expired reset token.',
+        // Mirrors the confirm step: a decoy token must fail the same way a real
+        // one does, or resending would reveal which addresses have accounts.
+        message: 'Invalid or expired reset code. Please check the code, or request a new reset.',
         errorCode: ResendPasswordResetResult::ERROR_INVALID_TOKEN,
       );
     }

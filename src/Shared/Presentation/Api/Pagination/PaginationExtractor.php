@@ -7,6 +7,7 @@ namespace Shared\Presentation\Api\Pagination;
 use function is_array;
 use function is_numeric;
 use function max;
+use function min;
 
 /**
  * Service PaginationExtractor.
@@ -25,6 +26,22 @@ use function max;
 final class PaginationExtractor
 {
   private const int DEFAULT_ITEMS_PER_PAGE = 30;
+
+  /**
+   * Hard ceiling on how many rows one request may ask for.
+   *
+   * `itemsPerPage` reaches the SQL `LIMIT` straight from the query string, and it
+   * was only floored, never capped — so `?itemsPerPage=1000000` asked the database
+   * to materialise a million rows, which is a denial of service anyone
+   * authenticated can trigger by editing a URL.
+   *
+   * Set well above real usage rather than at it: the heaviest legitimate callers
+   * (option pickers for checklist items, equipment and parent facilities) request
+   * 200, so a tighter cap would silently truncate them and quietly corrupt whatever
+   * is derived from the result. 500 leaves headroom while still bounding the blast
+   * radius.
+   */
+  private const int MAX_ITEMS_PER_PAGE = 500;
 
   // #region Methods
   /**
@@ -54,7 +71,10 @@ final class PaginationExtractor
     $itemsPerPageValue = $filters['itemsPerPage'] ?? $defaultItemsPerPage;
 
     $page = max(1, is_numeric($pageValue) ? (int) $pageValue : 1);
-    $itemsPerPage = max(1, is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : $defaultItemsPerPage);
+    $itemsPerPage = min(
+      self::MAX_ITEMS_PER_PAGE,
+      max(1, is_numeric($itemsPerPageValue) ? (int) $itemsPerPageValue : $defaultItemsPerPage),
+    );
 
     return new PaginationParams(
       page: $page,

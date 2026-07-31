@@ -69,14 +69,29 @@ final readonly class DoctrineInterventionActivityAdapter implements Intervention
     string $event,
     ?string $body,
     ?array $payload,
+    ?string $clientId = null,
   ): InterventionWorkflowView {
     $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
     if (!$intervention instanceof InterventionRecord) {
       throw InterventionNotFoundException::withId($interventionId);
     }
 
+    // An outbox replay can present the same write twice — a response lost in the
+    // field is indistinguishable from a request that never arrived. Returning the
+    // existing row makes the retry a no-op instead of a duplicate comment.
+    if (null !== $clientId) {
+      $existing = $this->entityManager
+        ->getRepository(InterventionActivityRecord::class)
+        ->findOneBy(['clientId' => $clientId]);
+
+      if ($existing instanceof InterventionActivityRecord) {
+        return $this->views->activityView($existing);
+      }
+    }
+
     $record = new InterventionActivityRecord();
     $record->id = $this->uuidFactory->generateRaw();
+    $record->clientId = $clientId;
     $record->intervention = $intervention;
     $record->organizationId = $organizationId;
     $record->actorId = $actorId;

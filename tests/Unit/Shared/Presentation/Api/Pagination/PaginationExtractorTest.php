@@ -103,4 +103,36 @@ final class PaginationExtractorTest extends TestCase
     self::assertSame(15, $params->itemsPerPage);
   }
   // #endregion
+
+  #[Test]
+  public function testCapsItemsPerPageAtTheHardCeiling(): void
+  {
+    $params = PaginationExtractor::fromContext(['filters' => ['itemsPerPage' => 1_000_000]]);
+
+    // Reached the SQL LIMIT unbounded before: anyone authenticated could ask the
+    // database for a million rows by editing the query string.
+    self::assertSame(500, $params->itemsPerPage);
+  }
+
+  #[Test]
+  public function testLeavesTheHeaviestLegitimatePageSizeIntact(): void
+  {
+    $params = PaginationExtractor::fromContext(['filters' => ['itemsPerPage' => 200]]);
+
+    // The option pickers (checklist items, equipment, parent facilities) request
+    // 200. A tighter cap would truncate them silently and corrupt what is derived
+    // from the result, so the ceiling has to stay clear of real usage.
+    self::assertSame(200, $params->itemsPerPage);
+  }
+
+  #[Test]
+  public function testOffsetFollowsTheCappedPageSize(): void
+  {
+    $params = PaginationExtractor::fromContext([
+      'filters' => ['page' => 3, 'itemsPerPage' => 1_000_000],
+    ]);
+
+    self::assertSame(500, $params->itemsPerPage);
+    self::assertSame(1000, $params->offset);
+  }
 }
