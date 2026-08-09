@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Infrastructure\Adapter\Workflow;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\{EntityManagerInterface, QueryBuilder};
 use Exception;
@@ -405,6 +406,8 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     $organizationId = $this->organizationId($intervention);
     $previousStatus = $intervention->status;
     $aggregate = InterventionMapper::toDomain($intervention);
+    $previousPlannedStartAt = $aggregate->plannedStartAt();
+    $previousDueAt = $aggregate->dueAt();
     $responsibleId = $aggregate->responsibleId();
     if (array_key_exists('responsibleId', $mutation->payload)) {
       $responsibleId = $this->nullableString($mutation->payload, 'responsibleId');
@@ -484,6 +487,32 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         'status_changed',
         null,
         ['from' => $previousStatus, 'to' => $nextStatus->value],
+      );
+    }
+    // A replan of a non-draft intervention leaves a trace: the operators who
+    // planned around the old window learn it moved, and by how much.
+    $nextPlannedStartAt = $aggregate->plannedStartAt();
+    $nextDueAt = $aggregate->dueAt();
+    $datesChanged = $previousPlannedStartAt?->getTimestamp() !== $nextPlannedStartAt?->getTimestamp()
+      || $previousDueAt?->getTimestamp() !== $nextDueAt?->getTimestamp();
+    if ('draft' !== $previousStatus && $datesChanged) {
+      $this->activities->append(
+        $intervention->id,
+        $organizationId,
+        $this->memberPolicy->findMemberId($organizationId, $mutation->userId),
+        'system',
+        'rescheduled',
+        null,
+        [
+          'from' => [
+            'plannedStartAt' => $previousPlannedStartAt?->format(DateTimeInterface::ATOM),
+            'dueAt' => $previousDueAt?->format(DateTimeInterface::ATOM),
+          ],
+          'to' => [
+            'plannedStartAt' => $nextPlannedStartAt?->format(DateTimeInterface::ATOM),
+            'dueAt' => $nextDueAt?->format(DateTimeInterface::ATOM),
+          ],
+        ],
       );
     }
     if (InterventionStatus::CHANGES_REQUESTED === $nextStatus) {

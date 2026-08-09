@@ -12,6 +12,7 @@ use Intervention\Domain\ValueObject\{InterventionPriority, InterventionStatus, I
 use function array_unique;
 use function array_values;
 use function mb_strlen;
+use function sprintf;
 use function trim;
 
 /**
@@ -218,87 +219,6 @@ final class Intervention
   }
 
   /**
-   * Method changeSite.
-   *
-   * Executes the change site operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $siteId the site id value
-   */
-  public function changeSite(?string $siteId): void
-  {
-    $this->assertPlanningMutable();
-    $this->siteId = self::nullable($siteId);
-    $this->touch();
-  }
-
-  /**
-   * Method changeResponsible.
-   *
-   * Executes the change responsible operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?string $responsibleId the responsible id value
-   */
-  public function changeResponsible(?string $responsibleId): void
-  {
-    $this->assertPlanningMutable();
-    $this->responsibleId = self::nullable($responsibleId);
-    $this->touch();
-  }
-
-  /**
-   * Method changeParticipants.
-   *
-   * @since 1.0.0
-   *
-   * @param list<string> $participants
-   */
-  public function changeParticipants(array $participants): void
-  {
-    $this->assertPlanningMutable();
-    $this->participants = self::normalizeParticipants($participants);
-    $this->touch();
-  }
-
-  /**
-   * Method changePriority.
-   *
-   * Executes the change priority operation.
-   *
-   * @since 1.0.0
-   *
-   * @param InterventionPriority $priority the priority value
-   */
-  public function changePriority(InterventionPriority $priority): void
-  {
-    $this->assertPlanningMutable();
-    $this->priority = $priority;
-    $this->touch();
-  }
-
-  /**
-   * Method reschedule.
-   *
-   * Executes the reschedule operation.
-   *
-   * @since 1.0.0
-   *
-   * @param ?DateTimeImmutable $plannedStartAt the planned start at value
-   * @param ?DateTimeImmutable $dueAt the due at value
-   */
-  public function reschedule(?DateTimeImmutable $plannedStartAt, ?DateTimeImmutable $dueAt): void
-  {
-    $this->assertPlanningMutable();
-    $this->plannedStartAt = $plannedStartAt;
-    $this->dueAt = $dueAt;
-    $this->assertSchedule();
-    $this->touch();
-  }
-
-  /**
    * Method changeReviewNote.
    *
    * Executes the change review note operation.
@@ -379,8 +299,14 @@ final class Intervention
     bool $hasReviewNote = false,
   ): void {
     $this->assertMutable();
-    if ($hasSiteId || $hasResponsibleId || $hasParticipants || $hasPriority || $hasPlannedStartAt || $hasDueAt) {
-      $this->assertPlanningMutable();
+    if ($hasSiteId) {
+      $this->assertScopeMutable();
+    }
+    if ($hasResponsibleId) {
+      $this->assertOwnershipMutable();
+    }
+    if ($hasParticipants || $hasPriority || $hasPlannedStartAt || $hasDueAt) {
+      $this->assertScheduleMutable();
     }
     if ($hasName) {
       $this->name = self::normalizeName($name ?? '');
@@ -392,7 +318,7 @@ final class Intervention
       $this->siteId = self::nullable($siteId);
     }
     if ($hasResponsibleId) {
-      $this->responsibleId = self::nullable($responsibleId);
+      $this->responsibleId = $this->keptAfterDraft(self::nullable($responsibleId), 'responsible member');
     }
     if ($hasParticipants) {
       $this->participants = self::normalizeParticipants($participants ?? []);
@@ -401,10 +327,10 @@ final class Intervention
       $this->priority = $priority;
     }
     if ($hasPlannedStartAt) {
-      $this->plannedStartAt = $plannedStartAt;
+      $this->plannedStartAt = $this->keptAfterDraft($plannedStartAt, 'planned start');
     }
     if ($hasDueAt) {
-      $this->dueAt = $dueAt;
+      $this->dueAt = $this->keptAfterDraft($dueAt, 'due date');
     }
     if ($hasReviewNote) {
       $this->reviewNote = self::nullable($reviewNote);
@@ -681,18 +607,81 @@ final class Intervention
   }
 
   /**
-   * Method assertPlanningMutable.
+   * Method assertScopeMutable.
    *
-   * Executes the assert planning mutable operation.
+   * The site scopes every prepared work item, so it is editable while drafting
+   * only — changing it later would invalidate the prepared scope; recreating
+   * the intervention is the honest gesture.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    */
-  private function assertPlanningMutable(): void
+  private function assertScopeMutable(): void
   {
     $this->assertMutable();
     if (InterventionStatus::DRAFT !== $this->status) {
-      throw new InterventionConflictException('Prepared scope and planning details are frozen after planning.');
+      throw new InterventionConflictException('The site is frozen after planning; create a new intervention to target another site.');
     }
+  }
+
+  /**
+   * Method assertOwnershipMutable.
+   *
+   * The responsible member governs submission, withdrawal and work-item
+   * execution rights, so a handover is only allowed while nothing has started:
+   * draft and planned.
+   *
+   * @since 1.1.0
+   */
+  private function assertOwnershipMutable(): void
+  {
+    $this->assertMutable();
+    if (InterventionStatus::DRAFT !== $this->status && InterventionStatus::PLANNED !== $this->status) {
+      throw new InterventionConflictException('The responsible member is frozen once field work has started.');
+    }
+  }
+
+  /**
+   * Method assertScheduleMutable.
+   *
+   * Dates, priority and participants stay editable through planned,
+   * in_progress and changes_requested — a delayed intervention is rescheduled,
+   * not abandoned and recreated. Under review (`submitted`) everything is
+   * frozen: withdraw first.
+   *
+   * @since 1.1.0
+   */
+  private function assertScheduleMutable(): void
+  {
+    $this->assertMutable();
+    if (InterventionStatus::SUBMITTED === $this->status) {
+      throw new InterventionConflictException('A submitted intervention is frozen while under review; withdraw it to replan.');
+    }
+  }
+
+  /**
+   * Method keptAfterDraft.
+   *
+   * Refuses clearing a planning value once the intervention left draft: the
+   * `planned` preconditions only guard the transition into `planned`, so
+   * without this a later merge-patch could null a date or the responsible and
+   * leave a planned intervention unschedulable.
+   *
+   * @since 1.1.0
+   *
+   * @template T
+   *
+   * @param T|null $value the incoming value
+   * @param string $field the field named in the error
+   *
+   * @return T|null the value, guaranteed non-null outside draft
+   */
+  private function keptAfterDraft(mixed $value, string $field): mixed
+  {
+    if (null === $value && InterventionStatus::DRAFT !== $this->status) {
+      throw new InterventionConflictException(sprintf('A planned intervention keeps its %s; set another value instead of clearing it.', $field));
+    }
+
+    return $value;
   }
 
   /**

@@ -368,6 +368,74 @@ final class InterventionWorkflowHandlersTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function itLetsAPurePlanningPayloadOnANonDraftRequireOnlyThePlanPermission(): void
+  {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', 'planned', 'member-1');
+    $repository = $this->createStub(InterventionWorkflowGatewayPort::class);
+    $repository->method('resourceContext')->willReturn($context);
+    $repository->method('mutate')->willReturn(new InterventionWorkflowView('intervention', 'organization-1', []));
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    // Plan only — no execute, so the responsible/participant member guard must
+    // not run: a planner who is neither may still reschedule.
+    $authorization->expects(self::once())
+      ->method('hasPermission')
+      ->with('user-1', 'organization-1', 'organization.interventions.plan')
+      ->willReturn(true);
+
+    $handler = new MutateInterventionWorkflowHandler(
+      $repository,
+      $authorization,
+      $this->rejectingMemberPolicy(),
+    );
+
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: 'intervention',
+      action: 'update',
+      userId: 'user-1',
+      id: 'intervention-1',
+      payload: ['dueAt' => '2026-08-20T18:00:00Z', 'priority' => 'urgent'],
+    ));
+
+    self::addToAssertionCount(1);
+  }
+
+  #[Test]
+  public function itRequiresBothPermissionsWhenAPayloadMixesReplanAndTransition(): void
+  {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', 'planned', 'member-1');
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->method('resourceContext')->willReturn($context);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $checked = [];
+    $authorization->method('hasPermission')->willReturnCallback(
+      static function (string $userId, string $organizationId, string $permission) use (&$checked): bool {
+        $checked[] = $permission;
+
+        return 'organization.interventions.execute' === $permission;
+      },
+    );
+
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+
+    try {
+      $handler(new MutateInterventionWorkflowCommand(
+        resource: 'intervention',
+        action: 'update',
+        userId: 'user-1',
+        id: 'intervention-1',
+        payload: ['dueAt' => '2026-08-20T18:00:00Z', 'status' => 'in_progress'],
+      ));
+      self::fail('The missing plan permission must deny the mixed payload.');
+    } catch (InterventionAccessDeniedException) {
+      // The mixed payload demanded both permissions and failed on plan.
+    }
+
+    self::assertContains('organization.interventions.execute', $checked);
+    self::assertContains('organization.interventions.plan', $checked);
+  }
+
   /**
    * @return iterable<string, array{string, string, string}>
    */
@@ -411,5 +479,17 @@ final class InterventionWorkflowHandlersTest extends TestCase
   private function memberPolicy(): InterventionMemberPolicy
   {
     return new InterventionMemberPolicy($this->createStub(OrganizationMemberRepositoryPort::class));
+  }
+
+  /**
+   * A member policy whose execute guard always throws — proving, when a test
+   * completes anyway, that the guard was never consulted.
+   */
+  private function rejectingMemberPolicy(): InterventionMemberPolicy
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findByOrganizationAndUser')->willReturn(null);
+
+    return new InterventionMemberPolicy($members);
   }
 }

@@ -185,6 +185,71 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame('submitted', $resubmitted['status'] ?? null);
   }
 
+  public function testReplansANonDraftInterventionButFreezesItUnderReview(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-replan-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Replan Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Delayed mission');
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+    $memberIri = $this->firstMemberIri($client, $token, $organizationId);
+    self::assertNotNull($memberIri);
+    $facilityId = $this->createFacility($client, $token, $organizationId);
+    self::assertNotNull($facilityId);
+
+    $planned = $this->patch($client, $token, '/api/interventions/' . $interventionId, 1, [
+      'site' => '/api/facilities/' . $facilityId,
+      'responsible' => $memberIri,
+      'plannedStartAt' => '2026-08-10T09:00:00Z',
+      'dueAt' => '2026-08-12T09:00:00Z',
+      'status' => 'planned',
+    ]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    // The delayed intervention is rescheduled in place — no abandon-and-recreate.
+    $replanned = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($planned['revision'] ?? 0), [
+      'plannedStartAt' => '2026-08-17T09:00:00Z',
+      'dueAt' => '2026-08-19T09:00:00Z',
+      'priority' => 'urgent',
+    ]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('urgent', $replanned['priority'] ?? null);
+    self::assertSame('planned', $replanned['status'] ?? null);
+
+    // Clearing a planning value outside draft is refused.
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($replanned['revision'] ?? 0), ['dueAt' => null]);
+    self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
+
+    // The site is frozen after planning.
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($replanned['revision'] ?? 0), ['site' => '/api/facilities/' . $facilityId]);
+    self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
+
+    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($replanned['revision'] ?? 0), ['status' => 'in_progress']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($started['revision'] ?? 0), ['status' => 'submitted']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    // Under review everything is frozen: withdraw first.
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($submitted['revision'] ?? 0), ['dueAt' => '2026-08-25T09:00:00Z']);
+    self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
+
+    // The replan left its trace on the activity feed.
+    $activities = $this->getResource($client, $token, '/api/interventions/' . $interventionId . '/activities');
+    $events = [];
+    foreach ((array) ($activities['member'] ?? []) as $activity) {
+      if (is_array($activity) && isset($activity['event'])) {
+        $events[] = $activity['event'];
+      }
+    }
+    self::assertContains('rescheduled', $events, 'A non-draft replan must append a rescheduled activity.');
+  }
+
   public function testPlanWithoutScheduleReturnsConflict(): void
   {
     $client = static::createClientWithFixtures();

@@ -11,6 +11,10 @@ use Intervention\Domain\Exception\{InterventionAccessDeniedException, Interventi
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
 
+use function array_key_exists;
+use function array_unique;
+use function array_values;
+use function in_array;
 use function is_string;
 
 /**
@@ -56,11 +60,13 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
   public function __invoke(MutateInterventionWorkflowCommand $command): MutateInterventionWorkflowResult
   {
     $context = $this->context($command);
-    $permission = $this->permission($command, $context);
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
-      throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+    $permissions = $this->permissions($command, $context);
+    foreach ($permissions as $permission) {
+      if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
+        throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+      }
     }
-    if ('organization.interventions.execute' === $permission) {
+    if (in_array('organization.interventions.execute', $permissions, true)) {
       $this->memberPolicy->assertCanExecuteIntervention(
         $context->organizationId,
         $command->userId,
@@ -118,6 +124,56 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
     }
 
     return $context;
+  }
+
+  /**
+   * Method permissions.
+   *
+   * Every permission the mutation requires — ALL of them (AND). A payload
+   * touching planning fields on a non-draft intervention is a replan and
+   * requires `plan`: alone when the payload is planning-only (a planner who is
+   * neither responsible nor participant may reschedule), on top of the base
+   * permission when the payload also transitions or edits other fields. The
+   * member guard in `__invoke` keys off `execute` being required.
+   *
+   * @since 1.1.0
+   *
+   * @param MutateInterventionWorkflowCommand $command the command value
+   * @param InterventionWorkflowContext $context the context value
+   *
+   * @return non-empty-list<string> the required permissions
+   */
+  private function permissions(MutateInterventionWorkflowCommand $command, InterventionWorkflowContext $context): array
+  {
+    $base = $this->permission($command, $context);
+    if ('intervention' !== $command->resource || 'create' === $command->action || 'draft' === $context->status) {
+      return [$base];
+    }
+
+    $touchesPlanning = false;
+    foreach (['siteId', 'responsibleId', 'participants', 'priority', 'plannedStartAt', 'dueAt'] as $field) {
+      if (array_key_exists($field, $command->payload)) {
+        $touchesPlanning = true;
+
+        break;
+      }
+    }
+    if (!$touchesPlanning) {
+      return [$base];
+    }
+
+    $editsBeyondPlanning = false;
+    foreach (['status', 'name', 'description', 'reviewNote', 'labelIds'] as $field) {
+      if (array_key_exists($field, $command->payload)) {
+        $editsBeyondPlanning = true;
+
+        break;
+      }
+    }
+
+    return $editsBeyondPlanning
+      ? array_values(array_unique([$base, 'organization.interventions.plan']))
+      : ['organization.interventions.plan'];
   }
 
   /**

@@ -58,13 +58,87 @@ final class InterventionTest extends TestCase
   }
 
   #[Test]
-  public function itFreezesPlanningFieldsAfterPlanning(): void
+  public function itReschedulesAPlannedIntervention(): void
   {
+    $policy = new InterventionTransitionPolicy();
     $intervention = $this->intervention();
-    $intervention->transitionTo(InterventionStatus::PLANNED, new InterventionTransitionPolicy());
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
+
+    $intervention->edit(
+      policy: $policy,
+      priority: InterventionPriority::URGENT,
+      plannedStartAt: new DateTimeImmutable('2026-07-03T08:00:00+00:00'),
+      dueAt: new DateTimeImmutable('2026-07-04T18:00:00+00:00'),
+      hasPriority: true,
+      hasPlannedStartAt: true,
+      hasDueAt: true,
+    );
+
+    self::assertSame(InterventionPriority::URGENT, $intervention->priority());
+    self::assertSame('2026-07-03T08:00:00+00:00', $intervention->plannedStartAt()?->format('c'));
+  }
+
+  #[Test]
+  public function itReschedulesWhileFieldWorkIsInProgress(): void
+  {
+    $policy = new InterventionTransitionPolicy();
+    $intervention = $this->intervention();
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
+    $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
+
+    $intervention->edit(
+      policy: $policy,
+      participants: ['member-9'],
+      dueAt: new DateTimeImmutable('2026-07-09T18:00:00+00:00'),
+      hasParticipants: true,
+      hasDueAt: true,
+    );
+
+    self::assertSame(['member-9'], $intervention->participants());
+    self::assertSame('2026-07-09T18:00:00+00:00', $intervention->dueAt()?->format('c'));
+  }
+
+  #[Test]
+  public function itFreezesTheResponsibleOnceFieldWorkStarted(): void
+  {
+    $policy = new InterventionTransitionPolicy();
+    $intervention = $this->intervention();
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
+    $intervention->edit(policy: $policy, responsibleId: 'member-2', hasResponsibleId: true);
+    self::assertSame('member-2', $intervention->responsibleId());
+
+    $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->changePriority(InterventionPriority::URGENT);
+    $intervention->edit(policy: $policy, responsibleId: 'member-3', hasResponsibleId: true);
+  }
+
+  #[Test]
+  public function itFreezesEverySubmittedPlanningField(): void
+  {
+    $policy = new InterventionTransitionPolicy();
+    $intervention = $this->intervention();
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
+    $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
+    $intervention->transitionTo(InterventionStatus::SUBMITTED, $policy);
+
+    $this->expectException(InterventionConflictException::class);
+    $intervention->edit(
+      policy: $policy,
+      dueAt: new DateTimeImmutable('2026-08-01T18:00:00+00:00'),
+      hasDueAt: true,
+    );
+  }
+
+  #[Test]
+  public function itRefusesClearingAPlanningValueOutsideDraft(): void
+  {
+    $policy = new InterventionTransitionPolicy();
+    $intervention = $this->intervention();
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
+
+    $this->expectException(InterventionConflictException::class);
+    $intervention->edit(policy: $policy, dueAt: null, hasDueAt: true);
   }
 
   #[Test]
@@ -263,12 +337,20 @@ final class InterventionTest extends TestCase
   #[Test]
   public function itChangesPlanningFieldsWhileStillDraft(): void
   {
+    $policy = new InterventionTransitionPolicy();
     $intervention = $this->intervention();
 
-    $intervention->changeSite('  site-2  ');
-    $intervention->changeResponsible(null);
-    $intervention->changeParticipants(['a', 'a', 'b']);
-    $intervention->changePriority(InterventionPriority::URGENT);
+    $intervention->edit(
+      policy: $policy,
+      siteId: '  site-2  ',
+      responsibleId: null,
+      participants: ['a', 'a', 'b'],
+      priority: InterventionPriority::URGENT,
+      hasSiteId: true,
+      hasResponsibleId: true,
+      hasParticipants: true,
+      hasPriority: true,
+    );
 
     self::assertSame('site-2', $intervention->siteId());
     self::assertNull($intervention->responsibleId());
@@ -277,38 +359,29 @@ final class InterventionTest extends TestCase
   }
 
   #[Test]
-  public function itReschedulesTheIntervention(): void
-  {
-    $intervention = $this->intervention();
-    $plannedStartAt = new DateTimeImmutable('2026-07-01T08:00:00+00:00');
-    $dueAt = new DateTimeImmutable('2026-07-01T18:00:00+00:00');
-
-    $intervention->reschedule($plannedStartAt, $dueAt);
-
-    self::assertSame($plannedStartAt, $intervention->plannedStartAt());
-    self::assertSame($dueAt, $intervention->dueAt());
-  }
-
-  #[Test]
   public function itRejectsRescheduleWithDueBeforePlannedStart(): void
   {
     $intervention = $this->intervention();
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->reschedule(
-      new DateTimeImmutable('2026-07-01T18:00:00+00:00'),
-      new DateTimeImmutable('2026-07-01T08:00:00+00:00'),
+    $intervention->edit(
+      policy: new InterventionTransitionPolicy(),
+      plannedStartAt: new DateTimeImmutable('2026-07-01T18:00:00+00:00'),
+      dueAt: new DateTimeImmutable('2026-07-01T08:00:00+00:00'),
+      hasPlannedStartAt: true,
+      hasDueAt: true,
     );
   }
 
   #[Test]
   public function itFreezesTheSiteAfterPlanning(): void
   {
+    $policy = new InterventionTransitionPolicy();
     $intervention = $this->intervention();
-    $intervention->transitionTo(InterventionStatus::PLANNED, new InterventionTransitionPolicy());
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
 
     $this->expectException(InterventionConflictException::class);
-    $intervention->changeSite('site-2');
+    $intervention->edit(policy: $policy, siteId: 'site-2', hasSiteId: true);
   }
 
   #[Test]

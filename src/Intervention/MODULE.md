@@ -560,8 +560,25 @@ Aggregate invariants (enforced in `Intervention`):
   `dueAt` are all required before moving to `planned`.
 - **Schedule**: `dueAt` must be strictly after `plannedStartAt`.
 - **Review note**: required when moving to `changes_requested`.
-- **Planning freeze**: site / responsible / participants / priority / schedule are
-  mutable only while `draft` (`assertPlanningMutable`); afterwards they are frozen.
+- **Planning mutability matrix** (three guards replacing the former all-or-nothing
+  `assertPlanningMutable`; a planning field on a **non-draft** intervention requires
+  the `plan` permission — alone for a planning-only payload, so a planner who is
+  neither responsible nor participant can reschedule, on top of the base permission
+  for a mixed payload):
+
+  | Field | draft | planned | in_progress | changes_requested | submitted |
+  | --- | --- | --- | --- | --- | --- |
+  | plannedStartAt / dueAt / priority / participants | ✔ | ✔ | ✔ | ✔ | ✘ |
+  | responsible | ✔ | ✔ | ✘ | ✘ | ✘ |
+  | site | ✔ | ✘ | ✘ | ✘ | ✘ |
+
+  Rationale: the site scopes the prepared work items (`assertScopeMutable`), the
+  responsible governs submission/withdrawal/execution rights
+  (`assertOwnershipMutable`), and `submitted` is entirely frozen — withdraw first
+  (`assertScheduleMutable`). Outside draft, dates and the responsible can no longer
+  be cleared to null (`keptAfterDraft`): the `planned` preconditions only guard the
+  transition, not later merge-patches. A non-draft date change appends a
+  `rescheduled` activity carrying `{from:{plannedStartAt,dueAt}, to:{…}}`.
 - **Immutability**: `published` and `abandoned` interventions are fully immutable
   (`InterventionStatus::isMutable`).
 
@@ -591,9 +608,10 @@ aggregate — persisted directly through `InterventionActivityPort`):
 - `actorId` — the acting **organization member id**, nullable for activities
   that could not be attributed to a member; rendered as a member IRI
   (`/api/organizations/{org}/members/{actorId}`) on read
-- `kind` (`comment` | `system`), `event` (`comment` | `created` | `status_changed`)
+- `kind` (`comment` | `system`), `event` (`comment` | `created` | `status_changed` | `rescheduled`)
 - `body` (comment text, null for system events), `payload` (structured event
-  data, e.g. `{"from": "...", "to": "..."}` for `status_changed`)
+  data, e.g. `{"from": "...", "to": "..."}` for `status_changed`, or the
+  `{from:{plannedStartAt,dueAt}, to:{…}}` window pair for `rescheduled`)
 - `createdAt`
 
 Labels (`InterventionLabelRecord`, no domain aggregate — persisted directly
