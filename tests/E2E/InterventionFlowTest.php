@@ -379,6 +379,45 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertNotContains($otherId, $ids, 'Non-matching interventions must be excluded.');
   }
 
+  public function testPriorityFilterBoundsTheCollectionAndRejectsUnknownValues(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-priority-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Priority Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $urgent = $this->createDraftIntervention($client, $token, $organizationId, 'Urgent mission');
+    $normal = $this->createDraftIntervention($client, $token, $organizationId, 'Routine mission');
+    $urgentId = $this->extractResourceId($urgent);
+    $normalId = $this->extractResourceId($normal);
+    self::assertNotNull($urgentId);
+    self::assertNotNull($normalId);
+    $this->patch($client, $token, '/api/interventions/' . $urgentId, 1, ['priority' => 'urgent']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'priority' => 'urgent',
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($urgentId, $ids, 'The urgent intervention must be listed.');
+    self::assertNotContains($normalId, $ids, 'Other priorities must be excluded.');
+
+    // An unknown value must be a client error, not a silently empty collection.
+    $client->request(
+      'GET',
+      '/api/interventions?' . http_build_query([
+        'organization' => '/api/organizations/' . $organizationId,
+        'priority' => 'catastrophic',
+      ]),
+      server: $this->headers($token, self::LD_JSON),
+    );
+    self::assertSame(Response::HTTP_BAD_REQUEST, $client->getResponse()->getStatusCode());
+  }
+
   /**
    * @return array<string, mixed>
    */

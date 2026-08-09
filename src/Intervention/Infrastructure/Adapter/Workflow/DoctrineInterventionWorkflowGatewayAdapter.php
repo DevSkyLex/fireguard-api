@@ -810,7 +810,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       ->where('m.organization = :organization')
       ->setParameter('organization', $organization)
       ->orderBy('m.updatedAt', 'DESC');
-    foreach (['type', 'status'] as $filter) {
+    foreach (['type', 'status', 'priority'] as $filter) {
       if (is_string($filters[$filter] ?? null) && '' !== $filters[$filter]) {
         $qb->andWhere('m.' . $filter . ' = :' . $filter)->setParameter($filter, $filters[$filter]);
       }

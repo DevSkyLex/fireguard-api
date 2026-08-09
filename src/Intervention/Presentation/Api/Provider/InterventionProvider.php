@@ -11,6 +11,7 @@ use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionWorkflow\{GetInterventionWorkflowQuery, GetInterventionWorkflowResult};
 use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{ListInterventionWorkflowQuery, ListInterventionWorkflowResult};
+use Intervention\Domain\ValueObject\InterventionPriority;
 use Intervention\Presentation\Api\Dto\Output\InterventionOutput;
 use Intervention\Presentation\Api\Factory\InterventionOutputFactory;
 use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait;
@@ -95,11 +96,16 @@ final readonly class InterventionProvider implements ProviderInterface
       throw new BadRequestHttpException('The organization filter is required.');
     }
     $filters = [];
-    foreach (['name', 'type', 'status', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
+    foreach (['name', 'type', 'status', 'priority', 'dueAtAfter', 'dueAtBefore', 'plannedStartAtAfter', 'plannedStartAtBefore'] as $filter) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$filter] = $value;
       }
+    }
+    // Reject an unknown priority up front: the gateway's equality filter would
+    // otherwise return a silently empty collection instead of a client error.
+    if (isset($filters['priority']) && !InterventionPriority::tryFrom((string) $filters['priority']) instanceof InterventionPriority) {
+      throw new BadRequestHttpException('The priority filter must be one of: low, normal, high, urgent.');
     }
     foreach (['responsible' => 'responsibleId', 'participant' => 'participantId'] as $filter => $target) {
       $value = $query?->get($filter);

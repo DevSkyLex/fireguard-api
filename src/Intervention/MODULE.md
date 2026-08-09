@@ -34,7 +34,7 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/interventions` | Create intervention (starts as `draft`) |
-| GET | `/interventions` | List (filters: `organization` *(required)*, `responsible`, `participant`, `type`, `status`, `site`, `dueAtAfter`, `dueAtBefore`; 30/page, client page size) |
+| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
 | GET | `/interventions/{id}` | Get intervention |
 | PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`nextStatus`) |
 | PUT | `/interventions/{id}` | Upsert (offline replay path; `201`) |
