@@ -21,6 +21,7 @@ final class InterventionTransitionPolicyTest extends TestCase
     yield 'first field work' => [InterventionStatus::PLANNED, InterventionStatus::IN_PROGRESS];
     yield 'submit for review' => [InterventionStatus::IN_PROGRESS, InterventionStatus::SUBMITTED];
     yield 'request changes' => [InterventionStatus::SUBMITTED, InterventionStatus::CHANGES_REQUESTED];
+    yield 'withdraw submission' => [InterventionStatus::SUBMITTED, InterventionStatus::IN_PROGRESS];
     yield 'resume corrections' => [InterventionStatus::CHANGES_REQUESTED, InterventionStatus::IN_PROGRESS];
   }
 
@@ -60,6 +61,10 @@ final class InterventionTransitionPolicyTest extends TestCase
     self::assertSame(
       [InterventionStatus::PLANNED, InterventionStatus::ABANDONED],
       $policy->allowedFrom(InterventionStatus::DRAFT),
+    );
+    self::assertSame(
+      [InterventionStatus::CHANGES_REQUESTED, InterventionStatus::IN_PROGRESS],
+      $policy->allowedFrom(InterventionStatus::SUBMITTED),
     );
   }
 

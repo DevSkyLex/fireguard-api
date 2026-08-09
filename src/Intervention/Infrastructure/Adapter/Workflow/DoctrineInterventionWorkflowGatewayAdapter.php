@@ -432,6 +432,18 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
           throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
         }
       }
+      // Withdrawing a submission (submitted -> in_progress) is reserved to the
+      // responsible member, like submitting. Gate on the source status so the
+      // participant-open planned/changes_requested -> in_progress paths stay
+      // untouched, and on the aggregate's responsible (the guard runs before
+      // edit() applies any payload change).
+      if (InterventionStatus::IN_PROGRESS === $nextStatus && InterventionStatus::SUBMITTED->value === $previousStatus) {
+        try {
+          $this->memberPolicy->assertResponsible($organizationId, $mutation->userId, $aggregate->responsibleId(), 'withdraw');
+        } catch (InterventionConflictException $exception) {
+          throw new InterventionAccessDeniedException($exception->getMessage(), previous: $exception);
+        }
+      }
     }
     $aggregate->edit(
       policy: $this->transitionPolicy,
@@ -479,6 +491,14 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $interventionName = $intervention->name;
       $responsibleId = $intervention->responsibleId;
       $notifications[] = fn () => $this->notifications->changesRequested($interventionId, $interventionName, $responsibleId);
+    }
+    // Every entry into submitted — first submission and each resubmission —
+    // tells the organization's reviewers a review round awaits them.
+    if (InterventionStatus::SUBMITTED === $nextStatus && InterventionStatus::SUBMITTED->value !== $previousStatus) {
+      $interventionId = $intervention->id;
+      $interventionName = $intervention->name;
+      $actorUserId = $mutation->userId;
+      $notifications[] = fn () => $this->notifications->submitted($interventionId, $interventionName, $organizationId, $actorUserId);
     }
     // Abandoning an intervention is terminal: its draft resources can never be
     // published, so purge them here to avoid permanent orphaned draft rows.

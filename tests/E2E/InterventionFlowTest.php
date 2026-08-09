@@ -97,6 +97,94 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame(2, $planned['revision'] ?? null);
   }
 
+  public function testWithdrawSubmissionReopensFieldWorkUntilResubmission(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-withdraw-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Withdraw Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Withdrawable mission');
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    $memberIri = $this->firstMemberIri($client, $token, $organizationId);
+    self::assertNotNull($memberIri);
+    $facilityId = $this->createFacility($client, $token, $organizationId);
+    self::assertNotNull($facilityId);
+
+    // Field work is prepared while drafting (only discovered work items may
+    // appear later); the submission below freezes it.
+    $client->request(
+      method: 'POST',
+      uri: '/api/intervention-work-items',
+      server: $this->headers($token, self::LD_JSON),
+      content: json_encode([
+        'intervention' => '/api/interventions/' . $interventionId,
+        'action' => 'inventory',
+        'target' => 'Extinguishers — floor 2',
+      ]) ?: '',
+    );
+    self::assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode());
+    $workItem = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $workItemId = $this->extractResourceId($workItem);
+    self::assertNotNull($workItemId);
+
+    $current = $this->getResource($client, $token, '/api/interventions/' . $interventionId);
+    $revision = $current['revision'] ?? null;
+    self::assertIsInt($revision);
+
+    $planned = $this->patch($client, $token, '/api/interventions/' . $interventionId, $revision, [
+      'site' => '/api/facilities/' . $facilityId,
+      'responsible' => $memberIri,
+      'plannedStartAt' => '2026-08-01T09:00:00Z',
+      'dueAt' => '2026-08-02T09:00:00Z',
+      'status' => 'planned',
+    ]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($planned['revision'] ?? 0), ['status' => 'in_progress']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($started['revision'] ?? 0), ['status' => 'submitted']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('submitted', $submitted['status'] ?? null);
+    self::assertSame(
+      ['changes_requested', 'in_progress'],
+      $submitted['allowedTransitions'] ?? null,
+      'A submitted intervention must offer withdrawal alongside the review outcome.',
+    );
+
+    // Submission freezes field work.
+    $this->patch($client, $token, '/api/intervention-work-items/' . $workItemId, 1, ['status' => 'in_progress']);
+    self::assertSame(
+      Response::HTTP_CONFLICT,
+      $client->getResponse()->getStatusCode(),
+      'Work items must stay frozen while the intervention is under review.',
+    );
+
+    // The responsible withdraws the submission; work becomes mutable again.
+    $withdrawn = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($submitted['revision'] ?? 0), ['status' => 'in_progress']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('in_progress', $withdrawn['status'] ?? null);
+
+    $this->patch($client, $token, '/api/intervention-work-items/' . $workItemId, 1, ['status' => 'in_progress']);
+    self::assertSame(
+      Response::HTTP_OK,
+      $client->getResponse()->getStatusCode(),
+      'Withdrawing the submission must reopen field work.',
+    );
+
+    // The work-item mutation above touched the intervention: re-read the
+    // revision instead of trusting the pre-mutation snapshot.
+    $reopened = $this->getResource($client, $token, '/api/interventions/' . $interventionId);
+    $resubmitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($reopened['revision'] ?? 0), ['status' => 'submitted']);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+    self::assertSame('submitted', $resubmitted['status'] ?? null);
+  }
+
   public function testPlanWithoutScheduleReturnsConflict(): void
   {
     $client = static::createClientWithFixtures();

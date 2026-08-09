@@ -81,6 +81,20 @@ final class InterventionTest extends TestCase
   }
 
   #[Test]
+  public function itAllowsWithdrawingASubmissionBackToInProgress(): void
+  {
+    $intervention = $this->intervention();
+    $policy = new InterventionTransitionPolicy();
+    $intervention->transitionTo(InterventionStatus::PLANNED, $policy);
+    $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
+    $intervention->transitionTo(InterventionStatus::SUBMITTED, $policy);
+
+    $intervention->transitionTo(InterventionStatus::IN_PROGRESS, $policy);
+
+    self::assertSame(InterventionStatus::IN_PROGRESS, $intervention->status());
+  }
+
+  #[Test]
   public function itCreatesADraftWithNormalizedFields(): void
   {
     $intervention = Intervention::create(

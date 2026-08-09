@@ -50,6 +50,18 @@ final class InterventionOutputFactoryTest extends TestCase
   }
 
   #[Test]
+  public function itOffersWithdrawalAlongsideChangesRequestedFromSubmitted(): void
+  {
+    $data = $this->baseData([]);
+    $data['status'] = 'submitted';
+
+    $output = new InterventionOutputFactory(new InterventionTransitionPolicy())
+      ->fromView(new InterventionWorkflowView('intervention', 'organization-1', $data));
+
+    self::assertSame(['changes_requested', 'in_progress'], $output->allowedTransitions);
+  }
+
+  #[Test]
   public function itOffersNoTransitionsWhenTheStoredStatusIsNotAKnownWorkflowStatus(): void
   {
     $data = $this->baseData([]);

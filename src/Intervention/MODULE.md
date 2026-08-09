@@ -381,7 +381,7 @@ by deptrac):
   contracts, and services (`InterventionChangeApplication`,
   `InterventionDraftPublisher`, `InterventionIssueFinder`,
   `InterventionMemberPolicy`, `InterventionNotificationService`,
-  `InterventionResourceManager`).
+  `InterventionReviewerRecipientResolver`, `InterventionResourceManager`).
 - **Domain** (`src/Intervention/Domain`): the `Intervention` aggregate + work item
   / change / publication models, value objects, domain services
   (`InterventionTransitionPolicy`, `InterventionChangePolicy`), and exceptions.
@@ -524,12 +524,35 @@ Status transitions (`InterventionTransitionPolicy::assertAllowed`):
 - `draft` → `planned`, `abandoned`
 - `planned` → `in_progress`, `abandoned`
 - `in_progress` → `submitted`, `abandoned`
-- `submitted` → `changes_requested`
+- `submitted` → `changes_requested`, `in_progress` *(withdrawal)*
 - `changes_requested` → `in_progress`, `submitted`, `abandoned`
 - `published`, `abandoned` → *(terminal)*
 
 `published` is **never** reached by a direct transition — only through the async
 publication flow (`POST /publications`).
+
+**Withdrawal** (`submitted` → `in_progress`) is reserved to the **responsible
+member**, exactly like submission: the workflow gateway guards on the *source*
+status and converts the policy conflict into a 403. There is deliberately no
+`submitted` → `abandoned` edge — once withdrawal exists, abandonment is
+reachable in two steps by the same actor. Withdrawing reopens field work
+(`assertInterventionWorkMutable` freezes work items only while `submitted` /
+terminal).
+
+**Submission notification** (`intervention.submitted`): every entry into
+`submitted` — first submission and each resubmission — notifies the
+organization's reviewers, i.e. active members whose effective permissions
+grant `organization.interventions.review` directly or through a wildcard
+(`InterventionReviewerRecipientResolver`, same detection rule as the
+recurrence-failure resolver). Delivery is best-effort per recipient through
+`InterventionNotificationService::submitted()` — in-app + email, each channel
+honoring its own organization toggle, submitter excluded — and is deferred
+until after the workflow transaction commits. Two accepted trade-offs, on
+purpose: (a) the resolver iterates members × `getUserPermissions` inside the
+submitting HTTP request (post-commit, pre-response) — if this latency ever
+hurts on a large organization, defer the fan-out through Messenger; (b) every
+resubmission re-notifies all reviewers (wildcards include admins) — there is
+no deduplication, each review round is announced.
 
 Aggregate invariants (enforced in `Intervention`):
 
@@ -677,6 +700,12 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
   `tests/Functional/Api/InterventionAttachmentApiTest.php`
+- E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
+  submit → work items frozen (409) → withdraw → work items mutable again →
+  resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The
+  non-responsible 403 on withdrawal is proven at unit level
+  (`InterventionMemberPolicyTest`), the gateway wiring being the same
+  try/catch as submission.
 - Run module tests: `make test tests/Unit/Intervention/`
 ## Error Codes
 
