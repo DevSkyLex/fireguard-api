@@ -61,6 +61,7 @@ final class GetOrganizationInvitationPreviewProviderTest extends TestCase
     self::assertSame('invitee@example.com', $output->invitedEmail);
     self::assertSame('pending', $output->status);
     self::assertSame('2026-02-01T00:00:00+00:00', $output->expiresAt);
+    self::assertSame(['inspector', 'technicien'], $output->roleNames);
   }
 
   #[Test]
@@ -190,6 +191,7 @@ final class GetOrganizationInvitationPreviewProviderTest extends TestCase
       invitedEmail: 'invitee@example.com',
       status: 'pending',
       expiresAt: new DateTimeImmutable('2026-02-01T00:00:00+00:00'),
+      roleNames: ['inspector', 'technicien'],
     );
   }
   // #endregion

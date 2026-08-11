@@ -113,7 +113,7 @@ use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
       openapi: new Operation(
         tags: ['Organization Invitations'],
         summary: 'Preview Organization invitation',
-        description: 'Returns a minimal, public-safe preview of an invitation resolved by token (organization, inviter, invited email, status, expiry).',
+        description: 'Returns a minimal, public-safe preview of an invitation resolved by token (organization, inviter, invited email, status, expiry, granted role names).',
       ),
     ),
   ],

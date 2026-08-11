@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
-use Organization\Domain\ValueObject\OrganizationInvitationStatus;
+use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
+use Organization\Domain\ValueObject\{OrganizationInvitationStatus, OrganizationRoleId};
 use Shared\Application\Message\QueryHandler;
 use User\Application\Port\Outbound\UserRepositoryPort;
 use User\Domain\ValueObject\UserId;
 
+use function array_map;
 use function explode;
 use function mb_strlen;
 use function mb_substr;
@@ -25,7 +27,7 @@ use function trim;
  *
  * @category UseCase
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -44,12 +46,14 @@ final readonly class GetOrganizationInvitationPreviewHandler implements QueryHan
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param UserRepositoryPort $userRepository the user repository port
    * @param OrganizationInvitationTokenHasher $tokenHasher the shared token generator/hasher
+   * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository port
    */
   public function __construct(
     private OrganizationInvitationRepositoryPort $invitationRepository,
     private OrganizationRepositoryPort $organizationRepository,
     private UserRepositoryPort $userRepository,
     private OrganizationInvitationTokenHasher $tokenHasher,
+    private OrganizationRoleRepositoryPort $roleRepository,
   ) {
   }
   // #endregion
@@ -99,7 +103,41 @@ final readonly class GetOrganizationInvitationPreviewHandler implements QueryHan
       invitedEmail: $this->maskEmail((string) $invitation->email()),
       status: $effectiveStatus,
       expiresAt: $invitation->expiresAt(),
+      roleNames: $this->resolveRoleNames($invitation),
     );
+  }
+
+  /**
+   * Method resolveRoleNames.
+   *
+   * Resolves the display names of the roles the invitation grants, scoped to
+   * the invitation's own organization so a token can never surface a role
+   * belonging to another one. Names only: this endpoint is unauthenticated, so
+   * it exposes no role identifiers and no permissions.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationInvitation $invitation the invitation aggregate
+   *
+   * @return list<string> the granted role names
+   */
+  private function resolveRoleNames(OrganizationInvitation $invitation): array
+  {
+    $roleIds = array_map(
+      static fn (string $roleId): OrganizationRoleId => OrganizationRoleId::fromString($roleId),
+      $this->invitationRepository->findRoleIdsForInvitation($invitation->id()),
+    );
+
+    if ([] === $roleIds) {
+      return [];
+    }
+
+    $roleNames = [];
+    foreach ($this->roleRepository->findByIdsInOrganization($invitation->organizationId(), $roleIds) as $role) {
+      $roleNames[] = (string) $role->name();
+    }
+
+    return $roleNames;
   }
 
   /**

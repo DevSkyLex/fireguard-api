@@ -46,7 +46,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | DELETE | `/api/organizations/{organizationId}/members/me` | Leave the organization (self-removal by the authenticated user). No permission required beyond an active membership. The organization's current owner cannot leave (409 — transfer ownership first) and leaving is refused when it would strip the organization of its last active administrator (409). 404 when the caller is not an active member. Registered ahead of, and disambiguated by UUID `requirements` from, `DELETE /members/{memberId}` below |
 | POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |
 | GET | `/api/organizations/{organizationId}/invitations` | List Organization invitations |
-| GET | `/api/organizations/invitations/{token}/preview` | Public preview of an invitation by token (organization, inviter, invited email, status, expiry) |
+| GET | `/api/organizations/invitations/{token}/preview` | Public preview of an invitation by token (organization, inviter, masked invited email, status, expiry, `roleNames`). Unauthenticated and rate-limited per IP. `roleNames` carries the display names of the roles the invitation grants, resolved within the invitation's own organization — names only, never role ids or permissions |
 | POST | `/api/organizations/invitations/accept` | Accept an invitation token |
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/revoke` | Revoke pending invitation |
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/resend` | Regenerate token, reset expiry and re-send the invitation email (returns a fresh accept link) |

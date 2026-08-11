@@ -98,6 +98,7 @@ final readonly class GetOrganizationInvitationPreviewProvider implements Provide
     $output->invitedEmail = $result->invitedEmail;
     $output->status = $result->status;
     $output->expiresAt = $result->expiresAt->format('c');
+    $output->roleNames = $result->roleNames;
 
     return $output;
   }

@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview;
 
 use DateTimeImmutable;
-use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort};
+use Organization\Application\Port\Outbound\{OrganizationInvitationRepositoryPort, OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\Service\OrganizationInvitationTokenHasher;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\{GetOrganizationInvitationPreviewHandler, GetOrganizationInvitationPreviewQuery, GetOrganizationInvitationPreviewResult};
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationInvitation\OrganizationInvitation;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus, OrganizationName};
+use Organization\Domain\Model\OrganizationRole\OrganizationRole;
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationInvitationId, OrganizationInvitationStatus, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +29,7 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $organizationId = '550e8400-e29b-41d4-a716-446655444400';
     $inviterUserId = '550e8400-e29b-41d4-a716-446655444401';
     $email = 'member@example.com';
+    $roleId = '550e8400-e29b-41d4-a716-446655444403';
 
     $invitation = OrganizationInvitation::reconstitute(
       id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444402'),
@@ -52,6 +54,7 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
     $invitationRepository->expects(self::once())->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->expects(self::once())->method('findRoleIdsForInvitation')->willReturn([$roleId]);
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
@@ -63,11 +66,18 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
       ->method('findById')
       ->willReturn(UserTestFactory::createActive($inviterUserId, 'inviter@example.com'));
 
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByIdsInOrganization')
+      ->willReturn([$this->role($roleId, $organizationId, 'inspector')]);
+
     $handler = new GetOrganizationInvitationPreviewHandler(
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       userRepository: $userRepository,
       tokenHasher: new OrganizationInvitationTokenHasher(),
+      roleRepository: $roleRepository,
     );
 
     $result = $handler->__invoke(new GetOrganizationInvitationPreviewQuery('raw-token'));
@@ -78,6 +88,126 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     self::assertSame('m****r@example.com', $result->invitedEmail);
     self::assertSame('pending', $result->status);
     self::assertSame('Test User', $result->inviterDisplayName);
+    self::assertSame(['inspector'], $result->roleNames);
+  }
+
+  #[Test]
+  public function testInvokeResolvesRoleNamesScopedToTheInvitationOrganization(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655444420';
+    $inviterUserId = '550e8400-e29b-41d4-a716-446655444421';
+    $firstRoleId = '550e8400-e29b-41d4-a716-446655444423';
+    $secondRoleId = '550e8400-e29b-41d4-a716-446655444424';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444422'),
+      organizationId: new OrganizationId($organizationId),
+      email: new Email('member@example.com'),
+      tokenHash: 'hashed-token',
+      invitedByUserId: $inviterUserId,
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('+7 days'),
+      createdAt: new DateTimeImmutable('-1 day'),
+      updatedAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->expects(self::once())
+      ->method('findRoleIdsForInvitation')
+      ->with(self::callback(
+        static fn (OrganizationInvitationId $id): bool => '550e8400-e29b-41d4-a716-446655444422' === (string) $id,
+      ))
+      ->willReturn([$firstRoleId, $secondRoleId]);
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn(null);
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findById')->willReturn(null);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::once())
+      ->method('findByIdsInOrganization')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => $organizationId === (string) $id),
+        self::callback(static function (array $roleIds) use ($firstRoleId, $secondRoleId): bool {
+          $values = [];
+          foreach ($roleIds as $roleId) {
+            if (!$roleId instanceof OrganizationRoleId) {
+              return false;
+            }
+
+            $values[] = (string) $roleId;
+          }
+
+          return [$firstRoleId, $secondRoleId] === $values;
+        }),
+      )
+      ->willReturn([
+        $this->role($firstRoleId, $organizationId, 'inspector'),
+        $this->role($secondRoleId, $organizationId, 'technicien'),
+      ]);
+
+    $handler = new GetOrganizationInvitationPreviewHandler(
+      invitationRepository: $invitationRepository,
+      organizationRepository: $organizationRepository,
+      userRepository: $userRepository,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      roleRepository: $roleRepository,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationInvitationPreviewQuery('raw-token'));
+
+    self::assertSame(['inspector', 'technicien'], $result->roleNames);
+  }
+
+  #[Test]
+  public function testInvokeReturnsNoRoleNamesWhenTheInvitationGrantsNoRole(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655444430';
+    $inviterUserId = '550e8400-e29b-41d4-a716-446655444431';
+
+    $invitation = OrganizationInvitation::reconstitute(
+      id: new OrganizationInvitationId('550e8400-e29b-41d4-a716-446655444432'),
+      organizationId: new OrganizationId($organizationId),
+      email: new Email('member@example.com'),
+      tokenHash: 'hashed-token',
+      invitedByUserId: $inviterUserId,
+      status: OrganizationInvitationStatus::PENDING,
+      expiresAt: new DateTimeImmutable('+7 days'),
+      createdAt: new DateTimeImmutable('-1 day'),
+      updatedAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
+    $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
+    $invitationRepository->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->expects(self::once())->method('findRoleIdsForInvitation')->willReturn([]);
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn(null);
+
+    $userRepository = $this->createStub(UserRepositoryPort::class);
+    $userRepository->method('findById')->willReturn(null);
+
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findByIdsInOrganization');
+
+    $handler = new GetOrganizationInvitationPreviewHandler(
+      invitationRepository: $invitationRepository,
+      organizationRepository: $organizationRepository,
+      userRepository: $userRepository,
+      tokenHasher: new OrganizationInvitationTokenHasher(),
+      roleRepository: $roleRepository,
+    );
+
+    $result = $handler->__invoke(new GetOrganizationInvitationPreviewQuery('raw-token'));
+
+    self::assertSame([], $result->roleNames);
   }
 
   #[Test]
@@ -95,11 +225,16 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $userRepository = $this->createMock(UserRepositoryPort::class);
     $userRepository->expects(self::never())->method('findById');
 
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findByIdsInOrganization');
+
     $handler = new GetOrganizationInvitationPreviewHandler(
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       userRepository: $userRepository,
       tokenHasher: new OrganizationInvitationTokenHasher(),
+      roleRepository: $roleRepository,
     );
 
     $this->expectException(OrganizationInvitationNotFoundException::class);
@@ -122,11 +257,16 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $userRepository = $this->createMock(UserRepositoryPort::class);
     $userRepository->expects(self::never())->method('findById');
 
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findByIdsInOrganization');
+
     $handler = new GetOrganizationInvitationPreviewHandler(
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       userRepository: $userRepository,
       tokenHasher: new OrganizationInvitationTokenHasher(),
+      roleRepository: $roleRepository,
     );
 
     $this->expectException(OrganizationInvitationNotFoundException::class);
@@ -155,6 +295,7 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     /** @var OrganizationInvitationRepositoryPort&MockObject $invitationRepository */
     $invitationRepository = $this->createMock(OrganizationInvitationRepositoryPort::class);
     $invitationRepository->expects(self::once())->method('findByTokenHash')->willReturn($invitation);
+    $invitationRepository->method('findRoleIdsForInvitation')->willReturn([]);
 
     /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
     $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
@@ -164,11 +305,16 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     $userRepository = $this->createMock(UserRepositoryPort::class);
     $userRepository->expects(self::once())->method('findById')->willReturn(null);
 
+    /** @var OrganizationRoleRepositoryPort&MockObject $roleRepository */
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findByIdsInOrganization');
+
     $handler = new GetOrganizationInvitationPreviewHandler(
       invitationRepository: $invitationRepository,
       organizationRepository: $organizationRepository,
       userRepository: $userRepository,
       tokenHasher: new OrganizationInvitationTokenHasher(),
+      roleRepository: $roleRepository,
     );
 
     $result = $handler->__invoke(new GetOrganizationInvitationPreviewQuery('raw-token'));
@@ -179,5 +325,18 @@ final class GetOrganizationInvitationPreviewHandlerTest extends TestCase
     self::assertSame('', $result->inviterDisplayName);
     // Local parts of two characters or fewer are masked wholesale.
     self::assertSame('a***@example.com', $result->invitedEmail);
+  }
+
+  private function role(string $roleId, string $organizationId, string $name): OrganizationRole
+  {
+    return OrganizationRole::reconstitute(
+      id: new OrganizationRoleId($roleId),
+      organizationId: new OrganizationId($organizationId),
+      name: new OrganizationRoleName($name),
+      permissions: ['organization.read'],
+      isSystem: false,
+      createdAt: new DateTimeImmutable('-1 day'),
+      description: 'Test role',
+    );
   }
 }
