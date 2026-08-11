@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use function basename;
 use function http_build_query;
 use function is_array;
+use function is_int;
 use function is_string;
 use function json_encode;
 use function str_contains;
@@ -145,10 +146,10 @@ final class InterventionFlowTest extends OAuth2WebTestCase
       'status' => 'planned',
     ]);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
-    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($planned['revision'] ?? 0), ['status' => 'in_progress']);
+    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($planned), ['status' => 'in_progress']);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
 
-    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($started['revision'] ?? 0), ['status' => 'submitted']);
+    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($started), ['status' => 'submitted']);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
     self::assertSame('submitted', $submitted['status'] ?? null);
     self::assertSame(
@@ -166,7 +167,7 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     );
 
     // The responsible withdraws the submission; work becomes mutable again.
-    $withdrawn = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($submitted['revision'] ?? 0), ['status' => 'in_progress']);
+    $withdrawn = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($submitted), ['status' => 'in_progress']);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
     self::assertSame('in_progress', $withdrawn['status'] ?? null);
 
@@ -180,7 +181,7 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     // The work-item mutation above touched the intervention: re-read the
     // revision instead of trusting the pre-mutation snapshot.
     $reopened = $this->getResource($client, $token, '/api/interventions/' . $interventionId);
-    $resubmitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($reopened['revision'] ?? 0), ['status' => 'submitted']);
+    $resubmitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($reopened), ['status' => 'submitted']);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
     self::assertSame('submitted', $resubmitted['status'] ?? null);
   }
@@ -213,7 +214,7 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
 
     // The delayed intervention is rescheduled in place — no abandon-and-recreate.
-    $replanned = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($planned['revision'] ?? 0), [
+    $replanned = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($planned), [
       'plannedStartAt' => '2026-08-17T09:00:00Z',
       'dueAt' => '2026-08-19T09:00:00Z',
       'priority' => 'urgent',
@@ -223,20 +224,20 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame('planned', $replanned['status'] ?? null);
 
     // Clearing a planning value outside draft is refused.
-    $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($replanned['revision'] ?? 0), ['dueAt' => null]);
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($replanned), ['dueAt' => null]);
     self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
 
     // The site is frozen after planning.
-    $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($replanned['revision'] ?? 0), ['site' => '/api/facilities/' . $facilityId]);
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($replanned), ['site' => '/api/facilities/' . $facilityId]);
     self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
 
-    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($replanned['revision'] ?? 0), ['status' => 'in_progress']);
+    $started = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($replanned), ['status' => 'in_progress']);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
-    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($started['revision'] ?? 0), ['status' => 'submitted']);
+    $submitted = $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($started), ['status' => 'submitted']);
     self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
 
     // Under review everything is frozen: withdraw first.
-    $this->patch($client, $token, '/api/interventions/' . $interventionId, (int) ($submitted['revision'] ?? 0), ['dueAt' => '2026-08-25T09:00:00Z']);
+    $this->patch($client, $token, '/api/interventions/' . $interventionId, self::revisionOf($submitted), ['dueAt' => '2026-08-25T09:00:00Z']);
     self::assertSame(Response::HTTP_CONFLICT, $client->getResponse()->getStatusCode());
 
     // The replan left its trace on the activity feed.
@@ -515,6 +516,19 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     );
 
     return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+  }
+
+  /**
+   * Reads the optimistic-concurrency revision out of a decoded response
+   * payload, defaulting to 0 when absent or non-integer.
+   *
+   * @param array<string, mixed> $payload
+   */
+  private static function revisionOf(array $payload): int
+  {
+    $revision = $payload['revision'] ?? 0;
+
+    return is_int($revision) ? $revision : 0;
   }
 
   /**

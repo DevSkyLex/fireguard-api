@@ -18,6 +18,8 @@ use User\Domain\ValueObject\UserStatus;
 use User\Infrastructure\DataFixtures\UserFixtures;
 use User\Infrastructure\Persistence\Doctrine\Record\UserRecord;
 
+use function count;
+
 /**
  * Test UserFixturesIntegrationTest.
  *
@@ -70,7 +72,12 @@ final class UserFixturesIntegrationTest extends KernelTestCase
     // below meaningless. DAMA rolls the purge back with the rest of the test.
     $executor->execute($loader->getFixtures(), false);
 
-    self::assertSame(6, $this->entityManager->getRepository(UserRecord::class)->count([]));
+    // admin + testuser + 3 demo users + the client-credentials user, plus the
+    // seeded workforce, the secondary-organization owners, and the bulk pool.
+    self::assertSame(
+      6 + count(UserFixtures::STAFF_SEEDS) + count(UserFixtures::SECONDARY_ORG_OWNER_SEEDS) + UserFixtures::BULK_STAFF_COUNT,
+      $this->entityManager->getRepository(UserRecord::class)->count([]),
+    );
 
     self::assertTrue($fixtures->hasReference(UserFixtures::ADMIN_USER_REFERENCE, UserRecord::class));
     self::assertTrue($fixtures->hasReference(UserFixtures::TEST_USER_REFERENCE, UserRecord::class));

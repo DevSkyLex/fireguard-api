@@ -9,10 +9,12 @@ use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Infrastructure\DataFixtures\FacilityFixtures;
-use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
+use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function count;
 
 #[CoversClass(className: FacilityFixtures::class)]
 final class FacilityFixturesIntegrationTest extends KernelTestCase
@@ -51,7 +53,13 @@ final class FacilityFixturesIntegrationTest extends KernelTestCase
     // below meaningless. DAMA rolls the purge back with the rest of the test.
     $executor->execute($loader->getFixtures(), false);
 
-    self::assertSame(12, $this->entityManager->getRepository(FacilityRecord::class)->count([]));
+    // 8 Paris nodes + the archived annex + 4 regional sites + their sub-hierarchy.
+    self::assertSame(
+      9 + count(FacilityFixtures::REGIONAL_SITE_SEEDS) + count(FacilityFixtures::REGIONAL_CHILD_SEEDS),
+      $this->entityManager->getRepository(FacilityRecord::class)->count([]),
+    );
+    self::assertSame(9, $this->entityManager->getRepository(FacilityAttachmentRecord::class)->count([]));
+    self::assertSame(1, $this->entityManager->getRepository(FacilityRecord::class)->count(['status' => 'archived']));
     self::assertTrue($facilityFixtures->hasReference(FacilityFixtures::AREA_REFERENCE, FacilityRecord::class));
     self::assertTrue($facilityFixtures->hasReference(FacilityFixtures::STORAGE_ROOM_REFERENCE, FacilityRecord::class));
 

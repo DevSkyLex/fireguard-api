@@ -23,6 +23,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 
+use function array_map;
+use function array_values;
 use function iterator_to_array;
 
 /**
@@ -48,6 +50,8 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
   private const string DRAFT_FACILITY_ID = 'bb0e8400-e29b-41d4-a716-4466554d0010';
 
   private const string OTHER_DRAFT_FACILITY_ID = 'bb0e8400-e29b-41d4-a716-4466554d0011';
+
+  private const string SECOND_DRAFT_FACILITY_ID = 'bb0e8400-e29b-41d4-a716-4466554d0012';
 
   private EntityManagerInterface $entityManager;
 
@@ -107,6 +111,49 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
     self::assertSame('draft', $first->recordStatus);
   }
 
+  #[Test]
+  public function testProvidePaginatesTheInterventionFilteredCollection(): void
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $this->persistFacility(
+      self::SECOND_DRAFT_FACILITY_ID,
+      $organization,
+      'Second Draft Site',
+      self::INTERVENTION_ID,
+      new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
+    );
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/facilities?intervention=/api/interventions/' . self::INTERVENTION_ID));
+    $provider = $this->provider($requestStack);
+
+    $firstPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '1', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $firstPage);
+    self::assertSame(2.0, $firstPage->getTotalItems());
+    self::assertSame([self::DRAFT_FACILITY_ID], $this->identifiers($firstPage));
+
+    $secondPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '2', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $secondPage);
+    self::assertSame(2.0, $secondPage->getTotalItems());
+    self::assertSame([self::SECOND_DRAFT_FACILITY_ID], $this->identifiers($secondPage));
+  }
+
+  /**
+   * @param TraversablePaginator<FacilityOutput> $page
+   *
+   * @return list<string>
+   */
+  private function identifiers(TraversablePaginator $page): array
+  {
+    return array_map(
+      static fn (FacilityOutput $output): string => (string) $output->id,
+      array_values(iterator_to_array($page)),
+    );
+  }
+
   private function provider(RequestStack $requestStack): CanonicalFacilityProvider
   {
     $authorization = self::createStub(OrganizationAuthorizationPort::class);
@@ -131,8 +178,13 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
     );
   }
 
-  private function persistFacility(string $id, OrganizationRecord $organization, string $name, string $interventionId): void
-  {
+  private function persistFacility(
+    string $id,
+    OrganizationRecord $organization,
+    string $name,
+    string $interventionId,
+    ?DateTimeImmutable $createdAt = null,
+  ): void {
     $record = new FacilityRecord();
     $record->id = $id;
     $record->organization = $organization;
@@ -142,7 +194,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
     $record->name = $name;
     $record->status = 'active';
     $record->metadata = [];
-    $record->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $record->createdAt = $createdAt ?? new DateTimeImmutable('2026-01-01T00:00:00+00:00');
     $record->updatedAt = $record->createdAt;
     $this->entityManager->persist($record);
   }

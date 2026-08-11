@@ -23,6 +23,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 
+use function array_map;
+use function array_values;
 use function iterator_to_array;
 
 /**
@@ -80,9 +82,27 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
     $organization->updatedAt = $organization->createdAt;
     $this->entityManager->persist($organization);
 
-    $this->persistEquipment(self::MATCHING_EQUIPMENT_ID, $organization, self::INTERVENTION_ID, self::FACILITY_ID);
-    $this->persistEquipment(self::OTHER_FACILITY_EQUIPMENT_ID, $organization, self::INTERVENTION_ID, self::OTHER_FACILITY_ID);
-    $this->persistEquipment(self::OTHER_INTERVENTION_EQUIPMENT_ID, $organization, self::OTHER_INTERVENTION_ID, self::FACILITY_ID);
+    $this->persistEquipment(
+      self::MATCHING_EQUIPMENT_ID,
+      $organization,
+      self::INTERVENTION_ID,
+      self::FACILITY_ID,
+      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
+    $this->persistEquipment(
+      self::OTHER_FACILITY_EQUIPMENT_ID,
+      $organization,
+      self::INTERVENTION_ID,
+      self::OTHER_FACILITY_ID,
+      new DateTimeImmutable('2026-01-01T00:00:01+00:00'),
+    );
+    $this->persistEquipment(
+      self::OTHER_INTERVENTION_EQUIPMENT_ID,
+      $organization,
+      self::OTHER_INTERVENTION_ID,
+      self::FACILITY_ID,
+      new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
+    );
 
     $this->entityManager->flush();
     $this->entityManager->clear();
@@ -119,6 +139,37 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
     self::assertSame('draft', $first->recordStatus);
   }
 
+  #[Test]
+  public function testProvidePaginatesTheInterventionFilteredCollection(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/equipment?intervention=/api/interventions/' . self::INTERVENTION_ID));
+    $provider = $this->provider($requestStack);
+
+    $firstPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '1', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $firstPage);
+    self::assertSame(2.0, $firstPage->getTotalItems());
+    self::assertSame([self::MATCHING_EQUIPMENT_ID], $this->identifiers($firstPage));
+
+    $secondPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '2', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $secondPage);
+    self::assertSame(2.0, $secondPage->getTotalItems());
+    self::assertSame([self::OTHER_FACILITY_EQUIPMENT_ID], $this->identifiers($secondPage));
+  }
+
+  /**
+   * @param TraversablePaginator<EquipmentOutput> $page
+   *
+   * @return list<string>
+   */
+  private function identifiers(TraversablePaginator $page): array
+  {
+    return array_map(
+      static fn (EquipmentOutput $output): string => (string) $output->id,
+      array_values(iterator_to_array($page)),
+    );
+  }
+
   private function provider(RequestStack $requestStack): CanonicalEquipmentProvider
   {
     $authorization = self::createStub(OrganizationAuthorizationPort::class);
@@ -143,8 +194,13 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
     );
   }
 
-  private function persistEquipment(string $id, OrganizationRecord $organization, string $interventionId, string $facilityId): void
-  {
+  private function persistEquipment(
+    string $id,
+    OrganizationRecord $organization,
+    string $interventionId,
+    string $facilityId,
+    ?DateTimeImmutable $createdAt = null,
+  ): void {
     $record = new EquipmentRecord();
     $record->id = $id;
     $record->organization = $organization;
@@ -153,7 +209,7 @@ final class CanonicalEquipmentProviderTest extends KernelTestCase
     $record->recordStatus = 'draft';
     $record->type = 'fire_extinguisher';
     $record->status = 'in_stock';
-    $record->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $record->createdAt = $createdAt ?? new DateTimeImmutable('2026-01-01T00:00:00+00:00');
     $record->updatedAt = $record->createdAt;
     $this->entityManager->persist($record);
   }

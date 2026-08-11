@@ -4,17 +4,28 @@ declare(strict_types=1);
 
 namespace App\Tests\E2E;
 
+use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
+use Shared\Domain\Attachment\AttachmentConstraints;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
 use function array_key_exists;
 use function basename;
+use function file_put_contents;
 use function http_build_query;
 use function is_array;
 use function is_string;
 use function json_encode;
+use function sprintf;
 use function str_contains;
+use function sys_get_temp_dir;
+use function tempnam;
 use function uniqid;
+
+use const UPLOAD_ERR_OK;
 
 /**
  * Test InterventionPresentation.
@@ -183,6 +194,43 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
   }
 
   /**
+   * The attachment cardinality cap end to end: a first upload succeeds
+   * (201), then — the intervention seeded up to
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` rows — the next
+   * upload is refused with the 422 produced by the CENTRAL
+   * `Shared\...\AttachmentConstraintExceptionSubscriber`, proving the
+   * subscriber is registered and fires before API Platform's own listener
+   * for the bus-wrapped `InvalidAttachmentException`.
+   */
+  public function testAttachmentUploadIsRefusedWithA422AtTheCap(): void
+  {
+    [$client, $token, $organizationId] = $this->setUpWithOrganization('attachcap');
+    $interventionId = $this->createDraftIntervention($client, $token, $organizationId, 'Attachment cap mission');
+
+    $this->uploadAttachment($client, $token, $interventionId);
+    self::assertSame(
+      Response::HTTP_CREATED,
+      $client->getResponse()->getStatusCode(),
+      'A first upload below the cap should succeed. Response: ' . ($client->getResponse()->getContent() ?: ''),
+    );
+
+    $this->seedAttachmentsUpToTheCap($interventionId);
+
+    $this->uploadAttachment($client, $token, $interventionId);
+    $response = $client->getResponse();
+    self::assertSame(
+      Response::HTTP_UNPROCESSABLE_ENTITY,
+      $response->getStatusCode(),
+      'An upload at the cap should be refused with 422. Response: ' . ($response->getContent() ?: ''),
+    );
+    self::assertStringContainsString(
+      'may not exceed the maximum of ' . AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT,
+      $response->getContent() ?: '',
+      'The 422 should carry the cap violation detail, not a generic error.',
+    );
+  }
+
+  /**
    * Guard: every uncovered Intervention Presentation route exists (not 404)
    * and rejects an unauthenticated caller with 401 or 403.
    *
@@ -339,6 +387,63 @@ final class InterventionPresentationFlowTest extends OAuth2WebTestCase
     }
 
     return $items;
+  }
+
+  /**
+   * Posts one valid multipart PDF upload onto the intervention; the caller
+   * asserts the response.
+   */
+  private function uploadAttachment(KernelBrowser $client, string $token, string $interventionId): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'intervention_attachment_');
+    self::assertIsString($path, 'A temporary upload file should be created.');
+    file_put_contents($path, "%PDF-1.4 fireguard attachment cap flow\n");
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . $interventionId . '/attachments',
+      files: [
+        'file' => new UploadedFile(
+          path: $path,
+          originalName: 'cap-proof.pdf',
+          mimeType: 'application/pdf',
+          error: UPLOAD_ERR_OK,
+          test: true,
+        ),
+      ],
+      server: ['HTTP_ACCEPT' => self::LD_JSON, 'HTTP_AUTHORIZATION' => 'Bearer ' . $token],
+    );
+  }
+
+  /**
+   * Seeds attachment rows straight through the main entity manager until the
+   * intervention holds `MAX_ATTACHMENTS_PER_PARENT` of them — reaching the
+   * cap through 24 more real HTTP uploads would prove nothing extra and slow
+   * the suite.
+   */
+  private function seedAttachmentsUpToTheCap(string $interventionId): void
+  {
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    /** @var InterventionRecord $intervention */
+    $intervention = $entityManager->getReference(InterventionRecord::class, $interventionId);
+    $existing = $entityManager->getRepository(InterventionAttachmentRecord::class)
+      ->count(['intervention' => $intervention]);
+
+    for ($i = $existing; $i < AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT; ++$i) {
+      $record = new InterventionAttachmentRecord();
+      $record->id = sprintf('9%07d-e29b-41d4-a716-%012d', $i, $i);
+      $record->intervention = $intervention;
+      $record->fileName = 'seeded-' . $i . '.pdf';
+      $record->storagePath = 'intervention/' . $interventionId . '/attachments/seeded-' . $i . '.pdf';
+      $record->mimeType = 'application/pdf';
+      $record->size = 128;
+      $record->uploadedAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+      $entityManager->persist($record);
+    }
+
+    $entityManager->flush();
+    $entityManager->clear();
   }
 
   private function loginAndGetUserAccessToken(KernelBrowser $client, string $email, string $password): string

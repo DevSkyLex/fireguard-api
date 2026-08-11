@@ -43,6 +43,10 @@ services:
     tags:
       - { name: 'app.seed_fixture.main' }
 
+  Intervention\Infrastructure\DataFixtures\InterventionFixtures:
+    tags:
+      - { name: 'app.seed_fixture.main' }
+
   Calendar\Infrastructure\DataFixtures\CalendarFixtures:
     tags:
       - { name: 'app.seed_fixture.main' }

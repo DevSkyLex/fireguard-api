@@ -55,6 +55,8 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
 
   private const string FOREIGN_ID = '991e8400-e29b-41d4-a716-446655491104';
 
+  private const string SECOND_DRAFT_ID = '991e8400-e29b-41d4-a716-446655491105';
+
   private const string INTERVENTION_ID = '991e8400-e29b-41d4-a716-446655492001';
 
   private const string EQUIPMENT_A_ID = '991e8400-e29b-41d4-a716-446655493001';
@@ -229,6 +231,33 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
   }
 
   #[Test]
+  public function testProvidePaginatesTheInterventionFilteredCollection(): void
+  {
+    $first = $this->createInspection(self::DRAFT_ID);
+    $first->recordStatus = 'draft';
+    $first->interventionId = self::INTERVENTION_ID;
+    $first->createdAt = new DateTimeImmutable('2026-01-15T09:00:00+00:00');
+    $second = $this->createInspection(self::SECOND_DRAFT_ID);
+    $second->recordStatus = 'draft';
+    $second->interventionId = self::INTERVENTION_ID;
+    $second->createdAt = new DateTimeImmutable('2026-01-15T10:00:00+00:00');
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $provider = $this->provider(query: ['intervention' => '/api/interventions/' . self::INTERVENTION_ID]);
+
+    $firstPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '1', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $firstPage);
+    self::assertSame(2.0, $firstPage->getTotalItems());
+    self::assertSame([self::DRAFT_ID], $this->identifiers($firstPage));
+
+    $secondPage = $provider->provide(new GetCollection(), [], ['filters' => ['page' => '2', 'itemsPerPage' => '1']]);
+    self::assertInstanceOf(TraversablePaginator::class, $secondPage);
+    self::assertSame(2.0, $secondPage->getTotalItems());
+    self::assertSame([self::SECOND_DRAFT_ID], $this->identifiers($secondPage));
+  }
+
+  #[Test]
   public function testProvideRequiresAnOrganizationOrInterventionFilter(): void
   {
     $this->expectException(BadRequestHttpException::class);
@@ -333,7 +362,7 @@ final class CanonicalInspectionProviderTest extends KernelTestCase
     $connection = $this->entityManager->getConnection();
     $connection->executeStatement(
       'DELETE FROM inspections WHERE id IN (:inspectionIds)',
-      ['inspectionIds' => [self::PUBLISHED_A_ID, self::PUBLISHED_B_ID, self::DRAFT_ID, self::FOREIGN_ID]],
+      ['inspectionIds' => [self::PUBLISHED_A_ID, self::PUBLISHED_B_ID, self::DRAFT_ID, self::FOREIGN_ID, self::SECOND_DRAFT_ID]],
       ['inspectionIds' => ArrayParameterType::STRING],
     );
     $connection->executeStatement(

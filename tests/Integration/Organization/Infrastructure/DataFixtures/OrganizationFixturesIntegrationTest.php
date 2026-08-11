@@ -9,9 +9,12 @@ use Doctrine\Common\DataFixtures\Loader;
 use Doctrine\Common\DataFixtures\Purger\ORMPurger;
 use Doctrine\ORM\EntityManagerInterface;
 use Organization\Infrastructure\DataFixtures\OrganizationFixtures;
-use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
+use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationInvitationRecord, OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord, TeamMemberRecord, TeamRecord};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function count;
+use function explode;
 
 #[CoversClass(className: OrganizationFixtures::class)]
 final class OrganizationFixturesIntegrationTest extends KernelTestCase
@@ -47,11 +50,27 @@ final class OrganizationFixturesIntegrationTest extends KernelTestCase
     // below meaningless. DAMA rolls the purge back with the rest of the test.
     $executor->execute($loader->getFixtures(), false);
 
-    self::assertSame(1, $this->entityManager->getRepository(OrganizationRecord::class)->count([]));
-    self::assertSame(3, $this->entityManager->getRepository(OrganizationRoleRecord::class)->count([]));
-    self::assertSame(2, $this->entityManager->getRepository(OrganizationMemberRecord::class)->count([]));
-    self::assertSame(2, $this->entityManager->getRepository(OrganizationMemberRoleRecord::class)->count([]));
-    self::assertSame(1, $this->entityManager->getRepository(OrganizationInvitationRecord::class)->count([]));
+    // The main "Fireguard Seed Organization" plus its four lightweight
+    // secondary tenants.
+    self::assertSame(1 + count(OrganizationFixtures::SECONDARY_ORGANIZATION_SEEDS), $this->entityManager->getRepository(OrganizationRecord::class)->count([]));
+    // 3 for the main org (admin/member/inspector) plus 2 (admin/member) per
+    // secondary org.
+    self::assertSame(3 + 2 * count(OrganizationFixtures::SECONDARY_ORGANIZATION_SEEDS), $this->entityManager->getRepository(OrganizationRoleRecord::class)->count([]));
+    // The owner and the inspector, plus the seeded workforce and the bulk
+    // pool, plus one owner per secondary org and their extra cross-org members.
+    $secondaryMemberCount = count(OrganizationFixtures::SECONDARY_ORGANIZATION_SEEDS);
+    foreach (OrganizationFixtures::SECONDARY_ORGANIZATION_SEEDS as $secondarySeed) {
+      $secondaryMemberCount += '' === $secondarySeed['extraMemberIndexes'] ? 0 : count(explode(',', $secondarySeed['extraMemberIndexes']));
+    }
+    $memberCount = 2 + count(OrganizationFixtures::STAFF_MEMBER_SEEDS) + OrganizationFixtures::BULK_MEMBER_COUNT + $secondaryMemberCount;
+    self::assertSame($memberCount, $this->entityManager->getRepository(OrganizationMemberRecord::class)->count([]));
+    self::assertSame($memberCount, $this->entityManager->getRepository(OrganizationMemberRoleRecord::class)->count([]));
+    self::assertSame(3, $this->entityManager->getRepository(OrganizationInvitationRecord::class)->count([]));
+    self::assertSame(count(OrganizationFixtures::TEAM_SEEDS), $this->entityManager->getRepository(TeamRecord::class)->count([]));
+    self::assertSame(10, $this->entityManager->getRepository(TeamMemberRecord::class)->count([]));
+    // Three of the seeded accounts are departed, locked or unverified: they
+    // stay on the roster but must not be assignable.
+    self::assertSame(3, $this->entityManager->getRepository(OrganizationMemberRecord::class)->count(['isActive' => false]));
 
     self::assertTrue($organizationFixtures->hasReference(OrganizationFixtures::ORGANIZATION_REFERENCE, OrganizationRecord::class));
     self::assertTrue($organizationFixtures->hasReference(OrganizationFixtures::ADMIN_ROLE_REFERENCE, OrganizationRoleRecord::class));

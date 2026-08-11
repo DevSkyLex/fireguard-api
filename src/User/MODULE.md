@@ -112,7 +112,17 @@ Key folders:
 ## Configuration
 
 - Service wiring: `config/modules/user.yaml`
-- Fixtures: `User\Infrastructure\DataFixtures\UserFixtures`
+- Fixtures: `User\Infrastructure\DataFixtures\UserFixtures` — `admin` /
+  `testuser`, three legacy demo accounts, the client-credentials user, and the
+  `STAFF_SEEDS` demo workforce (password `UserFixtures::STAFF_PASSWORD`).
+  The workforce deliberately covers every `UserStatus`: a directory of nothing
+  but active accounts never exercises the "cannot log in" and "awaiting
+  verification" paths the admin screens are built around.
+  `OrganizationFixtures::STAFF_MEMBER_SEEDS` turns the same accounts into
+  organization members, mirroring their account state in `isActive`.
+  `BULK_STAFF_COUNT` (40) generated accounts on top of those push the user
+  directory — and, via `OrganizationFixtures::BULK_MEMBER_COUNT`, the member
+  roster — past 50 rows so their admin lists actually paginate.
 
 ## Testing
 
