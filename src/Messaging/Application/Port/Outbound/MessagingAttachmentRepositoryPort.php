@@ -60,6 +60,23 @@ interface MessagingAttachmentRepositoryPort
   public function findByMessageIds(array $messageIds): array;
 
   /**
+   * Method countByMessageId.
+   *
+   * Counts the attachments a message already carries, without hydrating
+   * them — the input of the
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` cap. The cap is per
+   * message, not per conversation: the conversation Files tab is paginated
+   * (`listByConversationId`), a message's own attachment strip is not.
+   *
+   * @since 1.0.0
+   *
+   * @param string $messageId the owning message identifier
+   *
+   * @return int the attachment count
+   */
+  public function countByMessageId(string $messageId): int;
+
+  /**
    * Method listByConversationId.
    *
    * Lists a conversation's attachments, most recently uploaded first — the

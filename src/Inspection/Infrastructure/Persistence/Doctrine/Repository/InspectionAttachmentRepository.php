@@ -129,6 +129,32 @@ final readonly class InspectionAttachmentRepository implements InspectionAttachm
   }
 
   /**
+   * Method countByInspectionId.
+   *
+   * @since 1.0.0
+   */
+  public function countByInspectionId(InspectionId $inspectionId): int
+  {
+    /** @var InspectionRecord $inspection */
+    $inspection = $this->entityManager->getReference(InspectionRecord::class, (string) $inspectionId);
+
+    return $this->repository->count(['inspection' => $inspection, 'nonConformity' => null]);
+  }
+
+  /**
+   * Method countByNonConformityId.
+   *
+   * @since 1.0.0
+   */
+  public function countByNonConformityId(NonConformityId $nonConformityId): int
+  {
+    /** @var NonConformityRecord $nonConformity */
+    $nonConformity = $this->entityManager->getReference(NonConformityRecord::class, (string) $nonConformityId);
+
+    return $this->repository->count(['nonConformity' => $nonConformity]);
+  }
+
+  /**
    * Method delete.
    *
    * @since 1.0.0

@@ -34,6 +34,21 @@ final class AttachmentConstraints
    * @var int MAX_SIZE_BYTES
    */
   public const int MAX_SIZE_BYTES = 10 * 1024 * 1024;
+
+  /**
+   * Constant MAX_ATTACHMENTS_PER_PARENT.
+   *
+   * The maximum number of attachments a single parent record may carry
+   * (an intervention, an inspection, a facility, an equipment, a message).
+   * Without it the per-file size cap bounds nothing: storage grows without
+   * limit per tenant, and the unpaginated `findBy<Parent>Id` listings that
+   * feed the detail screens degrade with the row count.
+   *
+   * @since 1.0.0
+   *
+   * @var int MAX_ATTACHMENTS_PER_PARENT
+   */
+  public const int MAX_ATTACHMENTS_PER_PARENT = 25;
   // #endregion
 
   // #region Methods
@@ -80,6 +95,29 @@ final class AttachmentConstraints
 
     if (!in_array($mimeType, self::allowedMimeTypes(), true)) {
       throw InvalidAttachmentException::forMimeType($mimeType);
+    }
+  }
+
+  /**
+   * Method validateCount.
+   *
+   * @static
+   *
+   * Asserts that one more attachment may be added to a parent that already
+   * carries `$currentCount` of them. Called from the use-case handler — the
+   * count is a business rule over persisted state, not something the
+   * multipart guard can see.
+   *
+   * @since 1.0.0
+   *
+   * @param int $currentCount the number of attachments the parent already carries
+   *
+   * @throws InvalidAttachmentException when the parent is already at the cap
+   */
+  public static function validateCount(int $currentCount): void
+  {
+    if ($currentCount >= self::MAX_ATTACHMENTS_PER_PARENT) {
+      throw InvalidAttachmentException::forCount($currentCount, self::MAX_ATTACHMENTS_PER_PARENT);
     }
   }
   // #endregion

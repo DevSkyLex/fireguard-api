@@ -54,7 +54,14 @@ pair (`FacilityAttachmentResource`, no serialization-group-filtered JSON body
 bytes are read. Write-then-persist with storage rollback on DB failure
 (mirrors `AddAttachmentHandler`); delete removes the stored object then the
 row. No new permissions: reuses `organization.facilities.read` /
-`organization.facilities.write`.
+`organization.facilities.write`. A facility may carry at most
+`Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
+(**25**) attachments — `AddFacilityAttachmentHandler` reads the count through
+`FacilityAttachmentRepositoryPort::countByFacilityId()` before writing
+anything to storage, and the shared
+`AttachmentConstraintExceptionSubscriber` maps the resulting
+`InvalidAttachmentException` centrally to **422**, the same status as a
+MIME/size rejection.
 
 ## Permission Model
 

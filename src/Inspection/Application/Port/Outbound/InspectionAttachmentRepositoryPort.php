@@ -71,6 +71,38 @@ interface InspectionAttachmentRepositoryPort
   public function findByNonConformityId(NonConformityId $nonConformityId): array;
 
   /**
+   * Method countByInspectionId.
+   *
+   * Counts the inspection-level attachments (i.e. those NOT linked to a
+   * non-conformity) an inspection already carries, without hydrating them
+   * — the input of the `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
+   * cap. Counts the same rows `findByInspectionId()` returns, so the cap
+   * bounds exactly the list it protects.
+   *
+   * @since 1.0.0
+   *
+   * @param InspectionId $inspectionId the inspection identifier
+   *
+   * @return int the attachment count
+   */
+  public function countByInspectionId(InspectionId $inspectionId): int;
+
+  /**
+   * Method countByNonConformityId.
+   *
+   * Counts the field-proof photos a non-conformity already carries, without
+   * hydrating them — the input of the
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` cap.
+   *
+   * @since 1.0.0
+   *
+   * @param NonConformityId $nonConformityId the non-conformity identifier
+   *
+   * @return int the attachment count
+   */
+  public function countByNonConformityId(NonConformityId $nonConformityId): int;
+
+  /**
    * Method delete.
    *
    * Deletes an attachment record.

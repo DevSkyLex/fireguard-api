@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 
 #[CoversClass(AddFacilityAttachmentHandler::class)]
 final class AddFacilityAttachmentHandlerTest extends TestCase
@@ -321,6 +322,46 @@ final class AddFacilityAttachmentHandlerTest extends TestCase
       mimeType: 'application/pdf',
       size: 7,
       attachmentId: 'not-a-uuid',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUploadWhenTheFacilityIsAtTheAttachmentCap(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findById')->willReturn($this->facility());
+
+    /** @var FacilityAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(FacilityAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('countByFacilityId')
+      ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    // The cap must be refused BEFORE any byte reaches storage.
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddFacilityAttachmentHandler(
+      facilityRepository: $facilityRepository,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidAttachmentException::class);
+
+    $handler->__invoke(new AddFacilityAttachmentCommand(
+      organizationId: self::ORG_ID,
+      facilityId: self::FACILITY_ID,
+      fileName: 'floor-plan.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
     ));
   }
 

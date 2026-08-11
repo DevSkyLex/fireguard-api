@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 
 /**
  * Test AddMessageAttachmentHandlerTest.
@@ -351,6 +352,62 @@ final class AddMessageAttachmentHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
 
     $handler->__invoke($this->command(attachmentId: 'not-a-uuid'));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUploadWhenTheMessageIsAtTheAttachmentCap(): void
+  {
+    $messages = $this->createStub(MessagingMessageRepositoryPort::class);
+    $messages->method('findAggregateById')->willReturn($this->message());
+
+    $conversations = $this->createStub(MessagingConversationRepositoryPort::class);
+    $conversations->method('findById')->willReturn($this->conversation());
+
+    $members = $this->createStub(MessagingMemberDirectoryPort::class);
+    $members->method('resolveActiveMemberId')->willReturn(self::AUTHOR_MEMBER_ID);
+
+    $accessPolicy = new MessagingAccessPolicy(
+      $this->createStub(OrganizationAuthorizationPort::class),
+      $members,
+      $this->createStub(MessagingParticipantRepositoryPort::class),
+    );
+
+    // The cap is per MESSAGE, not per conversation.
+    /** @var MessagingAttachmentRepositoryPort&MockObject $attachments */
+    $attachments = $this->createMock(MessagingAttachmentRepositoryPort::class);
+    $attachments->method('findById')->willReturn(null);
+    $attachments->method('countByMessageId')
+      ->with(self::MESSAGE_ID)
+      ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
+    $attachments->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new MessagingAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddMessageAttachmentHandler(
+      $messages,
+      $conversations,
+      new MessagingSubjectResolverRegistry([$this->facilityResolver()]),
+      $accessPolicy,
+      $attachments,
+      $fileStorage,
+      $uuidFactory,
+    );
+
+    $this->expectException(InvalidAttachmentException::class);
+
+    $handler->__invoke(new AddMessageAttachmentCommand(
+      userId: 'user-1',
+      messageId: self::MESSAGE_ID,
+      fileName: 'floor-plan.pdf',
+      contents: '%PDF-content',
+      mimeType: 'application/pdf',
+      size: 12345,
+    ));
   }
 
   private function authorizedHandler(): AddMessageAttachmentHandler

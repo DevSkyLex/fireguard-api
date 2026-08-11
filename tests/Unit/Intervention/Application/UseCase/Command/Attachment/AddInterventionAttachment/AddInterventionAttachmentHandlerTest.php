@@ -9,6 +9,7 @@ use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentHandler, AddInterventionAttachmentResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Attachment\{AttachmentConstraints, InvalidAttachmentException};
 
 /**
  * Test AddInterventionAttachmentHandlerTest.
@@ -317,6 +319,107 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
 
     $handler->__invoke($this->command('not-a-uuid'));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUploadWhenTheInterventionIsAtTheAttachmentCap(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('countByInterventionId')
+      ->with(self::INTERVENTION_ID)
+      ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    // The cap must be refused BEFORE any byte reaches storage, otherwise a
+    // rejected upload still grows the bucket.
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InvalidAttachmentException::class);
+
+    $handler->__invoke($this->command(null));
+  }
+
+  #[Test]
+  public function testInvokeAcceptsAnUploadOneBelowTheAttachmentCap(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('countByInterventionId')
+      ->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT - 1);
+    $attachmentRepository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke($this->command(null));
+
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeExemptsARetryOfAnExistingAttachmentFromTheCap(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $existing = InterventionAttachment::create(
+      id: new InterventionAttachmentId(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      storagePath: 'intervention/x/attachments/y_evidence.jpg',
+      mimeType: 'image/jpeg',
+      size: 512,
+    );
+
+    // A client-supplied id that already exists overwrites its own row: it adds
+    // nothing to the bucket, so the count must not even be consulted.
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn($existing);
+    $attachmentRepository->expects(self::never())->method('countByInterventionId');
+    $attachmentRepository->expects(self::once())->method('save');
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $result = $handler->__invoke($this->command(self::ATTACHMENT_ID));
+
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
   }
 
   private function command(?string $attachmentId): AddInterventionAttachmentCommand

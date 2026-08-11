@@ -423,7 +423,13 @@ updates (re-tested when v2 introduces `visibility: participants`).
   MultipartAttachmentGuard}`, an `If-Match`/`RevisionGuard` precondition on
   delete) but keep authorization entirely inside the command handlers via
   `MessagingAccessPolicy` — the processor never re-implements a permission
-  check. Downloading follows the same delegation on the OPPOSITE (read)
+  check. `AddMessageAttachmentHandler` also enforces
+  `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` (**25**) **per message**
+  via `countByMessageId()` — not per conversation, since the conversation
+  Files tab is paginated (`listByConversationId`) while a message's own
+  attachment strip is not; over the cap returns **422**, the same status as a
+  MIME/size rejection, mapped centrally by the shared
+  `AttachmentConstraintExceptionSubscriber` — not by the processor. Downloading follows the same delegation on the OPPOSITE (read)
   side: `DownloadMessagingAttachmentController` (a thin invokable controller,
   the binary-`Response` pattern shared with `Audit`/`Compliance`'s export
   controllers) only authenticates and dispatches

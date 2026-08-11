@@ -105,6 +105,19 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
   }
 
   /**
+   * Method countByFacilityId.
+   *
+   * @since 1.0.0
+   */
+  public function countByFacilityId(FacilityId $facilityId): int
+  {
+    /** @var FacilityRecord $facility */
+    $facility = $this->entityManager->getReference(FacilityRecord::class, (string) $facilityId);
+
+    return $this->repository->count(['facility' => $facility]);
+  }
+
+  /**
    * Method delete.
    *
    * @since 1.0.0

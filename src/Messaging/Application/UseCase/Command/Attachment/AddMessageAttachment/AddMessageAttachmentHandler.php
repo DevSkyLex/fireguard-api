@@ -13,7 +13,7 @@ use Messaging\Domain\ValueObject\{ConversationVisibility, MessagingAttachmentId,
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Attachment\StoragePathScheme;
+use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -94,6 +94,12 @@ final readonly class AddMessageAttachmentHandler implements CommandHandler
         : MessagingAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    // A client-supplied id that already exists is a retry overwriting its own
+    // row, not a new attachment — it must not be rejected at the cap.
+    if (null === $this->attachments->findById($attachmentId)) {
+      AttachmentConstraints::validateCount($this->attachments->countByMessageId($command->messageId));
     }
 
     $storagePath = StoragePathScheme::build(

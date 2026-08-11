@@ -68,6 +68,27 @@ final class InvalidAttachmentExceptionTest extends TestCase
   }
 
   /**
+   * Method testForCount.
+   *
+   * Tests the cardinality-cap factory message and reason.
+   *
+   * @since 1.0.0
+   *
+   * @return void no return value
+   */
+  #[Test]
+  public function testForCount(): void
+  {
+    $exception = InvalidAttachmentException::forCount(25, 25);
+
+    $this->assertSame(
+      'This record already carries 25 attachments and may not exceed the maximum of 25.',
+      $exception->getMessage(),
+    );
+    $this->assertSame('count', $exception->reason());
+  }
+
+  /**
    * Method testIsDomainException.
    *
    * Tests the exception extends the shared DomainException base and

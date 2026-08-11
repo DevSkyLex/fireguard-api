@@ -32,6 +32,18 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments` | Upload attachment |
 | DELETE | `/api/organizations/{organizationId}/equipment/{equipmentId}/attachments/{attachmentId}` | Delete attachment |
 
+An equipment may carry at most
+`Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
+(**25**) attachments. `AddAttachmentHandler` reads the count through
+`AttachmentRepositoryPort::countByEquipmentId()` before writing anything to
+storage; the resulting `InvalidAttachmentException` is mapped centrally to
+**422** by the shared `AttachmentConstraintExceptionSubscriber`, covering
+both `MediaProcessor` (multipart) and `AddAttachmentProcessor` (base64
+JSON) without either mapping it locally. This
+is the one part of the shared attachment kernel Equipment does honour — it
+still does not route through `MultipartAttachmentGuard`, so it remains
+without MIME/size validation (see `src/Shared/MODULE.md`).
+
 ## Flows
 
 ### Create Equipment (Command)

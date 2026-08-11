@@ -57,6 +57,21 @@ interface InterventionAttachmentRepositoryPort
   public function findByInterventionId(string $interventionId): array;
 
   /**
+   * Method countByInterventionId.
+   *
+   * Counts the attachments an intervention already carries, without
+   * hydrating them — the input of the
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` cap.
+   *
+   * @since 1.0.0
+   *
+   * @param string $interventionId the intervention identifier
+   *
+   * @return int the attachment count
+   */
+  public function countByInterventionId(string $interventionId): int;
+
+  /**
    * Method delete.
    *
    * Deletes an attachment record.

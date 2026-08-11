@@ -323,6 +323,20 @@ already uses for in-intervention equipment media:
    `organization.interventions.review` (not `.execute`) is therefore rejected
    when uploading during `in_progress`, even though they can read/comment.
 
+**Cardinality cap** — an intervention may carry at most
+`Shared\Domain\Attachment\AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
+(**25**) attachments. `AddInterventionAttachmentHandler` reads the current
+count through `InterventionAttachmentRepositoryPort::countByInterventionId()`
+and calls `AttachmentConstraints::validateCount()` after the authorization
+check and before writing anything to storage; the resulting
+`InvalidAttachmentException` is mapped centrally by
+`Shared\Presentation\Api\EventSubscriber\AttachmentConstraintExceptionSubscriber`
+to **422 Unprocessable Entity**, the same status the shared guard already
+returns for a MIME-type or size violation — the processor performs no mapping
+of its own. A retry carrying a client-supplied
+`attachmentId` that already exists overwrites its own row and is exempt from
+the cap.
+
 `work_item_id` is a **reserved, currently unused** nullable FK column on
 `intervention_attachments` (see Persistence) for a future optional
 per-work-item attach scope — no endpoint sets or reads it in this lot.
@@ -387,6 +401,18 @@ by deptrac):
   (`InterventionTransitionPolicy`, `InterventionChangePolicy`), and exceptions.
 - **Infrastructure** (`src/Intervention/Infrastructure`): Doctrine records / mappers
   and the port adapters (Doctrine gateways, Messenger publication queue).
+
+**Architecture debt — cross-module `Organization\Domain` imports (5).** The
+`CrossModuleDomainBoundaryTest` ratchet baseline for `Intervention =>
+Organization` was raised 4 → 5 on 2026-08-10: the reviewer-notification
+services added by 44da9e06 (`InterventionReviewerRecipientResolver`,
+alongside the four pre-existing siblings in `Application/Service/`) import
+`Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId,
+OrganizationNotificationSettings}` directly, because Organization's
+`Application/Contract/` exposes no id/settings types yet. Deliberate,
+documented debt: the eventual fix is Organization publishing contract types
+for those identifiers and this baseline shrinking back — do not add a sixth
+import; introduce the contract types instead.
 
 ### Ports & adapters (`config/modules/intervention.yaml`)
 
@@ -725,6 +751,37 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   (`InterventionMemberPolicyTest`), the gateway wiring being the same
   try/catch as submission.
 - Run module tests: `make test tests/Unit/Intervention/`
+
+### Seed fixtures
+
+`Intervention\Infrastructure\DataFixtures\InterventionFixtures` (group
+`intervention`, tagged `app.seed_fixture.main`) seeds the whole graph: 5
+labels, 3 templates with their planned items, 12 hand-authored interventions
+covering **every** `InterventionStatus`, `InterventionType` and
+`InterventionPriority`, their work items, proposed/applied/rejected changes,
+publication attempts (completed, pending, failed), activity feed, attachments,
+3 recurrences with their materialization runs, and the per-organization
+number counter. On top of those twelve, `BULK_INTERVENTION_COUNT` (40)
+generated interventions — one work item each, no changes/publications/
+comments — push the pool past 50 rows so its list, board and calendar views
+actually paginate.
+
+Two invariants the seed keeps, because the runtime enforces them and a
+contradictory row would be a state no code path can produce:
+
+- every seeded status is reachable from `draft` through
+  `InterventionTransitionPolicy`, and the seeded activity feed replays exactly
+  that transition chain;
+- proposed changes exist only where field work is active (`in_progress`,
+  `changes_requested`), per `InterventionChangePolicy` — a published
+  intervention carries `applied` ones instead. A `skipped` work item always
+  carries its reason.
+
+`InterventionNumberCounterRecord::$lastNumber` is seeded at the highest seeded
+number; leaving it behind would make the next runtime creation collide on the
+unique `(organization_id, number)`.
+
+Covered by `tests/Integration/Intervention/Infrastructure/DataFixtures/InterventionFixturesIntegrationTest`.
 ## Error Codes
 
 Domain exceptions are translated to HTTP by

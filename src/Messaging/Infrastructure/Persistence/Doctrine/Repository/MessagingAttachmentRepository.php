@@ -119,6 +119,22 @@ final readonly class MessagingAttachmentRepository implements MessagingAttachmen
   }
 
   /**
+   * Method countByMessageId.
+   *
+   * @since 1.0.0
+   */
+  public function countByMessageId(string $messageId): int
+  {
+    return (int) $this->entityManager->createQueryBuilder()
+      ->select('COUNT(a.id)')
+      ->from(MessagingAttachmentRecord::class, 'a')
+      ->where('IDENTITY(a.message) = :messageId')
+      ->setParameter('messageId', $messageId)
+      ->getQuery()
+      ->getSingleScalarResult();
+  }
+
+  /**
    * Method listByConversationId.
    *
    * @since 1.0.0

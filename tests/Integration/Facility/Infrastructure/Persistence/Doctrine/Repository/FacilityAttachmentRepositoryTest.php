@@ -125,6 +125,23 @@ final class FacilityAttachmentRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testCountByFacilityIdMatchesTheListedAttachments(): void
+  {
+    self::assertSame(0, $this->repository->countByFacilityId(FacilityId::fromString(self::FACILITY_ID)));
+
+    $this->repository->save(FacilityAttachment::create(
+      id: FacilityAttachmentId::fromString(self::ATTACHMENT_ID),
+      facilityId: FacilityId::fromString(self::FACILITY_ID),
+      fileName: 'floor-plan.pdf',
+      storagePath: 'facility/' . self::FACILITY_ID . '/attachments/' . self::ATTACHMENT_ID . '_floor-plan.pdf',
+      mimeType: 'application/pdf',
+      size: 2048,
+    ));
+
+    self::assertSame(1, $this->repository->countByFacilityId(FacilityId::fromString(self::FACILITY_ID)));
+  }
+
+  #[Test]
   public function testDeleteRemovesTheRow(): void
   {
     $attachment = FacilityAttachment::create(

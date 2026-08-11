@@ -57,6 +57,21 @@ interface FacilityAttachmentRepositoryPort
   public function findByFacilityId(FacilityId $facilityId): array;
 
   /**
+   * Method countByFacilityId.
+   *
+   * Counts the attachments a facility already carries, without hydrating
+   * them — the input of the
+   * `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT` cap.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return int the attachment count
+   */
+  public function countByFacilityId(FacilityId $facilityId): int;
+
+  /**
    * Method delete.
    *
    * Deletes an attachment record.

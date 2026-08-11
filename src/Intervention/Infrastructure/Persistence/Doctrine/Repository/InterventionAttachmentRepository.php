@@ -105,6 +105,19 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
   }
 
   /**
+   * Method countByInterventionId.
+   *
+   * @since 1.0.0
+   */
+  public function countByInterventionId(string $interventionId): int
+  {
+    /** @var InterventionRecord $intervention */
+    $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+
+    return $this->repository->count(['intervention' => $intervention]);
+  }
+
+  /**
    * Method delete.
    *
    * @since 1.0.0

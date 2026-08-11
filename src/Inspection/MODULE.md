@@ -209,6 +209,14 @@ scopes the inspection-level-only listing.
 - No new permissions: reuses `organization.inspection.read` /
   `organization.inspection.write` for both inspection-level documents and
   non-conformity photos.
+- **Cardinality cap**: `AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`
+  (**25**), enforced in `AddInspectionAttachmentHandler` via
+  `countByInspectionId()` / `countByNonConformityId()`. The two buckets are
+  counted **separately** — an inspection may hold 25 inspection-level
+  documents *and* each of its non-conformities 25 field-proof photos —
+  because each bucket feeds its own unpaginated list. Over the cap returns
+  **422**, the same status as a MIME/size rejection, mapped centrally by the
+  shared `AttachmentConstraintExceptionSubscriber` — not by the processor.
 
 ## Flows
 

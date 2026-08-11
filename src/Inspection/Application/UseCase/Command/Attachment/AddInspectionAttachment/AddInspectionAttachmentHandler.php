@@ -12,7 +12,7 @@ use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
-use Shared\Domain\Attachment\StoragePathScheme;
+use Shared\Domain\Attachment\{AttachmentConstraints, StoragePathScheme};
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -78,6 +78,18 @@ final readonly class AddInspectionAttachmentHandler implements CommandHandler
         : InspectionAttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    // A client-supplied id that already exists is a retry overwriting its own
+    // row, not a new attachment — it must not be rejected at the cap. Each
+    // bucket is capped against the list it feeds: inspection-level documents
+    // and a non-conformity's field-proof photos are counted separately.
+    if (null === $this->attachmentRepository->findById($attachmentId)) {
+      AttachmentConstraints::validateCount(
+        null === $nonConformityId
+          ? $this->attachmentRepository->countByInspectionId($inspectionId)
+          : $this->attachmentRepository->countByNonConformityId($nonConformityId),
+      );
     }
 
     $storagePath = StoragePathScheme::build(

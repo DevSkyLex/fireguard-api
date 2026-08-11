@@ -12,6 +12,7 @@ use InvalidArgumentException;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\FileStoragePort;
+use Shared\Domain\Attachment\AttachmentConstraints;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
@@ -67,6 +68,12 @@ final readonly class AddAttachmentHandler implements CommandHandler
         : AttachmentId::fromString($command->attachmentId);
     } catch (InvalidValueException $exception) {
       throw new InvalidArgumentException($exception->getMessage(), 0, $exception);
+    }
+
+    // A client-supplied id that already exists is a retry overwriting its own
+    // row, not a new attachment — it must not be rejected at the cap.
+    if (null === $this->attachmentRepository->findById($attachmentId)) {
+      AttachmentConstraints::validateCount($this->attachmentRepository->countByEquipmentId($equipmentId));
     }
 
     $storagePath = sprintf(

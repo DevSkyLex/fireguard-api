@@ -199,6 +199,46 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     self::assertNull($this->repository->findById(InterventionAttachmentId::fromString(self::UNKNOWN_ATTACHMENT_ID)));
   }
 
+  #[Test]
+  public function testCountByInterventionIdCountsOnlyOwnAttachments(): void
+  {
+    self::assertSame(0, $this->repository->countByInterventionId(self::INTERVENTION_ID));
+
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'older.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/older.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+    ));
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::NEWER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'newer.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/newer.jpg',
+      mimeType: 'image/jpeg',
+      size: 2_048,
+      uploadedAt: new DateTimeImmutable('2026-03-02T08:00:00+00:00'),
+    ));
+    // Another intervention's attachment must not inflate the count, or one
+    // busy intervention would cap every other one in the organization.
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      interventionId: self::OTHER_INTERVENTION_ID,
+      fileName: 'other.jpg',
+      storagePath: 'interventions/' . self::OTHER_INTERVENTION_ID . '/other.jpg',
+      mimeType: 'image/jpeg',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-03T08:00:00+00:00'),
+    ));
+    $this->entityManager->clear();
+
+    self::assertSame(2, $this->repository->countByInterventionId(self::INTERVENTION_ID));
+    self::assertSame(1, $this->repository->countByInterventionId(self::OTHER_INTERVENTION_ID));
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();

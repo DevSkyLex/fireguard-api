@@ -173,6 +173,36 @@ final class InspectionAttachmentRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testCountsTheInspectionAndNonConformityBucketsSeparately(): void
+  {
+    self::assertSame(0, $this->repository->countByInspectionId(InspectionId::fromString(self::INSPECTION_ID)));
+
+    $this->repository->save(InspectionAttachment::create(
+      id: InspectionAttachmentId::fromString(self::INSPECTION_LEVEL_ATTACHMENT_ID),
+      inspectionId: InspectionId::fromString(self::INSPECTION_ID),
+      fileName: 'report.pdf',
+      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::INSPECTION_LEVEL_ATTACHMENT_ID . '_report.pdf',
+      mimeType: 'application/pdf',
+      size: 2048,
+    ));
+    $this->repository->save(InspectionAttachment::create(
+      id: InspectionAttachmentId::fromString(self::NON_CONFORMITY_ATTACHMENT_ID),
+      inspectionId: InspectionId::fromString(self::INSPECTION_ID),
+      fileName: 'photo.jpg',
+      storagePath: 'inspection/' . self::INSPECTION_ID . '/attachments/' . self::NON_CONFORMITY_ATTACHMENT_ID . '_photo.jpg',
+      mimeType: 'image/jpeg',
+      size: 512,
+      nonConformityId: NonConformityId::fromString(self::NON_CONFORMITY_ID),
+    ));
+
+    // Both rows live in `inspection_attachments` under the same inspection,
+    // but each cap must bound only the list it protects — the count mirrors
+    // the `nonConformity IS NULL` split that findByInspectionId() applies.
+    self::assertSame(1, $this->repository->countByInspectionId(InspectionId::fromString(self::INSPECTION_ID)));
+    self::assertSame(1, $this->repository->countByNonConformityId(NonConformityId::fromString(self::NON_CONFORMITY_ID)));
+  }
+
+  #[Test]
   public function testDeleteRemovesTheRow(): void
   {
     $this->repository->save(InspectionAttachment::create(
