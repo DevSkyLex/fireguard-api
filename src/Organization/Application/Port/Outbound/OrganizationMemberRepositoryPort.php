@@ -7,6 +7,7 @@ namespace Organization\Application\Port\Outbound;
 use DateTimeImmutable;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationRoleId};
+use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 
 /**
  * Port OrganizationMemberRepositoryPort.
@@ -61,15 +62,38 @@ interface OrganizationMemberRepositoryPort
   /**
    * Method findByOrganizationId.
    *
-   * Lists members for an organization.
+   * Lists members for an organization, filtered and sorted at SQL level.
+   * Every filter parameter is optional and defaults to "no filter", so
+   * existing unfiltered callers keep receiving every member of the
+   * organization ordered by `joinedAt` ascending. `$limit` of `null` returns
+   * the full (unpaginated) result set.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param ?string $search free-text filter matched against the member's
+   *                        user identifier (the only free-text column this
+   *                        table owns; display name and email live in the
+   *                        User module's database and cannot be joined here)
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
+   * @param Sorting $sorting the sort field (`joinedAt` or `displayName`,
+   *                         the latter falling back to `userId` for the
+   *                         same reason as `$search`) and direction
+   * @param ?int $limit the maximum number of members to return, or null for no pagination
+   * @param ?int $offset the number of members to skip, ignored when `$limit` is null
    *
    * @return list<OrganizationMember> the organization members
    */
-  public function findByOrganizationId(OrganizationId $organizationId): array;
+  public function findByOrganizationId(
+    OrganizationId $organizationId,
+    ?string $search = null,
+    ?bool $isActive = null,
+    ?OrganizationRoleId $roleId = null,
+    Sorting $sorting = new Sorting('joinedAt', SortDirection::ASC),
+    ?int $limit = null,
+    ?int $offset = null,
+  ): array;
 
   /**
    * Method findByUserId.
@@ -135,15 +159,25 @@ interface OrganizationMemberRepositoryPort
   /**
    * Method countByOrganizationId.
    *
-   * Counts members belonging to an organization.
+   * Counts members belonging to an organization, honoring the same optional
+   * filters as {@see self::findByOrganizationId()} so a caller can compute a
+   * filtered listing's total.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param ?string $search free-text filter matched against the member's user identifier
+   * @param ?bool $isActive filters by membership activation state when set
+   * @param ?OrganizationRoleId $roleId filters members holding this role
    *
    * @return int the member count
    */
-  public function countByOrganizationId(OrganizationId $organizationId): int;
+  public function countByOrganizationId(
+    OrganizationId $organizationId,
+    ?string $search = null,
+    ?bool $isActive = null,
+    ?OrganizationRoleId $roleId = null,
+  ): int;
 
   /**
    * Counts members for multiple organizations in one query.

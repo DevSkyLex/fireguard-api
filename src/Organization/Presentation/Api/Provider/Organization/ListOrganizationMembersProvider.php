@@ -9,26 +9,30 @@ use ApiPlatform\State\Pagination\TraversablePaginator;
 use ApiPlatform\State\ProviderInterface;
 use ArrayIterator;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\{GetOrganizationMemberResult, ListOrganizationMembersQuery};
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
+use Shared\Domain\Exception\InvalidValueException;
 use Shared\Presentation\Api\Pagination\PaginationExtractor;
-use Shared\Presentation\Api\Search\{CollectionSearcher, SearchExtractor};
-use Shared\Presentation\Api\Sorting\{CollectionSorter, SortingExtractor};
+use Shared\Presentation\Api\Search\SearchExtractor;
+use Shared\Presentation\Api\Sorting\SortingExtractor;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 use Throwable;
 use User\Application\UseCase\Query\User\GetUser\{GetUserQuery, GetUserResult};
 
 use function array_filter;
 use function array_map;
-use function array_slice;
 use function array_values;
-use function count;
+use function in_array;
+use function is_array;
 use function is_string;
 use function trim;
 
@@ -37,7 +41,7 @@ use function trim;
  *
  * @category Provider
  *
- * @version 1.0.0
+ * @version 2.0.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -45,6 +49,34 @@ use function trim;
  */
 final readonly class ListOrganizationMembersProvider implements ProviderInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationQueryExceptions.
+   *
+   * The query bus wraps every handler-thrown exception into
+   * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so a
+   * direct `catch (OrganizationNotFoundException)` around `queryBus->ask()`
+   * alone would never match at runtime — this trait walks the wrapped
+   * exception's `getPrevious()`/`HandlerFailedException` chain to find the
+   * real domain exception underneath.
+   *
+   * @see UnwrapsOrganizationQueryExceptions
+   */
+  use UnwrapsOrganizationQueryExceptions;
+
+  /**
+   * The `status` filter's allowed wire values — kept in lock-step with
+   * {@see \Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\ListOrganizationMembersHandler::resolveStatusFilter()}.
+   */
+  private const array ALLOWED_STATUS_FILTERS = ['active', 'inactive', 'all'];
+
+  /**
+   * The sort fields the query (and, beneath it, the repository) actually
+   * understands — see {@see ListOrganizationMembersQuery}'s docblock.
+   */
+  private const array ALLOWED_SORT_FIELDS = ['joinedAt', 'displayName'];
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -71,9 +103,13 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
   /**
    * Method provide.
    *
-   * Provides resource data for the requested API operation.
+   * Provides resource data for the requested API operation. Filtering
+   * (search, status, role), sorting and pagination are all forwarded to
+   * `ListOrganizationMembersQuery` — the handler pushes them down to the
+   * repository at SQL level, so this provider must not re-search, re-sort or
+   * re-slice the page it gets back.
    *
-   * @since 1.0.0
+   * @since 2.0.0
    *
    * @param Operation $operation the API operation metadata
    * @param array<string, mixed> $uriVariables URI variables extracted from the request
@@ -98,15 +134,33 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
     }
 
     $pagination = PaginationExtractor::fromContext($context);
+    $status = $this->extractStatusFilter($context);
+    $roleId = $this->extractRoleIdFilter($context);
+    $sorting = SortingExtractor::fromContext($context, self::ALLOWED_SORT_FIELDS, 'joinedAt');
 
     try {
       /** @var PaginatedResult<GetOrganizationMemberResult> $result */
       $result = $this->queryBus->ask(new ListOrganizationMembersQuery(
         organizationId: $organizationId,
         pagination: new Pagination(offset: $pagination->offset, limit: $pagination->itemsPerPage),
+        search: SearchExtractor::fromContext($context),
+        status: $status,
+        roleId: $roleId,
+        sorting: $sorting,
       ));
-    } catch (OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalid = $this->findWrappedException($exception, InvalidArgumentException::class)
+        ?? $this->findWrappedException($exception, InvalidValueException::class);
+      if (null !== $invalid) {
+        throw new UnprocessableEntityHttpException($invalid->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     /** @var ListOrganizationRolesResult $rolesResult */
@@ -146,22 +200,69 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
       $outputs[] = $output;
     }
 
-    $search = SearchExtractor::fromContext($context);
-    $outputs = CollectionSearcher::search($outputs, $search, ['userId', 'displayName', 'firstName', 'lastName', 'email']);
-
-    $total = count($outputs);
-
-    $sorting = SortingExtractor::fromContext($context, ['userId', 'isActive', 'joinedAt'], 'joinedAt');
-    $outputs = CollectionSorter::sort($outputs, $sorting);
-
-    $outputs = array_slice($outputs, $pagination->offset, $pagination->itemsPerPage);
-
     return new TraversablePaginator(
       traversable: new ArrayIterator($outputs),
       currentPage: (float) $pagination->page,
       itemsPerPage: (float) $pagination->itemsPerPage,
-      totalItems: (float) $total,
+      totalItems: (float) $result->total,
     );
+  }
+
+  /**
+   * Method extractStatusFilter.
+   *
+   * Reads the `status` filter from the request and validates it against the
+   * allowed wire values, mapping garbage to a 422 instead of letting it
+   * reach the handler's own `InvalidArgumentException` (belt and suspenders:
+   * both layers reject it, but the provider is where the HTTP status is
+   * decided).
+   *
+   * @since 2.0.0
+   *
+   * @param array<string, mixed> $context the provider context
+   *
+   * @return ?string the validated status filter, or null for "no filter"
+   */
+  private function extractStatusFilter(array $context): ?string
+  {
+    $filters = $context['filters'] ?? [];
+    if (!is_array($filters)) {
+      return null;
+    }
+
+    $status = $filters['status'] ?? null;
+    if (null === $status) {
+      return null;
+    }
+
+    if (!is_string($status) || !in_array($status, self::ALLOWED_STATUS_FILTERS, true)) {
+      throw new UnprocessableEntityHttpException('Invalid status filter. Expected one of: active, inactive, all.');
+    }
+
+    return $status;
+  }
+
+  /**
+   * Method extractRoleIdFilter.
+   *
+   * Reads the `roleId` filter from the request.
+   *
+   * @since 2.0.0
+   *
+   * @param array<string, mixed> $context the provider context
+   *
+   * @return ?string the role identifier filter, or null when absent
+   */
+  private function extractRoleIdFilter(array $context): ?string
+  {
+    $filters = $context['filters'] ?? [];
+    if (!is_array($filters)) {
+      return null;
+    }
+
+    $roleId = $filters['roleId'] ?? null;
+
+    return is_string($roleId) && '' !== $roleId ? $roleId : null;
   }
 
   /**
