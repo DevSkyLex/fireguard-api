@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Domain\Model\OrganizationRole;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 
 /**
@@ -201,6 +202,29 @@ final class OrganizationRole
   public function createdAt(): DateTimeImmutable
   {
     return $this->createdAt;
+  }
+
+  /**
+   * Method rename.
+   *
+   * Renames the role. System roles cannot be renamed — their names are
+   * fixed identifiers referenced by the system role catalog and by callers
+   * matching on well-known names (e.g. the "admin" role granted to a new
+   * owner on ownership transfer).
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationRoleName $name the new role name
+   *
+   * @throws InvalidArgumentException when the role is system-managed
+   */
+  public function rename(OrganizationRoleName $name): void
+  {
+    if ($this->isSystem) {
+      throw new InvalidArgumentException('System roles cannot be renamed.');
+    }
+
+    $this->name = $name;
   }
 
   /**

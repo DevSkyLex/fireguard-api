@@ -71,15 +71,20 @@ interface OrganizationRoleRepositoryPort
   /**
    * Method findByOrganizationId.
    *
-   * Lists roles belonging to an organization.
+   * Lists roles belonging to an organization, ordered by name. `$limit` of
+   * `null` returns the full (unpaginated) result set — the two existing
+   * unpaginated callers (role name lookups for member listings) rely on this
+   * default to keep receiving every role.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param OrganizationId $organizationId the organization identifier
+   * @param ?int $limit the maximum number of roles to return, or null for no pagination
+   * @param ?int $offset the number of roles to skip, ignored when `$limit` is null
    *
    * @return list<OrganizationRole> the roles list
    */
-  public function findByOrganizationId(OrganizationId $organizationId): array;
+  public function findByOrganizationId(OrganizationId $organizationId, ?int $limit = null, ?int $offset = null): array;
 
   /**
    * Method countByOrganizationId.

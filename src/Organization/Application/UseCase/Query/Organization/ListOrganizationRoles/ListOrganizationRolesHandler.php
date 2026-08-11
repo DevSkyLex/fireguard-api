@@ -14,7 +14,7 @@ use Shared\Application\Message\QueryHandler;
  *
  * @category UseCase
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -46,9 +46,12 @@ final readonly class ListOrganizationRolesHandler implements QueryHandler
   /**
    * Method __invoke.
    *
-   * Handles the corresponding use case execution.
+   * Handles the corresponding use case execution. When the query carries no
+   * pagination, every role is returned (see {@see ListOrganizationRolesQuery}
+   * for why that is the default) — `$total` is still computed so a caller
+   * that does paginate can build a proper page count.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param ListOrganizationRolesQuery $query the query payload
    */
@@ -61,7 +64,12 @@ final readonly class ListOrganizationRolesHandler implements QueryHandler
       throw OrganizationNotFoundException::withId($query->organizationId);
     }
 
-    $roles = $this->roleRepository->findByOrganizationId($organizationId);
+    $roles = $this->roleRepository->findByOrganizationId(
+      $organizationId,
+      $query->pagination?->limit,
+      $query->pagination?->offset,
+    );
+    $total = $this->roleRepository->countByOrganizationId($organizationId);
     $memberCountsByRoleId = $this->memberRepository->countActiveMembersGroupedByRoleId($organizationId);
     $results = [];
 
@@ -79,7 +87,7 @@ final readonly class ListOrganizationRolesHandler implements QueryHandler
       );
     }
 
-    return new ListOrganizationRolesResult($results);
+    return new ListOrganizationRolesResult($results, $total);
   }
   // #endregion
 }

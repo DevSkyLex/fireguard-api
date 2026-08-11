@@ -276,6 +276,123 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     self::assertSame(['organization.read'], $updated->permissions);
   }
 
+  #[Test]
+  public function testInvokeRenamesRoleWhenNameIsProvidedAndDifferent(): void
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($this->createOrganization());
+
+    $role = $this->createRole();
+
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findById')->willReturn($role);
+    $roleRepository->expects(self::once())
+      ->method('findByOrganizationAndName')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => self::ORGANIZATION_ID === (string) $id),
+        self::callback(static fn (OrganizationRoleName $name): bool => 'site_manager' === (string) $name),
+      )
+      ->willReturn(null);
+    $roleRepository->expects(self::once())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher
+      ->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof OrganizationRoleUpdatedEvent
+          && 'site_manager' === $event->roleName,
+      ));
+
+    $handler = new UpdateOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
+      organizationId: self::ORGANIZATION_ID,
+      roleId: self::ROLE_ID,
+      permissions: ['organization.read'],
+      name: 'site_manager',
+    ));
+
+    self::assertSame('site_manager', $result->name);
+  }
+
+  #[Test]
+  public function testInvokeSkipsUniquenessCheckWhenNameIsUnchanged(): void
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($this->createOrganization());
+
+    $role = $this->createRole();
+
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findById')->willReturn($role);
+    $roleRepository->expects(self::never())->method('findByOrganizationAndName');
+    $roleRepository->expects(self::once())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch');
+
+    $handler = new UpdateOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
+      organizationId: self::ORGANIZATION_ID,
+      roleId: self::ROLE_ID,
+      permissions: ['organization.read'],
+      name: 'inspector',
+    ));
+
+    self::assertSame('inspector', $result->name);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenNewNameAlreadyExists(): void
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($this->createOrganization());
+
+    $role = $this->createRole();
+    $conflicting = OrganizationRole::reconstitute(
+      id: new OrganizationRoleId('550e8400-e29b-41d4-a716-446655440403'),
+      organizationId: new OrganizationId(self::ORGANIZATION_ID),
+      name: new OrganizationRoleName('site_manager'),
+      permissions: ['organization.read'],
+      isSystem: false,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findById')->willReturn($role);
+    $roleRepository->method('findByOrganizationAndName')->willReturn($conflicting);
+    $roleRepository->expects(self::never())->method('save');
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('Role name already exists for this organization.');
+
+    $handler->__invoke(new UpdateOrganizationRoleCommand(
+      organizationId: self::ORGANIZATION_ID,
+      roleId: self::ROLE_ID,
+      permissions: ['organization.read'],
+      name: 'site_manager',
+    ));
+  }
+
   private function createOrganization(): Organization
   {
     return Organization::reconstitute(

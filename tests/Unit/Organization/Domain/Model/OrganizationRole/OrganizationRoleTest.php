@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Domain\Model\OrganizationRole;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -92,6 +93,39 @@ final class OrganizationRoleTest extends TestCase
     $role->updatePermissions(['organization.read', 'organization.members.read']);
 
     self::assertSame(['organization.read', 'organization.members.read'], $role->permissions());
+  }
+
+  #[Test]
+  public function testRenameReplacesName(): void
+  {
+    $role = OrganizationRole::create(
+      OrganizationRoleId::fromString(self::ROLE_ID),
+      OrganizationId::fromString(self::ORGANIZATION_ID),
+      new OrganizationRoleName('member'),
+      ['organization.read'],
+    );
+
+    $role->rename(new OrganizationRoleName('technician'));
+
+    self::assertSame('technician', (string) $role->name());
+  }
+
+  #[Test]
+  public function testRenameThrowsWhenRoleIsSystem(): void
+  {
+    $role = OrganizationRole::reconstitute(
+      OrganizationRoleId::fromString(self::ROLE_ID),
+      OrganizationId::fromString(self::ORGANIZATION_ID),
+      new OrganizationRoleName('admin'),
+      ['organization.*'],
+      true,
+      new DateTimeImmutable('-1 day'),
+    );
+
+    $this->expectException(InvalidArgumentException::class);
+    $this->expectExceptionMessage('System roles cannot be renamed.');
+
+    $role->rename(new OrganizationRoleName('renamed_admin'));
   }
 
   #[Test]

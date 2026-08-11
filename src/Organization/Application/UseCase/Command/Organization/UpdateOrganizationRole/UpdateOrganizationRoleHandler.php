@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\OrganizationNotFoundException;
-use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId};
+use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 
@@ -84,6 +84,20 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
 
     if (0 === count($permissions)) {
       throw new InvalidArgumentException('At least one permission is required.');
+    }
+
+    if (null !== $command->name) {
+      $newName = new OrganizationRoleName($command->name);
+
+      if (!$newName->equals($role->name())) {
+        $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $newName);
+
+        if (null !== $existing) {
+          throw new InvalidArgumentException('Role name already exists for this organization.');
+        }
+
+        $role->rename($newName);
+      }
     }
 
     $role->updatePermissions($permissions);

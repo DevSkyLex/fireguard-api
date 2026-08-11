@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Organization\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Delete, GetCollection, Patch, Post};
+use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
-use Organization\Presentation\Api\Dto\Input\Organization\{AssignOrganizationRoleInput, CreateOrganizationRoleInput, UpdateOrganizationRoleInput};
+use Organization\Presentation\Api\Dto\Input\Organization\{AssignOrganizationRoleInput, CreateOrganizationRoleInput, SetOrganizationMemberRolesInput, UpdateOrganizationRoleInput};
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationMemberOutput, OrganizationRoleOutput};
 use Organization\Presentation\Api\Operation\OrganizationOperations;
-use Organization\Presentation\Api\Processor\Organization\{AssignOrganizationRoleToMemberProcessor, CreateOrganizationRoleProcessor, DeleteOrganizationRoleProcessor, RemoveOrganizationRoleFromMemberProcessor, UpdateOrganizationRoleProcessor};
-use Organization\Presentation\Api\Provider\Organization\ListOrganizationRolesProvider;
+use Organization\Presentation\Api\Processor\Organization\{AssignOrganizationRoleToMemberProcessor, CreateOrganizationRoleProcessor, DeleteOrganizationRoleProcessor, RemoveOrganizationRoleFromMemberProcessor, SetOrganizationMemberRolesProcessor, UpdateOrganizationRoleProcessor};
+use Organization\Presentation\Api\Provider\Organization\{GetOrganizationRoleProvider, ListOrganizationRolesProvider};
 use Organization\Presentation\Api\Serialization\OrganizationSerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  *
  * @category Resource
  *
- * @version 1.0.0
+ * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -50,16 +50,49 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       output: OrganizationRoleOutput::class,
       provider: ListOrganizationRolesProvider::class,
       normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      paginationEnabled: true,
+      paginationClientItemsPerPage: true,
+      paginationItemsPerPage: 30,
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(
         tags: ['Organization Roles'],
         summary: 'List Organization roles',
-        description: 'Lists all roles defined for a Organization.',
+        description: 'Lists all roles defined for a Organization. Real pagination (`page`/`itemsPerPage`, default 30); `totalItems` reflects the count AFTER search filtering. Supports `search` (matched against the role name) and `order[name|isSystem|createdAt]=asc|desc` (default `order[name]=asc`).',
+      ),
+    ),
+    new Get(
+      name: OrganizationOperations::GET_ORGANIZATION_ROLE,
+      uriTemplate: '/{organizationId}/roles/{roleId}',
+      requirements: ['roleId' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
+      input: false,
+      output: OrganizationRoleOutput::class,
+      provider: GetOrganizationRoleProvider::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization Roles'],
+        summary: 'Get Organization role',
+        description: 'Returns a single organization role, including memberCount (the number of ACTIVE members currently assigned). Requires the organization.roles.read permission.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Role retrieved'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization or role not found, or the role belongs to another organization'),
+        ],
       ),
     ),
     new Patch(
       name: OrganizationOperations::UPDATE_ORGANIZATION_ROLE,
       uriTemplate: '/{organizationId}/roles/{roleId}',
+      // `read: false`: this operation had no provider and no explicit
+      // `read: false`, so API Platform's default pre-read step (`read: true`)
+      // tried to resolve the current resource state through a generic
+      // provider that cannot resolve this non-Doctrine DTO — every
+      // authenticated PATCH unconditionally 404'd before the processor ever
+      // ran. `DeleteOrganizationRoleProcessor`'s sibling `Delete` operation,
+      // and every other mutating organization operation with a processor
+      // (`UpdateOrganizationSettings`, `ChangeOrganizationPlan`, …), already
+      // set `read: false` for the same reason.
+      read: false,
       input: UpdateOrganizationRoleInput::class,
       output: OrganizationRoleOutput::class,
       processor: UpdateOrganizationRoleProcessor::class,
@@ -69,7 +102,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
       openapi: new Operation(
         tags: ['Organization Roles'],
         summary: 'Update Organization role permissions',
-        description: 'Updates the permissions assigned to a custom organization role.',
+        description: 'Updates the permissions assigned to a custom organization role, and optionally renames it.',
       ),
     ),
     new Delete(
@@ -105,6 +138,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         tags: ['Organization Roles'],
         summary: 'Assign role to member',
         description: 'Assigns an existing Organization role to an existing Organization member.',
+      ),
+    ),
+    new Put(
+      name: OrganizationOperations::SET_ORGANIZATION_MEMBER_ROLES,
+      uriTemplate: '/{organizationId}/members/{memberId}/roles',
+      requirements: ['memberId' => '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'],
+      read: false,
+      input: SetOrganizationMemberRolesInput::class,
+      output: OrganizationMemberOutput::class,
+      processor: SetOrganizationMemberRolesProcessor::class,
+      denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization Roles'],
+        summary: 'Replace member roles',
+        description: 'Replaces the member\'s entire role set in one call. Roles being granted go through the privilege-escalation guard; roles being revoked go through the last-administrator lockout guard.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Member roles replaced'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions, or attempting to grant a permission the caller does not hold'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization, member, or one of the requested roles not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Would strip the organization of its last administrator'),
+        ],
       ),
     ),
     new Delete(

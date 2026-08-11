@@ -43,10 +43,36 @@ services:
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\LeaveOrganization\LeaveOrganizationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership\TransferOrganizationOwnershipHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\ReactivateOrganizationMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+      $quota: '@Organization\Application\Port\Inbound\OrganizationQuotaPort'
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\SetOrganizationMemberRoles\SetOrganizationMemberRolesHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\SuspendOrganization\SuspendOrganizationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RestoreOrganization\RestoreOrganizationHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Command\Organization\RemoveOrganizationLogo\RemoveOrganizationLogoHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Team\CreateTeam\CreateTeamHandler:
@@ -140,6 +166,9 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Organization\GetOrganizationMember\GetOrganizationMemberHandler:
+    tags: ['messenger.message_handler']
+
+  Organization\Application\UseCase\Query\Organization\GetOrganizationRole\GetOrganizationRoleHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Query\Plan\GetPlan\GetPlanHandler:

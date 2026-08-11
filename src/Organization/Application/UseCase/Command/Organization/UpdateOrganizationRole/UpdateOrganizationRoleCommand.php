@@ -28,12 +28,14 @@ final readonly class UpdateOrganizationRoleCommand implements CommandMessage
    * @param string $organizationId the organization identifier
    * @param string $roleId the role identifier
    * @param list<string> $permissions the role permissions
+   * @param string|null $name the new role name, when renaming
    * @param string|null $description the role description
    */
   public function __construct(
     public string $organizationId,
     public string $roleId,
     public array $permissions,
+    public ?string $name = null,
     public ?string $description = null,
   ) {
   }

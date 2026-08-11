@@ -22,9 +22,13 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations` | List Organizations for current user (filter: `status`). Each item also carries the CALLER's membership info: `isOwner` (caller vs `ownerUserId`) and `roles` (`[{id, label}]`, the caller's assigned org-role labels, `[]` when none) — see Notes |
 | GET | `/api/organizations/{id}` | Get one Organization (requires `Organization.read`) |
 | DELETE | `/api/organizations/{id}` | Archive the organization (reversible soft delete — see Notes; **not** a permanent removal). Requires `organization.delete` plus the danger-zone confirmation: a `slug` query parameter matching the organization's current slug (case-insensitive, trimmed). Missing or mismatched confirmation → HTTP 422, nothing archived. Idempotent when already archived, provided the confirmation is still correct |
+| POST | `/api/organizations/{id}/suspend` | Suspend the organization as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: false` toggle on the settings PATCH below. Requires `organization.settings.write`, the SAME permission the legacy toggle already requires — see Notes (P2.5). 409 when archived (restore it first). Idempotent when already suspended. Returns the refreshed `OrganizationOutput` |
+| POST | `/api/organizations/{id}/restore` | Restore the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy `isActive: true` toggle. Requires `organization.settings.write` — see Notes (P2.5). Idempotent when already active. Returns the refreshed `OrganizationOutput` |
+| POST | `/api/organizations/{id}/transfer-ownership` | Transfer ownership to another active member. The caller must be an ACTIVE member of the organization — a stranger gets the same 404 a nonexistent organization id would produce, before the slug or owner checks ever run (closes an existence/slug oracle — see Notes). An active member who is not the organization's CURRENT owner gets 403 instead — RBAC-independent, no permission grants the right to give away someone else's ownership. Requires the same danger-zone `slug` confirmation as DELETE, now in the request body (missing/mismatched → 422), checked only once the caller is confirmed to be the owner. Target must be an active member (404 otherwise); an archived organization or a target already owning it → 409. The new owner is granted the system `admin` role if missing AND the acting (previous) owner still holds every permission that role carries (`OrganizationPermissionGrantGuardPort`, the same no-privilege-escalation check every other role-granting surface applies); a missing role, a guard refusal, or any other failure while granting it is logged and skipped — it never fails the already-committed transfer. Returns the refreshed `OrganizationOutput` — see Notes |
 | PATCH | `/api/organizations/{id}` | Update general & branding settings (name, slug, description, status), the legal profile (`country`, `legalType`, `legalName`, `registrationNumber`, `vatNumber` — see below), plus the structured sections: `notifications`, `regional`, `compliance` (non-conformity SLA days per severity, inspection periodicity per equipment type, reminder window — map entries set to `null` revert to the catalog default from `OrganizationComplianceDefaults`; only customizations are persisted, effective values are resolved on read), `automation` (explicit opt-in toggles, e.g. `autoCreateInterventionOnCriticalNc`) , `approval` (R17 four-eyes policy: `actionRules` per gated action type — `enabled`/`minApproverRole`/`minSeverity`, `null` entry reverts to disabled —, `allowSelfApproval`, `approvalTtlDays`; every action type defaults to disabled) and `assistant` (AI-assistant policy: `enabled`, `model`, `temperature`, `includeBusinessContext`; disabled by default). Periodicity keys are validated against the Equipment catalog via `EquipmentTypeCatalogPort`; `approval.actionRules` keys are validated against the Approval catalog via `ApprovalActionTypeCatalogPort`. Requires `organization.settings.write` |
 | GET | `/api/organizations/legal-types` | Reference catalog of organization legal entity type values/labels for the Legal profile settings tab select |
 | POST | `/api/organizations/{organizationId}/logo` | Upload the organization logo (multipart). Requires `organization.settings.write` |
+| DELETE | `/api/organizations/{organizationId}/logo` | Remove the organization logo. Requires `organization.settings.write` (same permission as upload). 409 when archived. Idempotent when the organization already has no logo — see Notes (P2.5) |
 | GET | `/api/organizations/{organizationId}/logo.webp` | Stream the organization logo (public) |
 | GET | `/api/organizations/{organizationId}/me` | Get the authenticated active member profile with resolved roles and effective permissions |
 | GET | `/api/organizations/{organizationId}/dashboard` | Get lightweight Organization overview KPIs for cards, plus `trends` (per-KPI sparkline running-total series for facilities/members/equipment/inspections) and `recentInterventions` (the 5 most recently updated field interventions, org-scoped, gated by `organization.interventions.read`). `overview`, `alerts`, and non-`period*` KPIs are snapshots at `generatedAt`; `comparison` and `period*` KPIs follow `from`/`to` (filters: `from`, `to`, `compare`, `timezone`). `overview.nonConformities.severityLow`/`severityMedium`/`severityHigh`/`severityCritical` add an org-wide, ALWAYS-unfiltered by-severity breakdown across every status — see Notes (L3.10). Use dedicated `/dashboard/trends/*` endpoints for full chart series with custom granularity. Requires `organization.dashboard.read` plus members/roles/facilities/equipment/inspection read permissions. |
@@ -35,7 +39,11 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus the same optional `metrics` combining filter (`metrics=non_conformities_opened`) — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`) and `openNonConformities` (`open` + `in_progress`). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` permission — see Notes (L3.11) |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
-| GET | `/api/organizations/{organizationId}/members` | List Organization members (each item carries `isOwner`, computed against the organization's `ownerUserId`) |
+| GET | `/api/organizations/{organizationId}/members` | List Organization members (each item carries `isOwner`, computed against the organization's `ownerUserId`). Filters: `search` (matched against the member's user identifier at SQL level), `status` (`active`/`inactive`/`all`, 422 on any other value), `roleId`; sort via `order[joinedAt\|displayName]=asc\|desc` (default `order[joinedAt]=asc`). All filtering/sorting/pagination is pushed down to the repository — see Notes (P2.3) |
+| GET | `/api/organizations/{organizationId}/members/{memberId}` | Get a single organization member. Requires `organization.members.read`. 404 when the member does not exist, and 404 (not a leaked 403) when it belongs to a different organization than `{organizationId}` — see Notes (P2.3) |
+| POST | `/api/organizations/{organizationId}/members/{memberId}/reactivate` | Reactivate a previously deactivated (removed) member. Requires `organization.members.manage`. 404 unknown member or member in another organization; 409 already active, organization archived, or the plan's member cap reached — see Notes (P2.3, quota) |
+| PUT | `/api/organizations/{organizationId}/members/{memberId}/roles` | Replace a member's entire role set in one call (full replacement, not a delta — an empty `roleIds` clears every role). Requires `organization.roles.manage`, mirroring the unit assign/remove-role operations. Roles being granted go through the privilege-escalation guard (403); roles being revoked go through the last-administrator lockout guard (409); an unknown role id is 404, exactly like `POST .../members/{memberId}/roles` below — see Notes (P2.3) |
+| DELETE | `/api/organizations/{organizationId}/members/me` | Leave the organization (self-removal by the authenticated user). No permission required beyond an active membership. The organization's current owner cannot leave (409 — transfer ownership first) and leaving is refused when it would strip the organization of its last active administrator (409). 404 when the caller is not an active member. Registered ahead of, and disambiguated by UUID `requirements` from, `DELETE /members/{memberId}` below |
 | POST | `/api/organizations/{organizationId}/invitations` | Invite member by email |
 | GET | `/api/organizations/{organizationId}/invitations` | List Organization invitations |
 | GET | `/api/organizations/invitations/{token}/preview` | Public preview of an invitation by token (organization, inviter, invited email, status, expiry) |
@@ -43,8 +51,11 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/revoke` | Revoke pending invitation |
 | POST | `/api/organizations/{organizationId}/invitations/{invitationId}/resend` | Regenerate token, reset expiry and re-send the invitation email (returns a fresh accept link) |
 | POST | `/api/organizations/{organizationId}/roles` | Create Organization role |
-| GET | `/api/organizations/{organizationId}/roles` | List Organization roles (each item carries `memberCount`, the number of ACTIVE members currently assigned) |
-| POST | `/api/organizations/{organizationId}/members/{memberId}/roles` | Assign role to member |
+| GET | `/api/organizations/{organizationId}/roles` | List Organization roles (each item carries `memberCount`, the number of ACTIVE members currently assigned). Real pagination (`page`/`itemsPerPage`, default 30) — `totalItems` reflects the count AFTER `search` filtering, not the organization's raw role count. Supports `search` (role name) and `order[name\|isSystem\|createdAt]=asc\|desc` (default `order[name]=asc`) — see Notes (P2.4) |
+| GET | `/api/organizations/{organizationId}/roles/{roleId}` | Get a single organization role, including `memberCount`. Requires `organization.roles.read`. 404 unknown role or role in another organization — see Notes (P2.4) |
+| PATCH | `/api/organizations/{organizationId}/roles/{roleId}` | Update a custom role's permissions/description, and optionally rename it (`name`, same 3-50 char lowercase-alphanumeric-or-underscore constraint as create). Requires `organization.roles.manage`. A duplicate name or a rename attempt on a system role both map to HTTP 400 (`InvalidArgumentException`, mirroring how `POST .../roles` maps its own duplicate-name refusal) — see Notes (P2.4) |
+| DELETE | `/api/organizations/{organizationId}/roles/{roleId}` | Permanently delete a custom role (system roles cannot be deleted). Requires `organization.roles.manage`, guarded by the last-administrator lockout (409) |
+| POST | `/api/organizations/{organizationId}/members/{memberId}/roles` | Assign role to member (single-role add; see `PUT` above for the bulk full-replacement variant) |
 | POST | `/api/organizations/{organizationId}/teams` | Create a team (requires `organization.teams.write`) |
 | GET | `/api/organizations/{organizationId}/teams` | List teams (requires `organization.teams.read`) |
 | GET | `/api/organizations/{organizationId}/teams/{teamId}` | Get a single team (requires `organization.teams.read`) |
@@ -79,6 +90,32 @@ Doctrine tables are mapped in the main database:
 - `teams`
 - `team_members`
 
+## Seed fixtures
+
+`Organization\Infrastructure\DataFixtures\OrganizationFixtures` (group
+`organization`, tagged `app.seed_fixture.main`) seeds the flagship
+"Fireguard Seed Organization" — the only tenant every other module's
+fixtures (Facility, Equipment, Inspection, Maintenance, Intervention) attach
+to — plus `SECONDARY_ORGANIZATION_SEEDS`: four lightweight, independent
+tenants so the organization switcher and any platform-level listing have
+more than one row, and the less common `OrganizationStatus`/plan/legal-type
+values are represented too:
+
+| Organization | Status | Plan | Members |
+| --- | --- | --- | --- |
+| Nova Sécurité Incendie | active | Pro | owner + 2 (cross-org with the main org's bulk pool) |
+| Groupe Vigilance Sécurité | active | Free | owner + 1 |
+| SafeGuard Consulting | suspended | Pro | owner + 1 |
+| Prévention Alpha | active | Free | owner only — a freshly onboarded, near-empty tenant for empty-state screens |
+
+None of the four get the rich Facility/Equipment/Intervention graph the main
+organization does — that stays scoped to `ORGANIZATION_ID` on purpose, so the
+other modules' integration tests keep their exact seeded counts. Each
+secondary organization's owner is a dedicated user
+(`UserFixtures::SECONDARY_ORG_OWNER_SEEDS`); the "extra" members reuse
+`UserFixtures::bulkStaffId()` ids already seeded for the main organization,
+demonstrating that one person can belong to more than one tenant.
+
 ## Notes
 
 - Auth identities stay in the auth database (`users`, tokens, sessions, etc.).
@@ -109,6 +146,95 @@ Doctrine tables are mapped in the main database:
   this is a UX safeguard rather than a security boundary, a mismatch is
   **not** written to the audit ledger (unlike the RBAC guards below, whose
   refusals ARE audited).
+- **Ownership transfer (P2.1) and self-removal / leave (P2.2)**:
+  `POST /organizations/{id}/transfer-ownership` (`TransferOrganizationOwnershipHandler`)
+  and `DELETE /organizations/{organizationId}/members/me`
+  (`LeaveOrganizationHandler`) are Presentation-only additions over an
+  already-landed Application slice; the handlers own every decision, the
+  processors only translate. **Existence/slug oracle closed**: the handler
+  resolves the acting user's OWN membership first — before the slug
+  confirmation is even looked at, and before the owner check.
+  A caller who is not an active member gets `OrganizationMemberNotFoundException`
+  (→ 404), byte-for-byte the same problem-details envelope (`@context`,
+  `@id`, `@type`, `title`, `status`, `type`) a nonexistent organization id
+  produces, so a stranger can neither confirm the organization exists nor
+  use the slug-mismatch response to validate guesses against it (see
+  `testTransferOwnershipRejectsNonMemberOfExistingOrganizationLikeANonexistentOne`
+  /`testTransferOwnershipRejectsNonexistentOrganizationWithTheSameShapeAsANonMember`
+  in `OrganizationApiTest`). An active member who is simply not the owner
+  legitimately already knows the organization exists, so THAT check —
+  and only then the slug confirmation — runs next: the current-owner check
+  (`OrganizationAccessDeniedException::ownershipTransferRequiresCurrentOwner()`
+  → 403) is intentionally independent of RBAC — no `organization.*`
+  permission substitutes for owning the organization — so
+  `TransferOrganizationOwnershipProcessor` does NOT call
+  `OrganizationAuthorizationPort::hasPermission()`, unlike every other
+  mutating organization endpoint. Transfer's danger-zone slug guard mirrors
+  DELETE's byte-for-byte (`OrganizationDeletionConfirmationMismatchException`
+  → 422), but carries `slug` in the request body instead of a query
+  parameter, since the request already has a JSON body for
+  `newOwnerUserId`. `OrganizationArchivedException` and
+  `OrganizationOwnershipUnchangedException` both map to 409 Conflict,
+  matching how `OrganizationArchivedException` is already mapped on
+  `PATCH /organizations/{id}` (persisted-state conflict, not a
+  confirmation failure). `OrganizationMemberNotFoundException` (transfer
+  target not an active member) also maps to 404, matching
+  `AssignOrganizationRoleToMemberProcessor`'s convention for the same
+  exception. **Admin-role grant is guard-checked and best-effort**: the new
+  owner is granted the system `admin` role, mirroring the owner-gets-admin
+  invariant `CreateOrganizationHandler` applies at creation, but ONLY after
+  `OrganizationPermissionGrantGuardPort::assertCanAssignRoles()` confirms
+  the acting (previous) owner still holds every permission that role
+  carries — the same no-privilege-escalation check
+  `AssignOrganizationRoleToMemberProcessor`/`AddOrganizationMemberProcessor`
+  already enforce, applied here from inside the handler rather than a
+  processor since the transfer must already have committed before this
+  step runs. The entire grant step (role lookup, guard, `assignRole`,
+  `OrganizationRoleAssignedEvent`) is wrapped in a single try/catch
+  `Throwable`: a missing `admin` system role, a guard refusal, or any
+  unexpected persistence failure is logged via `LoggerPort` and skipped —
+  never surfaced to the caller, since the ownership transfer itself was
+  already durably saved and its event dispatched before this step even
+  starts. **Output DTO choice**: `TransferOrganizationOwnershipResult`
+  carries only `organizationId`/`previousOwnerUserId`/`newOwnerUserId`/
+  `transferredAt` — not the full organization — so
+  `TransferOrganizationOwnershipProcessor` re-reads via `GetOrganizationQuery`
+  and returns `OrganizationOutput`, the same `buildOutput()` pattern
+  `UpdateOrganizationSettingsProcessor` and `ChangeOrganizationPlanProcessor`
+  already use for every other mutating organization operation, rather than
+  inventing a dedicated lean Output type. The operation declares
+  `status: 200` (not API Platform's POST default of 201): the call mutates
+  and returns an existing resource, it does not create one, matching the
+  200 every other mutating organization endpoint (`PATCH`) returns. Leave
+  reuses the SAME last-administrator guard `RemoveOrganizationMember`
+  already depends on (`OrganizationLastAdminGuardPort::assertCanRemoveMember`,
+  called from inside the handler here — unlike `RemoveOrganizationMemberProcessor`,
+  which calls it pre-dispatch in the processor) and additionally refuses the
+  organization's current owner
+  (`OrganizationOwnerCannotLeaveException::mustTransferOwnershipFirst()`),
+  checked BEFORE the last-admin guard so an owner who is also the sole
+  administrator gets the more actionable "transfer ownership first" message.
+  Both exceptions map to 409. **Route disambiguation**: `DELETE
+  /members/me` and `DELETE /members/{memberId}` share a path shape at the
+  same segment position; `REMOVE_ORGANIZATION_MEMBER`'s operation now
+  carries an explicit UUID `requirements: ['memberId' => '...']` (the same
+  pattern `AuditEventResource::GET` already uses for `{id}`) so `{memberId}`
+  can never match the literal string `me`, on top of `LEAVE_ORGANIZATION`
+  being declared first in `OrganizationMemberResource`'s operations array.
+  **Both processors dispatch through `CommandBusPort` and catch
+  `Shared\Application\Exception\MessengerRuntimeException`, unwrapping
+  `HandlerFailedException` to recover the domain exception** — the pattern
+  `DeleteOrganizationProcessor`/`UpdateOrganizationSettingsProcessor`/
+  `ChangeOrganizationPlanProcessor` use, and the one that actually works:
+  Symfony Messenger's `HandleMessageMiddleware` always wraps a handler's
+  thrown exception in `HandlerFailedException` before
+  `MessengerCommandBusAdapter::dispatch()` wraps THAT in
+  `MessengerRuntimeException`, so a processor that only catches the bare
+  domain exception (e.g. `RemoveOrganizationMemberProcessor`'s catch of
+  `OrganizationMemberNotFoundException`/`OrganizationNotFoundException`
+  straight off `commandBus->dispatch()`) never actually reaches that catch
+  clause in production — a pre-existing gap in this module worth revisiting,
+  not reproduced here.
 - Plan quotas are enforced INSIDE the create/invite/add handlers, in the same
   transaction as the insert, serialized per (organization, resource) by a
   Postgres transaction-scoped advisory lock (`OrganizationQuotaLockPort`; no-op
@@ -116,6 +242,118 @@ Doctrine tables are mapped in the main database:
   `AddOrganizationMemberCommand::$enforceQuota` is false only on the
   invitation-accept path, which counts active members only
   (`assertCanAcceptMember`) so the accepted invitation never blocks itself.
+  **`ReactivateOrganizationMember` (P2.3) is gated by the SAME member cap**:
+  reactivating a removed member brings the organization's active-member count
+  back up exactly like the re-add branch of `AddOrganizationMemberHandler`
+  does, so `ReactivateOrganizationMemberHandler` now also injects
+  `OrganizationQuotaPort`/`TransactionManagerPort` and calls
+  `assertCanAdd(…, OrganizationQuotaResource::MEMBERS)` inside the same
+  transaction that flips `isActive` and saves — mirroring the re-add path
+  rather than leaving reactivation as a quota-free backdoor around the cap
+  a direct `POST /members` re-add would have hit. `OrganizationQuotaExceededException`
+  maps to 409, same as everywhere else this exception surfaces. Covered by a
+  dedicated handler unit test (`ReactivateOrganizationMemberHandlerTest::testInvokeThrowsQuotaExceededAndLeavesTheMemberInactiveWhenTheMemberCapIsReached`);
+  not repeated as a functional test since the quota-summary/plan-catalog
+  scaffolding it would need is already exercised elsewhere.
+- **P2.3 member HTTP slice** (`GetOrganizationMember` provider,
+  `ReactivateOrganizationMember`/`SetOrganizationMemberRoles` processors):
+  all three dispatch through `CommandBusPort`/`QueryBusPort` and unwrap
+  `Shared\Application\Exception\MessengerRuntimeException` via the shared
+  `UnwrapsOrganizationQueryExceptions` trait (`GetOrganizationNavigationCountersProvider`'s
+  pattern) rather than catching the bare domain exception directly off
+  `dispatch()`/`ask()` — see the `RemoveOrganizationMemberProcessor` dead-catch
+  gap noted above; these three do NOT reproduce it. `GetOrganizationMember`
+  resolves by member id alone (it is also used cross-module by Intervention,
+  so its signature was not changed); the provider adds the organization-scope
+  check itself — a member that exists but belongs to a different organization
+  than the URL reads as 404, never a cross-tenant leak. `SetOrganizationMemberRoles`
+  replaces `SetOrganizationMemberRolesResult`'s two missing fields (`isActive`,
+  `joinedAt`) so its `OrganizationMemberOutput` is complete like every sibling
+  mutating-member endpoint's. `ListOrganizationMembersProvider` was rewritten
+  in the same change: it used to run `CollectionSearcher`/`CollectionSorter`/
+  `array_slice` over the FULL member list even after `ListOrganizationMembersHandler`
+  started honoring pagination — meaning every page after the first silently
+  returned page 1's rows again, and `totalItems` reflected the unfiltered
+  count. The provider now only extracts `search`/`status`/`roleId`/`order`/
+  `page`/`itemsPerPage` from the request and forwards them straight to
+  `ListOrganizationMembersQuery`, trusting the handler/repository the way
+  `ListUserOrganizationsProvider` already does; an invalid `status` value is
+  rejected with 422 before the query is even dispatched.
+- **P2.4 role HTTP slice** (role rename, `GetOrganizationRole` provider, real
+  role-list pagination): `UpdateOrganizationRoleCommand` gained an optional
+  `?name`; renaming a role reuses `CreateOrganizationRoleHandler`'s exact
+  uniqueness check (`OrganizationRoleRepositoryPort::findByOrganizationAndName`)
+  and the same `InvalidArgumentException('Role name already exists for this
+  organization.')`, and `UpdateOrganizationRoleHandler` refuses ANY change
+  (permissions, description, or name) to a system role with
+  `InvalidArgumentException('System roles cannot be modified.')` — both map to
+  HTTP 400 via `UpdateOrganizationRoleProcessor`'s existing generic
+  `InvalidArgumentException` catch, unchanged by this slice, mirroring how
+  `CreateOrganizationRoleProcessor` maps its own duplicate-name refusal.
+  **Known asymmetry**: a role id belonging to another organization than the
+  URL's is reported by the SAME `InvalidArgumentException('Role not found in
+  this organization.')` → 400 on `PATCH`, whereas the new `GET
+  .../roles/{roleId}` correctly reports `OrganizationRoleNotFoundException` →
+  404 for the identical case — predates this slice (the command/handler were
+  already landed), not changed here, and documented instead of silently
+  reproduced as if it were a 404
+  (`testUpdateRoleRejectsRoleInAnotherOrganization` in
+  `OrganizationRoleApiTest`). `GetOrganizationRoleProvider` mirrors
+  `GetOrganizationMemberProvider`'s `UnwrapsOrganizationQueryExceptions`
+  pattern for both `OrganizationNotFoundException` and
+  `OrganizationRoleNotFoundException`. **`ListOrganizationRolesProvider`
+  landmine fixed**: it used to fetch every role unpaginated and return a bare
+  array — API Platform then normalized it as a single, unpaginated page, so
+  `page`/`itemsPerPage` were silently ignored. `ListOrganizationRolesQuery`
+  gained an optional `?Pagination` (used by `ListOrganizationMembersProvider`'s
+  role-name lookup only when left `null`, which it still is — see the
+  query's own docblock), but this provider deliberately does NOT pass it:
+  unlike members, there is no search/sort push-down for roles at the
+  repository level, so pushing DB-side pagination before the provider's own
+  `CollectionSearcher`/`CollectionSorter` run would paginate the WRONG
+  (unfiltered, unsorted) set. The provider therefore still asks for the full,
+  unpaginated list, filters/sorts in memory exactly as before, and NOW also
+  slices the result for the requested page — `totalItems` is the count AFTER
+  search filtering, never the organization's raw role count. A role list is
+  small per organization, so the in-memory approach is a deliberate,
+  bounded choice, not a scalability compromise.
+- **P2.5**: `SuspendOrganization`/`RestoreOrganization` are dedicated
+  lifecycle endpoints layered over an already-landed Application slice — the
+  handlers are idempotent (`SuspendOrganizationHandler`/
+  `RestoreOrganizationHandler` no-op and skip the event dispatch when the
+  organization is already in the target state), so a second call still
+  returns HTTP 200 with the refreshed `OrganizationOutput`, never a 409.
+  **Both coexist with, and do not replace, the legacy `isActive` toggle** on
+  `PATCH /organizations/{id}` — that remains the third way to reach the same
+  two transitions. **Permission choice**: both require
+  `organization.settings.write`, deliberately the SAME permission the legacy
+  toggle already requires, rather than the stricter `organization.delete`
+  `DELETE /organizations/{id}` (archive) uses. Gating the dedicated endpoint
+  stricter than the legacy path that reaches the identical state transition
+  would be security theater — a caller blocked on `/suspend` could simply
+  PATCH `isActive: false` instead — so the two must agree; unlike archive,
+  suspend/restore neither hide data from the default listing nor require the
+  danger-zone slug confirmation, so `organization.delete`'s extra severity
+  was not warranted here. `RemoveOrganizationLogoCommand` is exposed as
+  `DELETE /organizations/{organizationId}/logo`, mirroring
+  `UploadOrganizationLogoProcessor`'s `organization.settings.write` gate;
+  `RemoveOrganizationLogoHandler` is idempotent when the organization already
+  has no logo (204, storage untouched, no event). All three new processors
+  follow the `rethrowDomainFailure`/`wrappedExceptions` unwrap pattern
+  `DeleteOrganizationProcessor`/`TransferOrganizationOwnershipProcessor`
+  already use (catch `MessengerRuntimeException`, walk
+  `HandlerFailedException::getWrappedExceptions()`), not the direct
+  bare-exception catch that produces a dead catch clause elsewhere in this
+  module. **Coarse-permission collapse**: because `hasPermission()` runs
+  BEFORE the command dispatch on all three endpoints, a caller with no
+  membership row in a given organization id always resolves zero
+  permissions — so a nonexistent organization and an existing one the caller
+  simply isn't part of both surface as the same 403, and
+  `OrganizationNotFoundException`'s 404 mapping in each processor is
+  effectively unreachable through HTTP for that caller shape (documented via
+  `testSuspendOrganizationRejectsNonexistentOrganization` and its restore/
+  logo-delete counterparts in `OrganizationApiTest`, rather than silently
+  omitted).
 - Role/permission writes are protected pre-dispatch by
   `OrganizationPermissionGrantGuardPort` (no privilege escalation) and
   `OrganizationLastAdminGuardPort` (no admin lockout, HTTP 409).

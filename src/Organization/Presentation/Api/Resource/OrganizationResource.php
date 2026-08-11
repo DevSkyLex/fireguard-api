@@ -7,13 +7,22 @@ namespace Organization\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Patch, Post};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, RequestBody, Response};
 use ArrayObject;
-use Organization\Presentation\Api\Dto\Input\Organization\{ChangeOrganizationPlanInput, CreateOrganizationInput, UpdateOrganizationSettingsInput};
+use Organization\Presentation\Api\Dto\Input\Organization\{
+  ChangeOrganizationPlanInput,
+  CreateOrganizationInput,
+  TransferOrganizationOwnershipInput,
+  UpdateOrganizationSettingsInput
+};
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationQuotaOutput};
 use Organization\Presentation\Api\Operation\OrganizationOperations;
 use Organization\Presentation\Api\Processor\Organization\{
   ChangeOrganizationPlanProcessor,
   CreateOrganizationProcessor,
   DeleteOrganizationProcessor,
+  RemoveOrganizationLogoProcessor,
+  RestoreOrganizationProcessor,
+  SuspendOrganizationProcessor,
+  TransferOrganizationOwnershipProcessor,
   UpdateOrganizationSettingsProcessor,
   UploadOrganizationLogoProcessor
 };
@@ -218,6 +227,29 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
         ],
       ),
     ),
+    new Post(
+      name: OrganizationOperations::TRANSFER_ORGANIZATION_OWNERSHIP,
+      uriTemplate: '/{id}/transfer-ownership',
+      status: HttpResponse::HTTP_OK,
+      input: TransferOrganizationOwnershipInput::class,
+      output: OrganizationOutput::class,
+      processor: TransferOrganizationOwnershipProcessor::class,
+      denormalizationContext: ['groups' => [OrganizationSerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Transfer Organization ownership',
+        description: 'Transfers ownership of the organization to another active member. Only the organization\'s CURRENT owner may call this — independent of RBAC permissions, since no permission grants the right to give away someone else\'s ownership. Requires a danger-zone confirmation: "slug" must exactly match the organization\'s current slug (case-insensitive, trimmed), mirroring DELETE /organizations/{id}. The new owner automatically receives the organization\'s system "admin" role if they do not already hold it.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Ownership transferred — refreshed organization output returned'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Caller is not the organization\'s current owner'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found, or the target user is not an active member'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Missing or mismatched slug confirmation'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Organization is archived, or the target user already owns the organization'),
+        ],
+      ),
+    ),
     new Delete(
       name: OrganizationOperations::DELETE_ORGANIZATION,
       uriTemplate: '/{id}',
@@ -243,6 +275,67 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
           HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Missing or mismatched slug confirmation'),
+        ],
+      ),
+    ),
+    new Post(
+      name: OrganizationOperations::SUSPEND_ORGANIZATION,
+      uriTemplate: '/{id}/suspend',
+      status: HttpResponse::HTTP_OK,
+      input: false,
+      output: OrganizationOutput::class,
+      processor: SuspendOrganizationProcessor::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Suspend Organization',
+        description: 'Suspends the organization as an explicit, dedicated action — coexists with (does not replace) the legacy isActive: false toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires. Idempotent when already suspended.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Organization suspended — refreshed organization output returned'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Organization is archived — restore it first'),
+        ],
+      ),
+    ),
+    new Post(
+      name: OrganizationOperations::RESTORE_ORGANIZATION,
+      uriTemplate: '/{id}/restore',
+      status: HttpResponse::HTTP_OK,
+      input: false,
+      output: OrganizationOutput::class,
+      processor: RestoreOrganizationProcessor::class,
+      normalizationContext: ['groups' => [OrganizationSerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Restore Organization',
+        description: 'Restores the organization to ACTIVE from SUSPENDED or ARCHIVED, as an explicit, dedicated action — coexists with (does not replace) the legacy isActive: true toggle on PATCH /organizations/{id}. Requires the organization.settings.write permission, the SAME permission the legacy toggle already requires. Idempotent when already active.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Organization restored — refreshed organization output returned'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+        ],
+      ),
+    ),
+    new Delete(
+      name: OrganizationOperations::REMOVE_ORGANIZATION_LOGO,
+      uriTemplate: '/{organizationId}/logo',
+      read: false,
+      input: false,
+      output: false,
+      processor: RemoveOrganizationLogoProcessor::class,
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Organization'],
+        summary: 'Remove Organization logo',
+        description: 'Removes the organization logo. Requires the organization.settings.write permission (the same permission required to upload it). Idempotent when the organization has no logo.',
+        responses: [
+          HttpResponse::HTTP_NO_CONTENT => new Response(description: 'Logo removed'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Organization is archived — restore it first'),
         ],
       ),
     ),

@@ -14,9 +14,12 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\UpdateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 use function array_map;
 use function is_string;
@@ -26,7 +29,7 @@ use function is_string;
  *
  * @category Processor
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  *
@@ -62,9 +65,15 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
   /**
    * Method process.
    *
-   * Processes API input and dispatches the corresponding command.
+   * Processes API input and dispatches the corresponding command. Symfony
+   * Messenger's `HandleMessageMiddleware` always wraps a handler-thrown
+   * exception in `HandlerFailedException` before
+   * `MessengerCommandBusAdapter::dispatch()` wraps THAT in
+   * `MessengerRuntimeException` — so the direct `catch` clauses below only
+   * cover a hypothetical bare throw; `rethrowDomainFailure()` is what
+   * actually maps the real runtime path.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    *
    * @param mixed $data the input data
    * @param Operation $operation the API operation metadata
@@ -102,6 +111,7 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
         organizationId: $organizationId,
         roleId: $roleId,
         permissions: $data->permissions,
+        name: $data->name,
         description: $data->description,
       ));
     } catch (OrganizationAccessDeniedException $exception) {
@@ -112,6 +122,10 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $this->rethrowDomainFailure($exception);
+
+      throw $exception;
     }
 
     $output = new OrganizationRoleOutput();
@@ -133,6 +147,65 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     $output->description = $result->description;
 
     return $output;
+  }
+
+  /**
+   * Method rethrowDomainFailure.
+   *
+   * Unwraps a messenger runtime failure and rethrows the matching HTTP
+   * error — the pattern `DeleteOrganizationProcessor`/
+   * `TransferOrganizationOwnershipProcessor` already use, and the one that
+   * actually works (see the class docblock on `process()`).
+   *
+   * @since 1.1.0
+   *
+   * @param Throwable $exception the caught runtime exception
+   */
+  private function rethrowDomainFailure(Throwable $exception): void
+  {
+    $current = $exception;
+
+    while (null !== $current) {
+      foreach ($this->wrappedExceptions($current) as $candidate) {
+        if ($candidate instanceof OrganizationAccessDeniedException) {
+          throw new AccessDeniedHttpException($candidate->getMessage(), $exception);
+        }
+
+        if ($candidate instanceof OrganizationLastAdminException) {
+          throw new ConflictHttpException($candidate->getMessage(), $exception);
+        }
+
+        if ($candidate instanceof OrganizationNotFoundException) {
+          throw new NotFoundHttpException($candidate->getMessage(), $exception);
+        }
+
+        if ($candidate instanceof InvalidArgumentException) {
+          throw new BadRequestHttpException($candidate->getMessage(), $exception);
+        }
+      }
+
+      $current = $current->getPrevious();
+    }
+  }
+
+  /**
+   * Method wrappedExceptions.
+   *
+   * Yields the exception itself and any handler-wrapped exceptions.
+   *
+   * @since 1.1.0
+   *
+   * @param Throwable $exception the exception to expand
+   *
+   * @return iterable<Throwable> the candidate exceptions
+   */
+  private function wrappedExceptions(Throwable $exception): iterable
+  {
+    yield $exception;
+
+    if ($exception instanceof HandlerFailedException) {
+      yield from $exception->getWrappedExceptions();
+    }
   }
   // #endregion
 }
