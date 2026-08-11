@@ -5,6 +5,8 @@ paths:
 
 # Presentation layer (API Platform)
 
+> Abridgement of the `api-platform-contract` skill — **change one, change both.**
+
 **Presentation translates; it never decides.** A processor unwraps an Input DTO, dispatches a command, and maps the Result to an Output DTO. The moment it branches on a business condition, that branch belongs in a handler.
 
 ## Every endpoint needs all six

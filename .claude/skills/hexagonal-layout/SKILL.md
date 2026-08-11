@@ -60,10 +60,23 @@ Forbidden: `<Sibling>\Domain\…` and `<Sibling>\Infrastructure\…`.
 To check a module in one command:
 
 ```bash
-grep -rn "use <Sibling>\\\\" src/<Module> --include=*.php | grep -v "Application\\\\\(Port\|Contract\)"
+grep -rnE '^use (SiblingA|SiblingB)[\](Domain|Infrastructure|Presentation)[\]' src/<Module> --include=*.php
 ```
 
-Anything it returns is a violation.
+List the forbidden layers **positively** rather than excluding the two allowed ones with a
+second `grep -v`: `Domain`, `Infrastructure` and `Presentation` are exactly the complement of
+`Application\{Port,Contract}`, and one grep that can be wrong beats two.
+
+Write the namespace separator as the bracket class `[\]`, in single quotes. It is not
+decoration: on this Windows/Git Bash setup a `\\`-style pattern loses a backslash before grep
+sees it. The BRE form that used to be here died with `grep: Unmatched ) or \)` and returned
+**nothing** — which, for a check whose empty result means "clean", is the worst possible
+failure. If this command ever prints a `grep:` error, its silence means nothing.
+
+**Expect a non-empty result.** The rule is the target state, not the current one: the
+repository carries 135 cross-module `Domain\` imports across 75 files, 44 of them in
+Application. Read the count as a baseline — what matters is a *new* row attributable to your
+change, not the backlog.
 
 ## Optional means optional
 

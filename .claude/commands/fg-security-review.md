@@ -21,6 +21,6 @@ Require it to check:
 8. **The Stripe webhook** — signature verified before parsing, idempotent on replay, amounts re-read from Stripe.
 9. **Rate limiting** on login, OTP, password reset, registration, token endpoints.
 
-Substantiate with `composer audit` and `php -d memory_limit=1G bin/console debug:firewall` — the resolved rules, since the **first matching** one wins and overlapping patterns rarely read the way they resolve.
+Substantiate with `composer audit` and `php -d memory_limit=1G bin/console debug:firewall`. That command lists **firewalls**, not `access_control` — firewalls match first-wins and match *before* access control runs, so read it for the pattern that swallows more than it looks like, then resolve `access_control` by hand against `security.yaml`.
 
 Ask for risks ranked **critical → high → medium → low**, each with the attacker path in one sentence, the fix, and **the regression test that must accompany it**. Require an explicit statement of what could not be verified — silence there reads as "safe".

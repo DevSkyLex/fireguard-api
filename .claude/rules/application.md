@@ -5,6 +5,8 @@ paths:
 
 # Application layer
 
+> Abridgement of the `usecase-patterns` skill — **change one, change both.**
+
 **Business logic lives in handlers.** _"Use cases are the single entry point for business logic"_ — a processor that decides anything has stolen the handler's job.
 
 - The Application layer may import `Domain` and `SharedDomain` only. A `use` of `Infrastructure\` or `Presentation\` is blocked by a PreToolUse hook and fails `make deptrac`.

@@ -17,7 +17,7 @@ description: How to test fireguard-sso-api — which level covers what, the test
 | **E2E** | `tests/E2E/…` | a full flow across several endpoints | yes |
 | **Architecture** | `tests/Architecture/…` | structural rules expressed as tests | no |
 
-The path mirrors `src/` **exactly**:
+Below `tests/Unit/`, the path mirrors `src/` **exactly**:
 
 ```text
 src/Facility/Application/UseCase/Command/Facility/ArchiveFacility/ArchiveFacilityHandler.php
@@ -25,6 +25,22 @@ tests/Unit/Facility/Application/UseCase/Command/Facility/ArchiveFacility/Archive
 ```
 
 **Minimum for a new endpoint**: a processor-or-provider unit test, a handler unit test, and a functional API test. Three.
+
+## What is already on disk, and what to copy from it
+
+`tests/` is not only the five levels above. Two shapes exist that the table does not describe, and neither is a precedent:
+
+- **`tests/Billing/**`** — a whole module's unit tests sitting *outside* `tests/Unit/`. Transitional. Put new unit tests under `tests/Unit/<Module>/`, Billing included.
+- **`tests/Functional/{Facility,Messaging,Notification,Organization,User,Console}/`** — per-module folders beside `Api/`. Endpoint-contract tests go in `tests/Functional/Api/`; these cover non-HTTP functional surfaces, console commands chief among them.
+
+Two more directories are neither levels nor deviations — they are the shared kit, and **the place to look before hand-rolling any double**:
+
+| Directory | Holds |
+| --- | --- |
+| `tests/Support/` | test doubles and infrastructure fakes — e.g. `FlushFailingEntityManager` for the persistence-failure path, `TestEventIdProvider` for deterministic event ids |
+| `tests/Helper/` | factories and builders — e.g. `UserTestFactory` |
+
+A fixture you invent that already exists there is the third copy of something that should have had one.
 
 ## The handler test
 

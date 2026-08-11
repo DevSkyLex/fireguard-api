@@ -135,7 +135,7 @@ test-cache-clean:
 
 # Load repository seed fixtures into auth and main databases safely
 seed-fixtures:
-	$(PHP) $(CONSOLE_BIN) app:fixtures:load --no-interaction
+	$(PHP) -d memory_limit=$(PHP_MEMORY_LIMIT) $(CONSOLE_BIN) app:fixtures:load --no-interaction
 
 test: cs-lint phpstan deptrac lint phpunit-parallel
 

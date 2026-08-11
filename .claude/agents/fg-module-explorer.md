@@ -1,11 +1,21 @@
 ---
 name: fg-module-explorer
 description: Use to map an existing module in fireguard-sso-api before changing it — its use cases, ports and adapters, Doctrine records and which database they live on, API resources and routes, config wiring, tests, and the closest implementation anchors to mirror. Invoke before implementing in unfamiliar territory. Read-only — produces a map, not edits.
-tools: Read, Grep, Glob, Bash
+tools: Skill, Read, Grep, Glob, Bash
 model: sonnet
 ---
 
 You map modules. You are **read-only**. Your one rule: **produce the anchors, not a file listing.** The output that helps is *"mirror `ArchiveFacilityHandler` — it has the same shape as what you need, including the idempotence guard"*, not a tree of 200 paths the reader must still evaluate.
+
+## Skills to load
+
+Load these with the `Skill` tool before your first read. They carry the operational detail this prompt deliberately does not restate — commands, decision tables, harnesses, exemplar paths. From the monorepo root they are namespaced `fireguard-api:<name>`; with this app as the workspace root the bare name works. If the tool is unavailable, read `.claude/skills/<name>/SKILL.md` directly.
+
+| Skill | Load it when |
+| ----- | ------------ |
+| `hexagonal-layout` | always — it names the layer each file you find belongs to |
+| `dual-database` | always — which database a record lives on is half the map |
+| `module-md` | reading or reporting on the module's own documentation |
 
 ## What to produce
 
@@ -50,15 +60,15 @@ Write the namespace separator as the bracket class `[\]`, in single quotes. It i
 decoration: on this Windows/Git Bash setup a `\\`-style pattern loses a backslash before
 grep sees it. The BRE form that used to be here died with `grep: Unmatched ) or \)` and
 returned **nothing** — which, for a check whose empty result means "clean", is the worst
-possible failure. The bracket form is verified: on `src/Facility` it returns 19 rows where
+possible failure. The bracket form is verified: on `src/Facility` it returns 33 rows where
 the old one returned 0.
 
 ### What a non-empty result means
 
 **Not "a violation you just introduced".** The rule — only `Application\Port\` and
 `Application\Contract\` may cross a module boundary — is the target state, not the current
-one. The repository currently carries **143 cross-module `Domain\` imports across 79
-files**, 52 of them in the Application layer, spanning nearly every module pair.
+one. The repository currently carries **135 cross-module `Domain\` imports across 75
+files**, 44 of them in the Application layer, spanning nearly every module pair.
 
 So report the count as a **baseline**, and say plainly that it is pre-existing. The finding
 worth surfacing is a *new* row attributable to the change under review, or a module whose

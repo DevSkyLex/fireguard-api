@@ -7,6 +7,9 @@ paths:
 
 # Service and package configuration
 
+> The entity-manager and migration halves abridge the `dual-database` skill —
+> **change one, change both.**
+
 ## The `$entityManager` argument — the silent bug
 
 **Every repository, processor, and provider that touches Doctrine must name its entity manager explicitly:**
@@ -33,7 +36,8 @@ The `alias:` binds the port; the `arguments:` above name the manager. A missing 
 ## security.yaml
 
 - A new module's endpoints deny by **explicit rule**, not by omission.
-- Access control is **first-match-wins**, and overlapping patterns rarely read the way they resolve. Verify with `php -d memory_limit=1G bin/console debug:firewall`, which shows what Symfony actually applies.
+- Access control is **first-match-wins**, and overlapping patterns rarely read the way they resolve. Resolve them by hand against `security.yaml` — `debug:firewall` does **not** do it for you; it prints firewalls (pattern, stateless, provider, entry point, authenticators), not `access_control`.
+- Check the firewall first anyway: firewalls also match first-wins, and they match **before** `access_control` is consulted. A firewall with `security: false` bypasses access control entirely.
 - Public endpoints stay explicit and few.
 
 ## Rate limiting

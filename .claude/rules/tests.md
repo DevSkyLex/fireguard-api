@@ -5,7 +5,9 @@ paths:
 
 # PHPUnit tests
 
-PHPUnit **12.5** with attributes (`#[Test]`, `#[DataProvider]`), not annotations. The test path mirrors `src/` exactly.
+> Abridgement of the `module-testing` skill — **change one, change both.**
+
+PHPUnit **12.5** with attributes (`#[Test]`, `#[DataProvider]`), not annotations. Below `tests/Unit/`, the path mirrors `src/`.
 
 | Level       | Path                     | Covers                                            | Database? |
 | ----------- | ------------------------ | ------------------------------------------------- | --------- |
@@ -15,6 +17,15 @@ PHPUnit **12.5** with attributes (`#[Test]`, `#[DataProvider]`), not annotations
 | E2E         | `tests/E2E/…`            | a flow across several endpoints                   | yes       |
 
 **Minimum for a new endpoint**: a processor-or-provider unit test, a handler unit test, and a functional API test. Three, not one.
+
+### Two deviations already on disk — do not copy either
+
+- **`tests/Billing/**`** holds a whole module's unit tests *outside* `tests/Unit/`. It is transitional. New unit tests go under `tests/Unit/<Module>/`, including new Billing ones.
+- **`tests/Functional/`** contains per-module folders (`Facility/`, `Messaging/`, `Notification/`, `Organization/`, `User/`, `Console/`) alongside `Api/`. Endpoint-contract tests belong in `tests/Functional/Api/`; the per-module folders cover non-HTTP functional surfaces such as console commands.
+
+### Check `tests/Support/` and `tests/Helper/` before writing a harness
+
+They already hold the fakes and factories — `FlushFailingEntityManager`, `UserTestFactory`, `TestEventIdProvider` among them. Reaching for a hand-rolled double without looking there first is how the third copy of a fixture gets written.
 
 ## The handler test
 

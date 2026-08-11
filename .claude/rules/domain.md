@@ -5,6 +5,8 @@ paths:
 
 # Domain layer
 
+> Abridgement of the Domain half of the `hexagonal-layout` skill — **change one, change both.**
+
 **The Domain depends on nothing.** Deptrac allows it exactly one edge — `SharedDomain`. A PreToolUse hook blocks a `use` of `Application\`, `Infrastructure\`, or `Presentation\` before deptrac ever runs.
 
 No Doctrine, no Symfony, no API Platform, no vendor SDK. That constraint is the point: a model that cannot reach a database cannot hide a query inside a business rule.

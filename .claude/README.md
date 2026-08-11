@@ -3,20 +3,29 @@
 This app ships its own `.claude/`. Open **`fireguard-sso-api/`** as the workspace root to
 activate it: 12 agents, 13 commands, 7 skills, 7 rules, 1 MCP server, and 2 hooks.
 
-> **This directory is also a plugin.** From the monorepo root,
-> `claude --plugin-dir ./fireguard-sso-api/.claude` loads the 12 agents and the commands
-> namespaced as `/fireguard-api:fg-usecase` and friends (~3 224 tokens per session, measured
-> with `claude plugin details`). It carries neither `.mcp.json` — a plugin reads it from the
-> plugin root, standalone needs it at the app root — nor `rules/`, which is not a plugin
-> component. Opening this directory as the workspace root remains the only way to get
+> **This directory is also a plugin.** The monorepo root installs it as
+> `fireguard-api@fireguard` (project scope, via the root `.claude-plugin/marketplace.json`),
+> so root sessions load the 12 agents, the commands namespaced as `/fireguard-api:fg-usecase`
+> and friends, the skills, and the hooks. It carries neither `.mcp.json` — a plugin reads it
+> from the plugin root, standalone needs it at the app root — nor `rules/`, which is not a
+> plugin component. Opening this directory as the workspace root remains the only way to get
 > everything. The manifest is `.claude-plugin/plugin.json`; plugin-mode hook wiring is
-> `hooks/hooks.json`. Nothing is duplicated between the two modes.
+> `hooks/hooks.json`. Nothing is duplicated between the two modes — but the install is a
+> **cached copy**: after changing tooling here, bump `version` in
+> `.claude-plugin/plugin.json` and run
+> `claude plugin update fireguard-api@fireguard --scope project` from the monorepo root.
 
 Cross-cutting and monorepo-level tooling stays at `G:\Projets\fireguard\.claude\` —
 `/fg-map` and `/fg-contract-check` (the API↔frontend drift check, the one agent that spans
 both apps).
 
 ## Agents
+
+Every agent is granted the `Skill` tool and opens with a **Skills to load** table naming which
+skills it must load and on what trigger. That is deliberate: the agent prompt states the
+_judgment_ (what to decide, in what order, what to hand off), the skill carries the
+_operational_ detail (commands, harnesses, decision tables). Neither restates the other, so
+neither drifts. From the monorepo root the skill names are namespaced `fireguard-api:<name>`.
 
 **Builders — they create code.** One per kind of unit in the hexagonal standard.
 
@@ -64,6 +73,24 @@ commands, templates, decision tables, exemplar paths — and cites `ARCHITECTURE
 _rule_. That split keeps `ARCHITECTURE.md` the single source of truth instead of creating a
 second one that drifts.
 
+### Where repetition *is* allowed, and the rule that keeps it honest
+
+The agent/skill split above holds. The layer **below** it does repeat: `rules/` are
+path-scoped, so they fire *without* the skill, and a rule that only pointed at one would carry
+nothing at the moment it is needed. Five of the seven therefore abridge a skill —
+`tests.md`→`module-testing`, `application.md`→`usecase-patterns`,
+`presentation.md`→`api-platform-contract`, `domain.md`→`hexagonal-layout`,
+`infrastructure.md`+`module-config.md`→`dual-database`.
+
+Each opens with **"Abridgement of the `<skill>` skill — change one, change both."** That line
+is the whole contract: it is not decoration, it is how the next editor learns a second copy
+exists. A restatement without the marker is a bug, and this repo has already paid for one — the
+claim that `debug:firewall` resolves `access_control` (it does not) lived in four files and was
+corrected in exactly one of them.
+
+The three deliberate dual-database repetitions noted below are a separate and defensible case:
+they say the same thing from different angles because the failure they prevent is silent.
+
 | Skill                   | Answers                                                                                         |
 | ----------------------- | ----------------------------------------------------------------------------------------------- |
 | `dual-database`         | which module lives on which database, the `$entityManager` wiring, migration commands, test DBs |
@@ -99,7 +126,7 @@ one defect that passes every static check and still corrupts data.
 | ---------- | ------------------------------ | ----- |
 | `context7` | `npx -y @upstash/context7-mcp` | 2     |
 
-**One, deliberately.** There is no PHP equivalent of the Angular/PrimeNG documentation
+**One, deliberately.** There is no PHP equivalent of the angular/spartan documentation
 servers the frontend uses: `symfony/mcp-bundle` exists to _expose_ an app as an MCP server,
 not to document Symfony, and the PHPStan MCP servers are unofficial and redundant with
 `make phpstan`. Context7 covers Symfony 7.4, Doctrine, API Platform, and PHPUnit

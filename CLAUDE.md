@@ -14,7 +14,11 @@
    in controllers. *"Use cases are the single entry point for business logic."*
 3. **Dependencies are one-way.** Presentation → Application → Domain · Infrastructure →
    Application (it implements the ports) · Domain depends on nothing but `SharedDomain`.
-   `make deptrac` enforces it, and a PreToolUse hook blocks the import first.
+   Two caveats worth knowing before you lean on the tooling: `deptrac.yaml` permits
+   `Presentation → Infrastructure` outright, and the PreToolUse hook guards only `Domain/`
+   and `Application/` files. Neither sees a **cross-module** edge at all — the collectors are
+   module-agnostic, so importing a sibling's `Domain\` or `Record` is green. That one is on
+   you and on the boundary grep (`hexagonal-layout` skill).
 4. **External dependencies go through ports.** A handler injects `…Port` interfaces from
    `Application/Port/`, never a Doctrine repository, an adapter, or an `EntityManagerInterface`.
 5. **Cross-module access is through `Application\Port\` and `Application\Contract\` only** —
@@ -115,12 +119,17 @@ them repeat the dual-database warning from different angles, on purpose.
 **Skills:** `dual-database`, `hexagonal-layout`, `usecase-patterns`, `api-platform-contract`,
 `module-testing`, `security-checklist`, `module-md`.
 
-**MCP:** `context7` only — there is no PHP equivalent of the frontend's Angular/PrimeNG
+**MCP:** `context7` only — there is no PHP equivalent of the frontend's angular/spartan
 documentation servers.
 
 Cross-app tooling stays at the monorepo root (`G:\Projets\fireguard\.claude\`): `/fg-map`
-and `/fg-contract-check`. **None of the agents above load from the monorepo root** — a
-`.claude/` is read from the workspace root.
+and `/fg-contract-check`. This `.claude/` is also packaged as the **`fireguard-api`
+plugin** (manifest `.claude/.claude-plugin/plugin.json`), installed at the monorepo root —
+root sessions load the agents, the commands as `/fireguard-api:fg-…`, the skills, and the
+hooks. Rules, permissions, and `.mcp.json` are not plugin components: they still load only
+when this app is the workspace root. The install is a cached copy — after changing anything
+under `.claude/`, bump the plugin `version` and run
+`claude plugin update fireguard-api@fireguard --scope project` from the monorepo root.
 
 `.github/` carries a separate **Copilot** toolset. It is deliberately independent of this
 one; a rule changed in one does not propagate to the other.

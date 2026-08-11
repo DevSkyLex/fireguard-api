@@ -5,6 +5,8 @@ paths:
 
 # Infrastructure layer
 
+> The entity-manager half abridges the `dual-database` skill — **change one, change both.**
+
 Infrastructure **implements the ports** the Application layer defines. It may depend on `Application`, `Domain`, and the `Shared*` layers — never on `Presentation`.
 
 - Adapters are `<Capability>Adapter`; persistence classes are `<Entity>Repository`.

@@ -1,8 +1,6 @@
 {
   "name": "fireguard-api",
-  "description": "FireGuard API (Symfony 7.4, hexagonal modulith) tooling — 6 unit builders, 6 specialists, 13 commands, 7 skills, and the layer-direction and migration guard hooks. Loadable from the monorepo root with --plugin-dir.",
-  "version": "1.0.0",
-  "author": {
-    "name": "Valentin FORTIN"
-  }
+  "version": "1.2.0",
+  "description": "FireGuard API tooling — hexagonal builders, reviewers, quality gate, and guard/format hooks for the Symfony backend. Plugin root is the app's .claude/, so agents/, commands/, skills/, and hooks/hooks.json are auto-discovered; installing this plugin from the monorepo root makes the backend tooling available there under the fireguard-api: namespace.",
+  "author": { "name": "Valentin FORTIN", "email": "contact@valentin-fortin.pro" }
 }

@@ -16,16 +16,22 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-// This file is `<app>/.claude/hooks/format.mjs`, so the app root is two levels up.
-// Deriving it from the script's own location rather than the payload cwd keeps the
-// hook correct in both modes: standalone (cwd IS the app root) and loaded as a plugin
-// from the monorepo root (cwd is the monorepo, and a cwd-based root would silently
-// find no vendor/bin/php-cs-fixer and turn the hook into a no-op).
-const APP_ROOT = path
-  .resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-  .replace(/\\/g, '/');
+// The app root is found by walking up FROM THE EDITED FILE until the fixer binary
+// appears. The script's own location cannot be used: `claude plugin install` COPIES
+// this .claude/ into ~/.claude/plugins/cache, so in plugin mode the running copy
+// lives nowhere near the app. Anchoring on the edited file works in both modes and
+// self-scopes the hook — a file outside this app never finds vendor/bin/php-cs-fixer
+// above it, and the hook stays a silent no-op.
+function findAppRoot(fromFile, markerSegments) {
+  let dir = path.dirname(path.resolve(fromFile));
+  for (;;) {
+    if (existsSync(path.join(dir, ...markerSegments))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
 const SKIP_SEGMENTS = ['/vendor/', '/var/', '/node_modules/', '/.git/'];
 
@@ -54,8 +60,8 @@ if (SKIP_SEGMENTS.some((seg) => normalized.includes(seg))) process.exit(0);
 if (path.extname(normalized).toLowerCase() !== '.php') process.exit(0);
 if (!/\/(src|tests)\//.test(normalized)) process.exit(0);
 
-const root = APP_ROOT;
-if (!existsSync(path.join(root, 'vendor', 'bin', 'php-cs-fixer'))) process.exit(0);
+const root = findAppRoot(filePath, ['vendor', 'bin', 'php-cs-fixer']);
+if (!root) process.exit(0);
 
 try {
   execFileSync('php', ['vendor/bin/php-cs-fixer', 'fix', filePath], {

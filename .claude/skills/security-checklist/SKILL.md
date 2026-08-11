@@ -45,7 +45,9 @@ php -d memory_limit=1G bin/console debug:firewall
 make deptrac
 ```
 
-`debug:firewall` shows access-control as Symfony **actually resolves it**, which is often not what `security.yaml` appears to say when patterns overlap — the **first matching** rule wins. Read the resolved output, not the file.
+**`debug:firewall` does not resolve `access_control`.** It prints each firewall's pattern, stateless flag, provider, entry point, and authenticator list — nothing more. Resolving which `access_control` rule applies to a path is manual work, and no console command does it for you.
+
+What the command *is* good for is the layer above: firewalls are **first-match-wins and they match before `access_control` is ever consulted**, so an unanchored pattern swallows more than it looks like, and a firewall with `security: false` runs an empty listener chain where `AccessListener` never executes at all. Read it for that, then resolve `access_control` yourself against `security.yaml`.
 
 `-d memory_limit=1G` is required; a bare console call runs out of memory building the container.
 
