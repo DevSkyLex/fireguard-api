@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Organization\Domain\Model\Organization;
 
 use DateTimeImmutable;
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationOwnershipUnchangedException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\ValueObject\{
   OrganizationApprovalSettings,
@@ -212,6 +213,39 @@ final class OrganizationTest extends TestCase
     $organization->restore();
     self::assertSame(OrganizationStatus::ACTIVE, $organization->status());
     self::assertFalse($organization->isArchived());
+  }
+
+  #[Test]
+  public function testTransferOwnershipAssignsNewOwnerAndTouchesUpdatedAt(): void
+  {
+    $organization = $this->reconstitutedOrganization();
+    $originalUpdatedAt = $organization->updatedAt();
+
+    $organization->transferOwnership('new-owner-id');
+
+    self::assertSame('new-owner-id', $organization->ownerUserId());
+    self::assertGreaterThan($originalUpdatedAt, $organization->updatedAt());
+  }
+
+  #[Test]
+  public function testTransferOwnershipRefusesTheCurrentOwner(): void
+  {
+    $organization = $this->reconstitutedOrganization();
+
+    $this->expectException(OrganizationOwnershipUnchangedException::class);
+
+    $organization->transferOwnership(self::OWNER_ID);
+  }
+
+  #[Test]
+  public function testTransferOwnershipRefusesWhenOrganizationIsArchived(): void
+  {
+    $organization = $this->reconstitutedOrganization();
+    $organization->archive();
+
+    $this->expectException(OrganizationArchivedException::class);
+
+    $organization->transferOwnership('new-owner-id');
   }
 
   #[Test]

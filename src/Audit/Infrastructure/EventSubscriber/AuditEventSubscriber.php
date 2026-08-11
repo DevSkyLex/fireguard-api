@@ -47,7 +47,7 @@ use OAuth\Domain\Event\Consent\ConsentGrantedEvent;
 use OAuth\Domain\Event\Token\{TokenIssueFailedEvent, TokenIssuedEvent, TokenRefreshFailedEvent, TokenRefreshedEvent, TokenRevokedEvent};
 use Organization\Domain\Event\Invitation\{OrganizationInvitationAcceptedEvent, OrganizationInvitationRevokedEvent, OrganizationInvitationSentEvent};
 use Organization\Domain\Event\Member\{OrganizationMemberAddedEvent, OrganizationMemberRemovedEvent};
-use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
+use Organization\Domain\Event\Organization\{OrganizationArchivedEvent, OrganizationCreatedEvent, OrganizationOwnershipTransferredEvent, OrganizationRestoredEvent, OrganizationSettingsUpdatedEvent, OrganizationSuspendedEvent};
 use Organization\Domain\Event\Plan\OrganizationPlanChangedEvent;
 use Organization\Domain\Event\Role\{OrganizationRoleAssignedEvent, OrganizationRoleCreatedEvent, OrganizationRoleDeletedEvent, OrganizationRoleUnassignedEvent, OrganizationRoleUpdatedEvent};
 use Organization\Domain\Event\Security\{OrganizationLastAdminLockoutPreventedEvent, OrganizationPermissionGrantDeniedEvent};
@@ -142,6 +142,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'organization.organization_invitation_accepted_event' => 'onOrganizationInvitationAccepted',
       'organization.organization_invitation_revoked_event' => 'onOrganizationInvitationRevoked',
       'organization.organization_plan_changed_event' => 'onOrganizationPlanChanged',
+      'organization.organization_ownership_transferred_event' => 'onOrganizationOwnershipTransferred',
       'organization.organization_permission_grant_denied_event' => 'onOrganizationPermissionGrantDenied',
       'organization.organization_last_admin_lockout_prevented_event' => 'onOrganizationLastAdminLockoutPrevented',
       'organization.team_created_event' => 'onTeamCreated',
@@ -923,6 +924,30 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'plan_id' => $event->planId,
         'previous_plan_id' => $event->previousPlanId,
         'over_quota_resources' => $event->overQuotaResources,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onOrganizationOwnershipTransferred.
+   *
+   * Records an organization ownership transfer.
+   *
+   * @since 1.0.0
+   *
+   * @param OrganizationOwnershipTransferredEvent $event the domain event
+   */
+  public function onOrganizationOwnershipTransferred(OrganizationOwnershipTransferredEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'organization.ownership_transferred',
+      organizationId: $event->organizationId,
+      subjectType: 'organization',
+      subjectId: $event->organizationId,
+      metadata: [
+        'previous_owner_user_id' => $event->previousOwnerUserId,
+        'new_owner_user_id' => $event->newOwnerUserId,
       ],
       occurredAt: $event->occurredAt,
     );

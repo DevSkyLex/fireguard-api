@@ -51,4 +51,22 @@ final class OrganizationAccessDeniedException extends RuntimeException
   {
     return new self(sprintf('Cannot grant permission "%s" that you do not hold.', $permission));
   }
+
+  /**
+   * Method ownershipTransferRequiresCurrentOwner.
+   *
+   * Creates an exception for an ownership transfer attempted by someone other
+   * than the organization's current owner. This check is intentionally
+   * independent from RBAC permissions: even a caller holding every
+   * organization.* permission cannot transfer ownership on the owner's
+   * behalf.
+   *
+   * @since 1.0.0
+   *
+   * @return self the exception instance
+   */
+  public static function ownershipTransferRequiresCurrentOwner(): self
+  {
+    return new self('Only the organization\'s current owner can transfer ownership.');
+  }
 }

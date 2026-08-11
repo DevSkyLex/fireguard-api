@@ -69,6 +69,7 @@ final class AuditEventSubscriberTest extends TestCase
       'organization.organization_invitation_accepted_event' => 'onOrganizationInvitationAccepted',
       'organization.organization_invitation_revoked_event' => 'onOrganizationInvitationRevoked',
       'organization.organization_plan_changed_event' => 'onOrganizationPlanChanged',
+      'organization.organization_ownership_transferred_event' => 'onOrganizationOwnershipTransferred',
       'organization.organization_permission_grant_denied_event' => 'onOrganizationPermissionGrantDenied',
       'organization.organization_last_admin_lockout_prevented_event' => 'onOrganizationLastAdminLockoutPrevented',
       'organization.team_created_event' => 'onTeamCreated',

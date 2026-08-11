@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Organization\Domain\Model\Organization;
 
 use DateTimeImmutable;
+use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationOwnershipUnchangedException};
 use Organization\Domain\ValueObject\{
   OrganizationApprovalSettings,
   OrganizationAssistantSettings,
@@ -269,6 +270,32 @@ final class Organization
   public function ownerUserId(): string
   {
     return $this->ownerUserId;
+  }
+
+  /**
+   * Method transferOwnership.
+   *
+   * Transfers ownership of the organization to another user.
+   *
+   * @since 1.5.0
+   *
+   * @param string $newOwnerUserId the user identifier of the new owner
+   *
+   * @throws OrganizationArchivedException when the organization is archived
+   * @throws OrganizationOwnershipUnchangedException when the new owner is already the current owner
+   */
+  public function transferOwnership(string $newOwnerUserId): void
+  {
+    if ($this->isArchived()) {
+      throw OrganizationArchivedException::cannotTransferOwnership();
+    }
+
+    if ($newOwnerUserId === $this->ownerUserId) {
+      throw OrganizationOwnershipUnchangedException::withOwnerUserId($newOwnerUserId);
+    }
+
+    $this->ownerUserId = $newOwnerUserId;
+    $this->touch();
   }
 
   /**
