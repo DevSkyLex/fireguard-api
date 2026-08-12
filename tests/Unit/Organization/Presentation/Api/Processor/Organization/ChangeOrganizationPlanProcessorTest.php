@@ -14,7 +14,7 @@ use Organization\Application\UseCase\Command\Organization\ChangeOrganizationPlan
   ChangeOrganizationPlanCommand,
   ChangeOrganizationPlanResult
 };
-use Organization\Application\UseCase\Query\Organization\GetOrganization\GetOrganizationResult;
+use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrganizationQuery, GetOrganizationResult};
 use Organization\Domain\Exception\{
   OrganizationNotFoundException,
   OrganizationPlanUsageExceededException,
@@ -319,6 +319,28 @@ final class ChangeOrganizationPlanProcessorTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(OrganizationNotFoundException::withId(self::ORGANIZATION_ID));
+
+    $processor = $this->createProcessor($commandBus, $queryBus);
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->planInput(), new Patch(), ['id' => self::ORGANIZATION_ID]);
+  }
+
+  #[Test]
+  public function testProcessThrowsNotFoundWhenTheRefreshedReadFailsWrappedInMessengerRuntimeException(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willReturn(new ChangeOrganizationPlanResult(
+      organizationId: self::ORGANIZATION_ID,
+      planId: self::PLAN_ID,
+    ));
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+    $queryBus->method('ask')->willThrowException(MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new GetOrganizationQuery(self::ORGANIZATION_ID)),
+      [OrganizationNotFoundException::withId(self::ORGANIZATION_ID)],
+    )));
 
     $processor = $this->createProcessor($commandBus, $queryBus);
 

@@ -10,6 +10,8 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -29,6 +31,21 @@ use function is_string;
  */
 final readonly class RemoveOrganizationMemberProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The direct `catch` clauses below cover the last-administrator guard,
+   * which runs in-process before dispatch and therefore throws bare.
+   * Everything the handler throws arrives wrapped in
+   * `MessengerRuntimeException` instead, and the clause using this trait is
+   * what maps it.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -92,6 +109,19 @@ final readonly class RemoveOrganizationMemberProcessor implements ProcessorInter
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (OrganizationMemberNotFoundException|OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
+      if (null !== $lastAdmin) {
+        throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     return null;

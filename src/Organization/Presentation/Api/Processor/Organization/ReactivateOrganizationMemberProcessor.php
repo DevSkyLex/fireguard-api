@@ -17,7 +17,7 @@ use Organization\Domain\Exception\{
   OrganizationQuotaExceededException
 };
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -40,7 +40,7 @@ final readonly class ReactivateOrganizationMemberProcessor implements ProcessorI
 {
   // #region Traits
   /**
-   * Trait UnwrapsOrganizationQueryExceptions.
+   * Trait UnwrapsOrganizationBusFailures.
    *
    * The command bus wraps every handler-thrown exception into
    * `MessengerRuntimeException` (see `MessengerCommandBusAdapter::dispatch()`),
@@ -51,9 +51,9 @@ final readonly class ReactivateOrganizationMemberProcessor implements ProcessorI
    * `DeleteOrganizationProcessor` and `GetOrganizationNavigationCountersProvider`
    * for the same pattern.
    *
-   * @see UnwrapsOrganizationQueryExceptions
+   * @see UnwrapsOrganizationBusFailures
    */
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
   // #endregion
 
   // #region Constructor

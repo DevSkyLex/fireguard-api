@@ -13,6 +13,8 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrga
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Infrastructure\Image\OrganizationLogoResizer;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -48,6 +50,19 @@ use function time;
  */
 final readonly class UploadOrganizationLogoProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * Both buses wrap every handler failure into `MessengerRuntimeException`,
+   * so the direct `catch` on the domain exception never fires for the real
+   * dispatch/ask paths — the clauses using this trait do.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constants
   /**
    * Constant MAX_FILE_SIZE.
@@ -183,10 +198,19 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
       time(),
     );
 
-    $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
-      organizationId: $organizationId,
-      logoUrl: $logoUrl,
-    ));
+    try {
+      $this->commandBus->dispatch(new UpdateOrganizationSettingsCommand(
+        organizationId: $organizationId,
+        logoUrl: $logoUrl,
+      ));
+    } catch (MessengerRuntimeException $exception) {
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      throw $exception;
+    }
 
     return $this->buildOutput($organizationId);
   }
@@ -209,6 +233,13 @@ final readonly class UploadOrganizationLogoProcessor implements ProcessorInterfa
       $result = $this->queryBus->ask(new GetOrganizationQuery($organizationId));
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $output = new OrganizationOutput();

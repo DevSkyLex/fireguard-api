@@ -14,9 +14,14 @@ use Organization\Presentation\Api\Processor\Organization\DeleteOrganizationRoleP
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 #[CoversClass(DeleteOrganizationRoleProcessor::class)]
 final class DeleteOrganizationRoleProcessorTest extends TestCase
@@ -135,7 +140,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
-      ->willThrowException(OrganizationRoleNotFoundException::withId('550e8400-e29b-41d4-a716-446655441411'));
+      ->willThrowException($this->wrapped(
+        OrganizationRoleNotFoundException::withId('550e8400-e29b-41d4-a716-446655441411'),
+        new DeleteOrganizationRoleCommand(
+          organizationId: '550e8400-e29b-41d4-a716-446655441410',
+          roleId: '550e8400-e29b-41d4-a716-446655441411',
+        ),
+      ));
 
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
@@ -145,6 +156,35 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     );
 
     $this->expectException(NotFoundHttpException::class);
+
+    $processor->process(null, new Delete(), [
+      'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
+      'roleId' => '550e8400-e29b-41d4-a716-446655441411',
+    ]);
+  }
+
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441400'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $processor = new DeleteOrganizationRoleProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
+      security: $security,
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $processor->process(null, new Delete(), [
       'organizationId' => '550e8400-e29b-41d4-a716-446655441410',
@@ -163,7 +203,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
-      ->willThrowException(new InvalidArgumentException('System roles cannot be deleted.'));
+      ->willThrowException($this->wrapped(
+        new InvalidArgumentException('System roles cannot be deleted.'),
+        new DeleteOrganizationRoleCommand(
+          organizationId: '550e8400-e29b-41d4-a716-446655441410',
+          roleId: '550e8400-e29b-41d4-a716-446655441411',
+        ),
+      ));
 
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
@@ -191,7 +237,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')
-      ->willThrowException(OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441410'));
+      ->willThrowException($this->wrapped(
+        OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441410'),
+        new DeleteOrganizationRoleCommand(
+          organizationId: '550e8400-e29b-41d4-a716-446655441410',
+          roleId: '550e8400-e29b-41d4-a716-446655441411',
+        ),
+      ));
 
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
@@ -251,6 +303,13 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
       roles: ['ROLE_USER'],
       scopes: [],
       isActive: true,
+    );
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
 }

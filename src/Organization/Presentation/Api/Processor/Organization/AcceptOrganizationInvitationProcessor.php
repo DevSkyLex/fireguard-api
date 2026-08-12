@@ -12,7 +12,8 @@ use Organization\Application\UseCase\Command\Organization\AcceptOrganizationInvi
 use Organization\Domain\Exception\{OrganizationInvitationNotFoundException, OrganizationNotFoundException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AcceptOrganizationInvitationInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -30,7 +31,7 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
  */
 final readonly class AcceptOrganizationInvitationProcessor implements ProcessorInterface
 {
-  use MessengerExceptionUnwrapperTrait;
+  use UnwrapsOrganizationBusFailures;
 
   // #region Constructor
   /**
@@ -88,19 +89,19 @@ final readonly class AcceptOrganizationInvitationProcessor implements ProcessorI
       // must be unwrapped here: the member cap (assertCanAcceptMember) maps to 409,
       // and the domain not-found / validation failures to 404 / 400 (the direct
       // catches above never fire for bus-dispatched errors).
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
+      $quotaExceeded = $this->findWrappedException($exception, OrganizationQuotaExceededException::class);
       if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
         throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
       }
 
-      $notFound = $this->findException($exception, OrganizationInvitationNotFoundException::class)
-        ?? $this->findException($exception, OrganizationNotFoundException::class)
-        ?? $this->findException($exception, OrganizationRoleNotFoundException::class);
+      $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
       if (null !== $notFound) {
         throw new NotFoundHttpException($notFound->getMessage(), $exception);
       }
 
-      $invalidArgument = $this->findException($exception, InvalidArgumentException::class);
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
       if ($invalidArgument instanceof InvalidArgumentException) {
         throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
       }

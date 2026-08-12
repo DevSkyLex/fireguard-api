@@ -12,7 +12,7 @@ use Organization\Application\UseCase\Query\Organization\GetOrganizationRole\{Get
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -36,7 +36,7 @@ final readonly class GetOrganizationRoleProvider implements ProviderInterface
 {
   // #region Traits
   /**
-   * Trait UnwrapsOrganizationQueryExceptions.
+   * Trait UnwrapsOrganizationBusFailures.
    *
    * The query bus wraps every handler-thrown exception into
    * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so a
@@ -45,9 +45,9 @@ final readonly class GetOrganizationRoleProvider implements ProviderInterface
    * the wrapped exception's `getPrevious()`/`HandlerFailedException` chain to
    * find the real domain exception underneath.
    *
-   * @see UnwrapsOrganizationQueryExceptions
+   * @see UnwrapsOrganizationBusFailures
    */
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
   // #endregion
 
   // #region Constructor

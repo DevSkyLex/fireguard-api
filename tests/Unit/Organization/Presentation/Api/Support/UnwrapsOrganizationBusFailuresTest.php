@@ -6,23 +6,23 @@ namespace Tests\Unit\Organization\Presentation\Api\Support;
 
 use InvalidArgumentException;
 use LogicException;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use PHPUnit\Framework\Attributes\{CoversTrait, Test};
 use PHPUnit\Framework\TestCase;
 use stdClass;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Tests\Unit\Organization\Presentation\Api\Support\Double\QueryExceptionUnwrapper;
+use Tests\Unit\Organization\Presentation\Api\Support\Double\BusFailureUnwrapper;
 
 /**
- * Test UnwrapsOrganizationQueryExceptions.
+ * Test UnwrapsOrganizationBusFailures.
  *
  * @category Test
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-#[CoversTrait(UnwrapsOrganizationQueryExceptions::class)]
-final class UnwrapsOrganizationQueryExceptionsTest extends TestCase
+#[CoversTrait(UnwrapsOrganizationBusFailures::class)]
+final class UnwrapsOrganizationBusFailuresTest extends TestCase
 {
   #[Test]
   public function testReturnsTheExceptionItselfWhenItAlreadyMatches(): void
@@ -61,8 +61,8 @@ final class UnwrapsOrganizationQueryExceptionsTest extends TestCase
   /**
    * Builds a host object exposing the trait helper.
    */
-  private function unwrapper(): QueryExceptionUnwrapper
+  private function unwrapper(): BusFailureUnwrapper
   {
-    return new QueryExceptionUnwrapper();
+    return new BusFailureUnwrapper();
   }
 }

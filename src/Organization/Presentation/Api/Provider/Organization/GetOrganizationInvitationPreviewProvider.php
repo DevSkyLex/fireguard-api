@@ -9,7 +9,8 @@ use ApiPlatform\State\ProviderInterface;
 use Organization\Application\UseCase\Query\Organization\GetOrganizationInvitationPreview\{GetOrganizationInvitationPreviewQuery, GetOrganizationInvitationPreviewResult};
 use Organization\Domain\Exception\OrganizationInvitationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationInvitationPreviewOutput;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -31,7 +32,7 @@ use function is_string;
  */
 final readonly class GetOrganizationInvitationPreviewProvider implements ProviderInterface
 {
-  use MessengerExceptionUnwrapperTrait;
+  use UnwrapsOrganizationBusFailures;
 
   // #region Constructor
   /**
@@ -82,7 +83,7 @@ final readonly class GetOrganizationInvitationPreviewProvider implements Provide
     } catch (OrganizationInvitationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $notFound = $this->findException($exception, OrganizationInvitationNotFoundException::class);
+      $notFound = $this->findWrappedException($exception, OrganizationInvitationNotFoundException::class);
       if (null !== $notFound) {
         throw new NotFoundHttpException($notFound->getMessage(), $exception);
       }

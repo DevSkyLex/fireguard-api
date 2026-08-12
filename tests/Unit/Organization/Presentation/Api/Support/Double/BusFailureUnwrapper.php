@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Presentation\Api\Support\Double;
 
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Throwable;
 
 /**
- * Test double exposing UnwrapsOrganizationQueryExceptions.
+ * Test double exposing UnwrapsOrganizationBusFailures.
  *
  * @category Test Double
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
-final class QueryExceptionUnwrapper
+final class BusFailureUnwrapper
 {
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
 
   /**
    * Finds the first wrapped exception of the expected class.

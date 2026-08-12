@@ -12,7 +12,8 @@ use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMemb
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\RemoveOrganizationMembersInput;
 use Organization\Presentation\Api\Dto\Output\Organization\RemoveOrganizationMembersOutput;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException};
@@ -36,7 +37,7 @@ use function is_string;
  */
 final readonly class RemoveOrganizationMembersProcessor implements ProcessorInterface
 {
-  use MessengerExceptionUnwrapperTrait;
+  use UnwrapsOrganizationBusFailures;
 
   // #region Constructor
   /**
@@ -112,8 +113,8 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
         ));
         $output->removedIds[] = $memberId;
       } catch (MessengerRuntimeException $exception) {
-        $domainException = $this->findException($exception, OrganizationMemberNotFoundException::class)
-          ?? $this->findException($exception, OrganizationNotFoundException::class);
+        $domainException = $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
+          ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
 
         if (null === $domainException) {
           throw $exception;

@@ -18,6 +18,8 @@ use Organization\Presentation\Api\Processor\Organization\RevokeOrganizationInvit
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
@@ -25,6 +27,9 @@ use Symfony\Component\HttpKernel\Exception\{
   BadRequestHttpException,
   NotFoundHttpException
 };
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 /**
  * Test RevokeOrganizationInvitationProcessorTest.
@@ -126,9 +131,14 @@ final class RevokeOrganizationInvitationProcessorTest extends TestCase
   public function testProcessMapsAMissingInvitationToHttp404(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
       OrganizationInvitationNotFoundException::withId(self::INVITATION_ID),
-    );
+      new RevokeOrganizationInvitationCommand(
+        organizationId: self::ORGANIZATION_ID,
+        invitationId: self::INVITATION_ID,
+        revokedByUserId: self::USER_ID,
+      ),
+    ));
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -139,11 +149,29 @@ final class RevokeOrganizationInvitationProcessorTest extends TestCase
   public function testProcessMapsAnInvalidArgumentToHttp400(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
       new InvalidArgumentException('The invitation was already accepted.'),
-    );
+      new RevokeOrganizationInvitationCommand(
+        organizationId: self::ORGANIZATION_ID,
+        invitationId: self::INVITATION_ID,
+        revokedByUserId: self::USER_ID,
+      ),
+    ));
 
     $this->expectException(BadRequestHttpException::class);
+
+    $this->createProcessor($commandBus)->process(null, new Post(), $this->uriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $this->createProcessor($commandBus)->process(null, new Post(), $this->uriVariables());
   }
@@ -203,6 +231,13 @@ final class RevokeOrganizationInvitationProcessorTest extends TestCase
       acceptedAt: null,
       revokedAt: new DateTimeImmutable('2026-01-03T00:00:00+00:00'),
       roleIds: ['role-1'],
+    );
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
   // #endregion

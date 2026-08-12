@@ -14,6 +14,8 @@ use Organization\Application\UseCase\Query\Team\GetTeam\{GetTeamQuery, GetTeamRe
 use Organization\Domain\Exception\{OrganizationNotFoundException, TeamNameAlreadyExistsException, TeamNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Team\UpdateTeamInput;
 use Organization\Presentation\Api\Dto\Output\Team\TeamOutput;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -33,6 +35,20 @@ use function is_string;
  */
 final readonly class UpdateTeamProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * Both the command and the query below run on a bus, and the adapters wrap
+   * every handler failure into `MessengerRuntimeException` — so the direct
+   * `catch` clauses only cover a bare in-process throw. The
+   * `MessengerRuntimeException` clause is what maps the real dispatch path.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -106,6 +122,24 @@ final readonly class UpdateTeamProcessor implements ProcessorInterface
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $nameConflict = $this->findWrappedException($exception, TeamNameAlreadyExistsException::class);
+      if (null !== $nameConflict) {
+        throw new ConflictHttpException($nameConflict->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, TeamNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $output = new TeamOutput();

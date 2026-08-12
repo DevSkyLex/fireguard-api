@@ -13,12 +13,11 @@ use Organization\Application\UseCase\Query\Organization\GetOrganization\{GetOrga
 use Organization\Domain\Exception\{OrganizationArchivedException, OrganizationNotFoundException};
 use Organization\Domain\ValueObject\OrganizationSettings;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationOutput, OrganizationSettingsOutput};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
-use Symfony\Component\Messenger\Exception\HandlerFailedException;
-use Throwable;
 
 use function is_string;
 
@@ -42,6 +41,20 @@ use function is_string;
  */
 final readonly class SuspendOrganizationProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The bus adapters wrap every handler failure into
+   * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
+   * bare in-process throw. The `MessengerRuntimeException` clauses using
+   * this trait are what map the real dispatch path.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -105,7 +118,15 @@ final readonly class SuspendOrganizationProcessor implements ProcessorInterface
     } catch (OrganizationArchivedException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      $this->rethrowDomainFailure($exception);
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $conflict = $this->findWrappedException($exception, OrganizationArchivedException::class);
+      if (null !== $conflict) {
+        throw new ConflictHttpException($conflict->getMessage(), $exception);
+      }
 
       throw $exception;
     }
@@ -161,52 +182,5 @@ final readonly class SuspendOrganizationProcessor implements ProcessorInterface
     return $output;
   }
 
-  /**
-   * Method rethrowDomainFailure.
-   *
-   * Unwraps a messenger runtime failure and rethrows the matching HTTP error.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the caught runtime exception
-   */
-  private function rethrowDomainFailure(Throwable $exception): void
-  {
-    $current = $exception;
-
-    while (null !== $current) {
-      foreach ($this->wrappedExceptions($current) as $candidate) {
-        if ($candidate instanceof OrganizationNotFoundException) {
-          throw new NotFoundHttpException($candidate->getMessage(), $exception);
-        }
-
-        if ($candidate instanceof OrganizationArchivedException) {
-          throw new ConflictHttpException($candidate->getMessage(), $exception);
-        }
-      }
-
-      $current = $current->getPrevious();
-    }
-  }
-
-  /**
-   * Method wrappedExceptions.
-   *
-   * Yields the exception itself and any handler-wrapped exceptions.
-   *
-   * @since 1.0.0
-   *
-   * @param Throwable $exception the exception to expand
-   *
-   * @return iterable<Throwable> the candidate exceptions
-   */
-  private function wrappedExceptions(Throwable $exception): iterable
-  {
-    yield $exception;
-
-    if ($exception instanceof HandlerFailedException) {
-      yield from $exception->getWrappedExceptions();
-    }
-  }
   // #endregion
 }

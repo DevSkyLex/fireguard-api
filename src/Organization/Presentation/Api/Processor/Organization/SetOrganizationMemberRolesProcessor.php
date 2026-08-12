@@ -18,7 +18,7 @@ use Organization\Domain\Exception\{
 };
 use Organization\Presentation\Api\Dto\Input\Organization\SetOrganizationMemberRolesInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -41,7 +41,7 @@ final readonly class SetOrganizationMemberRolesProcessor implements ProcessorInt
 {
   // #region Traits
   /**
-   * Trait UnwrapsOrganizationQueryExceptions.
+   * Trait UnwrapsOrganizationBusFailures.
    *
    * The command bus wraps every handler-thrown exception into
    * `MessengerRuntimeException` (see `MessengerCommandBusAdapter::dispatch()`),
@@ -53,9 +53,9 @@ final readonly class SetOrganizationMemberRolesProcessor implements ProcessorInt
    * for the same pattern — NOT `RemoveOrganizationMemberProcessor`'s direct
    * catches, which never fire.
    *
-   * @see UnwrapsOrganizationQueryExceptions
+   * @see UnwrapsOrganizationBusFailures
    */
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
   // #endregion
 
   // #region Constructor

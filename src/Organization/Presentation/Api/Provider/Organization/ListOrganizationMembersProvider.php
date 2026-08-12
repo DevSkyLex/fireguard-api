@@ -15,7 +15,7 @@ use Organization\Application\UseCase\Query\Organization\ListOrganizationMembers\
 use Organization\Application\UseCase\Query\Organization\ListOrganizationRoles\{ListOrganizationRolesQuery, ListOrganizationRolesResult};
 use Organization\Domain\Exception\OrganizationNotFoundException;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Contract\Pagination\{PaginatedResult, Pagination};
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
@@ -51,7 +51,7 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
 {
   // #region Traits
   /**
-   * Trait UnwrapsOrganizationQueryExceptions.
+   * Trait UnwrapsOrganizationBusFailures.
    *
    * The query bus wraps every handler-thrown exception into
    * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so a
@@ -60,9 +60,9 @@ final readonly class ListOrganizationMembersProvider implements ProviderInterfac
    * exception's `getPrevious()`/`HandlerFailedException` chain to find the
    * real domain exception underneath.
    *
-   * @see UnwrapsOrganizationQueryExceptions
+   * @see UnwrapsOrganizationBusFailures
    */
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
 
   /**
    * The `status` filter's allowed wire values — kept in lock-step with

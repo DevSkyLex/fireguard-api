@@ -120,6 +120,41 @@ demonstrating that one person can belong to more than one tenant.
 
 - Auth identities stay in the auth database (`users`, tokens, sessions, etc.).
 - Organization RBAC is contextual and evaluated through `OrganizationAuthorizationPort`.
+- **Bus failures are unwrapped, never caught bare (enforced).** Symfony
+  Messenger's `HandleMessageMiddleware` wraps whatever a handler throws in
+  `HandlerFailedException`, and `MessengerCommandBusAdapter::dispatch()` /
+  `MessengerQueryBusAdapter::ask()` wrap THAT in
+  `Shared\Application\Exception\MessengerRuntimeException`. A processor or
+  provider that writes `catch (SomeDomainException)` straight around
+  `dispatch()`/`ask()` therefore has a clause that never fires in production,
+  and the intended 404/409 degrades to a 500. **Every processor and provider
+  in this module catches `MessengerRuntimeException` and recovers the domain
+  exception through the module trait
+  `Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures`**
+  (`findWrappedException()`, which walks both the `getPrevious()` chain and
+  `HandlerFailedException::getWrappedExceptions()`). It is the module's single
+  unwrapper — do not add a second one, and do not use
+  `Shared\Application\Exception\MessengerExceptionUnwrapperTrait` here, whose
+  `getPrevious()`-only walk misses a multi-handler failure. Two rules for the
+  mapping order: keep domain-specific checks strictly BEFORE any bare
+  `\InvalidArgumentException` check, or an internal library failure becomes a
+  client 400; and keep the direct `catch` clauses in place wherever the
+  processor also calls a guard port before dispatching
+  (`OrganizationLastAdminGuardPort`, `OrganizationPermissionGrantGuardPort`),
+  because those run in-process and do arrive bare — both paths must stay
+  covered. `tests/Functional/Api/OrganizationDomainFailureMappingApiTest.php`
+  exercises this against a real bus and a real database and fails on a 500.
+- **Every mutating operation on a plain-class resource sets `read: false`.**
+  `OrganizationResource`, `OrganizationRoleResource`, `TeamResource` and their
+  siblings are plain DTO classes, not Doctrine entities. API Platform's default
+  pre-read step (`read: true`) sends `Patch`/`Put`/`Delete` through the generic
+  `ReadProvider` first; with no provider on the operation it resolves nothing
+  and throws `NotFoundHttpException` before the processor is ever called, so
+  the endpoint answers 404 for every request regardless of input. Any
+  operation carrying a `processor:` and no `provider:` must declare
+  `read: false` — this bit `UPDATE_ORGANIZATION_ROLE` and `UPDATE_TEAM`, both
+  now fixed and both covered by a functional test that asserts a 200 on the
+  success path.
 - `DELETE /organizations/{id}` is a reversible soft delete (archive): the record
   and all owned data (facilities, equipment, inspections, interventions, billing)
   are preserved; archived organizations are hidden from the default listing and
@@ -222,19 +257,10 @@ demonstrating that one person can belong to more than one tenant.
   can never match the literal string `me`, on top of `LEAVE_ORGANIZATION`
   being declared first in `OrganizationMemberResource`'s operations array.
   **Both processors dispatch through `CommandBusPort` and catch
-  `Shared\Application\Exception\MessengerRuntimeException`, unwrapping
-  `HandlerFailedException` to recover the domain exception** — the pattern
-  `DeleteOrganizationProcessor`/`UpdateOrganizationSettingsProcessor`/
-  `ChangeOrganizationPlanProcessor` use, and the one that actually works:
-  Symfony Messenger's `HandleMessageMiddleware` always wraps a handler's
-  thrown exception in `HandlerFailedException` before
-  `MessengerCommandBusAdapter::dispatch()` wraps THAT in
-  `MessengerRuntimeException`, so a processor that only catches the bare
-  domain exception (e.g. `RemoveOrganizationMemberProcessor`'s catch of
-  `OrganizationMemberNotFoundException`/`OrganizationNotFoundException`
-  straight off `commandBus->dispatch()`) never actually reaches that catch
-  clause in production — a pre-existing gap in this module worth revisiting,
-  not reproduced here.
+  `Shared\Application\Exception\MessengerRuntimeException`, unwrapping it
+  through the `UnwrapsOrganizationBusFailures` trait** — see the
+  module-wide bus-unwrapping rule below, which every processor and provider
+  in this module now follows.
 - Plan quotas are enforced INSIDE the create/invite/add handlers, in the same
   transaction as the insert, serialized per (organization, resource) by a
   Postgres transaction-scoped advisory lock (`OrganizationQuotaLockPort`; no-op
@@ -259,10 +285,9 @@ demonstrating that one person can belong to more than one tenant.
   `ReactivateOrganizationMember`/`SetOrganizationMemberRoles` processors):
   all three dispatch through `CommandBusPort`/`QueryBusPort` and unwrap
   `Shared\Application\Exception\MessengerRuntimeException` via the shared
-  `UnwrapsOrganizationQueryExceptions` trait (`GetOrganizationNavigationCountersProvider`'s
+  `UnwrapsOrganizationBusFailures` trait (`GetOrganizationNavigationCountersProvider`'s
   pattern) rather than catching the bare domain exception directly off
-  `dispatch()`/`ask()` — see the `RemoveOrganizationMemberProcessor` dead-catch
-  gap noted above; these three do NOT reproduce it. `GetOrganizationMember`
+  `dispatch()`/`ask()` — the module-wide rule stated below. `GetOrganizationMember`
   resolves by member id alone (it is also used cross-module by Intervention,
   so its signature was not changed); the provider adds the organization-scope
   check itself — a member that exists but belongs to a different organization
@@ -299,7 +324,7 @@ demonstrating that one person can belong to more than one tenant.
   reproduced as if it were a 404
   (`testUpdateRoleRejectsRoleInAnotherOrganization` in
   `OrganizationRoleApiTest`). `GetOrganizationRoleProvider` mirrors
-  `GetOrganizationMemberProvider`'s `UnwrapsOrganizationQueryExceptions`
+  `GetOrganizationMemberProvider`'s `UnwrapsOrganizationBusFailures`
   pattern for both `OrganizationNotFoundException` and
   `OrganizationRoleNotFoundException`. **`ListOrganizationRolesProvider`
   landmine fixed**: it used to fetch every role unpaginated and return a bare
@@ -338,13 +363,10 @@ demonstrating that one person can belong to more than one tenant.
   `DELETE /organizations/{organizationId}/logo`, mirroring
   `UploadOrganizationLogoProcessor`'s `organization.settings.write` gate;
   `RemoveOrganizationLogoHandler` is idempotent when the organization already
-  has no logo (204, storage untouched, no event). All three new processors
-  follow the `rethrowDomainFailure`/`wrappedExceptions` unwrap pattern
-  `DeleteOrganizationProcessor`/`TransferOrganizationOwnershipProcessor`
-  already use (catch `MessengerRuntimeException`, walk
-  `HandlerFailedException::getWrappedExceptions()`), not the direct
-  bare-exception catch that produces a dead catch clause elsewhere in this
-  module. **Coarse-permission collapse**: because `hasPermission()` runs
+  has no logo (204, storage untouched, no event). All three processors
+  follow the module-wide bus-unwrapping rule below (catch
+  `MessengerRuntimeException`, recover the domain exception through
+  `UnwrapsOrganizationBusFailures`). **Coarse-permission collapse**: because `hasPermission()` runs
   BEFORE the command dispatch on all three endpoints, a caller with no
   membership row in a given organization id always resolves zero
   permissions — so a nonexistent organization and an existing one the caller

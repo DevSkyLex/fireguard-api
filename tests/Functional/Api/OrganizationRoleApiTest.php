@@ -74,6 +74,65 @@ final class OrganizationRoleApiTest extends WebTestCase
     self::assertSame($roleId, $decoded['id'] ?? null);
   }
 
+  /**
+   * A permissions-only PATCH — no `name` key at all, so
+   * UpdateOrganizationRoleInput::$name stays null and the handler must leave
+   * the role's name alone. It also pins the response contract: the returned
+   * `permissions` array reflects the new list, not the stored one.
+   */
+  #[Test]
+  public function testUpdateRolePermissionsWithoutRenamingIt(): void
+  {
+    $client = static::createClient();
+    $entityManager = $this->entityManager();
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+
+    $organizationId = '550e8400-e29b-41d4-a716-447020000110';
+    $ownerUserId = '550e8400-e29b-41d4-a716-447020000111';
+    $roleId = '550e8400-e29b-41d4-a716-447020000112';
+    $memberId = '550e8400-e29b-41d4-a716-447020000114';
+
+    $organization = $this->seedOrganization($entityManager, $organizationId, $ownerUserId, $now);
+    $this->seedRole($entityManager, $organization, $roleId, ['organization.read'], $now, 'inspector');
+    $fullAccessRole = $this->seedFullAccessRole($entityManager, $organization, '550e8400-e29b-41d4-a716-447020000115', $now);
+    $member = $this->seedMember($entityManager, $organization, $memberId, $ownerUserId, true, $now);
+    $this->assignRole($entityManager, $member, $fullAccessRole, $now);
+    $entityManager->flush();
+
+    $client->loginUser($this->securityUser($ownerUserId), 'api');
+
+    $client->request(
+      method: 'PATCH',
+      uri: '/api/organizations/' . $organizationId . '/roles/' . $roleId,
+      server: ['CONTENT_TYPE' => 'application/merge-patch+json', 'HTTP_ACCEPT' => 'application/ld+json'],
+      content: (string) json_encode([
+        'permissions' => ['organization.read', 'organization.teams.read'],
+      ]),
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(
+      200,
+      $response->getStatusCode(),
+      'A permissions-only update should succeed. Response: ' . $response->getContent(),
+    );
+
+    $decoded = $this->decodeObject((string) $response->getContent());
+    self::assertSame($roleId, $decoded['id'] ?? null);
+    self::assertSame('inspector', $decoded['name'] ?? null);
+
+    self::assertArrayHasKey('permissions', $decoded);
+    self::assertIsArray($decoded['permissions']);
+
+    $permissionNames = [];
+    foreach ($decoded['permissions'] as $permission) {
+      self::assertIsArray($permission);
+      $permissionNames[] = $permission['name'] ?? null;
+    }
+
+    self::assertSame(['organization.read', 'organization.teams.read'], $permissionNames);
+  }
+
   #[Test]
   public function testUpdateRoleRenameRejectsDuplicateName(): void
   {

@@ -14,6 +14,8 @@ use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\CreateOrganizationRoleInput;
 use Organization\Presentation\Api\Dto\Output\Organization\{OrganizationPermissionOutput, OrganizationRoleOutput};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -34,6 +36,20 @@ use function is_string;
  */
 final readonly class CreateOrganizationRoleProcessor implements ProcessorInterface
 {
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The direct `catch` clauses below cover the grant guard, which runs
+   * in-process before dispatch and therefore throws bare. Everything the
+   * handler throws arrives wrapped in `MessengerRuntimeException` instead,
+   * and the clause using this trait is what maps it.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
+
   // #region Constructor
   /**
    * Constructor.
@@ -104,6 +120,23 @@ final readonly class CreateOrganizationRoleProcessor implements ProcessorInterfa
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
+    } catch (MessengerRuntimeException $exception) {
+      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
+      if (null !== $accessDenied) {
+        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
+      }
+
+      throw $exception;
     }
 
     $output = new OrganizationRoleOutput();

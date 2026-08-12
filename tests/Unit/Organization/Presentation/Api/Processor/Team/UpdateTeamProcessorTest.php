@@ -17,6 +17,8 @@ use Organization\Presentation\Api\Processor\Team\UpdateTeamProcessor;
 use PHPUnit\Framework\Attributes\{CoversClass, DataProvider, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\{CommandBusPort, QueryBusPort};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{
@@ -25,6 +27,9 @@ use Symfony\Component\HttpKernel\Exception\{
   ConflictHttpException,
   NotFoundHttpException
 };
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Throwable;
 
 /**
  * Test UpdateTeamProcessorTest.
@@ -141,9 +146,10 @@ final class UpdateTeamProcessorTest extends TestCase
   public function testProcessMapsADuplicateNameToHttp409(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
       TeamNameAlreadyExistsException::withName('Night shift'),
-    );
+      $this->updateTeamCommand(),
+    ));
 
     $this->expectException(ConflictHttpException::class);
 
@@ -154,7 +160,10 @@ final class UpdateTeamProcessorTest extends TestCase
   public function testProcessMapsAMissingTeamToHttp404(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(TeamNotFoundException::withId(self::TEAM_ID));
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
+      TeamNotFoundException::withId(self::TEAM_ID),
+      $this->updateTeamCommand(),
+    ));
 
     $this->expectException(NotFoundHttpException::class);
 
@@ -165,9 +174,25 @@ final class UpdateTeamProcessorTest extends TestCase
   public function testProcessMapsAnInvalidArgumentToHttp400(): void
   {
     $commandBus = $this->createStub(CommandBusPort::class);
-    $commandBus->method('dispatch')->willThrowException(new InvalidArgumentException('Name cannot be blank.'));
+    $commandBus->method('dispatch')->willThrowException($this->wrapped(
+      new InvalidArgumentException('Name cannot be blank.'),
+      $this->updateTeamCommand(),
+    ));
 
     $this->expectException(BadRequestHttpException::class);
+
+    $this->createProcessor($commandBus)->process(new UpdateTeamInput(), new Patch(), $this->uriVariables());
+  }
+
+  #[Test]
+  public function testProcessRethrowsMessengerFailureWhenNoDomainExceptionIsRecognised(): void
+  {
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(new RuntimeException('Bus transport is down.')),
+    );
+
+    $this->expectException(MessengerRuntimeException::class);
 
     $this->createProcessor($commandBus)->process(new UpdateTeamInput(), new Patch(), $this->uriVariables());
   }
@@ -230,6 +255,18 @@ final class UpdateTeamProcessorTest extends TestCase
       memberCount: 4,
       createdAt: new DateTimeImmutable('2026-01-01T00:00:00+00:00'),
       updatedAt: new DateTimeImmutable('2026-01-02T00:00:00+00:00'),
+    );
+  }
+
+  private function updateTeamCommand(): UpdateTeamCommand
+  {
+    return new UpdateTeamCommand(organizationId: self::ORGANIZATION_ID, teamId: self::TEAM_ID);
+  }
+
+  private function wrapped(Throwable $domainFailure, object $message): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(
+      new HandlerFailedException(new Envelope($message), [$domainFailure]),
     );
   }
   // #endregion

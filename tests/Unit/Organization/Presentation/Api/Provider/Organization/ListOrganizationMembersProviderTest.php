@@ -275,7 +275,7 @@ final class ListOrganizationMembersProviderTest extends TestCase
       // MessengerQueryBusAdapter::ask()) — a raw OrganizationNotFoundException
       // never reaches the provider, so mocking that directly would lock in
       // ListOrganizationMembersProvider's own dead-catch bug instead of
-      // testing the UnwrapsOrganizationQueryExceptions path it actually uses.
+      // testing the UnwrapsOrganizationBusFailures path it actually uses.
       ->willThrowException(MessengerRuntimeException::wrap(OrganizationNotFoundException::withId($organizationId)));
 
     $provider = new ListOrganizationMembersProvider(

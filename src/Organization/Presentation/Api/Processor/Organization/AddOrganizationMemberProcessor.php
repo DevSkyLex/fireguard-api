@@ -13,7 +13,8 @@ use Organization\Application\UseCase\Command\Organization\AddOrganizationMember\
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationNotFoundException, OrganizationQuotaExceededException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Dto\Input\Organization\AddOrganizationMemberInput;
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationMemberOutput;
-use Shared\Application\Exception\{MessengerExceptionUnwrapperTrait, MessengerRuntimeException};
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
+use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException};
@@ -33,7 +34,19 @@ use function is_string;
  */
 final readonly class AddOrganizationMemberProcessor implements ProcessorInterface
 {
-  use MessengerExceptionUnwrapperTrait;
+  // #region Traits
+  /**
+   * Trait UnwrapsOrganizationBusFailures.
+   *
+   * The direct `catch` clauses below cover the grant guard, which runs
+   * in-process before dispatch and therefore throws bare. Everything the
+   * handler throws arrives wrapped in `MessengerRuntimeException` instead,
+   * and the clause using this trait is what maps it.
+   *
+   * @see UnwrapsOrganizationBusFailures
+   */
+  use UnwrapsOrganizationBusFailures;
+  // #endregion
 
   // #region Constructor
   /**
@@ -108,11 +121,27 @@ final readonly class AddOrganizationMemberProcessor implements ProcessorInterfac
     } catch (InvalidArgumentException $exception) {
       throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
-      // The member cap is now enforced inside the handler transaction, so its
-      // 409 arrives wrapped by the bus and must be unwrapped here.
-      $quotaExceeded = $this->findException($exception, OrganizationQuotaExceededException::class);
-      if ($quotaExceeded instanceof OrganizationQuotaExceededException) {
+      // Everything the handler throws arrives wrapped by the bus, so each
+      // mapping declared above has to be recovered here as well.
+      $quotaExceeded = $this->findWrappedException($exception, OrganizationQuotaExceededException::class);
+      if (null !== $quotaExceeded) {
         throw new ConflictHttpException($quotaExceeded->getMessage(), $exception);
+      }
+
+      $accessDenied = $this->findWrappedException($exception, OrganizationAccessDeniedException::class);
+      if (null !== $accessDenied) {
+        throw new AccessDeniedHttpException($accessDenied->getMessage(), $exception);
+      }
+
+      $notFound = $this->findWrappedException($exception, OrganizationNotFoundException::class)
+        ?? $this->findWrappedException($exception, OrganizationRoleNotFoundException::class);
+      if (null !== $notFound) {
+        throw new NotFoundHttpException($notFound->getMessage(), $exception);
+      }
+
+      $invalidArgument = $this->findWrappedException($exception, InvalidArgumentException::class);
+      if (null !== $invalidArgument) {
+        throw new BadRequestHttpException($invalidArgument->getMessage(), $exception);
       }
 
       throw $exception;

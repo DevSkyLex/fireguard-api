@@ -248,6 +248,42 @@ final class InviteOrganizationMemberProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testProcessMapsAWrappedAccessDeniedToHttp403(): void
+  {
+    $processor = $this->processorWithFailingCommandBus($this->wrapped(
+      OrganizationAccessDeniedException::cannotGrantPermission('organization.*'),
+    ));
+
+    $this->expectException(AccessDeniedHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedMissingOrganizationToHttp404(): void
+  {
+    $processor = $this->processorWithFailingCommandBus($this->wrapped(
+      OrganizationNotFoundException::withId('550e8400-e29b-41d4-a716-446655441931'),
+    ));
+
+    $this->expectException(NotFoundHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
+  public function testProcessMapsAWrappedInvalidArgumentToHttp400(): void
+  {
+    $processor = $this->processorWithFailingCommandBus($this->wrapped(
+      new InvalidArgumentException('The email is malformed.'),
+    ));
+
+    $this->expectException(BadRequestHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441931']);
+  }
+
+  #[Test]
   public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
   {
     $failure = MessengerRuntimeException::wrap(new RuntimeException('the invitation store is offline'));
@@ -275,6 +311,21 @@ final class InviteOrganizationMemberProcessorTest extends TestCase
       grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
       security: $security,
     );
+  }
+
+  /**
+   * Wraps a domain failure exactly as the command bus adapter does at runtime.
+   */
+  private function wrapped(Throwable $domainFailure): MessengerRuntimeException
+  {
+    return MessengerRuntimeException::wrap(new HandlerFailedException(
+      new Envelope(new InviteOrganizationMemberCommand(
+        organizationId: '550e8400-e29b-41d4-a716-446655441931',
+        email: 'member@example.com',
+        invitedByUserId: '550e8400-e29b-41d4-a716-446655441930',
+      )),
+      [$domainFailure],
+    ));
   }
 
   private function createInput(): InviteOrganizationMemberInput

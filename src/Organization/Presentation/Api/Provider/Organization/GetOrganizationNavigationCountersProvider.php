@@ -10,7 +10,7 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Organization\Application\UseCase\Query\Organization\GetNavigationCounters\{GetNavigationCountersQuery, GetNavigationCountersResult};
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Presentation\Api\Dto\Output\Organization\OrganizationNavigationCountersOutput;
-use Organization\Presentation\Api\Support\UnwrapsOrganizationQueryExceptions;
+use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -33,7 +33,7 @@ final readonly class GetOrganizationNavigationCountersProvider implements Provid
 {
   // #region Traits
   /**
-   * Trait UnwrapsOrganizationQueryExceptions.
+   * Trait UnwrapsOrganizationBusFailures.
    *
    * The query bus wraps every handler-thrown exception into
    * `MessengerRuntimeException` (see `MessengerQueryBusAdapter::ask()`), so
@@ -43,9 +43,9 @@ final readonly class GetOrganizationNavigationCountersProvider implements Provid
    * exception's `getPrevious()`/`HandlerFailedException` chain to find the
    * real domain exception underneath.
    *
-   * @see UnwrapsOrganizationQueryExceptions
+   * @see UnwrapsOrganizationBusFailures
    */
-  use UnwrapsOrganizationQueryExceptions;
+  use UnwrapsOrganizationBusFailures;
   // #endregion
 
   // #region Constructor
