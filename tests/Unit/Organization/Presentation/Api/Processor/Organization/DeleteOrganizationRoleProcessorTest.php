@@ -7,7 +7,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort};
 use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\DeleteOrganizationRoleProcessor;
@@ -35,7 +35,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -56,7 +55,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -81,7 +79,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -117,7 +114,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -151,7 +147,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -180,7 +175,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -214,7 +208,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -248,7 +241,6 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -260,6 +252,11 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     ]);
   }
 
+  /**
+   * The last-administrator refusal is raised by the handler, inside its own
+   * transaction, so it reaches this processor wrapped by the command bus and
+   * has to be recovered through the module unwrapper to keep the 409.
+   */
   #[Test]
   public function testProcessThrowsConflictWhenDeletingLastAdminRole(): void
   {
@@ -269,20 +266,21 @@ final class DeleteOrganizationRoleProcessorTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::once())
-      ->method('assertCanDeleteRole')
-      ->willThrowException(OrganizationLastAdminException::cannotUnassignLastAdminRole());
-
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException($this->wrapped(
+        OrganizationLastAdminException::cannotUnassignLastAdminRole(),
+        new DeleteOrganizationRoleCommand(
+          organizationId: '550e8400-e29b-41d4-a716-446655441410',
+          roleId: '550e8400-e29b-41d4-a716-446655441411',
+        ),
+      ));
 
     $processor = new DeleteOrganizationRoleProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $lastAdminGuard,
       security: $security,
     );
 

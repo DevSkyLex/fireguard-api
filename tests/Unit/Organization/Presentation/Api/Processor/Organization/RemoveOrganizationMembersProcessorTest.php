@@ -222,6 +222,25 @@ final class RemoveOrganizationMembersProcessorTest extends TestCase
     );
   }
 
+  /**
+   * The batch pre-check is advisory and unlocked; each removal re-runs the
+   * guard under the advisory lock inside its own handler transaction. A refusal
+   * arriving mid-batch is therefore a 409 about the invariant, not a per-id
+   * failure — tallying it into failedIds would report a partial success and
+   * hide the lockout that stopped the batch.
+   */
+  #[Test]
+  public function testProcessThrowsConflictWhenAMidBatchRemovalIsRefusedByTheLastAdminGuard(): void
+  {
+    $processor = $this->processorWithFailingCommandBus(MessengerRuntimeException::wrap(
+      OrganizationLastAdminException::cannotRemoveLastAdmin(),
+    ));
+
+    $this->expectException(ConflictHttpException::class);
+
+    $processor->process($this->createInput(), new Post(), ['organizationId' => '550e8400-e29b-41d4-a716-446655441610']);
+  }
+
   #[Test]
   public function testProcessRethrowsAnUnrecognisedMessengerFailure(): void
   {

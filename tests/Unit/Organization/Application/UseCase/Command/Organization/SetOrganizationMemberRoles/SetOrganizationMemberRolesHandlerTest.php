@@ -41,6 +41,16 @@ final class SetOrganizationMemberRolesHandlerTest extends TestCase
 
   private const string OTHER_ORG_ID = '550e8400-e29b-41d4-a716-446655480699';
 
+  /**
+   * True while the recording transaction manager is running its closure, so a
+   * collaborator can record whether it was invoked inside the transaction.
+   */
+  private bool $insideTransaction = false;
+
+  private bool $guardRanInsideTransaction = false;
+
+  private bool $unassignRanInsideTransaction = false;
+
   #[Test]
   public function testInvokeAssignsAndUnassignsExactlyTheDiffAndDispatchesOneEventPerChange(): void
   {
@@ -528,6 +538,87 @@ final class SetOrganizationMemberRolesHandlerTest extends TestCase
       memberId: self::MEMBER_ID,
       roleIds: [],
     ));
+  }
+
+  /**
+   * The last-administrator census must run INSIDE the unit-of-work closure. The
+   * advisory lock the guard takes is transaction-scoped, so a guard loop placed
+   * before the closure releases its lock before the unassignment commits and a
+   * concurrent removal can still strip the final administrator.
+   */
+  #[Test]
+  public function testInvokeRunsLastAdminGuardInsideTheTransaction(): void
+  {
+    $organization = $this->organization();
+    $member = $this->activeMember();
+
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('findById')->willReturn($member);
+    $memberRepository->method('findRoleIdsForMember')->willReturn([self::UNASSIGNED_ROLE_ID]);
+    $memberRepository->expects(self::once())->method('unassignRole')->willReturnCallback(
+      function (): void {
+        $this->unassignRanInsideTransaction = $this->insideTransaction;
+      },
+    );
+
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findByIdsInOrganization')->willReturn([]);
+
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())->method('assertCanUnassignRole')->willReturnCallback(
+      function (): void {
+        $this->guardRanInsideTransaction = $this->insideTransaction;
+      },
+    );
+
+    $transactionManager = $this->recordingTransactionManager();
+
+    $handler = new SetOrganizationMemberRolesHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      roleRepository: $roleRepository,
+      grantGuard: $this->createStub(OrganizationPermissionGrantGuardPort::class),
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $transactionManager,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+    );
+
+    $handler->__invoke(new SetOrganizationMemberRolesCommand(
+      organizationId: self::ORG_ID,
+      actingUserId: self::ACTOR_ID,
+      memberId: self::MEMBER_ID,
+      roleIds: [],
+    ));
+
+    self::assertTrue($this->guardRanInsideTransaction, 'the last-administrator census must run inside the transaction');
+    self::assertTrue($this->unassignRanInsideTransaction, 'the unassignment must commit under the lock the census took');
+  }
+
+  /**
+   * A transaction manager that flags the window during which its closure runs,
+   * so a collaborator can record whether it was reached inside the transaction.
+   */
+  private function recordingTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      function (callable $operation): mixed {
+        $this->insideTransaction = true;
+
+        try {
+          return $operation();
+        } finally {
+          $this->insideTransaction = false;
+        }
+      },
+    );
+
+    return $transactionManager;
   }
 
   /**

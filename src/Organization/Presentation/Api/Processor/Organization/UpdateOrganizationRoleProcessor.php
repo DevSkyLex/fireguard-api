@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort, OrganizationPermissionGrantGuardPort};
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationPermissionGrantGuardPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleResult};
 use Organization\Domain\Catalog\OrganizationPermissionCatalog;
 use Organization\Domain\Exception\{OrganizationAccessDeniedException, OrganizationLastAdminException, OrganizationNotFoundException};
@@ -43,8 +43,11 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
    *
    * The bus adapters wrap every handler failure into
    * `MessengerRuntimeException`, so the direct `catch` clauses only cover a
-   * bare in-process throw. The `MessengerRuntimeException` clauses using
-   * this trait are what map the real dispatch path.
+   * bare in-process throw — here, the no-privilege-escalation grant guard,
+   * which is a pure read of the caller's own permissions and stays
+   * pre-dispatch. The last-administrator refusal is NOT among them any more:
+   * that check moved inside the handler transaction and arrives wrapped, so
+   * the `MessengerRuntimeException` clauses using this trait are what map it.
    *
    * @see UnwrapsOrganizationBusFailures
    */
@@ -68,7 +71,6 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
     private OrganizationPermissionGrantGuardPort $grantGuard,
-    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -118,7 +120,6 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
 
     try {
       $this->grantGuard->assertCanGrantPermissions($user->getId(), $organizationId, $data->permissions);
-      $this->lastAdminGuard->assertCanUpdateRolePermissions($organizationId, $roleId, $data->permissions);
 
       /** @var UpdateOrganizationRoleResult $result */
       $result = $this->commandBus->dispatch(new UpdateOrganizationRoleCommand(
@@ -130,8 +131,6 @@ final readonly class UpdateOrganizationRoleProcessor implements ProcessorInterfa
       ));
     } catch (OrganizationAccessDeniedException $exception) {
       throw new AccessDeniedHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
     } catch (OrganizationNotFoundException $exception) {
       throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (InvalidArgumentException $exception) {

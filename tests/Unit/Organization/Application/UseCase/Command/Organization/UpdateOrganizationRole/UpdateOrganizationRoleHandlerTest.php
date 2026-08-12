@@ -6,16 +6,18 @@ namespace Tests\Unit\Organization\Application\UseCase\Command\Organization\Updat
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\{UpdateOrganizationRoleCommand, UpdateOrganizationRoleHandler, UpdateOrganizationRoleResult};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
-use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationName, OrganizationRoleId, OrganizationRoleName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 
 #[CoversClass(UpdateOrganizationRoleHandler::class)]
 final class UpdateOrganizationRoleHandlerTest extends TestCase
@@ -23,6 +25,16 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655440400';
 
   private const string ROLE_ID = '550e8400-e29b-41d4-a716-446655440402';
+
+  /**
+   * True while the recording transaction manager is running its closure, so a
+   * collaborator can record whether it was invoked inside the transaction.
+   */
+  private bool $insideTransaction = false;
+
+  private bool $guardRanInsideTransaction = false;
+
+  private bool $uniquenessCheckRanInsideTransaction = false;
 
   #[Test]
   public function testInvokeUpdatesPermissions(): void
@@ -49,6 +61,12 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     $roleRepository->method('findById')->willReturn($role);
     $roleRepository->expects(self::once())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanUpdateRolePermissions')
+      ->with(self::ORGANIZATION_ID, self::ROLE_ID, ['organization.read', 'organization.members.read']);
+
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher
       ->expects(self::once())
@@ -65,6 +83,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -102,6 +122,12 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     $roleRepository->method('findById')->willReturn($role);
     $roleRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanUpdateRolePermissions')
+      ->with(self::ORGANIZATION_ID, self::ROLE_ID, ['organization.read', 'organization.members.read']);
+
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
@@ -109,6 +135,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -130,6 +158,14 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
     $roleRepository->expects(self::never())->method('findById');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::never())->method('assertCanUpdateRolePermissions');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
@@ -137,6 +173,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $transactionManager,
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -158,6 +196,12 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     $roleRepository->method('findById')->willReturn(null);
     $roleRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanUpdateRolePermissions')
+      ->with(self::ORGANIZATION_ID, self::ROLE_ID, ['organization.read']);
+
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
@@ -165,6 +209,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -196,6 +242,12 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     $roleRepository->method('findById')->willReturn($foreignRole);
     $roleRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanUpdateRolePermissions')
+      ->with(self::ORGANIZATION_ID, self::ROLE_ID, ['organization.read']);
+
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
@@ -203,6 +255,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -225,6 +279,14 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
     $roleRepository->method('findById')->willReturn($this->createRole());
     $roleRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::never())->method('assertCanUpdateRolePermissions');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
 
@@ -232,6 +294,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $transactionManager,
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -263,6 +327,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $updated = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -308,6 +374,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -340,6 +408,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new UpdateOrganizationRoleCommand(
@@ -380,6 +450,8 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       organizationRepository: $organizationRepository,
       roleRepository: $roleRepository,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -391,6 +463,117 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       permissions: ['organization.read'],
       name: 'site_manager',
     ));
+  }
+
+  #[Test]
+  public function testInvokePropagatesLastAdminExceptionAndPerformsNoSaveOrDispatch(): void
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($this->createOrganization());
+
+    $roleRepository = $this->createMock(OrganizationRoleRepositoryPort::class);
+    $roleRepository->expects(self::never())->method('findById');
+    $roleRepository->expects(self::never())->method('save');
+
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanUpdateRolePermissions')
+      ->with(self::ORGANIZATION_ID, self::ROLE_ID, ['organization.read'])
+      ->willThrowException(OrganizationLastAdminException::cannotUnassignLastAdminRole());
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
+    );
+
+    $this->expectException(OrganizationLastAdminException::class);
+
+    $handler->__invoke(new UpdateOrganizationRoleCommand(
+      organizationId: self::ORGANIZATION_ID,
+      roleId: self::ROLE_ID,
+      permissions: ['organization.read'],
+    ));
+  }
+
+  /**
+   * Both check-then-writes this handler performs — the last-administrator
+   * census and the role-name uniqueness lookup — must sit inside the
+   * transaction, or neither is serialized against a concurrent writer.
+   */
+  #[Test]
+  public function testInvokeRunsGuardAndRenameUniquenessCheckInsideTheTransaction(): void
+  {
+    $organizationRepository = $this->createStub(OrganizationRepositoryPort::class);
+    $organizationRepository->method('findById')->willReturn($this->createOrganization());
+
+    $roleRepository = $this->createStub(OrganizationRoleRepositoryPort::class);
+    $roleRepository->method('findById')->willReturn($this->createRole());
+    $roleRepository->method('findByOrganizationAndName')->willReturnCallback(
+      function (): ?OrganizationRole {
+        $this->uniquenessCheckRanInsideTransaction = $this->insideTransaction;
+
+        return null;
+      },
+    );
+
+    $lastAdminGuard = $this->createStub(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->method('assertCanUpdateRolePermissions')->willReturnCallback(
+      function (): void {
+        $this->guardRanInsideTransaction = $this->insideTransaction;
+      },
+    );
+
+    $transactionManager = $this->recordingTransactionManager();
+
+    $handler = new UpdateOrganizationRoleHandler(
+      organizationRepository: $organizationRepository,
+      roleRepository: $roleRepository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $transactionManager,
+    );
+
+    $handler->__invoke(new UpdateOrganizationRoleCommand(
+      organizationId: self::ORGANIZATION_ID,
+      roleId: self::ROLE_ID,
+      permissions: ['organization.read'],
+      name: 'site_manager',
+    ));
+
+    self::assertTrue($this->guardRanInsideTransaction, 'The last-administrator census must run inside the transaction.');
+    self::assertTrue(
+      $this->uniquenessCheckRanInsideTransaction,
+      'The role-name uniqueness lookup must run inside the transaction that persists the new name.',
+    );
+  }
+
+  /**
+   * A transaction manager that flags the window during which its closure runs,
+   * so a collaborator can record whether it was reached inside the transaction.
+   */
+  private function recordingTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      function (callable $operation): mixed {
+        $this->insideTransaction = true;
+
+        try {
+          return $operation();
+        } finally {
+          $this->insideTransaction = false;
+        }
+      },
+    );
+
+    return $transactionManager;
   }
 
   private function createOrganization(): Organization
@@ -414,5 +597,15 @@ final class UpdateOrganizationRoleHandlerTest extends TestCase
       isSystem: false,
       createdAt: new DateTimeImmutable('-1 day'),
     );
+  }
+
+  private function passthroughTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return $transactionManager;
   }
 }

@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use InvalidArgumentException;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
@@ -36,11 +36,10 @@ final readonly class DeleteOrganizationRoleProcessor implements ProcessorInterfa
   /**
    * Trait UnwrapsOrganizationBusFailures.
    *
-   * The direct `catch` clauses below cover the last-administrator guard,
-   * which runs in-process before dispatch and therefore throws bare.
-   * Everything the handler throws arrives wrapped in
-   * `MessengerRuntimeException` instead, and the clause using this trait is
-   * what maps it.
+   * Every failure of this endpoint — including the last-administrator refusal,
+   * which the handler now raises from inside its own transaction — arrives
+   * wrapped in `MessengerRuntimeException`, so the clause using this trait is
+   * what maps them all.
    *
    * @see UnwrapsOrganizationBusFailures
    */
@@ -62,7 +61,6 @@ final readonly class DeleteOrganizationRoleProcessor implements ProcessorInterfa
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
-    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -101,18 +99,10 @@ final readonly class DeleteOrganizationRoleProcessor implements ProcessorInterfa
     }
 
     try {
-      $this->lastAdminGuard->assertCanDeleteRole($organizationId, $roleId);
-
       $this->commandBus->dispatch(new DeleteOrganizationRoleCommand(
         organizationId: $organizationId,
         roleId: $roleId,
       ));
-    } catch (OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationRoleNotFoundException|OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
-    } catch (InvalidArgumentException $exception) {
-      throw new BadRequestHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
       $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
       if (null !== $lastAdmin) {

@@ -15,7 +15,7 @@ use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 
 #[CoversClass(LeaveOrganizationHandler::class)]
 final class LeaveOrganizationHandlerTest extends TestCase
@@ -27,6 +27,16 @@ final class LeaveOrganizationHandlerTest extends TestCase
   private const string MEMBER_USER_ID = '550e8400-e29b-41d4-a716-446655440602';
 
   private const string MEMBER_ID = '550e8400-e29b-41d4-a716-446655440603';
+
+  /**
+   * True while the fake transaction manager is running its closure, so a
+   * collaborator can record whether it was invoked inside the transaction.
+   */
+  private bool $insideTransaction = false;
+
+  private bool $guardRanInsideTransaction = false;
+
+  private bool $saveRanInsideTransaction = false;
 
   #[Test]
   public function testInvokeDeactivatesMembershipAndDispatchesEvent(): void
@@ -64,6 +74,7 @@ final class LeaveOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       lastAdminGuard: $lastAdminGuard,
       eventDispatcher: $eventDispatcher,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new LeaveOrganizationCommand(
@@ -97,6 +108,7 @@ final class LeaveOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       lastAdminGuard: $lastAdminGuard,
       eventDispatcher: $eventDispatcher,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -130,6 +142,7 @@ final class LeaveOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       lastAdminGuard: $lastAdminGuard,
       eventDispatcher: $eventDispatcher,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -171,6 +184,7 @@ final class LeaveOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       lastAdminGuard: $lastAdminGuard,
       eventDispatcher: $eventDispatcher,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -212,6 +226,7 @@ final class LeaveOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       lastAdminGuard: $lastAdminGuard,
       eventDispatcher: $eventDispatcher,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationOwnerCannotLeaveException::class);
@@ -249,6 +264,7 @@ final class LeaveOrganizationHandlerTest extends TestCase
       memberRepository: $memberRepository,
       lastAdminGuard: $lastAdminGuard,
       eventDispatcher: $eventDispatcher,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationLastAdminException::class);
@@ -261,6 +277,77 @@ final class LeaveOrganizationHandlerTest extends TestCase
     } finally {
       self::assertTrue($member->isActive(), 'a refused leave must never deactivate the membership');
     }
+  }
+
+  /**
+   * The census is only an invariant while the write it authorizes is still in
+   * flight: the advisory lock the guard takes is transaction-scoped, so a guard
+   * call outside the transaction releases its lock before the deactivation
+   * commits and a concurrent departure can still strand the organization.
+   */
+  #[Test]
+  public function testInvokeRunsGuardAndDeactivationInsideOneTransaction(): void
+  {
+    $organization = $this->activeOrganization();
+    $member = $this->activeMember();
+
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())->method('findByOrganizationAndUser')->willReturn($member);
+    $memberRepository->expects(self::once())->method('save')->willReturnCallback(
+      function (): void {
+        $this->saveRanInsideTransaction = $this->insideTransaction;
+      },
+    );
+
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())->method('assertCanRemoveMember')->willReturnCallback(
+      function (): void {
+        $this->guardRanInsideTransaction = $this->insideTransaction;
+      },
+    );
+
+    $transactionManager = $this->recordingTransactionManager();
+
+    $handler = new LeaveOrganizationHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      lastAdminGuard: $lastAdminGuard,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      transactionManager: $transactionManager,
+    );
+
+    $handler->__invoke(new LeaveOrganizationCommand(
+      organizationId: self::ORG_ID,
+      actingUserId: self::MEMBER_USER_ID,
+    ));
+
+    self::assertTrue($this->guardRanInsideTransaction, 'the last-administrator census must run inside the transaction');
+    self::assertTrue($this->saveRanInsideTransaction, 'the deactivation must commit under the lock the census took');
+  }
+
+  /**
+   * A transaction manager that flags the window during which its closure runs,
+   * so a collaborator can record whether it was reached inside the transaction.
+   */
+  private function recordingTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      function (callable $operation): mixed {
+        $this->insideTransaction = true;
+
+        try {
+          return $operation();
+        } finally {
+          $this->insideTransaction = false;
+        }
+      },
+    );
+
+    return $transactionManager;
   }
 
   private function activeOrganization(): Organization
@@ -284,5 +371,15 @@ final class LeaveOrganizationHandlerTest extends TestCase
       isActive: true,
       joinedAt: new DateTimeImmutable('-1 day'),
     );
+  }
+
+  private function passthroughTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return $transactionManager;
   }
 }

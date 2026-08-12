@@ -97,7 +97,12 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
       throw new AccessDeniedHttpException('Missing organization.members.manage permission.');
     }
 
-    // Refuse the whole batch upfront when it would deactivate every administrator.
+    // Advisory pre-check: refuse a doomed batch upfront, with a message naming the
+    // real reason, rather than letting the caller watch every id fail one by one.
+    // It is deliberately unlocked and therefore NOT the authority — a batch that
+    // passes here can still be refused mid-flight. Each removal re-runs the guard
+    // under the advisory lock inside its own handler transaction, and that refusal
+    // is what the per-id catch below turns into a 409.
     try {
       $this->lastAdminGuard->assertCanRemoveMembers($organizationId, $data->memberIds);
     } catch (OrganizationLastAdminException $exception) {
@@ -113,6 +118,15 @@ final readonly class RemoveOrganizationMembersProcessor implements ProcessorInte
         ));
         $output->removedIds[] = $memberId;
       } catch (MessengerRuntimeException $exception) {
+        // A lockout refusal is not a per-id failure to be tallied: the batch is
+        // stripping the organization's last administrator and the caller must be
+        // told so with a 409. Swallowing it into failedIds would report a partial
+        // success and hide the invariant that stopped it.
+        $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
+        if (null !== $lastAdmin) {
+          throw new ConflictHttpException($lastAdmin->getMessage(), $exception);
+        }
+
         $domainException = $this->findWrappedException($exception, OrganizationMemberNotFoundException::class)
           ?? $this->findWrappedException($exception, OrganizationNotFoundException::class);
 

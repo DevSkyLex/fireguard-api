@@ -139,10 +139,14 @@ demonstrating that one person can belong to more than one tenant.
   mapping order: keep domain-specific checks strictly BEFORE any bare
   `\InvalidArgumentException` check, or an internal library failure becomes a
   client 400; and keep the direct `catch` clauses in place wherever the
-  processor also calls a guard port before dispatching
-  (`OrganizationLastAdminGuardPort`, `OrganizationPermissionGrantGuardPort`),
-  because those run in-process and do arrive bare — both paths must stay
-  covered. `tests/Functional/Api/OrganizationDomainFailureMappingApiTest.php`
+  processor still calls a guard port before dispatching — today that is
+  `OrganizationPermissionGrantGuardPort` only, which runs in-process and does
+  arrive bare, so both paths must stay covered there.
+  `OrganizationLastAdminGuardPort` is **no longer** one of them: its census
+  moved inside the handler transaction (see the last-administrator invariant
+  below), so `OrganizationLastAdminException` always arrives wrapped and is
+  mapped only through the `MessengerRuntimeException` clause.
+  `tests/Functional/Api/OrganizationDomainFailureMappingApiTest.php`
   exercises this against a real bus and a real database and fails on a 500.
 - **Every mutating operation on a plain-class resource sets `read: false`.**
   `OrganizationResource`, `OrganizationRoleResource`, `TeamResource` and their
@@ -243,8 +247,8 @@ demonstrating that one person can belong to more than one tenant.
   200 every other mutating organization endpoint (`PATCH`) returns. Leave
   reuses the SAME last-administrator guard `RemoveOrganizationMember`
   already depends on (`OrganizationLastAdminGuardPort::assertCanRemoveMember`,
-  called from inside the handler here — unlike `RemoveOrganizationMemberProcessor`,
-  which calls it pre-dispatch in the processor) and additionally refuses the
+  called from inside the handler transaction on both paths — see the
+  last-administrator invariant below) and additionally refuses the
   organization's current owner
   (`OrganizationOwnerCannotLeaveException::mustTransferOwnershipFirst()`),
   checked BEFORE the last-admin guard so an owner who is also the sole
@@ -263,8 +267,11 @@ demonstrating that one person can belong to more than one tenant.
   in this module now follows.
 - Plan quotas are enforced INSIDE the create/invite/add handlers, in the same
   transaction as the insert, serialized per (organization, resource) by a
-  Postgres transaction-scoped advisory lock (`OrganizationQuotaLockPort`; no-op
-  on non-Postgres platforms) so concurrent creates at the cap cannot both pass.
+  Postgres transaction-scoped advisory lock (`OrganizationQuotaLockPort`) so
+  concurrent creates at the cap cannot both pass. `PostgresOrganizationQuotaLockAdapter`
+  acquires **unconditionally** — every environment this runs in is Postgres, and
+  a misconfigured connection must fail loudly rather than silently drop the
+  serialization that guards the invariant. It is not a no-op anywhere.
   `AddOrganizationMemberCommand::$enforceQuota` is false only on the
   invitation-accept path, which counts active members only
   (`assertCanAcceptMember`) so the accepted invitation never blocks itself.
@@ -377,8 +384,52 @@ demonstrating that one person can belong to more than one tenant.
   logo-delete counterparts in `OrganizationApiTest`, rather than silently
   omitted).
 - Role/permission writes are protected pre-dispatch by
-  `OrganizationPermissionGrantGuardPort` (no privilege escalation) and
-  `OrganizationLastAdminGuardPort` (no admin lockout, HTTP 409).
+  `OrganizationPermissionGrantGuardPort` (no privilege escalation) — a pure read
+  of the caller's own permissions, so it needs no serialization and stays in the
+  processor. The last-administrator guard does NOT: see the invariant below, it
+  runs inside the handler transaction.
+- **An organization always keeps at least one active administrator**
+  (`OrganizationLastAdminGuardPort`, HTTP 409). An administrator is an active
+  member whose effective permissions grant `organization.members.manage`
+  (directly or through a wildcard) — the capability needed to re-admit members
+  and recover the organization. Lose the last one and the organization is
+  unrecoverable without operator intervention.
+
+  The assertion is a **check-then-write**, so it is only an invariant when the
+  census and the write it authorizes are serialized. Every authoritative call
+  therefore runs INSIDE the handler's `main` transaction and takes the
+  per-organization MEMBERS advisory lock (`OrganizationQuotaLockPort`) before
+  reading. The lock is transaction-scoped: run pre-dispatch from a processor, it
+  is released before the write commits, and two concurrent removals each read
+  "another administrator remains", both commit, and the organization is stranded.
+
+  Six call sites, each guarded inside its own transaction:
+  `RemoveOrganizationMemberHandler`, `RemoveOrganizationRoleFromMemberHandler`,
+  `UpdateOrganizationRoleHandler`, `DeleteOrganizationRoleHandler`,
+  `LeaveOrganizationHandler`, and `SetOrganizationMemberRolesHandler` (whose
+  per-revoked-role guard loop sits inside its existing `transactional()`
+  closure). All six are wired with
+  `$transactionManager: '@organization.main_transaction_manager'` in
+  `config/modules/organization.yaml`.
+
+  Because the refusal is now raised by a handler, it reaches the processor
+  wrapped by the command bus and is recovered through the module's single
+  unwrapper, `UnwrapsOrganizationBusFailures` — not a hand-rolled helper and not
+  `Shared\Application\Exception\MessengerExceptionUnwrapperTrait`.
+
+  The one exception is `assertCanRemoveMembers()`, the batch endpoint's
+  pre-check: it is **deliberately unlocked and advisory**, rejecting a doomed
+  batch early with a message naming the real reason instead of making the caller
+  watch every id fail. It is not the authority — a batch that passes it can still
+  be refused mid-flight, and `RemoveOrganizationMembersProcessor` maps that
+  wrapped refusal to a 409 rather than tallying it into `failedIds`, which would
+  report a partial success and hide the lockout.
+
+  Proven by
+  `tests/Integration/Organization/Application/Service/OrganizationLastAdminGuardConcurrencyIntegrationTest.php`,
+  which drives two real overlapping transactions on two raw connections and
+  asserts the loser blocks on the lock (SQLSTATE `55P03` under a short
+  `lock_timeout`) and is refused once it reads the committed census.
 - Plan changes are usage-aware: when the target plan's caps sit below the
   organization's CURRENT usage, an unacknowledged self-service change is
   refused (HTTP 409 listing the exceeded resources, e.g. `members 12/10`);

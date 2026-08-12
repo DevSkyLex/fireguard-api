@@ -8,12 +8,14 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 use Throwable;
 
 use function sprintf;
@@ -40,6 +42,8 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository port
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher port
+   * @param OrganizationLastAdminGuardPort $lastAdminGuard the last-administrator lockout guard port
+   * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
@@ -47,6 +51,8 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
     private NotificationPort $notificationPort,
     private LoggerPort $logger,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationLastAdminGuardPort $lastAdminGuard,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -73,21 +79,42 @@ final readonly class RemoveOrganizationMemberHandler implements CommandHandler
     }
 
     $memberId = OrganizationMemberId::fromString($command->memberId);
-    $member = $this->memberRepository->findById($memberId);
 
-    if (null === $member || (string) $member->organizationId() !== (string) $organizationId) {
-      throw OrganizationMemberNotFoundException::withId($command->memberId);
-    }
+    // The last-administrator check and the deactivation it authorizes run in one
+    // transaction, under the advisory lock the guard takes: two concurrent
+    // removals would otherwise both read "another administrator remains" and both
+    // deactivate one, leaving the organization with nobody able to re-admit
+    // members. The member is loaded inside the lock so the loser of the race
+    // reads the state the winner committed.
+    /** @var ?OrganizationMember $member */
+    $member = $this->transactionManager->transactional(
+      function () use ($command, $organizationId, $memberId): ?OrganizationMember {
+        $this->lastAdminGuard->assertCanRemoveMember($command->organizationId, $command->memberId);
 
-    if (!$member->isActive()) {
+        $member = $this->memberRepository->findById($memberId);
+
+        if (null === $member || (string) $member->organizationId() !== (string) $organizationId) {
+          throw OrganizationMemberNotFoundException::withId($command->memberId);
+        }
+
+        if (!$member->isActive()) {
+          // Already removed — idempotent no-op, and nothing to announce.
+          return null;
+        }
+
+        $member->deactivate();
+        $this->memberRepository->save($member);
+
+        return $member;
+      },
+    );
+
+    if (null === $member) {
       return new RemoveOrganizationMemberResult(
         memberId: (string) $memberId,
         organizationId: (string) $organizationId,
       );
     }
-
-    $member->deactivate();
-    $this->memberRepository->save($member);
 
     $this->eventDispatcher->dispatch(new OrganizationMemberRemovedEvent(
       organizationId: (string) $organizationId,

@@ -30,12 +30,15 @@ use function count;
  * through {@see OrganizationPermissionGrantGuardPort::assertCanAssignRoles()}
  * (no-privilege-escalation), and each role being revoked goes through
  * {@see OrganizationLastAdminGuardPort::assertCanUnassignRole()} (last-admin
- * lockout prevention). Only the roles that actually change are persisted and
- * only actual changes raise an event — a no-op diff dispatches nothing.
+ * lockout prevention) — the latter from INSIDE the write transaction, because
+ * the advisory lock it takes is transaction-scoped and only serializes the
+ * check against a concurrent removal when the write commits under it. Only the
+ * roles that actually change are persisted and only actual changes raise an
+ * event — a no-op diff dispatches nothing.
  *
  * @category UseCase
  *
- * @version 1.1.0
+ * @version 1.2.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -136,12 +139,16 @@ final readonly class SetOrganizationMemberRolesHandler implements CommandHandler
       $this->grantGuard->assertCanAssignRoles($command->actingUserId, $command->organizationId, $toAssign);
     }
 
-    foreach ($toUnassign as $roleId) {
-      $this->lastAdminGuard->assertCanUnassignRole($command->organizationId, $command->memberId, $roleId);
-    }
-
     if ([] !== $toAssign || [] !== $toUnassign) {
-      $this->transactionManager->transactional(function () use ($memberId, $toAssign, $toUnassign): void {
+      // The last-administrator census runs INSIDE this transaction: the advisory
+      // lock it takes is transaction-scoped, so a guard loop sitting before the
+      // closure would release its lock before the unassignment it authorized ever
+      // committed, and a concurrent removal could still strand the organization.
+      $this->transactionManager->transactional(function () use ($command, $memberId, $toAssign, $toUnassign): void {
+        foreach ($toUnassign as $roleId) {
+          $this->lastAdminGuard->assertCanUnassignRole($command->organizationId, $command->memberId, $roleId);
+        }
+
         foreach ($toAssign as $roleId) {
           $this->memberRepository->assignRole($memberId, OrganizationRoleId::fromString($roleId));
         }

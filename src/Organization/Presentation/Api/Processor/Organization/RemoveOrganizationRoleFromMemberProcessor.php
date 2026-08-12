@@ -7,7 +7,7 @@ namespace Organization\Presentation\Api\Processor\Organization;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Support\UnwrapsOrganizationBusFailures;
@@ -35,11 +35,10 @@ final readonly class RemoveOrganizationRoleFromMemberProcessor implements Proces
   /**
    * Trait UnwrapsOrganizationBusFailures.
    *
-   * The direct `catch` clauses below cover the last-administrator guard,
-   * which runs in-process before dispatch and therefore throws bare.
-   * Everything the handler throws arrives wrapped in
-   * `MessengerRuntimeException` instead, and the clause using this trait is
-   * what maps it.
+   * Every failure of this endpoint — including the last-administrator refusal,
+   * which the handler now raises from inside its own transaction — arrives
+   * wrapped in `MessengerRuntimeException`, so the clause using this trait is
+   * what maps them all.
    *
    * @see UnwrapsOrganizationBusFailures
    */
@@ -62,7 +61,6 @@ final readonly class RemoveOrganizationRoleFromMemberProcessor implements Proces
   public function __construct(
     private CommandBusPort $commandBus,
     private OrganizationAuthorizationPort $authorization,
-    private OrganizationLastAdminGuardPort $lastAdminGuard,
     private Security $security,
   ) {
   }
@@ -103,16 +101,11 @@ final readonly class RemoveOrganizationRoleFromMemberProcessor implements Proces
     }
 
     try {
-      $this->lastAdminGuard->assertCanUnassignRole($organizationId, $memberId, $roleId);
       $this->commandBus->dispatch(new RemoveOrganizationRoleFromMemberCommand(
         organizationId: $organizationId,
         memberId: $memberId,
         roleId: $roleId,
       ));
-    } catch (OrganizationLastAdminException $exception) {
-      throw new ConflictHttpException($exception->getMessage(), $exception);
-    } catch (OrganizationMemberNotFoundException|OrganizationRoleNotFoundException|OrganizationNotFoundException $exception) {
-      throw new NotFoundHttpException($exception->getMessage(), $exception);
     } catch (MessengerRuntimeException $exception) {
       $lastAdmin = $this->findWrappedException($exception, OrganizationLastAdminException::class);
       if (null !== $lastAdmin) {

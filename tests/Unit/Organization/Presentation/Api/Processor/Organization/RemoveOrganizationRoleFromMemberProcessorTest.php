@@ -6,7 +6,7 @@ namespace Tests\Unit\Organization\Presentation\Api\Processor\Organization;
 
 use ApiPlatform\Metadata\Delete;
 use Auth\Infrastructure\Security\User\SecurityUser;
-use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationLastAdminGuardPort};
+use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberCommand;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationRoleNotFoundException};
 use Organization\Presentation\Api\Processor\Organization\RemoveOrganizationRoleFromMemberProcessor;
@@ -34,7 +34,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -56,7 +55,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $this->createStub(OrganizationAuthorizationPort::class),
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -84,7 +82,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $this->createStub(CommandBusPort::class),
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -122,7 +119,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -158,7 +154,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -194,7 +189,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -230,7 +224,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -260,7 +253,6 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $this->createStub(OrganizationLastAdminGuardPort::class),
       security: $security,
     );
 
@@ -273,6 +265,11 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     ]);
   }
 
+  /**
+   * The last-administrator refusal is raised by the handler, inside its own
+   * transaction, so it reaches this processor wrapped by the command bus and
+   * has to be recovered through the module unwrapper to keep the 409.
+   */
   #[Test]
   public function testProcessThrowsConflictWhenUnassigningLastAdminRole(): void
   {
@@ -282,20 +279,22 @@ final class RemoveOrganizationRoleFromMemberProcessorTest extends TestCase
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('hasPermission')->willReturn(true);
 
-    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
-    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
-    $lastAdminGuard->expects(self::once())
-      ->method('assertCanUnassignRole')
-      ->willThrowException(OrganizationLastAdminException::cannotUnassignLastAdminRole());
-
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
-    $commandBus->expects(self::never())->method('dispatch');
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->willThrowException($this->wrapped(
+        OrganizationLastAdminException::cannotUnassignLastAdminRole(),
+        new RemoveOrganizationRoleFromMemberCommand(
+          organizationId: '550e8400-e29b-41d4-a716-446655441410',
+          memberId: '550e8400-e29b-41d4-a716-446655441412',
+          roleId: '550e8400-e29b-41d4-a716-446655441411',
+        ),
+      ));
 
     $processor = new RemoveOrganizationRoleFromMemberProcessor(
       commandBus: $commandBus,
       authorization: $authorization,
-      lastAdminGuard: $lastAdminGuard,
       security: $security,
     );
 

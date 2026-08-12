@@ -10,7 +10,7 @@ use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException, OrganizationOwnerCannotLeaveException};
 use Organization\Domain\ValueObject\OrganizationId;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 
 /**
  * UseCase LeaveOrganizationHandler.
@@ -23,11 +23,15 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
  *    otherwise strip the organization of its owner entirely.
  * 2. The organization must keep at least one active administrator, enforced
  *    by the same {@see OrganizationLastAdminGuardPort} used by
- *    RemoveOrganizationMember.
+ *    RemoveOrganizationMember. That check and the deactivation it authorizes
+ *    share one transaction: the guard takes a transaction-scoped advisory lock
+ *    before its census, so running it outside the write transaction would
+ *    release the lock before the write and let two concurrent departures each
+ *    read "another administrator remains".
  *
  * @category UseCase
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -45,12 +49,14 @@ final readonly class LeaveOrganizationHandler implements CommandHandler
    * @param OrganizationMemberRepositoryPort $memberRepository the organization member repository port
    * @param OrganizationLastAdminGuardPort $lastAdminGuard the last-administrator lockout guard port
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher port
+   * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationMemberRepositoryPort $memberRepository,
     private OrganizationLastAdminGuardPort $lastAdminGuard,
     private EventDispatcherPort $eventDispatcher,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -96,12 +102,16 @@ final readonly class LeaveOrganizationHandler implements CommandHandler
       throw OrganizationOwnerCannotLeaveException::mustTransferOwnershipFirst();
     }
 
-    // Reuse the same guard RemoveOrganizationMember relies on: leaving must
-    // not strand the organization without an active administrator.
-    $this->lastAdminGuard->assertCanRemoveMember($command->organizationId, (string) $member->id());
+    // Reuse the same guard RemoveOrganizationMember relies on: leaving must not
+    // strand the organization without an active administrator. The census and
+    // the deactivation it authorizes run in one transaction so the guard's
+    // advisory lock is still held when the write commits.
+    $this->transactionManager->transactional(function () use ($command, $member): void {
+      $this->lastAdminGuard->assertCanRemoveMember($command->organizationId, (string) $member->id());
 
-    $member->deactivate();
-    $this->memberRepository->save($member);
+      $member->deactivate();
+      $this->memberRepository->save($member);
+    });
 
     $this->eventDispatcher->dispatch(new OrganizationMemberRemovedEvent(
       organizationId: (string) $organizationId,

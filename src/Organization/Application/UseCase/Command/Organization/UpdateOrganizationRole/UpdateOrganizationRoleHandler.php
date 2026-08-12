@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole;
 
 use InvalidArgumentException;
+use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationRepositoryPort, OrganizationRoleRepositoryPort};
 use Organization\Domain\Event\Role\OrganizationRoleUpdatedEvent;
 use Organization\Domain\Exception\OrganizationNotFoundException;
+use Organization\Domain\Model\OrganizationRole\OrganizationRole;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationRoleId, OrganizationRoleName};
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\EventDispatcherPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 
 use function array_unique;
 use function array_values;
@@ -39,11 +41,15 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
    * @param OrganizationRepositoryPort $organizationRepository the organization repository
    * @param OrganizationRoleRepositoryPort $roleRepository the organization role repository
    * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   * @param OrganizationLastAdminGuardPort $lastAdminGuard the last-administrator lockout guard port
+   * @param TransactionManagerPort $transactionManager the transaction manager
    */
   public function __construct(
     private OrganizationRepositoryPort $organizationRepository,
     private OrganizationRoleRepositoryPort $roleRepository,
     private EventDispatcherPort $eventDispatcher,
+    private OrganizationLastAdminGuardPort $lastAdminGuard,
+    private TransactionManagerPort $transactionManager,
   ) {
   }
   // #endregion
@@ -69,15 +75,6 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
     }
 
     $roleId = OrganizationRoleId::fromString($command->roleId);
-    $role = $this->roleRepository->findById($roleId);
-
-    if (null === $role || (string) $role->organizationId() !== $command->organizationId) {
-      throw new InvalidArgumentException('Role not found in this organization.');
-    }
-
-    if ($role->isSystem()) {
-      throw new InvalidArgumentException('System roles cannot be modified.');
-    }
 
     /** @var list<string> $permissions */
     $permissions = array_values(array_unique($command->permissions));
@@ -86,27 +83,56 @@ final readonly class UpdateOrganizationRoleHandler implements CommandHandler
       throw new InvalidArgumentException('At least one permission is required.');
     }
 
-    if (null !== $command->name) {
-      $newName = new OrganizationRoleName($command->name);
+    // Two check-then-writes share this transaction. Stripping
+    // organization.members.manage from the only admin-granting role is a lockout
+    // by another route, so the guard's census and this save must be serialized by
+    // the advisory lock (see the guard port contract); and the rename's
+    // name-uniqueness lookup must not sit outside the transaction that persists
+    // the new name either.
+    /** @var OrganizationRole $role */
+    $role = $this->transactionManager->transactional(
+      function () use ($command, $organizationId, $roleId, $permissions): OrganizationRole {
+        $this->lastAdminGuard->assertCanUpdateRolePermissions(
+          $command->organizationId,
+          $command->roleId,
+          $permissions,
+        );
 
-      if (!$newName->equals($role->name())) {
-        $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $newName);
+        $role = $this->roleRepository->findById($roleId);
 
-        if (null !== $existing) {
-          throw new InvalidArgumentException('Role name already exists for this organization.');
+        if (null === $role || (string) $role->organizationId() !== $command->organizationId) {
+          throw new InvalidArgumentException('Role not found in this organization.');
         }
 
-        $role->rename($newName);
-      }
-    }
+        if ($role->isSystem()) {
+          throw new InvalidArgumentException('System roles cannot be modified.');
+        }
 
-    $role->updatePermissions($permissions);
+        if (null !== $command->name) {
+          $newName = new OrganizationRoleName($command->name);
 
-    if (null !== $command->description) {
-      $role->updateDescription($command->description);
-    }
+          if (!$newName->equals($role->name())) {
+            $existing = $this->roleRepository->findByOrganizationAndName($organizationId, $newName);
 
-    $this->roleRepository->save($role);
+            if (null !== $existing) {
+              throw new InvalidArgumentException('Role name already exists for this organization.');
+            }
+
+            $role->rename($newName);
+          }
+        }
+
+        $role->updatePermissions($permissions);
+
+        if (null !== $command->description) {
+          $role->updateDescription($command->description);
+        }
+
+        $this->roleRepository->save($role);
+
+        return $role;
+      },
+    );
 
     $this->eventDispatcher->dispatch(new OrganizationRoleUpdatedEvent(
       organizationId: $command->organizationId,

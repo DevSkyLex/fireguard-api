@@ -34,22 +34,34 @@ services:
   Organization\Application\UseCase\Command\Organization\CreateOrganizationRole\CreateOrganizationRoleHandler:
     tags: ['messenger.message_handler']
 
+  # The handlers guarded against last-administrator lockout run the check and the
+  # write in one 'main' transaction: the guard's advisory lock is
+  # transaction-scoped, so it only serializes concurrent callers when it is taken
+  # on the same connection that commits the write.
   Organization\Application\UseCase\Command\Organization\UpdateOrganizationRole\UpdateOrganizationRoleHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\AssignOrganizationRoleToMember\AssignOrganizationRoleToMemberHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\RemoveOrganizationMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\LeaveOrganization\LeaveOrganizationHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\TransferOrganizationOwnership\TransferOrganizationOwnershipHandler:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\RemoveOrganizationRoleFromMember\RemoveOrganizationRoleFromMemberHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\ReactivateOrganizationMember\ReactivateOrganizationMemberHandler:
@@ -64,6 +76,8 @@ services:
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\DeleteOrganizationRole\DeleteOrganizationRoleHandler:
+    arguments:
+      $transactionManager: '@organization.main_transaction_manager'
     tags: ['messenger.message_handler']
 
   Organization\Application\UseCase\Command\Organization\SuspendOrganization\SuspendOrganizationHandler:

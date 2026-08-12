@@ -8,10 +8,11 @@ use DateTimeImmutable;
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Contract\Notification\NotificationType;
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Port\Inbound\OrganizationLastAdminGuardPort;
 use Organization\Application\Port\Outbound\{OrganizationMemberRepositoryPort, OrganizationRepositoryPort};
 use Organization\Application\UseCase\Command\Organization\RemoveOrganizationMember\{RemoveOrganizationMemberCommand, RemoveOrganizationMemberHandler, RemoveOrganizationMemberResult};
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
-use Organization\Domain\Exception\{OrganizationMemberNotFoundException, OrganizationNotFoundException};
+use Organization\Domain\Exception\{OrganizationLastAdminException, OrganizationMemberNotFoundException, OrganizationNotFoundException};
 use Organization\Domain\Model\Organization\Organization;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
 use Organization\Domain\ValueObject\{OrganizationId, OrganizationMemberId, OrganizationName};
@@ -19,7 +20,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort};
+use Shared\Application\Port\Outbound\{EventDispatcherPort, LoggerPort, TransactionManagerPort};
 
 use function is_string;
 
@@ -62,6 +63,12 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
     $memberRepository->expects(self::once())->method('findById')->willReturn($member);
     $memberRepository->expects(self::once())->method('save')->with($member);
+
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanRemoveMember')
+      ->with(self::ORG_ID, self::MEMBER_ID);
 
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
@@ -118,6 +125,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new RemoveOrganizationMemberCommand(
@@ -143,6 +152,14 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $memberRepository->expects(self::never())->method('findById');
     $memberRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::never())->method('assertCanRemoveMember');
+
+    /** @var TransactionManagerPort&MockObject $transactionManager */
+    $transactionManager = $this->createMock(TransactionManagerPort::class);
+    $transactionManager->expects(self::never())->method('transactional');
+
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
@@ -161,6 +178,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $transactionManager,
     );
 
     $this->expectException(OrganizationNotFoundException::class);
@@ -191,6 +210,12 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $memberRepository->expects(self::once())->method('findById')->willReturn(null);
     $memberRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanRemoveMember')
+      ->with(self::ORG_ID, self::MEMBER_ID);
+
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
@@ -209,6 +234,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -247,6 +274,12 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $memberRepository->expects(self::once())->method('findById')->willReturn($memberFromAnotherOrg);
     $memberRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanRemoveMember')
+      ->with(self::ORG_ID, self::MEMBER_ID);
+
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
@@ -265,6 +298,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $this->expectException(OrganizationMemberNotFoundException::class);
@@ -303,6 +338,12 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $memberRepository->expects(self::once())->method('findById')->willReturn($member);
     $memberRepository->expects(self::once())->method('save')->with($member);
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanRemoveMember')
+      ->with(self::ORG_ID, self::MEMBER_ID);
+
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())
@@ -340,6 +381,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new RemoveOrganizationMemberCommand(
@@ -381,6 +424,12 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     $memberRepository->expects(self::once())->method('findById')->willReturn($member);
     $memberRepository->expects(self::never())->method('save');
 
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanRemoveMember')
+      ->with(self::ORG_ID, self::MEMBER_ID);
+
     /** @var NotificationPort&MockObject $notificationPort */
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::never())->method('send');
@@ -399,6 +448,8 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
       notificationPort: $notificationPort,
       logger: $logger,
       eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
     );
 
     $result = $handler->__invoke(new RemoveOrganizationMemberCommand(
@@ -410,6 +461,73 @@ final class RemoveOrganizationMemberHandlerTest extends TestCase
     self::assertSame(self::MEMBER_ID, $result->memberId);
     self::assertSame(self::ORG_ID, $result->organizationId);
     self::assertFalse($member->isActive());
+  }
+
+  #[Test]
+  public function testInvokePropagatesLastAdminExceptionAndPerformsNoWriteOrDispatch(): void
+  {
+    $organization = Organization::reconstitute(
+      id: new OrganizationId(self::ORG_ID),
+      name: new OrganizationName('Fireguard Paris'),
+      createdByUserId: self::USER_ID,
+      isActive: true,
+      createdAt: new DateTimeImmutable('-1 day'),
+    );
+
+    /** @var OrganizationRepositoryPort&MockObject $organizationRepository */
+    $organizationRepository = $this->createMock(OrganizationRepositoryPort::class);
+    $organizationRepository->expects(self::once())->method('findById')->willReturn($organization);
+
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('findById');
+    $memberRepository->expects(self::never())->method('save');
+
+    /** @var OrganizationLastAdminGuardPort&MockObject $lastAdminGuard */
+    $lastAdminGuard = $this->createMock(OrganizationLastAdminGuardPort::class);
+    $lastAdminGuard->expects(self::once())
+      ->method('assertCanRemoveMember')
+      ->with(self::ORG_ID, self::MEMBER_ID)
+      ->willThrowException(OrganizationLastAdminException::cannotRemoveLastAdmin());
+
+    /** @var NotificationPort&MockObject $notificationPort */
+    $notificationPort = $this->createMock(NotificationPort::class);
+    $notificationPort->expects(self::never())->method('send');
+
+    /** @var LoggerPort&MockObject $logger */
+    $logger = $this->createMock(LoggerPort::class);
+    $logger->expects(self::never())->method('warning');
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new RemoveOrganizationMemberHandler(
+      organizationRepository: $organizationRepository,
+      memberRepository: $memberRepository,
+      notificationPort: $notificationPort,
+      logger: $logger,
+      eventDispatcher: $eventDispatcher,
+      lastAdminGuard: $lastAdminGuard,
+      transactionManager: $this->passthroughTransactionManager(),
+    );
+
+    $this->expectException(OrganizationLastAdminException::class);
+
+    $handler->__invoke(new RemoveOrganizationMemberCommand(
+      organizationId: self::ORG_ID,
+      memberId: self::MEMBER_ID,
+    ));
+  }
+
+  private function passthroughTransactionManager(): TransactionManagerPort
+  {
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    return $transactionManager;
   }
   // #endregion
 }
