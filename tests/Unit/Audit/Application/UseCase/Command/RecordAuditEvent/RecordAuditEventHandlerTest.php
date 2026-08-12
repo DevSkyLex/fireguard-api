@@ -45,6 +45,7 @@ final class RecordAuditEventHandlerTest extends TestCase
       subjectId: 'token-123',
       clientId: 'client-123',
       tenantId: 'tenant-123',
+      organizationId: 'org-123',
       ipAddress: '203.0.113.10',
       ipHash: 'ip-hash',
       userAgent: 'Mozilla',
@@ -73,8 +74,9 @@ final class RecordAuditEventHandlerTest extends TestCase
       ipAddress: $command->ipAddress,
       ipHash: $command->ipHash,
       userAgent: $command->userAgent,
-      metadata: $command->metadata,
+      metadata: ['reason' => 'success', 'organization_id' => 'org-123'],
       occurredAt: $occurredAt,
+      organizationId: $command->organizationId,
     );
 
     /** @var AuditEventRepositoryPort&MockObject $repository */
@@ -93,10 +95,13 @@ final class RecordAuditEventHandlerTest extends TestCase
             && 'token-123' === $event->subjectId
             && 'client-123' === $event->clientId
             && 'tenant-123' === $event->tenantId
+            && 'org-123' === $event->organizationId
             && '203.0.113.10' === $event->ipAddress
             && 'ip-hash' === $event->ipHash
             && 'Mozilla' === $event->userAgent
-            && ['reason' => 'success'] === $event->metadata
+            // organizationId is synced into the hash-covered metadata copy
+            // by the handler, so the persisted event carries both.
+            && ['reason' => 'success', 'organization_id' => 'org-123'] === $event->metadata
             && $event->occurredAt === $occurredAt;
         },
       ))
@@ -110,6 +115,44 @@ final class RecordAuditEventHandlerTest extends TestCase
     $result = $handler->__invoke($command);
 
     self::assertInstanceOf(RecordAuditEventResult::class, $result);
+    self::assertSame($eventId->value, $result->eventId);
+  }
+
+  #[Test]
+  public function testInvokeOverwritesAMismatchedMetadataOrganizationIdWithTheCommandField(): void
+  {
+    $eventId = new Uuid('550e8400-e29b-41d4-a716-446655440001');
+
+    $command = new RecordAuditEventCommand(
+      action: 'organization.member_added',
+      actorType: 'user',
+      organizationId: 'org-truth',
+      // Deliberately mismatched: the column value must win, so the
+      // hash-covered metadata copy can never diverge from the column
+      // that organization-scoped reads filter on.
+      metadata: ['organization_id' => 'org-stale'],
+    );
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($eventId);
+
+    /** @var AuditEventRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(AuditEventRepositoryPort::class);
+    $repository->expects(self::once())
+      ->method('append')
+      ->with(self::callback(
+        static fn (AuditEvent $event): bool => 'org-truth' === $event->organizationId
+          && ['organization_id' => 'org-truth'] === $event->metadata,
+      ))
+      ->willReturnArgument(0);
+
+    $handler = new RecordAuditEventHandler(
+      uuidFactory: $uuidFactory,
+      repository: $repository,
+    );
+
+    $result = $handler->__invoke($command);
+
     self::assertSame($eventId->value, $result->eventId);
   }
   // #endregion

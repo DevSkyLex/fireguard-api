@@ -222,9 +222,93 @@ security token, falling back to `system` for CLI/async paths. Their metadata
 always includes `organization_id`, and invited emails are stored through the
 PII sanitizer (masked value + hash).
 
+The `organization_id` metadata value is also denormalized into a dedicated
+nullable, indexed `audit_events.organization_id` column (auth migration
+`Version20260811120000`, backfilled from `metadata->>'organization_id'`), so
+organization-scoped reads filter on an index instead of a JSON scan. The
+metadata copy remains the hash-covered source of truth — the column is
+deliberately **not** part of the event-hash payload, keeping every row
+(pre- and post-backfill) verifiable with the same payload recipe.
+`RecordAuditEventHandler` enforces the coherence invariant on every write:
+when the command carries an `organizationId`, it is synced into
+`metadata['organization_id']` (overwriting any mismatched caller value), so
+the column is always provably derived from a hash-covered field — no caller
+can persist a column value the ledger's tamper-evidence does not cover.
+
+`organization.ownership_transferred` is part of this set like the rest:
+`recordOrganizationAudit()` gives it the column, so it appears in the
+organization feed, and its payload (`previous_owner_user_id`,
+`new_owner_user_id` — two opaque ids) is vetted in the projection below
+rather than admitted by default.
+
+`AuditEventSearchCriteria` accepts an `organizationId` filter for this; the
+platform-level `/api/audit-events` HTTP filter set is unchanged (list and
+export stay in sync).
+
+### Published capability: the organization audit feed
+
+`Audit\Application\Port\Inbound\OrganizationAuditFeedPort`
+(implemented by `Application\Service\OrganizationAuditFeedService`, aliased in
+`config/modules/audit.yaml`) is this module's **only** published read
+capability, consumed directly cross-module in the same way
+`Organization\Application\Port\Inbound\TeamDirectoryPort` is. Its sole
+consumer today is the Organization module's
+`GET /api/organizations/{organizationId}/audit-events` activity feed
+(`organization.audit.read`).
+
+It exists so that two invariants belong to this module rather than to whoever
+reads it:
+
+- **Scope.** The service builds the `AuditEventSearchCriteria` itself with
+  `organizationId` always set. No argument combination reaches a query that
+  spans organizations.
+- **Reduction.** The port publishes `Application\Contract\OrganizationAuditEntry`,
+  which simply has no field for actor email (plain or hashed), IP address or
+  hash, user agent, client/tenant id, or the chain internals — they cannot be
+  forgotten downstream because there is nowhere to put them. This holds
+  regardless of `SECURITY_LOG_INCLUDE_PII`, which governs platform auditors,
+  a different and higher-trust audience.
+
+A consumer must **not** be given `Application\Port\Outbound\AuditEventRepositoryPort`
+instead: that is this module's own dependency on its persistence adapter, it
+hands over the unfiltered ledger, and it makes the reduction a rule someone
+has to remember. Note that `deptrac.yaml` defines hexagonal layers with no
+per-module layers, so an Application→Application import passes green — the
+gate does not police this, review does.
+
+**Metadata producer contract**: metadata dispatched through
+`recordOrganizationAudit()` is potentially readable by organization admins.
+It is filtered by `Application\Service\OrganizationAuditMetadataProjection`,
+a **per-action allowlist**, and the default is *drop*: an action absent from
+the map publishes an empty payload, and a key absent from its action's entry
+is dropped. A denylist of key names was tried first and is unsound twice
+over — it cannot see inside a value, and it admits by default whatever a
+future producer invents.
+
+So: **adding an organization-scoped action without an entry in that map
+degrades the feed rather than leaking through it.** When extending the map,
+admissible values are identifiers, catalog/enum keys, booleans, counts, and
+organization-owned entity labels. Not admissible: operator-typed prose
+(`reason`, `context`), system internals (`error`, `job_error` — exception
+text embeds file paths and row fragments), personal data (emails, IPs, user
+agents), and anything belonging to another permission's surface
+(`invited_email` → `organization.members.manage`, `url_host` →
+`organization.webhooks.*`); the feed must never become a way around a
+permission the caller was not granted. `organization_id` is dropped
+everywhere — the reader already scoped the request to one organization.
+
+`OrganizationAuditMetadataProjectionTest` holds a standing guard over the
+whole map, so a future entry cannot quietly admit a prose or credential key.
+
 ## Configuration
 
 - Audit events are stored in `audit_events` and `audit_event_chains`.
+- `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` is aliased to
+  `Audit\Application\Service\OrganizationAuditFeedService` in
+  `config/modules/audit.yaml`. It reads through `AuditEventRepositoryPort` and
+  touches no entity manager of its own, so it names none;
+  `AuditEventRepository` resolves the default manager, which is `auth` — the
+  database `audit_events` lives in.
 - PII handling uses the same flags as security logs:
   - `SECURITY_LOG_INCLUDE_PII`
   - `SECURITY_LOG_PII_SALT`
@@ -238,7 +322,11 @@ PII sanitizer (masked value + hash).
   metadata cell, no PHP `NULL` leakage), `AuditEventExportCriteriaFactoryTest`
   (filter parsing, blank-string handling, applied-filter-name extraction) and
   an `AuditEventSubscriberTest` case for `onAuditEventsExported` asserting
-  the recorded metadata never carries raw filter values.
+  the recorded metadata never carries raw filter values. Also
+  `OrganizationAuditMetadataProjectionTest` (fail-closed on an unknown action,
+  every free-text/PII key the producers actually emit named one by one, and
+  the standing guard over the whole map) and `OrganizationAuditFeedServiceTest`
+  (the scope invariant, and the reduction proven on a row saturated with PII).
 - Integration: `tests/Integration/Audit/Infrastructure/Persistence/Doctrine/Repository/AuditEventRepositoryTest`
   runs `AuditEventRepository::countMatching()`/`stream()` against a real
   entity manager (a mocked QueryBuilder never parses the DQL those methods

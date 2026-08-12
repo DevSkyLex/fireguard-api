@@ -2164,8 +2164,10 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
    * Method recordOrganizationAudit.
    *
    * Builds and dispatches an organization-scoped audit event.
-   * The organization ID is always appended to the metadata so
-   * every organization action can be filtered uniformly.
+   * The organization ID is always appended to the metadata (the
+   * hash-covered source of truth) and mirrored into the dedicated
+   * organizationId column so every organization action can be
+   * filtered uniformly on an indexed column.
    *
    * @since 1.0.0
    *
@@ -2200,6 +2202,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       actorEmailHash: $this->sanitizer->emailHash($actor['email']),
       subjectType: $subjectType,
       subjectId: $subjectId,
+      organizationId: $organizationId,
       ipAddress: $this->sanitizer->ip($context['ip']),
       ipHash: $this->sanitizer->ipHash($context['ip']),
       userAgent: $context['user_agent'],

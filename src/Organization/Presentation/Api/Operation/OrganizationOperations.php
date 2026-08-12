@@ -53,6 +53,8 @@ final class OrganizationOperations
 
   public const string GET_ORGANIZATION_NAVIGATION_COUNTERS = 'getOrganizationNavigationCounters';
 
+  public const string LIST_ORGANIZATION_AUDIT_EVENTS = 'listOrganizationAuditEvents';
+
   public const string GET_ORGANIZATION_DASHBOARD_INSPECTIONS_TREND = 'getOrganizationDashboardInspectionsTrend';
 
   public const string GET_ORGANIZATION_DASHBOARD_EQUIPMENT_CREATED_TREND = 'getOrganizationDashboardEquipmentCreatedTrend';

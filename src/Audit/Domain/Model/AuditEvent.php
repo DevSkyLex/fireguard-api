@@ -49,6 +49,7 @@ final readonly class AuditEvent
    * @param int|null $sequence the sequence in the audit chain
    * @param string|null $prevHash the previous event hash
    * @param string|null $eventHash the hash of the current event
+   * @param string|null $organizationId the organization identifier (if any)
    */
   public function __construct(
     public Uuid $id,
@@ -71,6 +72,7 @@ final readonly class AuditEvent
     public ?int $sequence = null,
     public ?string $prevHash = null,
     public ?string $eventHash = null,
+    public ?string $organizationId = null,
   ) {
   }
 }

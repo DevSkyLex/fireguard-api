@@ -38,6 +38,7 @@ It is isolated from authentication storage and persisted in the dedicated main d
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-opened` | Get the non-conformities-opened series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus an optional `metrics` filter (e.g. `metrics=non_conformities_resolved`) that adds the resolved series to the response's `seriesByMetric` map, sharing this call's resolved period/timezone/granularity — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/dashboard/trends/non-conformities-resolved` | Get the non-conformities-resolved series for a single chart with its own `from`/`to`/`granularity`/`timezone` filters, plus the same optional `metrics` combining filter (`metrics=non_conformities_opened`) — see Notes (L3.9). Requires `organization.inspection.read` per requested metric. |
 | GET | `/api/organizations/{organizationId}/navigation-counters` | Get lightweight sidebar badge counters: `openInterventions` (excludes `published`/`abandoned`) and `openNonConformities` (`open` + `in_progress`). Caller must be an ACTIVE organization member; each counter individually falls back to `0` (never a 403) without the underlying `organization.interventions.read` / `organization.inspection.read` permission — see Notes (L3.11) |
+| GET | `/api/organizations/{organizationId}/audit-events` | List the organization's slice of the audit ledger (activity feed), newest first, paginated (filters: `action`, `from`, `to`; `itemsPerPage` capped at 100). Requires `organization.audit.read` (admin-granted — not part of the member system role; admins hold it via `organization.*`). Reduced payload: no actor email, IP, user agent or chain internals, metadata filtered by the Audit module's per-action allowlist, and an actor who is not a member of this organization is never named — see Notes (P2.6) |
 | POST | `/api/organizations/{organizationId}/members` | Add member and assign role(s) |
 | GET | `/api/organizations/{organizationId}/members` | List Organization members (each item carries `isOwner`, computed against the organization's `ownerUserId`). Filters: `search` (matched against the member's user identifier at SQL level), `status` (`active`/`inactive`/`all`, 422 on any other value), `roleId`; sort via `order[joinedAt\|displayName]=asc\|desc` (default `order[joinedAt]=asc`). All filtering/sorting/pagination is pushed down to the repository — see Notes (P2.3) |
 | GET | `/api/organizations/{organizationId}/members/{memberId}` | Get a single organization member. Requires `organization.members.read`. 404 when the member does not exist, and 404 (not a leaked 403) when it belongs to a different organization than `{organizationId}` — see Notes (P2.3) |
@@ -76,6 +77,14 @@ It is isolated from authentication storage and persisted in the dedicated main d
 - Application: command/query use cases, ports, authorization service
 - Domain: Organization/member/role models and value objects
 - Infrastructure: Doctrine records, mappers, repositories
+
+Cross-module dependencies, and the contract each goes through:
+
+| Direction | Port | Contract type | Why |
+| --- | --- | --- | --- |
+| consumed | `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` | `Audit\…\Contract\OrganizationAuditEntry` | the activity feed — Audit publishes a scoped, reduced read rather than lending its ledger repository; see Notes (P2.6) |
+| published | `Organization\Application\Port\Inbound\TeamDirectoryPort` | `…\Contract\Team\TeamMembershipSnapshot` | lets Intervention (and later Messaging) resolve a team's active membership without touching this module's Domain |
+| published | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` | — | the permission check every other module's org-scoped endpoint runs |
 
 ## Persistence
 
@@ -699,6 +708,90 @@ demonstrating that one person can belong to more than one tenant.
   the sidebar's definition). `openNonConformities` reuses
   `NonConformityStatisticsPort::countNonConformitiesByStatus()`, summing the
   `open` and `in_progress` buckets (no new port method either).
+
+- **Organization-scoped audit read / activity feed (P2.6)**:
+  `GET /organizations/{organizationId}/audit-events`
+  (`ListOrganizationAuditEventsHandler` +
+  `ListOrganizationAuditEventsProvider`) exposes the organization's slice of
+  the Audit module's tamper-evident ledger. This is the first Audit
+  dependency in this module, and it goes through Audit's **published inbound
+  capability** `Audit\Application\Port\Inbound\OrganizationAuditFeedPort`
+  plus the `Audit\Application\Contract\OrganizationAuditEntry` type — the
+  same producer-publishes-a-capability shape as this module's own
+  `TeamDirectoryPort`. It deliberately does **not** inject Audit's
+  `Application\Port\Outbound\AuditEventRepositoryPort`: no module here
+  imports a sibling's outbound port, that port is Audit's own dependency on
+  its persistence adapter, and holding it would hand this module the
+  unfiltered ledger and make the organization scoping and the PII reduction
+  rules a consumer has to remember rather than invariants the producer
+  enforces. `deptrac` cannot catch that distinction — its layers are
+  hexagonal, not per-module, so Application→Application is green either way.
+  Filtering rides the dedicated
+  nullable, indexed `audit_events.organization_id` column (auth migration
+  `Version20260811120000`, backfilled from `metadata->>'organization_id'`,
+  which `AuditEventSubscriber::recordOrganizationAudit()` has always written
+  for every organization-scoped action) — `subjectId` only equals the
+  organization id for the ~9 lifecycle actions, so the column is the only
+  complete filter. Denial ordering lives in the handler and mirrors
+  navigation counters: unknown organization → 404, non-member (or inactive
+  member) → 404 (`OrganizationMemberNotFoundException` — deliberately not
+  403, which would confirm the organization exists; the provider also
+  collapses both causes into one shared 404 body, "Organization not
+  found.", so the error detail cannot become an existence oracle either),
+  active member without `organization.audit.read` → 403
+  (`OrganizationAuthorizationPort::assertGrantedPermissions`), all before
+  the ledger is read. The permission is admin-granted: NOT in
+  `OrganizationSystemRoleCatalog`'s member role; admins hold it via the
+  `organization.*` wildcard.
+
+  **PII reduction is the Audit module's invariant, not this one's.**
+  Organization admins are a lesser-trust audience than platform auditors, so
+  — regardless of `SECURITY_LOG_INCLUDE_PII` — the payload carries no actor
+  email, IP address/hash, user agent, client/tenant id, or chain internals;
+  `OrganizationAuditEntry` has no field for any of them. Metadata is filtered
+  by a **per-action allowlist** (`OrganizationAuditMetadataProjection`) whose
+  default is drop, so a producer that adds an organization-scoped action
+  without an entry degrades this feed rather than leaking through it. Both
+  rules and the criteria for extending the allowlist live in
+  `src/Audit/MODULE.md`; do not restate them here, and do not re-filter in
+  this module — a second, weaker copy of a security rule is how the two drift.
+
+  **Actor naming is membership-scoped, and this is a deliberate decision.**
+  The ledger's actors are not all this organization's people: a platform
+  operator acting on it is recorded here too. The handler therefore resolves
+  `actorIsOrganizationMember` per distinct actor (a membership row in THIS
+  organization, active or deactivated — a former colleague stays nameable, or
+  the feed's history would go anonymous the moment someone leaves; bounded by
+  the 100-row page and cached per invocation), and the provider resolves
+  `actorDisplayName` via `GetUserQuery` only for those — the same
+  per-request-cached pattern as `ListOrganizationInvitationsProvider`. For
+  everyone else the opaque `actorId` is still published, because the
+  organization is entitled to know something happened to it, but the name is
+  not, and `actorDisplayName` stays `null`. **Null carries no label on
+  purpose**: a backend-supplied string like "Platform operator" would be
+  untranslatable in a frontend that ships fr/es/en, so the neutral placeholder
+  is the frontend's to render. This also means `actorDisplayName` is null in
+  two different situations (not nameable, and nameable but no user record) —
+  acceptable, since the frontend renders the same placeholder for both.
+
+  **Page size** is clamped twice: `PaginationExtractor` applies the shared
+  500-row ceiling, then `ListOrganizationAuditEventsProvider::MAX_ITEMS_PER_PAGE`
+  clamps to 100 (`min(500-clamped, 100)`), which is the binding constraint —
+  an audit ledger grows without bound per organization and every row carries a
+  metadata payload, so a page of 500 is far heavier here than 500 option rows.
+
+  **Wiring**: `ListOrganizationAuditEventsHandler` is registered with
+  `tags: ['messenger.message_handler']` in `config/modules/organization.yaml`
+  and needs no `$entityManager` argument — it holds only ports, and the
+  ledger read resolves through Audit's own wiring on the `auth` manager.
+  Covered by `ListOrganizationAuditEventsHandlerTest` (denial ordering, the
+  port call, membership-scoped naming), `ListOrganizationAuditEventsProviderTest`
+  (filters, the 100-row clamp, the bus-unwrapping paths, and that a non-member
+  actor is never even looked up) and `tests/Functional/Api/OrganizationAuditEventsApiTest`
+  (401/403/404×2/200, cross-organization isolation, the metadata allowlist end
+  to end, and the unnamed outside actor).
+
+  This unlocks the frontend activity feed (P3.1).
 
 ## Teams (R9)
 

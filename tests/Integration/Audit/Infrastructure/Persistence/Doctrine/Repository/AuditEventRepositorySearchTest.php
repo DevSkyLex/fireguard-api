@@ -94,6 +94,7 @@ final class AuditEventRepositorySearchTest extends KernelTestCase
     self::assertSame('subject-a', $view->subjectId);
     self::assertSame('client-a', $view->clientId);
     self::assertSame(self::TENANT_ID, $view->tenantId);
+    self::assertSame('org-search-1', $view->organizationId);
     self::assertSame('iphash-a', $view->ipHash);
     self::assertEquals(['channel' => 'web', 'result' => 'success'], $view->metadata);
     self::assertSame(self::CHAIN_ID, $view->chainId);
@@ -146,6 +147,23 @@ final class AuditEventRepositorySearchTest extends KernelTestCase
     self::assertSame(1, $this->searchTotal(new AuditEventSearchCriteria(tenantId: self::TENANT_ID, subjectId: 'subject-a')));
     self::assertSame(2, $this->searchTotal(new AuditEventSearchCriteria(tenantId: self::TENANT_ID, clientId: 'client-a')));
     self::assertSame(1, $this->searchTotal(new AuditEventSearchCriteria(tenantId: self::TENANT_ID, ipHash: 'iphash-a')));
+  }
+
+  #[Test]
+  public function testSearchIsolatesEventsByOrganizationId(): void
+  {
+    $orgOne = $this->repository->search(
+      new AuditEventSearchCriteria(tenantId: self::TENANT_ID, organizationId: 'org-search-1'),
+      new Pagination(offset: 0, limit: 20),
+    );
+    self::assertSame(1, $orgOne->total);
+    self::assertSame($this->ids['a'], $orgOne->items[0]->id);
+    self::assertSame('org-search-1', $orgOne->items[0]->organizationId);
+
+    // The other organization's events never match, nor do the
+    // organization-less rows (NULL column).
+    self::assertSame(1, $this->searchTotal(new AuditEventSearchCriteria(tenantId: self::TENANT_ID, organizationId: 'org-search-2')));
+    self::assertSame(0, $this->searchTotal(new AuditEventSearchCriteria(tenantId: self::TENANT_ID, organizationId: 'org-search-absent')));
   }
 
   #[Test]
@@ -203,6 +221,7 @@ final class AuditEventRepositorySearchTest extends KernelTestCase
       ipHash: 'iphash-a',
       metadata: ['channel' => 'web', 'result' => 'success'],
       occurredAt: $base->modify('+1 minute'),
+      organizationId: 'org-search-1',
     );
     $this->ids['b'] = $this->append(
       action: 'auth.logout',
@@ -216,6 +235,7 @@ final class AuditEventRepositorySearchTest extends KernelTestCase
       ipHash: 'iphash-b',
       metadata: [],
       occurredAt: $base->modify('+2 minutes'),
+      organizationId: 'org-search-2',
     );
     $this->ids['c'] = $this->append(
       action: 'billing.charge',
@@ -275,6 +295,7 @@ final class AuditEventRepositorySearchTest extends KernelTestCase
     ?string $ipHash,
     array $metadata,
     DateTimeImmutable $occurredAt,
+    ?string $organizationId = null,
   ): string {
     $id = SymfonyUuid::v4()->toRfc4122();
 
@@ -294,6 +315,7 @@ final class AuditEventRepositorySearchTest extends KernelTestCase
       userAgent: null,
       metadata: $metadata,
       occurredAt: $occurredAt,
+      organizationId: $organizationId,
     ));
 
     return $id;

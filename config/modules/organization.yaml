@@ -170,6 +170,9 @@ services:
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboard\GetOrganizationDashboardHandler:
     tags: ['messenger.message_handler']
 
+  Organization\Application\UseCase\Query\Organization\ListOrganizationAuditEvents\ListOrganizationAuditEventsHandler:
+    tags: ['messenger.message_handler']
+
   Organization\Application\UseCase\Query\Organization\GetOrganizationDashboardTrend\GetOrganizationDashboardTrendHandler:
     tags: ['messenger.message_handler']
 

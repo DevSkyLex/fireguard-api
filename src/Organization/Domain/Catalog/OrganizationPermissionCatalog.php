@@ -172,6 +172,12 @@ final class OrganizationPermissionCatalog
       ['name' => 'organization.compliance.read', 'description' => 'View the compliance register/summary (organization rollup and per-facility breakdown)'],
       ['name' => 'organization.compliance.export', 'description' => 'Export the regulatory safety register PDF (also requires a pro/max plan)'],
 
+      // Organization-scoped audit read (admin-granted: the activity feed
+      // exposes who did what across the whole organization, so this is
+      // deliberately not part of the member system role — admins hold it
+      // through the organization.* wildcard and may grant it explicitly)
+      ['name' => 'organization.audit.read', 'description' => 'View the organization activity feed (audit events scoped to the organization)'],
+
       // Four-eyes approval workflows
       ['name' => 'organization.approvals.read', 'description' => 'View the organization\'s pending and decided four-eyes approval requests'],
       ['name' => 'organization.approvals.request', 'description' => 'Initiate a regulated action gated behind approval (enforced only when the organization requires it)'],
