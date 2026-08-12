@@ -13,6 +13,7 @@ use function is_array;
 use function is_int;
 use function is_string;
 use function json_encode;
+use function sprintf;
 use function str_contains;
 use function uniqid;
 
@@ -484,6 +485,138 @@ final class InterventionFlowTest extends OAuth2WebTestCase
     self::assertSame(Response::HTTP_BAD_REQUEST, $client->getResponse()->getStatusCode());
   }
 
+  public function testLabelFilterBoundsTheCollection(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-label-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Label Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/intervention-labels',
+      server: $this->headers($token, self::LD_JSON),
+      content: json_encode([
+        'organization' => '/api/organizations/' . $organizationId,
+        'name' => 'Urgent Recall',
+        'color' => '#ff0000',
+      ]) ?: '',
+    );
+    self::assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode());
+    $label = $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+    $labelId = $this->extractResourceId($label);
+    self::assertNotNull($labelId);
+
+    $labeled = $this->createDraftInterventionWithLabels($client, $token, $organizationId, 'Labeled mission', [$labelId]);
+    $unlabeled = $this->createDraftIntervention($client, $token, $organizationId, 'Unlabeled mission');
+    $labeledId = $this->extractResourceId($labeled);
+    $unlabeledId = $this->extractResourceId($unlabeled);
+    self::assertNotNull($labeledId);
+    self::assertNotNull($unlabeledId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'label' => '/api/intervention-labels/' . $labelId,
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($labeledId, $ids, 'The labeled intervention must be listed.');
+    self::assertNotContains($unlabeledId, $ids, 'The unlabeled intervention must be excluded.');
+  }
+
+  public function testMemberFilterMatchesResponsibleOrParticipant(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-member-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Member Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $memberIri = $this->firstMemberIri($client, $token, $organizationId);
+    self::assertNotNull($memberIri);
+
+    $asResponsible = $this->createDraftIntervention($client, $token, $organizationId, 'Responsible mission');
+    $asResponsibleId = $this->extractResourceId($asResponsible);
+    self::assertNotNull($asResponsibleId);
+    $this->patch($client, $token, '/api/interventions/' . $asResponsibleId, 1, ['responsible' => $memberIri]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $asParticipant = $this->createDraftIntervention($client, $token, $organizationId, 'Participant mission');
+    $asParticipantId = $this->extractResourceId($asParticipant);
+    self::assertNotNull($asParticipantId);
+    $this->patch($client, $token, '/api/interventions/' . $asParticipantId, 1, ['participants' => [$memberIri]]);
+    self::assertSame(Response::HTTP_OK, $client->getResponse()->getStatusCode());
+
+    $unrelated = $this->createDraftIntervention($client, $token, $organizationId, 'Unrelated mission');
+    $unrelatedId = $this->extractResourceId($unrelated);
+    self::assertNotNull($unrelatedId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'member' => $memberIri,
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertContains($asResponsibleId, $ids, 'The intervention where the member is responsible must be listed.');
+    self::assertContains($asParticipantId, $ids, 'The intervention where the member is a participant must be listed.');
+    self::assertNotContains($unrelatedId, $ids, 'An unrelated intervention must be excluded.');
+  }
+
+  public function testNumberFilterMatchesExactlyAcceptsFgPrefixAndRejectsNonNumeric(): void
+  {
+    $client = static::createClientWithFixtures();
+    $email = 'intervention-number-' . uniqid() . '@example.com';
+    $password = 'OwnerPassword123!';
+    $this->createAndActivateUser($client, $email, $password);
+    $token = $this->loginAndGetUserAccessToken($client, $email, $password);
+    $organizationId = $this->createOrganization($client, $token, 'Number Org ' . uniqid());
+    self::assertNotNull($organizationId);
+
+    $intervention = $this->createDraftIntervention($client, $token, $organizationId, 'Numbered mission');
+    $number = $intervention['number'] ?? null;
+    self::assertIsInt($number);
+    $interventionId = $this->extractResourceId($intervention);
+    self::assertNotNull($interventionId);
+
+    $filtered = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'number' => (string) $number,
+    ]));
+    $ids = $this->memberIds($filtered);
+    self::assertSame([$interventionId], $ids, 'The number filter must match exactly.');
+
+    $prefixed = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'number' => 'FG-' . $number,
+    ]));
+    self::assertSame([$interventionId], $this->memberIds($prefixed), 'The FG- prefix must be accepted and stripped.');
+
+    $lowercase = $this->getResource($client, $token, '/api/interventions?' . http_build_query([
+      'organization' => '/api/organizations/' . $organizationId,
+      'number' => 'fg-' . $number,
+    ]));
+    self::assertSame([$interventionId], $this->memberIds($lowercase), 'The FG- prefix must be matched case-insensitively.');
+
+    foreach (['not-a-number', '12.5', '-5', '1e3'] as $invalid) {
+      $client->request(
+        'GET',
+        '/api/interventions?' . http_build_query([
+          'organization' => '/api/organizations/' . $organizationId,
+          'number' => $invalid,
+        ]),
+        server: $this->headers($token, self::LD_JSON),
+      );
+      self::assertSame(
+        Response::HTTP_BAD_REQUEST,
+        $client->getResponse()->getStatusCode(),
+        sprintf('The number filter must reject "%s" with a 400.', $invalid),
+      );
+    }
+  }
+
   /**
    * @return array<string, mixed>
    */
@@ -513,6 +646,39 @@ final class InterventionFlowTest extends OAuth2WebTestCase
       Response::HTTP_CREATED,
       $client->getResponse()->getStatusCode(),
       'Draft intervention creation should succeed. Response: ' . ($client->getResponse()->getContent() ?: ''),
+    );
+
+    return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');
+  }
+
+  /**
+   * @param list<string> $labelIds
+   *
+   * @return array<string, mixed>
+   */
+  private function createDraftInterventionWithLabels(
+    KernelBrowser $client,
+    string $token,
+    string $organizationId,
+    string $name,
+    array $labelIds,
+  ): array {
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions',
+      server: $this->headers($token, self::LD_JSON),
+      content: json_encode([
+        'organization' => '/api/organizations/' . $organizationId,
+        'type' => 'inspection_campaign',
+        'name' => $name,
+        'labelIds' => $labelIds,
+      ]) ?: '',
+    );
+
+    self::assertSame(
+      Response::HTTP_CREATED,
+      $client->getResponse()->getStatusCode(),
+      'Labeled draft intervention creation should succeed. Response: ' . ($client->getResponse()->getContent() ?: ''),
     );
 
     return $this->decodeJsonResponse($client->getResponse()->getContent() ?: '{}');

@@ -50,6 +50,7 @@ use function array_unique;
 use function array_values;
 use function in_array;
 use function is_array;
+use function is_int;
 use function is_numeric;
 use function is_string;
 use function max;
@@ -890,6 +891,14 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     if (is_string($filters['siteId'] ?? null) && '' !== $filters['siteId']) {
       $qb->andWhere('m.siteId = :siteId')->setParameter('siteId', $filters['siteId']);
     }
+    if (is_int($filters['number'] ?? null)) {
+      $qb->andWhere('m.number = :number')->setParameter('number', $filters['number']);
+    }
+    if (is_string($filters['labelId'] ?? null) && '' !== $filters['labelId']) {
+      $qb->innerJoin('m.labels', 'l')
+        ->andWhere('l.id = :labelId')
+        ->setParameter('labelId', $filters['labelId']);
+    }
     if (is_string($filters['participantId'] ?? null) && '' !== $filters['participantId']) {
       $ids = $this->entityManager->getConnection()->fetchFirstColumn(
         'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :participant)',
@@ -898,6 +907,20 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       $qb->andWhere([] === $ids ? '1 = 0' : 'm.id IN (:participantIds)');
       if ([] !== $ids) {
         $qb->setParameter('participantIds', $ids);
+      }
+    }
+    if (is_string($filters['memberId'] ?? null) && '' !== $filters['memberId']) {
+      $ids = $this->entityManager->getConnection()->fetchFirstColumn(
+        'SELECT id FROM interventions WHERE organization_id = :organization AND jsonb_exists(participants::jsonb, :member)',
+        ['organization' => $organizationId, 'member' => $filters['memberId']],
+      );
+      $qb->andWhere(
+        [] === $ids
+          ? 'm.responsibleId = :memberId'
+          : '(m.responsibleId = :memberId OR m.id IN (:memberInterventionIds))',
+      )->setParameter('memberId', $filters['memberId']);
+      if ([] !== $ids) {
+        $qb->setParameter('memberInterventionIds', $ids);
       }
     }
     foreach (

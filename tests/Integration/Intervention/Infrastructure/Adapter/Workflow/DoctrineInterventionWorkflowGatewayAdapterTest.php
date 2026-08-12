@@ -10,7 +10,7 @@ use Intervention\Application\Contract\Workflow\InterventionWorkflowMutation;
 use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionLabelRecord, InterventionRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Shared\Application\Port\Outbound\EventDispatcherPort;
@@ -50,6 +50,14 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
   private const string TRANSITION_ID = '660e8400-e29b-41d4-a716-446655449013';
 
   private const string ACTOR_USER_ID = '660e8400-e29b-41d4-a716-446655449901';
+
+  private const string RESPONSIBLE_ID = '660e8400-e29b-41d4-a716-446655449020';
+
+  private const string PARTICIPANT_ID = '660e8400-e29b-41d4-a716-446655449021';
+
+  private const string OTHER_MEMBER_ID = '660e8400-e29b-41d4-a716-446655449022';
+
+  private const string LABEL_ID = '660e8400-e29b-41d4-a716-446655449030';
 
   private EntityManagerInterface $entityManager;
 
@@ -211,6 +219,65 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     }
   }
 
+  #[Test]
+  public function testListInterventionFiltersByNumber(): void
+  {
+    $this->createIntervention(self::LITERAL_MATCH_ID, 'Numbered Intervention', 42);
+    $this->createIntervention(self::UNRELATED_ID, 'Other Intervention', 43);
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $page = $this->adapter->list('intervention', self::ORGANIZATION_ID, ['number' => 42], 1, 20);
+
+    self::assertSame(1, $page->total);
+    self::assertSame(self::LITERAL_MATCH_ID, $page->items[0]->data['id']);
+  }
+
+  #[Test]
+  public function testListInterventionFiltersByLabelId(): void
+  {
+    $this->createLabel();
+    $this->createIntervention(self::LITERAL_MATCH_ID, 'Labeled Intervention', 1);
+    $this->createIntervention(self::UNRELATED_ID, 'Unlabeled Intervention', 2);
+
+    /** @var InterventionRecord $labeled */
+    $labeled = $this->entityManager->find(InterventionRecord::class, self::LITERAL_MATCH_ID);
+    /** @var InterventionLabelRecord $label */
+    $label = $this->entityManager->find(InterventionLabelRecord::class, self::LABEL_ID);
+    $labeled->labels->add($label);
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $page = $this->adapter->list('intervention', self::ORGANIZATION_ID, ['labelId' => self::LABEL_ID], 1, 20);
+
+    self::assertSame(1, $page->total);
+    self::assertSame(self::LITERAL_MATCH_ID, $page->items[0]->data['id']);
+  }
+
+  #[Test]
+  public function testListInterventionFiltersByMemberMatchingResponsibleOrParticipant(): void
+  {
+    $this->createIntervention(self::LITERAL_MATCH_ID, 'Responsible Intervention', 1, responsibleId: self::RESPONSIBLE_ID);
+    $this->createIntervention(self::WILDCARD_DECOY_ID, 'Participant Intervention', 2, participants: [self::PARTICIPANT_ID]);
+    $this->createIntervention(self::UNRELATED_ID, 'Unrelated Intervention', 3, responsibleId: self::OTHER_MEMBER_ID);
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $responsibleMatches = $this->adapter->list('intervention', self::ORGANIZATION_ID, ['memberId' => self::RESPONSIBLE_ID], 1, 20);
+    self::assertSame(1, $responsibleMatches->total);
+    self::assertSame(self::LITERAL_MATCH_ID, $responsibleMatches->items[0]->data['id']);
+
+    $participantMatches = $this->adapter->list('intervention', self::ORGANIZATION_ID, ['memberId' => self::PARTICIPANT_ID], 1, 20);
+    self::assertSame(1, $participantMatches->total);
+    self::assertSame(self::WILDCARD_DECOY_ID, $participantMatches->items[0]->data['id']);
+
+    $noMatches = $this->adapter->list('intervention', self::ORGANIZATION_ID, ['memberId' => '660e8400-e29b-41d4-a716-446655449099'], 1, 20);
+    self::assertSame(0, $noMatches->total);
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();
@@ -226,8 +293,16 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $this->entityManager->persist($organization);
   }
 
-  private function createIntervention(string $id, string $name, int $number): void
-  {
+  /**
+   * @param list<string> $participants
+   */
+  private function createIntervention(
+    string $id,
+    string $name,
+    int $number,
+    ?string $responsibleId = null,
+    array $participants = [],
+  ): void {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
 
@@ -239,6 +314,8 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $record->number = $number;
     $record->status = 'draft';
     $record->priority = 'normal';
+    $record->responsibleId = $responsibleId;
+    $record->participants = $participants;
     $record->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
     $record->updatedAt = $record->createdAt;
     $this->entityManager->persist($record);
@@ -268,6 +345,21 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $this->entityManager->persist($record);
   }
 
+  private function createLabel(): void
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+
+    $label = new InterventionLabelRecord();
+    $label->id = self::LABEL_ID;
+    $label->organization = $organization;
+    $label->name = 'Recall';
+    $label->color = '#ff0000';
+    $label->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $label->updatedAt = $label->createdAt;
+    $this->entityManager->persist($label);
+  }
+
   private function cleanup(): void
   {
     // Raw SQL, not ORM remove()/flush(): the ORM's cascade-persist validation
@@ -280,7 +372,15 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
       ['organizationId' => self::ORGANIZATION_ID],
     );
     $connection->executeStatement(
+      'DELETE FROM intervention_label_assignments WHERE label_id IN (SELECT id FROM intervention_labels WHERE organization_id = :organizationId)',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $connection->executeStatement(
       'DELETE FROM interventions WHERE organization_id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $connection->executeStatement(
+      'DELETE FROM intervention_labels WHERE organization_id = :organizationId',
       ['organizationId' => self::ORGANIZATION_ID],
     );
     $connection->executeStatement(
