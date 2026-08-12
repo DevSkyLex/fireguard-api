@@ -32,6 +32,7 @@ use Intervention\Domain\Event\Recurrence\{
   InterventionRecurrenceMaterializedEvent,
   InterventionRecurrenceUpdatedEvent
 };
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Maintenance\Domain\Event\Campaign\MaintenanceCampaignGeneratedEvent;
 use Maintenance\Domain\Event\Schedule\MaintenanceScheduleOverriddenEvent;
 use Messaging\Domain\Event\Channel\{
@@ -164,6 +165,7 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'equipment.equipment_decommissioned_event' => 'onEquipmentDecommissioned',
       'intervention.intervention_published_event' => 'onInterventionPublished',
       'intervention.intervention_publication_failed_event' => 'onInterventionPublicationFailed',
+      'intervention.intervention_status_transitioned_event' => 'onInterventionStatusTransitioned',
       'intervention.intervention_recurrence_created_event' => 'onInterventionRecurrenceCreated',
       'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
       'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
@@ -1445,6 +1447,40 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
         'reason' => $event->reason,
       ],
       occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onInterventionStatusTransitioned.
+   *
+   * Records a successful intervention status transition — every explicit
+   * transition applied through the workflow gateway, plus the work-item-driven
+   * `planned -> in_progress` auto-start. `review_note` is present only when
+   * the target status is `changes_requested`.
+   *
+   * @since 1.0.0
+   *
+   * @param InterventionStatusTransitionedEvent $event the domain event
+   */
+  public function onInterventionStatusTransitioned(InterventionStatusTransitionedEvent $event): void
+  {
+    $metadata = [
+      'intervention_number' => $event->interventionNumber,
+      'from_status' => $event->fromStatus,
+      'to_status' => $event->toStatus,
+    ];
+    if (null !== $event->reviewNote) {
+      $metadata['review_note'] = $event->reviewNote;
+    }
+
+    $this->recordOrganizationAudit(
+      action: 'intervention.status_transitioned',
+      organizationId: $event->organizationId,
+      subjectType: 'intervention',
+      subjectId: $event->interventionId,
+      metadata: $metadata,
+      occurredAt: $event->occurredAt,
+      actorUserId: $event->actorUserId,
     );
   }
 

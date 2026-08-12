@@ -134,15 +134,26 @@ and appends one ledger entry per action:
   `decommissioned` (each with `previous_status`) — same rules; the canonical
   processors collect their events during the wrapped mutation and dispatch
   after the commit
-- `intervention.*` — `published` (THE audit point for the intervention write
-  path: the per-resource adapters never emit; drafts materialize here) and
-  `publication_failed` (with `reason`), both emitted by
+- `intervention.*` — `published` (the audit point for the intervention
+  publication write path: the per-resource adapters never emit; drafts
+  materialize here) and `publication_failed` (with `reason`), both emitted by
   `ExecutePublicationHandler` after `publish()`/`markFailed()` are durable.
   Failures before the intervention context resolves are not ledgered (no
   organization scope) but stay on the publication record. The Stripe webhook
   plan path needs no dedicated action: it dispatches
   `ChangeOrganizationPlanCommand` through the bus, so it lands in the ledger
-  as `organization.plan_changed` with actor `system`.
+  as `organization.plan_changed` with actor `system`. `status_transitioned`
+  covers every intervention status change (metadata: `intervention_number`,
+  `from_status`, `to_status`, and `review_note` when the target is
+  `changes_requested`), emitted by
+  `Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter`
+  — the single write path behind `PATCH /interventions/{id}` and the
+  work-item-driven `planned -> in_progress` auto-start — deferred until its
+  `wrapInTransaction` commits, mirroring the notification-deferral pattern
+  already in that adapter; the actor is always the mutating user — the
+  auto-start is attributed to the member whose work-item update triggered it
+  (a `null` actor falling back to `system` is modeled by the event but has no
+  production call site today).
 - `maintenance.*` — `schedule_overridden` (`PATCH /maintenance/schedules/{id}`
   setting/clearing `intervalOverride`; metadata: `equipment_id`,
   `interval_override`) and `campaign_generated` (`POST /maintenance/campaigns`;
