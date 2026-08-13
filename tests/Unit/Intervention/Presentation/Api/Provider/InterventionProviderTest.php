@@ -212,6 +212,7 @@ final class InterventionProviderTest extends TestCase
       'completedWorkItemsCount' => 0,
       'proposedChangesCount' => 0,
       'commentsCount' => 0,
+      'hasSignature' => false,
       'labels' => [],
       'createdAt' => '2026-01-01T00:00:00+00:00',
       'updatedAt' => '2026-01-01T00:00:00+00:00',

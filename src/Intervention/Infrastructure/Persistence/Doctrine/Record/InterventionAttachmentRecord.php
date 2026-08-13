@@ -20,6 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'intervention_attachments')]
 #[ORM\Index(name: 'idx_intervention_attachment_intervention', columns: ['intervention_id'])]
 #[ORM\Index(name: 'idx_intervention_attachment_work_item', columns: ['work_item_id'])]
+#[ORM\Index(name: 'idx_intervention_attachment_intervention_kind', columns: ['intervention_id', 'kind'])]
 #[ORM\UniqueConstraint(name: 'uniq_intervention_attachment_storage_path', columns: ['storage_path'])]
 class InterventionAttachmentRecord
 {
@@ -95,6 +96,18 @@ class InterventionAttachmentRecord
    */
   #[ORM\Column(name: 'label', type: 'string', length: 255, nullable: true)]
   public ?string $label = null;
+
+  /**
+   * Property kind.
+   *
+   * `file` or `signature` (Phase 5d.2). Not modeled as a Doctrine enum type
+   * so a future value needs no schema change — validated at the domain
+   * boundary via `InterventionAttachmentKind`.
+   *
+   * @since 1.2.0
+   */
+  #[ORM\Column(name: 'kind', type: 'string', length: 20)]
+  public string $kind = 'file';
 
   /**
    * Property revision.

@@ -322,7 +322,7 @@ with intervention planning edits not being audited today.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId` multipart field) |
+| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId` and `kind` (`file`\|`signature`, default `file`) multipart fields) |
 | GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments (filter: `workItem` *(optional, IRI or bare id)*) |
 | GET | `/intervention-attachments/{id}` | Get one attachment |
 | GET | `/intervention-attachments/{id}/download` | Download an attachment's stored file bytes (Phase 4b) |
@@ -458,6 +458,67 @@ logged by the controller before the same `404` is returned to the caller.
 
 The 25-attachment cap and MIME/size policy above apply only to writes; they
 do not gate the download route.
+
+**Completion signature (Phase 5d.2)** — `intervention_attachments` gains a
+`kind` column (`'file'` | `'signature'`, `NOT NULL DEFAULT 'file'`,
+`Intervention\Domain\ValueObject\InterventionAttachmentKind`), a typed
+attachment distinguishing the fire-safety traceability signature the
+responsible captures when submitting field work from a plain evidence file:
+
+- **Upload** — `POST /interventions/{interventionId}/attachments` accepts an
+  optional `kind` multipart field (default `file`). `AddInterventionAttachmentHandler`
+  parses it via `InterventionAttachmentKind::tryFrom()`; an unrecognized value
+  is rejected with **422 Unprocessable Entity** (`InterventionValidationException`),
+  the same status the work-item-scope guard above already uses for a bad
+  input.
+- **Phase rule** — a `kind: signature` upload is accepted only while the
+  intervention is `in_progress` or `changes_requested` — the two statuses
+  submission is made from — regardless of the generic phase-based mutability
+  check every attachment write already passes: **409 Conflict**
+  (`InterventionConflictException`) outside that window, mirroring how
+  `InterventionResourceManager::mutationPermission()` itself rejects the
+  immutable states.
+- **MIME rule** — a signature must be an image; the handler reuses
+  `Shared\Domain\Attachment\AttachmentCategory::IMAGE->allowedMimeTypes()`
+  (the same allow-list `AttachmentConstraints` already exposes), so a
+  PDF-as-signature is rejected with **422 Unprocessable Entity**
+  (`InterventionValidationException`) before anything is written to storage.
+- **Replace semantics** — at most one `signature` attachment exists per
+  intervention. A second signature upload REPLACES the first: the traceability
+  choice is that the stored signature must reflect the intervention's FINAL
+  submission, not a history of attempts. `AddInterventionAttachmentHandler`
+  resolves the existing signature via
+  `InterventionAttachmentRepositoryPort::findSignatureByInterventionId()`
+  *before* writing the new file (so a failed upload never touches the old
+  one), writes and saves the new attachment first, and only once that succeeds
+  deletes the previous signature's record and stored file — the same
+  write-then-cleanup ordering `DeleteInterventionAttachmentHandler` and the
+  save-failure rollback above already use elsewhere in this handler.
+- **Cap interaction** — the signature still counts toward the 25-attachment
+  cap like any other attachment (kept simple, the cap is generous), but a
+  replacement does not inflate it: the pre-write count check subtracts one
+  when an existing signature is about to be replaced, so an intervention
+  already at the cap can still re-sign.
+- **Read surface** — `InterventionAttachmentOutput.kind: string` on every
+  attachment read (upload response, list, single-item get, download has no
+  output body). `InterventionOutput.hasSignature: bool` is a cheap
+  existence check (`InterventionAttachmentRepositoryPort::hasSignature()` /
+  one indexed `COUNT` on `(intervention_id, kind)`) computed unconditionally
+  in `InterventionViewMapper::interventionView()`, mirroring the
+  `commentsCount` precedent in the same mapper rather than folding into the
+  metrics-preloaded list branch.
+- **Issue-finder nudge** — `InterventionIssueFinder::find()` (now also
+  depending on `InterventionAttachmentRepositoryPort`) adds a
+  RECOMMENDATION-severity issue ("Capture the completion signature before
+  submitting.") when the intervention is `in_progress`, every required work
+  item is complete (`workItems.requiredIncomplete === 0`), and no signature
+  exists yet — a nudge surfaced on `GET /interventions/{id}/issues`, never a
+  blocker: it does not affect `blockersCount` or the transition to
+  `submitted`.
+- **Migration** — `migrations/main/Version20260813130500.php` adds the
+  column with `DEFAULT 'file'`, which backfills every pre-existing row in the
+  same statement; the default is left in place so it stays aligned with
+  `InterventionAttachmentKind::FILE`.
 
 ### Reference
 
@@ -932,6 +993,11 @@ exactly like labels):
   (`idx_intervention_attachment_work_item`) — so the mapping and the schema
   now agree and a future resync cannot silently drop it again. Repository:
   `Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository`.
+- `intervention_attachments.kind` (Phase 5d.2): `VARCHAR(20) NOT NULL DEFAULT
+  'file'`, composite index `idx_intervention_attachment_intervention_kind` on
+  `(intervention_id, kind)` — the input of `findSignatureByInterventionId()` /
+  `hasSignature()`. Migration: `migrations/main/Version20260813130500.php`
+  (see Attachments above for the full completion-signature behavior).
 - `interventions.due_soon_notified_at` / `interventions.overdue_notified_at`
   (nullable timestamps) are the due-date reminder sweep's anti-spam guard —
   see the Due-date reminder sweep section above. Migration:
@@ -1024,7 +1090,24 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
     (another intervention's work item) is rejected with
     `InterventionValidationException` (422) before storage is touched — an
     absent `workItemId` is unaffected (covered by the existing happy-path
-    tests, which pass no `workItemId`).
+    tests, which pass no `workItemId`). `AddInterventionAttachmentHandlerTest`
+    additionally covers Phase 5d.2: an unknown `kind` (422), a signature
+    uploaded outside `in_progress`/`changes_requested` (409), a PDF-as-signature
+    (422), a signature accepted while `changes_requested`, and a re-uploaded
+    signature replacing the previous one (the previous record and file are
+    deleted only after the new one is saved, and the cap check is not
+    inflated by the row about to be replaced).
+  - `Application/Service/InterventionIssueFinderTest` — the "capture the
+    completion signature" recommendation: present only when `in_progress`,
+    every required work item complete, and no signature yet; absent when a
+    signature already exists, when required work items remain incomplete, or
+    outside `in_progress`.
+  - `Domain/Model/Attachment/InterventionAttachmentTest`,
+    `Infrastructure/Persistence/Doctrine/Mapper/InterventionAttachmentMapperTest`
+    — the `kind` value object defaults to `file` and round-trips through
+    `create()`/`reconstitute()`/the Doctrine mapper in both directions; an
+    unrecognized persisted `kind` value defaults back to `file` rather than
+    throwing.
   - `Presentation/Api/Processor/Attachment/InterventionMediaProcessorTest` —
     the phase-based authorization matrix: `draft` requires
     `organization.interventions.plan`, `in_progress` requires `.execute` (a
@@ -1068,7 +1151,11 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   and — the deletion-semantics assertion — deleting the referenced
   `intervention_work_items` row directly at the database level sets the
   attachment's `work_item_id` to `null` rather than deleting the attachment,
-  proving the `ON DELETE SET NULL` FK.
+  proving the `ON DELETE SET NULL` FK. Additionally covers Phase 5d.2: `kind`
+  round-trips through `save()`/`findById()` (including the unrecognized-value
+  default), and `findSignatureByInterventionId()`/`hasSignature()` return the
+  intervention's own signature only (scoped correctly across interventions,
+  `null`/`false` when none exists).
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
   `tests/Functional/Api/InterventionAttachmentApiTest.php`,
@@ -1095,7 +1182,14 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   attachment only (zero for a sibling work item with none), and
   `GET /intervention-work-items/{id}` exposes the matching `evidenceCount`;
   `testUploadWithAWorkItemIdFromAnotherInterventionIsRejectedWith422` proves
-  the cross-intervention denial end to end.
+  the cross-intervention denial end to end. Phase 5d.2: a real signature
+  upload round-trips `kind: 'signature'` into the output and flips
+  `InterventionOutput.hasSignature` to `true`; an upload with no `kind`
+  defaults to `file`; an unknown `kind` and a PDF declared as a signature are
+  both rejected with 422; a signature uploaded outside
+  `in_progress`/`changes_requested` is rejected with 409; and re-uploading a
+  signature mints a new attachment id, 404s the previous one, and leaves
+  exactly one `signature`-kind attachment in the list.
 - E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
   submit → work items frozen (409) → withdraw → work items mutable again →
   resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The

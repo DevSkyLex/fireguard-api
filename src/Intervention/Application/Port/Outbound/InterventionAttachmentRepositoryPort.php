@@ -74,6 +74,36 @@ interface InterventionAttachmentRepositoryPort
   public function countByInterventionId(string $interventionId): int;
 
   /**
+   * Method findSignatureByInterventionId.
+   *
+   * Finds the intervention's current completion signature attachment, when
+   * one exists. At most one `signature`-kind attachment exists per
+   * intervention — the input of the replace-on-reupload semantics in
+   * `AddInterventionAttachmentHandler`.
+   *
+   * @since 1.2.0
+   *
+   * @param string $interventionId the intervention identifier
+   *
+   * @return ?InterventionAttachment the signature attachment when one exists
+   */
+  public function findSignatureByInterventionId(string $interventionId): ?InterventionAttachment;
+
+  /**
+   * Method hasSignature.
+   *
+   * Cheap existence check for the intervention's completion signature — the
+   * input of `InterventionOutput::$hasSignature`.
+   *
+   * @since 1.2.0
+   *
+   * @param string $interventionId the intervention identifier
+   *
+   * @return bool whether the intervention carries a completion signature
+   */
+  public function hasSignature(string $interventionId): bool;
+
+  /**
    * Method delete.
    *
    * Deletes an attachment record.

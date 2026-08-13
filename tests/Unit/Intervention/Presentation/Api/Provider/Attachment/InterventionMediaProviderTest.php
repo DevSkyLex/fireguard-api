@@ -55,7 +55,7 @@ final class InterventionMediaProviderTest extends TestCase
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willReturn(new ListInterventionAttachmentsResult([
-      ['id' => 'attachment-id', 'fileName' => 'evidence.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'workItemId' => null],
+      ['id' => 'attachment-id', 'fileName' => 'evidence.jpg', 'mimeType' => 'image/jpeg', 'size' => 5, 'label' => null, 'uploadedAt' => '2026-01-01T00:00:00+00:00', 'workItemId' => null, 'kind' => 'file'],
     ]));
 
     $result = new InterventionMediaProvider(

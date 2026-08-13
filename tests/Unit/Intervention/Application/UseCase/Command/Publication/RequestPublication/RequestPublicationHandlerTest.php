@@ -7,7 +7,7 @@ namespace Tests\Unit\Intervention\Application\UseCase\Command\Publication\Reques
 use DateTimeImmutable;
 use Intervention\Application\Contract\Publication\{InterventionPublicationContext, PublicationView};
 use Intervention\Application\Contract\Resource\{InterventionResourceSummary, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\{InterventionResourceGatewayPort, PublicationQueuePort, PublicationRepositoryPort};
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort, PublicationQueuePort, PublicationRepositoryPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\RequestPublication\{RequestPublicationCommand, RequestPublicationHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
@@ -236,7 +236,7 @@ final class RequestPublicationHandlerTest extends TestCase
     return new RequestPublicationHandler(
       $repository,
       $queue,
-      new InterventionIssueFinder($resources),
+      new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
       $authorization,
       $uuidFactory,
     );

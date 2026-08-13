@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Application\Service;
 
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceSummary, InterventionValidationContext, InterventionWorkItemSummary};
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
 use PHPUnit\Framework\TestCase;
@@ -37,7 +37,7 @@ final class InterventionIssueFinderTest extends TestCase
     $gateway->method('equipmentDrafts')->willReturn([]);
 
     $blockers = array_values(array_filter(
-      new InterventionIssueFinder($gateway)->find('intervention-1'),
+      $this->finder($gateway)->find('intervention-1'),
       static fn ($issue): bool => 'blocker' === $issue->severity,
     ));
 
@@ -53,7 +53,7 @@ final class InterventionIssueFinderTest extends TestCase
     $gateway->method('validationContext')->willReturn(new InterventionValidationContext('site_setup', 'submitted', 'site-1', 'member-1'));
     $gateway->method('equipmentDrafts')->willReturn([]);
 
-    $messages = array_column(new InterventionIssueFinder($gateway)->find('intervention-1'), 'message');
+    $messages = array_column($this->finder($gateway)->find('intervention-1'), 'message');
 
     self::assertContains('No initial inspection has been recorded yet.', $messages);
     self::assertNotContains('At least one facility is required.', $messages);
@@ -70,7 +70,7 @@ final class InterventionIssueFinderTest extends TestCase
     $gateway->method('validationContext')->willReturn(new InterventionValidationContext('site_setup', 'submitted', 'site-1', 'member-1'));
     $gateway->method('equipmentDrafts')->willReturn([]);
 
-    $messages = array_column(new InterventionIssueFinder($gateway)->find('intervention-1'), 'message');
+    $messages = array_column($this->finder($gateway)->find('intervention-1'), 'message');
 
     self::assertContains('2 required work item(s) are incomplete.', $messages);
     self::assertContains('1 work item(s) were skipped and require review.', $messages);
@@ -90,7 +90,7 @@ final class InterventionIssueFinderTest extends TestCase
     ]);
 
     $equipmentIssues = array_values(array_filter(
-      new InterventionIssueFinder($gateway)->find('intervention-1'),
+      $this->finder($gateway)->find('intervention-1'),
       static fn ($issue): bool => 'equipment' === $issue->resourceType,
     ));
 
@@ -123,7 +123,7 @@ final class InterventionIssueFinderTest extends TestCase
     $gateway->method('validationContext')->willReturn(null);
     $gateway->method('equipmentDrafts')->willReturn([]);
 
-    $messages = array_column(new InterventionIssueFinder($gateway)->find('intervention-1'), 'message');
+    $messages = array_column($this->finder($gateway)->find('intervention-1'), 'message');
 
     self::assertContains('At least one facility is required.', $messages);
     self::assertContains('No equipment has been inventoried yet.', $messages);
@@ -136,7 +136,7 @@ final class InterventionIssueFinderTest extends TestCase
     $gateway = $this->createStub(InterventionResourceGatewayPort::class);
     $gateway->method('equipmentDrafts')->willReturn([]);
 
-    $issues = new InterventionIssueFinder($gateway)->find(
+    $issues = $this->finder($gateway)->find(
       'intervention-1',
       new InterventionResourceSummary(2, 5, 3),
       new InterventionWorkItemSummary(0, 0, 0, 0),
@@ -150,5 +150,93 @@ final class InterventionIssueFinderTest extends TestCase
 
     self::assertCount(1, $blocker);
     self::assertSame('blocker', $blocker[0]->severity);
+  }
+
+  #[Test]
+  public function itRecommendsCapturingTheSignatureWhenInProgressWithAllRequiredWorkItemsComplete(): void
+  {
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('equipmentDrafts')->willReturn([]);
+
+    $attachments = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachments->method('hasSignature')->willReturn(false);
+
+    $issues = $this->finder($gateway, $attachments)->find(
+      'intervention-1',
+      new InterventionResourceSummary(2, 5, 3),
+      new InterventionWorkItemSummary(total: 3, requiredIncomplete: 0, skipped: 0, discovered: 0, completed: 3),
+      new InterventionValidationContext('site_setup', 'in_progress', null, null),
+    );
+
+    $recommendations = array_column(array_filter(
+      $issues,
+      static fn ($issue): bool => 'recommendation' === $issue->severity && 'intervention' === $issue->resourceType,
+    ), 'message');
+
+    self::assertContains('Capture the completion signature before submitting.', $recommendations);
+  }
+
+  #[Test]
+  public function itDoesNotRecommendTheSignatureWhenOneAlreadyExists(): void
+  {
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('equipmentDrafts')->willReturn([]);
+
+    $attachments = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachments->method('hasSignature')->willReturn(true);
+
+    $messages = array_column($this->finder($gateway, $attachments)->find(
+      'intervention-1',
+      new InterventionResourceSummary(2, 5, 3),
+      new InterventionWorkItemSummary(total: 3, requiredIncomplete: 0, skipped: 0, discovered: 0, completed: 3),
+      new InterventionValidationContext('site_setup', 'in_progress', null, null),
+    ), 'message');
+
+    self::assertNotContains('Capture the completion signature before submitting.', $messages);
+  }
+
+  #[Test]
+  public function itDoesNotRecommendTheSignatureWhenRequiredWorkItemsAreStillIncomplete(): void
+  {
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('equipmentDrafts')->willReturn([]);
+
+    $attachments = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachments->method('hasSignature')->willReturn(false);
+
+    $messages = array_column($this->finder($gateway, $attachments)->find(
+      'intervention-1',
+      new InterventionResourceSummary(2, 5, 3),
+      new InterventionWorkItemSummary(total: 3, requiredIncomplete: 1, skipped: 0, discovered: 0, completed: 2),
+      new InterventionValidationContext('site_setup', 'in_progress', null, null),
+    ), 'message');
+
+    self::assertNotContains('Capture the completion signature before submitting.', $messages);
+  }
+
+  #[Test]
+  public function itDoesNotRecommendTheSignatureOutsideTheInProgressPhase(): void
+  {
+    $gateway = $this->createStub(InterventionResourceGatewayPort::class);
+    $gateway->method('equipmentDrafts')->willReturn([]);
+
+    $attachments = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachments->method('hasSignature')->willReturn(false);
+
+    $messages = array_column($this->finder($gateway, $attachments)->find(
+      'intervention-1',
+      new InterventionResourceSummary(2, 5, 3),
+      new InterventionWorkItemSummary(total: 3, requiredIncomplete: 0, skipped: 0, discovered: 0, completed: 3),
+      new InterventionValidationContext('site_setup', 'submitted', null, null),
+    ), 'message');
+
+    self::assertNotContains('Capture the completion signature before submitting.', $messages);
+  }
+
+  private function finder(
+    InterventionResourceGatewayPort $gateway,
+    ?InterventionAttachmentRepositoryPort $attachments = null,
+  ): InterventionIssueFinder {
+    return new InterventionIssueFinder($gateway, $attachments ?? $this->createStub(InterventionAttachmentRepositoryPort::class));
   }
 }

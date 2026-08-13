@@ -99,6 +99,7 @@ final readonly class InterventionMediaProvider implements ProviderInterface
     $output->mimeType = $record->mimeType;
     $output->size = $record->size;
     $output->label = $record->label;
+    $output->kind = $record->kind;
     $output->revision = $record->revision;
     $output->uploadedAt = $record->uploadedAt->format('c');
     $output->workItemId = $record->workItem?->id;
@@ -149,6 +150,7 @@ final readonly class InterventionMediaProvider implements ProviderInterface
       $output->mimeType = $attachment['mimeType'];
       $output->size = $attachment['size'];
       $output->label = $attachment['label'];
+      $output->kind = $attachment['kind'];
       $output->uploadedAt = $attachment['uploadedAt'];
       $output->workItemId = $attachment['workItemId'];
       $outputs[] = $output;
