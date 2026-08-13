@@ -12,6 +12,7 @@ use Intervention\Application\UseCase\Command\Activity\AddInterventionComment\{Ad
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Notification\Application\Contract\Notification\{NotificationChannel, SendNotificationRequest, SentNotification};
 use Notification\Application\Port\Inbound\NotificationPort;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, OrganizationNotificationPolicyPort};
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -56,7 +57,7 @@ final class AddInterventionCommentHandlerTest extends TestCase
       ->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new AddInterventionCommentHandler($gateway, $activities, $authorization, $this->memberPolicy(), $this->notificationService())(
       new AddInterventionCommentCommand(self::USER_ID, self::INTERVENTION_ID, '  Trimmed body  '),
@@ -90,9 +91,29 @@ final class AddInterventionCommentHandlerTest extends TestCase
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('append');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    new AddInterventionCommentHandler($gateway, $activities, $authorization, $this->memberPolicy(), $this->notificationService())(
+      new AddInterventionCommentCommand(self::USER_ID, self::INTERVENTION_ID, 'A comment'),
+    );
+  }
+
+  #[Test]
+  public function itReportsAnOutOfScopeCallerAsNotFound(): void
+  {
+    $context = new InterventionWorkflowContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress', null);
+    $gateway = $this->createStub(InterventionWorkflowGatewayPort::class);
+    $gateway->method('interventionContext')->willReturn($context);
+    $activities = $this->createMock(InterventionActivityPort::class);
+    $activities->expects(self::never())->method('append');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    // The same exception itThrowsWhenTheInterventionCannotBeFound asserts: a
+    // caller from another organization must not learn this id is real.
+    $this->expectException(InterventionNotFoundException::class);
 
     new AddInterventionCommentHandler($gateway, $activities, $authorization, $this->memberPolicy(), $this->notificationService())(
       new AddInterventionCommentCommand(self::USER_ID, self::INTERVENTION_ID, 'A comment'),
@@ -108,7 +129,7 @@ final class AddInterventionCommentHandlerTest extends TestCase
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('append');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
@@ -126,7 +147,7 @@ final class AddInterventionCommentHandlerTest extends TestCase
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('append');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $repository = $this->createStub(OrganizationMemberRepositoryPort::class);
     $repository->method('findByOrganizationAndUser')->willReturn(null);
@@ -150,7 +171,7 @@ final class AddInterventionCommentHandlerTest extends TestCase
     $activities->method('append')->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $notificationPort = $this->createMock(NotificationPort::class);
     $notificationPort->expects(self::once())

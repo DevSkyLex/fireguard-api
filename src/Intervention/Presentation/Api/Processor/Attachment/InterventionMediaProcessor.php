@@ -18,7 +18,7 @@ use Intervention\Presentation\Api\Trait\InterventionWorkflowExceptionMapperTrait
 use Shared\Application\Exception\MessengerExceptionUnwrapperTrait;
 use Shared\Application\Port\Inbound\CommandBusPort;
 use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
-use Shared\Presentation\Api\Http\RevisionGuard;
+use Shared\Presentation\Api\Http\{ResourceIriParser, RevisionGuard};
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
@@ -104,8 +104,13 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
 
     $user = $this->user();
     $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
+    $workItem = $this->currentRequest()->request->get('workItemId');
 
     try {
+      $workItemId = is_string($workItem) && '' !== $workItem
+        ? ResourceIriParser::id($workItem, 'intervention-work-items')
+        : null;
+
       /** @var AddInterventionAttachmentResult $result */
       $result = $this->commandBus->dispatch(new AddInterventionAttachmentCommand(
         userId: $user->getId(),
@@ -115,6 +120,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
         mimeType: $uploaded->mimeType,
         size: $uploaded->size,
         label: $uploaded->label,
+        workItemId: $workItemId,
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

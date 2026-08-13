@@ -12,6 +12,7 @@ use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionActivityRecord,
+  InterventionAttachmentRecord,
   InterventionChangeRecord,
   InterventionLabelRecord,
   InterventionRecord,
@@ -160,6 +161,12 @@ final readonly class InterventionViewMapper
   {
     $intervention = $this->workItemIntervention($record);
     $organizationId = $this->organizationId($intervention);
+    // Bounded per-row lazy load, mirroring the commentsCount decision in
+    // interventionView() above: cheap (indexed FK count) and correct without
+    // batching the work item list/get paths through a separate grouped query.
+    $evidenceCount = $this->entityManager->getRepository(InterventionAttachmentRecord::class)->count([
+      'workItem' => $record,
+    ]);
 
     return new InterventionWorkflowView('work_item', $organizationId, [
       'id' => $record->id,
@@ -172,6 +179,7 @@ final readonly class InterventionViewMapper
       'status' => $record->status,
       'required' => $record->required,
       'skipReason' => $record->skipReason,
+      'evidenceCount' => $evidenceCount,
       'revision' => $record->revision,
       'createdAt' => $record->createdAt->format('c'),
       'updatedAt' => $record->updatedAt->format('c'),

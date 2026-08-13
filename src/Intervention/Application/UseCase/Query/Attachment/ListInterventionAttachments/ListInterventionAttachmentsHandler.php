@@ -47,11 +47,16 @@ final readonly class ListInterventionAttachmentsHandler implements QueryHandler
       throw InterventionNotFoundException::withId($query->interventionId);
     }
 
-    if (!$this->authorization->hasPermission($query->userId, $context->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $context->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($query->interventionId);
+    }
+
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 
-    $attachments = $this->attachmentRepository->findByInterventionId($query->interventionId);
+    $attachments = $this->attachmentRepository->findByInterventionId($query->interventionId, $query->workItemId);
 
     $result = [];
     foreach ($attachments as $attachment) {
@@ -62,6 +67,7 @@ final readonly class ListInterventionAttachmentsHandler implements QueryHandler
         'size' => $attachment->size(),
         'label' => $attachment->label(),
         'uploadedAt' => $attachment->uploadedAt()->format('c'),
+        'workItemId' => $attachment->workItemId(),
       ];
     }
 

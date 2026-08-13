@@ -8,7 +8,8 @@ use DateTimeImmutable;
 use Intervention\Application\Contract\Statistics\{InterventionIdentifierCount, InterventionStatisticsAggregate};
 use Intervention\Application\Port\Outbound\{InterventionMemberNamingPort, InterventionSiteNamingPort, InterventionStatisticsGatewayPort};
 use Intervention\Application\UseCase\Query\Workflow\GetInterventionStatistics\{GetInterventionStatisticsHandler, GetInterventionStatisticsQuery, GetInterventionStatisticsResult};
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -32,9 +33,9 @@ final class GetInterventionStatisticsHandlerTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.read')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     /** @var InterventionStatisticsGatewayPort&MockObject $statistics */
     $statistics = $this->createMock(InterventionStatisticsGatewayPort::class);
@@ -54,12 +55,39 @@ final class GetInterventionStatisticsHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    /** @var InterventionStatisticsGatewayPort&MockObject $statistics */
+    $statistics = $this->createMock(InterventionStatisticsGatewayPort::class);
+    $statistics->expects(self::never())->method('aggregate');
+
+    $handler = new GetInterventionStatisticsHandler(
+      statistics: $statistics,
+      siteNaming: $this->createStub(InterventionSiteNamingPort::class),
+      memberNaming: $this->createStub(InterventionMemberNamingPort::class),
+      authorization: $authorization,
+      clock: $this->createStub(ClockPort::class),
+    );
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    $handler->__invoke(new GetInterventionStatisticsQuery(self::USER_ID, self::ORG_ID));
+  }
+
+  #[Test]
   public function testInvokeZeroFillsEveryStatusAndPriorityKeyAndReturnsNullAverageWhenEmpty(): void
   {
     $now = new DateTimeImmutable('2026-08-13T10:00:00+00:00');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn($now);
@@ -130,7 +158,7 @@ final class GetInterventionStatisticsHandlerTest extends TestCase
     $now = new DateTimeImmutable('2026-08-13T10:00:00+00:00');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $clock = $this->createStub(ClockPort::class);
     $clock->method('now')->willReturn($now);

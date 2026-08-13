@@ -84,7 +84,31 @@ Cross-module dependencies, and the contract each goes through:
 | --- | --- | --- | --- |
 | consumed | `Audit\Application\Port\Inbound\OrganizationAuditFeedPort` | `Audit\…\Contract\OrganizationAuditEntry` | the activity feed — Audit publishes a scoped, reduced read rather than lending its ledger repository; see Notes (P2.6) |
 | published | `Organization\Application\Port\Inbound\TeamDirectoryPort` | `…\Contract\Team\TeamMembershipSnapshot` | lets Intervention (and later Messaging) resolve a team's active membership without touching this module's Domain |
-| published | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` | — | the permission check every other module's org-scoped endpoint runs |
+| published | `Organization\Application\Port\Inbound\OrganizationAuthorizationPort` | `…\Contract\Authorization\OrganizationAccessDecision` | the permission check every other module's org-scoped endpoint runs |
+
+### `OrganizationAuthorizationPort` — three ways to ask
+
+| Method | Answers | Use when |
+| --- | --- | --- |
+| `hasPermission()` | `bool` | the caller has already established the requester is in scope, or the endpoint has no record whose existence a denial could reveal |
+| `resolveAccess()` | `OrganizationAccessDecision`: `GRANTED` / `MISSING_PERMISSION` / `OUTSIDE_SCOPE` | the default for an org-scoped record — a consumer needs 404 for out-of-scope and 403 for unentitled |
+| `isMemberOf()` | `bool` | the scope half alone, when the required permission cannot be named until after a call that may itself throw |
+
+`resolveAccess()` exists because a boolean denial is an existence oracle:
+a consumer that maps it to 403 tells a caller from another organization that
+a record they may not read is real. Consumers therefore map `OUTSIDE_SCOPE`
+to whatever 404 an unknown identifier already produces, and only
+`MISSING_PERMISSION` to 403. `Intervention`'s MODULE.md documents the
+convention in full under *Scope versus entitlement*.
+
+"In scope" means an **active** membership, resolved by
+`OrganizationMemberRepositoryPort::hasActiveMembership()` — the same
+`isActive` predicate `getPermissionNamesForUserInOrganization()` filters on,
+so the two can never disagree. An empty permission list cannot stand in for
+it: an active member holding a role with no permissions also resolves to
+none. The membership query only runs when the permission is not granted, so
+the authorized path costs exactly what `hasPermission()` costs, and the
+answer is memoized per request alongside the permission cache.
 
 ## Persistence
 

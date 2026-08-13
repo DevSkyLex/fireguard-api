@@ -53,7 +53,11 @@ final readonly class GetInterventionTemplateHandler implements QueryHandler
     if (null === $template) {
       throw InterventionNotFoundException::withId($query->templateId);
     }
-    if (!$this->authorization->hasPermission($query->userId, $template->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $template->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($query->templateId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

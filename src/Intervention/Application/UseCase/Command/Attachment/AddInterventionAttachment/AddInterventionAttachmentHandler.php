@@ -6,7 +6,7 @@ namespace Intervention\Application\UseCase\Command\Attachment\AddInterventionAtt
 
 use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
 use Intervention\Application\Service\InterventionResourceManager;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use InvalidArgumentException;
@@ -66,10 +66,26 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       throw InterventionNotFoundException::withId($command->interventionId);
     }
 
+    // Scope gate BEFORE the permission is derived: mutationPermission() reads
+    // the intervention's phase and can itself throw (a conflict on a
+    // published intervention, a member-policy denial), which would tell a
+    // caller outside the owning organization both that this intervention
+    // exists and what state it is in.
+    if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+
     $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
 
     if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
       throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
+    }
+
+    if (
+      null !== $command->workItemId
+      && !$this->interventionResourceManager->workItemBelongsToIntervention($command->workItemId, $command->interventionId)
+    ) {
+      throw new InterventionValidationException('Attachments can only reference work items from the same intervention.');
     }
 
     try {
@@ -102,6 +118,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       mimeType: $command->mimeType,
       size: $command->size,
       label: $command->label,
+      workItemId: $command->workItemId,
     );
 
     $this->fileStorage->write($storagePath, $command->contents);
@@ -122,6 +139,7 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
       size: $attachment->size(),
       label: $attachment->label(),
       uploadedAt: $attachment->uploadedAt(),
+      workItemId: $attachment->workItemId(),
     );
   }
   // #endregion

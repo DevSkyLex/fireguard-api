@@ -7,7 +7,7 @@ namespace Tests\Functional\Api;
 use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\{OrganizationMemberRecord, OrganizationMemberRoleRecord, OrganizationRecord, OrganizationRoleRecord};
 use PHPUnit\Framework\Attributes\Test;
 use Shared\Application\Port\Outbound\FileStoragePort;
@@ -17,7 +17,10 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 use function base64_decode;
 use function file_put_contents;
+use function is_array;
+use function is_string;
 use function json_decode;
+use function str_replace;
 use function strlen;
 use function sys_get_temp_dir;
 use function tempnam;
@@ -28,13 +31,19 @@ use function tempnam;
  * Contract tests for the intervention attachment endpoints, including the
  * `GET /intervention-attachments/{id}/download` route (Phase 4b). The
  * download denial paths mirror the READ gate proven for the single-item
- * `GET /intervention-attachments/{id}` route and `GetInterventionWorkflowHandler`
- * (`InterventionAccessDeniedException` -> 403 for ANY caller missing
- * `organization.interventions.read`, whether they hold no permission in the
- * SAME organization or belong to a DIFFERENT organization entirely — the
- * flat `OrganizationAuthorizationPort::hasPermission()` check this module
- * uses everywhere for a path-id attachment record cannot distinguish the two
- * cases, so both map to the same 403 by design, not a missed 404).
+ * `GET /intervention-attachments/{id}` route and `GetInterventionWorkflowHandler`,
+ * and split the two denials the way the module now does everywhere:
+ *
+ * - a member of the OWNING organization who lacks
+ *   `organization.interventions.read` gets **403** — they may know the
+ *   record exists, they simply may not read it;
+ * - a caller with no active membership in the owning organization gets
+ *   **404**, byte-identical to the response for an attachment id that does
+ *   not exist at all. Returning 403 there would confirm the record exists to
+ *   someone who must not even learn that much.
+ *
+ * `OrganizationAuthorizationPort::resolveAccess()` is what carries that
+ * distinction; the flat `hasPermission()` it replaced could not.
  *
  * @category Functional Tests
  *
@@ -55,6 +64,12 @@ final class InterventionAttachmentApiTest extends WebTestCase
   private const string OUTSIDER_USER_ID = '550e8400-e29b-41d4-a716-446655480005';
 
   private const string INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655480010';
+
+  private const string OTHER_INTERVENTION_ID = '550e8400-e29b-41d4-a716-446655480011';
+
+  private const string WORK_ITEM_ID = '550e8400-e29b-41d4-a716-446655480030';
+
+  private const string OTHER_WORK_ITEM_ID = '550e8400-e29b-41d4-a716-446655480031';
 
   #[Test]
   public function testUploadInterventionAttachmentRequiresAuthentication(): void
@@ -252,7 +267,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
   }
 
   #[Test]
-  public function testDownloadInterventionAttachmentRejectsACallerFromAnotherOrganization(): void
+  public function testDownloadInterventionAttachmentReturns404ForACallerFromAnotherOrganization(): void
   {
     $client = static::createClient();
     $this->seedOrganization();
@@ -266,17 +281,61 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $this->loginAs($outsiderClient, self::OUTSIDER_USER_ID, 'attachment-outsider@example.com');
     $outsiderClient->request('GET', '/api/intervention-attachments/' . $attachmentId . '/download');
 
-    // Not a member of the owning organization at all: the flat
-    // organization.interventions.read check this module uses for every
-    // path-id attachment record cannot distinguish "wrong org" from "right
-    // org, missing permission" — both fail the same hasPermission() call and
-    // therefore map to the same 403 (see GetInterventionWorkflowHandler /
-    // InterventionMediaProvider::getOne for the identical, pre-existing
-    // pattern this endpoint mirrors).
+    // No active membership in the owning organization: the attachment must be
+    // invisible, not merely forbidden. 403 here would confirm to an outsider
+    // that this attachment id is real — the existence oracle this route's
+    // security review raised. `resolveAccess()` reports OUTSIDE_SCOPE and the
+    // handler throws the same InterventionAttachmentNotFoundException an
+    // unknown id produces.
     self::assertSame(
-      expected: 403,
+      expected: 404,
       actual: $outsiderClient->getResponse()->getStatusCode(),
-      message: 'A caller outside the owning organization must be denied (403, mirroring the module-wide convention).',
+      message: 'A caller outside the owning organization must get 404, not 403.',
+    );
+  }
+
+  #[Test]
+  public function testDownloadResponseForAnOutsiderIsIndistinguishableFromAnUnknownAttachment(): void
+  {
+    // The status code alone is not the whole contract: if the two responses
+    // differed in body or headers, the oracle would survive the 404. Compare
+    // a real attachment fetched by an outsider against an id that exists
+    // nowhere, requested by the same outsider.
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $attachmentId = $this->uploadAttachment($client, 'evidence.jpg', $this->minimalJpegBytes());
+
+    static::ensureKernelShutdown();
+    $outsiderClient = static::createClient();
+    $this->loginAs($outsiderClient, self::OUTSIDER_USER_ID, 'attachment-outsider@example.com');
+
+    $outsiderClient->request('GET', '/api/intervention-attachments/' . $attachmentId . '/download');
+    $existingStatus = $outsiderClient->getResponse()->getStatusCode();
+    $existingProblem = $this->normalizedProblem($outsiderClient, $attachmentId);
+
+    // A fresh client per request: the harness token does not survive a second
+    // request on the same client (same workaround as the sibling tests).
+    static::ensureKernelShutdown();
+    $secondOutsiderClient = static::createClient();
+    $this->loginAs($secondOutsiderClient, self::OUTSIDER_USER_ID, 'attachment-outsider@example.com');
+
+    $secondOutsiderClient->request('GET', '/api/intervention-attachments/' . self::DUMMY_UUID . '/download');
+    $unknownStatus = $secondOutsiderClient->getResponse()->getStatusCode();
+    $unknownProblem = $this->normalizedProblem($secondOutsiderClient, self::DUMMY_UUID);
+
+    self::assertSame(404, $existingStatus);
+    self::assertSame(
+      expected: $unknownStatus,
+      actual: $existingStatus,
+      message: 'An outsider must not tell a real attachment from an imaginary one by status.',
+    );
+    self::assertSame(
+      expected: $unknownProblem,
+      actual: $existingProblem,
+      message: 'An outsider must not tell a real attachment from an imaginary one by the error body.',
     );
   }
 
@@ -306,6 +365,160 @@ final class InterventionAttachmentApiTest extends WebTestCase
       actual: $downloadClient->getResponse()->getStatusCode(),
       message: 'A record whose stored file has gone missing must yield 404.',
     );
+  }
+
+  #[Test]
+  public function testUploadWithWorkItemIdRoundTripsIntoTheOutputAndTheFilterNarrowsAndTheWorkItemOutputExposesTheEvidenceCount(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+    $this->seedWorkItem(self::WORK_ITEM_ID, self::INTERVENTION_ID);
+    $this->seedWorkItem(self::OTHER_WORK_ITEM_ID, self::INTERVENTION_ID);
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'ivn-attach-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalJpegBytes());
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'evidence.jpg', mimeType: 'image/jpeg', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['workItemId' => self::WORK_ITEM_ID],
+      files: ['file' => $uploadedFile],
+    );
+
+    $uploadResponse = $client->getResponse();
+    self::assertSame(201, $uploadResponse->getStatusCode(), 'Upload should succeed. Response: ' . $uploadResponse->getContent());
+    $decoded = json_decode((string) $uploadResponse->getContent(), true);
+    self::assertIsArray($decoded);
+    self::assertSame(self::WORK_ITEM_ID, $decoded['workItemId'] ?? null);
+
+    // A freshly authenticated client per request — the token set by
+    // loginUser() does not reliably survive a second request on a reused
+    // client, per this file's established convention (see the download
+    // round-trip test above).
+    static::ensureKernelShutdown();
+    $listClient = static::createClient();
+    $this->loginAs($listClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    // The workItem filter narrows the list to only this work item's attachment.
+    $listClient->request('GET', '/api/interventions/' . self::INTERVENTION_ID . '/attachments?workItem=' . self::WORK_ITEM_ID);
+    $listResponse = $listClient->getResponse();
+    self::assertSame(200, $listResponse->getStatusCode());
+    $listDecoded = json_decode((string) $listResponse->getContent(), true);
+    self::assertIsArray($listDecoded);
+    self::assertIsArray($listDecoded['member']);
+    self::assertCount(1, $listDecoded['member']);
+    self::assertIsArray($listDecoded['member'][0]);
+    self::assertSame(self::WORK_ITEM_ID, $listDecoded['member'][0]['workItemId'] ?? null);
+
+    static::ensureKernelShutdown();
+    $emptyListClient = static::createClient();
+    $this->loginAs($emptyListClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    // The other work item, which received no attachment, narrows to zero.
+    $emptyListClient->request('GET', '/api/interventions/' . self::INTERVENTION_ID . '/attachments?workItem=' . self::OTHER_WORK_ITEM_ID);
+    $emptyListDecoded = json_decode((string) $emptyListClient->getResponse()->getContent(), true);
+    self::assertIsArray($emptyListDecoded);
+    self::assertIsArray($emptyListDecoded['member']);
+    self::assertCount(0, $emptyListDecoded['member']);
+
+    static::ensureKernelShutdown();
+    $workItemClient = static::createClient();
+    $this->loginAs($workItemClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    // The work item output surfaces the evidence count.
+    $workItemClient->request('GET', '/api/intervention-work-items/' . self::WORK_ITEM_ID);
+    $workItemResponse = $workItemClient->getResponse();
+    self::assertSame(200, $workItemResponse->getStatusCode());
+    $workItemDecoded = json_decode((string) $workItemResponse->getContent(), true);
+    self::assertIsArray($workItemDecoded);
+    self::assertSame(1, $workItemDecoded['evidenceCount'] ?? null);
+  }
+
+  #[Test]
+  public function testUploadWithAWorkItemIdFromAnotherInterventionIsRejectedWith422(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+    $this->seedWorkItem(self::WORK_ITEM_ID, self::INTERVENTION_ID);
+
+    // A second intervention with its own work item — the cross-scope case.
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+    $existingOther = $entityManager->find(InterventionRecord::class, self::OTHER_INTERVENTION_ID);
+    if ($existingOther instanceof InterventionRecord) {
+      $entityManager->remove($existingOther);
+      $entityManager->flush();
+    }
+    $organization = $entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+    $otherIntervention = new InterventionRecord();
+    $otherIntervention->id = self::OTHER_INTERVENTION_ID;
+    $otherIntervention->organization = $organization;
+    $otherIntervention->type = 'site_setup';
+    $otherIntervention->name = 'Attachment Download Test Other Intervention';
+    $otherIntervention->number = 901;
+    $otherIntervention->status = 'draft';
+    $otherIntervention->createdAt = $now;
+    $otherIntervention->updatedAt = $now;
+    $entityManager->persist($otherIntervention);
+    $entityManager->flush();
+    $this->seedWorkItem(self::OTHER_WORK_ITEM_ID, self::OTHER_INTERVENTION_ID);
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'ivn-attach-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalJpegBytes());
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'evidence.jpg', mimeType: 'image/jpeg', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['workItemId' => self::OTHER_WORK_ITEM_ID],
+      files: ['file' => $uploadedFile],
+    );
+
+    self::assertSame(
+      expected: 422,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A workItemId from another intervention must be rejected with 422. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  /**
+   * Method normalizedProblem.
+   *
+   * The client-visible error contract of the last response, with the
+   * requested identifier folded to a placeholder. The identifier is echoed
+   * back in `detail` and is information the caller already supplied, so it
+   * carries no signal; everything else must match between a real record and
+   * an imaginary one.
+   *
+   * @param KernelBrowser $client the browser holding the response
+   * @param string $requestedId the identifier that was requested
+   *
+   * @return array<string, mixed> the normalized problem fields
+   */
+  private function normalizedProblem(KernelBrowser $client, string $requestedId): array
+  {
+    $decoded = json_decode((string) $client->getResponse()->getContent(), true);
+    if (!is_array($decoded)) {
+      return [];
+    }
+
+    $problem = [];
+    foreach (['status', 'type', 'title', 'detail'] as $field) {
+      $value = $decoded[$field] ?? null;
+      $problem[$field] = is_string($value) ? str_replace($requestedId, '{id}', $value) : $value;
+    }
+
+    return $problem;
   }
 
   /**
@@ -559,6 +772,38 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $intervention = $entityManager->find(InterventionRecord::class, self::INTERVENTION_ID);
     self::assertInstanceOf(InterventionRecord::class, $intervention);
     $intervention->status = $status;
+    $entityManager->flush();
+  }
+
+  /**
+   * Method seedWorkItem.
+   *
+   * Seeds a `planned` work item on the given intervention (Phase 5d.1
+   * per-work-item evidence tests).
+   */
+  private function seedWorkItem(string $id, string $interventionId): void
+  {
+    /** @var EntityManagerInterface $entityManager */
+    $entityManager = static::getContainer()->get('doctrine.orm.main_entity_manager');
+
+    $existing = $entityManager->find(InterventionWorkItemRecord::class, $id);
+    if ($existing instanceof InterventionWorkItemRecord) {
+      $entityManager->remove($existing);
+      $entityManager->flush();
+    }
+
+    $now = new DateTimeImmutable('2026-06-01T00:00:00+00:00');
+
+    $workItem = new InterventionWorkItemRecord();
+    $workItem->id = $id;
+    $workItem->intervention = $entityManager->getReference(InterventionRecord::class, $interventionId);
+    $workItem->action = 'site_setup';
+    $workItem->source = 'planned';
+    $workItem->status = 'planned';
+    $workItem->required = true;
+    $workItem->createdAt = $now;
+    $workItem->updatedAt = $now;
+    $entityManager->persist($workItem);
     $entityManager->flush();
   }
 }

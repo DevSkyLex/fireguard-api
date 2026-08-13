@@ -75,7 +75,11 @@ final readonly class AddInterventionCommentHandler implements CommandHandler
     if (null === $context) {
       throw InterventionNotFoundException::withId($command->interventionId);
     }
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

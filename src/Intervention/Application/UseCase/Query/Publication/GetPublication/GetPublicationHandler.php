@@ -57,7 +57,11 @@ final readonly class GetPublicationHandler implements QueryHandler
     if (null === $context) {
       throw PublicationNotFoundException::withId($query->publicationId);
     }
-    if (!$this->authorization->hasPermission($query->userId, $context->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $context->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw PublicationNotFoundException::withId($query->publicationId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

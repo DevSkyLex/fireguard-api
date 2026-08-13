@@ -10,11 +10,14 @@ use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
 use Intervention\Application\UseCase\Command\Recurrence\DeleteInterventionRecurrence\{DeleteInterventionRecurrenceCommand, DeleteInterventionRecurrenceHandler};
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceDeletedEvent;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Message\VoidResult;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
+
+use function sprintf;
 
 /**
  * Test DeleteInterventionRecurrenceHandlerTest.
@@ -59,7 +62,7 @@ final class DeleteInterventionRecurrenceHandlerTest extends TestCase
     $recurrences->expects(self::never())->method('delete');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::never())->method('dispatch');
@@ -72,6 +75,27 @@ final class DeleteInterventionRecurrenceHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $recurrences = $this->createMock(InterventionRecurrencePort::class);
+    $recurrences->method('find')->willReturn($this->recurrenceView());
+    $recurrences->expects(self::never())->method('delete');
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new DeleteInterventionRecurrenceHandler($recurrences, $authorization, $eventDispatcher);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Intervention with ID "%s" not found.', self::RECURRENCE_ID));
+
+    $handler(self::command());
+  }
+
+  #[Test]
   public function itDeletesTheRecurrenceAndDispatchesTheDeletedEvent(): void
   {
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
@@ -79,7 +103,7 @@ final class DeleteInterventionRecurrenceHandlerTest extends TestCase
     $recurrences->expects(self::once())->method('delete')->with(self::RECURRENCE_ID);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $eventDispatcher = $this->createMock(EventDispatcherPort::class);
     $eventDispatcher->expects(self::once())
