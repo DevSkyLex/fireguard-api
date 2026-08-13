@@ -325,6 +325,7 @@ with intervention planning edits not being audited today.
 | POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence) |
 | GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments |
 | GET | `/intervention-attachments/{id}` | Get one attachment |
+| GET | `/intervention-attachments/{id}/download` | Download an attachment's stored file bytes (Phase 4b) |
 | DELETE | `/intervention-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
 
 Generalized file attachments directly on an intervention, mirroring the
@@ -375,6 +376,36 @@ the cap.
 `work_item_id` is a **reserved, currently unused** nullable FK column on
 `intervention_attachments` (see Persistence) for a future optional
 per-work-item attach scope — no endpoint sets or reads it in this lot.
+
+**Download (Phase 4b)** — `GET /intervention-attachments/{id}/download` serves
+the attachment's raw stored bytes as a browser download
+(`Content-Type` from the stored MIME type, `Content-Disposition: attachment`
+RFC-6266-encoded from the original file name, `Content-Length`). A dedicated
+`InterventionAttachmentContentResource` (own resource, `read`/`write`/
+`deserialize`/`serialize`/`output` all disabled) wired to the invokable
+`DownloadInterventionAttachmentController`, mirroring
+`Messaging\...\MessagingAttachmentContentResource` /
+`DownloadMessagingAttachmentController` — the same shared
+`Shared\Presentation\Api\Attachment\AttachmentDownloadResponder` builds the
+response headers. `GetInterventionAttachmentContentHandler`
+(`Application/UseCase/Query/Attachment/GetInterventionAttachmentContent/`) is
+the sole authorization point: the flat `organization.interventions.read`
+permission — the same READ gate `ListInterventionAttachmentsHandler` /
+`GetInterventionWorkflowHandler` enforce for every other path-id record in
+this module — **deliberately without** the phase-based write restriction
+upload/delete apply, since a published (immutable) intervention's evidence
+must stay downloadable. Because the flat permission check cannot distinguish
+"member of the right organization but missing the permission" from "not a
+member of that organization at all", both denials map to the same
+`403 Forbidden` (`InterventionAccessDeniedException`) — the identical,
+pre-existing behavior `InterventionMediaProvider::getOne` and
+`GetInterventionWorkflowHandler` already have for this module's other
+path-id attachment/intervention reads. A record whose stored file has gone
+missing from the storage backend (a data-integrity gap, not a routine 404) is
+logged by the controller before the same `404` is returned to the caller.
+
+The 25-attachment cap and MIME/size policy above apply only to writes; they
+do not gate the download route.
 
 ### Reference
 
@@ -890,6 +921,14 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
     (immutable) intervention rejects the upload with 409.
   - `Presentation/Api/Provider/Attachment/InterventionMediaProviderTest` —
     flat `organization.interventions.read` enforcement for reads.
+  - `Application/UseCase/Query/Attachment/GetInterventionAttachmentContent/GetInterventionAttachmentContentHandlerTest`
+    (Phase 4b) — every port mocked: the stored bytes returned when
+    `organization.interventions.read` is granted, download allowed on a
+    `published` (otherwise immutable) intervention, `InterventionAttachmentNotFoundException`
+    when the record is missing, `InterventionNotFoundException` when the
+    owning intervention is gone, `InterventionAccessDeniedException` (and the
+    storage port never read) when the permission is missing, and
+    `InvalidArgumentException` on a malformed attachment id.
   - `Application/UseCase/Query/Workflow/GetInterventionStatistics/GetInterventionStatisticsHandlerTest`
     — every port mocked: the 403 without `organization.interventions.read`,
     zero-filled status/priority maps and a `null` average from an empty
@@ -918,7 +957,16 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   a member without `organization.interventions.read`, and 403 for a caller
   who is not a member of the requested organization at all (this endpoint has
   no path-scoped record for a 404 to hide behind, so it mirrors the list
-  endpoint's uniform 403).
+  endpoint's uniform 403). `InterventionAttachmentApiTest` additionally covers
+  the download route (Phase 4b): a real multipart-upload-then-download
+  round-trip proving the exact bytes and the RFC-6266-encoded
+  `Content-Disposition` for an accented file name, download succeeding on a
+  `published` intervention (no phase restriction), 401 unauthenticated, 403
+  for a same-organization member without `organization.interventions.read`,
+  403 for a caller outside the owning organization entirely (this module's
+  flat permission check cannot tell the two apart — see Attachments above),
+  404 for an unknown attachment id, and 404 when the stored file has gone
+  missing from disk while the DB row survives.
 - E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
   submit → work items frozen (409) → withdraw → work items mutable again →
   resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The
