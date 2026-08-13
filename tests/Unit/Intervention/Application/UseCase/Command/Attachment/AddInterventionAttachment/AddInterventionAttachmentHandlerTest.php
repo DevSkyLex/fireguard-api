@@ -8,9 +8,9 @@ use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentHandler, AddInterventionAttachmentResult};
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionConflictException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
-use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use InvalidArgumentException;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -557,6 +557,267 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
       mimeType: 'image/jpeg',
       size: 100,
       workItemId: self::WORK_ITEM_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAnUnknownAttachmentKind(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InterventionValidationException::class);
+
+    $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      contents: 'content',
+      mimeType: 'image/jpeg',
+      size: 100,
+      kind: 'not-a-real-kind',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsASignatureUploadOutsideTheAllowedPhases(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    // "submitted" is mutable-checked BEFORE the signature phase gate — use
+    // "planned" instead, which is mutable but not the submission phase.
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('planned'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InterventionConflictException::class);
+
+    $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.png',
+      contents: 'content',
+      mimeType: 'image/png',
+      size: 100,
+      kind: 'signature',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeRejectsAPdfAsASignature(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InterventionValidationException::class);
+
+    $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.pdf',
+      contents: 'content',
+      mimeType: 'application/pdf',
+      size: 100,
+      kind: 'signature',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeAcceptsASignatureUploadWhileChangesAreRequested(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('findSignatureByInterventionId')->willReturn(null);
+    $attachmentRepository->expects(self::never())->method('save');
+    $attachmentRepository->expects(self::once())->method('saveReplacingSignature')->with(self::isInstanceOf(InterventionAttachment::class), null);
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('changes_requested'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.png',
+      contents: 'content',
+      mimeType: 'image/png',
+      size: 100,
+      kind: 'signature',
+    ));
+
+    self::assertSame('signature', $result->kind);
+  }
+
+  #[Test]
+  public function testInvokeReplacesThePreviousSignatureOnceTheNewOneIsSaved(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    $previousSignatureId = new InterventionAttachmentId('550e8400-e29b-41d4-a716-446655446099');
+    $previousSignature = InterventionAttachment::create(
+      id: $previousSignatureId,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'old-signature.png',
+      storagePath: 'intervention/x/attachments/old-signature.png',
+      mimeType: 'image/png',
+      size: 256,
+      kind: InterventionAttachmentKind::SIGNATURE,
+    );
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('findSignatureByInterventionId')->willReturn($previousSignature);
+    // The cap check must not see the previous signature as an extra row: it
+    // is being replaced, not added alongside.
+    $attachmentRepository->method('countByInterventionId')->willReturn(AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT);
+    // The plain save() path is not used for a signature — the atomic
+    // delete-then-save (uniq_intervention_attachment_signature) goes through
+    // saveReplacingSignature(); the repository deletes the previous DATABASE
+    // row internally, so the handler never calls delete() itself.
+    $attachmentRepository->expects(self::never())->method('save');
+    $attachmentRepository->expects(self::once())->method('saveReplacingSignature')->with(self::isInstanceOf(InterventionAttachment::class), $previousSignatureId);
+    $attachmentRepository->expects(self::never())->method('delete');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write');
+    // Only the previous signature's FILE remains to clean up, now that its
+    // database row has already been removed inside the same transaction.
+    $fileStorage->expects(self::once())->method('delete')->with($previousSignature->storagePath());
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'new-signature.png',
+      contents: 'content',
+      mimeType: 'image/png',
+      size: 100,
+      kind: 'signature',
+    ));
+
+    self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
+  }
+
+  #[Test]
+  public function testInvokeDeletesFileWhenTheSignatureSaveConflicts(): void
+  {
+    // A genuine concurrent duplicate: two uploads race past
+    // findSignatureByInterventionId() before either commits, and the
+    // uniq_intervention_attachment_signature partial unique index catches
+    // the second one inside saveReplacingSignature(). The just-written file
+    // must still be cleaned up, and the conflict must propagate unchanged.
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->method('findSignatureByInterventionId')->willReturn(null);
+    $attachmentRepository->expects(self::once())
+      ->method('saveReplacingSignature')
+      ->willThrowException(new InterventionConflictException('An intervention can carry only one completion signature.'));
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::once())->method('write');
+    $fileStorage->expects(self::once())->method('delete');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $this->resourceManager('in_progress'),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InterventionConflictException::class);
+
+    $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.png',
+      contents: 'content',
+      mimeType: 'image/png',
+      size: 100,
+      kind: 'signature',
     ));
   }
 

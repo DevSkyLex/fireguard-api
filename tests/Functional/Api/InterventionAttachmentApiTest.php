@@ -15,6 +15,8 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
+use function array_filter;
+use function array_values;
 use function base64_decode;
 use function file_put_contents;
 use function is_array;
@@ -56,6 +58,8 @@ final class InterventionAttachmentApiTest extends WebTestCase
   private const string ORGANIZATION_ID = '550e8400-e29b-41d4-a716-446655480001';
 
   private const string ADMIN_USER_ID = '550e8400-e29b-41d4-a716-446655480002';
+
+  private const string ADMIN_MEMBER_ID = '550e8400-e29b-41d4-a716-446655480022';
 
   private const string PLAIN_MEMBER_USER_ID = '550e8400-e29b-41d4-a716-446655480003';
 
@@ -491,6 +495,224 @@ final class InterventionAttachmentApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testUploadSignatureRoundTripsTheKindIntoTheOutputAndFlipsHasSignature(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('in_progress');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'ivn-signature-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalJpegBytes());
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'signature.jpg', mimeType: 'image/jpeg', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['kind' => 'signature'],
+      files: ['file' => $uploadedFile],
+    );
+
+    $uploadResponse = $client->getResponse();
+    self::assertSame(201, $uploadResponse->getStatusCode(), 'Signature upload should succeed. Response: ' . $uploadResponse->getContent());
+    $decoded = json_decode((string) $uploadResponse->getContent(), true);
+    self::assertIsArray($decoded);
+    self::assertSame('signature', $decoded['kind'] ?? null);
+
+    static::ensureKernelShutdown();
+    $interventionClient = static::createClient();
+    $this->loginAs($interventionClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $interventionClient->request('GET', '/api/interventions/' . self::INTERVENTION_ID);
+    $interventionDecoded = json_decode((string) $interventionClient->getResponse()->getContent(), true);
+    self::assertIsArray($interventionDecoded);
+    self::assertTrue($interventionDecoded['hasSignature'] ?? null, 'hasSignature must flip to true once a signature is uploaded.');
+  }
+
+  #[Test]
+  public function testUploadWithoutAKindDefaultsToFile(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('draft');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $attachmentId = $this->uploadAttachment($client, 'evidence.jpg', $this->minimalJpegBytes());
+
+    static::ensureKernelShutdown();
+    $getClient = static::createClient();
+    $this->loginAs($getClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $getClient->request('GET', '/api/intervention-attachments/' . $attachmentId);
+
+    $decoded = json_decode((string) $getClient->getResponse()->getContent(), true);
+    self::assertIsArray($decoded);
+    self::assertSame('file', $decoded['kind'] ?? null);
+  }
+
+  #[Test]
+  public function testUploadWithAnUnknownKindIsRejectedWith422(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('in_progress');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'ivn-signature-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalJpegBytes());
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'signature.jpg', mimeType: 'image/jpeg', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['kind' => 'not-a-real-kind'],
+      files: ['file' => $uploadedFile],
+    );
+
+    self::assertSame(
+      expected: 422,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'An unknown attachment kind must be rejected with 422. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testUploadAPdfAsASignatureIsRejectedWith422(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('in_progress');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    // A real-but-empty-content PDF: MultipartAttachmentGuard only enforces
+    // the mime allow-list, the signature-specific image-only rule is the
+    // handler's business, so the PDF must clear the guard and be rejected
+    // downstream instead.
+    $path = tempnam(sys_get_temp_dir(), 'ivn-signature-pdf-');
+    self::assertIsString($path);
+    file_put_contents($path, "%PDF-1.4\n%%EOF");
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'signature.pdf', mimeType: 'application/pdf', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['kind' => 'signature'],
+      files: ['file' => $uploadedFile],
+    );
+
+    self::assertSame(
+      expected: 422,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A PDF uploaded as a signature must be rejected with 422. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testUploadASignatureOutsideTheAllowedPhasesIsRejectedWith409(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    // "planned" is mutable (uploads are otherwise allowed) but not one of the
+    // submission phases the completion signature is scoped to.
+    $this->seedIntervention('planned');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'ivn-signature-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalJpegBytes());
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'signature.jpg', mimeType: 'image/jpeg', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['kind' => 'signature'],
+      files: ['file' => $uploadedFile],
+    );
+
+    self::assertSame(
+      expected: 409,
+      actual: $client->getResponse()->getStatusCode(),
+      message: 'A signature uploaded outside in_progress/changes_requested must be rejected with 409. Response: ' . $client->getResponse()->getContent(),
+    );
+  }
+
+  #[Test]
+  public function testReuploadingASignatureReplacesThePreviousOne(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedIntervention('in_progress');
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $path = tempnam(sys_get_temp_dir(), 'ivn-signature-');
+    self::assertIsString($path);
+    file_put_contents($path, $this->minimalJpegBytes());
+    $firstFile = new UploadedFile(path: $path, originalName: 'signature-1.jpg', mimeType: 'image/jpeg', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['kind' => 'signature'],
+      files: ['file' => $firstFile],
+    );
+    $firstDecoded = json_decode((string) $client->getResponse()->getContent(), true);
+    self::assertIsArray($firstDecoded);
+    self::assertIsString($firstDecoded['id']);
+    $firstId = $firstDecoded['id'];
+
+    static::ensureKernelShutdown();
+    $secondClient = static::createClient();
+    $this->loginAs($secondClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+
+    $secondPath = tempnam(sys_get_temp_dir(), 'ivn-signature-');
+    self::assertIsString($secondPath);
+    file_put_contents($secondPath, $this->minimalJpegBytes());
+    $secondFile = new UploadedFile(path: $secondPath, originalName: 'signature-2.jpg', mimeType: 'image/jpeg', test: true);
+
+    $secondClient->request(
+      method: 'POST',
+      uri: '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
+      parameters: ['kind' => 'signature'],
+      files: ['file' => $secondFile],
+    );
+    $secondResponse = $secondClient->getResponse();
+    self::assertSame(201, $secondResponse->getStatusCode(), 'Second signature upload should succeed. Response: ' . $secondResponse->getContent());
+    $secondDecoded = json_decode((string) $secondResponse->getContent(), true);
+    self::assertIsArray($secondDecoded);
+    self::assertIsString($secondDecoded['id']);
+    $secondId = $secondDecoded['id'];
+    self::assertNotSame($firstId, $secondId, 'A re-uploaded signature must mint a new attachment id.');
+
+    // The first signature must be gone: fetching it by id now 404s.
+    static::ensureKernelShutdown();
+    $getClient = static::createClient();
+    $this->loginAs($getClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $getClient->request('GET', '/api/intervention-attachments/' . $firstId);
+    self::assertSame(404, $getClient->getResponse()->getStatusCode(), 'The replaced signature must no longer exist.');
+
+    // Exactly one signature-kind attachment remains for the intervention.
+    static::ensureKernelShutdown();
+    $listClient = static::createClient();
+    $this->loginAs($listClient, self::ADMIN_USER_ID, 'attachment-admin@example.com');
+    $listClient->request('GET', '/api/interventions/' . self::INTERVENTION_ID . '/attachments');
+    $listDecoded = json_decode((string) $listClient->getResponse()->getContent(), true);
+    self::assertIsArray($listDecoded);
+    self::assertIsArray($listDecoded['member']);
+    $signatures = array_values(array_filter(
+      $listDecoded['member'],
+      static fn ($attachment): bool => is_array($attachment) && ('signature' === ($attachment['kind'] ?? null)),
+    ));
+    self::assertCount(1, $signatures);
+    self::assertSame($secondId, $signatures[0]['id'] ?? null);
+  }
+
   /**
    * Method normalizedProblem.
    *
@@ -678,7 +900,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $entityManager->persist($outsiderRole);
 
     $adminMember = new OrganizationMemberRecord();
-    $adminMember->id = '550e8400-e29b-41d4-a716-446655480022';
+    $adminMember->id = self::ADMIN_MEMBER_ID;
     $adminMember->organization = $organization;
     $adminMember->userId = self::ADMIN_USER_ID;
     $adminMember->isActive = true;
@@ -726,7 +948,10 @@ final class InterventionAttachmentApiTest extends WebTestCase
    * Method seedIntervention.
    *
    * Seeds (idempotently) a single intervention owned by
-   * {@see self::ORGANIZATION_ID} in the given status.
+   * {@see self::ORGANIZATION_ID} in the given status, with the admin member
+   * ({@see self::ADMIN_MEMBER_ID}) as responsible — a non-`draft` status
+   * routes through `InterventionMemberPolicy::assertCanExecuteIntervention()`,
+   * which requires the caller to be the responsible member or a participant.
    */
   private function seedIntervention(string $status): void
   {
@@ -751,6 +976,7 @@ final class InterventionAttachmentApiTest extends WebTestCase
     $intervention->name = 'Attachment Download Test Intervention';
     $intervention->number = 900;
     $intervention->status = $status;
+    $intervention->responsibleId = self::ADMIN_MEMBER_ID;
     $intervention->createdAt = $now;
     $intervention->updatedAt = $now;
     $entityManager->persist($intervention);

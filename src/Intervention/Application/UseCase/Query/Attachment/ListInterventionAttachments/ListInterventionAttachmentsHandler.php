@@ -68,6 +68,7 @@ final readonly class ListInterventionAttachmentsHandler implements QueryHandler
         'label' => $attachment->label(),
         'uploadedAt' => $attachment->uploadedAt()->format('c'),
         'workItemId' => $attachment->workItemId(),
+        'kind' => $attachment->kind()->value,
       ];
     }
 

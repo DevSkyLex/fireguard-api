@@ -105,6 +105,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
     $user = $this->user();
     $uploaded = $this->attachmentGuard->fromRequest($this->currentRequest());
     $workItem = $this->currentRequest()->request->get('workItemId');
+    $kind = $this->currentRequest()->request->get('kind');
 
     try {
       $workItemId = is_string($workItem) && '' !== $workItem
@@ -121,6 +122,7 @@ final readonly class InterventionMediaProcessor implements ProcessorInterface
         size: $uploaded->size,
         label: $uploaded->label,
         workItemId: $workItemId,
+        kind: is_string($kind) && '' !== $kind ? $kind : 'file',
       ));
     } catch (Throwable $exception) {
       throw $this->mapWorkflowException($exception);

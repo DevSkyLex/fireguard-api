@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Intervention\Infrastructure\Persistence\Doctrine\Mapper;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
+use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionNotFoundException};
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper;
@@ -84,7 +84,7 @@ final class InterventionViewMapperTest extends TestCase
     return new InterventionViewMapper(
       $this->createStub(EntityManagerInterface::class),
       $resources,
-      new InterventionIssueFinder($resources),
+      new InterventionIssueFinder($resources, $this->createStub(InterventionAttachmentRepositoryPort::class)),
     );
   }
 }

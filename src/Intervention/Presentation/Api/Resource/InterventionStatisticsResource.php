@@ -42,6 +42,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_OK => new Response(description: 'Intervention statistics retrieved'),
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Missing organization filter'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Organization outside the caller\'s scope — deliberately not 403, which would confirm it exists'),
         ],
       ),
     ),

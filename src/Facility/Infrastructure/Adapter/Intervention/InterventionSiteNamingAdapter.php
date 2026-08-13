@@ -46,7 +46,7 @@ final readonly class InterventionSiteNamingAdapter implements InterventionSiteNa
   /**
    * {@inheritDoc}
    */
-  public function findNamesByIds(array $siteIds): array
+  public function findNamesByIds(string $organizationId, array $siteIds): array
   {
     if ([] === $siteIds) {
       return [];
@@ -57,7 +57,9 @@ final readonly class InterventionSiteNamingAdapter implements InterventionSiteNa
       ->select('facility.id AS id', 'facility.name AS name')
       ->from(FacilityRecord::class, 'facility')
       ->where('facility.id IN (:siteIds)')
+      ->andWhere('facility.organization = :organizationId')
       ->setParameter('siteIds', $siteIds)
+      ->setParameter('organizationId', $organizationId)
       ->getQuery()
       ->getArrayResult();
 

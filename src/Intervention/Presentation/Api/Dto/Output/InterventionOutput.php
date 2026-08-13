@@ -197,6 +197,17 @@ final class InterventionOutput
   public int $commentsCount = 0;
 
   /**
+   * Property hasSignature.
+   *
+   * Whether the intervention already carries a completion signature
+   * attachment (Phase 5d.2). At most one exists per intervention — a
+   * re-upload replaces it, it never flips back to false on its own.
+   *
+   * @since 1.2.0
+   */
+  public bool $hasSignature = false;
+
+  /**
    * Property labels.
    *
    * Embedded label summaries (`{id, name, color}`) assigned to the

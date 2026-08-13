@@ -77,6 +77,7 @@ final class InterventionOutputFactory
     $output->completedWorkItemsCount = $this->integer($data, 'completedWorkItemsCount');
     $output->proposedChangesCount = $this->integer($data, 'proposedChangesCount');
     $output->commentsCount = $this->integer($data, 'commentsCount');
+    $output->hasSignature = $this->boolean($data, 'hasSignature');
     $output->labels = $this->labelList($data);
     $output->createdAt = $this->string($data, 'createdAt');
     $output->updatedAt = $this->string($data, 'updatedAt');

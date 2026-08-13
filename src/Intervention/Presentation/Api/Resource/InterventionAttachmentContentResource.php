@@ -7,6 +7,7 @@ namespace Intervention\Presentation\Api\Resource;
 use ApiPlatform\Metadata\{ApiResource, Get};
 use ApiPlatform\OpenApi\Model\{Operation, Response};
 use Intervention\Presentation\Api\Controller\DownloadInterventionAttachmentController;
+use Intervention\Presentation\Api\Operation\InterventionOperations;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
@@ -35,7 +36,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
   description: 'Binary download of an intervention attachment.',
   operations: [
     new Get(
-      name: 'download_intervention_attachment',
+      name: InterventionOperations::DOWNLOAD_INTERVENTION_ATTACHMENT,
       uriTemplate: '/intervention-attachments/{id}/download',
       controller: DownloadInterventionAttachmentController::class,
       read: false,
