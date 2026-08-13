@@ -723,7 +723,7 @@ import; introduce the contract types instead.
 | `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
 | `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
 | `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
-| `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` |
+| `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` — `findNamesByIds()` takes `$organizationId` (Phase 5 review) and the adapter filters facilities by it, so a site belonging to another organization never resolves |
 | `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
 | `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
@@ -998,6 +998,32 @@ exactly like labels):
   `(intervention_id, kind)` — the input of `findSignatureByInterventionId()` /
   `hasSignature()`. Migration: `migrations/main/Version20260813130500.php`
   (see Attachments above for the full completion-signature behavior).
+- **`uniq_intervention_attachment_signature`** (Phase 5 review — closes the
+  signature-duplicate race): a partial unique index,
+  `CREATE UNIQUE INDEX uniq_intervention_attachment_signature ON
+  intervention_attachments (intervention_id) WHERE (kind = 'signature')`,
+  hand-written raw SQL because Doctrine's ORM attributes cannot express a
+  partial index (same precedent as
+  `uniq_approval_request_org_action_subject_pending`, so no
+  `#[ORM\UniqueConstraint]` was added to `InterventionAttachmentRecord`).
+  Before this index, two concurrent `kind: signature` uploads for the same
+  intervention could both pass the application-level "at most one signature"
+  read and both persist. It forces a save-order inversion in the replace
+  path: `AddInterventionAttachmentHandler` used to save the new signature
+  first and delete the previous one afterward (fail-safe: a save failure left
+  the old signature intact); under the unique index that order would itself
+  violate the constraint whenever a previous signature still exists. The
+  replace path now goes through
+  `InterventionAttachmentRepositoryPort::saveReplacingSignature()`, which
+  deletes the previous record BEFORE inserting the new one, both inside the
+  SAME `wrapInTransaction()` call — atomicity preserves the original
+  fail-safety (a mid-write failure rolls back to the previous signature
+  intact) without violating the index. The repository translates the
+  resulting `Doctrine\DBAL\Exception\UniqueConstraintViolationException`
+  into `InterventionConflictException` (409) for a genuine concurrent
+  duplicate, mirroring `DoctrineInterventionLabelAdapter::flush()`'s
+  `(organization, name)` precedent. Migration:
+  `migrations/main/Version20260813140000.php`.
 - `interventions.due_soon_notified_at` / `interventions.overdue_notified_at`
   (nullable timestamps) are the due-date reminder sweep's anti-spam guard —
   see the Due-date reminder sweep section above. Migration:
@@ -1162,19 +1188,22 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   `tests/Functional/Api/InterventionStatisticsApiTest.php` — 200 with the
   full shape (all 7 status keys, all 4 priority keys, `bySite` name
   resolution, `averagePublicationDays`), 400 without `organization`, 403 for
-  a member without `organization.interventions.read`, and 403 for a caller
-  who is not a member of the requested organization at all (this endpoint has
-  no path-scoped record for a 404 to hide behind, so it mirrors the list
-  endpoint's uniform 403). `InterventionAttachmentApiTest` additionally covers
-  the download route (Phase 4b): a real multipart-upload-then-download
-  round-trip proving the exact bytes and the RFC-6266-encoded
-  `Content-Disposition` for an accented file name, download succeeding on a
-  `published` intervention (no phase restriction), 401 unauthenticated, 403
-  for a same-organization member without `organization.interventions.read`,
-  403 for a caller outside the owning organization entirely (this module's
-  flat permission check cannot tell the two apart — see Attachments above),
-  404 for an unknown attachment id, and 404 when the stored file has gone
-  missing from disk while the DB row survives. Phase 5d.1:
+  a member without `organization.interventions.read`, and 404 — deliberately
+  NOT 403 — for a caller who is not a member of the requested organization at
+  all: the handler resolves both cases through
+  `OrganizationAuthorizationPort::resolveAccess()`, and `isOutsideScope()`
+  maps to 404 so a non-member cannot confirm the organization even exists.
+  `InterventionAttachmentApiTest` additionally covers the download route
+  (Phase 4b): a real multipart-upload-then-download round-trip proving the
+  exact bytes and the RFC-6266-encoded `Content-Disposition` for an accented
+  file name, download succeeding on a `published` intervention (no phase
+  restriction), 401 unauthenticated, 403 for a same-organization member
+  without `organization.interventions.read`, 404 for a caller outside the
+  owning organization entirely (the same `resolveAccess()`/`isOutsideScope()`
+  pattern as the statistics endpoint — the caller cannot distinguish this
+  from an unknown attachment id), 404 for an unknown attachment id, and 404
+  when the stored file has gone missing from disk while the DB row survives.
+  Phase 5d.1:
   `testUploadWithWorkItemIdRoundTripsIntoTheOutputAndTheFilterNarrowsAndTheWorkItemOutputExposesTheEvidenceCount`
   — a real multipart upload with a `workItemId` field round-trips into
   `InterventionAttachmentOutput.workItemId`, the `workItem` query filter on

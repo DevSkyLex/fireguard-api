@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Tests\Integration\Intervention\Infrastructure\Persistence\Doctrine\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord, InterventionWorkItemRecord};
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -435,6 +437,116 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
     self::assertSame(self::ATTACHMENT_ID, (string) $signature->id());
     self::assertTrue($this->repository->hasSignature(self::INTERVENTION_ID));
     self::assertTrue($this->repository->hasSignature(self::OTHER_INTERVENTION_ID));
+  }
+
+  #[Test]
+  public function testDirectSecondSignatureInsertViolatesThePartialUniqueIndex(): void
+  {
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/signature.png',
+      mimeType: 'image/png',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    ));
+    $this->entityManager->clear();
+
+    // Bypasses save()'s "update existing row in place" branch entirely: a
+    // raw second INSERT for the same intervention with kind = 'signature',
+    // proving `uniq_intervention_attachment_signature` — not application
+    // logic — is what forbids the duplicate.
+    $second = new InterventionAttachmentRecord();
+    $second->id = self::OTHER_ATTACHMENT_ID;
+    $second->intervention = $this->entityManager->getReference(InterventionRecord::class, self::INTERVENTION_ID);
+    $second->fileName = 'second-signature.png';
+    $second->storagePath = 'interventions/' . self::INTERVENTION_ID . '/second-signature.png';
+    $second->mimeType = 'image/png';
+    $second->size = 512;
+    $second->kind = 'signature';
+    $second->uploadedAt = new DateTimeImmutable('2026-03-01T09:05:00+00:00');
+    $this->entityManager->persist($second);
+
+    $this->expectException(UniqueConstraintViolationException::class);
+
+    $this->entityManager->flush();
+  }
+
+  #[Test]
+  public function testSaveReplacingSignatureAtomicallyReplacesThePreviousSignatureRow(): void
+  {
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'first-signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/first-signature.png',
+      mimeType: 'image/png',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    ));
+    $this->entityManager->clear();
+
+    $replacement = InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'second-signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/second-signature.png',
+      mimeType: 'image/png',
+      size: 600,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:10:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    );
+
+    // The order under test: the PREVIOUS row must be gone before the new one
+    // is inserted, or the partial unique index used by
+    // testDirectSecondSignatureInsertViolatesThePartialUniqueIndex() above
+    // would reject this call the same way.
+    $this->repository->saveReplacingSignature($replacement, InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+    $this->entityManager->clear();
+
+    self::assertNull($this->repository->findById(InterventionAttachmentId::fromString(self::ATTACHMENT_ID)));
+    $found = $this->repository->findSignatureByInterventionId(self::INTERVENTION_ID);
+    self::assertInstanceOf(InterventionAttachment::class, $found);
+    self::assertSame(self::OTHER_ATTACHMENT_ID, (string) $found->id());
+    self::assertSame('second-signature.png', $found->fileName());
+  }
+
+  #[Test]
+  public function testSaveReplacingSignatureTranslatesAGenuineConcurrentDuplicateIntoAConflict(): void
+  {
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'first-signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/first-signature.png',
+      mimeType: 'image/png',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    ));
+    $this->entityManager->clear();
+
+    // A concurrent second upload racing past the pre-write
+    // findSignatureByInterventionId() read: the caller passes no previous
+    // signature to remove (it did not see one), yet one now exists. The
+    // partial unique index — not application logic — is what rejects it.
+    $racingSignature = InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'racing-signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/racing-signature.png',
+      mimeType: 'image/png',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:05+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    );
+
+    $this->expectException(InterventionConflictException::class);
+
+    $this->repository->saveReplacingSignature($racingSignature, null);
   }
 
   private function createWorkItem(string $id, string $interventionId): void

@@ -23,12 +23,13 @@ use function json_decode;
  * the whole-organization KPI snapshot for the list page and the kanban. The
  * denial paths are the point: 401 unauthenticated, 400 without the
  * `organization` filter, 403 for a member without
- * `organization.interventions.read`, and 403 for a caller who is not a
- * member of the requested organization at all — this endpoint is
- * organization-scoped through a query parameter, not a path id, so there is
- * no separate "record" whose existence a 404 would hide; it mirrors
- * `InterventionProvider`'s list path, which resolves both cases through the
- * same `organization.interventions.read` check and therefore the same 403.
+ * `organization.interventions.read`, and 404 — deliberately NOT 403 — for a
+ * caller who is not a member of the requested organization at all. The
+ * handler resolves both cases through `OrganizationAuthorizationPort::resolveAccess()`:
+ * `isOutsideScope()` (non-member) maps to 404, so a caller outside the
+ * organization cannot distinguish "this organization has no statistics
+ * endpoint" from "this organization exists but I may not see it"; a member
+ * missing the permission gets the more informative 403.
  *
  * @category Functional Tests
  *

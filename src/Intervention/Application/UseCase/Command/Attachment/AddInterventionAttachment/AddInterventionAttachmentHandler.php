@@ -42,14 +42,26 @@ use function sprintf;
  *   of the generic mutability check above (409 otherwise);
  * - restricted to an image MIME type, rejecting a PDF-as-signature (422);
  * - at most one signature exists per intervention: a second signature
- *   upload REPLACES the first (old record + stored file removed in the same
- *   transaction) once the new one is durably saved — the traceability
- *   choice is that the signature reflects the FINAL submission, not a
- *   history of attempts;
+ *   upload REPLACES the first. Enforced in the database by the
+ *   `uniq_intervention_attachment_signature` partial unique index
+ *   (`(intervention_id) WHERE kind = 'signature'`, added in the Phase 5
+ *   review) — which flips the save order from the generic path: the
+ *   PREVIOUS record is deleted BEFORE the new one is persisted, both inside
+ *   the SAME transaction (`InterventionAttachmentRepositoryPort::saveReplacingSignature()`),
+ *   so a mid-write failure rolls back to the previous signature intact
+ *   rather than leaving neither or both rows. Only the stored FILE for the
+ *   replaced signature is removed afterward, once that transaction has
+ *   committed — the traceability choice is that the signature reflects the
+ *   FINAL submission, not a history of attempts;
  * - the replaced signature does not inflate the attachment cap: the count
  *   check is adjusted by the one row about to be removed, while the
  *   signature itself still counts toward `MAX_ATTACHMENTS_PER_PARENT` like
- *   any other attachment (kept simple — the cap is generous).
+ *   any other attachment (kept simple — the cap is generous);
+ * - a genuine concurrent duplicate (two uploads racing past the
+ *   `findSignatureByInterventionId()` read before either commits) is still
+ *   caught by the unique index and surfaces as `InterventionConflictException`
+ *   (409), translated by the repository from the underlying
+ *   `UniqueConstraintViolationException`.
  *
  * @category UseCase
  *
@@ -169,15 +181,25 @@ final readonly class AddInterventionAttachmentHandler implements CommandHandler
     $this->fileStorage->write($storagePath, $command->contents);
 
     try {
-      $this->attachmentRepository->save($attachment);
+      if (InterventionAttachmentKind::SIGNATURE === $kind) {
+        // Delete-then-save, atomically — see the class docblock. A conflict
+        // here (InterventionConflictException, e.g. a genuine concurrent
+        // duplicate) propagates unchanged; the catch below only cleans up
+        // the just-written file, it never suppresses the exception.
+        $this->attachmentRepository->saveReplacingSignature($attachment, $previousSignature?->id());
+      } else {
+        $this->attachmentRepository->save($attachment);
+      }
     } catch (Throwable $dbException) {
       $this->fileStorage->delete($storagePath);
 
       throw $dbException;
     }
 
+    // The previous signature's DATABASE row is already gone — removed
+    // inside the same transaction as the new row above. Only its stored
+    // FILE remains to be cleaned up, now that the transaction has committed.
     if (null !== $previousSignature && (string) $previousSignature->id() !== (string) $attachment->id()) {
-      $this->attachmentRepository->delete($previousSignature->id());
       $this->fileStorage->delete($previousSignature->storagePath());
     }
 

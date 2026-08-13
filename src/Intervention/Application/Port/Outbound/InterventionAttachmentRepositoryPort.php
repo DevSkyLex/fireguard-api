@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Intervention\Application\Port\Outbound;
 
+use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 
@@ -113,5 +114,26 @@ interface InterventionAttachmentRepositoryPort
    * @param InterventionAttachmentId $id the attachment identifier
    */
   public function delete(InterventionAttachmentId $id): void;
+
+  /**
+   * Method saveReplacingSignature.
+   *
+   * Persists a `signature`-kind attachment, atomically removing the
+   * intervention's previous signature record (when one is given) in the
+   * SAME database transaction — required by the
+   * `uniq_intervention_attachment_signature` partial unique index
+   * (`(intervention_id) WHERE kind = 'signature'`): saving the new row
+   * BEFORE deleting the old one, as the plain `save()` path does, would
+   * violate that constraint whenever a previous signature still exists.
+   *
+   * @since 1.3.0
+   *
+   * @param InterventionAttachment $attachment the new signature attachment to persist
+   * @param ?InterventionAttachmentId $previousSignatureId the previous signature's identifier, when one exists
+   *
+   * @throws InterventionConflictException when the unique constraint is still violated
+   *                                       (a genuine concurrent duplicate)
+   */
+  public function saveReplacingSignature(InterventionAttachment $attachment, ?InterventionAttachmentId $previousSignatureId): void;
   // #endregion
 }

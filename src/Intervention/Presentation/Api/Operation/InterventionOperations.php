@@ -28,5 +28,12 @@ final class InterventionOperations
    * @var string
    */
   public const string GET_INTERVENTION_STATISTICS = 'intervention_get_statistics';
+
+  /**
+   * Constant DOWNLOAD_INTERVENTION_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string DOWNLOAD_INTERVENTION_ATTACHMENT = 'download_intervention_attachment';
   // #endregion
 }
