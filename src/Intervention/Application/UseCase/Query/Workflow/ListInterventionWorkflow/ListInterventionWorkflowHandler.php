@@ -49,15 +49,27 @@ final readonly class ListInterventionWorkflowHandler implements QueryHandler
    */
   public function __invoke(ListInterventionWorkflowQuery $query): ListInterventionWorkflowResult
   {
+    // For the `intervention` resource the scope id IS the organization id the
+    // caller supplied; for every other resource it is an intervention id the
+    // organization is resolved from. The two cases therefore need different
+    // not-found messages below, though both must answer 404.
+    $scopeIsOrganization = 'intervention' === $query->resource;
     $organizationId = $query->scopeId;
-    if ('intervention' !== $query->resource) {
+    if (!$scopeIsOrganization) {
       $context = $this->gateway->interventionContext($query->scopeId);
       if (null === $context) {
         throw InterventionNotFoundException::withId($query->scopeId);
       }
       $organizationId = $context->organizationId;
     }
-    if (!$this->authorization->hasPermission($query->userId, $organizationId, 'organization.interventions.read')) {
+
+    $decision = $this->authorization->resolveAccess($query->userId, $organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw $scopeIsOrganization
+        ? InterventionNotFoundException::forOrganizationScope($query->scopeId)
+        : InterventionNotFoundException::withId($query->scopeId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

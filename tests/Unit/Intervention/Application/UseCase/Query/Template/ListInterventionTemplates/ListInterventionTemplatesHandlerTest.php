@@ -10,7 +10,8 @@ use Intervention\Application\UseCase\Query\Template\ListInterventionTemplates\{
   ListInterventionTemplatesHandler,
   ListInterventionTemplatesQuery
 };
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -36,7 +37,7 @@ final class ListInterventionTemplatesHandlerTest extends TestCase
     $page = new InterventionTemplatePage([], 2, 15, 0);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::once())
@@ -63,7 +64,7 @@ final class ListInterventionTemplatesHandlerTest extends TestCase
     $page = new InterventionTemplatePage([], 1, 30, 0);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::once())
@@ -87,7 +88,7 @@ final class ListInterventionTemplatesHandlerTest extends TestCase
   public function itDeniesAccessWhenThePermissionIsMissing(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('list');
@@ -96,6 +97,27 @@ final class ListInterventionTemplatesHandlerTest extends TestCase
 
     $this->expectException(InterventionAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.interventions.read permission.');
+
+    $handler(new ListInterventionTemplatesQuery(
+      self::USER_ID,
+      self::ORGANIZATION_ID,
+      1,
+      30,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $templates = $this->createMock(InterventionTemplatePort::class);
+    $templates->expects(self::never())->method('list');
+
+    $handler = new ListInterventionTemplatesHandler($templates, $authorization);
+
+    $this->expectException(InterventionNotFoundException::class);
 
     $handler(new ListInterventionTemplatesQuery(
       self::USER_ID,

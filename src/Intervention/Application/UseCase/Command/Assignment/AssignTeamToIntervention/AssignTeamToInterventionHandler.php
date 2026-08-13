@@ -76,7 +76,12 @@ final readonly class AssignTeamToInterventionHandler implements CommandHandler
       throw InterventionNotFoundException::withId($command->interventionId);
     }
 
-    if (!$this->authorization->hasPermission($command->userId, $context->organizationId, 'organization.interventions.plan')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, 'organization.interventions.plan');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.plan permission.');
     }
 

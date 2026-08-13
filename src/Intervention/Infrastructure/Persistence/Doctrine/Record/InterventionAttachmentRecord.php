@@ -19,6 +19,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'intervention_attachments')]
 #[ORM\Index(name: 'idx_intervention_attachment_intervention', columns: ['intervention_id'])]
+#[ORM\Index(name: 'idx_intervention_attachment_work_item', columns: ['work_item_id'])]
 #[ORM\UniqueConstraint(name: 'uniq_intervention_attachment_storage_path', columns: ['storage_path'])]
 class InterventionAttachmentRecord
 {
@@ -42,17 +43,18 @@ class InterventionAttachmentRecord
   public ?InterventionRecord $intervention = null;
 
   /**
-   * Property workItemId.
+   * Property workItem.
    *
-   * Reserved for a future optional per-work-item attach scope (not exposed
-   * by any endpoint of this lot — see `src/Intervention/MODULE.md`). Stored
-   * as a plain column (not an ORM association) so the FK is added directly
-   * in the migration, mirroring `InterventionRecurrenceRecord::$rrule`.
+   * Optional per-work-item attach scope (Phase 5d.1) — mirrors
+   * `InterventionChangeRecord::$workItem`. `SET NULL` on delete: deleting a
+   * work item leaves its attachments in place as plain intervention-level
+   * evidence rather than cascading their removal.
    *
-   * @since 1.0.0
+   * @since 1.1.0
    */
-  #[ORM\Column(name: 'work_item_id', type: 'string', length: 36, nullable: true)]
-  public ?string $workItemId = null;
+  #[ORM\ManyToOne(targetEntity: InterventionWorkItemRecord::class)]
+  #[ORM\JoinColumn(name: 'work_item_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+  public ?InterventionWorkItemRecord $workItem = null;
 
   /**
    * Property fileName.

@@ -11,6 +11,7 @@ use Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachment
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -49,9 +50,9 @@ final class ListInterventionAttachmentsHandlerTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $attachment = InterventionAttachment::reconstitute(
       id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
@@ -113,7 +114,7 @@ final class ListInterventionAttachmentsHandlerTest extends TestCase
     );
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
     $attachmentRepository->expects(self::never())->method('findByInterventionId');
@@ -125,6 +126,37 @@ final class ListInterventionAttachmentsHandlerTest extends TestCase
     );
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    $handler->__invoke(new ListInterventionAttachmentsQuery(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsInterventionNotFoundWhenTheOrganizationIsOutsideTheCallersScope(): void
+  {
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionAssignmentContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'in_progress'),
+    );
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('findByInterventionId');
+
+    $handler = new ListInterventionAttachmentsHandler(
+      resources: $resources,
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+    );
+
+    // OUTSIDE_SCOPE maps to the SAME not-found exception an unknown
+    // intervention id produces, so the 403/404 split stops being an
+    // existence oracle across organizations.
+    $this->expectException(InterventionNotFoundException::class);
 
     $handler->__invoke(new ListInterventionAttachmentsQuery(
       userId: self::USER_ID,

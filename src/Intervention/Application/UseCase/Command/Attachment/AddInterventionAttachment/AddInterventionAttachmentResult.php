@@ -27,6 +27,7 @@ final readonly class AddInterventionAttachmentResult implements ResultMessage
     public int $size,
     public ?string $label,
     public DateTimeImmutable $uploadedAt,
+    public ?string $workItemId = null,
   ) {
   }
   // #endregion

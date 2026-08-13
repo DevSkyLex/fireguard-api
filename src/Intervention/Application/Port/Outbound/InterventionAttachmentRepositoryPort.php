@@ -46,15 +46,17 @@ interface InterventionAttachmentRepositoryPort
   /**
    * Method findByInterventionId.
    *
-   * Lists all attachments for an intervention.
+   * Lists all attachments for an intervention, optionally narrowed to those
+   * scoped to a single work item.
    *
    * @since 1.0.0
    *
    * @param string $interventionId the intervention identifier
+   * @param ?string $workItemId the optional owning work item identifier
    *
    * @return list<InterventionAttachment> the attachment list
    */
-  public function findByInterventionId(string $interventionId): array;
+  public function findByInterventionId(string $interventionId, ?string $workItemId = null): array;
 
   /**
    * Method countByInterventionId.

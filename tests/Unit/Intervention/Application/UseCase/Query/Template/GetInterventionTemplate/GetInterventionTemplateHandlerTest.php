@@ -9,6 +9,7 @@ use Intervention\Application\Contract\Template\InterventionTemplateView;
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Application\UseCase\Query\Template\GetInterventionTemplate\{GetInterventionTemplateHandler, GetInterventionTemplateQuery, GetInterventionTemplateResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -47,9 +48,23 @@ final class GetInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createStub(InterventionTemplatePort::class);
     $templates->method('find')->willReturn(self::view());
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    new GetInterventionTemplateHandler($templates, $authorization)(self::query());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $templates = $this->createStub(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn(self::view());
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(InterventionNotFoundException::withId(self::TEMPLATE_ID)->getMessage());
 
     new GetInterventionTemplateHandler($templates, $authorization)(self::query());
   }
@@ -63,7 +78,7 @@ final class GetInterventionTemplateHandlerTest extends TestCase
     $templates->method('find')->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new GetInterventionTemplateHandler($templates, $authorization)(self::query());
 

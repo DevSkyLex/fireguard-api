@@ -12,6 +12,7 @@ use Intervention\Domain\Exception\{InterventionAccessDeniedException, Interventi
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -54,7 +55,7 @@ final class GetInterventionAttachmentContentHandlerTest extends TestCase
     );
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $fileStorage = $this->createStub(FileStoragePort::class);
     $fileStorage->method('read')->willReturn('JPEG-BYTES');
@@ -92,7 +93,7 @@ final class GetInterventionAttachmentContentHandlerTest extends TestCase
     );
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $fileStorage = $this->createStub(FileStoragePort::class);
     $fileStorage->method('read')->willReturn('JPEG-BYTES');
@@ -169,7 +170,7 @@ final class GetInterventionAttachmentContentHandlerTest extends TestCase
     );
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     /** @var FileStoragePort&MockObject $fileStorage */
     $fileStorage = $this->createMock(FileStoragePort::class);
@@ -183,6 +184,42 @@ final class GetInterventionAttachmentContentHandlerTest extends TestCase
     );
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    $handler->__invoke(new GetInterventionAttachmentContentQuery(
+      userId: self::USER_ID,
+      attachmentId: self::ATTACHMENT_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsTheAttachmentNotFoundExceptionWhenTheOrganizationIsOutsideTheCallersScope(): void
+  {
+    $attachmentRepository = $this->createStub(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn($this->attachment());
+
+    $resources = $this->createStub(InterventionResourceGatewayPort::class);
+    $resources->method('interventionAssignmentContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'in_progress'),
+    );
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('read');
+
+    $handler = new GetInterventionAttachmentContentHandler(
+      attachmentRepository: $attachmentRepository,
+      resources: $resources,
+      authorization: $authorization,
+      fileStorage: $fileStorage,
+    );
+
+    // OUTSIDE_SCOPE maps to the SAME not-found exception an unknown
+    // attachment id produces, so the 403/404 split stops being an
+    // existence oracle across organizations.
+    $this->expectException(InterventionAttachmentNotFoundException::class);
 
     $handler->__invoke(new GetInterventionAttachmentContentQuery(
       userId: self::USER_ID,

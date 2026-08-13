@@ -9,6 +9,7 @@ use Intervention\Application\Port\Outbound\InterventionWorkflowGatewayPort;
 use Intervention\Application\UseCase\Command\Assignment\AssignTeamToIntervention\{AssignTeamToInterventionCommand, AssignTeamToInterventionHandler};
 use Intervention\Application\UseCase\Command\Workflow\MutateInterventionWorkflow\{MutateInterventionWorkflowCommand, MutateInterventionWorkflowResult};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\{OrganizationAuthorizationPort, TeamDirectoryPort};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -47,7 +48,7 @@ final class AssignTeamToInterventionHandlerTest extends TestCase
     $gateway->expects(self::once())->method('interventionContext')->with(self::INTERVENTION_ID)->willReturn($context);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $teamDirectory = $this->createMock(TeamDirectoryPort::class);
     $teamDirectory->expects(self::once())
@@ -108,7 +109,7 @@ final class AssignTeamToInterventionHandlerTest extends TestCase
     $gateway->method('interventionContext')->willReturn($context);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -127,6 +128,33 @@ final class AssignTeamToInterventionHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $context = new InterventionWorkflowContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft', null, []);
+    $gateway = $this->createStub(InterventionWorkflowGatewayPort::class);
+    $gateway->method('interventionContext')->willReturn($context);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    /** @var TeamDirectoryPort&MockObject $teamDirectory */
+    $teamDirectory = $this->createMock(TeamDirectoryPort::class);
+    $teamDirectory->expects(self::never())->method('listActiveMemberIds');
+
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $handler = new AssignTeamToInterventionHandler($gateway, $authorization, $teamDirectory, $commandBus);
+
+    // The same exception testInvokeThrowsWhenInterventionNotFound asserts: an
+    // outsider must not learn this intervention id is real.
+    $this->expectException(InterventionNotFoundException::class);
+
+    $handler->__invoke(new AssignTeamToInterventionCommand(self::USER_ID, self::INTERVENTION_ID, self::TEAM_ID));
+  }
+
+  #[Test]
   public function testInvokeRejectsAnEmptyTeam(): void
   {
     $context = new InterventionWorkflowContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'draft', null, []);
@@ -134,7 +162,7 @@ final class AssignTeamToInterventionHandlerTest extends TestCase
     $gateway->method('interventionContext')->willReturn($context);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $teamDirectory = $this->createStub(TeamDirectoryPort::class);
     $teamDirectory->method('listActiveMemberIds')->willReturn([]);

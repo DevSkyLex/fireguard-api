@@ -57,7 +57,11 @@ final readonly class DeleteInterventionLabelHandler implements CommandHandler
     if (null === $label) {
       throw InterventionNotFoundException::withId($command->labelId);
     }
-    if (!$this->authorization->hasPermission($command->userId, $label->organizationId, 'organization.interventions.write')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $label->organizationId, 'organization.interventions.write');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($command->labelId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.write permission.');
     }
 

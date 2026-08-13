@@ -15,6 +15,7 @@ use Intervention\Application\UseCase\Command\Template\InstantiateInterventionTem
   InstantiateInterventionTemplateHandler
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Model\OrganizationMember\OrganizationMember;
@@ -65,9 +66,25 @@ final class InstantiateInterventionTemplateHandlerTest extends TestCase
     $draftFactory = $this->createMock(InterventionDraftFactoryPort::class);
     $draftFactory->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    $this->handler($templates, $draftFactory, $authorization)(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $templates = $this->createStub(InterventionTemplatePort::class);
+    $templates->method('find')->willReturn($this->template());
+    $draftFactory = $this->createMock(InterventionDraftFactoryPort::class);
+    $draftFactory->expects(self::never())->method('create');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(InterventionNotFoundException::withId(self::TEMPLATE_ID)->getMessage());
 
     $this->handler($templates, $draftFactory, $authorization)(self::command());
   }
@@ -164,7 +181,7 @@ final class InstantiateInterventionTemplateHandlerTest extends TestCase
   private function grantedAuthorization(): OrganizationAuthorizationPort
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return $authorization;
   }

@@ -322,8 +322,8 @@ with intervention planning edits not being audited today.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence) |
-| GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments |
+| POST | `/interventions/{interventionId}/attachments` | Upload a multipart file attachment (execution evidence; optional `workItemId` multipart field) |
+| GET | `/interventions/{interventionId}/attachments` | List an intervention's attachments (filter: `workItem` *(optional, IRI or bare id)*) |
 | GET | `/intervention-attachments/{id}` | Get one attachment |
 | GET | `/intervention-attachments/{id}/download` | Download an attachment's stored file bytes (Phase 4b) |
 | DELETE | `/intervention-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
@@ -345,6 +345,11 @@ already uses for in-intervention equipment media:
 1. `InterventionMediaProcessor` resolves the intervention's organization via
    `InterventionResourceManager::interventionContext()` (404 if missing/org
    mismatch).
+1bis. The handler gates on `OrganizationAuthorizationPort::isMemberOf()`
+   **before** step 2 and answers 404 when the caller has no active membership.
+   The order matters: `mutationPermission()` reads the intervention's phase
+   and can itself throw a 409, which would tell a caller outside the owning
+   organization both that this intervention exists and what state it is in.
 2. `mutationPermission()` loads+locks the intervention via
    `InterventionResourceGatewayPort::interventionMutationContext()`, rejects
    immutable states (`submitted`/`published`/`abandoned` → 409 Conflict via
@@ -355,7 +360,8 @@ already uses for in-intervention equipment media:
    responsible or a participant once it has left `draft`.
 3. The processor checks that resolved permission via
    `OrganizationAuthorizationPort::hasPermission()` (403 if missing) before
-   dispatching the command. A reviewer holding only
+   dispatching the command — a plain 403 is right here, because step 1bis has
+   already established the caller is a member. A reviewer holding only
    `organization.interventions.review` (not `.execute`) is therefore rejected
    when uploading during `in_progress`, even though they can read/comment.
 
@@ -373,9 +379,53 @@ of its own. A retry carrying a client-supplied
 `attachmentId` that already exists overwrites its own row and is exempt from
 the cap.
 
-`work_item_id` is a **reserved, currently unused** nullable FK column on
-`intervention_attachments` (see Persistence) for a future optional
-per-work-item attach scope — no endpoint sets or reads it in this lot.
+**Per-work-item evidence (Phase 5d.1)** — `work_item_id` on
+`intervention_attachments` (see Persistence) is an optional per-work-item
+attach scope, activated in this lot:
+
+- `POST /interventions/{interventionId}/attachments` accepts an optional
+  `workItemId` multipart field (IRI or bare id, parsed with
+  `ResourceIriParser::id(…, 'intervention-work-items')`). `AddInterventionAttachmentHandler`
+  is the single validation point: when present, it asserts the work item
+  belongs to the SAME intervention via the new
+  `InterventionResourceGatewayPort::workItemBelongsToIntervention()` (backed
+  by `InterventionResourceManager::workItemBelongsToIntervention()`) —
+  a cross-intervention work item id is rejected with **422 Unprocessable
+  Entity** (`InterventionValidationException`), mirroring the identical guard
+  `DoctrineInterventionWorkflowGatewayAdapter::createChange` already applies
+  to `InterventionChange::workItemId`. Permission is unchanged: still the
+  existing phase-derived `mutationPermission()` gate, no new permission.
+- `InterventionAttachmentOutput.workItemId: ?string` surfaces the scope on
+  every read (upload response, list, single-item get); `null` for a plain
+  intervention-level attachment.
+- `GET /interventions/{interventionId}/attachments` gains an optional
+  `workItem` query filter (IRI or bare id), narrowing
+  `InterventionAttachmentRepositoryPort::findByInterventionId()` to that
+  work item's attachments.
+- **Cap decision**: the existing 25-per-INTERVENTION cap
+  (`AttachmentConstraints::MAX_ATTACHMENTS_PER_PARENT`) is unchanged and
+  **not** additionally capped per work item in v1 — the intervention-level
+  cap already bounds the total an intervention can carry, and a work item is
+  always a subset of its intervention's attachments, so a separate
+  per-work-item ceiling would add complexity without closing any gap the
+  intervention cap leaves open.
+- **Deletion semantics**: `intervention_attachments.work_item_id` is
+  `ON DELETE SET NULL` (see Persistence) — deleting a work item
+  (`DELETE /intervention-work-items/{id}`) never deletes its attachments;
+  they survive as plain intervention-level evidence with `workItemId: null`.
+  Covered by
+  `Tests\Integration\...\InterventionAttachmentRepositoryTest::testDeletingTheWorkItemSetsTheAttachmentWorkItemToNullInsteadOfDeletingTheAttachment`.
+- **`evidenceCount` on `InterventionWorkItemOutput`** — the number of
+  attachments scoped to that work item, so a work item list/board can render
+  a photo-evidence badge without a separate per-item attachments fetch.
+  Computed in `InterventionViewMapper::workItemView()` with one indexed
+  `COUNT` per row (`intervention_attachments.work_item_id` is indexed) —
+  a bounded per-row lazy load, mirroring the exact precedent
+  `interventionView()`'s `commentsCount` already established in this same
+  mapper, rather than a batched grouped query: the work item read paths
+  (single get, paginated list) always go through this one mapper method per
+  row already, so adding one more indexed count here is the cheapest correct
+  shape — no new query-bus round trip, no extra Presentation-layer wiring.
 
 **Download (Phase 4b)** — `GET /intervention-attachments/{id}/download` serves
 the attachment's raw stored bytes as a browser download
@@ -394,13 +444,15 @@ permission — the same READ gate `ListInterventionAttachmentsHandler` /
 `GetInterventionWorkflowHandler` enforce for every other path-id record in
 this module — **deliberately without** the phase-based write restriction
 upload/delete apply, since a published (immutable) intervention's evidence
-must stay downloadable. Because the flat permission check cannot distinguish
-"member of the right organization but missing the permission" from "not a
-member of that organization at all", both denials map to the same
-`403 Forbidden` (`InterventionAccessDeniedException`) — the identical,
-pre-existing behavior `InterventionMediaProvider::getOne` and
-`GetInterventionWorkflowHandler` already have for this module's other
-path-id attachment/intervention reads. A record whose stored file has gone
+must stay downloadable. The two denials are distinct: a member of the owning
+organization missing `organization.interventions.read` gets `403 Forbidden`
+(`InterventionAccessDeniedException`), while a caller with no active
+membership gets `404 Not Found` — the same
+`InterventionAttachmentNotFoundException` an unknown attachment id produces,
+so the response cannot be used to confirm the record exists. That is the
+module-wide rule described under *Scope versus entitlement* below, and
+`InterventionMediaProvider::getOne` and `GetInterventionWorkflowHandler`
+follow it identically. A record whose stored file has gone
 missing from the storage backend (a data-integrity gap, not a routine 404) is
 logged by the controller before the same `404` is returned to the caller.
 
@@ -428,10 +480,12 @@ Intervention owns this surface. `ROLE_USER` at the resource level (the
 the attribute scanner discovers first wins the route); the
 `organization.interventions.read` entitlement and organization-membership
 check happen in `GetInterventionStatisticsHandler`, exactly like
-`ListInterventionWorkflowHandler`'s list path — a caller who is not a member
-of the requested organization gets the same 403 a missing-permission member
-gets (not 404: there is no per-record path id here for a 404 to hide behind,
-`organization` is a query filter).
+`ListInterventionWorkflowHandler`'s list path — a member of the requested
+organization missing the entitlement gets 403, while a caller who is not a
+member of it gets 404 (`InterventionNotFoundException::forOrganizationScope()`).
+The organization arrives as a query filter rather than a path id, but the
+reasoning is the same as for a path-id record: a 403 would let a caller sweep
+organization identifiers and learn which ones are real.
 
 `InterventionStatisticsOutput`: `total` (int); `byStatus` (`array<string,int>`,
 **all seven** `InterventionStatus` literals always present, zeros included —
@@ -539,6 +593,47 @@ by deptrac):
   (`InterventionTransitionPolicy`, `InterventionChangePolicy`), and exceptions.
 - **Infrastructure** (`src/Intervention/Infrastructure`): Doctrine records / mappers
   and the port adapters (Doctrine gateways, Messenger publication queue).
+
+### Scope versus entitlement (403 vs 404)
+
+Every user-facing surface in this module answers a denial in one of two ways,
+and which one is not a stylistic choice:
+
+| Caller | Response | Raised as |
+| --- | --- | --- |
+| Active member of the owning organization, lacking the permission | `403 Forbidden` | `InterventionAccessDeniedException` |
+| No active membership in the owning organization | `404 Not Found` | the module's own not-found exception for that record |
+
+The 404 is not a softer 403. Handlers here look a record up by path id
+**before** they can know which organization owns it, so a 403 at that point
+would confirm the record exists to a caller who may not even learn that much
+— an existence oracle that lets someone from another organization enumerate
+valid identifiers. The out-of-scope 404 therefore reuses the *same* exception
+the record's own "not found" branch throws (`InterventionNotFoundException`,
+`InterventionAttachmentNotFoundException`, `PublicationNotFoundException`, …),
+so the two responses are indistinguishable.
+
+`Organization\Application\Port\Inbound\OrganizationAuthorizationPort` carries
+the distinction:
+
+- **`resolveAccess(userId, organizationId, permission)`** returns
+  `OrganizationAccessDecision` — `GRANTED`, `MISSING_PERMISSION`, or
+  `OUTSIDE_SCOPE`. This is the default; the flat `hasPermission()` boolean
+  cannot express the middle case and must not be used for a new check here.
+  The membership lookup only runs when the permission is not granted, so the
+  authorized path costs no extra query.
+- **`isMemberOf(userId, organizationId)`** is the scope half alone, for the
+  callers that must gate on scope *before* they can name the permission —
+  the attachment upload/delete handlers, whose permission is derived from the
+  intervention's phase by a call that can itself throw a 409.
+
+Where the organization id comes from the caller (a listing filter, a create
+payload) rather than from a looked-up record, the out-of-scope response is
+`InterventionNotFoundException::forOrganizationScope()`, which is the same
+404 for the same reason applied to organization identifiers.
+
+`tests/Architecture/Unit/InterventionAuthorizationEnforcementTest` is the
+ratchet that keeps new handlers on this path.
 
 **Architecture debt — cross-module `Organization\Domain` imports (5).** The
 `CrossModuleDomainBoundaryTest` ratchet baseline for `Intervention =>
@@ -760,6 +855,7 @@ Aggregate invariants (enforced in `Intervention`):
 - `action` (`site_setup` | `inventory` | `inspection`), `source`
 - `status` (`planned` | `in_progress` | `completed` | `skipped`)
 - `assignee`, `target`, `required`, `skipReason`, `revision`
+- `evidenceCount` (Phase 5d.1, read-only, output-only — see Attachments above)
 
 `InterventionChange` main fields:
 
@@ -820,13 +916,21 @@ exactly like labels):
   `intervention_recurrence_runs`, `intervention_attachments` (**main** database /
   `doctrine.orm.main_entity_manager`).
 - `intervention_attachments` (R11b): `intervention_id` FK `ON DELETE CASCADE`
-  (not null); `work_item_id` FK `ON DELETE CASCADE` (nullable, **reserved and
-  currently unused** — see Attachments above; stored as a plain column, not an
-  ORM association, so the FK is added directly in the migration rather than
-  through a Doctrine relation, mirroring `InterventionRecurrenceRecord::$rrule`);
-  unique `storage_path`; `revision` (ETag). Migration:
+  (not null); `work_item_id` FK `ON DELETE SET NULL` (nullable — see
+  Attachments above, activated Phase 5d.1); unique `storage_path`; `revision`
+  (ETag). `work_item_id` was originally added by
   `migrations/main/Version20260717111309.php` (shared across the three R11b
-  attachment tables). Repository:
+  attachment tables) as a plain unconstrained column — `InterventionAttachmentRecord`
+  mapped it as a plain `ORM\Column`, not an ORM association, so the FK a
+  hand-written `addSql` had bolted on was invisible to Doctrine's own
+  mapping and got dropped as drift by the schema-resync migration
+  `Version20260723201111`. Phase 5d.1 activates the capability for real:
+  `InterventionAttachmentRecord::$workItem` is now a genuine `ManyToOne`
+  association (mirroring `InterventionChangeRecord::$workItem`), and
+  `migrations/main/Version20260813113000.php` re-adds the FK — this time
+  `ON DELETE SET NULL` (not the original `CASCADE`) and its index
+  (`idx_intervention_attachment_work_item`) — so the mapping and the schema
+  now agree and a future resync cannot silently drop it again. Repository:
   `Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository`.
 - `interventions.due_soon_notified_at` / `interventions.overdue_notified_at`
   (nullable timestamps) are the due-date reminder sweep's anti-spam guard —
@@ -913,12 +1017,22 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   - `Application/UseCase/Command/Attachment/{Add,Delete}InterventionAttachment`,
     `Application/UseCase/Query/Attachment/ListInterventionAttachments` —
     org-isolation via `InterventionResourceGatewayPort`, storage rollback on
-    DB failure, path-traversal-safe file naming.
+    DB failure, path-traversal-safe file naming. `AddInterventionAttachmentHandlerTest`
+    additionally covers Phase 5d.1: a `workItemId` belonging to the same
+    intervention is accepted and round-trips into the Result, and a
+    `workItemId` for which `workItemBelongsToIntervention()` returns `false`
+    (another intervention's work item) is rejected with
+    `InterventionValidationException` (422) before storage is touched — an
+    absent `workItemId` is unaffected (covered by the existing happy-path
+    tests, which pass no `workItemId`).
   - `Presentation/Api/Processor/Attachment/InterventionMediaProcessorTest` —
     the phase-based authorization matrix: `draft` requires
     `organization.interventions.plan`, `in_progress` requires `.execute` (a
     caller holding only `.review` is rejected with 403), and a `published`
     (immutable) intervention rejects the upload with 409.
+    `testUploadForwardsTheWorkItemIdMultipartFieldToTheCommand` proves the
+    `workItemId` multipart field is parsed (`ResourceIriParser::id(…,
+    'intervention-work-items')`) and forwarded on the command.
   - `Presentation/Api/Provider/Attachment/InterventionMediaProviderTest` —
     flat `organization.interventions.read` enforcement for reads.
   - `Application/UseCase/Query/Attachment/GetInterventionAttachmentContent/GetInterventionAttachmentContentHandlerTest`
@@ -948,6 +1062,13 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   the due-soon 48h boundary (inclusive) against the active-status set,
   top-10 truncation and descending order, and the average-publication-days
   computation (`null` with none published).
+  `InterventionAttachmentRepositoryTest` (Phase 5d.1) additionally covers:
+  `save()`/`findById()` round-tripping `workItemId`; `findByInterventionId()`'s
+  optional `workItemId` filter narrowing to only that work item's attachments;
+  and — the deletion-semantics assertion — deleting the referenced
+  `intervention_work_items` row directly at the database level sets the
+  attachment's `work_item_id` to `null` rather than deleting the attachment,
+  proving the `ON DELETE SET NULL` FK.
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
   `tests/Functional/Api/InterventionAttachmentApiTest.php`,
@@ -966,7 +1087,15 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   403 for a caller outside the owning organization entirely (this module's
   flat permission check cannot tell the two apart — see Attachments above),
   404 for an unknown attachment id, and 404 when the stored file has gone
-  missing from disk while the DB row survives.
+  missing from disk while the DB row survives. Phase 5d.1:
+  `testUploadWithWorkItemIdRoundTripsIntoTheOutputAndTheFilterNarrowsAndTheWorkItemOutputExposesTheEvidenceCount`
+  — a real multipart upload with a `workItemId` field round-trips into
+  `InterventionAttachmentOutput.workItemId`, the `workItem` query filter on
+  `GET /interventions/{id}/attachments` narrows to that work item's
+  attachment only (zero for a sibling work item with none), and
+  `GET /intervention-work-items/{id}` exposes the matching `evidenceCount`;
+  `testUploadWithAWorkItemIdFromAnotherInterventionIsRejectedWith422` proves
+  the cross-intervention denial end to end.
 - E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
   submit → work items frozen (409) → withdraw → work items mutable again →
   resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The

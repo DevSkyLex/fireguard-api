@@ -99,6 +99,50 @@ final class InterventionMediaProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testUploadForwardsTheWorkItemIdMultipartFieldToTheCommand(): void
+  {
+    $path = $this->tempImage();
+    $workItemId = '660e8400-e29b-41d4-a716-446655440099';
+
+    try {
+      $attachment = $this->attachmentRecord();
+
+      $entityManager = $this->wrappingEntityManager();
+      $entityManager->method('find')->willReturn($attachment);
+
+      $commandBus = $this->createMock(CommandBusPort::class);
+      $commandBus->expects(self::once())
+        ->method('dispatch')
+        ->with(self::callback(
+          static fn (AddInterventionAttachmentCommand $command): bool => $workItemId === $command->workItemId,
+        ))
+        ->willReturn(new AddInterventionAttachmentResult(
+          $attachment->id,
+          self::INTERVENTION_ID,
+          $attachment->fileName,
+          $attachment->mimeType,
+          $attachment->size,
+          null,
+          $attachment->uploadedAt,
+          $workItemId,
+        ));
+
+      $result = new InterventionMediaProcessor(
+        $entityManager,
+        $commandBus,
+        $this->userSecurity(),
+        $this->requestStackWithUpload($path, ['workItemId' => $workItemId]),
+        new MultipartAttachmentGuard(),
+        new RevisionGuard(new RequestStack()),
+      )->process(null, new Post(), ['interventionId' => self::INTERVENTION_ID]);
+
+      self::assertSame($attachment->id, $result?->id);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  #[Test]
   public function testUploadMapsAccessDeniedExceptionTo403(): void
   {
     $path = $this->tempImage();
@@ -450,13 +494,16 @@ final class InterventionMediaProcessorTest extends TestCase
     return $entityManager;
   }
 
-  private function requestStackWithUpload(string $path): RequestStack
+  /**
+   * @param array<string, mixed> $parameters
+   */
+  private function requestStackWithUpload(string $path, array $parameters = []): RequestStack
   {
     $requestStack = new RequestStack();
     $requestStack->push(Request::create(
       '/api/interventions/' . self::INTERVENTION_ID . '/attachments',
       'POST',
-      [],
+      $parameters,
       [],
       ['file' => new UploadedFile($path, 'photo.gif', 'image/gif', null, true)],
     ));

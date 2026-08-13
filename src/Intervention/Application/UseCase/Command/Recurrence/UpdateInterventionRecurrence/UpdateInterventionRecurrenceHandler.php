@@ -67,7 +67,11 @@ final readonly class UpdateInterventionRecurrenceHandler implements CommandHandl
     if (null === $existing) {
       throw InterventionNotFoundException::withId($command->recurrenceId);
     }
-    if (!$this->authorization->hasPermission($command->userId, $existing->organizationId, 'organization.interventions.plan')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $existing->organizationId, 'organization.interventions.plan');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($command->recurrenceId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.plan permission.');
     }
 

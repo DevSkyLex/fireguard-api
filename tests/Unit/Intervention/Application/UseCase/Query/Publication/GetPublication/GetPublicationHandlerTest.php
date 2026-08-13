@@ -12,6 +12,7 @@ use Intervention\Application\UseCase\Query\Publication\GetPublication\{
   GetPublicationQuery
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, PublicationNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -54,9 +55,9 @@ final class GetPublicationHandlerTest extends TestCase
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with(self::USER_ID, self::ORGANIZATION_ID, self::PERMISSION)
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new GetPublicationHandler($repository, $authorization);
 
@@ -99,7 +100,7 @@ final class GetPublicationHandlerTest extends TestCase
       ->willReturn(null);
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::never())->method('hasPermission');
+    $authorization->expects(self::never())->method('resolveAccess');
 
     $handler = new GetPublicationHandler($repository, $authorization);
 
@@ -118,14 +119,35 @@ final class GetPublicationHandlerTest extends TestCase
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with(self::USER_ID, self::ORGANIZATION_ID, self::PERMISSION)
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new GetPublicationHandler($repository, $authorization);
 
     $this->expectException(InterventionAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.interventions.read permission.');
+
+    $handler(new GetPublicationQuery(self::USER_ID, self::PUBLICATION_ID));
+  }
+
+  #[Test]
+  public function itThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $repository = $this->createStub(PublicationRepositoryPort::class);
+    $repository->method('find')->willReturn($this->publication());
+    $repository->method('interventionContext')->willReturn($this->context());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new GetPublicationHandler($repository, $authorization);
+
+    // Byte-for-byte the response `itThrowsWhenThePublicationDoesNotExist`
+    // asserts: a caller from another organization must not be able to tell a
+    // real publication id from an imaginary one.
+    $this->expectException(PublicationNotFoundException::class);
+    $this->expectExceptionMessage('Publication with ID "publication-1" not found.');
 
     $handler(new GetPublicationQuery(self::USER_ID, self::PUBLICATION_ID));
   }
