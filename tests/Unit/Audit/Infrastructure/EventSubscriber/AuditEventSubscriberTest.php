@@ -10,6 +10,7 @@ use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Auth\Domain\Event\Session\{LoginFailedEvent, UserLoggedInEvent};
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Organization\Domain\Event\Invitation\OrganizationInvitationSentEvent;
 use Organization\Domain\Event\Member\OrganizationMemberRemovedEvent;
 use Organization\Domain\Event\Role\OrganizationRoleCreatedEvent;
@@ -91,6 +92,7 @@ final class AuditEventSubscriberTest extends TestCase
       'equipment.equipment_decommissioned_event' => 'onEquipmentDecommissioned',
       'intervention.intervention_published_event' => 'onInterventionPublished',
       'intervention.intervention_publication_failed_event' => 'onInterventionPublicationFailed',
+      'intervention.intervention_status_transitioned_event' => 'onInterventionStatusTransitioned',
       'intervention.intervention_recurrence_created_event' => 'onInterventionRecurrenceCreated',
       'intervention.intervention_recurrence_updated_event' => 'onInterventionRecurrenceUpdated',
       'intervention.intervention_recurrence_deleted_event' => 'onInterventionRecurrenceDeleted',
@@ -567,6 +569,79 @@ final class AuditEventSubscriberTest extends TestCase
     ));
   }
   // #endregion
+
+  #[Test]
+  public function testOnInterventionStatusTransitionedRecordsTransitionAudit(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => 'intervention.status_transitioned' === $command->action
+        && 'user' === $command->actorType
+        && 'user-7' === $command->actorId
+        && 'intervention' === $command->subjectType
+        && 'intervention-1' === $command->subjectId
+        && [
+          'intervention_number' => 42,
+          'from_status' => 'planned',
+          'to_status' => 'in_progress',
+          'organization_id' => 'org-1',
+        ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-200'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
+      organizationId: 'org-1',
+      interventionId: 'intervention-1',
+      interventionNumber: 42,
+      actorUserId: 'user-7',
+      fromStatus: 'planned',
+      toStatus: 'in_progress',
+    ));
+  }
+
+  #[Test]
+  public function testOnInterventionStatusTransitionedIncludesReviewNoteForChangesRequested(): void
+  {
+    /** @var CommandBusPort&MockObject $commandBus */
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (RecordAuditEventCommand $command): bool => [
+        'intervention_number' => 42,
+        'from_status' => 'submitted',
+        'to_status' => 'changes_requested',
+        'review_note' => 'Please redo the panel check.',
+        'organization_id' => 'org-1',
+      ] === $command->metadata))
+      ->willReturn(new RecordAuditEventResult(eventId: 'event-201'));
+
+    $subscriber = new AuditEventSubscriber(
+      commandBus: $commandBus,
+      sanitizer: new AuditPiiSanitizer(includePii: true, piiSalt: null),
+      requestStack: new RequestStack(),
+      security: $this->securityWithUser(null),
+      logger: $this->createStub(LoggerInterface::class),
+    );
+
+    $subscriber->onInterventionStatusTransitioned(new InterventionStatusTransitionedEvent(
+      organizationId: 'org-1',
+      interventionId: 'intervention-1',
+      interventionNumber: 42,
+      actorUserId: 'user-7',
+      fromStatus: 'submitted',
+      toStatus: 'changes_requested',
+      reviewNote: 'Please redo the panel check.',
+    ));
+  }
 
   // #region Helpers
   /**

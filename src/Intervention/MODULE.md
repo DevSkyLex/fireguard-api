@@ -490,6 +490,9 @@ against `InterventionLabelRecord` inside
 `DoctrineInterventionWorkflowGatewayAdapter`, which calls it inside its own
 `wrapInTransaction` to record the `created` and `status_changed` system
 activities alongside the underlying mutation (same commit/rollback unit).
+`Shared\Application\Port\Outbound\EventDispatcherPort` is injected the same
+way, for the deferred `intervention.status_transitioned` audit dispatch — see
+Audit trail below.
 
 Tagged-iterator extension points (owning modules plug in):
 
@@ -704,7 +707,7 @@ exactly like labels):
 
 ## Audit trail
 
-Publication is the single audit point of the intervention write path:
+Publication is one audit point of the intervention write path:
 `ExecutePublicationHandler` emits `InterventionPublishedEvent`
 (`intervention.published` in the ledger) after `publish()` has committed, and
 `InterventionPublicationFailedEvent` (`intervention.publication_failed`, with
@@ -713,8 +716,42 @@ the failure reason) after `markFailed()`. The per-resource adapters
 emit — they run inside the publication transaction while the ledger commits
 independently on the auth database. Failures occurring before the intervention
 context resolves are not ledgered (no organization scope) but remain on the
-publication record's `error` field. Intervention status transitions
-(submit/approve/changes_requested/complete/abandon) are not audited yet.
+publication record's `error` field.
+
+**Status transitions are audited too**, from the single write path
+(`DoctrineInterventionWorkflowGatewayAdapter::updateIntervention` /
+`mutateWorkItem`, called only through `MutateInterventionWorkflowHandler`),
+mirroring the `intervention.published` wiring exactly: the gateway is
+constructor-injected with `Shared\Application\Port\Outbound\EventDispatcherPort`
+(the same port `ExecutePublicationHandler` uses — Infrastructure consuming a
+Shared Application port is an established pattern in this codebase, see e.g.
+`OAuth\Infrastructure\Adapter\Token\TokenRevocationAdapter`) and dispatches
+`Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent`
+(`intervention.status_transitioned` in the ledger) for every successful
+status change:
+
+- the explicit transition applied through `PATCH /interventions/{id}`
+  (`resource: 'intervention'`, a `status` key in the merge-patch payload) —
+  the same `if (null !== $nextStatus && $nextStatus->value !== $previousStatus)`
+  guard that already journals the `status_changed` activity;
+- the work-item-driven `planned -> in_progress` auto-start (starting work on
+  any item advances the parent intervention) — the same guard that already
+  journals that path's `status_changed` activity.
+
+Payload: `organization_id` (via `recordOrganizationAudit`), `intervention_number`,
+`from_status`, `to_status`, and `review_note` (present only when the target is
+`changes_requested`, mirroring the aggregate invariant that requires one for
+that transition). The actor is always the mutating user id — the work-item
+auto-start is attributed to the member whose update triggered it (the event
+models a `null` actor falling back to `system`, but no production call site
+produces one today). Like the notifications this
+same method already defers past the transaction (`changesRequested`,
+`submitted`), the event dispatch is queued into the same deferred-closure
+array and fires only after `wrapInTransaction` commits — a rollback (a later
+validation failure in the same request) leaves no ledger entry for a
+transition that never happened. A rejected transition (the aggregate throws
+before `applyTransition` sets the new status) and a field-only edit (no
+`status` key in the payload) dispatch nothing.
 
 Recurrences (Lot 6) are additionally audited: `CreateInterventionRecurrenceHandler`,
 `UpdateInterventionRecurrenceHandler` and `DeleteInterventionRecurrenceHandler`

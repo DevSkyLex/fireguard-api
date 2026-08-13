@@ -17,6 +17,7 @@ use Intervention\Application\Contract\Workflow\{
 };
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionIssueQueryPort, InterventionResourceGatewayPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\Service\{InterventionDraftPublisher, InterventionIssueFinder, InterventionMemberPolicy, InterventionNotificationService};
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
 use Intervention\Domain\Exception\{
   InterventionAccessDeniedException,
   InterventionConflictException,
@@ -39,6 +40,7 @@ use InvalidArgumentException;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use Shared\Application\Contract\Sorting\{SortDirection, Sorting};
 use Shared\Application\Factory\UuidFactory;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression;
 
 use function array_key_exists;
@@ -84,6 +86,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
    * @param InterventionIssueFinder $issueFinder the issue finder value
    * @param InterventionViewMapper $views the view mapper value
    * @param InterventionActivityPort $activities the activity feed port value
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher (audit ledger)
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -97,6 +100,7 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
     private InterventionViewMapper $views,
     private InterventionActivityPort $activities,
     private InterventionDraftPublisher $draftPublisher,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
 
@@ -488,6 +492,26 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         null,
         ['from' => $previousStatus, 'to' => $nextStatus->value],
       );
+      // Audit ledger: deferred like the notifications below, so the event
+      // fires only once the surrounding wrapInTransaction has actually
+      // committed — a rollback (e.g. a later validation failure in this same
+      // request) must never leave a ledger entry for a transition that never
+      // happened.
+      $interventionId = $intervention->id;
+      $interventionNumber = $intervention->number;
+      $actorUserId = $mutation->userId;
+      $fromStatus = $previousStatus;
+      $toStatus = $nextStatus->value;
+      $reviewNote = InterventionStatus::CHANGES_REQUESTED === $nextStatus ? $aggregate->reviewNote() : null;
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
+        organizationId: $organizationId,
+        interventionId: $interventionId,
+        interventionNumber: $interventionNumber,
+        actorUserId: $actorUserId,
+        fromStatus: $fromStatus,
+        toStatus: $toStatus,
+        reviewNote: $reviewNote,
+      ));
     }
     // A replan of a non-draft intervention leaves a trace: the operators who
     // planned around the old window learn it moved, and by how much.
@@ -628,6 +652,19 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
         null,
         ['from' => 'planned', 'to' => 'in_progress'],
       );
+      // Audit ledger: same deferred-until-commit treatment as the explicit
+      // transition path in updateIntervention().
+      $autoStartInterventionId = $intervention->id;
+      $autoStartInterventionNumber = $intervention->number;
+      $autoStartActorUserId = $mutation->userId;
+      $notifications[] = fn () => $this->eventDispatcher->dispatch(new InterventionStatusTransitionedEvent(
+        organizationId: $activityOrganizationId,
+        interventionId: $autoStartInterventionId,
+        interventionNumber: $autoStartInterventionNumber,
+        actorUserId: $autoStartActorUserId,
+        fromStatus: 'planned',
+        toStatus: 'in_progress',
+      ));
     }
     if (null !== $record->assigneeId && $record->assigneeId !== $previousAssigneeId) {
       $interventionId = $intervention->id;

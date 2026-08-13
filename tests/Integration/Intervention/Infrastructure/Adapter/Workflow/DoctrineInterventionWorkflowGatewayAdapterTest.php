@@ -6,13 +6,19 @@ namespace Tests\Integration\Intervention\Infrastructure\Adapter\Workflow;
 
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Intervention\Application\Contract\Workflow\InterventionWorkflowMutation;
+use Intervention\Domain\Event\Workflow\InterventionStatusTransitionedEvent;
+use Intervention\Domain\Exception\InterventionConflictException;
 use Intervention\Infrastructure\Adapter\Workflow\DoctrineInterventionWorkflowGatewayAdapter;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord};
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+use function array_filter;
 use function array_map;
+use function array_values;
 
 /**
  * Test DoctrineInterventionWorkflowGatewayAdapterTest.
@@ -20,7 +26,11 @@ use function array_map;
  * Proves the `name` filter of `list('intervention', ...)` is pushed down
  * into SQL through the shared TrigramSearchExpression builder, fixing the
  * latent bug where an unescaped `%`/`_` in the search term was interpreted
- * as a SQL LIKE wildcard instead of a literal character.
+ * as a SQL LIKE wildcard instead of a literal character. Also proves the
+ * audit-ledger wiring of intervention status transitions: `mutate()`
+ * dispatches `InterventionStatusTransitionedEvent` for every successful
+ * status change (explicit and work-item-driven auto-start), and dispatches
+ * nothing for a non-transition update or a rejected transition.
  *
  * @category Adapter Tests
  *
@@ -37,9 +47,15 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
 
   private const string UNRELATED_ID = '660e8400-e29b-41d4-a716-446655449012';
 
+  private const string TRANSITION_ID = '660e8400-e29b-41d4-a716-446655449013';
+
+  private const string ACTOR_USER_ID = '660e8400-e29b-41d4-a716-446655449901';
+
   private EntityManagerInterface $entityManager;
 
   private DoctrineInterventionWorkflowGatewayAdapter $adapter;
+
+  private RecordingEventDispatcherPort $eventDispatcher;
 
   protected function setUp(): void
   {
@@ -49,6 +65,9 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $this->entityManager = $entityManager;
 
     $this->cleanup();
+
+    $this->eventDispatcher = new RecordingEventDispatcherPort();
+    static::getContainer()->set(EventDispatcherPort::class, $this->eventDispatcher);
 
     /** @var DoctrineInterventionWorkflowGatewayAdapter $adapter */
     $adapter = static::getContainer()->get(DoctrineInterventionWorkflowGatewayAdapter::class);
@@ -101,6 +120,97 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     self::assertSame(self::LITERAL_MATCH_ID, $page->items[0]->data['id']);
   }
 
+  #[Test]
+  public function testMutateInterventionStatusTransitionDispatchesAuditEvent(): void
+  {
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Panel Replacement', 7, 'planned');
+    $this->entityManager->flush();
+
+    $this->adapter->mutate(new InterventionWorkflowMutation(
+      resource: 'intervention',
+      action: 'update',
+      userId: self::ACTOR_USER_ID,
+      id: self::TRANSITION_ID,
+      payload: ['status' => 'in_progress'],
+      expectedRevision: 1,
+    ));
+
+    $events = $this->eventDispatcher->transitionEvents();
+    self::assertCount(1, $events);
+    $event = $events[0];
+    self::assertSame(self::ORGANIZATION_ID, $event->organizationId);
+    self::assertSame(self::TRANSITION_ID, $event->interventionId);
+    self::assertSame(7, $event->interventionNumber);
+    self::assertSame(self::ACTOR_USER_ID, $event->actorUserId);
+    self::assertSame('planned', $event->fromStatus);
+    self::assertSame('in_progress', $event->toStatus);
+    self::assertNull($event->reviewNote);
+  }
+
+  #[Test]
+  public function testMutateInterventionChangesRequestedTransitionCarriesReviewNote(): void
+  {
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Panel Replacement', 8, 'submitted');
+    $this->entityManager->flush();
+
+    $this->adapter->mutate(new InterventionWorkflowMutation(
+      resource: 'intervention',
+      action: 'update',
+      userId: self::ACTOR_USER_ID,
+      id: self::TRANSITION_ID,
+      payload: ['status' => 'changes_requested', 'reviewNote' => 'Please redo the panel check.'],
+      expectedRevision: 1,
+    ));
+
+    $events = $this->eventDispatcher->transitionEvents();
+    self::assertCount(1, $events);
+    self::assertSame('submitted', $events[0]->fromStatus);
+    self::assertSame('changes_requested', $events[0]->toStatus);
+    self::assertSame('Please redo the panel check.', $events[0]->reviewNote);
+  }
+
+  #[Test]
+  public function testMutateInterventionFieldOnlyEditDoesNotDispatchAuditEvent(): void
+  {
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Panel Replacement', 9, 'planned');
+    $this->entityManager->flush();
+
+    $this->adapter->mutate(new InterventionWorkflowMutation(
+      resource: 'intervention',
+      action: 'update',
+      userId: self::ACTOR_USER_ID,
+      id: self::TRANSITION_ID,
+      payload: ['description' => 'Updated scope, no status change.'],
+      expectedRevision: 1,
+    ));
+
+    self::assertSame([], $this->eventDispatcher->transitionEvents());
+  }
+
+  #[Test]
+  public function testMutateInterventionRejectedTransitionDoesNotDispatchAuditEvent(): void
+  {
+    // `draft -> changes_requested` is not a legal edge (InterventionTransitionPolicy);
+    // the aggregate must reject it before any activity/event is recorded.
+    $this->createInterventionWithStatus(self::TRANSITION_ID, 'Panel Replacement', 10, 'draft');
+    $this->entityManager->flush();
+
+    $this->expectException(InterventionConflictException::class);
+
+    try {
+      $this->adapter->mutate(new InterventionWorkflowMutation(
+        resource: 'intervention',
+        action: 'update',
+        userId: self::ACTOR_USER_ID,
+        id: self::TRANSITION_ID,
+        payload: ['status' => 'changes_requested'],
+        expectedRevision: 1,
+      ));
+    } finally {
+      self::assertSame([], $this->eventDispatcher->transitionEvents());
+    }
+  }
+
   private function createOrganization(): void
   {
     $organization = new OrganizationRecord();
@@ -134,20 +244,91 @@ final class DoctrineInterventionWorkflowGatewayAdapterTest extends KernelTestCas
     $this->entityManager->persist($record);
   }
 
+  private function createInterventionWithStatus(string $id, string $name, int $number, string $status): void
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, self::ORGANIZATION_ID);
+
+    $now = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
+    $record = new InterventionRecord();
+    $record->id = $id;
+    $record->organization = $organization;
+    $record->type = 'site_setup';
+    $record->name = $name;
+    $record->number = $number;
+    $record->status = $status;
+    $record->priority = 'normal';
+    $record->siteId = null;
+    $record->responsibleId = self::ACTOR_USER_ID;
+    $record->plannedStartAt = $now;
+    $record->dueAt = $now->modify('+7 days');
+    $record->revision = 1;
+    $record->createdAt = $now;
+    $record->updatedAt = $now;
+    $this->entityManager->persist($record);
+  }
+
   private function cleanup(): void
   {
-    foreach ([self::LITERAL_MATCH_ID, self::WILDCARD_DECOY_ID, self::UNRELATED_ID] as $interventionId) {
-      $intervention = $this->entityManager->find(InterventionRecord::class, $interventionId);
-      if ($intervention instanceof InterventionRecord) {
-        $this->entityManager->remove($intervention);
-      }
-    }
-    $this->entityManager->flush();
+    // Raw SQL, not ORM remove()/flush(): the ORM's cascade-persist validation
+    // is unreliable across the PESSIMISTIC_WRITE-locked, wrapInTransaction-scoped
+    // writes the mutate() tests exercise below, mirroring
+    // DoctrineInterventionActivityAdapterTest::cleanup().
+    $connection = $this->entityManager->getConnection();
+    $connection->executeStatement(
+      'DELETE FROM intervention_activities WHERE organization_id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $connection->executeStatement(
+      'DELETE FROM interventions WHERE organization_id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $connection->executeStatement(
+      'DELETE FROM organizations WHERE id = :organizationId',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
+    $this->entityManager->clear();
+  }
+}
 
-    $organization = $this->entityManager->find(OrganizationRecord::class, self::ORGANIZATION_ID);
-    if ($organization instanceof OrganizationRecord) {
-      $this->entityManager->remove($organization);
-      $this->entityManager->flush();
+/**
+ * Test double RecordingEventDispatcherPort.
+ *
+ * Records every dispatched domain event in memory so the integration test
+ * can assert on `InterventionStatusTransitionedEvent` payloads without a
+ * real Symfony event dispatcher / Audit subscriber round-trip.
+ *
+ * @category Test Double
+ *
+ * @author Valentin FORTIN <contact@valentin-fortin.pro>
+ */
+final class RecordingEventDispatcherPort implements EventDispatcherPort
+{
+  /**
+   * @var list<object>
+   */
+  private array $events = [];
+
+  public function dispatch(object $event): void
+  {
+    $this->events[] = $event;
+  }
+
+  public function dispatchAll(array $events): void
+  {
+    foreach ($events as $event) {
+      $this->dispatch($event);
     }
+  }
+
+  /**
+   * @return list<InterventionStatusTransitionedEvent>
+   */
+  public function transitionEvents(): array
+  {
+    return array_values(array_filter(
+      $this->events,
+      static fn (object $event): bool => $event instanceof InterventionStatusTransitionedEvent,
+    ));
   }
 }
