@@ -371,6 +371,104 @@ final class InterventionNotificationServiceTest extends TestCase
     self::addToAssertionCount(1);
   }
 
+  #[Test]
+  public function itDeliversADueSoonReminderInAppAndByEmail(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => 'intervention.due_soon' === $request->type
+        && [NotificationChannel::MERCURE, NotificationChannel::EMAIL] === $request->channels
+        && self::USER_ID === $request->recipientUserId
+        && 'intervention-1' === $request->payload['interventionId']
+        && self::ORGANIZATION_ID === $request->organizationId))
+      ->willReturn($this->sent());
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+      ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable('2026-01-11T00:00:00+00:00'), [self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itDeliversAnOverdueReminderInAppAndByEmail(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())
+      ->method('send')
+      ->with(self::callback(static fn (SendNotificationRequest $request): bool => 'intervention.overdue' === $request->type
+        && [NotificationChannel::MERCURE, NotificationChannel::EMAIL] === $request->channels
+        && self::USER_ID === $request->recipientUserId))
+      ->willReturn($this->sent());
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+      ->overdue('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable('2026-01-09T00:00:00+00:00'), [self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itNotifiesEachUniqueReminderRecipientExactlyOnce(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::once())->method('send')->willReturn($this->sent());
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+      ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID, self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itNeverSendsADueSoonReminderToAMemberFromAnotherOrganization(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+      ->dueSoon('intervention-1', 12, 'Annual inventory', '018f0b68-6758-7a12-8a1d-3f0d97f63c99', new DateTimeImmutable(), [self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itNeverSendsAnOverdueReminderToAnInactiveMember(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member(isActive: false));
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+      ->overdue('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itDoesNotSendReminderWhenAllChannelsAreDisabled(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createMock(NotificationPort::class);
+    $notifications->expects(self::never())->method('send');
+
+    new InterventionNotificationService($notifications, $members, $this->policy(inAppEnabled: false, emailEnabled: false), $this->reviewers())
+      ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
+  }
+
+  #[Test]
+  public function itDoesNotFailWhenAReminderDeliveryFails(): void
+  {
+    $members = $this->createStub(OrganizationMemberRepositoryPort::class);
+    $members->method('findById')->willReturn($this->member());
+    $notifications = $this->createStub(NotificationPort::class);
+    $notifications->method('send')->willThrowException(new RuntimeException('Mercure unavailable'));
+
+    new InterventionNotificationService($notifications, $members, $this->policy(), $this->reviewers())
+      ->dueSoon('intervention-1', 12, 'Annual inventory', self::ORGANIZATION_ID, new DateTimeImmutable(), [self::MEMBER_ID]);
+
+    self::addToAssertionCount(1);
+  }
+
   private function member(bool $isActive = true): OrganizationMember
   {
     return OrganizationMember::reconstitute(

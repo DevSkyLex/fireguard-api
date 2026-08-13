@@ -476,6 +476,13 @@ final readonly class DoctrineInterventionWorkflowGatewayAdapter implements Inter
       hasReviewNote: array_key_exists('reviewNote', $mutation->payload),
     );
     InterventionMapper::sync($aggregate, $intervention);
+    // A rescheduled due date invalidates any reminder already sent against the
+    // old one: the anti-spam stamps must not silently suppress a reminder for
+    // the new date.
+    if ($previousDueAt?->getTimestamp() !== $aggregate->dueAt()?->getTimestamp()) {
+      $intervention->dueSoonNotifiedAt = null;
+      $intervention->overdueNotifiedAt = null;
+    }
     if (array_key_exists('labelIds', $mutation->payload)) {
       $intervention->labels->clear();
       foreach ($this->resolveLabels($mutation->payload['labelIds'] ?? [], $organizationId) as $label) {

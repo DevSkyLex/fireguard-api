@@ -55,10 +55,14 @@ final class InterventionAuthorizationEnforcementTest extends TestCase
    * due recurrences into drafts: it acts as the platform (system actor, no
    * user), and the recurrence itself was authorized at creation time
    * (organization.interventions.plan in CreateInterventionRecurrenceHandler).
+   * SendDueRemindersHandler is the same kind of scheduler-driven sweep (no
+   * user context, system actor): it only reads interventions and sends
+   * best-effort notifications to their existing responsible/participants —
+   * membership itself was already authorized when those were assigned.
    *
    * @var list<string>
    */
-  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler'];
+  private const array EXEMPT_HANDLERS = ['ExecutePublicationHandler', 'MaterializeDueRecurrencesHandler', 'SendDueRemindersHandler'];
   // #endregion
 
   // #region Methods
