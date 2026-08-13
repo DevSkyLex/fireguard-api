@@ -74,6 +74,19 @@ services:
   Intervention\Application\Port\Outbound\InterventionReminderPort:
     alias: Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter
 
+  Intervention\Application\Port\Outbound\InterventionStatisticsGatewayPort:
+    alias: Intervention\Infrastructure\Adapter\Statistics\DoctrineInterventionStatisticsGatewayAdapter
+
+  # Hosted by Facility (site names) and Organization (responsible member
+  # names) respectively — the statistics endpoint's bySite/byResponsible
+  # top-10 breakdowns. See config/modules/facility.yaml and organization.yaml
+  # for the adapters themselves.
+  Intervention\Application\Port\Outbound\InterventionSiteNamingPort:
+    alias: Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter
+
+  Intervention\Application\Port\Outbound\InterventionMemberNamingPort:
+    alias: Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter
+
   Intervention\Application\Service\InterventionChangeApplication:
     arguments:
       $appliers: !tagged_iterator intervention.change_applier
@@ -116,6 +129,10 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Statistics\DoctrineInterventionStatisticsGatewayAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -238,4 +255,7 @@ services:
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\ListInterventionAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Query\Workflow\GetInterventionStatistics\GetInterventionStatisticsHandler:
     tags: ['messenger.message_handler']

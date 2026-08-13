@@ -76,6 +76,12 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
     tags: ['intervention.change_applier', 'intervention.draft_publisher', 'intervention.resource_owner']
 
+  # Cross-module site naming for the Intervention module's `/interventions/statistics`
+  # bySite breakdown — mirrors Facility\Infrastructure\Adapter\Equipment\FacilityNamingAdapter.
+  Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
   Facility\Infrastructure\Adapter\Messaging\FacilityMessagingSubjectResolverAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
