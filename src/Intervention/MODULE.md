@@ -248,6 +248,41 @@ ORM `flush()` closes the `EntityManager` for the rest of the request (see
 concern) — a duplicate occurrence claim is an expected, routine outcome
 here, not an exceptional one.
 
+#### Due-date reminder sweep
+
+`Infrastructure/Scheduler/InterventionScheduleProvider` also triggers
+`SendDueRemindersCommand` hourly, alongside the recurrence sweep, on the same
+`scheduler_intervention` transport (DSN `schedule://intervention`) and the
+same stateful/lock-guarded schedule. `SendDueRemindersHandler` is idempotent
+and processes every candidate page-wise, mirroring
+`MaterializeDueRecurrencesHandler`'s pagination:
+
+1. Pages through interventions in statuses where field work is still
+   expected — `planned`, `in_progress`, `changes_requested` (not `draft`,
+   which is not yet scheduled, nor `submitted`/`published`/`abandoned`,
+   which no longer need action) — whose `dueAt` is within 48 hours
+   (`intervention.due_soon`) or already past (`intervention.overdue`)
+   (`InterventionReminderPort::pageDueSoon` / `pageOverdue`).
+2. For each candidate, notifies the responsible member and every participant
+   — deduplicated — through `InterventionNotificationService::dueSoon()` /
+   `overdue()` (in-app + email, each channel honoring its own organization
+   toggle, mirroring `submitted()`); a candidate member id is re-validated as
+   active and in-organization before delivery, the same check `mentioned()`
+   applies to a member id sourced outside the mutation that owns it.
+3. Immediately stamps the anti-spam guard
+   (`InterventionReminderPort::markDueSoonNotified` /
+   `markOverdueNotified`) — **one notification per threshold per
+   intervention**: a candidate is only selected while its stamp is `null`, so
+   a repeat sweep tick never re-announces the same threshold for the same
+   `dueAt`.
+
+The stamps (`interventions.due_soon_notified_at`,
+`interventions.overdue_notified_at`) are reset to `null` whenever `dueAt` is
+rescheduled — `DoctrineInterventionWorkflowGatewayAdapter::updateIntervention`
+clears both the moment it detects `dueAt` changed, so a reminder already sent
+against the old date never suppresses one for the new date. Every page is
+processed independently to keep memory bounded.
+
 ### Team assignment (R9)
 
 | Method | Path | Description |
@@ -427,6 +462,7 @@ import; introduce the contract types instead.
 | `InterventionLabelPort` | `DoctrineInterventionLabelAdapter` |
 | `InterventionTemplatePort` | `DoctrineInterventionTemplateAdapter` |
 | `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
+| `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
 | `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
 | `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
@@ -511,8 +547,9 @@ Async handlers are Messenger handlers: `RequestPublication`,
 `ListInterventionTemplates`, `GetInterventionTemplate`,
 `CreateInterventionRecurrence`, `UpdateInterventionRecurrence`,
 `DeleteInterventionRecurrence`, `GetInterventionRecurrence`,
-`ListInterventionRecurrences`, `MaterializeDueRecurrences` (triggered by the
-hourly scheduler, not the API — see the Recurrences section above),
+`ListInterventionRecurrences`, `MaterializeDueRecurrences` and
+`SendDueReminders` (both triggered by the hourly scheduler, not the API —
+see the Recurrences section and the Due-date reminder sweep section above),
 `AssignTeamToIntervention` (R9 team-assignment; see above).
 
 `InstantiateInterventionTemplateHandler` never creates interventions itself:
@@ -685,6 +722,10 @@ exactly like labels):
   `migrations/main/Version20260717111309.php` (shared across the three R11b
   attachment tables). Repository:
   `Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository`.
+- `interventions.due_soon_notified_at` / `interventions.overdue_notified_at`
+  (nullable timestamps) are the due-date reminder sweep's anti-spam guard —
+  see the Due-date reminder sweep section above. Migration:
+  `migrations/main/Version20260813092835.php`.
 - `intervention_recurrences.template_id` is a required, non-cascading
   reference (no `onDelete` clause — repo precedent for "required but not
   cascade/set-null", mirroring `UserRecord::$otpSecret`'s `user_id` join): a
@@ -779,7 +820,8 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   lead-time window selection and the `reserveRun()` idempotence guard, both
   hard to trust from a mock. Also covers `DoctrineInterventionWorkflowGatewayAdapter`'s
   `number`, `labelId` (label join) and `memberId` (responsible OR jsonb
-  participant lookup) list filters.
+  participant lookup) list filters, and `DoctrineInterventionReminderAdapter`'s
+  status-set/date-window candidate selection and anti-spam stamping.
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
   `tests/Functional/Api/InterventionAttachmentApiTest.php`

@@ -71,6 +71,9 @@ services:
   Intervention\Application\Port\Outbound\InterventionRecurrencePort:
     alias: Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter
 
+  Intervention\Application\Port\Outbound\InterventionReminderPort:
+    alias: Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter
+
   Intervention\Application\Service\InterventionChangeApplication:
     arguments:
       $appliers: !tagged_iterator intervention.change_applier
@@ -109,6 +112,10 @@ services:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
   Intervention\Infrastructure\Adapter\Recurrence\DoctrineInterventionRecurrenceAdapter:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Intervention\Infrastructure\Adapter\Reminder\DoctrineInterventionReminderAdapter:
     arguments:
       $entityManager: '@doctrine.orm.main_entity_manager'
 
@@ -212,6 +219,9 @@ services:
     tags: ['messenger.message_handler']
 
   Intervention\Application\UseCase\Command\Sweep\MaterializeDueRecurrences\MaterializeDueRecurrencesHandler:
+    tags: ['messenger.message_handler']
+
+  Intervention\Application\UseCase\Command\Sweep\SendDueReminders\SendDueRemindersHandler:
     tags: ['messenger.message_handler']
 
   # R9: team -> participants snapshot assignment. Consumes Organization's
