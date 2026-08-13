@@ -34,9 +34,9 @@ are enforced in the application layer (`InterventionMemberPolicy`).
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/interventions` | Create intervention (starts as `draft`) |
-| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
+| GET | `/interventions` | List (filters: `organization` *(required)*, `name` *(trigram, partial, case-insensitive)*, `responsible`, `participant`, `member` *(responsible OR participant)*, `type`, `status`, `priority` *(400 on an unknown value)*, `site`, `label`, `number` *(exact match; accepts an optional case-insensitive `FG-` prefix; 400 unless the remainder is a positive integer)*, `dueAtAfter`, `dueAtBefore`, `plannedStartAtAfter`, `plannedStartAtBefore`; sortable on `name`, `status`, `type`, `priority`, `plannedStartAt`, `dueAt`, `createdAt`, `updatedAt` via `order[field]`, default `updatedAt DESC`; 30/page, client page size) |
 | GET | `/interventions/{id}` | Get intervention |
-| PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`nextStatus`) |
+| PATCH | `/interventions/{id}` | Update fields and/or apply a **status transition** (`status`) |
 | PUT | `/interventions/{id}` | Upsert (offline replay path; `201`) |
 | DELETE | `/interventions/{id}` | Delete intervention |
 | GET | `/interventions/{id}/issues` | List computed validation issues (blocker/warning/recommendation) |
@@ -777,7 +777,9 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
 - Integration (Doctrine adapters against a real database): `tests/Integration/Intervention/`
   — used for `DoctrineInterventionRecurrenceAdapter`'s `DATE_SUB`-based
   lead-time window selection and the `reserveRun()` idempotence guard, both
-  hard to trust from a mock.
+  hard to trust from a mock. Also covers `DoctrineInterventionWorkflowGatewayAdapter`'s
+  `number`, `labelId` (label join) and `memberId` (responsible OR jsonb
+  participant lookup) list filters.
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
   `tests/Functional/Api/InterventionAttachmentApiTest.php`
@@ -786,7 +788,9 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
   resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The
   non-responsible 403 on withdrawal is proven at unit level
   (`InterventionMemberPolicyTest`), the gateway wiring being the same
-  try/catch as submission.
+  try/catch as submission. Also covers the `label`, `member` and `number`
+  collection filters end to end, including the `number` filter's `FG-`
+  prefix and its 400 on a non-numeric value.
 - Run module tests: `make test tests/Unit/Intervention/`
 
 ### Seed fixtures

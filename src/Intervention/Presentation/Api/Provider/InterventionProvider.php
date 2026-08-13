@@ -25,9 +25,12 @@ use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadReques
 use Throwable;
 
 use function array_map;
+use function ctype_digit;
 use function is_string;
 use function max;
 use function min;
+use function stripos;
+use function substr;
 
 /**
  * Provider InterventionProvider.
@@ -107,7 +110,7 @@ final readonly class InterventionProvider implements ProviderInterface
     if (isset($filters['priority']) && !InterventionPriority::tryFrom((string) $filters['priority']) instanceof InterventionPriority) {
       throw new BadRequestHttpException('The priority filter must be one of: low, normal, high, urgent.');
     }
-    foreach (['responsible' => 'responsibleId', 'participant' => 'participantId'] as $filter => $target) {
+    foreach (['responsible' => 'responsibleId', 'participant' => 'participantId', 'member' => 'memberId'] as $filter => $target) {
       $value = $query?->get($filter);
       if (is_string($value) && '' !== $value) {
         $filters[$target] = ResourceIriParser::memberId($value);
@@ -116,6 +119,20 @@ final readonly class InterventionProvider implements ProviderInterface
     $site = $query?->get('site');
     if (is_string($site) && '' !== $site) {
       $filters['siteId'] = ResourceIriParser::id($site, 'facilities');
+    }
+    $label = $query?->get('label');
+    if (is_string($label) && '' !== $label) {
+      $filters['labelId'] = ResourceIriParser::id($label, 'intervention-labels');
+    }
+    // Accept the client's `FG-` prefix and strip it before validating the
+    // remainder is numeric, mirroring the priority guard above.
+    $number = $query?->get('number');
+    if (is_string($number) && '' !== $number) {
+      $number = 0 === stripos($number, 'FG-') ? substr($number, 3) : $number;
+      if (!ctype_digit($number)) {
+        throw new BadRequestHttpException('The number filter must be a positive integer, optionally prefixed with FG-.');
+      }
+      $filters['number'] = (int) $number;
     }
     $page = max(1, $query?->getInt('page', 1) ?? 1);
     $itemsPerPage = max(1, min(100, $query?->getInt('itemsPerPage', 30) ?? 30));
