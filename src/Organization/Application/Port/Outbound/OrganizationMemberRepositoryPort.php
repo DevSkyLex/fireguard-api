@@ -60,6 +60,30 @@ interface OrganizationMemberRepositoryPort
   public function findByOrganizationAndUser(OrganizationId $organizationId, string $userId): ?OrganizationMember;
 
   /**
+   * Method hasActiveMembership.
+   *
+   * Tells whether a user holds an ACTIVE membership in an organization,
+   * without loading the aggregate or its role assignments.
+   *
+   * "Active" is the same predicate
+   * {@see self::getPermissionNamesForUserInOrganization()} filters on, so the
+   * two answers cannot disagree: anyone this method rejects has no effective
+   * permission either. It exists so an authorization check can tell a
+   * non-member (the organization is outside their scope — 404) from an
+   * unentitled member (403), a distinction an empty permission list cannot
+   * carry, since an active member with no role also resolves to no
+   * permissions.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param string $userId the user identifier
+   *
+   * @return bool true when an active membership exists
+   */
+  public function hasActiveMembership(OrganizationId $organizationId, string $userId): bool;
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists members for an organization, filtered and sorted at SQL level.

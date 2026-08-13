@@ -145,6 +145,25 @@ final readonly class InterventionResourceManager
   }
 
   /**
+   * Method workItemBelongsToIntervention.
+   *
+   * Determines whether a work item belongs to the given intervention — used
+   * to reject an attachment upload scoped to a work item from another
+   * intervention.
+   *
+   * @since 1.1.0
+   *
+   * @param string $workItemId the work item id value
+   * @param string $interventionId the intervention id value
+   *
+   * @return bool whether the work item belongs to the intervention
+   */
+  public function workItemBelongsToIntervention(string $workItemId, string $interventionId): bool
+  {
+    return $this->resources->workItemBelongsToIntervention($workItemId, $interventionId);
+  }
+
+  /**
    * Method mutationPermission.
    *
    * Resolves the intervention permission required to mutate an intervention-owned

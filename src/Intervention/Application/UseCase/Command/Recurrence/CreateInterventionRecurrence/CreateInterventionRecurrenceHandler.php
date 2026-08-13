@@ -74,7 +74,11 @@ final readonly class CreateInterventionRecurrenceHandler implements CommandHandl
    */
   public function __invoke(CreateInterventionRecurrenceCommand $command): CreateInterventionRecurrenceResult
   {
-    if (!$this->authorization->hasPermission($command->userId, $command->organizationId, 'organization.interventions.plan')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.interventions.plan');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::forOrganizationScope($command->organizationId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.plan permission.');
     }
 

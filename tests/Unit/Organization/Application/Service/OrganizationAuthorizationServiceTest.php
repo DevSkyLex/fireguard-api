@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Organization\Application\Service;
 
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Application\Service\OrganizationAuthorizationService;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
@@ -575,5 +576,136 @@ final class OrganizationAuthorizationServiceTest extends TestCase
       ['organization.read'],
       $service->getUserPermissions('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010'),
     );
+  }
+
+  #[Test]
+  public function testResolveAccessGrantsWithoutEverQueryingMembership(): void
+  {
+    // The whole point of resolving scope lazily: an authorized request must
+    // cost exactly what hasPermission() costs. A granted permission already
+    // proves an active membership, since permissions are resolved through
+    // that same membership row.
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::once())
+      ->method('getPermissionNamesForUserInOrganization')
+      ->willReturn(['organization.read']);
+    $memberRepository->expects(self::never())->method('hasActiveMembership');
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertSame(
+      OrganizationAccessDecision::GRANTED,
+      $service->resolveAccess(
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        organizationId: '550e8400-e29b-41d4-a716-446655440010',
+        permission: 'organization.read',
+      ),
+    );
+  }
+
+  #[Test]
+  public function testResolveAccessReportsMissingPermissionForAnActiveMember(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn(['organization.members.read']);
+    $memberRepository->expects(self::once())
+      ->method('hasActiveMembership')
+      ->with(
+        self::callback(static fn (OrganizationId $id): bool => '550e8400-e29b-41d4-a716-446655440010' === (string) $id),
+        '550e8400-e29b-41d4-a716-446655440001',
+      )
+      ->willReturn(true);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertSame(
+      OrganizationAccessDecision::MISSING_PERMISSION,
+      $service->resolveAccess(
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        organizationId: '550e8400-e29b-41d4-a716-446655440010',
+        permission: 'organization.roles.manage',
+      ),
+    );
+  }
+
+  #[Test]
+  public function testResolveAccessReportsOutsideScopeForANonMember(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn([]);
+    $memberRepository->expects(self::once())->method('hasActiveMembership')->willReturn(false);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertSame(
+      OrganizationAccessDecision::OUTSIDE_SCOPE,
+      $service->resolveAccess(
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        organizationId: '550e8400-e29b-41d4-a716-446655440010',
+        permission: 'organization.read',
+      ),
+    );
+  }
+
+  #[Test]
+  public function testResolveAccessSeparatesAMemberWithNoPermissionsFromANonMember(): void
+  {
+    // Both resolve to an EMPTY permission list, which is exactly why an empty
+    // list cannot stand in for the membership check: an active member holding
+    // a role that grants nothing looks identical to a stranger until
+    // hasActiveMembership() is asked.
+    $memberRepository = self::createStub(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn([]);
+    $memberRepository->method('hasActiveMembership')->willReturn(true);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertSame(
+      OrganizationAccessDecision::MISSING_PERMISSION,
+      $service->resolveAccess(
+        userId: '550e8400-e29b-41d4-a716-446655440001',
+        organizationId: '550e8400-e29b-41d4-a716-446655440010',
+        permission: 'organization.read',
+      ),
+    );
+  }
+
+  #[Test]
+  public function testMembershipLookupIsMemoizedPerRequestAndClearedByReset(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->method('getPermissionNamesForUserInOrganization')->willReturn([]);
+    $memberRepository->expects(self::exactly(2))->method('hasActiveMembership')->willReturn(false);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    // Two denials in the same request share one membership query...
+    $service->resolveAccess('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.read');
+    $service->resolveAccess('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.members.read');
+
+    // ...and reset() must drop it, or a long-running worker would keep
+    // answering from a membership that has since changed.
+    $service->reset();
+    $service->resolveAccess('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'organization.read');
+  }
+
+  #[Test]
+  public function testIsMemberOfReportsActiveMembershipWithoutResolvingPermissions(): void
+  {
+    /** @var OrganizationMemberRepositoryPort&MockObject $memberRepository */
+    $memberRepository = $this->createMock(OrganizationMemberRepositoryPort::class);
+    $memberRepository->expects(self::never())->method('getPermissionNamesForUserInOrganization');
+    $memberRepository->expects(self::once())->method('hasActiveMembership')->willReturn(true);
+
+    $service = new OrganizationAuthorizationService($memberRepository);
+
+    self::assertTrue($service->isMemberOf(
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440010',
+    ));
   }
 }

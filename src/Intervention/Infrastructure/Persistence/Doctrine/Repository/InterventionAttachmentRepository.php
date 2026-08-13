@@ -9,7 +9,7 @@ use Intervention\Application\Port\Outbound\InterventionAttachmentRepositoryPort;
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionAttachmentMapper;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord};
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionAttachmentRecord, InterventionRecord, InterventionWorkItemRecord};
 
 use function array_map;
 
@@ -51,10 +51,15 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
     /** @var InterventionRecord $intervention */
     $intervention = $this->entityManager->getReference(InterventionRecord::class, $attachment->interventionId());
     $record->intervention = $intervention;
+    $workItem = null === $attachment->workItemId()
+      ? null
+      : $this->entityManager->getReference(InterventionWorkItemRecord::class, $attachment->workItemId());
+    $record->workItem = $workItem;
     $existing = $this->repository->find($record->id);
 
     if ($existing instanceof InterventionAttachmentRecord) {
       $existing->intervention = $intervention;
+      $existing->workItem = $workItem;
       $existing->fileName = $record->fileName;
       $existing->storagePath = $record->storagePath;
       $existing->mimeType = $record->mimeType;
@@ -89,12 +94,16 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
    *
    * @since 1.0.0
    */
-  public function findByInterventionId(string $interventionId): array
+  public function findByInterventionId(string $interventionId, ?string $workItemId = null): array
   {
     /** @var InterventionRecord $intervention */
     $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+    $criteria = ['intervention' => $intervention];
+    if (null !== $workItemId) {
+      $criteria['workItem'] = $this->entityManager->getReference(InterventionWorkItemRecord::class, $workItemId);
+    }
     $records = $this->repository->findBy(
-      ['intervention' => $intervention],
+      $criteria,
       ['uploadedAt' => 'DESC'],
     );
 

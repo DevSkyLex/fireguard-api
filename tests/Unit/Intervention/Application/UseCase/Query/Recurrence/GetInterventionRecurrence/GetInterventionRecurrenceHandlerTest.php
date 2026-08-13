@@ -12,6 +12,7 @@ use Intervention\Application\UseCase\Query\Recurrence\GetInterventionRecurrence\
   GetInterventionRecurrenceQuery
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -41,7 +42,7 @@ final class GetInterventionRecurrenceHandlerTest extends TestCase
     $view = $this->recurrenceView();
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
     $recurrences->expects(self::once())
@@ -63,7 +64,7 @@ final class GetInterventionRecurrenceHandlerTest extends TestCase
     $recurrences->method('find')->willReturn(null);
 
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::never())->method('hasPermission');
+    $authorization->expects(self::never())->method('resolveAccess');
 
     $handler = new GetInterventionRecurrenceHandler($recurrences, $authorization);
 
@@ -80,12 +81,29 @@ final class GetInterventionRecurrenceHandlerTest extends TestCase
     $recurrences->method('find')->willReturn($this->recurrenceView());
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new GetInterventionRecurrenceHandler($recurrences, $authorization);
 
     $this->expectException(InterventionAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.interventions.read permission.');
+
+    $handler(new GetInterventionRecurrenceQuery(self::USER_ID, self::RECURRENCE_ID));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $recurrences = $this->createStub(InterventionRecurrencePort::class);
+    $recurrences->method('find')->willReturn($this->recurrenceView());
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new GetInterventionRecurrenceHandler($recurrences, $authorization);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Intervention with ID "%s" not found.', self::RECURRENCE_ID));
 
     $handler(new GetInterventionRecurrenceQuery(self::USER_ID, self::RECURRENCE_ID));
   }

@@ -52,7 +52,11 @@ final readonly class GetInterventionRecurrenceHandler implements QueryHandler
     if (null === $recurrence) {
       throw InterventionNotFoundException::withId($query->recurrenceId);
     }
-    if (!$this->authorization->hasPermission($query->userId, $recurrence->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $recurrence->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::withId($query->recurrenceId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Organization\Application\Service;
 
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Domain\Exception\OrganizationAccessDeniedException;
@@ -23,7 +24,7 @@ use function is_array;
  *
  * @category Service
  *
- * @version 1.0.0
+ * @version 1.1.0
  *
  * @author Valentin FORTIN <contact@valentin-fortin.pro>
  */
@@ -35,6 +36,17 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
    * @var array<string, list<string>>
    */
   private array $permissionCache = [];
+
+  /**
+   * Per-request memo of active-membership answers, keyed the same way as
+   * {@see self::$permissionCache}. Deliberately request-local and not written
+   * to the shared cache: it is only read on the denial path, where one extra
+   * count per request is cheaper than a second invalidation surface to keep
+   * in step with membership changes.
+   *
+   * @var array<string, bool>
+   */
+  private array $membershipCache = [];
 
   // #region Constructor
   /**
@@ -80,6 +92,54 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
     }
 
     return false;
+  }
+
+  /**
+   * Method resolveAccess.
+   *
+   * Resolves a permission check into a three-state decision.
+   *
+   * The membership lookup runs only when the permission is not granted: a
+   * granted permission already proves an active membership, since
+   * {@see OrganizationMemberRepositoryPort::getPermissionNamesForUserInOrganization()}
+   * resolves permissions through the same `isActive` membership row. The
+   * authorized path therefore costs exactly what {@see self::hasPermission()}
+   * costs, and only a denial pays for the extra count.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   * @param string $permission the permission to check
+   *
+   * @return OrganizationAccessDecision the resolved decision
+   */
+  public function resolveAccess(string $userId, string $organizationId, string $permission): OrganizationAccessDecision
+  {
+    if ($this->hasPermission($userId, $organizationId, $permission)) {
+      return OrganizationAccessDecision::GRANTED;
+    }
+
+    return $this->isActiveMember($userId, $organizationId)
+      ? OrganizationAccessDecision::MISSING_PERMISSION
+      : OrganizationAccessDecision::OUTSIDE_SCOPE;
+  }
+
+  /**
+   * Method isMemberOf.
+   *
+   * Tells whether the user holds an active membership in the organization.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   *
+   * @return bool true when an active membership exists
+   */
+  public function isMemberOf(string $userId, string $organizationId): bool
+  {
+    return $this->isActiveMember($userId, $organizationId);
   }
 
   /**
@@ -153,6 +213,33 @@ final class OrganizationAuthorizationService implements OrganizationAuthorizatio
   public function reset(): void
   {
     $this->permissionCache = [];
+    $this->membershipCache = [];
+  }
+
+  /**
+   * Method isActiveMember.
+   *
+   * Resolves, and memoizes for the request, whether the user holds an active
+   * membership in the organization.
+   *
+   * @since 1.1.0
+   *
+   * @param string $userId the user identifier
+   * @param string $organizationId the organization identifier
+   *
+   * @return bool true when an active membership exists
+   */
+  private function isActiveMember(string $userId, string $organizationId): bool
+  {
+    $cacheKey = $userId . '|' . $organizationId;
+    if (isset($this->membershipCache[$cacheKey])) {
+      return $this->membershipCache[$cacheKey];
+    }
+
+    return $this->membershipCache[$cacheKey] = $this->memberRepository->hasActiveMembership(
+      organizationId: OrganizationId::fromString($organizationId),
+      userId: $userId,
+    );
   }
 
   /**

@@ -10,10 +10,13 @@ use Intervention\Application\UseCase\Query\Recurrence\ListInterventionRecurrence
   ListInterventionRecurrencesHandler,
   ListInterventionRecurrencesQuery
 };
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+
+use function sprintf;
 
 /**
  * Test ListInterventionRecurrencesHandlerTest.
@@ -38,7 +41,7 @@ final class ListInterventionRecurrencesHandlerTest extends TestCase
     $page = new InterventionRecurrencePage([], 2, 15, 0);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
     $recurrences->expects(self::once())
@@ -65,7 +68,7 @@ final class ListInterventionRecurrencesHandlerTest extends TestCase
     $page = new InterventionRecurrencePage([], 1, 30, 0);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
     $recurrences->expects(self::once())
@@ -87,7 +90,7 @@ final class ListInterventionRecurrencesHandlerTest extends TestCase
   public function itThrowsWhenTheReadPermissionIsMissing(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $recurrences = $this->createMock(InterventionRecurrencePort::class);
     $recurrences->expects(self::never())->method('list');
@@ -96,6 +99,26 @@ final class ListInterventionRecurrencesHandlerTest extends TestCase
 
     $this->expectException(InterventionAccessDeniedException::class);
     $this->expectExceptionMessage('Missing ' . self::PERMISSION . ' permission.');
+
+    $handler(new ListInterventionRecurrencesQuery(
+      self::USER_ID,
+      self::ORGANIZATION_ID,
+    ));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $recurrences = $this->createMock(InterventionRecurrencePort::class);
+    $recurrences->expects(self::never())->method('list');
+
+    $handler = new ListInterventionRecurrencesHandler($recurrences, $authorization);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Organization with ID "%s" not found.', self::ORGANIZATION_ID));
 
     $handler(new ListInterventionRecurrencesQuery(
       self::USER_ID,

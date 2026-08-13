@@ -6,7 +6,7 @@ namespace Intervention\Application\UseCase\Query\Workflow\GetInterventionStatist
 
 use Intervention\Application\Contract\Statistics\{InterventionIdentifierCount, InterventionStatisticsResponsibleEntry, InterventionStatisticsSiteEntry};
 use Intervention\Application\Port\Outbound\{InterventionMemberNamingPort, InterventionSiteNamingPort, InterventionStatisticsGatewayPort};
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 use Shared\Application\Port\Outbound\ClockPort;
@@ -88,7 +88,11 @@ final readonly class GetInterventionStatisticsHandler implements QueryHandler
    */
   public function __invoke(GetInterventionStatisticsQuery $query): GetInterventionStatisticsResult
   {
-    if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $query->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::forOrganizationScope($query->organizationId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

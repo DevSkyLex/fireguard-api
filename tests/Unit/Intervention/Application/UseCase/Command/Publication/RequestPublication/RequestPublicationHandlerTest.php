@@ -11,6 +11,7 @@ use Intervention\Application\Port\Outbound\{InterventionResourceGatewayPort, Pub
 use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Application\UseCase\Command\Publication\RequestPublication\{RequestPublicationCommand, RequestPublicationHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionBlockedException, InterventionConflictException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -32,7 +33,7 @@ final class RequestPublicationHandlerTest extends TestCase
     $queue = $this->queue();
     $queue->expects(self::once())->method('dispatch')->with('publication-1');
 
-    $result = $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+    $result = $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
 
     self::assertSame($publication, $result->publication);
   }
@@ -49,7 +50,7 @@ final class RequestPublicationHandlerTest extends TestCase
     $queue = $this->queue();
     $queue->expects(self::once())->method('dispatch')->with('publication-1');
 
-    $result = $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+    $result = $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
 
     self::assertSame($publication, $result->publication);
   }
@@ -67,7 +68,7 @@ final class RequestPublicationHandlerTest extends TestCase
 
     $this->expectException(InterventionBlockedException::class);
 
-    $this->handler($repository, $queue, $this->resources(0), true)->__invoke($this->command());
+    $this->handler($repository, $queue, $this->resources(0), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
   }
 
   #[Test]
@@ -92,7 +93,7 @@ final class RequestPublicationHandlerTest extends TestCase
     $queue = $this->queue();
     $queue->expects(self::once())->method('dispatch')->with('publication-1');
 
-    $result = $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+    $result = $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
 
     self::assertSame($pending, $result->publication);
   }
@@ -109,7 +110,7 @@ final class RequestPublicationHandlerTest extends TestCase
 
     $this->expectException(InterventionNotFoundException::class);
 
-    $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+    $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
   }
 
   #[Test]
@@ -124,7 +125,24 @@ final class RequestPublicationHandlerTest extends TestCase
 
     $this->expectException(InterventionAccessDeniedException::class);
 
-    $this->handler($repository, $queue, $this->resources(1), false)->__invoke($this->command());
+    $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::MISSING_PERMISSION)->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $repository = $this->repository();
+    $repository->expects(self::once())->method('interventionContext')->willReturn($this->context());
+    $repository->expects(self::never())->method('findByInterventionRevision');
+
+    $queue = $this->queue();
+    $queue->expects(self::never())->method('dispatch');
+
+    // The same exception testThrowsWhenTheInterventionIsUnknown asserts: an
+    // outsider must not learn this intervention id is real.
+    $this->expectException(InterventionNotFoundException::class);
+
+    $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::OUTSIDE_SCOPE)->__invoke($this->command());
   }
 
   #[Test]
@@ -142,7 +160,7 @@ final class RequestPublicationHandlerTest extends TestCase
     $this->expectException(InterventionConflictException::class);
     $this->expectExceptionMessage('Only submitted interventions can be published.');
 
-    $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+    $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
   }
 
   #[Test]
@@ -160,7 +178,7 @@ final class RequestPublicationHandlerTest extends TestCase
     $this->expectException(InterventionConflictException::class);
     $this->expectExceptionMessage('Intervention revision does not match.');
 
-    $this->handler($repository, $queue, $this->resources(1), true)->__invoke($this->command());
+    $this->handler($repository, $queue, $this->resources(1), OrganizationAccessDecision::GRANTED)->__invoke($this->command());
   }
 
   private function command(): RequestPublicationCommand
@@ -208,10 +226,10 @@ final class RequestPublicationHandlerTest extends TestCase
     PublicationRepositoryPort $repository,
     PublicationQueuePort $queue,
     InterventionResourceGatewayPort $resources,
-    bool $authorized,
+    OrganizationAccessDecision $decision,
   ): RequestPublicationHandler {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($authorized);
+    $authorization->method('resolveAccess')->willReturn($decision);
     $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('generateRaw')->willReturn('publication-1');
 

@@ -71,7 +71,12 @@ final readonly class GetInterventionAttachmentContentHandler implements QueryHan
       throw InterventionNotFoundException::withId($attachment->interventionId());
     }
 
-    if (!$this->authorization->hasPermission($query->userId, $context->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $context->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionAttachmentNotFoundException::withId($query->attachmentId);
+    }
+
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

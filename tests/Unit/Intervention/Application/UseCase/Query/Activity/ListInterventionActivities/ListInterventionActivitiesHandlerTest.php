@@ -8,6 +8,7 @@ use Intervention\Application\Contract\Workflow\{InterventionWorkflowContext, Int
 use Intervention\Application\Port\Outbound\{InterventionActivityPort, InterventionWorkflowGatewayPort};
 use Intervention\Application\UseCase\Query\Activity\ListInterventionActivities\{ListInterventionActivitiesHandler, ListInterventionActivitiesQuery};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -43,7 +44,7 @@ final class ListInterventionActivitiesHandlerTest extends TestCase
       ->willReturn($page);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new ListInterventionActivitiesHandler($gateway, $activities, $authorization)(
       new ListInterventionActivitiesQuery(self::USER_ID, self::INTERVENTION_ID, 1, 30),
@@ -77,9 +78,30 @@ final class ListInterventionActivitiesHandlerTest extends TestCase
     $activities = $this->createMock(InterventionActivityPort::class);
     $activities->expects(self::never())->method('listByIntervention');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    new ListInterventionActivitiesHandler($gateway, $activities, $authorization)(
+      new ListInterventionActivitiesQuery(self::USER_ID, self::INTERVENTION_ID, 1, 30),
+    );
+  }
+
+  #[Test]
+  public function itReportsAnOutOfScopeCallerAsNotFound(): void
+  {
+    $context = new InterventionWorkflowContext(self::INTERVENTION_ID, self::ORGANIZATION_ID, 'in_progress', null);
+    $gateway = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $gateway->expects(self::once())->method('interventionContext')->with(self::INTERVENTION_ID)->willReturn($context);
+    $activities = $this->createMock(InterventionActivityPort::class);
+    $activities->expects(self::never())->method('listByIntervention');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with(self::USER_ID, self::ORGANIZATION_ID, 'organization.interventions.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
 
     new ListInterventionActivitiesHandler($gateway, $activities, $authorization)(
       new ListInterventionActivitiesQuery(self::USER_ID, self::INTERVENTION_ID, 1, 30),

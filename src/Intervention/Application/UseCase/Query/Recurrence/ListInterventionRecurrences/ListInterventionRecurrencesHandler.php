@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Intervention\Application\UseCase\Query\Recurrence\ListInterventionRecurrences;
 
 use Intervention\Application\Port\Outbound\InterventionRecurrencePort;
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\QueryHandler;
 
@@ -48,7 +48,11 @@ final readonly class ListInterventionRecurrencesHandler implements QueryHandler
    */
   public function __invoke(ListInterventionRecurrencesQuery $query): ListInterventionRecurrencesResult
   {
-    if (!$this->authorization->hasPermission($query->userId, $query->organizationId, 'organization.interventions.read')) {
+    $decision = $this->authorization->resolveAccess($query->userId, $query->organizationId, 'organization.interventions.read');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::forOrganizationScope($query->organizationId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.read permission.');
     }
 

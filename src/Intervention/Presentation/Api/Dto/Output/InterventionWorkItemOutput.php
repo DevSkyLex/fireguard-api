@@ -111,6 +111,17 @@ final class InterventionWorkItemOutput
   public ?string $skipReason = null;
 
   /**
+   * Property evidenceCount.
+   *
+   * The number of attachments scoped to this work item (Phase 5d.1), so a
+   * work item list/board can show a photo-evidence badge without a separate
+   * per-item attachments fetch.
+   *
+   * @since 1.1.0
+   */
+  public int $evidenceCount = 0;
+
+  /**
    * Property revision.
    *
    * @since 1.0.0

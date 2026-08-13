@@ -117,9 +117,9 @@ final class InterventionStatisticsApiTest extends WebTestCase
     $client->request('GET', '/api/interventions/statistics?organization=/api/organizations/' . self::ORGANIZATION_ID);
 
     self::assertSame(
-      expected: 403,
+      expected: 404,
       actual: $client->getResponse()->getStatusCode(),
-      message: 'A non-member of the organization must get 403 (same authorization path as the list endpoint).',
+      message: 'A non-member must get 404, never confirming the organization scope exists (resolveAccess convention).',
     );
   }
 

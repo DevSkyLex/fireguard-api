@@ -11,10 +11,13 @@ use Intervention\Application\UseCase\Query\Label\ListInterventionLabels\{
   ListInterventionLabelsHandler,
   ListInterventionLabelsQuery
 };
-use Intervention\Domain\Exception\InterventionAccessDeniedException;
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+
+use function sprintf;
 
 /**
  * Test ListInterventionLabelsHandlerTest.
@@ -45,7 +48,7 @@ final class ListInterventionLabelsHandlerTest extends TestCase
     $page = new InterventionLabelPage([$view], 2, 20, 1);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $labels = $this->createMock(InterventionLabelPort::class);
     $labels->expects(self::once())
@@ -64,7 +67,7 @@ final class ListInterventionLabelsHandlerTest extends TestCase
   public function itThrowsWhenTheReadPermissionIsMissing(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $labels = $this->createMock(InterventionLabelPort::class);
     $labels->expects(self::never())->method('list');
@@ -73,6 +76,23 @@ final class ListInterventionLabelsHandlerTest extends TestCase
 
     $this->expectException(InterventionAccessDeniedException::class);
     $this->expectExceptionMessage('Missing organization.interventions.read permission.');
+
+    $handler(new ListInterventionLabelsQuery(self::USER_ID, self::ORGANIZATION_ID, 1, 10));
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $labels = $this->createMock(InterventionLabelPort::class);
+    $labels->expects(self::never())->method('list');
+
+    $handler = new ListInterventionLabelsHandler($labels, $authorization);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Organization with ID "%s" not found.', self::ORGANIZATION_ID));
 
     $handler(new ListInterventionLabelsQuery(self::USER_ID, self::ORGANIZATION_ID, 1, 10));
   }

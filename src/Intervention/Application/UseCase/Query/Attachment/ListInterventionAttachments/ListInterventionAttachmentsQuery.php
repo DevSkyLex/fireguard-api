@@ -21,6 +21,7 @@ final readonly class ListInterventionAttachmentsQuery implements QueryMessage
   public function __construct(
     public string $userId,
     public string $interventionId,
+    public ?string $workItemId = null,
   ) {
   }
   // #endregion

@@ -191,6 +191,7 @@ final class InterventionWorkItemProviderTest extends TestCase
       'status' => 'planned',
       'required' => true,
       'skipReason' => null,
+      'evidenceCount' => 0,
       'revision' => 1,
       'createdAt' => '2026-01-01T00:00:00+00:00',
       'updatedAt' => '2026-01-01T00:00:00+00:00',
