@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Intervention\Presentation\Api\Resource;
 
 use ApiPlatform\Metadata\{ApiResource, Delete, Get, GetCollection, Post};
-use ApiPlatform\OpenApi\Model\{Operation, Parameter};
+use ApiPlatform\OpenApi\Model\{Operation, Parameter, RequestBody};
+use ArrayObject;
 use Intervention\Presentation\Api\Dto\Output\Attachment\InterventionAttachmentOutput;
 use Intervention\Presentation\Api\Processor\Attachment\InterventionMediaProcessor;
 use Intervention\Presentation\Api\Provider\Attachment\InterventionMediaProvider;
@@ -34,9 +35,27 @@ use Symfony\Component\HttpFoundation\Response;
       processor: InterventionMediaProcessor::class,
       status: Response::HTTP_CREATED,
       security: "is_granted('ROLE_USER')",
-      openapi: new Operation(parameters: [
-        new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
-      ]),
+      openapi: new Operation(
+        parameters: [
+          new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
+        ],
+        requestBody: new RequestBody(
+          content: new ArrayObject([
+            'multipart/form-data' => [
+              'schema' => [
+                'type' => 'object',
+                'properties' => [
+                  'file' => ['type' => 'string', 'format' => 'binary', 'description' => 'The attachment file content.'],
+                  'label' => ['type' => 'string', 'description' => 'Optional display label.'],
+                  'workItemId' => ['type' => 'string', 'description' => 'Optional owning work item IRI or bare id — scopes the attachment to that work item.'],
+                  'kind' => ['type' => 'string', 'enum' => ['file', 'signature'], 'description' => 'Attachment kind. Defaults to "file"; "signature" is the typed completion signature (at most one per intervention, image MIME only).'],
+                ],
+                'required' => ['file'],
+              ],
+            ],
+          ]),
+        ),
+      ),
     ),
     new GetCollection(
       uriTemplate: '/interventions/{interventionId}/attachments',

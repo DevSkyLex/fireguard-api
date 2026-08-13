@@ -112,7 +112,7 @@ final class GetInterventionStatisticsHandlerTest extends TestCase
 
     /** @var InterventionSiteNamingPort&MockObject $siteNaming */
     $siteNaming = $this->createMock(InterventionSiteNamingPort::class);
-    $siteNaming->expects(self::once())->method('findNamesByIds')->with([])->willReturn([]);
+    $siteNaming->expects(self::once())->method('findNamesByIds')->with(self::ORG_ID, [])->willReturn([]);
 
     /** @var InterventionMemberNamingPort&MockObject $memberNaming */
     $memberNaming = $this->createMock(InterventionMemberNamingPort::class);
@@ -181,7 +181,7 @@ final class GetInterventionStatisticsHandlerTest extends TestCase
     $siteNaming = $this->createMock(InterventionSiteNamingPort::class);
     $siteNaming->expects(self::once())
       ->method('findNamesByIds')
-      ->with([self::SITE_ID])
+      ->with(self::ORG_ID, [self::SITE_ID])
       ->willReturn([self::SITE_ID => 'Main Warehouse']);
 
     /** @var InterventionMemberNamingPort&MockObject $memberNaming */

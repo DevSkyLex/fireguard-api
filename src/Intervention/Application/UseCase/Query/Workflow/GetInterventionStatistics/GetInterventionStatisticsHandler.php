@@ -108,7 +108,7 @@ final readonly class GetInterventionStatisticsHandler implements QueryHandler
       $byPriority[$priority] = $aggregate->countsByPriority[$priority] ?? 0;
     }
 
-    $siteNames = $this->siteNaming->findNamesByIds(array_map(
+    $siteNames = $this->siteNaming->findNamesByIds($query->organizationId, array_map(
       static fn (InterventionIdentifierCount $entry): string => $entry->id,
       $aggregate->topSites,
     ));
