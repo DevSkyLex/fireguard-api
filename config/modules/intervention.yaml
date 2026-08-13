@@ -257,5 +257,8 @@ services:
   Intervention\Application\UseCase\Query\Attachment\ListInterventionAttachments\ListInterventionAttachmentsHandler:
     tags: ['messenger.message_handler']
 
+  Intervention\Application\UseCase\Query\Attachment\GetInterventionAttachmentContent\GetInterventionAttachmentContentHandler:
+    tags: ['messenger.message_handler']
+
   Intervention\Application\UseCase\Query\Workflow\GetInterventionStatistics\GetInterventionStatisticsHandler:
     tags: ['messenger.message_handler']
