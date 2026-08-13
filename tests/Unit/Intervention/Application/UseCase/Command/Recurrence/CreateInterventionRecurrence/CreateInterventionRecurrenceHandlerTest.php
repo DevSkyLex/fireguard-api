@@ -11,12 +11,14 @@ use Intervention\Application\Port\Outbound\{InterventionRecurrencePort, Interven
 use Intervention\Application\UseCase\Command\Recurrence\CreateInterventionRecurrence\{CreateInterventionRecurrenceCommand, CreateInterventionRecurrenceHandler};
 use Intervention\Domain\Event\Recurrence\InterventionRecurrenceCreatedEvent;
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Outbound\{ClockPort, EventDispatcherPort};
 
 use function compact;
+use function sprintf;
 
 /**
  * Test CreateInterventionRecurrenceHandlerTest.
@@ -40,11 +42,25 @@ final class CreateInterventionRecurrenceHandlerTest extends TestCase
   public function itRejectsAUserMissingThePlanPermission(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('find');
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    $this->handler($templates, $this->createStub(InterventionRecurrencePort::class), $authorization)(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+    $templates = $this->createMock(InterventionTemplatePort::class);
+    $templates->expects(self::never())->method('find');
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Organization with ID "%s" not found.', self::ORGANIZATION_ID));
 
     $this->handler($templates, $this->createStub(InterventionRecurrencePort::class), $authorization)(self::command());
   }
@@ -257,7 +273,7 @@ final class CreateInterventionRecurrenceHandlerTest extends TestCase
   private function grantedAuthorization(): OrganizationAuthorizationPort
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     return $authorization;
   }

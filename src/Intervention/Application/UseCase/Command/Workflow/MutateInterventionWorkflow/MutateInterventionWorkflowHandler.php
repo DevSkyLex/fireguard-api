@@ -62,7 +62,11 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
     $context = $this->context($command);
     $permissions = $this->permissions($command, $context);
     foreach ($permissions as $permission) {
-      if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {
+      $decision = $this->authorization->resolveAccess($command->userId, $context->organizationId, $permission);
+      if ($decision->isOutsideScope()) {
+        throw $this->outsideScope($command, $context);
+      }
+      if (!$decision->isGranted()) {
         throw new InterventionAccessDeniedException('Missing ' . $permission . ' permission.');
       }
     }
@@ -124,6 +128,30 @@ final readonly class MutateInterventionWorkflowHandler implements CommandHandler
     }
 
     return $context;
+  }
+
+  /**
+   * Method outsideScope.
+   *
+   * The not-found exception a caller with no active membership in the owning
+   * organization must receive.
+   *
+   * Deliberately the same exception {@see self::context()} raises on the same
+   * branch for an unknown identifier: an outsider who could tell the two
+   * apart would be able to confirm which identifiers are real.
+   *
+   * @since 1.1.0
+   *
+   * @param MutateInterventionWorkflowCommand $command the command value
+   * @param InterventionWorkflowContext $context the resolved context
+   *
+   * @return InterventionNotFoundException the exception to throw
+   */
+  private function outsideScope(MutateInterventionWorkflowCommand $command, InterventionWorkflowContext $context): InterventionNotFoundException
+  {
+    return 'create' === $command->action && 'intervention' === $command->resource
+      ? InterventionNotFoundException::forOrganizationScope($context->organizationId)
+      : InterventionNotFoundException::withId($command->id ?? 'unknown');
   }
 
   /**

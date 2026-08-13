@@ -163,6 +163,36 @@ final readonly class OrganizationMemberRepository implements OrganizationMemberR
   }
 
   /**
+   * Method hasActiveMembership.
+   *
+   * Counts the caller's ACTIVE membership rows rather than hydrating the
+   * aggregate: the answer feeds an authorization decision on the denial
+   * path, where nothing but the boolean is used.
+   *
+   * The `isActive` filter mirrors
+   * {@see self::getPermissionNamesForUserInOrganization()} exactly, so the
+   * two can never disagree about who is in scope.
+   *
+   * @since 1.1.0
+   *
+   * @param OrganizationId $organizationId the organization identifier
+   * @param string $userId the user identifier
+   *
+   * @return bool true when an active membership exists
+   */
+  public function hasActiveMembership(OrganizationId $organizationId, string $userId): bool
+  {
+    /** @var OrganizationRecord $organization */
+    $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
+
+    return $this->memberRepository->count([
+      'organization' => $organization,
+      'userId' => $userId,
+      'isActive' => true,
+    ]) > 0;
+  }
+
+  /**
    * Method findByOrganizationId.
    *
    * Lists members for an organization, filtered and sorted at SQL level.

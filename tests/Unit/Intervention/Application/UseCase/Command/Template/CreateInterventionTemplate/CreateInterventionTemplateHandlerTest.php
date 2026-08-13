@@ -8,7 +8,8 @@ use DateTimeImmutable;
 use Intervention\Application\Contract\Template\InterventionTemplateView;
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
 use Intervention\Application\UseCase\Command\Template\CreateInterventionTemplate\{CreateInterventionTemplateCommand, CreateInterventionTemplateHandler};
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionValidationException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
@@ -49,7 +50,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
       ->willReturn($view);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new CreateInterventionTemplateHandler($templates, $authorization)(
       new CreateInterventionTemplateCommand(
@@ -76,9 +77,23 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
+
+    new CreateInterventionTemplateHandler($templates, $authorization)(self::command());
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $templates = $this->createMock(InterventionTemplatePort::class);
+    $templates->expects(self::never())->method('create');
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(InterventionNotFoundException::forOrganizationScope(self::ORGANIZATION_ID)->getMessage());
 
     new CreateInterventionTemplateHandler($templates, $authorization)(self::command());
   }
@@ -89,7 +104,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
@@ -104,7 +119,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
@@ -119,7 +134,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
@@ -134,7 +149,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
@@ -149,7 +164,7 @@ final class CreateInterventionTemplateHandlerTest extends TestCase
     $templates = $this->createMock(InterventionTemplatePort::class);
     $templates->expects(self::never())->method('create');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 

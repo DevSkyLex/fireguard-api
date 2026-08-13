@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
-use Intervention\Infrastructure\Persistence\Doctrine\Record\InterventionRecord;
+use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -41,6 +41,10 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
   private const string OTHER_ATTACHMENT_ID = '770e8400-e29b-41d4-a716-446655440013';
 
   private const string UNKNOWN_ATTACHMENT_ID = '770e8400-e29b-41d4-a716-4466554400ff';
+
+  private const string WORK_ITEM_ID = '770e8400-e29b-41d4-a716-446655440020';
+
+  private const string OTHER_WORK_ITEM_ID = '770e8400-e29b-41d4-a716-446655440021';
 
   private EntityManagerInterface $entityManager;
 
@@ -237,6 +241,125 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
 
     self::assertSame(2, $this->repository->countByInterventionId(self::INTERVENTION_ID));
     self::assertSame(1, $this->repository->countByInterventionId(self::OTHER_INTERVENTION_ID));
+  }
+
+  #[Test]
+  public function testSaveThenFindByIdRoundTripsTheWorkItemId(): void
+  {
+    $this->createWorkItem(self::WORK_ITEM_ID, self::INTERVENTION_ID);
+    $this->entityManager->flush();
+
+    $attachment = InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      workItemId: self::WORK_ITEM_ID,
+    );
+    $this->repository->save($attachment);
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+
+    self::assertInstanceOf(InterventionAttachment::class, $found);
+    self::assertSame(self::WORK_ITEM_ID, $found->workItemId());
+  }
+
+  #[Test]
+  public function testFindByInterventionIdFiltersByWorkItemId(): void
+  {
+    $this->createWorkItem(self::WORK_ITEM_ID, self::INTERVENTION_ID);
+    $this->createWorkItem(self::OTHER_WORK_ITEM_ID, self::INTERVENTION_ID);
+    $this->entityManager->flush();
+
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'scoped.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/scoped.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+      workItemId: self::WORK_ITEM_ID,
+    ));
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'other-work-item.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/other-work-item.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T08:30:00+00:00'),
+      workItemId: self::OTHER_WORK_ITEM_ID,
+    ));
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'unscoped.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/unscoped.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+    ));
+    $this->entityManager->clear();
+
+    $scoped = $this->repository->findByInterventionId(self::INTERVENTION_ID, self::WORK_ITEM_ID);
+
+    self::assertCount(1, $scoped);
+    self::assertSame(self::ATTACHMENT_ID, (string) $scoped[0]->id());
+  }
+
+  #[Test]
+  public function testDeletingTheWorkItemSetsTheAttachmentWorkItemToNullInsteadOfDeletingTheAttachment(): void
+  {
+    $this->createWorkItem(self::WORK_ITEM_ID, self::INTERVENTION_ID);
+    $this->entityManager->flush();
+
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      workItemId: self::WORK_ITEM_ID,
+    ));
+    $this->entityManager->clear();
+
+    // Deleting the work item at the database level (mirroring a real
+    // DELETE /intervention-work-items/{id}) must not cascade-delete the
+    // attachment — the FK is ON DELETE SET NULL, so the attachment survives
+    // as plain intervention-level evidence.
+    $this->entityManager->getConnection()->executeStatement(
+      'DELETE FROM intervention_work_items WHERE id = :id',
+      ['id' => self::WORK_ITEM_ID],
+    );
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+
+    self::assertInstanceOf(InterventionAttachment::class, $found);
+    self::assertNull($found->workItemId());
+  }
+
+  private function createWorkItem(string $id, string $interventionId): void
+  {
+    $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+
+    $record = new InterventionWorkItemRecord();
+    $record->id = $id;
+    $record->intervention = $intervention;
+    $record->action = 'site_setup';
+    $record->source = 'planned';
+    $record->status = 'planned';
+    $record->required = true;
+    $record->createdAt = new DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $record->updatedAt = $record->createdAt;
+    $this->entityManager->persist($record);
   }
 
   private function createOrganization(): void

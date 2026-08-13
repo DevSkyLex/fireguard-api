@@ -52,6 +52,14 @@ final readonly class DeleteInterventionAttachmentHandler implements CommandHandl
       throw InterventionNotFoundException::withId($command->interventionId);
     }
 
+    // Scope gate BEFORE the permission is derived — see the identical note in
+    // AddInterventionAttachmentHandler: deriving the permission reads the
+    // intervention's phase and can throw a conflict, which would confirm to
+    // an outsider that this intervention exists.
+    if (!$this->authorization->isMemberOf($command->userId, $context->organizationId)) {
+      throw InterventionNotFoundException::withId($command->interventionId);
+    }
+
     $permission = $this->interventionResourceManager->mutationPermission($command->interventionId, $command->userId);
 
     if (!$this->authorization->hasPermission($command->userId, $context->organizationId, $permission)) {

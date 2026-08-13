@@ -48,6 +48,7 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
     $resourceManager = $this->resourceManager('in_progress');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     $attachment = $this->attachment(self::INTERVENTION_ID);
@@ -107,11 +108,55 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsInterventionNotFoundWhenTheCallerIsNotAMemberOfTheOwningOrganization(): void
+  {
+    // The scope gate runs BEFORE mutationPermission() derives the required
+    // permission from the intervention's phase — that derivation can itself
+    // throw a conflict on a published intervention, which would tell an
+    // outsider both that the intervention exists and what state it is in.
+    /** @var InterventionResourceGatewayPort&MockObject $resources */
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->method('interventionAssignmentContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'in_progress'),
+    );
+    $resources->expects(self::never())->method('interventionMutationContext');
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(false);
+    $authorization->expects(self::never())->method('hasPermission');
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('delete');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('delete');
+
+    $handler = new DeleteInterventionAttachmentHandler(
+      interventionResourceManager: new InterventionResourceManager($resources),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+    );
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    $handler->__invoke(new DeleteInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      attachmentId: self::ATTACHMENT_ID,
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsAccessDeniedWhenUserLacksThePhasePermission(): void
   {
     $resourceManager = $this->resourceManager('in_progress');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(false);
 
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
@@ -142,6 +187,7 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
     $resourceManager = $this->resourceManager('in_progress');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     $attachment = $this->attachment(self::OTHER_INTERVENTION_ID);
@@ -173,6 +219,7 @@ final class DeleteInterventionAttachmentHandlerTest extends TestCase
   public function testInvokeRejectsAMalformedAttachmentId(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */

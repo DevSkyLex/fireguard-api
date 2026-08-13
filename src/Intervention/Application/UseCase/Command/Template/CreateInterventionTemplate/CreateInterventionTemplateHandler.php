@@ -7,7 +7,7 @@ namespace Intervention\Application\UseCase\Command\Template\CreateInterventionTe
 use DateInterval;
 use Exception;
 use Intervention\Application\Port\Outbound\InterventionTemplatePort;
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionValidationException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\ValueObject\{InterventionPriority, InterventionType};
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Shared\Application\Message\CommandHandler;
@@ -55,7 +55,11 @@ final readonly class CreateInterventionTemplateHandler implements CommandHandler
    */
   public function __invoke(CreateInterventionTemplateCommand $command): CreateInterventionTemplateResult
   {
-    if (!$this->authorization->hasPermission($command->userId, $command->organizationId, 'organization.interventions.plan')) {
+    $decision = $this->authorization->resolveAccess($command->userId, $command->organizationId, 'organization.interventions.plan');
+    if ($decision->isOutsideScope()) {
+      throw InterventionNotFoundException::forOrganizationScope($command->organizationId);
+    }
+    if (!$decision->isGranted()) {
       throw new InterventionAccessDeniedException('Missing organization.interventions.plan permission.');
     }
 

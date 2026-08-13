@@ -8,7 +8,7 @@ use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\{InterventionAttachmentRepositoryPort, InterventionResourceGatewayPort};
 use Intervention\Application\Service\InterventionResourceManager;
 use Intervention\Application\UseCase\Command\Attachment\AddInterventionAttachment\{AddInterventionAttachmentCommand, AddInterventionAttachmentHandler, AddInterventionAttachmentResult};
-use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
 use Intervention\Domain\ValueObject\InterventionAttachmentId;
 use InvalidArgumentException;
@@ -42,6 +42,8 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
   private const string ATTACHMENT_ID = '550e8400-e29b-41d4-a716-446655446003';
 
+  private const string WORK_ITEM_ID = '550e8400-e29b-41d4-a716-446655446004';
+
   #[Test]
   public function testInvokeStoresAttachmentSuccessfully(): void
   {
@@ -49,6 +51,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->expects(self::once())
       ->method('hasPermission')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.execute')
@@ -124,11 +127,62 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   }
 
   #[Test]
+  public function testInvokeThrowsInterventionNotFoundWhenTheCallerIsNotAMemberOfTheOwningOrganization(): void
+  {
+    // The scope gate runs BEFORE mutationPermission() derives the required
+    // permission from the intervention's phase — that derivation can itself
+    // throw a conflict on a published intervention, which would tell an
+    // outsider both that the intervention exists and what state it is in.
+    /** @var InterventionResourceGatewayPort&MockObject $resources */
+    $resources = $this->createMock(InterventionResourceGatewayPort::class);
+    $resources->method('interventionAssignmentContext')->willReturn(
+      new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, 'in_progress'),
+    );
+    $resources->expects(self::never())->method('interventionMutationContext');
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(false);
+    $authorization->expects(self::never())->method('hasPermission');
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: new InterventionResourceManager($resources),
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $uuidFactory,
+    );
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      contents: 'content',
+      mimeType: 'image/jpeg',
+      size: 100,
+    ));
+  }
+
+  #[Test]
   public function testInvokeThrowsAccessDeniedWhenUserLacksThePhasePermission(): void
   {
     $resourceManager = $this->resourceManager('in_progress');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(false);
 
     $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
@@ -167,6 +221,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->expects(self::once())
       ->method('hasPermission')
       ->with(self::USER_ID, self::ORG_ID, 'organization.interventions.plan')
@@ -202,6 +257,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $resourceManager = $this->resourceManager('in_progress');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -245,6 +301,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     $resourceManager = $this->resourceManager('in_progress');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     $attachmentRepository = $this->createStub(InterventionAttachmentRepositoryPort::class);
@@ -283,6 +340,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   public function testInvokeHonoursAClientSuppliedAttachmentIdInsteadOfMintingOne(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var UuidFactory&MockObject $uuidFactory */
@@ -306,6 +364,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   public function testInvokeRejectsAMalformedClientSuppliedAttachmentId(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     $handler = new AddInterventionAttachmentHandler(
@@ -325,6 +384,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   public function testInvokeRejectsAnUploadWhenTheInterventionIsAtTheAttachmentCap(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -361,6 +421,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   public function testInvokeAcceptsAnUploadOneBelowTheAttachmentCap(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
@@ -390,6 +451,7 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
   public function testInvokeExemptsARetryOfAnExistingAttachmentFromTheCap(): void
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
     $authorization->method('hasPermission')->willReturn(true);
 
     $existing = InterventionAttachment::create(
@@ -422,6 +484,82 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     self::assertSame(self::ATTACHMENT_ID, $result->attachmentId);
   }
 
+  #[Test]
+  public function testInvokeAcceptsAWorkItemIdBelongingToTheSameIntervention(): void
+  {
+    $resourceManager = $this->resourceManager('in_progress', workItemBelongsToIntervention: true);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->method('findById')->willReturn(null);
+    $attachmentRepository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new InterventionAttachmentId(self::ATTACHMENT_ID));
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $resourceManager,
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $this->createStub(FileStoragePort::class),
+      uuidFactory: $uuidFactory,
+    );
+
+    $result = $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      contents: 'content',
+      mimeType: 'image/jpeg',
+      size: 100,
+      workItemId: self::WORK_ITEM_ID,
+    ));
+
+    self::assertSame(self::WORK_ITEM_ID, $result->workItemId);
+  }
+
+  #[Test]
+  public function testInvokeRejectsAWorkItemIdFromAnotherIntervention(): void
+  {
+    $resourceManager = $this->resourceManager('in_progress', workItemBelongsToIntervention: false);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('isMemberOf')->willReturn(true);
+    $authorization->method('hasPermission')->willReturn(true);
+
+    /** @var InterventionAttachmentRepositoryPort&MockObject $attachmentRepository */
+    $attachmentRepository = $this->createMock(InterventionAttachmentRepositoryPort::class);
+    $attachmentRepository->expects(self::never())->method('save');
+
+    /** @var FileStoragePort&MockObject $fileStorage */
+    $fileStorage = $this->createMock(FileStoragePort::class);
+    $fileStorage->expects(self::never())->method('write');
+
+    $handler = new AddInterventionAttachmentHandler(
+      interventionResourceManager: $resourceManager,
+      authorization: $authorization,
+      attachmentRepository: $attachmentRepository,
+      fileStorage: $fileStorage,
+      uuidFactory: $this->createStub(UuidFactory::class),
+    );
+
+    $this->expectException(InterventionValidationException::class);
+
+    $handler->__invoke(new AddInterventionAttachmentCommand(
+      userId: self::USER_ID,
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      contents: 'content',
+      mimeType: 'image/jpeg',
+      size: 100,
+      workItemId: self::WORK_ITEM_ID,
+    ));
+  }
+
   private function command(?string $attachmentId): AddInterventionAttachmentCommand
   {
     return new AddInterventionAttachmentCommand(
@@ -436,12 +574,15 @@ final class AddInterventionAttachmentHandlerTest extends TestCase
     );
   }
 
-  private function resourceManager(string $status): InterventionResourceManager
+  private function resourceManager(string $status, ?bool $workItemBelongsToIntervention = null): InterventionResourceManager
   {
     $resources = $this->createStub(InterventionResourceGatewayPort::class);
     $context = new InterventionAssignmentContext(self::INTERVENTION_ID, self::ORG_ID, $status);
     $resources->method('interventionAssignmentContext')->willReturn($context);
     $resources->method('interventionMutationContext')->willReturn($context);
+    if (null !== $workItemBelongsToIntervention) {
+      $resources->method('workItemBelongsToIntervention')->willReturn($workItemBelongsToIntervention);
+    }
 
     return new InterventionResourceManager($resources);
   }

@@ -25,6 +25,7 @@ use Intervention\Application\UseCase\Query\Workflow\ListInterventionWorkflow\{
   ListInterventionWorkflowQuery
 };
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use PHPUnit\Framework\Attributes\{DataProvider, Test};
@@ -52,9 +53,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->willReturn($view);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', 'organization.interventions.review')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
       new MutateInterventionWorkflowCommand(
@@ -77,13 +78,36 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::never())->method('mutate');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', 'organization.interventions.plan')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
 
     $this->expectException(InterventionAccessDeniedException::class);
+    $handler(new MutateInterventionWorkflowCommand(
+      resource: 'intervention',
+      action: 'create',
+      userId: 'user-1',
+      id: null,
+      payload: ['organizationId' => 'organization-1'],
+    ));
+  }
+
+  #[Test]
+  public function itReportsAnOutOfScopeInterventionCreationAsNotFound(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with('user-1', 'organization-1', 'organization.interventions.plan')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
+
+    $this->expectException(InterventionNotFoundException::class);
     $handler(new MutateInterventionWorkflowCommand(
       resource: 'intervention',
       action: 'create',
@@ -106,7 +130,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->method('resourceContext')->willReturn($context);
     $repository->expects(self::never())->method('mutate');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionAccessDeniedException::class);
 
@@ -129,9 +153,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::once())->method('get')->with('intervention', 'intervention-1')->willReturn($view);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', 'organization.interventions.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = (new GetInterventionWorkflowHandler($repository, $authorization))(
       new GetInterventionWorkflowQuery('user-1', 'intervention', 'intervention-1'),
@@ -153,9 +177,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
       ->willReturn($page);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', 'organization.interventions.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = (new ListInterventionWorkflowHandler($repository, $authorization))(
       new ListInterventionWorkflowQuery('user-1', 'work_item', 'intervention-1', ['status' => 'planned'], 1, 30),
@@ -170,7 +194,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
     $repository->expects(self::once())->method('get')->with('change', 'change-1')->willReturn(null);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::never())->method('hasPermission');
+    $authorization->expects(self::never())->method('resolveAccess');
 
     $this->expectException(InterventionNotFoundException::class);
 
@@ -186,12 +210,32 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
     $repository->expects(self::once())->method('get')->willReturn($view);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())->method('hasPermission')->willReturn(false);
+    $authorization->expects(self::once())->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
 
     (new GetInterventionWorkflowHandler($repository, $authorization))(
       new GetInterventionWorkflowQuery('user-1', 'intervention', 'intervention-1'),
+    );
+  }
+
+  #[Test]
+  public function itReportsAnOutOfScopeWorkflowViewAsNotFound(): void
+  {
+    $view = new InterventionWorkflowView('change', 'organization-1', ['id' => 'change-1']);
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('get')->willReturn($view);
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    // Byte-for-byte what itReportsAMissingWorkflowResourceAsNotFound asserts:
+    // reading the record to learn who owns it must not become a way for an
+    // outsider to confirm the record is there.
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage('Intervention with ID "change-1" not found.');
+
+    (new GetInterventionWorkflowHandler($repository, $authorization))(
+      new GetInterventionWorkflowQuery('user-1', 'change', 'change-1'),
     );
   }
 
@@ -216,7 +260,7 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::never())->method('interventionContext');
     $repository->expects(self::never())->method('list');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())->method('hasPermission')->willReturn(false);
+    $authorization->expects(self::once())->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
 
@@ -226,12 +270,51 @@ final class InterventionWorkflowHandlersTest extends TestCase
   }
 
   #[Test]
+  public function itReportsAnOutOfScopeInterventionResourceScopeAsNotFound(): void
+  {
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::never())->method('interventionContext');
+    $repository->expects(self::never())->method('list');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with('user-1', 'organization-1', 'organization.interventions.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    (new ListInterventionWorkflowHandler($repository, $authorization))(
+      new ListInterventionWorkflowQuery('user-1', 'intervention', 'organization-1', [], 1, 30),
+    );
+  }
+
+  #[Test]
+  public function itReportsAnOutOfScopeChildCollectionAsNotFound(): void
+  {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', 'in_progress', 'member-1');
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('interventionContext')->with('intervention-1')->willReturn($context);
+    $repository->expects(self::never())->method('list');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with('user-1', 'organization-1', 'organization.interventions.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    (new ListInterventionWorkflowHandler($repository, $authorization))(
+      new ListInterventionWorkflowQuery('user-1', 'work_item', 'intervention-1', [], 1, 30),
+    );
+  }
+
+  #[Test]
   public function itRejectsInterventionCreationWithoutAnOrganizationIdInThePayload(): void
   {
     $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
     $repository->expects(self::never())->method('mutate');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::never())->method('hasPermission');
+    $authorization->expects(self::never())->method('resolveAccess');
 
     $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
 
@@ -256,9 +339,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::once())->method('mutate')->willReturn($view);
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', 'organization.interventions.plan')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
       new MutateInterventionWorkflowCommand(
@@ -271,6 +354,32 @@ final class InterventionWorkflowHandlersTest extends TestCase
     );
 
     self::assertSame($view, $result->view);
+  }
+
+  #[Test]
+  public function itReportsAnOutOfScopeChildResourceCreationAsNotFound(): void
+  {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', 'draft', 'member-1');
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('interventionContext')->with('intervention-1')->willReturn($context);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with('user-1', 'organization-1', 'organization.interventions.plan')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+      new MutateInterventionWorkflowCommand(
+        resource: 'work_item',
+        action: 'create',
+        userId: 'user-1',
+        id: null,
+        payload: ['interventionId' => 'intervention-1'],
+      ),
+    );
   }
 
   #[Test]
@@ -319,6 +428,32 @@ final class InterventionWorkflowHandlersTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function itReportsAnOutOfScopeExistingResourceMutationAsNotFound(): void
+  {
+    $context = new InterventionWorkflowContext('intervention-1', 'organization-1', 'planned', 'member-1');
+    $repository = $this->createMock(InterventionWorkflowGatewayPort::class);
+    $repository->expects(self::once())->method('resourceContext')->with('intervention', 'intervention-1')->willReturn($context);
+    $repository->expects(self::never())->method('mutate');
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with('user-1', 'organization-1', 'organization.interventions.execute')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+
+    (new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy()))(
+      new MutateInterventionWorkflowCommand(
+        resource: 'intervention',
+        action: 'update',
+        userId: 'user-1',
+        id: 'intervention-1',
+        payload: ['status' => 'in_progress'],
+      ),
+    );
+  }
+
   /**
    * @return iterable<string, array{array<string, mixed>, string, string}>
    */
@@ -352,9 +487,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::never())->method('mutate');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', $expectedPermission)
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
 
@@ -379,9 +514,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
     // Plan only — no execute, so the responsible/participant member guard must
     // not run: a planner who is neither may still reschedule.
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', 'organization.interventions.plan')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handler = new MutateInterventionWorkflowHandler(
       $repository,
@@ -409,11 +544,13 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::never())->method('mutate');
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $checked = [];
-    $authorization->method('hasPermission')->willReturnCallback(
-      static function (string $userId, string $organizationId, string $permission) use (&$checked): bool {
+    $authorization->method('resolveAccess')->willReturnCallback(
+      static function (string $userId, string $organizationId, string $permission) use (&$checked): OrganizationAccessDecision {
         $checked[] = $permission;
 
-        return 'organization.interventions.execute' === $permission;
+        return 'organization.interventions.execute' === $permission
+          ? OrganizationAccessDecision::GRANTED
+          : OrganizationAccessDecision::MISSING_PERMISSION;
       },
     );
 
@@ -460,9 +597,9 @@ final class InterventionWorkflowHandlersTest extends TestCase
     $repository->expects(self::never())->method('mutate');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-1', 'organization-1', $expectedPermission)
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $handler = new MutateInterventionWorkflowHandler($repository, $authorization, $this->memberPolicy());
 

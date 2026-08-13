@@ -41,6 +41,7 @@ final class InterventionAttachmentMapper
       size: $record->size,
       uploadedAt: $record->uploadedAt,
       label: $record->label,
+      workItemId: $record->workItem?->id,
     );
   }
 

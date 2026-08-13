@@ -9,9 +9,12 @@ use Intervention\Application\Contract\Label\InterventionLabelView;
 use Intervention\Application\Port\Outbound\InterventionLabelPort;
 use Intervention\Application\UseCase\Command\Label\UpdateInterventionLabel\{UpdateInterventionLabelCommand, UpdateInterventionLabelHandler};
 use Intervention\Domain\Exception\{InterventionAccessDeniedException, InterventionNotFoundException, InterventionValidationException};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
+
+use function sprintf;
 
 /**
  * Test UpdateInterventionLabelHandlerTest.
@@ -41,7 +44,7 @@ final class UpdateInterventionLabelHandlerTest extends TestCase
       ->willReturn($updated);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new UpdateInterventionLabelHandler($labels, $authorization)(
       new UpdateInterventionLabelCommand(self::USER_ID, self::LABEL_ID, '  Critical  ', '#00ff00', true, true),
@@ -62,7 +65,7 @@ final class UpdateInterventionLabelHandlerTest extends TestCase
       ->willReturn($updated);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $result = new UpdateInterventionLabelHandler($labels, $authorization)(
       new UpdateInterventionLabelCommand(self::USER_ID, self::LABEL_ID, null, '#123456', false, true),
@@ -79,7 +82,7 @@ final class UpdateInterventionLabelHandlerTest extends TestCase
     $labels->expects(self::never())->method('update');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionNotFoundException::class);
 
@@ -96,7 +99,7 @@ final class UpdateInterventionLabelHandlerTest extends TestCase
     $labels->expects(self::never())->method('update');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(InterventionAccessDeniedException::class);
 
@@ -113,12 +116,30 @@ final class UpdateInterventionLabelHandlerTest extends TestCase
     $labels->expects(self::never())->method('update');
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $this->expectException(InterventionValidationException::class);
 
     new UpdateInterventionLabelHandler($labels, $authorization)(
       new UpdateInterventionLabelCommand(self::USER_ID, self::LABEL_ID, '   ', '#00ff00', true, true),
+    );
+  }
+
+  #[Test]
+  public function testInvokeThrowsNotFoundWhenTheCallerIsOutsideTheOwningOrganization(): void
+  {
+    $labels = $this->createMock(InterventionLabelPort::class);
+    $labels->method('find')->willReturn($this->existingLabel());
+    $labels->expects(self::never())->method('update');
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(InterventionNotFoundException::class);
+    $this->expectExceptionMessage(sprintf('Intervention with ID "%s" not found.', self::LABEL_ID));
+
+    new UpdateInterventionLabelHandler($labels, $authorization)(
+      new UpdateInterventionLabelCommand(self::USER_ID, self::LABEL_ID, 'Critical', '#00ff00', true, true),
     );
   }
 

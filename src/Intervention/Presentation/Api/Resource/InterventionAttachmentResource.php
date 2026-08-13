@@ -46,6 +46,7 @@ use Symfony\Component\HttpFoundation\Response;
       security: "is_granted('ROLE_USER')",
       openapi: new Operation(parameters: [
         new Parameter(name: 'interventionId', in: 'path', required: true, schema: ['type' => 'string']),
+        new Parameter(name: 'workItem', in: 'query', required: false, schema: ['type' => 'string'], description: 'Narrows the list to attachments scoped to this work item (IRI or bare id).'),
       ]),
     ),
     new Get(
