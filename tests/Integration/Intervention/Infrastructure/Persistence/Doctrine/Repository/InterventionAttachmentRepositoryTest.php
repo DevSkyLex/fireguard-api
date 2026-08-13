@@ -7,7 +7,7 @@ namespace Tests\Integration\Intervention\Infrastructure\Persistence\Doctrine\Rep
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Intervention\Domain\Model\Attachment\InterventionAttachment;
-use Intervention\Domain\ValueObject\InterventionAttachmentId;
+use Intervention\Domain\ValueObject\{InterventionAttachmentId, InterventionAttachmentKind};
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{InterventionRecord, InterventionWorkItemRecord};
 use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -344,6 +344,97 @@ final class InterventionAttachmentRepositoryTest extends KernelTestCase
 
     self::assertInstanceOf(InterventionAttachment::class, $found);
     self::assertNull($found->workItemId());
+  }
+
+  #[Test]
+  public function testSaveThenFindByIdRoundTripsTheSignatureKind(): void
+  {
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/signature.png',
+      mimeType: 'image/png',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    ));
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+
+    self::assertInstanceOf(InterventionAttachment::class, $found);
+    self::assertSame(InterventionAttachmentKind::SIGNATURE, $found->kind());
+  }
+
+  #[Test]
+  public function testFindByIdDefaultsAPersistedAttachmentToTheFileKind(): void
+  {
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+    ));
+    $this->entityManager->clear();
+
+    $found = $this->repository->findById(InterventionAttachmentId::fromString(self::ATTACHMENT_ID));
+
+    self::assertInstanceOf(InterventionAttachment::class, $found);
+    self::assertSame(InterventionAttachmentKind::FILE, $found->kind());
+  }
+
+  #[Test]
+  public function testFindSignatureByInterventionIdReturnsNullWhenNoneExists(): void
+  {
+    self::assertNull($this->repository->findSignatureByInterventionId(self::INTERVENTION_ID));
+    self::assertFalse($this->repository->hasSignature(self::INTERVENTION_ID));
+  }
+
+  #[Test]
+  public function testFindSignatureByInterventionIdReturnsTheOnlySignatureAmongOtherFiles(): void
+  {
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OLDER_ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'evidence.jpg',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/evidence.jpg',
+      mimeType: 'image/jpeg',
+      size: 1_024,
+      uploadedAt: new DateTimeImmutable('2026-03-01T08:00:00+00:00'),
+    ));
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::ATTACHMENT_ID),
+      interventionId: self::INTERVENTION_ID,
+      fileName: 'signature.png',
+      storagePath: 'interventions/' . self::INTERVENTION_ID . '/signature.png',
+      mimeType: 'image/png',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    ));
+    // Another intervention's signature must not leak across scopes.
+    $this->repository->save(InterventionAttachment::reconstitute(
+      id: InterventionAttachmentId::fromString(self::OTHER_ATTACHMENT_ID),
+      interventionId: self::OTHER_INTERVENTION_ID,
+      fileName: 'other-signature.png',
+      storagePath: 'interventions/' . self::OTHER_INTERVENTION_ID . '/other-signature.png',
+      mimeType: 'image/png',
+      size: 512,
+      uploadedAt: new DateTimeImmutable('2026-03-01T09:00:00+00:00'),
+      kind: InterventionAttachmentKind::SIGNATURE,
+    ));
+    $this->entityManager->clear();
+
+    $signature = $this->repository->findSignatureByInterventionId(self::INTERVENTION_ID);
+
+    self::assertInstanceOf(InterventionAttachment::class, $signature);
+    self::assertSame(self::ATTACHMENT_ID, (string) $signature->id());
+    self::assertTrue($this->repository->hasSignature(self::INTERVENTION_ID));
+    self::assertTrue($this->repository->hasSignature(self::OTHER_INTERVENTION_ID));
   }
 
   private function createWorkItem(string $id, string $interventionId): void

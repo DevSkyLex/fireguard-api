@@ -66,6 +66,7 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
       $existing->size = $record->size;
       $existing->label = $record->label;
       $existing->uploadedAt = $record->uploadedAt;
+      $existing->kind = $record->kind;
     } else {
       $this->entityManager->persist($record);
     }
@@ -124,6 +125,37 @@ final readonly class InterventionAttachmentRepository implements InterventionAtt
     $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
 
     return $this->repository->count(['intervention' => $intervention]);
+  }
+
+  /**
+   * Method findSignatureByInterventionId.
+   *
+   * @since 1.2.0
+   */
+  public function findSignatureByInterventionId(string $interventionId): ?InterventionAttachment
+  {
+    /** @var InterventionRecord $intervention */
+    $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+    $record = $this->repository->findOneBy(['intervention' => $intervention, 'kind' => 'signature']);
+
+    if (!$record instanceof InterventionAttachmentRecord) {
+      return null;
+    }
+
+    return InterventionAttachmentMapper::toDomain($record);
+  }
+
+  /**
+   * Method hasSignature.
+   *
+   * @since 1.2.0
+   */
+  public function hasSignature(string $interventionId): bool
+  {
+    /** @var InterventionRecord $intervention */
+    $intervention = $this->entityManager->getReference(InterventionRecord::class, $interventionId);
+
+    return $this->repository->count(['intervention' => $intervention, 'kind' => 'signature']) > 0;
   }
 
   /**

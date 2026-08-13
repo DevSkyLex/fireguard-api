@@ -28,6 +28,7 @@ final readonly class AddInterventionAttachmentCommand implements CommandMessage
     public ?string $label = null,
     public ?string $attachmentId = null,
     public ?string $workItemId = null,
+    public string $kind = 'file',
   ) {
   }
   // #endregion

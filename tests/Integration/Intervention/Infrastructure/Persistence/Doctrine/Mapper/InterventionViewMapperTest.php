@@ -17,11 +17,13 @@ use Intervention\Application\Service\InterventionIssueFinder;
 use Intervention\Infrastructure\Persistence\Doctrine\Mapper\InterventionViewMapper;
 use Intervention\Infrastructure\Persistence\Doctrine\Record\{
   InterventionActivityRecord,
+  InterventionAttachmentRecord,
   InterventionChangeRecord,
   InterventionLabelRecord,
   InterventionRecord,
   InterventionWorkItemRecord
 };
+use Intervention\Infrastructure\Persistence\Doctrine\Repository\InterventionAttachmentRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -97,7 +99,7 @@ final class InterventionViewMapperTest extends KernelTestCase
     $this->mapper = new InterventionViewMapper(
       $this->entityManager,
       $resources,
-      new InterventionIssueFinder($resources),
+      new InterventionIssueFinder($resources, new InterventionAttachmentRepository($this->entityManager)),
     );
 
     $this->seed();
@@ -165,6 +167,8 @@ final class InterventionViewMapperTest extends KernelTestCase
 
     // Comment count and labels are read live from the real database.
     self::assertSame(2, $data['commentsCount']);
+    // A signature attachment was seeded for this intervention.
+    self::assertTrue($data['hasSignature']);
     self::assertSame([['id' => self::LABEL_ID, 'name' => 'Priority', 'color' => '#ff8800']], $data['labels']);
     self::assertSame($intervention->createdAt->format('c'), $data['createdAt']);
     self::assertSame($intervention->updatedAt->format('c'), $data['updatedAt']);
@@ -230,6 +234,7 @@ final class InterventionViewMapperTest extends KernelTestCase
     // (a system activity is filtered out).
     self::assertSame(1, $data['proposedChangesCount']);
     self::assertSame(1, $data['commentsCount']);
+    self::assertFalse($data['hasSignature']);
     self::assertSame([], $data['labels']);
   }
 
@@ -375,6 +380,18 @@ final class InterventionViewMapperTest extends KernelTestCase
     $workItem->updatedAt = $timestamp;
     $this->entityManager->persist($workItem);
 
+    // Populated intervention carries a completion signature -> hasSignature true.
+    $signature = new InterventionAttachmentRecord();
+    $signature->id = 'a10e8400-e29b-41d4-a716-446655440210';
+    $signature->intervention = $populated;
+    $signature->fileName = 'signature.png';
+    $signature->storagePath = 'intervention/' . self::INTERVENTION_ID . '/signature.png';
+    $signature->mimeType = 'image/png';
+    $signature->size = 1024;
+    $signature->kind = 'signature';
+    $signature->uploadedAt = $timestamp;
+    $this->entityManager->persist($signature);
+
     // Populated intervention: a proposed change linked to the work item and an
     // applied change with no work item (covers both link branches).
     $this->entityManager->persist($this->newChange(self::CHANGE_WITH_WORK_ITEM_ID, $populated, $workItem, 'proposed', $timestamp));
@@ -461,6 +478,10 @@ final class InterventionViewMapperTest extends KernelTestCase
   private function cleanup(): void
   {
     $connection = $this->entityManager->getConnection();
+    $connection->executeStatement(
+      'DELETE FROM intervention_attachments WHERE intervention_id IN (SELECT id FROM interventions WHERE organization_id = :organizationId)',
+      ['organizationId' => self::ORGANIZATION_ID],
+    );
     $connection->executeStatement(
       'DELETE FROM intervention_changes WHERE intervention_id IN (SELECT id FROM interventions WHERE organization_id = :organizationId)',
       ['organizationId' => self::ORGANIZATION_ID],

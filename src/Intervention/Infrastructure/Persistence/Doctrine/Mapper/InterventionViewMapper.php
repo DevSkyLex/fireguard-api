@@ -73,6 +73,12 @@ final readonly class InterventionViewMapper
       'intervention' => $intervention,
       'kind' => 'comment',
     ]);
+    // Bounded per-row lazy load, mirroring commentsCount above — the input
+    // of the "no signature yet" recommendation surfaced by the client.
+    $hasSignature = $this->entityManager->getRepository(InterventionAttachmentRecord::class)->count([
+      'intervention' => $intervention,
+      'kind' => 'signature',
+    ]) > 0;
     // Bounded per-row lazy load (mirrors the commentsCount decision above);
     // never fetch-joined into the paginated intervention list query.
     $labels = array_map(
@@ -142,6 +148,7 @@ final readonly class InterventionViewMapper
       'completedWorkItemsCount' => $completedWorkItemsCount,
       'proposedChangesCount' => $proposedChangesCount,
       'commentsCount' => $commentsCount,
+      'hasSignature' => $hasSignature,
       'labels' => $labels,
       'createdAt' => $intervention->createdAt->format('c'),
       'updatedAt' => $intervention->updatedAt->format('c'),
