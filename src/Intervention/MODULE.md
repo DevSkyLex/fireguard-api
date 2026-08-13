@@ -382,6 +382,78 @@ per-work-item attach scope — no endpoint sets or reads it in this lot.
 | --- | --- | --- |
 | GET | `/intervention-types` | List available intervention types |
 
+### Statistics (R13/Phase 5c.3)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/interventions/statistics` | Whole-organization KPI snapshot (filters: `organization` *(required)*) |
+
+Module-local, mirroring how `/interventions` requires the `organization`
+query parameter — deliberately NOT nested under `/organizations`, since
+Intervention owns this surface. `ROLE_USER` at the resource level (the
+`{id}`-shaped operations on `InterventionResource` now carry an explicit
+`requirements: ['id' => …]` UUID pattern so the literal path segment
+`statistics` cannot be swallowed by `{id}` — without it, whichever resource
+the attribute scanner discovers first wins the route); the
+`organization.interventions.read` entitlement and organization-membership
+check happen in `GetInterventionStatisticsHandler`, exactly like
+`ListInterventionWorkflowHandler`'s list path — a caller who is not a member
+of the requested organization gets the same 403 a missing-permission member
+gets (not 404: there is no per-record path id here for a 404 to hide behind,
+`organization` is a query filter).
+
+`InterventionStatisticsOutput`: `total` (int); `byStatus` (`array<string,int>`,
+**all seven** `InterventionStatus` literals always present, zeros included —
+the kanban needs stable keys); `byPriority` (`array<string,int>`, all four
+`InterventionPriority` literals, zeros included); `overdue` (non-terminal
+statuses — excludes `published`/`abandoned` — with `dueAt` in the past, same
+definition `InterventionStatisticsAdapter::countOverview` already
+established for the Organization dashboard); `dueSoon` (statuses `planned`,
+`in_progress`, `changes_requested` — mirrors
+`SendDueRemindersHandler::DUE_SOON_WINDOW_HOURS` = 48h and its active-status
+set, minus the anti-spam stamp check, since statistics reflect current state
+rather than "still needs notifying"); `bySite` / `byResponsible` (top **10**
+each, `{siteId, siteName, count}` / `{memberId, displayName, count}`,
+descending by count — bounded, never an unbounded per-site/per-member
+breakdown); `averagePublicationDays` (mean days between draft creation and
+publication across every published intervention, `null` when none —
+`published` is terminal/immutable so `updated_at` can never move again once
+reached, making it exactly the publish instant; computed in one native SQL
+`AVG(EXTRACT(EPOCH FROM …))` round trip, DQL has no `EXTRACT`/`EPOCH`).
+
+No filters beyond `organization` in v1 — the whole organization is the
+question the list page's KPI cards and the future kanban's column counters
+ask. A filtered variant (by site, by responsible, by date range) is a future
+addition, not part of this lot.
+
+**Port decision**: a new module-owned `InterventionStatisticsGatewayPort`
+(`Application/Port/Outbound/`), implemented by
+`DoctrineInterventionStatisticsGatewayAdapter` — **not** an extension of
+`Organization\Application\Port\Outbound\InterventionStatisticsPort`. That
+port is a *cross-module* contract Organization owns and consumes for its
+dashboard (`findRecentInterventions`, `countOverview`); this endpoint is
+*Intervention's own*, with a materially richer, differently-shaped payload
+(seven-key status map, top-10 breakdowns, a publication-latency average) that
+does not belong on a contract another module owns. The new port instead
+*extends the established querying approach*: `CLOSED_STATUSES` and the
+`overdue` definition are lifted verbatim from
+`InterventionStatisticsAdapter::countOverview`, and `DUE_SOON_STATUSES`/the
+48h window mirror `DoctrineInterventionReminderAdapter`/
+`SendDueRemindersHandler` — same grouped-query discipline (one query per
+breakdown, never N+1), same table, two independent adapters that agree on
+what the words mean. Two small naming ports resolve `bySite`/`byResponsible`
+display names, following the module's existing cross-module naming-port
+precedent (`Equipment\Application\Port\Outbound\FacilityNamingPort`,
+`Messaging\Application\Port\Outbound\MessagingMemberDirectoryPort`):
+`InterventionSiteNamingPort` (implemented by
+`Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter`)
+and `InterventionMemberNamingPort` (implemented by
+`Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter`,
+which reaches into the `auth` database's `User` module through
+`GetUserQuery` to derive a display name — the same pattern
+`OrganizationMessagingMemberDirectoryAdapter::displayNamesFor` already uses,
+since `OrganizationMemberRecord` itself carries no display name).
+
 ## Flows
 
 ### Create / transition intervention (Command)
@@ -463,6 +535,9 @@ import; introduce the contract types instead.
 | `InterventionTemplatePort` | `DoctrineInterventionTemplateAdapter` |
 | `InterventionRecurrencePort` | `DoctrineInterventionRecurrenceAdapter` |
 | `InterventionReminderPort` | `DoctrineInterventionReminderAdapter` |
+| `InterventionStatisticsGatewayPort` | `DoctrineInterventionStatisticsGatewayAdapter` — backs `/interventions/statistics`; distinct from the cross-module port below, see Statistics above |
+| `InterventionSiteNamingPort` *(cross-module, consumed BY Intervention)* | `Facility\Infrastructure\Adapter\Intervention\InterventionSiteNamingAdapter` |
+| `InterventionMemberNamingPort` *(cross-module, consumed BY Intervention)* | `Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter` |
 | `InterventionEquipmentDraftProviderPort` | `Equipment\...\EquipmentInterventionResourceAdapter` *(cross-module)* |
 | `Organization\Application\Port\Outbound\InterventionStatisticsPort` *(cross-module, consumed by Organization)* | `Intervention\Infrastructure\Adapter\Organization\InterventionStatisticsAdapter` |
 | `Equipment\Application\Port\Outbound\InterventionServiceReportPort` *(cross-module, consumed by Equipment)* | `Intervention\Infrastructure\Adapter\Equipment\InterventionServiceReportAdapter` |
@@ -815,16 +890,35 @@ acting user as actor; `MaterializeDueRecurrencesHandler` emits
     (immutable) intervention rejects the upload with 409.
   - `Presentation/Api/Provider/Attachment/InterventionMediaProviderTest` —
     flat `organization.interventions.read` enforcement for reads.
+  - `Application/UseCase/Query/Workflow/GetInterventionStatistics/GetInterventionStatisticsHandlerTest`
+    — every port mocked: the 403 without `organization.interventions.read`,
+    zero-filled status/priority maps and a `null` average from an empty
+    aggregate, and name resolution wired through for non-empty top entries.
+  - `Presentation/Api/Provider/Statistics/GetInterventionStatisticsProviderTest`
+    — 401 unauthenticated, 400 missing `organization`, the handler's access
+    exception mapped to 403, and the Result → Output mapping.
 - Integration (Doctrine adapters against a real database): `tests/Integration/Intervention/`
   — used for `DoctrineInterventionRecurrenceAdapter`'s `DATE_SUB`-based
   lead-time window selection and the `reserveRun()` idempotence guard, both
   hard to trust from a mock. Also covers `DoctrineInterventionWorkflowGatewayAdapter`'s
   `number`, `labelId` (label join) and `memberId` (responsible OR jsonb
-  participant lookup) list filters, and `DoctrineInterventionReminderAdapter`'s
-  status-set/date-window candidate selection and anti-spam stamping.
+  participant lookup) list filters, `DoctrineInterventionReminderAdapter`'s
+  status-set/date-window candidate selection and anti-spam stamping, and
+  `DoctrineInterventionStatisticsGatewayAdapterTest` — grouped status/priority
+  counts scoped to the organization, the overdue/terminal-status exclusion,
+  the due-soon 48h boundary (inclusive) against the active-status set,
+  top-10 truncation and descending order, and the average-publication-days
+  computation (`null` with none published).
 - Functional: `tests/Functional/Api/InterventionRecurrenceApiTest.php`,
   `tests/Functional/Api/InterventionTeamAssignmentApiTest.php`,
-  `tests/Functional/Api/InterventionAttachmentApiTest.php`
+  `tests/Functional/Api/InterventionAttachmentApiTest.php`,
+  `tests/Functional/Api/InterventionStatisticsApiTest.php` — 200 with the
+  full shape (all 7 status keys, all 4 priority keys, `bySite` name
+  resolution, `averagePublicationDays`), 400 without `organization`, 403 for
+  a member without `organization.interventions.read`, and 403 for a caller
+  who is not a member of the requested organization at all (this endpoint has
+  no path-scoped record for a 404 to hide behind, so it mirrors the list
+  endpoint's uniform 403).
 - E2E: `tests/E2E/InterventionFlowTest.php` covers the withdrawal round-trip —
   submit → work items frozen (409) → withdraw → work items mutable again →
   resubmit (`testWithdrawSubmissionReopensFieldWorkUntilResubmission`). The

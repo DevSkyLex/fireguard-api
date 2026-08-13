@@ -348,6 +348,10 @@ services:
   # resolution for standalone event creation)
   Organization\Infrastructure\Adapter\Calendar\OrganizationCalendarMemberDirectoryAdapter: ~
 
+  # Cross-module member directory for the Intervention module's
+  # `/interventions/statistics` byResponsible breakdown
+  Organization\Infrastructure\Adapter\Intervention\OrganizationInterventionMemberDirectoryAdapter: ~
+
   # Image services
   Organization\Infrastructure\Image\OrganizationLogoResizer: ~
 

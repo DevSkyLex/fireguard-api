@@ -26,7 +26,7 @@ use Symfony\Component\HttpFoundation\Response;
   description: 'Field intervention coordinating draft operational resources.',
   operations: [
     new Post(uriTemplate: '/interventions', input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Put(name: 'intervention_put', uriTemplate: '/interventions/{id}', read: false, input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
+    new Put(name: 'intervention_put', uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: CreateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, status: Response::HTTP_CREATED, security: "is_granted('ROLE_USER')"),
     new GetCollection(
       uriTemplate: '/interventions',
       output: InterventionOutput::class,
@@ -53,11 +53,26 @@ use Symfony\Component\HttpFoundation\Response;
         new Parameter(name: 'plannedStartAtBefore', in: 'query', description: 'Inclusive upper planned-start bound.', required: false, schema: ['type' => 'string', 'format' => 'date-time']),
       ]),
     ),
-    new Get(uriTemplate: '/interventions/{id}', output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),
-    new Patch(uriTemplate: '/interventions/{id}', read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
-    new Delete(uriTemplate: '/interventions/{id}', read: false, input: false, output: false, processor: InterventionProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
+    new Get(uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], output: InterventionOutput::class, provider: InterventionProvider::class, security: "is_granted('ROLE_USER')"),
+    new Patch(uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: UpdateInterventionInput::class, output: InterventionOutput::class, processor: InterventionProcessor::class, security: "is_granted('ROLE_USER')"),
+    new Delete(uriTemplate: '/interventions/{id}', requirements: ['id' => self::UUID_PATTERN], read: false, input: false, output: false, processor: InterventionProcessor::class, status: Response::HTTP_NO_CONTENT, security: "is_granted('ROLE_USER')"),
   ],
 )]
 final class InterventionResource
 {
+  // #region Constants
+  /**
+   * Constant UUID_PATTERN.
+   *
+   * Disambiguates `{id}` from the static `/interventions/statistics` route
+   * (`InterventionStatisticsResource`): without a requirement, `statistics`
+   * matches `{id}` too, and whichever resource the attribute scanner
+   * discovers first wins the route, which is not a stable thing to depend
+   * on. Mirrors `Audit\Presentation\Api\Resource\AuditEventResource`'s
+   * `{id}` requirement.
+   *
+   * @var string
+   */
+  private const string UUID_PATTERN = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+  // #endregion
 }
