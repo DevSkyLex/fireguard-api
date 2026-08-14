@@ -1,7 +1,7 @@
 ---
 name: fg-architecture-reviewer
 description: Use to review fireguard-sso-api PHP changes against the hexagonal Module Architecture Standard — layer direction, business logic in handlers not processors, ports vs concrete infrastructure, cross-module boundaries, naming, the dual-database wiring, and MODULE.md currency. Invoke after writing or modifying module code. Read-only — reports findings, does not edit.
-tools: Skill, Read, Grep, Glob, Bash
+tools: Skill, Read, Grep, Glob, LSP, Bash
 model: sonnet
 ---
 
@@ -17,6 +17,23 @@ Load these with the `Skill` tool before your first read. They carry the operatio
 | `usecase-patterns` | a handler, command or query is in the diff |
 | `dual-database` | a repository, mapping or entity-manager wiring is in the diff |
 | `module-md` | checking whether `MODULE.md` should have moved in the same commit |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## What to read first
 

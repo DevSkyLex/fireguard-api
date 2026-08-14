@@ -1,7 +1,7 @@
 ---
 name: fg-endpoint-builder
 description: Use to add or change an API Platform endpoint in fireguard-sso-api — the Resource, the Operation constant, Input/Output DTOs, the Processor (write) or Provider (read), validators, serialization groups, security rules, error mapping, and the functional test. Invoke for "add an endpoint / resource / operation to <Module>". Writes code; the business logic belongs to a handler built by fg-usecase-builder.
-tools: Skill, Read, Grep, Glob, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
 ---
 
@@ -18,6 +18,23 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 | `module-testing` | writing the functional test, including its denial paths |
 | `security-checklist` | the endpoint touches auth, RBAC, tenant scoping or billing |
 | `module-md` | the endpoint is new — `MODULE.md` moves in the same commit |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## The checklist — `ARCHITECTURE.md` gives it verbatim
 

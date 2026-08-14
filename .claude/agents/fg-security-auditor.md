@@ -1,7 +1,7 @@
 ---
 name: fg-security-auditor
 description: Use to security-review changes touching authentication, OAuth2/OIDC, sessions, trusted devices, OTP/MFA, RBAC permissions, the audit ledger, multi-tenant/organization scoping, secrets handling, or the Stripe billing webhook. FireGuard is an identity + fire-safety platform, so these paths are its crown jewels. Read-only — reports risks and fixes, does not edit.
-tools: Skill, Read, Grep, Glob, Bash
+tools: Skill, Read, Grep, Glob, LSP, Bash
 model: sonnet
 ---
 
@@ -16,6 +16,23 @@ Load these with the `Skill` tool before your first read. They carry the operatio
 | `security-checklist` | always — the crown-jewel paths, the fail-closed rules and the denial-path test each finding needs |
 | `api-platform-contract` | judging where a security rule was placed on an operation |
 | `dual-database` | the finding concerns tenant scoping or data that crosses the two databases |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## The crown jewels
 

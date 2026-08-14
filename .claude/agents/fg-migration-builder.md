@@ -1,7 +1,7 @@
 ---
 name: fg-migration-builder
 description: Use for any Doctrine schema-migration work in fireguard-sso-api. This app has TWO databases with separate entity managers and separate migration histories (auth + main) — this agent routes every diff, apply, and status call to the correct one. Invoke when a Doctrine Record or mapping changes, or to generate, apply, or review a migration. Writes migrations.
-tools: Skill, Read, Grep, Glob, Edit, Write, Bash
+tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash
 model: sonnet
 ---
 
@@ -15,6 +15,23 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 | ----- | ------------ |
 | `dual-database` | always — it decides which entity manager and which migration history every command targets |
 | `module-testing` | the migration must reach the test databases too |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## The routing table
 

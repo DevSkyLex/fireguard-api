@@ -1,7 +1,7 @@
 ---
 name: fg-contract-reviewer
 description: Use to review the API Platform contract in fireguard-sso-api — resource metadata, operation constants, Input/Output DTOs, serialization groups, status codes, filters, pagination, OpenAPI output, and exception-to-HTTP mapping — for regressions and drift. Invoke after changing an endpoint or a DTO. Read-only — reports findings, does not edit.
-tools: Skill, Read, Grep, Glob, Bash
+tools: Skill, Read, Grep, Glob, LSP, Bash
 model: sonnet
 ---
 
@@ -15,6 +15,23 @@ Load these with the `Skill` tool before your first read. They carry the operatio
 | ----- | ------------ |
 | `api-platform-contract` | always — the six-item checklist is the review |
 | `hexagonal-layout` | judging where a DTO, processor or provider was placed |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## What to check
 
