@@ -126,9 +126,13 @@ Cross-app tooling stays at the monorepo root (`G:\Projets\fireguard\.claude\`): 
 and `/fg-contract-check`. This `.claude/` is also packaged as the **`fireguard-api`
 plugin** (manifest `.claude/.claude-plugin/plugin.json`), installed at the monorepo root —
 root sessions load the agents, the commands as `/fireguard-api:fg-…`, the skills, and the
-hooks. Rules, permissions, and `.mcp.json` are not plugin components: they still load only
-when this app is the workspace root. The install is a cached copy — after changing anything
-under `.claude/`, bump the plugin `version` and run
+hooks. The **Intelephense language server** (`.php`) ships as a second, LSP-only plugin —
+`fireguard-api-lsp`, source `.claude/lsp/` — enabled in both scopes, because LSP config
+loads only from an enabled plugin and this one is disabled here; it needs
+`npm install -g intelephense`, since a plugin configures the connection but does not ship
+the binary. Rules, permissions, and `.mcp.json` are not plugin components: they still load
+only when this app is the workspace root. The install is a cached copy — after changing
+anything under `.claude/`, bump the plugin `version` and run
 `claude plugin update fireguard-api@fireguard --scope project` from the monorepo root.
 
 `.github/` carries a separate **Copilot** toolset. It is deliberately independent of this
