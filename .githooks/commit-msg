@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# Reject a commit header that is not a Conventional Commit.
+#
+# Not a new convention: every commit in this history already has this shape, and
+# git-cliff (release.yml) reads it to build the release notes. An off-format header
+# silently disappears from the changelog rather than failing anything, which is why
+# this is checked here instead of being left to review.
+#
+# The 100-character cap is commitlint's default, not the 72 of the git manpage:
+# real headers here reach 76, and a cap that rejects existing practice only teaches
+# people to reach for --no-verify.
+#
+# Enable with:  git config core.hooksPath .githooks
+# Bypass with:  git commit --no-verify
+set -e
+
+header=$(sed -n '1p' "$1")
+
+# Machine-generated headers are not the author's to shape.
+case "$header" in
+  Merge*|Revert*|fixup!*|squash!*|"Initial commit"|'#'*|'') exit 0 ;;
+esac
+
+pattern='^(feat|fix|chore|refactor|docs|test|perf|ci|build|style|revert)(\([a-z0-9][a-z0-9._/-]*\))?!?: [a-z].*$'
+
+if ! printf '%s' "$header" | grep -Eq "$pattern"; then
+  echo "Rejected: commit header \"$header\"" >&2
+  echo '' >&2
+  echo 'Expected <type>(<scope>): <subject>, e.g. feat(organization): expose granted role names' >&2
+  echo 'Type:    feat fix chore refactor docs test perf ci build style revert' >&2
+  echo 'Scope:   the module or feature (optional, lowercase)' >&2
+  echo 'Subject: imperative, starts lowercase, no trailing period' >&2
+  exit 1
+fi
+
+if [ "${#header}" -gt 100 ]; then
+  echo "Rejected: commit header is ${#header} characters (max 100)." >&2
+  echo 'Move the detail to the body.' >&2
+  exit 1
+fi
+
+case "$header" in
+  *.)
+    echo "Rejected: commit header ends in a period — \"$header\"" >&2
+    exit 1
+    ;;
+esac
