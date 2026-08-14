@@ -54,5 +54,6 @@
         "hooks": [{ "type": "command", "command": "node .claude/hooks/format.mjs" }]
       }
     ]
-  }
+  },
+  "enabledPlugins": { "fireguard-api-lsp@fireguard": true }
 }

@@ -1,7 +1,7 @@
 # FireGuard API — Claude Code tooling
 
 This app ships its own `.claude/`. Open **`fireguard-sso-api/`** as the workspace root to
-activate it: 12 agents, 13 commands, 7 skills, 7 rules, 1 MCP server, and 2 hooks.
+activate it: 12 agents, 13 commands, 7 skills, 7 rules, 1 MCP server, 1 LSP server, and 2 hooks.
 
 > **This directory is also a plugin.** The monorepo root installs it as
 > `fireguard-api@fireguard` (project scope, via the root `.claude-plugin/marketplace.json`),
@@ -131,6 +131,42 @@ servers the frontend uses: `symfony/mcp-bundle` exists to _expose_ an app as an 
 not to document Symfony, and the PHPStan MCP servers are unofficial and redundant with
 `make phpstan`. Context7 covers Symfony 7.4, Doctrine, API Platform, and PHPUnit
 generically, which is honestly the whole of what is available and reliable.
+
+## LSP server (`lsp/`, plugin `fireguard-api-lsp`)
+
+[Intelephense](https://intelephense.com) on `.php`, giving Claude `goToDefinition` /
+`findReferences` / `hover` / `documentSymbol` and pushing diagnostics into the session after
+every edit. Navigation is the bigger half of the value here: from an
+`Application/Port/Outbound` interface to the adapter that fulfils it, the link runs through a
+`config/modules/<module>.yaml` alias, so grep lands in YAML while `goToImplementation` lands
+in the adapter.
+
+**Measured before it was trusted.** On 15 committed files spread across all four layers,
+Intelephense published **zero** diagnostics — the noise I expected from Symfony attributes
+and API Platform generics did not materialise, which is why `diagnostics` is left on. With a
+deliberate `new NopePasDeClasse()` / `fonctionInexistante()` / `$this->methodeInexistante()`
+injected, all three come back as errors. Indexing the whole project including `vendor/`
+takes ~37 s cold and ~1 s warm, cached under the OS temp dir.
+
+**Install the binary yourself** — a plugin configures the connection, it does not ship the
+server: `npm install -g intelephense`. The absolute path to
+`…/node_modules/intelephense/lib/intelephense.js` is in `lsp/.lsp.json`, along with the
+absolute `workspaceFolder`; see the frontend's `.claude/README.md` for why `${CLAUDE_PLUGIN_ROOT}`
+cannot be used for either. `settings.intelephense.files.exclude` drops `var/` — Symfony's
+generated cache would otherwise be indexed as source.
+
+**Why a second plugin rather than a `.lsp.json` next to this file:** LSP configuration is the
+one component Claude Code loads *only from an enabled plugin*, and `fireguard-api@fireguard`
+is deliberately disabled when this app is the workspace root. `lsp/` is therefore its own
+minimal plugin, enabled at **both** scopes — `enabledPlugins` here and in the root
+`.claude/settings.json`. Marketplace entry: `fireguard-api-lsp`, source
+`./fireguard-sso-api/.claude/lsp`. Each scope pins its own version, so a change here means
+bumping `lsp/.claude-plugin/plugin.json` and running
+`claude plugin update fireguard-api-lsp@fireguard --scope project` **twice**, once from the
+monorepo root and once from here.
+
+Verify with `claude --debug-file dbg.log -p ok`: a healthy session logs
+`Loaded 1 LSP server(s) from plugin: fireguard-api-lsp`.
 
 ## Hooks
 
