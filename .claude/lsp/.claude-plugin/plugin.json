@@ -1,6 +1,6 @@
 {
   "name": "fireguard-api-lsp",
-  "version": "1.0.0",
-  "description": "FireGuard API language server — Intelephense on .php. Ships nothing but .lsp.json, because LSP configuration is the one Claude Code component that loads exclusively from an *enabled plugin*: the fireguard-api plugin is deliberately disabled inside the app (its .claude/ already loads natively there), so the server needs its own plugin to be available from both the monorepo root and the app itself.",
+  "version": "1.1.1",
+  "description": "FireGuard API language server — Intelephense on .php. Ships nothing but .lsp.json and the launcher that resolves the app at runtime, because LSP configuration is the one Claude Code component that loads exclusively from an *enabled plugin*: the fireguard-api plugin is deliberately disabled inside the app (its .claude/ already loads natively there), so the server needs its own plugin to be available from both the monorepo root and the app itself.",
   "author": { "name": "Valentin FORTIN", "email": "contact@valentin-fortin.pro" }
 }

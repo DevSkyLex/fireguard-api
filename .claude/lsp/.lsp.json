@@ -1,11 +1,10 @@
 {
   "php": {
     "command": "node",
-    "args": ["C:/nvm4w/nodejs/node_modules/intelephense/lib/intelephense.js", "--stdio"],
+    "args": ["${CLAUDE_PLUGIN_ROOT}/start.mjs", "php"],
     "extensionToLanguage": {
       ".php": "php"
     },
-    "workspaceFolder": "G:/Projets/fireguard/fireguard-sso-api",
     "settings": {
       "intelephense": {
         "files": {

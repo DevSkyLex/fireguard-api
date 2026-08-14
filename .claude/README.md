@@ -149,11 +149,16 @@ injected, all three come back as errors. Indexing the whole project including `v
 takes ~37 s cold and ~1 s warm, cached under the OS temp dir.
 
 **Install the binary yourself** — a plugin configures the connection, it does not ship the
-server: `npm install -g intelephense`. The absolute path to
-`…/node_modules/intelephense/lib/intelephense.js` is in `lsp/.lsp.json`, along with the
-absolute `workspaceFolder`; see the frontend's `.claude/README.md` for why `${CLAUDE_PLUGIN_ROOT}`
-cannot be used for either. `settings.intelephense.files.exclude` drops `var/` — Symfony's
-generated cache would otherwise be indexed as source.
+server: `npm install -g intelephense`. Nothing in `.lsp.json` is machine-specific:
+`lsp/start.mjs` finds this app by walking up from `${CLAUDE_PROJECT_DIR}` and the cwd until it
+sees `bin/console`, finds the global Intelephense next to the node binary (falling back to
+`npm root -g`), and rewrites `rootUri` / `rootPath` / `workspaceFolders` in the single
+`initialize` request so the server roots here and not on the monorepo. Neither placeholder
+could do that alone — `${CLAUDE_PLUGIN_ROOT}` is the plugin cache copy and
+`${CLAUDE_PROJECT_DIR}` differs between the two session roots. If the binary is missing, the
+launcher exits with `run: npm install -g intelephense` on stderr instead of hanging.
+`settings.intelephense.files.exclude` drops `var/` — Symfony's generated cache would
+otherwise be indexed as source.
 
 **Why a second plugin rather than a `.lsp.json` next to this file:** LSP configuration is the
 one component Claude Code loads *only from an enabled plugin*, and `fireguard-api@fireguard`
