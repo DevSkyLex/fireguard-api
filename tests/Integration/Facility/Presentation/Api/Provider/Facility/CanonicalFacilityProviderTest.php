@@ -16,6 +16,7 @@ use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -157,7 +158,7 @@ final class CanonicalFacilityProviderTest extends KernelTestCase
   private function provider(RequestStack $requestStack): CanonicalFacilityProvider
   {
     $authorization = self::createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = self::createStub(Security::class);
     $security->method('getUser')->willReturn(

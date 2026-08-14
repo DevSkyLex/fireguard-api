@@ -14,6 +14,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecor
 use Facility\Presentation\Api\Dto\Output\Attachment\FacilityAttachmentOutput;
 use Facility\Presentation\Api\Provider\Attachment\FacilityMediaProvider;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -45,7 +46,7 @@ final class FacilityMediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($facility);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -79,7 +80,7 @@ final class FacilityMediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($facility);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -89,6 +90,35 @@ final class FacilityMediaProviderTest extends TestCase
     $queryBus = $this->createStub(QueryBusPort::class);
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
+      ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testProvideListThrowsNotFoundWhenOrganizationOutsideCallerScope(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $facility = new FacilityRecord();
+    $facility->id = self::FACILITY_ID;
+    $facility->organization = $organization;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($facility);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $queryBus = $this->createStub(QueryBusPort::class);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
 
     new FacilityMediaProvider($entityManager, $queryBus, $authorization, $security)
       ->provide(new GetCollection(), ['facilityId' => self::FACILITY_ID]);
@@ -114,7 +144,7 @@ final class FacilityMediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($attachment);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -273,7 +303,7 @@ final class FacilityMediaProviderTest extends TestCase
     $attachment->id = 'attachment-id';
     $attachment->facility = $facility;
 
-    $provider = $this->provider(found: $attachment, hasPermission: false);
+    $provider = $this->provider(found: $attachment, decision: OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.facilities.read permission.');
@@ -281,9 +311,29 @@ final class FacilityMediaProviderTest extends TestCase
     $provider->provide(new Get(), ['id' => 'attachment-id']);
   }
 
+  #[Test]
+  public function testProvideGetOneThrowsNotFoundWhenOrganizationOutsideCallerScope(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $facility = new FacilityRecord();
+    $facility->id = self::FACILITY_ID;
+    $facility->organization = $organization;
+    $attachment = new FacilityAttachmentRecord();
+    $attachment->id = 'attachment-id';
+    $attachment->facility = $facility;
+
+    $provider = $this->provider(found: $attachment, decision: OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Attachment not found.');
+
+    $provider->provide(new Get(), ['id' => 'attachment-id']);
+  }
+
   private function provider(
     ?Throwable $exception = null,
-    bool $hasPermission = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     object|false|null $found = false,
   ): FacilityMediaProvider {
     if (false === $found) {
@@ -298,7 +348,7 @@ final class FacilityMediaProviderTest extends TestCase
     $entityManager->method('find')->willReturn($found);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(

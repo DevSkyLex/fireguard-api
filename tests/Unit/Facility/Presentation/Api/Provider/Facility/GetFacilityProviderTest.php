@@ -12,6 +12,7 @@ use Facility\Domain\Exception\FacilityNotFoundException;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\GetFacilityProvider;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -43,9 +44,9 @@ final class GetFacilityProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new GetFacilityQuery(
@@ -93,9 +94,9 @@ final class GetFacilityProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -176,10 +177,21 @@ final class GetFacilityProviderTest extends TestCase
   #[Test]
   public function testProvideRejectsCallerWithoutReadPermission(): void
   {
-    $provider = $this->makeProvider(hasPermission: false);
+    $provider = $this->makeProvider(decision: OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.facilities.read permission.');
+
+    $this->ask($provider);
+  }
+
+  #[Test]
+  public function testProvideMapsOutsideScopeToHttp404(): void
+  {
+    $provider = $this->makeProvider(decision: OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
 
     $this->ask($provider);
   }
@@ -263,13 +275,13 @@ final class GetFacilityProviderTest extends TestCase
     );
   }
 
-  private function makeProvider(?Throwable $exception = null, bool $hasPermission = true): GetFacilityProvider
+  private function makeProvider(?Throwable $exception = null, OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED): GetFacilityProvider
   {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441239'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $queryBus = $this->createStub(QueryBusPort::class);
 

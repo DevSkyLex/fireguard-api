@@ -12,6 +12,7 @@ use Facility\Application\UseCase\Command\Attachment\AddFacilityAttachment\AddFac
 use Facility\Application\UseCase\Command\Attachment\DeleteFacilityAttachment\DeleteFacilityAttachmentCommand;
 use Facility\Infrastructure\Persistence\Doctrine\Record\{FacilityAttachmentRecord, FacilityRecord};
 use Facility\Presentation\Api\Processor\Attachment\FacilityMediaProcessor;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -80,9 +81,9 @@ final class FacilityMediaProcessorTest extends TestCase
 
       $authorization = $this->createMock(OrganizationAuthorizationPort::class);
       $authorization->expects(self::once())
-        ->method('hasPermission')
+        ->method('resolveAccess')
         ->with('user-id', self::ORGANIZATION_ID, 'organization.facilities.write')
-        ->willReturn(true);
+        ->willReturn(OrganizationAccessDecision::GRANTED);
 
       $security = $this->createStub(Security::class);
       $security->method('getUser')->willReturn(
@@ -141,7 +142,7 @@ final class FacilityMediaProcessorTest extends TestCase
     $entityManager->method('find')->willReturn($facility);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -155,6 +156,49 @@ final class FacilityMediaProcessorTest extends TestCase
     $commandBus->expects(self::never())->method('dispatch');
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    new FacilityMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $authorization,
+      $security,
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Post(), ['facilityId' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testUploadReportsACallerOutsideTheOrganizationAsFacilityNotFound(): void
+  {
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+    $facility = new FacilityRecord();
+    $facility->id = self::FACILITY_ID;
+    $facility->organization = $organization;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturn($facility);
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn(
+      new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
+    );
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/facilities/' . self::FACILITY_ID . '/attachments', 'POST'));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
 
     new FacilityMediaProcessor(
       $entityManager,
@@ -187,7 +231,7 @@ final class FacilityMediaProcessorTest extends TestCase
     $entityManager->method('find')->willReturn($attachment);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -233,7 +277,7 @@ final class FacilityMediaProcessorTest extends TestCase
     $entityManager->method('find')->willReturn($attachment);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
@@ -415,6 +459,40 @@ final class FacilityMediaProcessorTest extends TestCase
       ->process(null, new Delete(), ['id' => 'attachment-id']);
   }
 
+  #[Test]
+  public function testDeleteReportsACallerOutsideTheOrganizationAsAttachmentNotFound(): void
+  {
+    $attachment = new FacilityAttachmentRecord();
+    $attachment->id = 'attachment-id';
+    $attachment->facility = $this->facilityRecord();
+    $attachment->revision = 1;
+
+    $entityManager = $this->wrappingEntityManager();
+    $entityManager->method('find')->willReturn($attachment);
+
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/facility-attachments/attachment-id', 'DELETE'));
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Attachment not found.');
+
+    new FacilityMediaProcessor(
+      $entityManager,
+      $commandBus,
+      $authorization,
+      $this->userSecurity(),
+      $requestStack,
+      new MultipartAttachmentGuard(),
+      new RevisionGuard($requestStack),
+    )->process(null, new Delete(), ['id' => 'attachment-id']);
+  }
+
   private function facilityRecord(): FacilityRecord
   {
     $organization = new OrganizationRecord();
@@ -442,7 +520,9 @@ final class FacilityMediaProcessorTest extends TestCase
   private function grantingAuthorization(bool $granted): OrganizationAuthorizationPort
   {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($granted);
+    $authorization->method('resolveAccess')->willReturn(
+      $granted ? OrganizationAccessDecision::GRANTED : OrganizationAccessDecision::MISSING_PERMISSION,
+    );
 
     return $authorization;
   }

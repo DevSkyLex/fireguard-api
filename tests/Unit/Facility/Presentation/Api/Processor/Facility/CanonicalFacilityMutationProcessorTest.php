@@ -18,6 +18,7 @@ use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -741,7 +742,19 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.facilities.write permission.');
 
-    $this->customProcessor($record, $this->request('PATCH', '{}'), hasPermission: false)
+    $this->customProcessor($record, $this->request('PATCH', '{}'), decision: OrganizationAccessDecision::MISSING_PERMISSION)
+      ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testReportsACallerOutsideTheOrganizationAsNotFound(): void
+  {
+    $record = $this->record();
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
+
+    $this->customProcessor($record, $this->request('PATCH', '{}'), decision: OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->process(new PatchCanonicalFacilityInput(), new Patch(), ['id' => self::FACILITY_ID]);
   }
 
@@ -819,13 +832,13 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   private function customProcessor(
     FacilityRecord $record,
     RequestStack $requestStack,
-    bool $hasPermission = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     bool $authenticated = true,
     ?InterventionResourceGatewayPort $gateway = null,
   ): CanonicalFacilityMutationProcessor {
     $entityManager = $this->entityManager($record);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($authenticated ? $this->user() : null);
     $manager = new InterventionResourceManager($gateway ?? $this->createStub(InterventionResourceGatewayPort::class));
@@ -855,7 +868,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     $archivalGuard ??= $this->createStub(FacilityArchivalGuardPort::class);
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->user());
     $manager = new InterventionResourceManager($this->createStub(InterventionResourceGatewayPort::class));

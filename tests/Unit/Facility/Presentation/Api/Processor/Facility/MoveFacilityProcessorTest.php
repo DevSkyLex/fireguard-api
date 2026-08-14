@@ -13,6 +13,7 @@ use Facility\Presentation\Api\Dto\Input\Facility\MoveFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Processor\Facility\MoveFacilityProcessor;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -45,9 +46,9 @@ final class MoveFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -95,9 +96,9 @@ final class MoveFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -167,9 +168,9 @@ final class MoveFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new MoveFacilityCommand(
@@ -252,10 +253,21 @@ final class MoveFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessRejectsCallerWithoutWritePermission(): void
   {
-    $processor = $this->makeProcessor(requestStack: new RequestStack(), hasPermission: false);
+    $processor = $this->makeProcessor(requestStack: new RequestStack(), decision: OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.facilities.write permission.');
+
+    $this->dispatch($processor);
+  }
+
+  #[Test]
+  public function testProcessMapsOutsideScopeToHttp404(): void
+  {
+    $processor = $this->makeProcessor(requestStack: new RequestStack(), decision: OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
 
     $this->dispatch($processor);
   }
@@ -396,7 +408,7 @@ final class MoveFacilityProcessorTest extends TestCase
     ?Throwable $exception = null,
     string $content = '{"parentFacilityId":null}',
     ?RequestStack $requestStack = null,
-    bool $hasPermission = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
   ): MoveFacilityProcessor {
     if (null === $requestStack) {
       $requestStack = new RequestStack();
@@ -407,7 +419,7 @@ final class MoveFacilityProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441249'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $commandBus = $this->createStub(CommandBusPort::class);
 

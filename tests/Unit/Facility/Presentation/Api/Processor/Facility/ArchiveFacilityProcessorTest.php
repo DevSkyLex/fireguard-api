@@ -11,6 +11,7 @@ use Facility\Application\UseCase\Command\Facility\ArchiveFacility\{ArchiveFacili
 use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityNotFoundException};
 use Facility\Presentation\Api\Processor\Facility\ArchiveFacilityProcessor;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -42,9 +43,9 @@ final class ArchiveFacilityProcessorTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new ArchiveFacilityCommand(
@@ -148,10 +149,21 @@ final class ArchiveFacilityProcessorTest extends TestCase
   #[Test]
   public function testProcessRejectsCallerWithoutWritePermission(): void
   {
-    $processor = $this->makeProcessor(hasPermission: false);
+    $processor = $this->makeProcessor(decision: OrganizationAccessDecision::MISSING_PERMISSION);
 
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.facilities.write permission.');
+
+    $this->dispatch($processor);
+  }
+
+  #[Test]
+  public function testProcessMapsOutsideScopeToHttp404(): void
+  {
+    $processor = $this->makeProcessor(decision: OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
 
     $this->dispatch($processor);
   }
@@ -250,14 +262,14 @@ final class ArchiveFacilityProcessorTest extends TestCase
 
   private function makeProcessor(
     ?Throwable $exception = null,
-    bool $hasPermission = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     ?CommandBusPort $commandBus = null,
   ): ArchiveFacilityProcessor {
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441259'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     if (null === $commandBus) {
       $commandBus = $this->createStub(CommandBusPort::class);

@@ -141,7 +141,11 @@ final readonly class CreateFacilityProcessor implements ProcessorInterface
     }
 
     $permission = $this->interventionPermission($data->intervention, $user->getId()) ?? 'organization.facilities.write';
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, $permission)) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
     $this->assertOfflineCreate($data->clientId, null !== $resourceId);

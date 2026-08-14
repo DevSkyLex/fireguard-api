@@ -91,7 +91,11 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $facility->organization->id, 'organization.facilities.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $facility->organization->id, 'organization.facilities.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
     }
 
@@ -142,7 +146,11 @@ final readonly class FacilityMediaProcessor implements ProcessorInterface
 
     $organization = $record->facility->organization;
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.facilities.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
     }
 

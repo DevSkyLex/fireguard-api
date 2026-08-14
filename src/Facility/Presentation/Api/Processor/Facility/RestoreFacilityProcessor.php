@@ -45,7 +45,11 @@ final readonly class RestoreFacilityProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and facilityId URI parameters are required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.facilities.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.facilities.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.write permission.');
     }
 

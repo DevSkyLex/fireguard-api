@@ -13,6 +13,7 @@ use Facility\Application\UseCase\Query\Facility\ListFacilities\ListFacilitiesQue
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
 use Facility\Presentation\Api\Provider\Facility\ListFacilitiesProvider;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,7 +25,7 @@ use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\{Request, RequestStack};
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Throwable;
@@ -50,9 +51,9 @@ final class ListFacilitiesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -124,9 +125,9 @@ final class ListFacilitiesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -173,9 +174,9 @@ final class ListFacilitiesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -260,9 +261,9 @@ final class ListFacilitiesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.facilities.read')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $requestStack = new RequestStack();
     $requestStack->push(new Request());
@@ -275,6 +276,40 @@ final class ListFacilitiesProviderTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationOutsideCallerScope(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441232';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441233');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), $organizationId, 'organization.facilities.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    $provider = new ListFacilitiesProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Organization not found.');
 
     $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
   }
@@ -318,8 +353,8 @@ final class ListFacilitiesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
-      ->willReturn(true);
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $now = new DateTimeImmutable('2026-03-02T10:00:00+00:00');
 
@@ -420,7 +455,7 @@ final class ListFacilitiesProviderTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441261'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException($exception);

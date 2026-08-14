@@ -11,6 +11,7 @@ use Facility\Presentation\Api\Provider\Facility\CanonicalFacilityProvider;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -105,7 +106,26 @@ final class CanonicalFacilityProviderTest extends TestCase
 
     $this->expectException(AccessDeniedHttpException::class);
 
-    $this->provider($entityManager, $requestStack, null, false)
+    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::MISSING_PERMISSION)
+      ->provide(new GetCollection(), []);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenTheOrganizationIsOutsideCallerScope(): void
+  {
+    $requestStack = new RequestStack();
+    $requestStack->push(Request::create('/api/facilities?organization=/api/organizations/' . self::ORGANIZATION_ID));
+
+    $organization = new OrganizationRecord();
+    $organization->id = self::ORGANIZATION_ID;
+
+    $entityManager = $this->createStub(EntityManagerInterface::class);
+    $entityManager->method('find')->willReturn($organization);
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
+
+    $this->provider($entityManager, $requestStack, null, OrganizationAccessDecision::OUTSIDE_SCOPE)
       ->provide(new GetCollection(), []);
   }
 
@@ -118,10 +138,10 @@ final class CanonicalFacilityProviderTest extends TestCase
     EntityManagerInterface $entityManager,
     RequestStack $requestStack,
     ?InterventionAssignmentContext $context,
-    bool $granted = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
   ): CanonicalFacilityProvider {
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($granted);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(

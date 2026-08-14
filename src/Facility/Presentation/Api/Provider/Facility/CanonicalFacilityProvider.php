@@ -199,7 +199,15 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
   private function assertRead(?OrganizationRecord $organization): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser || !$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.facilities.read')) {
+    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
+    }
+
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.facilities.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
   }

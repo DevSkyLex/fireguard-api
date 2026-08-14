@@ -117,7 +117,11 @@ final readonly class FacilityMediaProvider implements ProviderInterface
       throw new NotFoundHttpException('Facility not found.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $facility->organization->id, 'organization.facilities.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $facility->organization->id, 'organization.facilities.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Facility not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 
@@ -181,7 +185,11 @@ final readonly class FacilityMediaProvider implements ProviderInterface
     }
 
     $user = $this->user();
-    if (!$this->authorization->hasPermission($user->getId(), $record->facility->organization->id, 'organization.facilities.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $record->facility->organization->id, 'organization.facilities.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Attachment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.facilities.read permission.');
     }
 

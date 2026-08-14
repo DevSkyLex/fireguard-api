@@ -11,6 +11,7 @@ use Facility\Application\UseCase\Command\Facility\RestoreFacility\{RestoreFacili
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityNotFoundException};
 use Facility\Presentation\Api\Processor\Facility\RestoreFacilityProcessor;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -38,7 +39,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var CommandBusPort&MockObject $commandBus */
     $commandBus = $this->createMock(CommandBusPort::class);
@@ -155,7 +156,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441294'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $commandBus = $this->createMock(CommandBusPort::class);
     $commandBus->expects(self::never())->method('dispatch');
@@ -173,6 +174,34 @@ final class RestoreFacilityProcessorTest extends TestCase
       data: null,
       operation: new Patch(),
       uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655441295', 'facilityId' => '550e8400-e29b-41d4-a716-446655441296'],
+    );
+  }
+
+  #[Test]
+  public function testProcessMapsOutsideScopeToHttp404(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441393'));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $commandBus = $this->createMock(CommandBusPort::class);
+    $commandBus->expects(self::never())->method('dispatch');
+
+    $processor = new RestoreFacilityProcessor(
+      commandBus: $commandBus,
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
+    $this->expectExceptionMessage('Facility not found.');
+
+    $processor->process(
+      data: null,
+      operation: new Patch(),
+      uriVariables: ['organizationId' => '550e8400-e29b-41d4-a716-446655441394', 'facilityId' => '550e8400-e29b-41d4-a716-446655441395'],
     );
   }
 
@@ -287,7 +316,7 @@ final class RestoreFacilityProcessorTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser('550e8400-e29b-41d4-a716-446655441282'));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $commandBus = $this->createStub(CommandBusPort::class);
     $commandBus->method('dispatch')->willThrowException($exception);
