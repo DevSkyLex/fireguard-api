@@ -1,6 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "enabledMcpjsonServers": ["context7"],
   "permissions": {
     "allow": [
       "Bash(make phpstan)",
@@ -41,19 +40,34 @@
       "Read(./config/jwt/**)"
     ]
   },
+  "enabledMcpjsonServers": [
+    "context7"
+  ],
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "node .claude/hooks/guard.mjs" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard.mjs"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "hooks": [{ "type": "command", "command": "node .claude/hooks/format.mjs" }]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/format.mjs"
+          }
+        ]
       }
     ]
   },
-  "enabledPlugins": { "fireguard-api-lsp@fireguard": true }
+  "enabledPlugins": {
+    "fireguard-api-lsp@fireguard": true
+  }
 }

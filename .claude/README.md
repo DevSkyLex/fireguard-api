@@ -1,7 +1,7 @@
 # FireGuard API — Claude Code tooling
 
 This app ships its own `.claude/`. Open **`fireguard-sso-api/`** as the workspace root to
-activate it: 12 agents, 13 commands, 7 skills, 7 rules, 1 MCP server, 1 LSP server, and 2 hooks.
+activate it: 12 agents, 13 commands, 7 skills, 8 rules, 1 MCP server, 1 LSP server, and 2 hooks.
 
 > **This directory is also a plugin.** The monorepo root installs it as
 > `fireguard-api@fireguard` (project scope, via the root `.claude-plugin/marketplace.json`),
@@ -77,7 +77,7 @@ second one that drifts.
 
 The agent/skill split above holds. The layer **below** it does repeat: `rules/` are
 path-scoped, so they fire *without* the skill, and a rule that only pointed at one would carry
-nothing at the moment it is needed. Five of the seven therefore abridge a skill —
+nothing at the moment it is needed. Five of the eight therefore abridge a skill —
 `tests.md`→`module-testing`, `application.md`→`usecase-patterns`,
 `presentation.md`→`api-platform-contract`, `domain.md`→`hexagonal-layout`,
 `infrastructure.md`+`module-config.md`→`dual-database`.
@@ -116,6 +116,7 @@ that kind of file, not the how-to.
 | `migrations.md`     | `migrations/**`                         | name the database on every command, `-d memory_limit=1G`, never edit an applied migration |
 | `tests.md`          | `tests/**`                              | which level covers what, the denial paths, PostgreSQL not SQLite                          |
 | `module-config.md`  | `config/modules/*` `config/packages/**` | the explicit `$entityManager`, the port `alias:`, first-match-wins access control         |
+| `lsp-usage.md`      | `src/**/*.php` `tests/**/*.php`         | LSP for symbols / grep for text, 1-based positions, the four premium operations that do not answer |
 
 Three of them repeat the **dual-database** warning from a different angle, on purpose: it is the
 one defect that passes every static check and still corrupts data.
@@ -135,11 +136,21 @@ generically, which is honestly the whole of what is available and reliable.
 ## LSP server (`lsp/`, plugin `fireguard-api-lsp`)
 
 [Intelephense](https://intelephense.com) on `.php`, giving Claude `goToDefinition` /
-`findReferences` / `hover` / `documentSymbol` and pushing diagnostics into the session after
-every edit. Navigation is the bigger half of the value here: from an
+`findReferences` / `hover` / `documentSymbol` / `workspaceSymbol` and pushing diagnostics into
+the session after every edit. Navigation is the bigger half of the value here: from an
 `Application/Port/Outbound` interface to the adapter that fulfils it, the link runs through a
-`config/modules/<module>.yaml` alias, so grep lands in YAML while `goToImplementation` lands
-in the adapter.
+`config/modules/<module>.yaml` alias, so grep lands in YAML while the LSP lands in the adapter.
+
+**Four of the nine operations do not answer.** `goToImplementation`, `prepareCallHierarchy`,
+`incomingCalls`, and `outgoingCalls` are Intelephense **premium** features: the first returns
+"No definition found" even on a genuine port interface, the other three answer
+`Unhandled method`. Neither result means "nothing implements this" — read them as "not
+available". **`findReferences` is the substitute, and it is a complete one for the port→adapter
+hop**: on `Equipment\…\TagRepositoryPort` it returns 123 references across 24 files, with
+`Infrastructure/Persistence/Doctrine/Repository/TagRepository.php` — the `implements` clause —
+as the first hit after the declaration, ahead of the handlers that inject it. `workspaceSymbol`
+covers the rest of what navigation would otherwise need. When to reach for any of this, rather
+than for grep, is in `rules/lsp-usage.md`.
 
 **Measured before it was trusted.** On 15 committed files spread across all four layers,
 Intelephense published **zero** diagnostics — the noise I expected from Symfony attributes

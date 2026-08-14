@@ -1,6 +1,12 @@
+<!--
+PR title: <type>(<scope>): <subject> — Conventional Commits, e.g. feat(organization): expose granted role names.
+Squash-merging turns the title into the commit header, so `conventions.yml` fails the PR when it does not match.
+-->
+
 # Context
 
 - Issue / ticket:
+- Companion PR (fireguard-sso-web):
 - Goal:
 - Out of scope:
 
@@ -30,7 +36,9 @@ Select only what really matters for this PR.
 - [ ] Tenant / organization isolation
 - [ ] API contract / serialization
 - [ ] Persistence / migrations / Doctrine mapping
+- [ ] Entity manager wiring (auth vs main database)
 - [ ] Architecture / layer boundaries
+- [ ] `MODULE.md` updated in this PR
 - [ ] Query / collection performance
 - [ ] CI / workflow / release impact
 - [ ] Regression risk
