@@ -18,6 +18,7 @@ use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\InterventionResourceManager;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
@@ -660,8 +661,24 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     $this->expectException(AccessDeniedHttpException::class);
     $this->expectExceptionMessage('Missing organization.equipment.write permission.');
 
-    $this->customProcessor($record, $this->request('PATCH', '{}'), hasPermission: false)
+    $this->customProcessor($record, $this->request('PATCH', '{}'), decision: OrganizationAccessDecision::MISSING_PERMISSION)
       ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+  }
+
+  #[Test]
+  public function testThrowsNotFoundWhenOrganizationIsOutsideCallersScope(): void
+  {
+    $record = $this->record();
+
+    // Not AccessDeniedHttpException: a 403 for a caller outside the organization's
+    // scope would confirm the record exists across an organization boundary.
+    try {
+      $this->customProcessor($record, $this->request('PATCH', '{}'), decision: OrganizationAccessDecision::OUTSIDE_SCOPE)
+        ->process(new PatchCanonicalEquipmentInput(), new Patch(), ['id' => self::EQUIPMENT_ID]);
+      self::fail('Expected NotFoundHttpException to be thrown.');
+    } catch (NotFoundHttpException $exception) {
+      self::assertSame('Equipment not found.', $exception->getMessage());
+    }
   }
 
   #[Test]
@@ -714,13 +731,13 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
   private function customProcessor(
     EquipmentRecord $record,
     RequestStack $requestStack,
-    bool $hasPermission = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     bool $authenticated = true,
     ?InterventionResourceGatewayPort $gateway = null,
   ): CanonicalEquipmentMutationProcessor {
     $entityManager = $this->entityManager($record);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($authenticated ? $this->user() : null);
     $manager = new InterventionResourceManager($gateway ?? $this->createStub(InterventionResourceGatewayPort::class));
@@ -752,7 +769,7 @@ final class CanonicalEquipmentMutationProcessorTest extends TestCase
     $synchronizer ??= $this->createStub(EquipmentMaintenanceLogSynchronizerPort::class);
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn($this->user());
     $manager = new InterventionResourceManager($resources);

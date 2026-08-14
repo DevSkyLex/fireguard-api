@@ -65,7 +65,11 @@ final readonly class CommissionEquipmentProcessor implements ProcessorInterface
       throw new BadRequestHttpException('OrganizationId and equipmentId URI parameters are required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.equipment.write')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.equipment.write');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.equipment.write permission.');
     }
 

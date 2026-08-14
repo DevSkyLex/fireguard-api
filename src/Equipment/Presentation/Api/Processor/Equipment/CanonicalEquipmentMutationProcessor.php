@@ -306,7 +306,11 @@ final readonly class CanonicalEquipmentMutationProcessor implements ProcessorInt
     } catch (InterventionConflictException $exception) {
       throw new ConflictHttpException($exception->getMessage(), $exception);
     }
-    if (!$this->authorization->hasPermission($user->getId(), $record->organization->id, $permission)) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $record->organization->id, $permission);
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Equipment not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing ' . $permission . ' permission.');
     }
   }

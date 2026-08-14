@@ -80,7 +80,7 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
       if (!$record instanceof EquipmentRecord) {
         throw new NotFoundHttpException('Equipment not found.');
       }
-      $this->assertRead($record->organization);
+      $this->assertRead($record->organization, 'Equipment not found.');
 
       return $this->map($record);
     }
@@ -90,7 +90,7 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
     $interventionId = is_string($intervention) && '' !== $intervention ? ResourceIriParser::id($intervention, 'interventions') : null;
     $organizationValue = $request?->query->get('organization');
     $organization = $this->organization($organizationValue, $intervention);
-    $this->assertRead($organization);
+    $this->assertRead($organization, 'Organization not found.');
     $recordStatus = $request?->query->get('recordStatus');
     $query = $this->entityManager->createQueryBuilder()
       ->select('e')
@@ -185,11 +185,21 @@ final readonly class CanonicalEquipmentProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param ?OrganizationRecord $organization the organization value
+   * @param string $notFoundMessage the not-found message for this route when the caller
+   *                                has no active membership in the organization
    */
-  private function assertRead(?OrganizationRecord $organization): void
+  private function assertRead(?OrganizationRecord $organization, string $notFoundMessage): void
   {
     $user = $this->security->getUser();
-    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser || !$this->authorization->hasPermission($user->getId(), $organization->id, 'organization.equipment.read')) {
+    if (!$organization instanceof OrganizationRecord || !$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
+    }
+
+    $decision = $this->authorization->resolveAccess($user->getId(), $organization->id, 'organization.equipment.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException($notFoundMessage);
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
     }
   }

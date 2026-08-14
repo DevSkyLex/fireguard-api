@@ -90,6 +90,45 @@ sequenceDiagram
   UC-->>Bus: ListEquipmentsResult
 ```
 
+## Permission Model
+
+This module relies on Organization-scoped permissions:
+
+- `organization.equipment.read`
+- `organization.equipment.write` (also covers tags and attachments)
+
+### Scope versus entitlement (403 vs 404)
+
+Every provider and processor in this module answers a denial in one of two
+ways, and which one is not a stylistic choice:
+
+| Caller | Response |
+| --- | --- |
+| Active member of the owning organization, lacking the permission | `403 Forbidden` |
+| No active membership in the owning organization | `404 Not Found`, identical to the route's own not-found response |
+
+The 404 is not a softer 403. These surfaces take their `organizationId` from
+the URI — or resolve it from a record they just loaded by path id — **before**
+they know whether the caller belongs to that organization, so a 403 at that
+point confirms the organization or the record exists to someone who may not
+learn even that much. That is an existence oracle: it lets a caller from
+another organization enumerate valid identifiers. The out-of-scope 404
+therefore reuses the *same* message the route's own "unknown id" branch
+produces, so the two responses are indistinguishable.
+
+The distinction is carried by
+`Organization\Application\Port\Inbound\OrganizationAuthorizationPort::resolveAccess()`,
+which returns `OrganizationAccessDecision` — `GRANTED`, `MISSING_PERMISSION`
+or `OUTSIDE_SCOPE`. The membership lookup only runs when the permission is not
+granted, so the authorized path costs no extra query. The flat
+`hasPermission()` boolean cannot express the middle case and must not be used
+for a new check here.
+
+`tests/Architecture/Unit/PresentationAuthorizationEnforcementTest` is the
+ratchet that keeps new providers and processors on this path — it fails on any
+file under `Presentation/Api` that injects the port and still calls
+`hasPermission()`.
+
 ## Domain Model
 
 Aggregates and entities:

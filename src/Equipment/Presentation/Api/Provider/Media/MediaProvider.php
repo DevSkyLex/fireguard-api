@@ -71,7 +71,15 @@ final readonly class MediaProvider implements ProviderInterface
       throw new NotFoundHttpException('Media not found.');
     }
     $user = $this->security->getUser();
-    if (!$user instanceof SecurityUser || !$this->authorization->hasPermission($user->getId(), $record->equipment->organization->id, 'organization.equipment.read')) {
+    if (!$user instanceof SecurityUser) {
+      throw new AccessDeniedHttpException('Authentication required.');
+    }
+
+    $decision = $this->authorization->resolveAccess($user->getId(), $record->equipment->organization->id, 'organization.equipment.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Media not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
     }
 

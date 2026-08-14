@@ -70,7 +70,11 @@ final readonly class ListEquipmentAttachmentsProvider implements ProviderInterfa
       throw new BadRequestHttpException('OrganizationId and equipmentId URI parameters are required.');
     }
 
-    if (!$this->authorization->hasPermission($user->getId(), $organizationId, 'organization.equipment.read')) {
+    $decision = $this->authorization->resolveAccess($user->getId(), $organizationId, 'organization.equipment.read');
+    if ($decision->isOutsideScope()) {
+      throw new NotFoundHttpException('Organization not found.');
+    }
+    if (!$decision->isGranted()) {
       throw new AccessDeniedHttpException('Missing organization.equipment.read permission.');
     }
 

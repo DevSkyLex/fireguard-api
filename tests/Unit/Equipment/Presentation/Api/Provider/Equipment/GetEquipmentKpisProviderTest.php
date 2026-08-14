@@ -10,6 +10,7 @@ use Equipment\Application\UseCase\Query\Equipment\GetEquipmentKpis\{GetEquipment
 use Equipment\Presentation\Api\Dto\Output\Equipment\EquipmentKpiOutput;
 use Equipment\Presentation\Api\Provider\Equipment\GetEquipmentKpisProvider;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -18,7 +19,7 @@ use RuntimeException;
 use Shared\Application\Exception\MessengerRuntimeException;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
@@ -73,9 +74,9 @@ final class GetEquipmentKpisProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.read')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $provider = new GetEquipmentKpisProvider(
       queryBus: $this->createStub(QueryBusPort::class),
@@ -84,6 +85,33 @@ final class GetEquipmentKpisProviderTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(operation: new Get(), uriVariables: ['organizationId' => $organizationId]);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsOutsideCallerScope(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655442022';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655442023');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())->method('getUser')->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), $organizationId, 'organization.equipment.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $provider = new GetEquipmentKpisProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(operation: new Get(), uriVariables: ['organizationId' => $organizationId]);
   }
@@ -99,7 +127,7 @@ final class GetEquipmentKpisProviderTest extends TestCase
 
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
-    $authorization->expects(self::once())->method('hasPermission')->willReturn(true);
+    $authorization->expects(self::once())->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new GetEquipmentKpisQuery(organizationId: $organizationId)),
@@ -135,9 +163,9 @@ final class GetEquipmentKpisProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     /** @var QueryBusPort&MockObject $queryBus */
     $queryBus = $this->createMock(QueryBusPort::class);
@@ -176,7 +204,7 @@ final class GetEquipmentKpisProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException(new InvalidArgumentException('Invalid organizationId.'));
@@ -203,7 +231,7 @@ final class GetEquipmentKpisProviderTest extends TestCase
     $security->method('getUser')->willReturn($user);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new GetEquipmentKpisQuery(organizationId: $organizationId)),

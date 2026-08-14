@@ -9,13 +9,14 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use Equipment\Application\UseCase\Query\Equipment\ListEquipmentTypes\{GetEquipmentTypeResult, ListEquipmentTypesQuery, ListEquipmentTypesResult};
 use Equipment\Domain\ValueObject\EquipmentType;
 use Equipment\Presentation\Api\Provider\Equipment\ListEquipmentTypesProvider;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\QueryBusPort;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException};
+use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, NotFoundHttpException};
 
 use function array_map;
 use function count;
@@ -77,9 +78,9 @@ final class ListEquipmentTypesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.read')
-      ->willReturn(false);
+      ->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $provider = new ListEquipmentTypesProvider(
       queryBus: $this->createStub(QueryBusPort::class),
@@ -88,6 +89,35 @@ final class ListEquipmentTypesProviderTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsOutsideCallerScope(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655440122';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655440123');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), $organizationId, 'organization.equipment.read')
+      ->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $provider = new ListEquipmentTypesProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(new GetCollection(), ['organizationId' => $organizationId]);
   }
@@ -106,9 +136,9 @@ final class ListEquipmentTypesProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $types = array_map(
       static fn (EquipmentType $t): GetEquipmentTypeResult => new GetEquipmentTypeResult(

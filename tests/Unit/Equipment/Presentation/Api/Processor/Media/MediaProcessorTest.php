@@ -15,6 +15,7 @@ use Equipment\Presentation\Api\Processor\Media\MediaProcessor;
 use Intervention\Application\Contract\Resource\InterventionAssignmentContext;
 use Intervention\Application\Port\Outbound\InterventionResourceGatewayPort;
 use Intervention\Application\Service\{InterventionMemberPolicy, InterventionResourceManager};
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use Organization\Application\Port\Outbound\OrganizationMemberRepositoryPort;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
@@ -80,9 +81,9 @@ final class MediaProcessorTest extends TestCase
     $resources->expects(self::never())->method('touchDraftIntervention');
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with('user-id', self::ORGANIZATION_ID, 'organization.equipment.write')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(
       new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
@@ -156,7 +157,7 @@ final class MediaProcessorTest extends TestCase
       $resources->method('resourceInInterventionScope')->willReturn(true);
       $resources->expects(self::once())->method('touchDraftIntervention')->with(self::INTERVENTION_ID);
       $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-      $authorization->method('hasPermission')->willReturn(true);
+      $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
       $security = $this->createStub(Security::class);
       $security->method('getUser')->willReturn(
         new SecurityUser('user-id', 'user@example.com', 'password', ['ROLE_USER'], [], true),
@@ -517,8 +518,27 @@ final class MediaProcessorTest extends TestCase
     $this->processor(
       entityManager: $this->entityManager([EquipmentRecord::class => $equipment]),
       requestStack: $this->uploadRequest(),
-      hasPermission: false,
+      decision: OrganizationAccessDecision::MISSING_PERMISSION,
     )->process(null, new Post());
+  }
+
+  #[Test]
+  public function testAssertWriteThrowsNotFoundWhenOrganizationIsOutsideCallersScope(): void
+  {
+    $equipment = $this->equipment();
+
+    // Not AccessDeniedHttpException: a 403 for a caller outside the organization's
+    // scope would confirm the record exists across an organization boundary.
+    try {
+      $this->processor(
+        entityManager: $this->entityManager([EquipmentRecord::class => $equipment]),
+        requestStack: $this->uploadRequest(),
+        decision: OrganizationAccessDecision::OUTSIDE_SCOPE,
+      )->process(null, new Post());
+      self::fail('Expected NotFoundHttpException to be thrown.');
+    } catch (NotFoundHttpException $exception) {
+      self::assertSame('Equipment not found.', $exception->getMessage());
+    }
   }
 
   private function processor(
@@ -526,7 +546,7 @@ final class MediaProcessorTest extends TestCase
     ?RequestStack $requestStack = null,
     ?InterventionResourceGatewayPort $resources = null,
     ?CommandBusPort $commandBus = null,
-    bool $hasPermission = true,
+    OrganizationAccessDecision $decision = OrganizationAccessDecision::GRANTED,
     bool $authenticated = true,
     ?InterventionMemberPolicy $memberPolicy = null,
   ): MediaProcessor {
@@ -536,7 +556,7 @@ final class MediaProcessorTest extends TestCase
     $commandBus ??= $this->createStub(CommandBusPort::class);
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn($hasPermission);
+    $authorization->method('resolveAccess')->willReturn($decision);
 
     $security = $this->createStub(Security::class);
     $security->method('getUser')->willReturn(

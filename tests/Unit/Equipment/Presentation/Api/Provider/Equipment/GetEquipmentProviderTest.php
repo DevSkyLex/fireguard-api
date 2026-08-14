@@ -12,6 +12,7 @@ use Equipment\Domain\Exception\EquipmentNotFoundException;
 use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};
 use Equipment\Presentation\Api\Provider\Equipment\GetEquipmentProvider;
 use InvalidArgumentException;
+use Organization\Application\Contract\Authorization\OrganizationAccessDecision;
 use Organization\Application\Port\Inbound\OrganizationAuthorizationPort;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
@@ -49,9 +50,9 @@ final class GetEquipmentProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
+      ->method('resolveAccess')
       ->with($user->getId(), $organizationId, 'organization.equipment.read')
-      ->willReturn(true);
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $handlerFailure = new HandlerFailedException(
       envelope: new Envelope(new GetEquipmentQuery(
@@ -99,8 +100,8 @@ final class GetEquipmentProviderTest extends TestCase
     /** @var OrganizationAuthorizationPort&MockObject $authorization */
     $authorization = $this->createMock(OrganizationAuthorizationPort::class);
     $authorization->expects(self::once())
-      ->method('hasPermission')
-      ->willReturn(true);
+      ->method('resolveAccess')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
 
     $now = new DateTimeImmutable('2026-03-02T10:00:00+00:00');
 
@@ -199,7 +200,7 @@ final class GetEquipmentProviderTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(false);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::MISSING_PERMISSION);
 
     $provider = new GetEquipmentProvider(
       queryBus: $this->createStub(QueryBusPort::class),
@@ -208,6 +209,29 @@ final class GetEquipmentProviderTest extends TestCase
     );
 
     $this->expectException(AccessDeniedHttpException::class);
+
+    $provider->provide(
+      operation: new Get(),
+      uriVariables: ['organizationId' => self::ORG_ID, 'equipmentId' => self::EQUIP_ID],
+    );
+  }
+
+  #[Test]
+  public function testProvideThrowsNotFoundWhenOrganizationIsOutsideCallerScope(): void
+  {
+    $security = $this->createStub(Security::class);
+    $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
+
+    $authorization = $this->createStub(OrganizationAuthorizationPort::class);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::OUTSIDE_SCOPE);
+
+    $provider = new GetEquipmentProvider(
+      queryBus: $this->createStub(QueryBusPort::class),
+      authorization: $authorization,
+      security: $security,
+    );
+
+    $this->expectException(NotFoundHttpException::class);
 
     $provider->provide(
       operation: new Get(),
@@ -277,7 +301,7 @@ final class GetEquipmentProviderTest extends TestCase
     $security->method('getUser')->willReturn($this->createSecurityUser(self::USER_ID));
 
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
-    $authorization->method('hasPermission')->willReturn(true);
+    $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
 
     $queryBus = $this->createStub(QueryBusPort::class);
     $queryBus->method('ask')->willThrowException($exception);
