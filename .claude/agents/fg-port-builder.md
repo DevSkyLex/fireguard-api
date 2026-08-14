@@ -1,7 +1,7 @@
 ---
 name: fg-port-builder
 description: Use to add a port and its adapter in fireguard-sso-api — an Application/Port/Outbound (or Inbound) interface, the Infrastructure adapter or Doctrine repository that fulfils it, the config/modules alias, the explicit entity-manager wiring, and the adapter unit test. Invoke when a use case needs an external dependency, or when a module must publish a capability. Writes code.
-tools: Skill, Read, Grep, Glob, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
 ---
 
@@ -16,6 +16,23 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 | `hexagonal-layout` | always — a port in the wrong layer is the failure mode here |
 | `dual-database` | the adapter is a Doctrine repository — the `$entityManager` wiring is explicit |
 | `module-testing` | writing the adapter test |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## Outbound or inbound?
 

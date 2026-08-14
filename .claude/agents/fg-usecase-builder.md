@@ -1,7 +1,7 @@
 ---
 name: fg-usecase-builder
 description: Use to add a command or query use case to an existing module in fireguard-sso-api — the Command/Query DTO, its Handler, its Result, the ports it needs, the config wiring, and the handler unit test — following the hexagonal Module Architecture Standard. Invoke for "add a command / query / use case to <Module>". Writes code; hands the HTTP surface to fg-endpoint-builder.
-tools: Skill, Read, Grep, Glob, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
 ---
 
@@ -17,6 +17,23 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 | `hexagonal-layout` | always |
 | `module-testing` | writing the handler unit test |
 | `module-md` | the use case adds a flow, an error code or a configuration requirement |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## The triad
 

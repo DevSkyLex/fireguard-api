@@ -1,7 +1,7 @@
 ---
 name: fg-module-builder
 description: Use to scaffold a brand-new bounded context under src/<Module> in fireguard-sso-api — the four-layer skeleton, the first use case, persistence and ports, config/modules wiring, Doctrine mapping, security rules, MODULE.md, and baseline tests — following the Module Architecture Standard. Invoke for "create a new module". Writes code; delegates each slice to the matching builder.
-tools: Skill, Read, Grep, Glob, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
+tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
 ---
 
@@ -20,6 +20,23 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 | `api-platform-contract` | emitting the first endpoint |
 | `module-testing` | emitting the baseline tests |
 | `security-checklist` | the module touches a crown-jewel path |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## Before you scaffold
 

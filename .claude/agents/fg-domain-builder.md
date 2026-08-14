@@ -1,7 +1,7 @@
 ---
 name: fg-domain-builder
 description: Use to add Domain-layer code in fireguard-sso-api — an aggregate or model under Domain/Model/, a value object, a domain event, or a domain exception — with the invariants enforced inside the model rather than in a handler. Invoke for "add an aggregate / value object / domain event / domain exception to <Module>". Writes code.
-tools: Skill, Read, Grep, Glob, Edit, Write, Bash
+tools: Skill, Read, Grep, Glob, LSP, Edit, Write, Bash
 model: sonnet
 ---
 
@@ -18,6 +18,23 @@ Load these with the `Skill` tool before your first edit. They carry the operatio
 | `hexagonal-layout` | always — before creating any file under `src/` |
 | `module-testing` | writing the model's unit test |
 | `module-md` | the model adds an invariant, an event or an error code worth recording |
+
+## Navigating by symbol
+
+When you know a **symbol** — a class, an interface, a method, a constant — reach for the
+`LSP` tool before `Grep`. It resolves through `use` statements, aliases, and namespaces,
+which a text search cannot: `goToDefinition`, `findReferences`, `hover`, `documentSymbol`,
+and `workspaceSymbol` (always pass `query`; an empty one returns nothing).
+
+**Four operations are dead on PHP here.** Intelephense's free edition answers neither
+`goToImplementation` nor the call hierarchy (`prepareCallHierarchy`, `incomingCalls`,
+`outgoingCalls`). So the one question you most want to ask — *what implements this
+`…Port`?* — has no direct answer. Use `findReferences` on the interface, or
+`workspaceSymbol` on the adapter name, and confirm against
+`config/modules/<module>.yaml`, which is the binding authority anyway.
+
+`Grep` remains right for what is not a symbol: a pattern across YAML, a route string, the
+cross-module boundary check, a naming convention swept over a tree.
 
 ## Layout
 
