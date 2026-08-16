@@ -7,14 +7,16 @@ namespace Facility\Infrastructure\Adapter\Intervention;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
-use Facility\Domain\Exception\FacilityHasActiveDependentsException;
-use Facility\Domain\ValueObject\PlanGeometry;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Exception\{FacilityHasActiveDependentsException, FacilityHierarchyException};
+use Facility\Domain\ValueObject\{FacilityId, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Application\Contract\Resource\InterventionResourceAssignment;
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use Shared\Domain\Exception\InvalidValueException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_diff;
 use function array_key_exists;
@@ -55,10 +57,15 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
    *
    * @param EntityManagerInterface $entityManager the entity manager value
    * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
+   * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
     private FacilityArchivalGuardPort $archivalGuard,
+    private FacilityRepositoryPort $facilityRepository,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
 
@@ -347,6 +354,7 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
         if ('archived' === $parent->status) {
           throw new InterventionConflictException('Proposed parent facility is archived.');
         }
+        $this->assertDepthWithinCap($record, $parent);
         $record->parentFacility = $parent;
       } else {
         throw new InterventionConflictException('Proposed parent facility must be an IRI or null.');
@@ -440,6 +448,31 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
         throw new InterventionConflictException('Proposed parent facility would create a hierarchy cycle.');
       }
       $ancestor = $ancestor->parentFacility;
+    }
+  }
+
+  /**
+   * Method assertDepthWithinCap.
+   *
+   * Refuses a proposed re-parenting that would push the record (and whatever
+   * PUBLISHED sub-tree still hangs beneath it) past the configured hierarchy
+   * depth cap. Depth and height are computed over the PUBLISHED tree only,
+   * matching the scope of the surrounding `apply()` guard (published records
+   * only).
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the facility being reparented
+   * @param FacilityRecord $parent the proposed parent
+   */
+  private function assertDepthWithinCap(FacilityRecord $record, FacilityRecord $parent): void
+  {
+    $prospectiveDepth = $this->facilityRepository->depthOf(FacilityId::fromString($parent->id))
+      + 1
+      + $this->facilityRepository->subtreeHeight(FacilityId::fromString($record->id));
+
+    if ($prospectiveDepth > $this->maxDepth) {
+      throw new InterventionConflictException(FacilityHierarchyException::maxDepthExceeded($this->maxDepth)->getMessage());
     }
   }
 

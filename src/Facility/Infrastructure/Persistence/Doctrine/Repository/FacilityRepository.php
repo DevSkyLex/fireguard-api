@@ -23,6 +23,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 use function array_map;
 use function count;
+use function is_numeric;
 use function json_decode;
 use function mb_strtolower;
 use function str_contains;
@@ -774,6 +775,82 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     }
 
     return $zones;
+  }
+
+  /**
+   * Method depthOf.
+   *
+   * Reports the facility's depth in its hierarchy, walking upward through
+   * PUBLISHED ancestors only in a single recursive CTE. A root facility
+   * (no parent) sits at depth 1.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return int the facility depth, root = 1
+   */
+  public function depthOf(FacilityId $facilityId): int
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE ancestors AS (
+          SELECT id, parent_facility_id
+          FROM facilities
+          WHERE id = :facilityId
+            AND record_status = :published
+          UNION ALL
+          SELECT parent.id, parent.parent_facility_id
+          FROM facilities parent
+          INNER JOIN ancestors ON parent.id = ancestors.parent_facility_id
+          WHERE parent.record_status = :published
+      )
+      SELECT COUNT(*) FROM ancestors
+      SQL;
+
+    $result = $this->entityManager->getConnection()->executeQuery($sql, [
+      'facilityId' => (string) $facilityId,
+      'published' => 'published',
+    ])->fetchOne();
+
+    return is_numeric($result) ? (int) $result : 0;
+  }
+
+  /**
+   * Method subtreeHeight.
+   *
+   * Reports the height of the facility's sub-tree, walking downward through
+   * PUBLISHED descendants only in a single recursive CTE. A facility with no
+   * descendants has height 0.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the sub-tree root facility identifier
+   *
+   * @return int the sub-tree height, leaf = 0
+   */
+  public function subtreeHeight(FacilityId $facilityId): int
+  {
+    $sql = <<<'SQL'
+      WITH RECURSIVE descendants AS (
+          SELECT id, 1 AS level
+          FROM facilities
+          WHERE parent_facility_id = :rootId
+            AND record_status = :published
+          UNION ALL
+          SELECT child.id, descendants.level + 1
+          FROM facilities child
+          INNER JOIN descendants ON child.parent_facility_id = descendants.id
+          WHERE child.record_status = :published
+      )
+      SELECT COALESCE(MAX(level), 0) FROM descendants
+      SQL;
+
+    $result = $this->entityManager->getConnection()->executeQuery($sql, [
+      'rootId' => (string) $facilityId,
+      'published' => 'published',
+    ])->fetchOne();
+
+    return is_numeric($result) ? (int) $result : 0;
   }
 
   /**

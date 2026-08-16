@@ -196,6 +196,40 @@ final class FacilityProvisioningServiceTest extends TestCase
   }
 
   #[Test]
+  public function itReturnsInvalidWhenTheCommandBusRaisesAMaxDepthExceededExceptionDirectly(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      FacilityHierarchyException::maxDepthExceeded(8),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertSame('Facility hierarchy depth cap of 8 levels exceeded.', $result->message);
+  }
+
+  #[Test]
+  public function itUnwrapsAMaxDepthExceededExceptionFromAMessengerRuntimeException(): void
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('findByOrganizationId')->willReturn([]);
+
+    $commandBus = $this->createStub(CommandBusPort::class);
+    $commandBus->method('dispatch')->willThrowException(
+      MessengerRuntimeException::wrap(FacilityHierarchyException::maxDepthExceeded(8)),
+    );
+
+    $result = new FacilityProvisioningService($commandBus, $facilityRepository)->provision($this->request());
+
+    self::assertSame(ProvisionOutcome::INVALID, $result->outcome);
+    self::assertSame('Facility hierarchy depth cap of 8 levels exceeded.', $result->message);
+  }
+
+  #[Test]
   public function itReturnsInvalidWhenTheCommandBusRaisesAnInvalidArgumentExceptionDirectly(): void
   {
     $facilityRepository = $this->createStub(FacilityRepositoryPort::class);

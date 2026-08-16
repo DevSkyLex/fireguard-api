@@ -10,7 +10,10 @@ use Auth\Infrastructure\Security\User\SecurityUser;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
+use Facility\Domain\Exception\FacilityHierarchyException;
+use Facility\Domain\ValueObject\FacilityId;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
 use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
@@ -24,6 +27,7 @@ use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Presentation\Api\Http\{MergePatchFields, RevisionGuard};
 use Shared\Presentation\Api\Http\ResourceIriParser;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\{AccessDeniedHttpException, BadRequestHttpException, ConflictHttpException, NotFoundHttpException, UnprocessableEntityHttpException};
 
@@ -69,6 +73,8 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    * @param MergePatchFields $mergePatchFields the merge patch fields value
    * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
    * @param EventDispatcherPort $eventDispatcher the event dispatcher value
+   * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
     private EntityManagerInterface $entityManager,
@@ -81,6 +87,9 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     private MergePatchFields $mergePatchFields,
     private FacilityArchivalGuardPort $archivalGuard,
     private EventDispatcherPort $eventDispatcher,
+    private FacilityRepositoryPort $facilityRepository,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
 
@@ -248,6 +257,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
         if ('published' === $record->recordStatus && 'archived' === $parent->status) {
           throw new UnprocessableEntityHttpException('Parent facility is archived.');
         }
+        $this->assertDepthWithinCap($record, $parent);
         $record->parentFacility = $parent;
       }
     }
@@ -361,6 +371,29 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
         throw new UnprocessableEntityHttpException('Parent facility would create a hierarchy cycle.');
       }
       $ancestor = $ancestor->parentFacility;
+    }
+  }
+
+  /**
+   * Method assertDepthWithinCap.
+   *
+   * Refuses a re-parenting that would push the record (and whatever PUBLISHED
+   * sub-tree still hangs beneath it) past the configured hierarchy depth cap.
+   * Depth and height are computed over the PUBLISHED tree only.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRecord $record the facility being reparented
+   * @param FacilityRecord $parent the proposed parent
+   */
+  private function assertDepthWithinCap(FacilityRecord $record, FacilityRecord $parent): void
+  {
+    $prospectiveDepth = $this->facilityRepository->depthOf(FacilityId::fromString($parent->id))
+      + 1
+      + $this->facilityRepository->subtreeHeight(FacilityId::fromString($record->id));
+
+    if ($prospectiveDepth > $this->maxDepth) {
+      throw new UnprocessableEntityHttpException(FacilityHierarchyException::maxDepthExceeded($this->maxDepth)->getMessage());
     }
   }
 }

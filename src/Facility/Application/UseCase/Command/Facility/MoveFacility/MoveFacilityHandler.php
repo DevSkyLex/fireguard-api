@@ -17,6 +17,7 @@ use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 
 use function array_key_exists;
@@ -38,6 +39,8 @@ final readonly class MoveFacilityHandler implements CommandHandler
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private EventDispatcherPort $eventDispatcher,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
   // #endregion
@@ -169,6 +172,13 @@ final readonly class MoveFacilityHandler implements CommandHandler
 
     if (!$parent->status()->isActive()) {
       throw FacilityArchivedException::withId((string) $parentId);
+    }
+
+    // Moving a subtree deeper must account for its own height: every
+    // descendant shifts by the same amount as the moved root.
+    $prospectiveDepth = $this->facilityRepository->depthOf($parentId) + 1 + $this->facilityRepository->subtreeHeight($facilityId);
+    if ($prospectiveDepth > $this->maxDepth) {
+      throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
     }
 
     $current = $parent;

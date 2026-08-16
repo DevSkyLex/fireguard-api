@@ -383,6 +383,28 @@ Cross-module contracts and lifecycle invariants:
   `ProvisionOutcome` (`CREATED`|`QUOTA_EXCEEDED`|`INVALID`) instead of
   rethrowing. Mirrors `Intervention\Application\Port\Inbound\InterventionDraftFactoryPort`.
   See `src/Import/MODULE.md`.
+- **Hierarchy depth cap**: the hierarchy has a configurable maximum depth
+  (default 8, root = level 1; env `FACILITY_MAX_DEPTH`) so a pathological
+  chain cannot degrade the recursive CTEs (`findDescendants`,
+  `hasActiveDescendants`) or a tree UI. `FacilityRepositoryPort::depthOf()`
+  and `::subtreeHeight()` compute both over the PUBLISHED tree only (a
+  single recursive CTE each, mirroring `hasActiveDescendants`'s style).
+  Enforced as: no facility may end up at `depth > cap`. A facility gaining a
+  parent checks `depth(parent) + 1 <= cap`; reparenting an existing facility
+  (which may carry a sub-tree) checks `depth(newParent) + 1 +
+  subtreeHeight(moved) <= cap`, so the whole moved sub-tree — not just its
+  root — is accounted for. Enforcement sites: `CreateFacilityHandler`,
+  `MoveFacilityHandler`, the canonical PATCH `parent` path
+  (`CanonicalFacilityMutationProcessor`, mapped to
+  `UnprocessableEntityHttpException`/422, mirroring its existing cycle-check
+  status), and the offline intervention `apply()` parent patch
+  (`FacilityInterventionResourceAdapter`, mapped to
+  `InterventionConflictException`, mirroring its existing cycle check). The
+  canonical PUT/POST create path reuses `CreateFacilityHandler` and needs no
+  separate check. `FacilityProvisioningService` translates the violation
+  (`FacilityHierarchyException::maxDepthExceeded`) into
+  `ProvisionOutcome::INVALID` like every other hierarchy failure — no new
+  handling was needed there.
 
 ## Configuration
 
@@ -397,6 +419,11 @@ Cross-module contracts and lifecycle invariants:
   aliased to `Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter`
   in `config/modules/equipment.yaml` (the port's owning module) — this
   module only registers the adapter service itself.
+- `FACILITY_MAX_DEPTH` (env, optional, default 8): maximum facility
+  hierarchy depth, root = level 1. Wired via `config/services.yaml`
+  (`facility.hierarchy.max_depth`, `%env(int:default:
+  facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%`) and injected
+  into the enforcement sites with `#[Autowire('%facility.hierarchy.max_depth%')]`.
 
 ## Testing
 
@@ -471,4 +498,24 @@ Cross-module contracts and lifecycle invariants:
   - `tests/Integration/Equipment/Infrastructure/Adapter/Facility/EquipmentPlanPositionAdapterTest`
     (hosted in Equipment, since the adapter is) — the `plan_position` JSONB
     filter, published-only, and organization scoping.
+- Hierarchy depth cap: repository integration coverage in
+  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityRepositoryTest`
+  (`depthOf`/`subtreeHeight` on a seeded chain), handler unit coverage in
+  `CreateFacilityHandlerTest`/`MoveFacilityHandlerTest` (create at cap OK/refused,
+  move accounting for the moved sub-tree's height), the canonical processor and
+  offline adapter unit/integration tests, `FacilityProvisioningServiceTest`
+  (`ProvisionOutcome::INVALID`), and one end-to-end functional test,
+  `tests/Functional/Api/FacilityHierarchyDepthApiTest.php`, that creates a
+  chain up to the cap through the real HTTP API and asserts the next level is
+  refused with the mapped 400.
 - Run module tests: `make test tests/Unit/Facility/`
+
+## Error Codes
+
+| Domain exception | HTTP status | Consumer sees |
+| --- | --- | --- |
+| `FacilityHierarchyException::cannotUseSelfAsParent` | 400 | "A facility cannot be its own parent." |
+| `FacilityHierarchyException::parentInAnotherOrganization` | 400 | "Parent facility must belong to the same organization." |
+| `FacilityHierarchyException::hierarchyCycleDetected` | 400 | "Cannot move facility: hierarchy cycle detected." |
+| `FacilityHierarchyException::maxDepthExceeded($cap)` | 400 (Create/Move use cases, via the same `FacilityHierarchyException` catch as the other hierarchy errors); 422 on the canonical PATCH `parent` path (mirrors its existing cycle-check status); `InterventionConflictException` on the offline `apply()` path | "Facility hierarchy depth cap of `$cap` levels exceeded." |
+| `FacilityHasActiveDependentsException` | 409 | archival refused while an active child facility, active equipment, or an in-progress inspection exists |

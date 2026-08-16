@@ -724,6 +724,45 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
   }
 
   #[Test]
+  public function testRejectsAParentReparentingThatWouldExceedTheDepthCap(): void
+  {
+    $record = $this->record();
+    $parent = $this->record();
+    $parent->id = self::PARENT_ID;
+
+    $entityManager = $this->createMock(EntityManagerInterface::class);
+    $entityManager->method('wrapInTransaction')->willReturnCallback(
+      static fn (callable $callback): mixed => $callback(),
+    );
+    $entityManager->method('find')->willReturnCallback(
+      static fn (string $className, string $id): ?FacilityRecord => match ($id) {
+        self::FACILITY_ID => $record,
+        self::PARENT_ID => $parent,
+        default => null,
+      },
+    );
+    $entityManager->expects(self::never())->method('flush');
+
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    // depth(parent)=7, +1 for the record, +1 for its subtree height = 9 > cap of 8.
+    $facilityRepository->method('depthOf')->willReturn(7);
+    $facilityRepository->method('subtreeHeight')->willReturn(1);
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->parent = '/api/facilities/' . self::PARENT_ID;
+
+    $this->expectException(UnprocessableEntityHttpException::class);
+    $this->expectExceptionMessage('Facility hierarchy depth cap of 8 levels exceeded.');
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"parent":"/api/facilities/' . self::PARENT_ID . '"}'),
+      $entityManager,
+      facilityRepository: $facilityRepository,
+    )->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
   public function testRequiresAnAuthenticatedSecurityUser(): void
   {
     $record = $this->record();
@@ -855,6 +894,7 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       new MergePatchFields($requestStack),
       $this->createStub(FacilityArchivalGuardPort::class),
       $this->createStub(EventDispatcherPort::class),
+      $this->permissiveFacilityRepository(),
     );
   }
 
@@ -864,10 +904,13 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
     ?EntityManagerInterface $entityManager = null,
     ?FacilityArchivalGuardPort $archivalGuard = null,
     ?EventDispatcherPort $eventDispatcher = null,
+    ?FacilityRepositoryPort $facilityRepository = null,
+    int $maxDepth = 8,
   ): CanonicalFacilityMutationProcessor {
     $entityManager ??= $this->entityManager($record);
     $archivalGuard ??= $this->createStub(FacilityArchivalGuardPort::class);
     $eventDispatcher ??= $this->createStub(EventDispatcherPort::class);
+    $facilityRepository ??= $this->permissiveFacilityRepository();
     $authorization = $this->createStub(OrganizationAuthorizationPort::class);
     $authorization->method('resolveAccess')->willReturn(OrganizationAccessDecision::GRANTED);
     $security = $this->createStub(Security::class);
@@ -893,7 +936,18 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       new MergePatchFields($requestStack),
       $archivalGuard,
       $eventDispatcher,
+      $facilityRepository,
+      $maxDepth,
     );
+  }
+
+  private function permissiveFacilityRepository(): FacilityRepositoryPort
+  {
+    $facilityRepository = $this->createStub(FacilityRepositoryPort::class);
+    $facilityRepository->method('depthOf')->willReturn(0);
+    $facilityRepository->method('subtreeHeight')->willReturn(0);
+
+    return $facilityRepository;
   }
 
   /**

@@ -15,6 +15,9 @@ parameters:
   security_headers.enabled: '%env(default:security_headers.enabled_default:SECURITY_HEADERS_ENABLED)%'
   security_headers.csp: '%env(default:security_headers.csp_default:SECURITY_HEADERS_CSP)%'
   security_headers.hsts_max_age: '%env(int:default:security_headers.hsts_max_age_default:SECURITY_HEADERS_HSTS_MAX_AGE)%'
+  # Maximum facility hierarchy depth (root = level 1); no facility may end up deeper than this.
+  facility.hierarchy.max_depth_default: 8
+  facility.hierarchy.max_depth: '%env(int:default:facility.hierarchy.max_depth_default:FACILITY_MAX_DEPTH)%'
 
 services:
   # default configuration for services in *this* file

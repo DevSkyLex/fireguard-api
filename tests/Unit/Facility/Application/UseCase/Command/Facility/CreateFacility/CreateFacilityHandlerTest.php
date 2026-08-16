@@ -493,11 +493,83 @@ final class CreateFacilityHandlerTest extends TestCase
     ));
   }
 
+  #[Test]
+  public function testInvokeAllowsParentAtCapMinusOne(): void
+  {
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442a01');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442a02');
+    $parentFacility = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Level Seven'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->willReturn($parentFacility);
+    $repository->expects(self::once())->method('depthOf')->with($parentId)->willReturn(7);
+    $repository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::once())
+      ->method('create')
+      ->with(FacilityId::class)
+      ->willReturn(new FacilityId('550e8400-e29b-41d4-a716-446655442a03'));
+
+    $handler = $this->handler($repository, $uuidFactory, maxDepth: 8);
+
+    $result = $handler->__invoke(new CreateFacilityCommand(
+      organizationId: (string) $organizationId,
+      type: 'building',
+      name: 'Level Eight',
+      parentFacilityId: (string) $parentId,
+    ));
+
+    self::assertInstanceOf(CreateFacilityResult::class, $result);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenParentAtCapWouldExceedMaxDepth(): void
+  {
+    $organizationId = new FacilityOrganizationId('550e8400-e29b-41d4-a716-446655442a11');
+    $parentId = new FacilityId('550e8400-e29b-41d4-a716-446655442a12');
+    $parentFacility = Facility::create(
+      id: $parentId,
+      organizationId: $organizationId,
+      type: FacilityType::SITE,
+      name: new FacilityName('Level Eight'),
+    );
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('findById')->willReturn($parentFacility);
+    $repository->expects(self::once())->method('depthOf')->with($parentId)->willReturn(8);
+    $repository->expects(self::never())->method('save');
+
+    /** @var UuidFactory&MockObject $uuidFactory */
+    $uuidFactory = $this->createMock(UuidFactory::class);
+    $uuidFactory->expects(self::never())->method('create');
+
+    $handler = $this->handler($repository, $uuidFactory, maxDepth: 8);
+
+    $this->expectException(FacilityHierarchyException::class);
+    $this->expectExceptionMessage('Facility hierarchy depth cap of 8 levels exceeded.');
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: (string) $organizationId,
+      type: 'building',
+      name: 'Level Nine',
+      parentFacilityId: (string) $parentId,
+    ));
+  }
+
   private function handlerFailingWith(Throwable $failure, ?Facility $parent = null): CreateFacilityHandler
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
     $repository->method('findById')->willReturn($parent);
+    $repository->method('depthOf')->willReturn(0);
     $repository->expects(self::once())->method('save')->willThrowException($failure);
 
     $uuidFactory = $this->createStub(UuidFactory::class);
@@ -524,6 +596,7 @@ final class CreateFacilityHandlerTest extends TestCase
     FacilityRepositoryPort $repository,
     UuidFactory $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
+    int $maxDepth = 8,
   ): CreateFacilityHandler {
     $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')->willReturnCallback(
@@ -535,6 +608,7 @@ final class CreateFacilityHandlerTest extends TestCase
       uuidFactory: $uuidFactory,
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
       transactionManager: $transactionManager,
+      maxDepth: $maxDepth,
     );
   }
 }
