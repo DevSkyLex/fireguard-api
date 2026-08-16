@@ -94,6 +94,20 @@ final class FacilityOperations
   public const string MOVE_FACILITY = 'facility_move';
 
   /**
+   * Constant SET_FACILITY_PLAN_GEOMETRY.
+   *
+   * @var string
+   */
+  public const string SET_FACILITY_PLAN_GEOMETRY = 'facility_plan_geometry_set';
+
+  /**
+   * Constant GET_FACILITY_PLAN_OVERLAY.
+   *
+   * @var string
+   */
+  public const string GET_FACILITY_PLAN_OVERLAY = 'facility_plan_overlay_get';
+
+  /**
    * Constant SET_PRIMARY_FACILITY_ATTACHMENT.
    *
    * @var string

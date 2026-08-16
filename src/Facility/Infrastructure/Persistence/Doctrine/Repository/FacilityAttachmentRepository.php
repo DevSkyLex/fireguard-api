@@ -160,5 +160,28 @@ final readonly class FacilityAttachmentRepository implements FacilityAttachmentR
       ->getQuery()
       ->execute();
   }
+
+  /**
+   * Method findPrimaryFloorPlan.
+   *
+   * @since 1.2.0
+   */
+  public function findPrimaryFloorPlan(FacilityId $facilityId): ?FacilityAttachment
+  {
+    /** @var FacilityRecord $facility */
+    $facility = $this->entityManager->getReference(FacilityRecord::class, (string) $facilityId);
+
+    $record = $this->repository->findOneBy([
+      'facility' => $facility,
+      'kind' => AttachmentKind::FLOOR_PLAN->value,
+      'isPrimaryPlan' => true,
+    ]);
+
+    if (!$record instanceof FacilityAttachmentRecord) {
+      return null;
+    }
+
+    return FacilityAttachmentMapper::toDomain($record);
+  }
   // #endregion
 }

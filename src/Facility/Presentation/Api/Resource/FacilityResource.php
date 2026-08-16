@@ -4,23 +4,31 @@ declare(strict_types=1);
 
 namespace Facility\Presentation\Api\Resource;
 
-use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post};
+use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Facility\Presentation\Api\Dto\Input\Facility\{
   CreateFacilityInput,
   MoveFacilityInput,
+  SetFacilityPlanGeometryInput,
   UpdateFacilityInput
 };
-use Facility\Presentation\Api\Dto\Output\Facility\FacilityOutput;
+use Facility\Presentation\Api\Dto\Output\Facility\{FacilityOutput, FacilityPlanOverlayOutput};
 use Facility\Presentation\Api\Operation\FacilityOperations;
 use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
   CreateFacilityProcessor,
   MoveFacilityProcessor,
   RestoreFacilityProcessor,
+  SetFacilityPlanGeometryProcessor,
   UpdateFacilityProcessor
 };
-use Facility\Presentation\Api\Provider\Facility\{GetFacilityProvider, ListFacilitiesProvider, ListFacilityChildrenProvider, ListFacilityDescendantsProvider};
+use Facility\Presentation\Api\Provider\Facility\{
+  FacilityPlanOverlayProvider,
+  GetFacilityProvider,
+  ListFacilitiesProvider,
+  ListFacilityChildrenProvider,
+  ListFacilityDescendantsProvider
+};
 use Facility\Presentation\Api\Serialization\FacilitySerializationGroup;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -288,6 +296,59 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid hierarchy'),
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+        ],
+      ),
+    ),
+    new Put(
+      name: FacilityOperations::SET_FACILITY_PLAN_GEOMETRY,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/plan-geometry',
+      read: false,
+      input: SetFacilityPlanGeometryInput::class,
+      output: FacilityOutput::class,
+      processor: SetFacilityPlanGeometryProcessor::class,
+      denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Set facility plan geometry',
+        description: 'Binds this facility (a spatial zone) to a polygon drawn over an ancestor floor plan attachment. Submit "attachmentId" and "points" (>=3 normalized 0-1 coordinates) together to set or replace the geometry, or both null to clear it.',
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Plan geometry set or cleared'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid geometry shape, bounds, or point count'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
+        ],
+      ),
+    ),
+    new Get(
+      name: FacilityOperations::GET_FACILITY_PLAN_OVERLAY,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/plan-overlay',
+      input: false,
+      output: FacilityPlanOverlayOutput::class,
+      provider: FacilityPlanOverlayProvider::class,
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Get facility plan overlay',
+        description: 'Returns one floor plan (explicit "attachmentId", or this facility\'s own primary plan when omitted) and every published self-or-descendant zone bound to it.',
+        parameters: [
+          new Parameter(
+            name: 'attachmentId',
+            in: 'query',
+            required: false,
+            description: 'Floor plan attachment identifier. Defaults to this facility\'s primary plan when omitted.',
+            schema: ['type' => 'string', 'format' => 'uuid'],
+          ),
+        ],
+        responses: [
+          HttpResponse::HTTP_OK => new Response(description: 'Plan overlay retrieved'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid identifier'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
         ],
       ),
     ),

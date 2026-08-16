@@ -7,12 +7,14 @@ namespace Tests\Integration\Facility\Infrastructure\Persistence\Doctrine\Reposit
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Domain\Model\Facility\Facility;
-use Facility\Domain\ValueObject\{FacilityId, FacilityOrganizationId};
+use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType, PlanGeometry};
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityRepository;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+
+use function array_column;
 
 #[CoversClass(FacilityRepository::class)]
 final class FacilityRepositoryTest extends KernelTestCase
@@ -333,6 +335,106 @@ final class FacilityRepositoryTest extends KernelTestCase
 
     // Case-insensitive, partial match against the name field.
     self::assertSame(1, $repository->countByOrganizationId(organizationId: $organizationId, search: 'UNRELATED'));
+  }
+
+  #[Test]
+  public function testSaveThenFindByIdRoundTripsPlanGeometry(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-plan-geometry-a');
+    $this->entityManager->flush();
+
+    $facilityId = new FacilityId('550e8400-e29b-41d4-a716-446655443070');
+    $planGeometry = new PlanGeometry(
+      '550e8400-e29b-41d4-a716-446655443999',
+      [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]],
+    );
+    $facility = Facility::create(
+      id: $facilityId,
+      organizationId: new FacilityOrganizationId($organization->id),
+      type: FacilityType::ZONE,
+      name: new FacilityName('Zone With Geometry'),
+    );
+    $facility->assignPlanGeometry($planGeometry);
+
+    $repository = new FacilityRepository($this->entityManager);
+    $repository->save($facility);
+    $this->entityManager->clear();
+
+    $found = $repository->findById($facilityId);
+
+    self::assertNotNull($found);
+    self::assertNotNull($found->planGeometry());
+    self::assertTrue($planGeometry->equals($found->planGeometry()));
+
+    // Clearing round-trips back to NULL, not an empty array.
+    $found->clearPlanGeometry();
+    $repository->save($found);
+    $this->entityManager->clear();
+
+    self::assertNull($repository->findById($facilityId)?->planGeometry());
+  }
+
+  #[Test]
+  public function testFindZonesForPlanAttachmentReturnsSelfAndDescendantsBoundToTheAttachmentOnly(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-plan-overlay-a');
+    $otherOrganization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443001', 'facility-repository-plan-overlay-b');
+    $this->entityManager->flush();
+
+    $organizationId = new FacilityOrganizationId($organization->id);
+    $attachmentId = '550e8400-e29b-41d4-a716-446655443998';
+    $otherAttachmentId = '550e8400-e29b-41d4-a716-446655443997';
+
+    $root = $this->planZone('550e8400-e29b-41d4-a716-446655443080', $organizationId, null, 'Root Zone', $attachmentId, [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]);
+    $child = $this->planZone('550e8400-e29b-41d4-a716-446655443081', $organizationId, $root->id(), 'Child Zone', $attachmentId, [[0.1, 0.1], [0.4, 0.1], [0.4, 0.4]]);
+    // Sibling of the root, bound to a DIFFERENT attachment — proves the
+    // JSONB filter, not just the subtree walk, excludes it.
+    $this->planZone('550e8400-e29b-41d4-a716-446655443082', $organizationId, null, 'Unrelated Sibling', $otherAttachmentId, [[0.2, 0.2], [0.5, 0.2], [0.5, 0.5]]);
+    // A facility in another organization, coincidentally bound to the same
+    // attachment id — must never leak across the organization boundary.
+    $this->planZone('550e8400-e29b-41d4-a716-446655443083', new FacilityOrganizationId($otherOrganization->id), null, 'Cross-Org Zone', $attachmentId, [[0.3, 0.3], [0.6, 0.3], [0.6, 0.6]]);
+
+    $repository = new FacilityRepository($this->entityManager);
+    $repository->save($root);
+    $repository->save($child);
+    $this->entityManager->clear();
+
+    $zones = $repository->findZonesForPlanAttachment($organizationId, $root->id(), $attachmentId);
+
+    self::assertCount(2, $zones);
+    $ids = array_column($zones, 'facilityId');
+    self::assertContains((string) $root->id(), $ids);
+    self::assertContains((string) $child->id(), $ids);
+  }
+
+  /**
+   * Method planZone.
+   *
+   * Builds (but does not persist through the repository) a zone facility
+   * carrying a plan geometry bound to the given attachment identifier.
+   *
+   * @since 1.0.0
+   *
+   * @param list<array{0: float, 1: float}> $points
+   */
+  private function planZone(
+    string $id,
+    FacilityOrganizationId $organizationId,
+    ?FacilityId $parentFacilityId,
+    string $name,
+    string $attachmentId,
+    array $points,
+  ): Facility {
+    $facility = Facility::create(
+      id: new FacilityId($id),
+      organizationId: $organizationId,
+      type: FacilityType::ZONE,
+      name: new FacilityName($name),
+      parentFacilityId: $parentFacilityId,
+    );
+    $facility->assignPlanGeometry(new PlanGeometry($attachmentId, $points));
+
+    return $facility;
   }
 
   /**

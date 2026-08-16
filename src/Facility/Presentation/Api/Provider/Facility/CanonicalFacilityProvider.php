@@ -85,7 +85,7 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       }
       $this->assertRead($record->organization);
 
-      $output = $this->map($record);
+      $output = $this->map($record, includeGeometry: true);
       $output->path = $this->facilityRepository->findAncestors($record->id);
 
       return $output;
@@ -120,7 +120,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
       ->getResult();
     $output = [];
     foreach ($records as $record) {
-      $output[] = $this->map($record);
+      // Collection responses never carry planGeometry — the detail branch
+      // above (includeGeometry: true) is the only reader.
+      $output[] = $this->map($record, includeGeometry: false);
     }
 
     return new TraversablePaginator(new ArrayIterator($output), (float) $page, (float) $itemsPerPage, (float) $total);
@@ -226,10 +228,11 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
    * @since 1.0.0
    *
    * @param FacilityRecord $record the record value
+   * @param bool $includeGeometry whether to populate planGeometry — detail reads only, never a collection
    *
    * @return FacilityOutput the map result
    */
-  private function map(FacilityRecord $record): FacilityOutput
+  private function map(FacilityRecord $record, bool $includeGeometry): FacilityOutput
   {
     if (!$record->organization instanceof OrganizationRecord) {
       throw new NotFoundHttpException('Facility organization not found.');
@@ -250,6 +253,9 @@ final readonly class CanonicalFacilityProvider implements ProviderInterface
     $output->latitude = $record->latitude;
     $output->longitude = $record->longitude;
     $output->metadata = $record->metadata;
+    if ($includeGeometry) {
+      $output->planGeometry = $record->planGeometry;
+    }
     $output->createdAt = $record->createdAt->format('c');
     $output->updatedAt = $record->updatedAt->format('c');
 

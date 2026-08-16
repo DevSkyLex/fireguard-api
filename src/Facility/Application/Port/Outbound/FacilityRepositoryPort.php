@@ -279,5 +279,27 @@ interface FacilityRepositoryPort
    */
   public function findAncestors(string $facilityId): array;
 
+  /**
+   * Method findZonesForPlanAttachment.
+   *
+   * Lists every published facility, self-or-descendant of `$rootFacilityId`,
+   * whose `planGeometry` is bound to `$attachmentId` — a single recursive
+   * CTE joined with a JSONB equality filter, so the overlay read never
+   * hydrates the whole subtree just to discard most of it.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param FacilityId $rootFacilityId the facility the overlay was requested for (included)
+   * @param string $attachmentId the floor plan attachment identifier
+   *
+   * @return list<array{facilityId: string, name: string, type: string, status: string, points: list<array{0: float, 1: float}>}> the matching zones
+   */
+  public function findZonesForPlanAttachment(
+    FacilityOrganizationId $organizationId,
+    FacilityId $rootFacilityId,
+    string $attachmentId,
+  ): array;
+
   // #endregion
 }

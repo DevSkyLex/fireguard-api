@@ -31,6 +31,9 @@ final readonly class GetFacilityResult implements ResultMessage
    * @param list<array{id: string, name: string, type: string}> $path ancestor
    *                                                                  breadcrumb ordered root first, direct parent
    *                                                                  last, excluding this facility
+   * @param ?array{attachmentId: string, points: list<array{0: float, 1: float}>} $planGeometry the optional spatial
+   *                                                                                            geometry, populated
+   *                                                                                            on detail reads only
    */
   public function __construct(
     public string $facilityId,
@@ -49,6 +52,7 @@ final readonly class GetFacilityResult implements ResultMessage
     public ?float $longitude = null,
     public int $equipmentCount = 0,
     public array $path = [],
+    public ?array $planGeometry = null,
   ) {
   }
   // #endregion
