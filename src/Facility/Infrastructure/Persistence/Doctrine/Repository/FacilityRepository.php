@@ -345,6 +345,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param ?string $parentFacilityId optional parent facility filter
    * @param ?string $code optional exact code filter
    * @param ?string $search optional text search applied before counting
+   * @param bool $rootsOnly whether only facilities without parent are counted
+   * @param ?bool $hasCoordinates when true, count only facilities with both latitude and longitude set; when false, count only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return int the facilities count
    */
@@ -357,6 +359,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $code = null,
     ?string $search = null,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): int {
     return (int) $this->createListQueryBuilder(
       $organizationId,
@@ -367,6 +370,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $code,
       $search,
       $rootsOnly,
+      $hasCoordinates,
     )
       ->select('COUNT(f.id)')
       ->getQuery()
@@ -582,6 +586,8 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @since 1.0.0
    *
    * @param FacilityOrganizationId $organizationId the organization identifier
+   * @param bool $rootsOnly whether only facilities without parent are listed
+   * @param ?bool $hasCoordinates when true, list only facilities with both latitude and longitude set; when false, list only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return list<Facility> the facilities
    */
@@ -597,6 +603,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     int $limit = 20,
     int $offset = 0,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): array {
     /** @var list<FacilityRecord> $records */
     $records = $this->createListQueryBuilder(
@@ -608,6 +615,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $code,
       $search,
       $rootsOnly,
+      $hasCoordinates,
     )
       ->orderBy($this->resolveSortField($sorting->field), strtoupper($sorting->direction->value))
       ->addOrderBy('f.id', 'ASC')
@@ -751,6 +759,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
    * @param ?string $code the code value
    * @param ?string $search the search value
    * @param bool $rootsOnly the roots only value
+   * @param ?bool $hasCoordinates when true, keep only facilities with both latitude and longitude set; when false, keep only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return QueryBuilder the create list query builder result
    */
@@ -763,6 +772,7 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
     ?string $code,
     ?string $search,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): QueryBuilder {
     /** @var OrganizationRecord $organization */
     $organization = $this->entityManager->getReference(OrganizationRecord::class, (string) $organizationId);
@@ -805,6 +815,15 @@ final readonly class FacilityRepository implements FacilityRepositoryPort
       $queryBuilder
         ->andWhere('f.code = :code')
         ->setParameter('code', $code);
+    }
+
+    if (true === $hasCoordinates) {
+      $queryBuilder
+        ->andWhere('f.latitude IS NOT NULL')
+        ->andWhere('f.longitude IS NOT NULL');
+    } elseif (false === $hasCoordinates) {
+      $queryBuilder
+        ->andWhere('(f.latitude IS NULL OR f.longitude IS NULL)');
     }
 
     TrigramSearchExpression::apply(

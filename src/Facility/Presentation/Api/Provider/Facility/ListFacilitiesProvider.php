@@ -82,6 +82,9 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
     $parentFacilityId = $request?->query->get('parentFacilityId');
     $rootsOnly = $request?->query->getBoolean('rootsOnly', false) ?? false;
     $code = $request?->query->get('code');
+    $hasCoordinates = $request?->query->has('hasCoordinates')
+      ? $request->query->getBoolean('hasCoordinates')
+      : null;
 
     $pagination = PaginationExtractor::fromContext($context);
 
@@ -96,6 +99,7 @@ final readonly class ListFacilitiesProvider implements ProviderInterface
         parentFacilityId: is_string($parentFacilityId) && '' !== $parentFacilityId ? $parentFacilityId : null,
         rootsOnly: $rootsOnly,
         code: is_string($code) && '' !== $code ? $code : null,
+        hasCoordinates: $hasCoordinates,
         search: SearchExtractor::fromContext($context),
         sorting: SortingExtractor::fromContext($context, ['name', 'type', 'status', 'createdAt', 'updatedAt', 'code'], 'name'),
       ));

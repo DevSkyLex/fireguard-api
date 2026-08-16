@@ -18,7 +18,7 @@ Main goals:
 | --- | --- | --- |
 | GET | `/api/facilities/types` | List facility types for selects |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
-| GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`) |
+| GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants` | List all descendants for bulk subtree reads |
@@ -30,6 +30,13 @@ Lazy tree reads should use `/facilities?rootsOnly=true` for the initial level an
 `/facilities/{facilityId}/children` when a node is expanded. The
 `/descendants` endpoint is intended for bulk subtree reads and is not the
 default tree table expansion contract.
+
+`hasCoordinates=true`/`false` filters on whether both `latitude` and `longitude`
+are set; omit the parameter for no coordinate filtering. It exists so the
+frontend facilities map can fetch its full pin set (`hasCoordinates=true`) and
+the "unplaced facilities" list (`hasCoordinates=false`) via this listing
+endpoint rather than a dedicated bbox endpoint — organizations are
+quota-capped, so a full listAll is cheap.
 
 ### Attachments (R11b)
 

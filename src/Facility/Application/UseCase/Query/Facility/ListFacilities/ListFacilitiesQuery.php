@@ -29,6 +29,7 @@ final readonly class ListFacilitiesQuery implements QueryMessage
     public ?string $parentFacilityId = null,
     public bool $rootsOnly = false,
     public ?string $code = null,
+    public ?bool $hasCoordinates = null,
     public ?string $search = null,
     public Sorting $sorting = new Sorting('name', SortDirection::ASC),
   ) {
