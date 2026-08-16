@@ -357,18 +357,35 @@ Cross-module contracts and lifecycle invariants:
   are invisible to both, and archived intermediate nodes are traversed so a live
   descendant beneath them is still found.
 - Regulated actions emit domain events (`src/Facility/Domain/Event/`) recorded
-  in the audit ledger by Audit's `AuditEventSubscriber`: `facility.archived`,
-  `facility.restored`, `facility.moved` (previous/new parent in metadata).
-  Emission sites: the Archive/Restore/Move handlers (which load through
-  `findPublishedById` — draft scratchpads are unreachable) and the canonical
+  in the audit ledger by Audit's `AuditEventSubscriber`: `facility.created`,
+  `facility.archived`, `facility.restored`, `facility.moved` (previous/new
+  parent in metadata), `facility.updated` (`changedFields` — the field
+  NAMES that changed, never their values, keeping PII/noise such as address
+  and metadata contents out of the ledger). Emission sites: the
+  Create/Update/Archive/Restore/Move handlers — Create and Update dispatch
+  directly after their durable save (`CreateFacilityHandler`,
+  `UpdateFacilityHandler`), Archive/Restore/Move load through
+  `findPublishedById` (draft scratchpads are unreachable) — and the canonical
   processor, which COLLECTS its events during the mutation and dispatches
   them only after `wrapInTransaction` commits (no phantom ledger row on
-  rollback). Idempotent repeats and same-parent moves emit nothing. The
-  intervention `apply()` path is deferred to the `intervention.published`
-  audit action. Note: a dedicated Equipment subscriber for `FacilityArchived`
-  (once planned for reconciliation) is deliberately NOT built — the complete
-  archival guard already refuses to archive a facility with active equipment,
-  so there is never anything to reconcile.
+  rollback). Idempotent repeats, same-parent moves, and no-op patches (a
+  PATCH that re-sends the current value for every field) emit nothing.
+  `facility.updated`'s changed-field detection compares actual before/after
+  values, not merely which keys a merge-patch body carried, and never lists
+  `status` or `parent` — those are covered by their own dedicated events.
+  Both the resource-scoped `POST /facilities` and the canonical `PUT
+  /facilities/{id}` upsert route through `CreateFacilityProcessor` into the
+  same `CreateFacilityHandler`/`CreateFacilityCommand`, so both emit exactly
+  one `facility.created`; the canonical processor is therefore extended only
+  for the PATCH branch's `facility.updated`, not for create. The intervention
+  `apply()` path is deferred to the `intervention.published` audit action.
+  Note: a dedicated Equipment subscriber for `FacilityArchived` (once planned
+  for reconciliation) is deliberately NOT built — the complete archival guard
+  already refuses to archive a facility with active equipment, so there is
+  never anything to reconcile. `facility.created` and `facility.updated` are
+  also in Webhook's curated allowlist (`WebhookEventCatalog`,
+  `WebhookEventType`) alongside the pre-existing `facility.archived` /
+  `facility.restored` — see `src/Webhook/MODULE.md`.
 - **Bulk CSV import (R13)**: `Facility\Application\Port\Inbound\FacilityProvisioningPort`
   is a new inbound port, hosted in this module, that lets another module
   (Import's bulk CSV import) provision one facility programmatically. Its

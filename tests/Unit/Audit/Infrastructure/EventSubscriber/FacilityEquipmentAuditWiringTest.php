@@ -8,7 +8,7 @@ use Audit\Application\UseCase\Command\RecordAuditEvent\{RecordAuditEventCommand,
 use Audit\Infrastructure\EventSubscriber\AuditEventSubscriber;
 use Audit\Infrastructure\Service\AuditPiiSanitizer;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -41,9 +41,11 @@ final class FacilityEquipmentAuditWiringTest extends TestCase
   public function testEveryFacilityAndEquipmentDomainEventProducesItsAuditRecord(): void
   {
     $events = [
+      'facility.created' => new FacilityCreatedEvent(organizationId: 'org-1', facilityId: 'fac-1'),
       'facility.archived' => new FacilityArchivedEvent(organizationId: 'org-1', facilityId: 'fac-1'),
       'facility.restored' => new FacilityRestoredEvent(organizationId: 'org-1', facilityId: 'fac-1'),
       'facility.moved' => new FacilityMovedEvent(organizationId: 'org-1', facilityId: 'fac-1', previousParentFacilityId: 'fac-0', newParentFacilityId: null),
+      'facility.updated' => new FacilityUpdatedEvent(organizationId: 'org-1', facilityId: 'fac-1', changedFields: ['name', 'code']),
       'equipment.commissioned' => new EquipmentCommissionedEvent(organizationId: 'org-1', equipmentId: 'equip-1', facilityId: 'fac-1', previousStatus: 'in_stock'),
       'equipment.under_maintenance' => new EquipmentPutUnderMaintenanceEvent(organizationId: 'org-1', equipmentId: 'equip-1', facilityId: 'fac-1', previousStatus: 'operational'),
       'equipment.returned_to_stock' => new EquipmentReturnedToStockEvent(organizationId: 'org-1', equipmentId: 'equip-1', previousStatus: 'operational'),
@@ -51,9 +53,11 @@ final class FacilityEquipmentAuditWiringTest extends TestCase
     ];
 
     $expected = [
+      'facility.created' => ['facility', 'fac-1', ['organization_id' => 'org-1']],
       'facility.archived' => ['facility', 'fac-1', ['organization_id' => 'org-1']],
       'facility.restored' => ['facility', 'fac-1', ['organization_id' => 'org-1']],
       'facility.moved' => ['facility', 'fac-1', ['previous_parent_facility_id' => 'fac-0', 'new_parent_facility_id' => null, 'organization_id' => 'org-1']],
+      'facility.updated' => ['facility', 'fac-1', ['changed_fields' => ['name', 'code'], 'organization_id' => 'org-1']],
       'equipment.commissioned' => ['equipment', 'equip-1', ['facility_id' => 'fac-1', 'previous_status' => 'in_stock', 'organization_id' => 'org-1']],
       'equipment.under_maintenance' => ['equipment', 'equip-1', ['facility_id' => 'fac-1', 'previous_status' => 'operational', 'organization_id' => 'org-1']],
       'equipment.returned_to_stock' => ['equipment', 'equip-1', ['previous_status' => 'operational', 'organization_id' => 'org-1']],

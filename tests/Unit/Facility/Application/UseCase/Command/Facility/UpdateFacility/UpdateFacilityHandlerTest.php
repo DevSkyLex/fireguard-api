@@ -8,6 +8,7 @@ use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\UpdateFacility\{UpdateFacilityCommand, UpdateFacilityHandler, UpdateFacilityResult};
+use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{FacilityCodeAlreadyExistsException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityCoordinates, FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
@@ -16,6 +17,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Throwable;
 
 #[CoversClass(UpdateFacilityHandler::class)]
@@ -52,6 +54,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new UpdateFacilityCommand(
@@ -88,6 +91,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -122,6 +126,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -160,6 +165,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new UpdateFacilityCommand(
@@ -197,6 +203,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $result = $handler->__invoke(new UpdateFacilityCommand(
@@ -232,6 +239,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -265,6 +273,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $handler = new UpdateFacilityHandler(
       facilityRepository: $repository,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
     );
 
     $this->expectException(InvalidArgumentException::class);
@@ -290,7 +299,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $this->expectException(InvalidArgumentException::class);
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke(new UpdateFacilityCommand(
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440981',
       facilityId: 'not-a-uuid',
       name: 'Whatever',
@@ -315,7 +324,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $this->expectException(FacilityNotFoundException::class);
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke(new UpdateFacilityCommand(
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke(new UpdateFacilityCommand(
       organizationId: '550e8400-e29b-41d4-a716-446655440982',
       facilityId: '550e8400-e29b-41d4-a716-446655440980',
       name: 'Renamed',
@@ -331,7 +340,7 @@ final class UpdateFacilityHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Field "name" cannot be null when provided.');
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(name: null, hasName: true));
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke($this->command(name: null, hasName: true));
   }
 
   #[Test]
@@ -340,7 +349,7 @@ final class UpdateFacilityHandlerTest extends TestCase
     $facility = $this->facility();
     $repository = $this->repositoryReturningFacility($facility);
 
-    $result = new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(
+    $result = new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke($this->command(
       code: 'SITE-NEW',
       hasCode: true,
       address: 'New Address',
@@ -361,7 +370,7 @@ final class UpdateFacilityHandlerTest extends TestCase
 
     $this->expectException(FacilityCodeAlreadyExistsException::class);
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(code: 'SITE-DUP', hasCode: true));
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke($this->command(code: 'SITE-DUP', hasCode: true));
   }
 
   #[Test]
@@ -375,7 +384,7 @@ final class UpdateFacilityHandlerTest extends TestCase
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Organization not found.');
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(name: 'Renamed', hasName: true));
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke($this->command(name: 'Renamed', hasName: true));
   }
 
   #[Test]
@@ -386,7 +395,74 @@ final class UpdateFacilityHandlerTest extends TestCase
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('boom');
 
-    new UpdateFacilityHandler(facilityRepository: $repository)->__invoke($this->command(name: 'Renamed', hasName: true));
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $this->createStub(EventDispatcherPort::class))->__invoke($this->command(name: 'Renamed', hasName: true));
+  }
+
+  #[Test]
+  public function testInvokeDispatchesFacilityUpdatedEventWithChangedFieldNamesOnly(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static function (object $event): bool {
+        self::assertInstanceOf(FacilityUpdatedEvent::class, $event);
+        self::assertSame('550e8400-e29b-41d4-a716-446655440991', $event->organizationId);
+        self::assertSame('550e8400-e29b-41d4-a716-446655440990', $event->facilityId);
+        self::assertSame(['name', 'code'], $event->changedFields);
+
+        return true;
+      }));
+
+    $handler = new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $handler->__invoke($this->command(name: 'Renamed', hasName: true, code: 'SITE-NEW', hasCode: true));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchWhenPatchResendsTheCurrentValue(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    // The stock facility already has code "SITE-OLD" and address "Old
+    // Address" — re-sending the identical values is a no-op patch.
+    $handler->__invoke($this->command(code: 'SITE-OLD', hasCode: true, address: 'Old Address', hasAddress: true));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchWhenNoFieldIsProvided(): void
+  {
+    $repository = $this->repositoryReturningFacility($this->facility());
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher);
+
+    $handler->__invoke($this->command());
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchWhenSaveFails(): void
+  {
+    $repository = $this->repositoryFailingWith(new RuntimeException('boom'));
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $this->expectException(RuntimeException::class);
+
+    new UpdateFacilityHandler(facilityRepository: $repository, eventDispatcher: $eventDispatcher)->__invoke($this->command(name: 'Renamed', hasName: true));
   }
 
   private function facility(): Facility

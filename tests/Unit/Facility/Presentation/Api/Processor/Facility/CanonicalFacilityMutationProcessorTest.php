@@ -10,7 +10,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\{EntityManagerInterface, EntityRepository};
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Facility\Presentation\Api\Dto\Input\Facility\PatchCanonicalFacilityInput;
@@ -456,6 +456,75 @@ final class CanonicalFacilityMutationProcessorTest extends TestCase
       $record,
       $this->request('PATCH', '{"parent":"/api/facilities/' . self::PARENT_ID . '"}'),
       $entityManager,
+      eventDispatcher: $eventDispatcher,
+    )->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testPatchingDescriptiveFieldsDispatchesUpdatedEventWithChangedFieldNamesOnly(): void
+  {
+    // Audit ledger: a PATCH that changes name and code emits a
+    // FacilityUpdatedEvent carrying only the changed field NAMES.
+    $record = $this->record();
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::callback(
+      static fn (object $event): bool => $event instanceof FacilityUpdatedEvent
+        && self::ORGANIZATION_ID === $event->organizationId
+        && self::FACILITY_ID === $event->facilityId
+        && ['name', 'code'] === $event->changedFields,
+    ));
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->name = 'Renamed HQ';
+    $input->code = 'HQ-NEW';
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"name":"Renamed HQ","code":"HQ-NEW"}'),
+      eventDispatcher: $eventDispatcher,
+    )->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+
+    self::assertSame('Renamed HQ', $record->name);
+  }
+
+  #[Test]
+  public function testPatchingWithTheSameValuesDispatchesNothing(): void
+  {
+    // Re-sending the current name is a no-op patch: no FacilityUpdatedEvent
+    // may reach the ledger, mirroring the same-parent move.
+    $record = $this->record();
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->name = $record->name;
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"name":"' . $record->name . '"}'),
+      eventDispatcher: $eventDispatcher,
+    )->process($input, new Patch(), ['id' => self::FACILITY_ID]);
+  }
+
+  #[Test]
+  public function testArchivingPublishedFacilityViaPatchDoesNotAlsoDispatchUpdatedEvent(): void
+  {
+    // A status-only PATCH is fully covered by FacilityArchivedEvent; status
+    // is excluded from FacilityUpdatedEvent's changed-field tracking so the
+    // two events never double-report the same transition.
+    $record = $this->record();
+
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())->method('dispatch')->with(self::isInstanceOf(FacilityArchivedEvent::class));
+
+    $input = new PatchCanonicalFacilityInput();
+    $input->status = 'archived';
+
+    $this->processor(
+      $record,
+      $this->request('PATCH', '{"status":"archived"}'),
       eventDispatcher: $eventDispatcher,
     )->process($input, new Patch(), ['id' => self::FACILITY_ID]);
   }

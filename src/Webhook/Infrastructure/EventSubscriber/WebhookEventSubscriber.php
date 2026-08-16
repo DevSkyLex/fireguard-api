@@ -6,7 +6,7 @@ namespace Webhook\Infrastructure\EventSubscriber;
 
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
@@ -89,8 +89,10 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
       WebhookEventCatalog::NON_CONFORMITY_STATUS_CHANGED_EVENT => 'onNonConformityStatusChanged',
       WebhookEventCatalog::INTERVENTION_PUBLISHED_EVENT => 'onInterventionPublished',
       WebhookEventCatalog::MAINTENANCE_CAMPAIGN_GENERATED_EVENT => 'onMaintenanceCampaignGenerated',
+      WebhookEventCatalog::FACILITY_CREATED_EVENT => 'onFacilityCreated',
       WebhookEventCatalog::FACILITY_ARCHIVED_EVENT => 'onFacilityArchived',
       WebhookEventCatalog::FACILITY_RESTORED_EVENT => 'onFacilityRestored',
+      WebhookEventCatalog::FACILITY_UPDATED_EVENT => 'onFacilityUpdated',
     ];
   }
 
@@ -252,6 +254,20 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onFacilityCreated.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityCreatedEvent $event the domain event
+   */
+  public function onFacilityCreated(FacilityCreatedEvent $event): void
+  {
+    $this->enqueue($event->organizationId, WebhookEventType::FACILITY_CREATED, [
+      'facilityId' => $event->facilityId,
+    ], $event->occurredAt);
+  }
+
+  /**
    * Method onFacilityArchived.
    *
    * @since 1.0.0
@@ -276,6 +292,21 @@ final readonly class WebhookEventSubscriber implements EventSubscriberInterface
   {
     $this->enqueue($event->organizationId, WebhookEventType::FACILITY_RESTORED, [
       'facilityId' => $event->facilityId,
+    ], $event->occurredAt);
+  }
+
+  /**
+   * Method onFacilityUpdated.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityUpdatedEvent $event the domain event
+   */
+  public function onFacilityUpdated(FacilityUpdatedEvent $event): void
+  {
+    $this->enqueue($event->organizationId, WebhookEventType::FACILITY_UPDATED, [
+      'facilityId' => $event->facilityId,
+      'changedFields' => $event->changedFields,
     ], $event->occurredAt);
   }
 
