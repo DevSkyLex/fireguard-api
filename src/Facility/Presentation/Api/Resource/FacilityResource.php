@@ -118,6 +118,13 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
             description: 'Filter by exact facility code.',
             schema: ['type' => 'string'],
           ),
+          new Parameter(
+            name: 'hasCoordinates',
+            in: 'query',
+            required: false,
+            description: 'When true, only facilities with both latitude and longitude set are returned. When false, only facilities missing coordinates are returned. Omit for no coordinate filtering.',
+            schema: ['type' => 'boolean'],
+          ),
         ],
         responses: [
           HttpResponse::HTTP_OK => new Response(description: 'Facilities retrieved'),

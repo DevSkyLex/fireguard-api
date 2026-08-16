@@ -76,6 +76,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       limit: $query->pagination->limit,
       offset: $query->pagination->offset,
       rootsOnly: $query->rootsOnly,
+      hasCoordinates: $query->hasCoordinates,
     );
 
     $total = $this->facilityRepository->countByOrganizationId(
@@ -87,6 +88,7 @@ final readonly class ListFacilitiesHandler implements QueryHandler
       code: $query->code,
       search: $query->search,
       rootsOnly: $query->rootsOnly,
+      hasCoordinates: $query->hasCoordinates,
     );
 
     $childCounts = $this->facilityRepository->countChildrenByParentIds(

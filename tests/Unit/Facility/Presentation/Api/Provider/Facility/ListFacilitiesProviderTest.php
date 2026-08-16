@@ -225,6 +225,94 @@ final class ListFacilitiesProviderTest extends TestCase
   }
 
   #[Test]
+  public function testProvidePassesHasCoordinatesToQueryWhenPresent(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441215';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441216');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), $organizationId, 'organization.facilities.read')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListFacilitiesQuery $query): bool {
+        return true === $query->hasCoordinates;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 0, offset: 0));
+
+    $request = new Request();
+    $request->query->set('hasCoordinates', 'true');
+    $requestStack = new RequestStack();
+    $requestStack->push($request);
+
+    $provider = new ListFacilitiesProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => $organizationId],
+    );
+  }
+
+  #[Test]
+  public function testProvideLeavesHasCoordinatesNullWhenAbsent(): void
+  {
+    $organizationId = '550e8400-e29b-41d4-a716-446655441217';
+    $user = $this->createSecurityUser('550e8400-e29b-41d4-a716-446655441218');
+
+    $security = $this->createMock(Security::class);
+    $security->expects(self::once())
+      ->method('getUser')
+      ->willReturn($user);
+
+    /** @var OrganizationAuthorizationPort&MockObject $authorization */
+    $authorization = $this->createMock(OrganizationAuthorizationPort::class);
+    $authorization->expects(self::once())
+      ->method('resolveAccess')
+      ->with($user->getId(), $organizationId, 'organization.facilities.read')
+      ->willReturn(OrganizationAccessDecision::GRANTED);
+
+    /** @var QueryBusPort&MockObject $queryBus */
+    $queryBus = $this->createMock(QueryBusPort::class);
+    $queryBus->expects(self::once())
+      ->method('ask')
+      ->with(self::callback(static function (ListFacilitiesQuery $query): bool {
+        return null === $query->hasCoordinates;
+      }))
+      ->willReturn(new PaginatedResult(items: [], total: 0, limit: 0, offset: 0));
+
+    $requestStack = new RequestStack();
+    $requestStack->push(new Request());
+
+    $provider = new ListFacilitiesProvider(
+      queryBus: $queryBus,
+      authorization: $authorization,
+      security: $security,
+      requestStack: $requestStack,
+    );
+
+    $provider->provide(
+      operation: new GetCollection(),
+      uriVariables: ['organizationId' => $organizationId],
+    );
+  }
+
+  #[Test]
   public function testProvideThrowsWhenNotAuthenticated(): void
   {
     $security = $this->createMock(Security::class);

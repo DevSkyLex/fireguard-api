@@ -145,6 +145,7 @@ interface FacilityRepositoryPort
    * @param ?string $code optional exact code filter
    * @param ?string $search optional text search applied before counting
    * @param bool $rootsOnly whether only facilities without parent are counted
+   * @param ?bool $hasCoordinates when true, count only facilities with both latitude and longitude set; when false, count only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return int the facilities count
    */
@@ -157,6 +158,7 @@ interface FacilityRepositoryPort
     ?string $code = null,
     ?string $search = null,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): int;
 
   /**
@@ -243,6 +245,7 @@ interface FacilityRepositoryPort
    * @param int $limit maximum number of results
    * @param int $offset result offset
    * @param bool $rootsOnly whether only facilities without parent are listed
+   * @param ?bool $hasCoordinates when true, list only facilities with both latitude and longitude set; when false, list only facilities missing coordinates; null applies no coordinate filtering
    *
    * @return list<Facility> the facilities collection
    */
@@ -258,6 +261,7 @@ interface FacilityRepositoryPort
     int $limit = 20,
     int $offset = 0,
     bool $rootsOnly = false,
+    ?bool $hasCoordinates = null,
   ): array;
 
   // #endregion

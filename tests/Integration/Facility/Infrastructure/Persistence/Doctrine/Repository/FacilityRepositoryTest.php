@@ -73,6 +73,62 @@ final class FacilityRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testFindByOrganizationIdFiltersByHasCoordinates(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-coordinates-a');
+
+    $placed = $this->createFacility(
+      '550e8400-e29b-41d4-a716-446655443014',
+      $organization,
+      null,
+      'Placed Site',
+      latitude: 48.8566,
+      longitude: 2.3522,
+    );
+    $this->createFacility('550e8400-e29b-41d4-a716-446655443015', $organization, null, 'Unplaced Site');
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $repository = new FacilityRepository($this->entityManager);
+    $organizationId = new FacilityOrganizationId($organization->id);
+
+    $withCoordinates = $repository->findByOrganizationId(
+      organizationId: $organizationId,
+      limit: 20,
+      offset: 0,
+      hasCoordinates: true,
+    );
+    self::assertCount(1, $withCoordinates);
+    self::assertSame($placed->id, (string) $withCoordinates[0]->id());
+    self::assertSame(1, $repository->countByOrganizationId(
+      organizationId: $organizationId,
+      hasCoordinates: true,
+    ));
+
+    $withoutCoordinates = $repository->findByOrganizationId(
+      organizationId: $organizationId,
+      limit: 20,
+      offset: 0,
+      hasCoordinates: false,
+    );
+    self::assertCount(1, $withoutCoordinates);
+    self::assertSame('550e8400-e29b-41d4-a716-446655443015', (string) $withoutCoordinates[0]->id());
+    self::assertSame(1, $repository->countByOrganizationId(
+      organizationId: $organizationId,
+      hasCoordinates: false,
+    ));
+
+    $all = $repository->findByOrganizationId(
+      organizationId: $organizationId,
+      limit: 20,
+      offset: 0,
+    );
+    self::assertCount(2, $all);
+    self::assertSame(2, $repository->countByOrganizationId(organizationId: $organizationId));
+  }
+
+  #[Test]
   public function testFindChildrenPaginatesAndCountsMatchingChildren(): void
   {
     $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-children-a');
@@ -283,6 +339,8 @@ final class FacilityRepositoryTest extends KernelTestCase
     ?FacilityRecord $parentFacility,
     string $name,
     string $status = 'active',
+    ?float $latitude = null,
+    ?float $longitude = null,
   ): FacilityRecord {
     $facility = new FacilityRecord();
     $facility->id = $id;
@@ -293,6 +351,8 @@ final class FacilityRepositoryTest extends KernelTestCase
     $facility->code = null;
     $facility->status = $status;
     $facility->address = null;
+    $facility->latitude = $latitude;
+    $facility->longitude = $longitude;
     $facility->metadata = [];
     $facility->createdAt = new DateTimeImmutable('2026-02-12T10:00:00+00:00');
     $facility->updatedAt = $facility->createdAt;
