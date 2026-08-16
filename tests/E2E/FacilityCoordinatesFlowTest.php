@@ -81,6 +81,8 @@ final class FacilityCoordinatesFlowTest extends OAuth2WebTestCase
     $getData = $this->decodeJsonResponse($getResponse->getContent() ?: '{}');
     $this->assertSame(48.8566, $getData['latitude'] ?? null, 'GET should return the persisted latitude.');
     $this->assertSame(2.3522, $getData['longitude'] ?? null, 'GET should return the persisted longitude.');
+    $this->assertArrayHasKey('path', $getData, 'GET should expose the ancestor breadcrumb.');
+    $this->assertSame([], $getData['path'], 'A root facility has an empty ancestor breadcrumb.');
 
     // Step 3: List facilities — the frontend map reads coordinates from this load-bearing endpoint.
     $client->request(

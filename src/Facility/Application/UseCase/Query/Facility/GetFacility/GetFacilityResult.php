@@ -28,6 +28,9 @@ final readonly class GetFacilityResult implements ResultMessage
    * @param int $equipmentCount active equipment assigned to this facility, read
    *                            through the Equipment module's outbound port —
    *                            the facility itself owns no equipment data
+   * @param list<array{id: string, name: string, type: string}> $path ancestor
+   *                                                                  breadcrumb ordered root first, direct parent
+   *                                                                  last, excluding this facility
    */
   public function __construct(
     public string $facilityId,
@@ -45,6 +48,7 @@ final readonly class GetFacilityResult implements ResultMessage
     public ?float $latitude = null,
     public ?float $longitude = null,
     public int $equipmentCount = 0,
+    public array $path = [],
   ) {
   }
   // #endregion

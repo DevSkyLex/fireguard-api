@@ -19,12 +19,14 @@ Main goals:
 | GET | `/api/facilities/types` | List facility types for selects |
 | POST | `/api/organizations/{organizationId}/facilities` | Create a facility |
 | GET | `/api/organizations/{organizationId}/facilities` | List facilities (filters: `includeArchived`, `type`, `status`, `parentFacilityId`, `rootsOnly`, `code`, `hasCoordinates`) |
-| GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility |
+| GET | `/api/organizations/{organizationId}/facilities/{facilityId}` | Get one facility (includes the ancestor `path` breadcrumb) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/children` | List direct children for lazy tree expansion (paginated) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/descendants` | List all descendants for bulk subtree reads |
 | PATCH | `/api/organizations/{organizationId}/facilities/{facilityId}` | Update a facility |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/archive` | Archive a facility |
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
+| GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
+| GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
 
 Lazy tree reads should use `/facilities?rootsOnly=true` for the initial level and
 `/facilities/{facilityId}/children` when a node is expanded. The
@@ -37,6 +39,21 @@ frontend facilities map can fetch its full pin set (`hasCoordinates=true`) and
 the "unplaced facilities" list (`hasCoordinates=false`) via this listing
 endpoint rather than a dedicated bbox endpoint — organizations are
 quota-capped, so a full listAll is cheap.
+
+### Ancestor breadcrumb (`path`)
+
+Both facility detail reads — `GetFacilityProvider` (organization-scoped) and
+`CanonicalFacilityProvider` (canonical item route) — populate `FacilityOutput::$path`:
+a `list<{id, name, type}>` ordered root first, direct parent last, excluding the
+facility itself, and empty for a root facility. It is resolved through
+`FacilityRepositoryPort::findAncestors()` (a single upward recursive CTE over
+PUBLISHED records, mirroring `findDescendants()` in the opposite direction).
+
+Both the legacy and canonical **list** providers deliberately leave `path` at its
+default empty array — populating it per row would be an N+1 ancestor lookup per
+page. `FacilitySerializationGroup::READ` is shared across every operation (there
+is no detail-only serialization group in this module today), so the split is
+enforced by the providers, not by the wire contract.
 
 ### Attachments (R11b)
 
@@ -219,6 +236,13 @@ Cross-module contracts and lifecycle invariants:
     `Presentation/Api/Provider/Attachment/FacilityMediaProviderTest` —
     permission enforcement and the `If-Match` revision guard on delete.
 - Integration (real database):
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`.
-- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php`.
+  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`,
+  `FacilityRepositoryTest::testFindAncestorsWalksTheParentChainRootFirstAndExcludesDraftAncestors`
+  (root facility, 3-level chain, draft ancestor exclusion),
+  `Presentation/Api/Provider/Facility/CanonicalFacilityProviderTest` (item route
+  `path` mapping, collection left empty).
+- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php`;
+  E2E `tests/E2E/FacilityCoordinatesFlowTest.php` and
+  `tests/E2E/FacilityPresentationFlowTest.php` assert the `path` shape on the
+  organization-scoped and canonical detail reads.
 - Run module tests: `make test tests/Unit/Facility/`
