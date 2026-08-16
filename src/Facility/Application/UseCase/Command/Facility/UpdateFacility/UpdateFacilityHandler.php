@@ -9,10 +9,12 @@ use Doctrine\DBAL\Exception\{
   UniqueConstraintViolationException
 };
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Event\Facility\FacilityUpdatedEvent;
 use Facility\Domain\Exception\{
   FacilityCodeAlreadyExistsException,
   FacilityNotFoundException
 };
+use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{
   FacilityCoordinates,
   FacilityId,
@@ -22,6 +24,7 @@ use Facility\Domain\ValueObject\{
 };
 use InvalidArgumentException;
 use Shared\Application\Message\CommandHandler;
+use Shared\Application\Port\Outbound\EventDispatcherPort;
 use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 use ValueError;
@@ -41,8 +44,17 @@ use function strtolower;
 final readonly class UpdateFacilityHandler implements CommandHandler
 {
   // #region Constructor
+  /**
+   * Constructor.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityRepositoryPort $facilityRepository the facility repository port
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
+   */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
+    private EventDispatcherPort $eventDispatcher,
   ) {
   }
   // #endregion
@@ -73,6 +85,16 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     if (null === $facility || (string) $facility->organizationId() !== (string) $organizationId) {
       throw FacilityNotFoundException::withId($command->facilityId);
     }
+
+    // Captured before the mutation so the changed-field list reflects what
+    // actually differs, not merely which fields were present in the patch —
+    // a PATCH that re-sends the current value must stay a no-op.
+    $previousType = $facility->type();
+    $previousName = (string) $facility->name();
+    $previousCode = $facility->code();
+    $previousAddress = $facility->address();
+    $previousCoordinates = $facility->coordinates();
+    $previousMetadata = $facility->metadata();
 
     try {
       if ($command->hasType) {
@@ -124,6 +146,27 @@ final readonly class UpdateFacilityHandler implements CommandHandler
       throw $exception;
     }
 
+    // Emitted after the durable save so a failed persistence leaves no
+    // ledger row; a patch that changes nothing (same values re-sent) must
+    // not emit. Status and parent are covered by the dedicated
+    // archived/restored/moved events and are never listed here.
+    $changedFields = $this->changedFields(
+      $facility,
+      $previousType,
+      $previousName,
+      $previousCode,
+      $previousAddress,
+      $previousCoordinates,
+      $previousMetadata,
+    );
+    if ([] !== $changedFields) {
+      $this->eventDispatcher->dispatch(new FacilityUpdatedEvent(
+        organizationId: (string) $facility->organizationId(),
+        facilityId: (string) $facility->id(),
+        changedFields: $changedFields,
+      ));
+    }
+
     return new UpdateFacilityResult(
       facilityId: (string) $facility->id(),
       organizationId: (string) $facility->organizationId(),
@@ -170,6 +213,87 @@ final readonly class UpdateFacilityHandler implements CommandHandler
     }
 
     return new FacilityCoordinates($command->latitude, $command->longitude);
+  }
+
+  /**
+   * Method changedFields.
+   *
+   * Compares the facility's post-mutation state against the snapshot taken
+   * before the patch was applied and returns the names of the fields that
+   * actually differ. `status` and `parent` are deliberately excluded: they
+   * are covered by the dedicated archive/restore/move events.
+   *
+   * @since 1.0.0
+   *
+   * @param Facility $facility the facility after mutation
+   * @param FacilityType $previousType the type before mutation
+   * @param string $previousName the name before mutation
+   * @param ?string $previousCode the code before mutation
+   * @param ?string $previousAddress the address before mutation
+   * @param ?FacilityCoordinates $previousCoordinates the coordinates before mutation
+   * @param array<string, mixed> $previousMetadata the metadata before mutation
+   *
+   * @return list<string> the changed field names
+   */
+  private function changedFields(
+    Facility $facility,
+    FacilityType $previousType,
+    string $previousName,
+    ?string $previousCode,
+    ?string $previousAddress,
+    ?FacilityCoordinates $previousCoordinates,
+    array $previousMetadata,
+  ): array {
+    $changed = [];
+
+    if ($previousType !== $facility->type()) {
+      $changed[] = 'type';
+    }
+
+    if ($previousName !== (string) $facility->name()) {
+      $changed[] = 'name';
+    }
+
+    if ($previousCode !== $facility->code()) {
+      $changed[] = 'code';
+    }
+
+    if ($previousAddress !== $facility->address()) {
+      $changed[] = 'address';
+    }
+
+    if (!$this->coordinatesEqual($previousCoordinates, $facility->coordinates())) {
+      $changed[] = 'coordinates';
+    }
+
+    if ($previousMetadata !== $facility->metadata()) {
+      $changed[] = 'metadata';
+    }
+
+    return $changed;
+  }
+
+  /**
+   * Method coordinatesEqual.
+   *
+   * @since 1.0.0
+   *
+   * @param ?FacilityCoordinates $previous the coordinates before mutation
+   * @param ?FacilityCoordinates $current the coordinates after mutation
+   *
+   * @return bool true when both are null or carry the same latitude/longitude
+   */
+  private function coordinatesEqual(?FacilityCoordinates $previous, ?FacilityCoordinates $current): bool
+  {
+    if (null === $previous && null === $current) {
+      return true;
+    }
+
+    if (null === $previous || null === $current) {
+      return false;
+    }
+
+    return $previous->latitude() === $current->latitude() && $previous->longitude() === $current->longitude();
   }
 
   /**

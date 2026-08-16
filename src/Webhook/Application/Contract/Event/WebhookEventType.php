@@ -39,8 +39,10 @@ enum WebhookEventType: string
   case NON_CONFORMITY_STATUS_CHANGED = 'inspection.non_conformity_status_changed';
   case INTERVENTION_PUBLISHED = 'intervention.published';
   case MAINTENANCE_CAMPAIGN_GENERATED = 'maintenance.campaign_generated';
+  case FACILITY_CREATED = 'facility.created';
   case FACILITY_ARCHIVED = 'facility.archived';
   case FACILITY_RESTORED = 'facility.restored';
+  case FACILITY_UPDATED = 'facility.updated';
   case PING = 'webhook.ping';
 
   // #region Methods

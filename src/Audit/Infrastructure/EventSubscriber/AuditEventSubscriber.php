@@ -21,7 +21,7 @@ use Automation\Domain\Event\Rule\{AutomationRuleExecutedEvent, AutomationRuleFai
 use Compliance\Domain\Event\SafetyRegisterExportedEvent;
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Import\Domain\Event\{ImportJobCompletedEvent, ImportJobFailedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionCancelledEvent, InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
@@ -156,9 +156,11 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       'inspection.inspection_cancelled_event' => 'onInspectionCancelled',
       'inspection.non_conformity_recorded_event' => 'onNonConformityRecorded',
       'inspection.non_conformity_status_changed_event' => 'onNonConformityStatusChanged',
+      'facility.facility_created_event' => 'onFacilityCreated',
       'facility.facility_archived_event' => 'onFacilityArchived',
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
+      'facility.facility_updated_event' => 'onFacilityUpdated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
       'equipment.equipment_put_under_maintenance_event' => 'onEquipmentPutUnderMaintenance',
       'equipment.equipment_returned_to_stock_event' => 'onEquipmentReturnedToStock',
@@ -1121,6 +1123,27 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
   }
 
   /**
+   * Method onFacilityCreated.
+   *
+   * Records a facility creation.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityCreatedEvent $event the domain event
+   */
+  public function onFacilityCreated(FacilityCreatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.created',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->facilityId,
+      metadata: [],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
    * Method onFacilityArchived.
    *
    * Records a facility archival.
@@ -1181,6 +1204,32 @@ final readonly class AuditEventSubscriber implements EventSubscriberInterface
       metadata: [
         'previous_parent_facility_id' => $event->previousParentFacilityId,
         'new_parent_facility_id' => $event->newParentFacilityId,
+      ],
+      occurredAt: $event->occurredAt,
+    );
+  }
+
+  /**
+   * Method onFacilityUpdated.
+   *
+   * Records a facility descriptive-field update. `changed_fields` carries
+   * only the field NAMES (never their values) — the ledger must not become
+   * a second copy of potentially sensitive facility data (address,
+   * metadata) nor grow noisy with every partial patch's payload.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityUpdatedEvent $event the domain event
+   */
+  public function onFacilityUpdated(FacilityUpdatedEvent $event): void
+  {
+    $this->recordOrganizationAudit(
+      action: 'facility.updated',
+      organizationId: $event->organizationId,
+      subjectType: 'facility',
+      subjectId: $event->facilityId,
+      metadata: [
+        'changed_fields' => $event->changedFields,
       ],
       occurredAt: $event->occurredAt,
     );

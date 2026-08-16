@@ -9,6 +9,7 @@ use Doctrine\DBAL\Exception\{
   UniqueConstraintViolationException
 };
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Domain\Event\Facility\FacilityCreatedEvent;
 use Facility\Domain\Exception\{
   FacilityArchivedException,
   FacilityCodeAlreadyExistsException,
@@ -28,7 +29,7 @@ use Organization\Application\Port\Inbound\OrganizationQuotaPort;
 use Organization\Domain\ValueObject\OrganizationQuotaResource;
 use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Shared\Domain\Exception\InvalidValueException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
@@ -60,6 +61,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param EventDispatcherPort $eventDispatcher the domain event dispatcher
    * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
@@ -67,6 +69,7 @@ final readonly class CreateFacilityHandler implements CommandHandler
     private UuidFactory $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
+    private EventDispatcherPort $eventDispatcher,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
   ) {
@@ -155,6 +158,14 @@ final readonly class CreateFacilityHandler implements CommandHandler
         throw $exception;
       }
     });
+
+    // Emitted after the durable save so a failed persistence leaves no
+    // ledger row. Both the resource-scoped POST and the canonical PUT
+    // upsert route through this same handler, so both emit exactly once.
+    $this->eventDispatcher->dispatch(new FacilityCreatedEvent(
+      organizationId: (string) $facility->organizationId(),
+      facilityId: (string) $facility->id(),
+    ));
 
     return new CreateFacilityResult(
       facilityId: (string) $facility->id(),

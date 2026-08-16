@@ -6,7 +6,7 @@ namespace Tests\Unit\Webhook\Infrastructure\EventSubscriber;
 
 use DateTimeImmutable;
 use Equipment\Domain\Event\Equipment\{EquipmentCommissionedEvent, EquipmentDecommissionedEvent, EquipmentPutUnderMaintenanceEvent, EquipmentReturnedToStockEvent};
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityCreatedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Inspection\Domain\Event\Inspection\{InspectionClosedEvent, InspectionSubmittedEvent};
 use Inspection\Domain\Event\NonConformity\{NonConformityRecordedEvent, NonConformityStatusChangedEvent};
 use Intervention\Domain\Event\Publication\InterventionPublishedEvent;
@@ -60,8 +60,10 @@ final class WebhookEventSubscriberTest extends TestCase
       WebhookEventCatalog::NON_CONFORMITY_STATUS_CHANGED_EVENT => 'onNonConformityStatusChanged',
       WebhookEventCatalog::INTERVENTION_PUBLISHED_EVENT => 'onInterventionPublished',
       WebhookEventCatalog::MAINTENANCE_CAMPAIGN_GENERATED_EVENT => 'onMaintenanceCampaignGenerated',
+      WebhookEventCatalog::FACILITY_CREATED_EVENT => 'onFacilityCreated',
       WebhookEventCatalog::FACILITY_ARCHIVED_EVENT => 'onFacilityArchived',
       WebhookEventCatalog::FACILITY_RESTORED_EVENT => 'onFacilityRestored',
+      WebhookEventCatalog::FACILITY_UPDATED_EVENT => 'onFacilityUpdated',
     ], $subscribed);
 
     // Exactly the same event names Audit already subscribes to (verified names).
@@ -135,6 +137,44 @@ final class WebhookEventSubscriberTest extends TestCase
     $subscriber->onFacilityArchived(new FacilityArchivedEvent(
       organizationId: self::ORGANIZATION_ID,
       facilityId: 'facility-1',
+    ));
+  }
+
+  #[Test]
+  public function itDispatchesForFacilityCreated(): void
+  {
+    $messageBus = $this->createMock(MessageBusInterface::class);
+    $messageBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (DispatchWebhookEventCommand $command): bool => 'facility.created' === $command->eventType
+        && 'facility-1' === $command->data['facilityId']))
+      ->willReturn($this->envelope());
+
+    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+
+    $subscriber->onFacilityCreated(new FacilityCreatedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      facilityId: 'facility-1',
+    ));
+  }
+
+  #[Test]
+  public function itDispatchesForFacilityUpdatedWithChangedFieldNamesOnly(): void
+  {
+    $messageBus = $this->createMock(MessageBusInterface::class);
+    $messageBus->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(static fn (DispatchWebhookEventCommand $command): bool => 'facility.updated' === $command->eventType
+        && 'facility-1' === $command->data['facilityId']
+        && ['name', 'code'] === $command->data['changedFields']))
+      ->willReturn($this->envelope());
+
+    $subscriber = new WebhookEventSubscriber($messageBus, $this->uuidFactory(), new NullLogger());
+
+    $subscriber->onFacilityUpdated(new FacilityUpdatedEvent(
+      organizationId: self::ORGANIZATION_ID,
+      facilityId: 'facility-1',
+      changedFields: ['name', 'code'],
     ));
   }
 

@@ -76,8 +76,10 @@ which already subscribes to every one of them:
 | `inspection.non_conformity_status_changed` | `inspection.non_conformity_status_changed_event` |
 | `intervention.published` | `intervention.intervention_published_event` |
 | `maintenance.campaign_generated` | `maintenance.maintenance_campaign_generated_event` |
+| `facility.created` | `facility.facility_created_event` |
 | `facility.archived` | `facility.facility_archived_event` |
 | `facility.restored` | `facility.facility_restored_event` |
+| `facility.updated` | `facility.facility_updated_event` |
 | `webhook.ping` | *(never dispatched from a real event — reserved for the test-delivery endpoint)* |
 
 Excluded by policy: every auth/oauth/otp/session event (security-internal),

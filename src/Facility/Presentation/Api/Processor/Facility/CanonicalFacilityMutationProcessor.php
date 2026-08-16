@@ -11,7 +11,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
-use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent};
+use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Facility\Domain\Exception\FacilityHierarchyException;
 use Facility\Domain\ValueObject\FacilityId;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
@@ -206,6 +206,17 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     $fields = $this->mergePatchFields->all();
     $previousStatus = $record->status;
     $previousParentFacilityId = $record->parentFacility?->id;
+    // Captured before any assignment below so the changed-field list (for
+    // FacilityUpdatedEvent) reflects what actually differs, not merely which
+    // keys the merge-patch body carried — resending the current value must
+    // stay a no-op, exactly like a same-parent move emits nothing.
+    $previousType = $record->type;
+    $previousName = $record->name;
+    $previousCode = $record->code;
+    $previousAddress = $record->address;
+    $previousLatitude = $record->latitude;
+    $previousLongitude = $record->longitude;
+    $previousMetadata = $record->metadata;
     if (array_key_exists('type', $fields)) {
       if (null === $input->type) {
         throw new UnprocessableEntityHttpException('Facility type cannot be null.');
@@ -304,6 +315,34 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
           facilityId: $record->id,
           previousParentFacilityId: $previousParentFacilityId,
           newParentFacilityId: $newParentFacilityId,
+        );
+      }
+      // Descriptive-field changes only — status and parent are covered by
+      // the archived/restored/moved events above and never listed here.
+      $changedFields = [];
+      if ($previousType !== $record->type) {
+        $changedFields[] = 'type';
+      }
+      if ($previousName !== $record->name) {
+        $changedFields[] = 'name';
+      }
+      if ($previousCode !== $record->code) {
+        $changedFields[] = 'code';
+      }
+      if ($previousAddress !== $record->address) {
+        $changedFields[] = 'address';
+      }
+      if ($previousLatitude !== $record->latitude || $previousLongitude !== $record->longitude) {
+        $changedFields[] = 'coordinates';
+      }
+      if ($previousMetadata !== $record->metadata) {
+        $changedFields[] = 'metadata';
+      }
+      if ([] !== $changedFields) {
+        $pendingEvents[] = new FacilityUpdatedEvent(
+          organizationId: $organizationId,
+          facilityId: $record->id,
+          changedFields: $changedFields,
         );
       }
     }

@@ -8,6 +8,7 @@ use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler, CreateFacilityResult};
+use Facility\Domain\Event\Facility\FacilityCreatedEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
 use Facility\Domain\Model\Facility\Facility;
 use Facility\Domain\ValueObject\{FacilityId, FacilityName, FacilityOrganizationId, FacilityType};
@@ -20,7 +21,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Shared\Application\Factory\UuidFactory;
-use Shared\Application\Port\Outbound\TransactionManagerPort;
+use Shared\Application\Port\Outbound\{EventDispatcherPort, TransactionManagerPort};
 use Throwable;
 
 use function sprintf;
@@ -564,7 +565,57 @@ final class CreateFacilityHandlerTest extends TestCase
     ));
   }
 
-  private function handlerFailingWith(Throwable $failure, ?Facility $parent = null): CreateFacilityHandler
+  #[Test]
+  public function testInvokeDispatchesFacilityCreatedEventAfterSave(): void
+  {
+    $generatedId = new FacilityId('550e8400-e29b-41d4-a716-4466554419c8');
+    $organizationId = '550e8400-e29b-41d4-a716-4466554419c9';
+
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::once())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn($generatedId);
+
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::once())
+      ->method('dispatch')
+      ->with(self::callback(
+        static fn (object $event): bool => $event instanceof FacilityCreatedEvent
+          && $organizationId === $event->organizationId
+          && (string) $generatedId === $event->facilityId,
+      ));
+
+    $handler = $this->handler($repository, $uuidFactory, eventDispatcher: $eventDispatcher);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: $organizationId,
+      type: 'site',
+      name: 'Dispatch HQ',
+    ));
+  }
+
+  #[Test]
+  public function testInvokeDoesNotDispatchFacilityCreatedEventWhenSaveFails(): void
+  {
+    /** @var EventDispatcherPort&MockObject $eventDispatcher */
+    $eventDispatcher = $this->createMock(EventDispatcherPort::class);
+    $eventDispatcher->expects(self::never())->method('dispatch');
+
+    $handler = $this->handlerFailingWith(new RuntimeException('boom'), eventDispatcher: $eventDispatcher);
+
+    $this->expectException(RuntimeException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419ca',
+      type: 'site',
+      name: 'Failed HQ',
+    ));
+  }
+
+  private function handlerFailingWith(Throwable $failure, ?Facility $parent = null, ?EventDispatcherPort $eventDispatcher = null): CreateFacilityHandler
   {
     /** @var FacilityRepositoryPort&MockObject $repository */
     $repository = $this->createMock(FacilityRepositoryPort::class);
@@ -575,7 +626,7 @@ final class CreateFacilityHandlerTest extends TestCase
     $uuidFactory = $this->createStub(UuidFactory::class);
     $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419f0'));
 
-    return $this->handler($repository, $uuidFactory);
+    return $this->handler($repository, $uuidFactory, eventDispatcher: $eventDispatcher);
   }
 
   private function driverException(string $message): DoctrineDriverException
@@ -597,6 +648,7 @@ final class CreateFacilityHandlerTest extends TestCase
     UuidFactory $uuidFactory,
     ?OrganizationQuotaPort $quota = null,
     int $maxDepth = 8,
+    ?EventDispatcherPort $eventDispatcher = null,
   ): CreateFacilityHandler {
     $transactionManager = $this->createStub(TransactionManagerPort::class);
     $transactionManager->method('transactional')->willReturnCallback(
@@ -608,6 +660,7 @@ final class CreateFacilityHandlerTest extends TestCase
       uuidFactory: $uuidFactory,
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
       transactionManager: $transactionManager,
+      eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
       maxDepth: $maxDepth,
     );
   }

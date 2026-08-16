@@ -25,7 +25,7 @@ final class WebhookEventCatalogTest extends TestCase
 
     self::assertNotContains(WebhookEventType::PING->value, $allowed);
     self::assertContains('intervention.published', $allowed);
-    self::assertCount(12, $allowed);
+    self::assertCount(14, $allowed);
   }
 
   #[Test]
