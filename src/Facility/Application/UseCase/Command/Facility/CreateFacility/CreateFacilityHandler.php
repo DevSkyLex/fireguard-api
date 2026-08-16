@@ -30,6 +30,7 @@ use Shared\Application\Factory\UuidFactory;
 use Shared\Application\Message\CommandHandler;
 use Shared\Application\Port\Outbound\TransactionManagerPort;
 use Shared\Domain\Exception\InvalidValueException;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Throwable;
 use ValueError;
 
@@ -59,12 +60,15 @@ final readonly class CreateFacilityHandler implements CommandHandler
    * @param UuidFactory $uuidFactory the uuid factory value
    * @param OrganizationQuotaPort $quota the organization quota enforcement port
    * @param TransactionManagerPort $transactionManager the transaction manager
+   * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
     private FacilityRepositoryPort $facilityRepository,
     private UuidFactory $uuidFactory,
     private OrganizationQuotaPort $quota,
     private TransactionManagerPort $transactionManager,
+    #[Autowire('%facility.hierarchy.max_depth%')]
+    private int $maxDepth = 8,
   ) {
   }
   // #endregion
@@ -99,6 +103,11 @@ final readonly class CreateFacilityHandler implements CommandHandler
 
         if (!$parent->status()->isActive()) {
           throw FacilityArchivedException::withId((string) $parentId);
+        }
+
+        // The new facility would sit one level below its parent.
+        if ($this->facilityRepository->depthOf($parentId) + 1 > $this->maxDepth) {
+          throw FacilityHierarchyException::maxDepthExceeded($this->maxDepth);
         }
       }
 

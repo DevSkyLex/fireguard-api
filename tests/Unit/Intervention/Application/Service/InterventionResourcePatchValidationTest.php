@@ -9,6 +9,7 @@ use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
 use Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
+use Facility\Application\Port\Outbound\FacilityRepositoryPort;
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Inspection\Infrastructure\Adapter\Intervention\InspectionInterventionResourceAdapter;
 use Intervention\Domain\Exception\InterventionConflictException;
@@ -38,6 +39,7 @@ final class InterventionResourcePatchValidationTest extends TestCase
       new FacilityInterventionResourceAdapter(
         $this->createStub(EntityManagerInterface::class),
         $this->createStub(FacilityArchivalGuardPort::class),
+        $this->createStub(FacilityRepositoryPort::class),
       ),
       '/api/facilities/018f0b68-6758-7a12-8a1d-3f0d97f63c12',
       'Unsupported facility patch fields: unknown.',

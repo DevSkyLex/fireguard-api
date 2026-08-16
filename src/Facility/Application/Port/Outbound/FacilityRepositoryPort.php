@@ -131,6 +131,35 @@ interface FacilityRepositoryPort
   public function hasActiveDescendants(FacilityOrganizationId $organizationId, FacilityId $facilityId): bool;
 
   /**
+   * Method depthOf.
+   *
+   * Reports the facility's depth in its hierarchy, walking upward through
+   * PUBLISHED ancestors only. A root facility (no parent) sits at depth 1.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the facility identifier
+   *
+   * @return int the facility depth, root = 1
+   */
+  public function depthOf(FacilityId $facilityId): int;
+
+  /**
+   * Method subtreeHeight.
+   *
+   * Reports the height of the facility's sub-tree, walking downward through
+   * PUBLISHED descendants only. A facility with no descendants has height 0;
+   * one with only direct children has height 1, and so on.
+   *
+   * @since 1.0.0
+   *
+   * @param FacilityId $facilityId the sub-tree root facility identifier
+   *
+   * @return int the sub-tree height, leaf = 0
+   */
+  public function subtreeHeight(FacilityId $facilityId): int;
+
+  /**
    * Method countByOrganizationId.
    *
    * Counts facilities for an organization with optional filters.

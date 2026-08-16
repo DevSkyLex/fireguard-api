@@ -309,6 +309,44 @@ final class FacilityRepositoryTest extends KernelTestCase
   }
 
   #[Test]
+  public function testDepthOfAndSubtreeHeightWalkThePublishedTreeOnly(): void
+  {
+    $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-depth-a');
+
+    // Root (depth 1) -> Child (depth 2) -> Grandchild (depth 3), with an
+    // archived leaf hanging off the grandchild (depth 4, still PUBLISHED).
+    $root = $this->createFacility('550e8400-e29b-41d4-a716-446655443070', $organization, null, 'Depth Root');
+    $child = $this->createFacility('550e8400-e29b-41d4-a716-446655443071', $organization, $root, 'Depth Child');
+    $grandchild = $this->createFacility('550e8400-e29b-41d4-a716-446655443072', $organization, $child, 'Depth Grandchild');
+    $archivedLeaf = $this->createFacility('550e8400-e29b-41d4-a716-446655443073', $organization, $grandchild, 'Depth Archived Leaf', 'archived');
+
+    // A sibling branch under root that is a lone leaf (height 0).
+    $lonelyChild = $this->createFacility('550e8400-e29b-41d4-a716-446655443074', $organization, $root, 'Depth Lonely Child');
+
+    // A draft scratchpad hanging off the grandchild must not count toward height.
+    $draftLeaf = $this->createFacility('550e8400-e29b-41d4-a716-446655443075', $organization, $grandchild, 'Depth Draft Leaf');
+    $draftLeaf->recordStatus = 'draft';
+
+    $this->entityManager->flush();
+    $this->entityManager->clear();
+
+    $repository = new FacilityRepository($this->entityManager);
+
+    self::assertSame(1, $repository->depthOf(new FacilityId($root->id)));
+    self::assertSame(2, $repository->depthOf(new FacilityId($child->id)));
+    self::assertSame(3, $repository->depthOf(new FacilityId($grandchild->id)));
+    self::assertSame(4, $repository->depthOf(new FacilityId($archivedLeaf->id)));
+
+    // Height counts PUBLISHED descendants only: the draft leaf under the
+    // grandchild does not extend its height.
+    self::assertSame(3, $repository->subtreeHeight(new FacilityId($root->id)));
+    self::assertSame(2, $repository->subtreeHeight(new FacilityId($child->id)));
+    self::assertSame(1, $repository->subtreeHeight(new FacilityId($grandchild->id)));
+    self::assertSame(0, $repository->subtreeHeight(new FacilityId($archivedLeaf->id)));
+    self::assertSame(0, $repository->subtreeHeight(new FacilityId($lonelyChild->id)));
+  }
+
+  #[Test]
   public function testFindByOrganizationIdPushesWildcardSafeSearchPredicateIntoSql(): void
   {
     $organization = $this->createOrganization('550e8400-e29b-41d4-a716-446655443000', 'facility-repository-search-a');

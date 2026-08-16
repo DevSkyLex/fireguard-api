@@ -43,4 +43,13 @@ final class FacilityHierarchyExceptionTest extends TestCase
 
     self::assertSame('Cannot move facility: hierarchy cycle detected.', $exception->getMessage());
   }
+
+  #[Test]
+  public function testMaxDepthExceeded(): void
+  {
+    $exception = FacilityHierarchyException::maxDepthExceeded(8);
+
+    self::assertInstanceOf(InvalidArgumentException::class, $exception);
+    self::assertSame('Facility hierarchy depth cap of 8 levels exceeded.', $exception->getMessage());
+  }
 }
