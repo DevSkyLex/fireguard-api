@@ -152,6 +152,65 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
   }
 
   #[Test]
+  public function testApplyRejectsInvalidCoordinates(): void
+  {
+    $target = $this->iri(self::TARGET_ID);
+
+    // One half of the pair, mirroring the canonical mutation processor.
+    self::assertSame(
+      'Facility latitude and longitude must be provided together.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566])->getMessage(),
+    );
+    self::assertSame(
+      'Facility latitude and longitude must be provided together.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['longitude' => 2.3522])->getMessage(),
+    );
+    self::assertSame(
+      'Facility latitude and longitude must be provided together.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566, 'longitude' => null])->getMessage(),
+    );
+    self::assertSame(
+      'Facility latitude must be a number or null.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => '48.85', 'longitude' => 2.3522])->getMessage(),
+    );
+    self::assertSame(
+      'Facility longitude must be a number or null.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566, 'longitude' => '2.35'])->getMessage(),
+    );
+    self::assertSame(
+      'Facility coordinates are out of range.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 91.0, 'longitude' => 2.3522])->getMessage(),
+    );
+    self::assertSame(
+      'Facility coordinates are out of range.',
+      $this->assertApplyConflict(self::ORGANIZATION_ID, $target, ['latitude' => 48.8566, 'longitude' => -180.5])->getMessage(),
+    );
+  }
+
+  #[Test]
+  public function testApplySetsThenClearsCoordinates(): void
+  {
+    $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [
+      'latitude' => 48.8566,
+      'longitude' => 2.3522,
+    ]);
+
+    $record = $this->entityManager->find(FacilityRecord::class, self::TARGET_ID);
+    self::assertInstanceOf(FacilityRecord::class, $record);
+    self::assertSame(48.8566, $record->latitude);
+    self::assertSame(2.3522, $record->longitude);
+    self::assertSame(2, $record->revision);
+
+    $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [
+      'latitude' => null,
+      'longitude' => null,
+    ]);
+    self::assertNull($record->latitude);
+    self::assertNull($record->longitude);
+    self::assertSame(3, $record->revision);
+  }
+
+  #[Test]
   public function testApplyUpdatesScalarFieldsAndBumpsRevision(): void
   {
     $this->adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), [

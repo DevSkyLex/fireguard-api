@@ -20,6 +20,8 @@ use function array_keys;
 use function implode;
 use function in_array;
 use function is_array;
+use function is_float;
+use function is_int;
 use function is_string;
 use function preg_match;
 use function sprintf;
@@ -36,7 +38,7 @@ use function trim;
  */
 final readonly class FacilityInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionResourceOwnerPort
 {
-  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent'];
+  private const PATCHABLE_FIELDS = ['type', 'name', 'code', 'address', 'metadata', 'status', 'parent', 'latitude', 'longitude'];
 
   private const STATUSES = ['active', 'archived'];
 
@@ -271,6 +273,33 @@ final readonly class FacilityInterventionResourceAdapter implements Intervention
           throw new InterventionConflictException(sprintf('Facility field "%s" must be a string or null.', $property));
         }
         $record->{$property} = is_string($value) ? trim($value) : null;
+      }
+    }
+    if (array_key_exists('latitude', $patch) || array_key_exists('longitude', $patch)) {
+      // Coordinates are pairwise, mirroring the canonical mutation processor.
+      if (array_key_exists('latitude', $patch) !== array_key_exists('longitude', $patch)) {
+        throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
+      }
+      $latitude = $patch['latitude'];
+      $longitude = $patch['longitude'];
+      if ((null === $latitude) !== (null === $longitude)) {
+        throw new InterventionConflictException('Facility latitude and longitude must be provided together.');
+      }
+      if (null === $latitude) {
+        $record->latitude = null;
+        $record->longitude = null;
+      } else {
+        if (!is_int($latitude) && !is_float($latitude)) {
+          throw new InterventionConflictException('Facility latitude must be a number or null.');
+        }
+        if (!is_int($longitude) && !is_float($longitude)) {
+          throw new InterventionConflictException('Facility longitude must be a number or null.');
+        }
+        if ($latitude < -90.0 || $latitude > 90.0 || $longitude < -180.0 || $longitude > 180.0) {
+          throw new InterventionConflictException('Facility coordinates are out of range.');
+        }
+        $record->latitude = (float) $latitude;
+        $record->longitude = (float) $longitude;
       }
     }
     if (array_key_exists('metadata', $patch)) {
