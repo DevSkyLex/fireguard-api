@@ -64,6 +64,7 @@ enforced by the providers, not by the wire contract.
 | GET | `/api/facility-attachments/{id}` | Get one attachment |
 | DELETE | `/api/facility-attachments/{id}` | Delete an attachment (requires `If-Match: "revision-N"`) |
 | POST | `/api/facility-attachments/{id}/primary` | Promote a `floor_plan` attachment to the facility's primary plan |
+| GET | `/api/facility-attachments/{id}/download` | Download an attachment's raw bytes (`download_facility_attachment`, `DownloadFacilityAttachmentController`) |
 
 Generalized file attachments on a facility, mirroring the proven
 `Equipment\...\EquipmentAttachment` slice and the shared attachment kernel
@@ -88,6 +89,29 @@ anything to storage, and the shared
 `AttachmentConstraintExceptionSubscriber` maps the resulting
 `InvalidAttachmentException` centrally to **422**, the same status as a
 MIME/size rejection.
+
+**Security constraint — bytes only ever leave through `AttachmentDownloadResponder`.**
+`GET /facility-attachments/{id}/download` (`DownloadFacilityAttachmentController`) is
+the ONLY route serving attachment bytes, and it MUST route every response
+through the shared `Shared\Presentation\Api\Attachment\AttachmentDownloadResponder`
+UNMODIFIED — never an inline `new Response(...)`, for any `kind`. The
+responder forces `Content-Disposition: attachment` (never `inline`) and
+`X-Content-Type-Options: nosniff`. This matters specifically for `kind:
+floor_plan`: `image/svg+xml` is an accepted MIME type, and an SVG is active
+content (it may embed `<script>`). A `floor_plan` attachment must NEVER be
+served with an inline disposition — that would let a browser execute an
+uploaded SVG's script in the app's origin (stored XSS). Content-sanitization
+of an uploaded SVG is deliberately OUT OF SCOPE: the security boundary is
+enforced entirely on the read side by the attachment disposition, not by
+rejecting or rewriting the upload. Browser `<img>`/blob rendering (the
+frontend floor-plan viewer's use case) is unaffected by the attachment
+disposition and does not execute an SVG's embedded scripts — only navigating
+or framing the raw response directly would, and the disposition is exactly
+what prevents that. Authorization mirrors every other read surface in this
+section: `organization.facilities.read`, checked inline in the controller
+(the same `resolveAccess()`/`isOutsideScope()`/`isGranted()` pattern as
+`FacilityMediaProvider`) — 404 for a caller outside the owning organization,
+403 for a member missing the permission.
 
 **Floor plans (Phase 3).** `Facility\Domain\ValueObject\AttachmentKind`
 (`document` default | `floor_plan`) extends every attachment with `kind`,
@@ -290,23 +314,28 @@ Cross-module contracts and lifecycle invariants:
     permission enforcement, the `If-Match` revision guard on delete, and the
     409/404 mapping on the primary-plan route.
 - Integration (real database):
-<<<<<<< HEAD
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`,
+  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`
+  — round-trips the new columns and proves the partial unique index (a second
+  `is_primary_plan = true` row for the same facility is rejected at the DB);
   `FacilityRepositoryTest::testFindAncestorsWalksTheParentChainRootFirstAndExcludesDraftAncestors`
   (root facility, 3-level chain, draft ancestor exclusion),
   `Presentation/Api/Provider/Facility/CanonicalFacilityProviderTest` (item route
   `path` mapping, collection left empty).
-- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php`;
+- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php` — floor
+  plan upload (happy path + wrong-MIME 422), `?kind=` list filter, the
+  primary-plan route (happy, swap, document-refusal 409, cross-org 404,
+  missing-permission 403), the download route (attachment-disposition +
+  nosniff headers on a floor_plan SVG, cross-org 404, missing-permission
+  403), and an SVG floor plan carrying `<script>` accepted with dimensions
+  probed (sanitization deliberately out of scope — see the security
+  constraint above). The `AttachmentConstraints::MAX_SIZE_BYTES` boundary
+  (10 MiB + 1 byte rejected before any probing) is covered as a UNIT test —
+  `FacilityMediaProcessorTest::testUploadRejectsAFloorPlanJustOverTheMaxSizeBeforeProbing`
+  — not a functional one: this environment's php.ini caps
+  `upload_max_filesize` at 2M, so a real 10 MiB+1 multipart upload never
+  reaches the application (`HttpKernelBrowser::filterFiles()` rejects it
+  first).
   E2E `tests/E2E/FacilityCoordinatesFlowTest.php` and
   `tests/E2E/FacilityPresentationFlowTest.php` assert the `path` shape on the
   organization-scoped and canonical detail reads.
-=======
-  `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`
-  — round-trips the new columns and proves the partial unique index (a second
-  `is_primary_plan = true` row for the same facility is rejected at the DB).
-- Functional: `tests/Functional/Api/FacilityAttachmentApiTest.php` — floor
-  plan upload (happy path + wrong-MIME 422), `?kind=` list filter, and the
-  primary-plan route (happy, swap, document-refusal 409, cross-org 404,
-  missing-permission 403).
->>>>>>> 2de9259f (feat(facility): floor plan attachments with kind, dimensions and primary selection)
 - Run module tests: `make test tests/Unit/Facility/`

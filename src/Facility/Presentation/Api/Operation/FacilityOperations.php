@@ -99,5 +99,12 @@ final class FacilityOperations
    * @var string
    */
   public const string SET_PRIMARY_FACILITY_ATTACHMENT = 'facility_attachment_set_primary';
+
+  /**
+   * Constant DOWNLOAD_FACILITY_ATTACHMENT.
+   *
+   * @var string
+   */
+  public const string DOWNLOAD_FACILITY_ATTACHMENT = 'download_facility_attachment';
   // #endregion
 }

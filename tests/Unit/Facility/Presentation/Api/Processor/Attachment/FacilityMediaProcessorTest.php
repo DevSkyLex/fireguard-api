@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\{CoversClass, Test};
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Shared\Application\Port\Inbound\CommandBusPort;
+use Shared\Domain\Attachment\AttachmentConstraints;
 use Shared\Presentation\Api\Attachment\MultipartAttachmentGuard;
 use Shared\Presentation\Api\Http\RevisionGuard;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -441,6 +442,63 @@ final class FacilityMediaProcessorTest extends TestCase
         ['kind' => 'floor_plan'],
         [],
         ['file' => new UploadedFile($path, 'plan.gif', 'image/gif', null, true)],
+      ));
+
+      $commandBus = $this->createMock(CommandBusPort::class);
+      $commandBus->expects(self::never())->method('dispatch');
+
+      $this->expectException(UnprocessableEntityHttpException::class);
+
+      new FacilityMediaProcessor(
+        $entityManager,
+        $commandBus,
+        $this->grantingAuthorization(true),
+        $this->userSecurity(),
+        $requestStack,
+        new MultipartAttachmentGuard(),
+        new RevisionGuard($requestStack),
+      )->process(null, new Post(), ['facilityId' => self::FACILITY_ID]);
+    } finally {
+      unlink($path);
+    }
+  }
+
+  /**
+   * `AttachmentConstraints::MAX_SIZE_BYTES` is 10 MiB. A file one byte over
+   * must be rejected by `MultipartAttachmentGuard`'s size check BEFORE any
+   * MIME-specific probing (dimensions for a `floor_plan`) or persistence —
+   * asserted here by the command bus never being dispatched. Kept as a
+   * UNIT test rather than a functional HTTP round trip: this environment's
+   * php.ini caps `upload_max_filesize` at 2M, so a real 10 MiB+1 multipart
+   * upload is rejected by Symfony's own `HttpKernelBrowser::filterFiles()`
+   * (400, `UPLOAD_ERR_INI_SIZE`) before ever reaching the guard — see
+   * `FacilityAttachmentApiTest` for the corresponding note.
+   */
+  #[Test]
+  public function testUploadRejectsAFloorPlanJustOverTheMaxSizeBeforeProbing(): void
+  {
+    $path = tempnam(sys_get_temp_dir(), 'facility-floor-plan-oversized-');
+    self::assertIsString($path);
+    file_put_contents($path, 'not really 10 MiB — getSize() below is overridden');
+
+    try {
+      $entityManager = $this->wrappingEntityManager();
+      $entityManager->method('find')->willReturn($this->facilityRecord());
+
+      $oversizedFile = new class ($path, 'plan.png', 'image/png', null, true) extends UploadedFile {
+        public function getSize(): int
+        {
+          return AttachmentConstraints::MAX_SIZE_BYTES + 1;
+        }
+      };
+
+      $requestStack = new RequestStack();
+      $requestStack->push(Request::create(
+        '/api/facilities/' . self::FACILITY_ID . '/attachments',
+        'POST',
+        ['kind' => 'floor_plan'],
+        [],
+        ['file' => $oversizedFile],
       ));
 
       $commandBus = $this->createMock(CommandBusPort::class);

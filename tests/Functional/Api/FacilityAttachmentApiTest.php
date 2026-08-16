@@ -381,6 +381,170 @@ final class FacilityAttachmentApiTest extends WebTestCase
     );
   }
 
+  #[Test]
+  public function testDownloadFacilityAttachmentRequiresAuthentication(): void
+  {
+    $client = static::createClient();
+
+    $client->request('GET', '/api/facility-attachments/' . self::DUMMY_UUID . '/download');
+
+    $statusCode = $client->getResponse()->getStatusCode();
+
+    self::assertNotEquals(
+      expected: 404,
+      actual: $statusCode,
+      message: 'GET /facility-attachments/{id}/download endpoint should exist (got 404)',
+    );
+
+    self::assertContains(
+      needle: $statusCode,
+      haystack: [401, 403],
+      message: 'Expected 401 or 403 for unauthenticated GET /facility-attachments/{id}/download, got ' . $statusCode,
+    );
+  }
+
+  #[Test]
+  public function testDownloadFloorPlanServesBytesWithAttachmentDispositionAndNosniff(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-attachment-admin@example.com');
+    $pngBytes = $this->minimalPngBytes();
+    $attachmentId = $this->uploadFloorPlan($client, 'ground-floor.png', $pngBytes);
+
+    static::ensureKernelShutdown();
+    $downloadClient = static::createClient();
+    $this->loginAs($downloadClient, self::ADMIN_USER_ID, 'facility-attachment-admin@example.com');
+    $downloadClient->request('GET', '/api/facility-attachments/' . $attachmentId . '/download');
+
+    $response = $downloadClient->getResponse();
+    self::assertSame(200, $response->getStatusCode(), 'Download should succeed. Response: ' . $response->getContent());
+    self::assertSame($pngBytes, $response->getContent(), 'The download must serve the exact stored bytes.');
+
+    $disposition = $response->headers->get('Content-Disposition');
+    self::assertIsString($disposition);
+    self::assertStringStartsWith(
+      'attachment',
+      $disposition,
+      'A facility attachment (including a floor_plan SVG) must NEVER be served with an inline '
+        . 'Content-Disposition — see AttachmentDownloadResponder and src/Facility/MODULE.md.',
+    );
+
+    self::assertSame(
+      'nosniff',
+      $response->headers->get('X-Content-Type-Options'),
+      'The download response must carry X-Content-Type-Options: nosniff.',
+    );
+  }
+
+  #[Test]
+  public function testDownloadFacilityAttachmentRejectsMemberWithoutReadPermissionWith403(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-attachment-admin@example.com');
+    $attachmentId = $this->uploadFloorPlan($client, 'plan.png', $this->minimalPngBytes());
+
+    static::ensureKernelShutdown();
+    $memberClient = static::createClient();
+    $this->loginAs($memberClient, self::PLAIN_MEMBER_USER_ID, 'facility-attachment-plain-member@example.com');
+    $memberClient->request('GET', '/api/facility-attachments/' . $attachmentId . '/download');
+
+    self::assertSame(
+      expected: 403,
+      actual: $memberClient->getResponse()->getStatusCode(),
+      message: 'A member without organization.facilities.read must get 403.',
+    );
+  }
+
+  #[Test]
+  public function testDownloadFacilityAttachmentReturns404ForACallerFromAnotherOrganization(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-attachment-admin@example.com');
+    $attachmentId = $this->uploadFloorPlan($client, 'plan.png', $this->minimalPngBytes());
+
+    static::ensureKernelShutdown();
+    $outsiderClient = static::createClient();
+    $this->loginAs($outsiderClient, self::OUTSIDER_USER_ID, 'facility-attachment-outsider@example.com');
+    $outsiderClient->request('GET', '/api/facility-attachments/' . $attachmentId . '/download');
+
+    self::assertSame(
+      expected: 404,
+      actual: $outsiderClient->getResponse()->getStatusCode(),
+      message: 'A caller outside the owning organization must get 404, not 403.',
+    );
+  }
+
+  /**
+   * An SVG floor plan carrying an embedded `<script>` tag must still be
+   * ACCEPTED (201) with its pixel dimensions probed. Content-sanitization
+   * (stripping the script) is deliberately OUT OF SCOPE here: the security
+   * boundary is enforced entirely on the read side — every download goes
+   * through the shared {@see \Shared\Presentation\Api\Attachment\AttachmentDownloadResponder},
+   * which forces `Content-Disposition: attachment` (never `inline`) and
+   * `X-Content-Type-Options: nosniff`, so a browser downloads the file
+   * instead of rendering/executing it. See
+   * `testDownloadFloorPlanServesBytesWithAttachmentDispositionAndNosniff`
+   * for the corresponding read-side assertion, and src/Facility/MODULE.md.
+   */
+  #[Test]
+  public function testUploadSvgFloorPlanWithAnEmbeddedScriptTagIsAccepted(): void
+  {
+    $client = static::createClient();
+    $this->seedOrganization();
+    $this->seedFacility();
+
+    $this->loginAs($client, self::ADMIN_USER_ID, 'facility-attachment-admin@example.com');
+
+    $svg = '<?xml version="1.0" encoding="UTF-8"?>'
+      . '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80">'
+      . '<script>alert(1)</script>'
+      . '</svg>';
+
+    $path = tempnam(sys_get_temp_dir(), 'facility-floor-plan-svg-');
+    self::assertIsString($path);
+    file_put_contents($path, $svg);
+    $uploadedFile = new UploadedFile(path: $path, originalName: 'malicious-plan.svg', mimeType: 'image/svg+xml', test: true);
+
+    $client->request(
+      method: 'POST',
+      uri: '/api/facilities/' . self::FACILITY_ID . '/attachments',
+      parameters: ['kind' => 'floor_plan'],
+      files: ['file' => $uploadedFile],
+    );
+
+    $response = $client->getResponse();
+    self::assertSame(201, $response->getStatusCode(), 'An SVG floor plan with a <script> tag must be accepted. Response: ' . $response->getContent());
+
+    $decoded = json_decode((string) $response->getContent(), true);
+    self::assertIsArray($decoded);
+    self::assertSame('floor_plan', $decoded['kind'] ?? null);
+    self::assertSame(120, $decoded['imageWidth'] ?? null);
+    self::assertSame(80, $decoded['imageHeight'] ?? null);
+  }
+
+  // The AttachmentConstraints::MAX_SIZE_BYTES (10 MiB) boundary is NOT
+  // exercised here as a real multipart upload: this test environment's
+  // php.ini caps `upload_max_filesize` at 2M, well under the 10 MiB
+  // attachment policy — `HttpKernelBrowser::filterFiles()` rejects any
+  // larger file with `UPLOAD_ERR_INI_SIZE` (a 400) before
+  // `MultipartAttachmentGuard` is ever reached, so the 422 this test would
+  // assert is unreachable through the HTTP layer in this environment. The
+  // boundary is covered instead as a unit test —
+  // `FacilityMediaProcessorTest::testUploadRejectsAFloorPlanJustOverTheMaxSizeBeforeProbing`
+  // — which constructs an `UploadedFile` whose `getSize()` is overridden to
+  // `AttachmentConstraints::MAX_SIZE_BYTES + 1`, bypassing the php.ini
+  // ceiling entirely, and asserts the command bus is never dispatched (i.e.
+  // rejection happens before any dimension probing or persistence).
+
   /**
    * Method uploadFloorPlan.
    *
