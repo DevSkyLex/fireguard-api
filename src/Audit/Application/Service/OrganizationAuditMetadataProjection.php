@@ -97,6 +97,7 @@ final class OrganizationAuditMetadataProjection
     'facility.archived' => [],
     'facility.restored' => [],
     'facility.moved' => ['previous_parent_facility_id', 'new_parent_facility_id'],
+    'facility.subtree_duplicated' => ['new_root_facility_id', 'node_count'],
 
     // Equipment
     'equipment.commissioned' => ['facility_id', 'previous_status'],

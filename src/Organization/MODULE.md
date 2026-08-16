@@ -321,6 +321,14 @@ demonstrating that one person can belong to more than one tenant.
   dedicated handler unit test (`ReactivateOrganizationMemberHandlerTest::testInvokeThrowsQuotaExceededAndLeavesTheMemberInactiveWhenTheMemberCapIsReached`);
   not repeated as a functional test since the quota-summary/plan-catalog
   scaffolding it would need is already exercised elsewhere.
+- **`OrganizationQuotaPort::assertCanAddMultiple(organizationId, resource, count)`**
+  is the batched sibling of `assertCanAdd()`, added for callers that create
+  several resources of the same kind atomically (Facility's
+  `DuplicateFacilitySubtreeHandler` duplicating a whole subtree in one
+  transaction — see `src/Facility/MODULE.md`). Same advisory lock, same
+  transaction requirement, same `OrganizationQuotaExceededException` on
+  refusal; `count <= 0` is a no-op. Implemented by `OrganizationQuotaService`
+  alongside `assertCanAdd()`.
 - **P2.3 member HTTP slice** (`GetOrganizationMember` provider,
   `ReactivateOrganizationMember`/`SetOrganizationMemberRoles` processors):
   all three dispatch through `CommandBusPort`/`QueryBusPort` and unwrap

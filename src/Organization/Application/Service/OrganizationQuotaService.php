@@ -138,6 +138,28 @@ final class OrganizationQuotaService implements OrganizationQuotaPort, ResetInte
     }
   }
 
+  public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void
+  {
+    if ($count <= 0) {
+      return;
+    }
+
+    $limit = $this->getLimit($organizationId, $resource);
+
+    if (null === $limit) {
+      return;
+    }
+
+    // Same advisory lock as assertCanAdd(): taken before counting so a
+    // concurrent single or batched add cannot slip past this check between
+    // the count and the inserts it guards.
+    $this->quotaLock->acquire($organizationId, $resource);
+
+    if ($this->getUsage($organizationId, $resource) + $count > $limit) {
+      throw OrganizationQuotaExceededException::forResource($resource, $limit);
+    }
+  }
+
   /**
    * @return list<array{resource: string, used: int, limit: int|null}>
    */

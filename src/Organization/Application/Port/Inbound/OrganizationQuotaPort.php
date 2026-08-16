@@ -73,6 +73,30 @@ interface OrganizationQuotaPort
   public function assertCanAdd(string $organizationId, OrganizationQuotaResource $resource): void;
 
   /**
+   * Method assertCanAddMultiple.
+   *
+   * Asserts that the organization can add `$count` more of the provided
+   * resource without exceeding the plan cap, in one check — the batched
+   * counterpart of {@see assertCanAdd()} for operations that create several
+   * resources atomically (e.g. duplicating a facility subtree).
+   *
+   * Serializes the check with the inserts via the same transaction-scoped
+   * advisory lock as {@see assertCanAdd()}, so it MUST be called inside the
+   * same transaction that persists the new resources; otherwise the lock is
+   * released immediately and the TOCTOU race it guards against reopens.
+   *
+   * @since 1.0.0
+   *
+   * @param string $organizationId the organization identifier
+   * @param OrganizationQuotaResource $resource the resource to add
+   * @param int $count the number of resources to add; a non-positive count is a no-op
+   *
+   * @throws \Organization\Domain\Exception\OrganizationQuotaExceededException
+   *                                                                           when adding `$count` would exceed the plan cap
+   */
+  public function assertCanAddMultiple(string $organizationId, OrganizationQuotaResource $resource, int $count): void;
+
+  /**
    * Method assertCanAcceptMember.
    *
    * Asserts that accepting a pending invitation would not push the organization

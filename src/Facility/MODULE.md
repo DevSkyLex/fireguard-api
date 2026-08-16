@@ -27,6 +27,7 @@ Main goals:
 | POST | `/api/organizations/{organizationId}/facilities/{facilityId}/move` | Move a facility under another parent |
 | PUT | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-geometry` | Set or clear this facility's plan geometry (Phase 4) |
 | GET | `/api/organizations/{organizationId}/facilities/{facilityId}/plan-overlay` | Read one floor plan, every self-or-descendant zone bound to it, and every equipment item pinned on it (Phase 4, equipment additive — see Equipment's MODULE.md) |
+| POST | `/api/organizations/{organizationId}/facilities/{facilityId}/duplicate` | Duplicate a facility and its full subtree into a new branch |
 | GET | `/api/facilities/{id}` | Canonical item read (includes the ancestor `path` breadcrumb) |
 | GET | `/api/facilities?organization={iri}` | Canonical collection read, org- or intervention-scoped |
 
@@ -58,6 +59,55 @@ is no detail-only serialization group in this module today), so the split is
 enforced by the providers, not by the wire contract.
 
 ### Attachments (R11b, floor plans Phase 3)
+
+### Subtree duplication
+
+`DuplicateFacilitySubtreeHandler` clones a published, active facility and its
+full published subtree (fetched through the same descendants recursive CTE as
+`/descendants`) into a new, independent branch — for chains rolling out
+identical buildings. Request body: optional `name` (the copy's root name;
+default `"{original} (copy)"`, a plain suffix — no server-side localization)
+and optional `parentFacilityId` (default: the source's own parent). Response:
+201 with the new root's `FacilityOutput`.
+
+Cloning rules:
+
+- **`code` → always `NULL`** on every clone. `uniq_facility_organization_code`
+  makes copying the original code impossible, and `NULL` does not collide
+  with itself under that constraint, so every clone in the batch gets one.
+- **`status` → always `active`** on every clone. Duplicating an archived
+  source would otherwise un-archive its lineage by the back door, so an
+  archived source is refused outright with **409**
+  (`FacilitySubtreeSourceArchivedException`) rather than silently reactivated.
+- **Archived descendants are skipped**: no clone is created for an archived
+  node, but its own live children (if any) are still visited and reattached
+  to the nearest cloned ancestor — normally the new root, or the closest
+  active ancestor's clone — so a live branch beneath an archived one is not
+  silently dropped. This mirrors the traversal the archival guard already
+  performs (see Architecture below).
+- **Copied**: `type`, `address`, `metadata`, `latitude`/`longitude`.
+  **Not copied**: `name` on the root only (root gets `name` or the `(copy)`
+  suffix; every other clone keeps its original node's name), `clientId`,
+  `interventionId` (every clone is a fresh published record at revision 1 —
+  this module owns no plan geometry column on this base, so there is nothing
+  to copy or omit there).
+- **Quota**: the whole clone count — root plus every non-skipped descendant —
+  must pass the `facilities` plan quota check **before any insert**, in the
+  same transaction as the inserts. `OrganizationQuotaPort::assertCanAddMultiple()`
+  (the batched sibling of `assertCanAdd()`, added for this use case) takes the
+  same per-(organization, resource) advisory lock so a concurrent create or
+  duplicate cannot slip past the count. Exceeded → the same
+  `OrganizationQuotaExceededException` → **409** the single-create path uses.
+- **Size cap**: a subtree that would traverse more than **500** nodes (source
+  included, archived nodes included since they still cost a query/traversal)
+  is refused with **422** (`FacilitySubtreeTooLargeException`) before the
+  quota check or any insert.
+- **Audit**: exactly **one** `FacilitySubtreeDuplicatedEvent` (source id, new
+  root id, node count) is dispatched after the transaction commits — never
+  one event per cloned node — recorded as `facility.subtree_duplicated` (see
+  Architecture below).
+
+### Attachments (R11b)
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -361,15 +411,19 @@ Cross-module contracts and lifecycle invariants:
   `facility.archived`, `facility.restored`, `facility.moved` (previous/new
   parent in metadata), `facility.updated` (`changedFields` — the field
   NAMES that changed, never their values, keeping PII/noise such as address
-  and metadata contents out of the ledger). Emission sites: the
-  Create/Update/Archive/Restore/Move handlers — Create and Update dispatch
-  directly after their durable save (`CreateFacilityHandler`,
-  `UpdateFacilityHandler`), Archive/Restore/Move load through
+  and metadata contents out of the ledger), and `facility.subtree_duplicated`
+  (new root id and node count in metadata). Emission sites: the
+  Create/Update/Archive/Restore/Move/DuplicateFacilitySubtree handlers —
+  Create and Update dispatch directly after their durable save
+  (`CreateFacilityHandler`, `UpdateFacilityHandler`),
+  Archive/Restore/Move/DuplicateFacilitySubtree load through
   `findPublishedById` (draft scratchpads are unreachable) — and the canonical
   processor, which COLLECTS its events during the mutation and dispatches
   them only after `wrapInTransaction` commits (no phantom ledger row on
   rollback). Idempotent repeats, same-parent moves, and no-op patches (a
-  PATCH that re-sends the current value for every field) emit nothing.
+  PATCH that re-sends the current value for every field) emit nothing; a
+  subtree duplication always emits exactly one event (never one per cloned
+  node) once the whole clone batch has committed.
   `facility.updated`'s changed-field detection compares actual before/after
   values, not merely which keys a merge-patch body carried, and never lists
   `status` or `parent` — those are covered by their own dedicated events.
@@ -386,6 +440,13 @@ Cross-module contracts and lifecycle invariants:
   also in Webhook's curated allowlist (`WebhookEventCatalog`,
   `WebhookEventType`) alongside the pre-existing `facility.archived` /
   `facility.restored` — see `src/Webhook/MODULE.md`.
+- **Subtree duplication and the plan quota**: `DuplicateFacilitySubtreeHandler`
+  needed to check the `facilities` quota for N nodes atomically, which
+  `OrganizationQuotaPort::assertCanAdd()` (one node at a time) cannot express.
+  `Organization\Application\Port\Inbound\OrganizationQuotaPort::assertCanAddMultiple()`
+  was added for this — same advisory lock as `assertCanAdd()`, batched count —
+  implemented by `Organization\Application\Service\OrganizationQuotaService`.
+  See `src/Organization/MODULE.md`.
 - **Bulk CSV import (R13)**: `Facility\Application\Port\Inbound\FacilityProvisioningPort`
   is a new inbound port, hosted in this module, that lets another module
   (Import's bulk CSV import) provision one facility programmatically. Its
@@ -423,9 +484,26 @@ Cross-module contracts and lifecycle invariants:
   `ProvisionOutcome::INVALID` like every other hierarchy failure — no new
   handling was needed there.
 
+## Error Codes
+
+| Exception | HTTP status | When |
+| --- | --- | --- |
+| `FacilityNotFoundException` | 404 | Source facility missing, out of the caller's organization scope, or draft-only; also the target parent when explicitly provided |
+| `FacilitySubtreeSourceArchivedException` | 409 | Duplication requested for an archived source facility |
+| `FacilitySubtreeTooLargeException` | 422 | Source facility's subtree (including archived nodes) would traverse more than 500 nodes |
+| `Organization\Domain\Exception\OrganizationQuotaExceededException` | 409 | The whole clone count would exceed the organization's `facilities` plan quota |
+| `FacilityHierarchyException` / `InvalidArgumentException` | 400 | Malformed input, or an invalid/out-of-organization target parent |
+
+All other domain exceptions raised by this module map the same way as the
+other Facility endpoints (see the create/archive/move handlers).
+
 ## Configuration
 
 - Service wiring: `config/modules/facility.yaml`
+  - `DuplicateFacilitySubtreeHandler` is wired with the same
+    `$transactionManager: '@facility.main_transaction_manager'` argument as
+    `CreateFacilityHandler`, so the quota check and every clone insert run in
+    one `main`-database transaction.
 - Doctrine mapping (main entity manager): `config/packages/doctrine.yaml`
 - `FacilityEquipmentPlanPositionPort` is aliased to
   `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter` in
@@ -457,6 +535,11 @@ Cross-module contracts and lifecycle invariants:
     `Presentation/Api/Provider/Attachment/FacilityMediaProviderTest` —
     permission enforcement, the `If-Match` revision guard on delete, and the
     409/404 mapping on the primary-plan route.
+  - `Application/UseCase/Command/Facility/DuplicateFacilitySubtree/DuplicateFacilitySubtreeHandlerTest`
+    — happy multi-level clone (codes null, names/type/address/metadata/coordinates
+    copied), archived-source 409, archived-descendant skip and reattachment,
+    the 500-node cap, the quota check running (and refusing) before any
+    `save()`, and the cross-organization 404.
 - Integration (real database):
   `tests/Integration/Facility/Infrastructure/Persistence/Doctrine/Repository/FacilityAttachmentRepositoryTest`
   — round-trips the new columns and proves the partial unique index (a second
@@ -482,6 +565,13 @@ Cross-module contracts and lifecycle invariants:
   E2E `tests/E2E/FacilityCoordinatesFlowTest.php` and
   `tests/E2E/FacilityPresentationFlowTest.php` assert the `path` shape on the
   organization-scoped and canonical detail reads.
+  `tests/E2E/FacilityPresentationFlowTest.php` also carries the duplicate
+  endpoint's contract coverage against a real database —
+  `testDuplicateFacilitySubtree*` (tree shape and null codes, 403,
+  cross-organization 404, archived-source 409). The 422 size-cap and
+  quota-4xx paths are covered at the handler-unit level only — seeding 500+
+  facilities or a capped plan is impractical at this level; that gap is
+  noted here rather than silently left uncovered.
 - Plan geometry (Phase 4):
   - `Domain/ValueObject/PlanGeometryTest` — point-count and coordinate-bounds
     validation, the UUID check on `attachmentId`, and the `toArray()`/

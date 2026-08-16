@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\{ApiResource, Get, GetCollection, Patch, Post, Put};
 use ApiPlatform\OpenApi\Model\{Operation, Parameter, Response};
 use Facility\Presentation\Api\Dto\Input\Facility\{
   CreateFacilityInput,
+  DuplicateFacilitySubtreeInput,
   MoveFacilityInput,
   SetFacilityPlanGeometryInput,
   UpdateFacilityInput
@@ -17,6 +18,7 @@ use Facility\Presentation\Api\Operation\FacilityOperations;
 use Facility\Presentation\Api\Processor\Facility\{
   ArchiveFacilityProcessor,
   CreateFacilityProcessor,
+  DuplicateFacilitySubtreeProcessor,
   MoveFacilityProcessor,
   RestoreFacilityProcessor,
   SetFacilityPlanGeometryProcessor,
@@ -349,6 +351,30 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
           HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
           HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility or attachment not found'),
           HttpResponse::HTTP_CONFLICT => new Response(description: 'Attachment is not a floor plan, or does not belong to this facility or an ancestor'),
+        ],
+      ),
+    ),
+    new Post(
+      name: FacilityOperations::DUPLICATE_FACILITY_SUBTREE,
+      uriTemplate: '/{organizationId}/facilities/{facilityId}/duplicate',
+      input: DuplicateFacilitySubtreeInput::class,
+      output: FacilityOutput::class,
+      processor: DuplicateFacilitySubtreeProcessor::class,
+      status: HttpResponse::HTTP_CREATED,
+      denormalizationContext: ['groups' => [FacilitySerializationGroup::WRITE]],
+      normalizationContext: ['groups' => [FacilitySerializationGroup::READ]],
+      security: "is_granted('ROLE_USER')",
+      openapi: new Operation(
+        tags: ['Facility'],
+        summary: 'Duplicate facility subtree',
+        description: 'Duplicates a facility and its full subtree into a new, independent branch.',
+        responses: [
+          HttpResponse::HTTP_CREATED => new Response(description: 'Facility subtree duplicated'),
+          HttpResponse::HTTP_BAD_REQUEST => new Response(description: 'Invalid input or target parent'),
+          HttpResponse::HTTP_FORBIDDEN => new Response(description: 'Insufficient permissions'),
+          HttpResponse::HTTP_NOT_FOUND => new Response(description: 'Facility not found'),
+          HttpResponse::HTTP_CONFLICT => new Response(description: 'Source facility is archived, or the organization plan quota would be exceeded'),
+          HttpResponse::HTTP_UNPROCESSABLE_ENTITY => new Response(description: 'Subtree exceeds the duplication size limit'),
         ],
       ),
     ),

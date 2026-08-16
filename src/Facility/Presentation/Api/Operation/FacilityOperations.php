@@ -120,5 +120,12 @@ final class FacilityOperations
    * @var string
    */
   public const string DOWNLOAD_FACILITY_ATTACHMENT = 'download_facility_attachment';
+
+  /**
+   * Constant DUPLICATE_FACILITY_SUBTREE.
+   *
+   * @var string
+   */
+  public const string DUPLICATE_FACILITY_SUBTREE = 'facility_duplicate_subtree';
   // #endregion
 }

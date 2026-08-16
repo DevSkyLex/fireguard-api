@@ -88,6 +88,7 @@ final class AuditEventSubscriberTest extends TestCase
       'facility.facility_restored_event' => 'onFacilityRestored',
       'facility.facility_moved_event' => 'onFacilityMoved',
       'facility.facility_updated_event' => 'onFacilityUpdated',
+      'facility.facility_subtree_duplicated_event' => 'onFacilitySubtreeDuplicated',
       'equipment.equipment_commissioned_event' => 'onEquipmentCommissioned',
       'equipment.equipment_put_under_maintenance_event' => 'onEquipmentPutUnderMaintenance',
       'equipment.equipment_returned_to_stock_event' => 'onEquipmentReturnedToStock',

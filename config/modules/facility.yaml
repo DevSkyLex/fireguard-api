@@ -130,6 +130,11 @@ services:
   Facility\Application\UseCase\Command\Facility\MoveFacility\MoveFacilityHandler:
     tags: ['messenger.message_handler']
 
+  Facility\Application\UseCase\Command\Facility\DuplicateFacilitySubtree\DuplicateFacilitySubtreeHandler:
+    arguments:
+      $transactionManager: '@facility.main_transaction_manager'
+    tags: ['messenger.message_handler']
+
   Facility\Application\UseCase\Query\Facility\GetFacility\GetFacilityHandler:
     tags: ['messenger.message_handler']
 
