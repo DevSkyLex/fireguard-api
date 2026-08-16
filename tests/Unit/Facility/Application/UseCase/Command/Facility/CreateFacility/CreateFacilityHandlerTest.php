@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Application\UseCase\Command\Facility\CreateFacility;
 
+use DateTimeImmutable;
 use Doctrine\DBAL\Driver\Exception as DoctrineDriverException;
 use Doctrine\DBAL\Exception\{ForeignKeyConstraintViolationException, UniqueConstraintViolationException};
-use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\{FacilityMetadataFieldRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Application\UseCase\Command\Facility\CreateFacility\{CreateFacilityCommand, CreateFacilityHandler, CreateFacilityResult};
 use Facility\Domain\Event\Facility\FacilityCreatedEvent;
 use Facility\Domain\Exception\{FacilityArchivedException, FacilityCodeAlreadyExistsException, FacilityHierarchyException, FacilityNotFoundException};
@@ -197,6 +199,54 @@ final class CreateFacilityHandlerTest extends TestCase
     self::assertSame('active', $result->status);
     self::assertSame('1 Main Street', $result->address);
     self::assertSame(['region' => 'west'], $result->metadata);
+  }
+
+  #[Test]
+  public function testInvokeThrowsWhenMetadataFailsTheOrganizationSchema(): void
+  {
+    /** @var FacilityRepositoryPort&MockObject $repository */
+    $repository = $this->createMock(FacilityRepositoryPort::class);
+    $repository->expects(self::never())->method('save');
+
+    $uuidFactory = $this->createStub(UuidFactory::class);
+    $uuidFactory->method('create')->willReturn(new FacilityId('550e8400-e29b-41d4-a716-4466554419a5'));
+
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([
+      \Facility\Domain\Model\MetadataField\FacilityMetadataField::reconstitute(
+        id: \Facility\Domain\ValueObject\FacilityMetadataFieldId::fromString('550e8400-e29b-41d4-a716-4466554419a6'),
+        organizationId: new FacilityOrganizationId('550e8400-e29b-41d4-a716-4466554419a4'),
+        key: new \Facility\Domain\ValueObject\FacilityMetadataFieldKey('surface-m2'),
+        label: new \Facility\Domain\ValueObject\FacilityMetadataFieldLabel('Surface (m²)'),
+        fieldType: \Facility\Domain\ValueObject\FacilityMetadataFieldType::NUMBER,
+        required: true,
+        createdAt: new DateTimeImmutable(),
+        updatedAt: new DateTimeImmutable(),
+      ),
+    ]);
+
+    $transactionManager = $this->createStub(TransactionManagerPort::class);
+    $transactionManager->method('transactional')->willReturnCallback(
+      static fn (callable $operation): mixed => $operation(),
+    );
+
+    $handler = new CreateFacilityHandler(
+      facilityRepository: $repository,
+      uuidFactory: $uuidFactory,
+      quota: $this->createStub(OrganizationQuotaPort::class),
+      transactionManager: $transactionManager,
+      eventDispatcher: $this->createStub(EventDispatcherPort::class),
+      metadataSchemaGuard: new FacilityMetadataSchemaGuard($metadataRepository),
+    );
+
+    $this->expectException(\Facility\Domain\Exception\FacilityMetadataValidationException::class);
+
+    $handler->__invoke(new CreateFacilityCommand(
+      organizationId: '550e8400-e29b-41d4-a716-4466554419a4',
+      type: 'site',
+      name: 'HQ',
+      // surface-m2 is required and missing on create.
+    ));
   }
 
   #[Test]
@@ -655,12 +705,16 @@ final class CreateFacilityHandlerTest extends TestCase
       static fn (callable $operation): mixed => $operation(),
     );
 
+    $metadataRepository = $this->createStub(FacilityMetadataFieldRepositoryPort::class);
+    $metadataRepository->method('findByOrganizationId')->willReturn([]);
+
     return new CreateFacilityHandler(
       facilityRepository: $repository,
       uuidFactory: $uuidFactory,
       quota: $quota ?? $this->createStub(OrganizationQuotaPort::class),
       transactionManager: $transactionManager,
       eventDispatcher: $eventDispatcher ?? $this->createStub(EventDispatcherPort::class),
+      metadataSchemaGuard: new FacilityMetadataSchemaGuard($metadataRepository),
       maxDepth: $maxDepth,
     );
   }

@@ -11,6 +11,7 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Event\Facility\{FacilityArchivedEvent, FacilityMovedEvent, FacilityRestoredEvent, FacilityUpdatedEvent};
 use Facility\Domain\Exception\FacilityHierarchyException;
 use Facility\Domain\ValueObject\FacilityId;
@@ -74,6 +75,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
    * @param FacilityArchivalGuardPort $archivalGuard the facility archival guard
    * @param EventDispatcherPort $eventDispatcher the event dispatcher value
    * @param FacilityRepositoryPort $facilityRepository the facility repository value
+   * @param FacilityMetadataSchemaGuard $metadataSchemaGuard the organization's typed metadata schema guard
    * @param int $maxDepth the configured maximum facility hierarchy depth (root = 1)
    */
   public function __construct(
@@ -88,6 +90,7 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
     private FacilityArchivalGuardPort $archivalGuard,
     private EventDispatcherPort $eventDispatcher,
     private FacilityRepositoryPort $facilityRepository,
+    private FacilityMetadataSchemaGuard $metadataSchemaGuard,
     #[Autowire('%facility.hierarchy.max_depth%')]
     private int $maxDepth = 8,
   ) {
@@ -246,7 +249,11 @@ final readonly class CanonicalFacilityMutationProcessor implements ProcessorInte
       $record->longitude = $input->longitude;
     }
     if (array_key_exists('metadata', $fields)) {
-      $record->metadata = $input->metadata ?? [];
+      $metadata = $input->metadata ?? [];
+      // required is enforced on CREATE only — a canonical PATCH is never
+      // rejected for a required key it never touched.
+      $this->metadataSchemaGuard->assertValid($organizationId, $metadata, $record->type, false);
+      $record->metadata = $metadata;
     }
     if (array_key_exists('status', $fields)) {
       if (null === $input->status) {

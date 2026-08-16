@@ -32,6 +32,16 @@ services:
   Facility\Application\Port\Outbound\FacilityAttachmentRepositoryPort:
     alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityAttachmentRepository
 
+  # Organization-defined typed metadata schema (facility-metadata-fields)
+  Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository:
+    arguments:
+      $entityManager: '@doctrine.orm.main_entity_manager'
+
+  Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort:
+    alias: Facility\Infrastructure\Persistence\Doctrine\Repository\FacilityMetadataFieldRepository
+
+  Facility\Application\Service\FacilityMetadataSchemaGuard: ~
+
   # R11b: generalized facility attachments (multipart /facilities/{id}/attachments)
   Facility\Presentation\Api\Processor\Attachment\FacilityMediaProcessor:
     arguments:
@@ -159,6 +169,18 @@ services:
     tags: ['messenger.message_handler']
 
   Facility\Application\UseCase\Query\Attachment\ListFacilityAttachments\ListFacilityAttachmentsHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\MetadataField\CreateMetadataField\CreateMetadataFieldHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\MetadataField\UpdateMetadataField\UpdateMetadataFieldHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Command\MetadataField\DeleteMetadataField\DeleteMetadataFieldHandler:
+    tags: ['messenger.message_handler']
+
+  Facility\Application\UseCase\Query\MetadataField\ListMetadataFields\ListMetadataFieldsHandler:
     tags: ['messenger.message_handler']
 
   # Console Commands use #[AsCommand]

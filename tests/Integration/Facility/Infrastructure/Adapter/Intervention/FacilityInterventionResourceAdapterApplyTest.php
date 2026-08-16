@@ -8,7 +8,17 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Facility\Application\Port\Inbound\FacilityArchivalGuardPort;
 use Facility\Application\Port\Outbound\FacilityRepositoryPort;
+use Facility\Application\Port\Outbound\FacilityMetadataFieldRepositoryPort;
+use Facility\Application\Service\FacilityMetadataSchemaGuard;
 use Facility\Domain\Exception\FacilityHasActiveDependentsException;
+use Facility\Domain\Model\MetadataField\FacilityMetadataField;
+use Facility\Domain\ValueObject\{
+  FacilityMetadataFieldId,
+  FacilityMetadataFieldKey,
+  FacilityMetadataFieldLabel,
+  FacilityMetadataFieldType,
+  FacilityOrganizationId
+};
 use Facility\Infrastructure\Adapter\Intervention\FacilityInterventionResourceAdapter;
 use Facility\Infrastructure\Persistence\Doctrine\Record\FacilityRecord;
 use Intervention\Domain\Exception\InterventionConflictException;
@@ -73,7 +83,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     // The archival guard is a non-DB collaborator; a stub keeps every non-archiving
     // branch deterministic. The archiving branches inject their own guard double.
     $guard = self::createStub(FacilityArchivalGuardPort::class);
-    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository);
+    $this->adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, $this->permissiveMetadataSchemaGuard());
 
     $this->createOrganization();
     $this->createFacility(self::TARGET_ID, 'building', 'Warehouse', 'active', 'published');
@@ -298,7 +308,7 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
       ->method('assertNoActiveDependents')
       ->with(self::ORGANIZATION_ID, self::TARGET_ID)
       ->willThrowException(FacilityHasActiveDependentsException::withActiveEquipment(self::TARGET_ID));
-    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository);
+    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, $this->permissiveMetadataSchemaGuard());
 
     $this->expectException(InterventionConflictException::class);
     $this->expectExceptionMessage('cannot be archived while it has active equipment assigned');
@@ -341,6 +351,33 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
   }
 
   #[Test]
+  public function testApplyRejectsMetadataFailingTheOrganizationSchema(): void
+  {
+    $repository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([
+      FacilityMetadataField::reconstitute(
+        id: FacilityMetadataFieldId::fromString('660e8400-e29b-41d4-a716-446655440020'),
+        organizationId: FacilityOrganizationId::fromString(self::ORGANIZATION_ID),
+        key: new FacilityMetadataFieldKey('surface-m2'),
+        label: new FacilityMetadataFieldLabel('Surface (m²)'),
+        fieldType: FacilityMetadataFieldType::NUMBER,
+        required: false,
+        createdAt: new DateTimeImmutable(self::CREATED_AT),
+        updatedAt: new DateTimeImmutable(self::CREATED_AT),
+      ),
+    ]);
+    $guard = self::createStub(FacilityArchivalGuardPort::class);
+    $adapter = new FacilityInterventionResourceAdapter($this->entityManager, $guard, $this->facilityRepository, new FacilityMetadataSchemaGuard($repository));
+
+    try {
+      $adapter->apply(self::ORGANIZATION_ID, $this->iri(self::TARGET_ID), ['metadata' => ['surface-m2' => 'not-a-number']]);
+      self::fail('Expected InterventionConflictException was not thrown.');
+    } catch (InterventionConflictException $exception) {
+      self::assertStringContainsString('surface-m2', $exception->getMessage());
+    }
+  }
+
+  #[Test]
   public function testApplyRefusesRestoringUnderAnArchivedParent(): void
   {
     $exception = $this->assertApplyConflict(
@@ -350,6 +387,14 @@ final class FacilityInterventionResourceAdapterApplyTest extends KernelTestCase
     );
 
     self::assertSame('Cannot restore a facility while its parent is archived.', $exception->getMessage());
+  }
+
+  private function permissiveMetadataSchemaGuard(): FacilityMetadataSchemaGuard
+  {
+    $repository = self::createStub(FacilityMetadataFieldRepositoryPort::class);
+    $repository->method('findByOrganizationId')->willReturn([]);
+
+    return new FacilityMetadataSchemaGuard($repository);
   }
 
   /**

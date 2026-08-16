@@ -127,5 +127,33 @@ final class FacilityOperations
    * @var string
    */
   public const string DUPLICATE_FACILITY_SUBTREE = 'facility_duplicate_subtree';
+
+  /**
+   * Constant CREATE_FACILITY_METADATA_FIELD.
+   *
+   * @var string
+   */
+  public const string CREATE_FACILITY_METADATA_FIELD = 'facility_metadata_field_create';
+
+  /**
+   * Constant LIST_FACILITY_METADATA_FIELDS.
+   *
+   * @var string
+   */
+  public const string LIST_FACILITY_METADATA_FIELDS = 'facility_metadata_field_list';
+
+  /**
+   * Constant UPDATE_FACILITY_METADATA_FIELD.
+   *
+   * @var string
+   */
+  public const string UPDATE_FACILITY_METADATA_FIELD = 'facility_metadata_field_update';
+
+  /**
+   * Constant DELETE_FACILITY_METADATA_FIELD.
+   *
+   * @var string
+   */
+  public const string DELETE_FACILITY_METADATA_FIELD = 'facility_metadata_field_delete';
   // #endregion
 }
