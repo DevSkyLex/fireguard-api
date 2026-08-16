@@ -23,6 +23,7 @@ Main goals:
 | PATCH | `/api/organizations/{organizationId}/equipment/{equipmentId}` | Update equipment fields |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/assign` | Assign to a facility |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/unassign` | Remove from current facility |
+| PUT | `/api/organizations/{organizationId}/equipment/{equipmentId}/plan-position` | Set or clear this equipment's position pinned on a floor plan attachment (Phase 4) |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/commission` | Mark as `operational` |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/maintenance` | Mark as `under_maintenance` |
 | POST | `/api/organizations/{organizationId}/equipment/{equipmentId}/decommission` | Permanently decommission |
@@ -153,6 +154,9 @@ Aggregates and entities:
   lookup must not go through something whose job is to reject writes. Null when unassigned
   or unresolvable — an unresolved name is not a blank name.
 - `installedAt`, `commissionedAt` (optional)
+- `planPosition` (optional, `{attachmentId, x, y}`, Phase 4 — see "Plan
+  position" below). Exposed on the **detail** read
+  (`GET .../equipment/{id}`) only, not on the list/collection endpoints.
 
 Status transitions:
 
@@ -160,11 +164,82 @@ Status transitions:
 - `operational` ↔ `under_maintenance` (maintenance / commission)
 - `operational` | `under_maintenance` → `decommissioned` (decommission, irreversible)
 
+### Plan position (Phase 4)
+
+Equipment gains an optional `planPosition`, pinning it at one point over a
+floor plan attachment belonging to its own facility or one of that
+facility's ancestors: `Equipment\Domain\ValueObject\PlanPosition`
+(`attachmentId`, `x`, `y` — each coordinate a float normalized to `[0, 1]`, a
+fraction of the plan image's width/height, mirroring
+`Facility\Domain\ValueObject\PlanGeometry` in shape but Equipment-owned; this
+module never imports Facility's Domain). Serialized on
+`equipment.plan_position` (`JSONB`, main database, `Version20260816130000`)
+as `{"attachmentId": "<uuid>", "x": float, "y": float}`. The free-text
+`locationLabel` is untouched — it stays the offline-readable fallback when
+no plan/attachment context is available.
+
+**Write — `PUT /organizations/{organizationId}/equipment/{equipmentId}/plan-position`.**
+PUT rather than assign/unassign's POST: this is an idempotent full-replace
+(or clear-with-null) of one field, the same shape as Facility's own
+`PUT .../plan-geometry` sibling endpoint, not a stateful transition with
+side effects (maintenance-log closing, status reset) the way assign/unassign
+are. `SetEquipmentPlanPositionInput` carries `attachmentId`, `x` and `y`
+together: all three present sets or replaces the position, all three `null`
+clears it. `SetEquipmentPlanPositionHandler` validates, through ports and
+BEFORE the durable save:
+
+1. the equipment exists and belongs to the organization
+   (`EquipmentNotFoundException`, **404**),
+2. the equipment is assigned to a facility — `EquipmentNotAssignedToFacilityException`,
+   **409** — there is no facility whose plan the position could be validated
+   against otherwise,
+3. the attachment exists, is `kind: floor_plan`, and belongs to the
+   equipment's own facility or one of its ancestors, delegated whole to
+   `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort`
+   (implemented by Facility — see `src/Facility/MODULE.md`'s "Equipment
+   plan-position cross-module pair"): `FloorPlanAttachmentNotFoundException`
+   (**404**), `FloorPlanAttachmentNotFloorPlanException` /
+   `FloorPlanAttachmentNotAncestorException` (both **409**),
+4. `EquipmentAlreadyDecommissionedException` (**409**) — a decommissioned
+   asset is terminal, mirroring every other mutator on the aggregate.
+
+`Equipment::placeOnPlan()` / `removeFromPlan()` are the aggregate mutators;
+`removeFromPlan()` is idempotent (clearing an already-unset position is a
+success, not an error). `Equipment::unassignFromFacility()` also clears
+`planPosition` — a position bound to a facility's plan cannot outlive that
+facility assignment; the same invariant is re-applied on the intervention
+`apply()` offline path whenever `facility` is cleared (see "Persistence"
+below).
+
+**Read.** The equipment DETAIL output only
+(`GetEquipmentResult`/`GetEquipmentHandler`, `GET .../equipment/{id}`) —
+deliberately left `null` by `ListEquipmentsHandler`, since the shape is
+shared between the two but only the single-item read populates it. The
+plan-overlay READ that lists equipment pinned on a plan is owned by
+Facility: see `src/Facility/MODULE.md`'s "Spatial zone geometry" section for
+`GET .../facilities/{facilityId}/plan-overlay`'s `equipment` array, resolved
+here through `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter`.
+
 ## Persistence
 
 - Tables: `equipment`, `equipment_tags`, `tags` (main database)
 - Doctrine mapping: `src/Equipment/Infrastructure/Persistence/Doctrine/Record`
+- Migration (plan position): `migrations/main/Version20260816130000.php` —
+  `plan_position JSONB NULL`, hand-written rather than Doctrine-diffed so the
+  physical column is `JSONB` (indexable, used by
+  `EquipmentPlanPositionAdapter`'s `->>'attachmentId'` filter) while the ORM
+  mapping stays the same `json` DBAL type as the rest of the record.
 - Repository implementations: `Equipment\Infrastructure\Persistence\Doctrine\Repository`
+- The offline/intervention resource adapter
+  (`Equipment\Infrastructure\Adapter\Intervention\EquipmentInterventionResourceAdapter`)
+  accepts `planPosition` as an additional patchable field — a complete
+  `{attachmentId, x, y}` object (validated through the same `PlanPosition`
+  VO) or `null`. Clearing the `facility` field in the same or an earlier
+  patch also clears `planPosition`, mirroring the aggregate's
+  `unassignFromFacility()` invariant; the offline path does not re-validate
+  attachment ownership against Facility (no cross-module port call from an
+  adapter that must stay usable while genuinely offline) — that check is
+  enforced only on the online `PUT .../plan-position` route.
 - **Free-text search (R10)**: the `search` filter is pushed down into SQL in
   `EquipmentRepository::createListQueryBuilder()` via the shared
   `Shared\Infrastructure\Doctrine\Search\TrigramSearchExpression` builder —
@@ -202,6 +277,16 @@ Cross-module contracts and lifecycle invariants:
 - `Equipment\Infrastructure\Adapter\Facility\FacilityEquipmentDependencyAdapter`
   implements Facility's archival dependency port (active = published and not
   decommissioned).
+- **Plan position cross-module pair (Phase 4)**: outbound —
+  `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort`,
+  consumed by `SetEquipmentPlanPositionHandler`, implemented by Facility
+  (`Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter`,
+  reusing `FacilityAttachmentAncestryGuard`). The reverse direction —
+  `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter`
+  — implements Facility's `FacilityEquipmentPlanPositionPort` for the
+  plan-overlay read. See `src/Facility/MODULE.md` for the full pairing,
+  including the one file allowed to import both modules' Domain layers to
+  satisfy the port's typed `@throws` contract.
 - **Per-equipment maintenance due status (L2.10)**: `EquipmentOutput.maintenanceDueStatus`
   (`GET .../equipment` and `GET .../equipment/{id}`) and the `maintenanceDueStatus`
   list filter are resolved cross-module through the new
@@ -357,6 +442,15 @@ Cross-module contracts and lifecycle invariants:
   (adapter hosted in the Maintenance module), not here — see L2.10 above.
 - `NonConformityStatisticsPort`'s adapter is aliased in `config/modules/inspection.yaml`
   (adapter hosted in the Inspection module), not here — see L2.11 above.
+- `EquipmentFloorPlanValidationPort` is aliased to
+  `Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter`
+  here (this module owns the port); the adapter service itself is also
+  registered here even though it lives in Facility's source tree, matching
+  the existing `FacilityValidationAdapter` precedent.
+- `Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter`
+  (implements Facility's `FacilityEquipmentPlanPositionPort`) is wired with
+  `doctrine.orm.main_entity_manager` here; the port alias itself is
+  registered in `config/modules/facility.yaml` (the port's owning module).
 
 ## Testing
 
@@ -371,12 +465,40 @@ Cross-module contracts and lifecycle invariants:
   already-tested repository calls — no new DQL, so no new integration test):
   `tests/Unit/Inspection/Infrastructure/Adapter/Equipment/EquipmentNonConformityStatisticsAdapterTest`.
 - Functional: `tests/Functional/Api/EquipmentApiTest::testGetEquipmentKpisRequiresAuthentication`.
+- Plan position (Phase 4):
+  - `Domain/ValueObject/PlanPositionTest` — coordinate-bounds validation, the
+    UUID check on `attachmentId`, and the `toArray()`/`fromArray()` round trip.
+  - `Application/UseCase/Command/Equipment/SetEquipmentPlanPosition/SetEquipmentPlanPositionHandlerTest`
+    — every failure path (unknown equipment, no facility assignment, unknown/
+    wrong-kind/non-ancestor attachment via a mocked `EquipmentFloorPlanValidationPort`,
+    partial-input rejection), the happy set, and the clear.
+  - `tests/Unit/Facility/Infrastructure/Adapter/Equipment/EquipmentFloorPlanValidationAdapterTest`
+    (hosted in Facility, since the adapter is) — every typed exception path
+    and the success path.
+  - `tests/Integration/Equipment/Infrastructure/Adapter/Facility/EquipmentPlanPositionAdapterTest`
+    — the `plan_position` JSONB filter, published-only, and organization
+    scoping, plus the type/serial-number display label.
+  - `tests/Unit/Equipment/Infrastructure/Adapter/Intervention/EquipmentInterventionResourceAdapterTest`
+    — the offline `planPosition` patch: valid set, rejected for
+    facility-less equipment, rejected malformed, and cleared alongside
+    `facility`.
+  - Functional: `tests/Functional/Api/EquipmentPlanPositionApiTest.php` — PUT
+    happy path (set, then clear), 404 unknown/cross-org equipment, 403
+    missing-permission, 409 unassigned-equipment, 404 unknown attachment, 400
+    partial input. Overlay-side equipment inclusion is covered in
+    `tests/Functional/Api/FacilityPlanGeometryApiTest.php` (Facility owns
+    that endpoint).
 - Run module tests: `make test tests/Unit/Equipment/`
 
 ## Error Codes
 
 - `EquipmentNotFoundException` → 404
 - `EquipmentSerialNumberAlreadyExistsException` → 409
-- `EquipmentAlreadyDecommissionedException` → 422
+- `EquipmentAlreadyDecommissionedException` → 409 (processors map it via `ConflictHttpException`;
+  note this module's own text elsewhere says 422 — treat 409 as authoritative, matching the code)
 - `AttachmentNotFoundException` → 404
 - `TagNotFoundException` → 404
+- `EquipmentNotAssignedToFacilityException` → 409 (Phase 4 — equipment has no facility to place on a plan)
+- `FloorPlanAttachmentNotFoundException` → 404 (Phase 4)
+- `FloorPlanAttachmentNotFloorPlanException` → 409 (Phase 4)
+- `FloorPlanAttachmentNotAncestorException` → 409 (Phase 4)

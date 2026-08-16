@@ -8,12 +8,14 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Equipment\Application\Port\Inbound\EquipmentMaintenanceLogSynchronizerPort;
 use Equipment\Application\Port\Outbound\FacilityValidationPort;
+use Equipment\Domain\ValueObject\PlanPosition;
 use Equipment\Infrastructure\Persistence\Doctrine\Record\EquipmentRecord;
 use Intervention\Application\Contract\Resource\{InterventionEquipmentDraft, InterventionResourceAssignment};
 use Intervention\Application\Port\Outbound\{InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort};
 use Intervention\Domain\Exception\{InterventionConflictException, InterventionResourceNotFoundException};
 use Intervention\Domain\ValueObject\InterventionResourceType;
 use Organization\Infrastructure\Persistence\Doctrine\Record\OrganizationRecord;
+use Shared\Domain\Exception\InvalidValueException;
 use Throwable;
 
 use function array_diff;
@@ -22,6 +24,7 @@ use function array_keys;
 use function array_map;
 use function implode;
 use function in_array;
+use function is_array;
 use function is_string;
 use function preg_match;
 use function sprintf;
@@ -37,7 +40,7 @@ use function sprintf;
  */
 final readonly class EquipmentInterventionResourceAdapter implements InterventionChangeApplierPort, InterventionDraftPublisherPort, InterventionEquipmentDraftProviderPort, InterventionResourceOwnerPort
 {
-  private const PATCHABLE_FIELDS = ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'status', 'facility'];
+  private const PATCHABLE_FIELDS = ['type', 'subType', 'brand', 'model', 'serialNumber', 'locationLabel', 'status', 'facility', 'planPosition'];
 
   private const STATUSES = ['in_stock', 'operational', 'decommissioned', 'under_maintenance'];
 
@@ -322,6 +325,32 @@ final readonly class EquipmentInterventionResourceAdapter implements Interventio
     // an illegal state (and, for under_maintenance, leak its open maintenance log).
     if (in_array($record->status, ['operational', 'under_maintenance'], true) && null === $record->facilityId) {
       throw new InterventionConflictException('In-service equipment must be assigned to a facility.');
+    }
+
+    if (array_key_exists('planPosition', $patch)) {
+      $planPosition = $patch['planPosition'];
+      if (null === $planPosition) {
+        $record->planPosition = null;
+      } elseif (is_array($planPosition)) {
+        if (null === $record->facilityId) {
+          throw new InterventionConflictException('Equipment must be assigned to a facility before it can be placed on a plan.');
+        }
+
+        try {
+          $record->planPosition = PlanPosition::fromArray($planPosition)->toArray();
+        } catch (InvalidValueException $exception) {
+          throw new InterventionConflictException(sprintf('Proposed equipment plan position is invalid: %s', $exception->getMessage()));
+        }
+      } else {
+        throw new InterventionConflictException('Equipment field "planPosition" must be an object or null.');
+      }
+    }
+
+    // A plan position is bound to the equipment's facility assignment — mirroring
+    // Equipment::unassignFromFacility() — and cannot outlive it, whether the facility
+    // was cleared explicitly in this same patch or was already unset.
+    if (null === $record->facilityId) {
+      $record->planPosition = null;
     }
 
     // A published equipment change follows the domain status machine even on the

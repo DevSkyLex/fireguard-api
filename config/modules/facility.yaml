@@ -72,6 +72,11 @@ services:
   Facility\Application\Port\Outbound\FacilityEquipmentDependencyPort:
     alias: Equipment\Infrastructure\Adapter\Facility\FacilityEquipmentDependencyAdapter
 
+  # Facility plan Phase 4, Equipment side: the plan-overlay's equipment read.
+  # Adapter hosted in — and wired by — the Equipment module (owns `equipment`).
+  Facility\Application\Port\Outbound\FacilityEquipmentPlanPositionPort:
+    alias: Equipment\Infrastructure\Adapter\Facility\EquipmentPlanPositionAdapter
+
   Facility\Application\Port\Outbound\FacilityInspectionDependencyPort:
     alias: Inspection\Infrastructure\Adapter\Facility\FacilityInspectionDependencyAdapter
 

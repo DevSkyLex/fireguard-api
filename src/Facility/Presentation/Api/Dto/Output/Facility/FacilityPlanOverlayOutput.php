@@ -11,9 +11,8 @@ use Symfony\Component\Serializer\Attribute\Groups;
 /**
  * DTO FacilityPlanOverlayOutput.
  *
- * Deliberately carries only `zones` today. The stacked Equipment branch
- * extends this shape additively with an `equipment` array — no existing
- * property is expected to change to make room for it.
+ * Extended additively with `equipment` — no existing property changed to
+ * make room for it.
  *
  * @category DTO
  *
@@ -61,5 +60,19 @@ final class FacilityPlanOverlayOutput
   #[Groups([FacilitySerializationGroup::READ])]
   #[ApiProperty(readable: true, writable: false)]
   public array $zones = [];
+
+  /**
+   * Property equipment.
+   *
+   * Every equipment item pinned on this plan attachment, resolved
+   * cross-module through the Equipment module.
+   *
+   * @since 1.1.0
+   *
+   * @var list<array{equipmentId: string, name: string, status: string, x: float, y: float}>
+   */
+  #[Groups([FacilitySerializationGroup::READ])]
+  #[ApiProperty(readable: true, writable: false)]
+  public array $equipment = [];
   // #endregion
 }

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Facility\Application\UseCase\Query\Facility\GetFacilityPlanOverlay;
 
-use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
+use Facility\Application\Port\Outbound\{
+  FacilityAttachmentRepositoryPort,
+  FacilityEquipmentPlanPositionPort,
+  FacilityRepositoryPort
+};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Domain\Exception\{
   FacilityAttachmentNotFloorPlanException,
@@ -22,9 +26,11 @@ use Shared\Domain\Exception\InvalidValueException;
  *
  * Resolves one floor plan — explicit `attachmentId`, or the facility's own
  * primary plan when omitted — and lists every published self-or-descendant
- * zone bound to it. Equipment positions are deliberately not read here yet
- * (a stacked branch); this handler only ever fetches
- * {@see FacilityRepositoryPort::findZonesForPlanAttachment()}.
+ * zone bound to it ({@see FacilityRepositoryPort::findZonesForPlanAttachment()}),
+ * plus every equipment item pinned on the same attachment, resolved
+ * cross-module through {@see FacilityEquipmentPlanPositionPort} (implemented
+ * by Equipment's Infrastructure — this handler never queries Equipment's
+ * storage directly).
  *
  * @category UseCase
  *
@@ -39,6 +45,7 @@ final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
     private FacilityRepositoryPort $facilityRepository,
     private FacilityAttachmentRepositoryPort $attachmentRepository,
     private FacilityAttachmentAncestryGuard $ancestryGuard,
+    private FacilityEquipmentPlanPositionPort $equipmentPlanPosition,
   ) {
   }
   // #endregion
@@ -84,11 +91,17 @@ final readonly class GetFacilityPlanOverlayHandler implements QueryHandler
       (string) $attachment->id(),
     );
 
+    $equipment = $this->equipmentPlanPosition->findEquipmentPlacedOnPlan(
+      (string) $organizationId,
+      (string) $attachment->id(),
+    );
+
     return new GetFacilityPlanOverlayResult(
       attachmentId: (string) $attachment->id(),
       imageWidth: $attachment->imageWidth(),
       imageHeight: $attachment->imageHeight(),
       zones: $zones,
+      equipment: $equipment,
     );
   }
 
