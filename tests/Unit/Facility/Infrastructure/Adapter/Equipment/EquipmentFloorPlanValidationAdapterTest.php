@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Facility\Infrastructure\Adapter\Equipment;
 
-use Equipment\Domain\Exception\{
+use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotAncestorException,
   FloorPlanAttachmentNotFloorPlanException,
   FloorPlanAttachmentNotFoundException

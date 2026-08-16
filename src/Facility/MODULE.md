@@ -340,19 +340,16 @@ Cross-module contracts and lifecycle invariants:
   `Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort`,
   **implemented here** by
   `Facility\Infrastructure\Adapter\Equipment\EquipmentFloorPlanValidationAdapter`,
-  reusing `FacilityAttachmentAncestryGuard` as-is. That adapter is a
-  deliberate, narrowly-scoped exception to the "never import a sibling's
-  Domain" rule: to satisfy the port's typed `@throws` contract
-  (`FloorPlanAttachmentNotFoundException` /
+  reusing `FacilityAttachmentAncestryGuard` as-is. The port's typed
+  `@throws` contract (`FloorPlanAttachmentNotFoundException` /
   `FloorPlanAttachmentNotFloorPlanException` /
-  `FloorPlanAttachmentNotAncestorException`, all owned by Equipment's
-  Domain), the adapter must construct instances of those exception classes —
-  the same tension `Equipment\Application\Port\Outbound\FacilityValidationPort`
-  avoided by declaring only the generic `InvalidArgumentException`. This one
-  file is the only place in the codebase permitted to import both modules'
-  Domain layers; `make deptrac` does not catch it (the collectors are
-  module-agnostic), so the boundary grep in the `hexagonal-layout` skill is
-  the check that surfaces it.
+  `FloorPlanAttachmentNotAncestorException`) is made of **contract
+  exceptions** under `Equipment\Application\Contract\FloorPlan\` —
+  Equipment's declared error surface for this port — so the adapter imports
+  nothing of Equipment beyond `Application\Port\` and
+  `Application\Contract\`, staying inside the cross-module boundary rule.
+  Facility's own `FacilityAttachmentNotAncestorException` (Domain) is caught
+  in the adapter and translated to the contract type at the boundary.
 - Canonical DELETE = archive — the only REVERSIBLE retirement state (restore is
   refused while the parent is archived). Idempotent: a repeat DELETE is a no-op.
 - The descendants listing and the archival probe (`hasActiveDescendants`) run on

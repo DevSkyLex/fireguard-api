@@ -7,14 +7,16 @@ namespace Equipment\Presentation\Api\Processor\Equipment;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Auth\Infrastructure\Security\User\SecurityUser;
+use Equipment\Application\Contract\FloorPlan\{
+  FloorPlanAttachmentNotAncestorException,
+  FloorPlanAttachmentNotFloorPlanException,
+  FloorPlanAttachmentNotFoundException
+};
 use Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\{SetEquipmentPlanPositionCommand, SetEquipmentPlanPositionResult};
 use Equipment\Domain\Exception\{
   EquipmentAlreadyDecommissionedException,
   EquipmentNotAssignedToFacilityException,
-  EquipmentNotFoundException,
-  FloorPlanAttachmentNotAncestorException,
-  FloorPlanAttachmentNotFloorPlanException,
-  FloorPlanAttachmentNotFoundException
+  EquipmentNotFoundException
 };
 use Equipment\Presentation\Api\Dto\Input\Equipment\SetEquipmentPlanPositionInput;
 use Equipment\Presentation\Api\Dto\Output\Equipment\{EquipmentOutput, TagOutput};

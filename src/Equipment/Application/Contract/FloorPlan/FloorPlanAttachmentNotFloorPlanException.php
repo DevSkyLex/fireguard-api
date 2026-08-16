@@ -2,18 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Equipment\Domain\Exception;
+namespace Equipment\Application\Contract\FloorPlan;
 
 use RuntimeException;
 
 use function sprintf;
 
 /**
- * Exception FloorPlanAttachmentNotFloorPlanException.
+ * Contract exception FloorPlanAttachmentNotFloorPlanException.
  *
  * Raised by `EquipmentFloorPlanValidationPort` when the attachment proposed
  * for a plan position exists but is not a floor plan. Mapped to HTTP 409 —
- * the request conflicts with the attachment's own kind.
+ * the request conflicts with the attachment's own kind. Lives on the
+ * contract surface because it crosses the module boundary: the Facility
+ * adapter implementing the port throws it, and only `Application\Contract\`
+ * types may be imported by a sibling module.
  *
  * @category Exception
  *

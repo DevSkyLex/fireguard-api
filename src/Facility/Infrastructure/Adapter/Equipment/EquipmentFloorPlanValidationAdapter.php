@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Facility\Infrastructure\Adapter\Equipment;
 
-use Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort;
-use Equipment\Domain\Exception\{
+use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotAncestorException,
   FloorPlanAttachmentNotFloorPlanException,
   FloorPlanAttachmentNotFoundException
 };
+use Equipment\Application\Port\Outbound\EquipmentFloorPlanValidationPort;
 use Facility\Application\Port\Outbound\{FacilityAttachmentRepositoryPort, FacilityRepositoryPort};
 use Facility\Application\Service\FacilityAttachmentAncestryGuard;
 use Facility\Domain\Exception\FacilityAttachmentNotAncestorException as DomainFacilityAttachmentNotAncestorException;
@@ -26,11 +26,12 @@ use Shared\Domain\Exception\InvalidValueException;
  * module is asking. Mirrors
  * `Facility\Infrastructure\Adapter\Equipment\FacilityValidationAdapter`'s
  * direction: Facility Infrastructure implements Equipment's outbound port.
- * Every failure is translated into one of Equipment's own typed Domain
- * exceptions — this adapter is the only place in the codebase allowed to
- * import both modules' Domain layers, because it lives in Facility (which
- * may depend on its own Domain) and only ever *catches* Facility's
- * exception to re-throw Equipment's.
+ * Every failure is translated into one of Equipment's typed contract
+ * exceptions (`Equipment\Application\Contract\FloorPlan\`) — the port's
+ * declared error surface — so the adapter imports nothing of Equipment
+ * beyond its `Application\Port\` and `Application\Contract\` namespaces.
+ * Facility's own Domain exception is caught here and re-thrown as the
+ * contract type.
  *
  * @category Adapter
  *

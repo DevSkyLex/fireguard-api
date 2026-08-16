@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition;
 
 use DateTimeImmutable;
+use Equipment\Application\Contract\FloorPlan\{
+  FloorPlanAttachmentNotAncestorException,
+  FloorPlanAttachmentNotFloorPlanException,
+  FloorPlanAttachmentNotFoundException
+};
 use Equipment\Application\Port\Outbound\{EquipmentFloorPlanValidationPort, EquipmentRepositoryPort, TagRepositoryPort};
 use Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\{
   SetEquipmentPlanPositionCommand,
@@ -13,10 +18,7 @@ use Equipment\Application\UseCase\Command\Equipment\SetEquipmentPlanPosition\{
 };
 use Equipment\Domain\Exception\{
   EquipmentNotAssignedToFacilityException,
-  EquipmentNotFoundException,
-  FloorPlanAttachmentNotAncestorException,
-  FloorPlanAttachmentNotFloorPlanException,
-  FloorPlanAttachmentNotFoundException
+  EquipmentNotFoundException
 };
 use Equipment\Domain\Model\Equipment\Equipment;
 use Equipment\Domain\ValueObject\{EquipmentFacilityId, EquipmentId, EquipmentOrganizationId, EquipmentType};

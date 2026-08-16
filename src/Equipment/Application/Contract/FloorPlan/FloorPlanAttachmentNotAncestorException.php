@@ -2,19 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Equipment\Domain\Exception;
+namespace Equipment\Application\Contract\FloorPlan;
 
 use RuntimeException;
 
 use function sprintf;
 
 /**
- * Exception FloorPlanAttachmentNotAncestorException.
+ * Contract exception FloorPlanAttachmentNotAncestorException.
  *
  * Raised by `EquipmentFloorPlanValidationPort` when the attachment proposed
  * for a plan position belongs to neither the equipment's own facility nor
  * one of its ancestors. Mapped to HTTP 409 — the request conflicts with the
- * attachment's actual ownership.
+ * attachment's actual ownership. Lives on the contract surface because it
+ * crosses the module boundary: the Facility adapter implementing the port
+ * throws it, and only `Application\Contract\` types may be imported by a
+ * sibling module.
  *
  * @category Exception
  *

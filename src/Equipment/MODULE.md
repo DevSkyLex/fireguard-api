@@ -199,7 +199,9 @@ BEFORE the durable save:
    (implemented by Facility — see `src/Facility/MODULE.md`'s "Equipment
    plan-position cross-module pair"): `FloorPlanAttachmentNotFoundException`
    (**404**), `FloorPlanAttachmentNotFloorPlanException` /
-   `FloorPlanAttachmentNotAncestorException` (both **409**),
+   `FloorPlanAttachmentNotAncestorException` (both **409**) — all three are
+   contract exceptions under `Application/Contract/FloorPlan/`, since
+   Facility's adapter throws them across the module boundary,
 4. `EquipmentAlreadyDecommissionedException` (**409**) — a decommissioned
    asset is terminal, mirroring every other mutator on the aggregate.
 
@@ -499,6 +501,12 @@ Cross-module contracts and lifecycle invariants:
 - `AttachmentNotFoundException` → 404
 - `TagNotFoundException` → 404
 - `EquipmentNotAssignedToFacilityException` → 409 (Phase 4 — equipment has no facility to place on a plan)
-- `FloorPlanAttachmentNotFoundException` → 404 (Phase 4)
-- `FloorPlanAttachmentNotFloorPlanException` → 409 (Phase 4)
-- `FloorPlanAttachmentNotAncestorException` → 409 (Phase 4)
+- `FloorPlanAttachmentNotFoundException` → 404 (Phase 4, contract exception)
+- `FloorPlanAttachmentNotFloorPlanException` → 409 (Phase 4, contract exception)
+- `FloorPlanAttachmentNotAncestorException` → 409 (Phase 4, contract exception)
+
+The three `FloorPlanAttachment*` exceptions are **contract exceptions**, not
+Domain ones: they live under `Application/Contract/FloorPlan/` because they
+are the typed `@throws` surface of `EquipmentFloorPlanValidationPort`, thrown
+by Facility's adapter across the module boundary — and cross-module access is
+restricted to `Application\Port\` and `Application\Contract\` types.

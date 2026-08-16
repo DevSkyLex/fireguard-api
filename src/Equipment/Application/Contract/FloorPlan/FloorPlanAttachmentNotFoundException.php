@@ -2,17 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Equipment\Domain\Exception;
+namespace Equipment\Application\Contract\FloorPlan;
 
 use RuntimeException;
 
 use function sprintf;
 
 /**
- * Exception FloorPlanAttachmentNotFoundException.
+ * Contract exception FloorPlanAttachmentNotFoundException.
  *
  * Raised by `EquipmentFloorPlanValidationPort` when the floor plan attachment
- * proposed for a plan position does not exist. Mapped to HTTP 404.
+ * proposed for a plan position does not exist. Mapped to HTTP 404. Lives on
+ * the contract surface because it crosses the module boundary: the Facility
+ * adapter implementing the port throws it, and only `Application\Contract\`
+ * types may be imported by a sibling module.
  *
  * @category Exception
  *

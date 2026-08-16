@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Equipment\Application\Port\Outbound;
 
-use Equipment\Domain\Exception\{
+use Equipment\Application\Contract\FloorPlan\{
   FloorPlanAttachmentNotAncestorException,
   FloorPlanAttachmentNotFloorPlanException,
   FloorPlanAttachmentNotFoundException
